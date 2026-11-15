@@ -71,7 +71,8 @@ export function DashboardPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [lastUpdated, setLastUpdated] = useState('');
-  const range = useMemo(() => getRange(period, from, to), [period, from, to]);
+  const [refreshTick, setRefreshTick] = useState(0);
+  const range = useMemo(() => getRange(period, from, to), [period, from, to, refreshTick]);
 
   const load = useCallback(async () => {
     if (period === 'custom' && (!from || !to || from > to)) return;
@@ -160,9 +161,9 @@ export function DashboardPage() {
 
   useEffect(() => { void load(); }, [load]);
   useEffect(() => {
-    const timer = window.setInterval(() => { void load(); }, 60000);
+    const timer = window.setInterval(() => setRefreshTick(tick => tick + 1), 60000);
     return () => window.clearInterval(timer);
-  }, [load]);
+  }, []);
 
   const metrics = data?.metrics || [];
   const busy = loading || refreshing;
@@ -178,7 +179,7 @@ export function DashboardPage() {
           <TextInput id="dashboard-from" type="date" labelText="开始日期" size="md" value={from} onChange={event => setFrom(event.currentTarget.value)} />
           <TextInput id="dashboard-to" type="date" labelText="结束日期" size="md" value={to} onChange={event => setTo(event.currentTarget.value)} />
         </div>}
-        <Button kind="tertiary" size="md" disabled={busy} onClick={() => { setRefreshing(true); void load(); }}><CarbonIcons.Renew size={16}/> 刷新</Button>
+        <Button kind="tertiary" size="md" disabled={busy} onClick={() => { setRefreshing(true); setRefreshTick(tick => tick + 1); }}><CarbonIcons.Renew size={16}/> 刷新</Button>
       </div>
     </header>
     {error && <InlineNotification kind="error" title="工作台数据加载失败" subtitle={error} lowContrast />}
