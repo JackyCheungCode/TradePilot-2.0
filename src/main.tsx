@@ -2,14 +2,14 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { RouterProvider } from 'react-router-dom';
 import { router } from './app/router';
-import '@fontsource/ibm-plex-sans/400.css';
-import '@fontsource/ibm-plex-sans/500.css';
-import '@fontsource/ibm-plex-sans/600.css';
-import './styles/carbon.scss';
-import './shell/app-shell.scss';
+import { DesignSystemProvider } from './design-system/providers';
+import './design-system/typography/fonts';
+import './design-system/styles/index.scss';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <RouterProvider router={router} />
+    <DesignSystemProvider>
+      <RouterProvider router={router} />
+    </DesignSystemProvider>
   </React.StrictMode>,
 );
