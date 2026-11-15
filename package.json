@@ -14,7 +14,7 @@
     "worker:dev": "wrangler dev --config wrangler.jsonc",
     "worker:validate": "wrangler deploy --dry-run --outdir .wrangler/dry-run --config wrangler.jsonc",
     "worker:deploy": "wrangler deploy --config wrangler.jsonc",
-    "worker:types": "wrangler types worker/worker-configuration.d.ts --config wrangler.jsonc"
+    "worker:types": "wrangler types worker/worker-configuration.d.ts --config wrangler.jsonc --include-runtime=false"
   },
   "dependencies": {
     "@carbon/icons-react": "^11.55.0",
