@@ -7,7 +7,7 @@ import {
 
 /**
  * Shared Carbon application frame.
- * The navigation shell is composed from native Carbon Header, SideNav and Content.
+ * Carbon's native rail variant keeps primary navigation available while collapsed.
  */
 export function AppShell() {
   const [sideNavExpanded, setSideNavExpanded] = useState(false);
@@ -16,7 +16,7 @@ export function AppShell() {
     <>
       <Header aria-label="TradePilot">
         <HeaderMenuButton
-          aria-label={sideNavExpanded ? '关闭导航菜单' : '打开导航菜单'}
+          aria-label={sideNavExpanded ? '收起导航菜单' : '展开导航菜单'}
           aria-expanded={sideNavExpanded}
           isActive={sideNavExpanded}
           onClick={() => setSideNavExpanded((expanded) => !expanded)}
@@ -27,8 +27,10 @@ export function AppShell() {
       </Header>
       <SideNav
         aria-label="TradePilot 主导航"
+        className={sideNavExpanded ? 'tp-sidenav--expanded' : 'tp-sidenav--rail'}
         expanded={sideNavExpanded}
-        isPersistent={false}
+        isPersistent
+        isRail={!sideNavExpanded}
         onOverlayClick={() => setSideNavExpanded(false)}
       >
         <div className="tp-sidenav__brand">
@@ -38,6 +40,7 @@ export function AppShell() {
           <SideNavLink
             href="/prospect-discovery"
             isActive
+            title="潜客发现"
             renderIcon={CarbonIcons.Search}
           >
             潜客发现
