@@ -7,7 +7,6 @@ type Field = { key:string; label:string; type?:'text'|'number'|'select'|'textare
 type Item = { id:string; name:string; code:string|null; config:Record<string,unknown>; sequence:number; is_active:boolean };
 type Section = { id:string; label:string; group:string; description:string; implemented:true };
 const yesNo:Array<[string,string]>=[['true','是'],['false','否']];
-const options = (values:string[]) => values.map(value=>[value,value] as [string,string]);
 
 export const crmSettingSections:Record<CrmSettingsDomain,Section[]> = {
  contacts:[
