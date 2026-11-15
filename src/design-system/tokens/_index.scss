@@ -1,11 +1,19 @@
 /**
- * TradePilot theme entrypoint.
- * IBM Carbon White is the single application-wide theme.
- * Keep colors and component token values owned by Carbon; do not redefine
- * individual token values in feature modules.
+ * TradePilot design token entrypoint.
+ * Carbon White is the single theme source. All semantic aliases live in
+ * adjacent partials; feature code must never define token values.
  */
 @use '@carbon/react/scss/themes' as carbon-themes;
 @use '@carbon/react/scss/theme' as carbon-theme;
+@use './color';
+@use './spacing';
+@use './typography';
+@use './motion';
+@use './breakpoints';
+@use './layers';
+@use './elevation';
+@use './z-index';
+@use './focus';
 
 :root {
   @include carbon-theme.theme(carbon-themes.$white);
