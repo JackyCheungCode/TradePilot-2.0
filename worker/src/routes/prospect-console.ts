@@ -27,7 +27,7 @@ type OccurrenceRow = {
   } | null;
 };
 async function authenticate(request: Request, env: ConsoleEnv): Promise<string | null> {
-  const token = request.headers.get("Authorization")?.replace(/^Bearer\\s+/i, "");
+  const token = request.headers.get("Authorization")?.replace(/^Bearer\s+/i, "");
   if (!token) return null;
   const response = await fetch(env.SUPABASE_URL + "/auth/v1/user", {
     headers: { apikey: env.SUPABASE_ANON_KEY, Authorization: "Bearer " + token },
@@ -68,7 +68,7 @@ export async function handleProspectConsole(request: Request, env: ConsoleEnv): 
   const url = new URL(request.url);
   const from = url.searchParams.get("from");
   const to = url.searchParams.get("to");
-  if ((from && !/^\\d{4}-\\d{2}-\\d{2}$/.test(from)) || (to && !/^\\d{4}-\\d{2}-\\d{2}$/.test(to))) {
+  if ((from && !/^\d{4}-\d{2}-\d{2}$/.test(from)) || (to && !/^\d{4}-\d{2}-\d{2}$/.test(to))) {
     return errorResponse(request, "INVALID_DATE_RANGE", "日期范围格式无效。", 400);
   }
   try {
