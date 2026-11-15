@@ -12,6 +12,8 @@ type AgentTask = {
   agentKey: string;
   country: string;
   mode: 'planner' | 'internal' | 'external';
+  channel?: 'search_engine' | 'facebook' | 'instagram';
+  objectTypes?: string[];
 };
 type Conversation = { id: string; title: string; last_message_at: string; created_at: string };
 type ChatMessage = {
@@ -171,6 +173,8 @@ export function AgentWorkspacePage() {
             goal: task.goal,
             execution: {
               mode: task.mode === 'internal' ? 'internal_discovery' : 'planner',
+              channel: task.channel || 'search_engine',
+              objectTypes: task.objectTypes || ['page', 'group', 'post'],
               agentKey: task.agentKey,
               country: task.country,
               searchEngine: 'serper',
