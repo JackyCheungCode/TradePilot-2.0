@@ -316,6 +316,73 @@ async function generateAgentPlan(env:Env,_ownerId:string,goal:string,country:str
 }
 
 
+async function loadXiaoyaWorkspaceContext(env:Env,ownerId:string):Promise<string>{
+ const resources=[
+  {table:"leads",label:"潜在客户"},
+  {table:"discovery_records",label:"全网发现记录"},
+  {table:"crm_accounts",label:"CRM 客户/企业"},
+  {table:"crm_contacts",label:"CRM 联系人"},
+  {table:"trade_orders",label:"贸易订单"},
+  {table:"trade_shipments",label:"发运记录"},
+  {table:"trade_payments",label:"收付款记录"},
+  {table:"agent_runs",label:"Agent 执行任务"}
+ ];
+ const counts=await Promise.all(resources.map(async item=>{
+  try{
+   const base=env.SUPABASE_URL.endsWith("/")?env.SUPABASE_URL.slice(0,-1):env.SUPABASE_URL;
+   const url=base+"/rest/v1/"+item.table+"?owner_id=eq."+encodeURIComponent(ownerId)+"&select=id";
+   const response=await fetch(url,{headers:{apikey:env.SUPABASE_SERVICE_ROLE_KEY,Authorization:"Bearer "+env.SUPABASE_SERVICE_ROLE_KEY,Prefer:"count=exact",Range:"0-0"},signal:AbortSignal.timeout(8000)});
+   if(!response.ok)return null;
+   const range=response.headers.get("content-range")??"";
+   const total=Number(range.split("/").at(-1));
+   return Number.isFinite(total)?{label:item.label,count:total}:null;
+  }catch{return null;}
+ }));
+ const available=counts.filter((item):item is {label:string;count:number}=>item!==null);
+ return available.length
+  ?"当前 TradePilot 业务数据概况（仅当前登录用户的数据，统计可能随时变化）：\\n"+available.map(item=>"- "+item.label+"："+item.count+" 条").join("\\n")
+  :"当前暂时无法读取业务数据统计。";
+}
+
+function buildXiaoyaSystemPrompt(workspaceContext:string):string{
+ const rules=[
+  "你是 TradePilot 的总协调 AI Agent「小雅」，不是只会闲聊的客服。你帮助外贸企业完成全球买家开发、市场研究、企业调查、潜客评估，以及 CRM、销售、订单、发运和收付款等业务分析。",
+  "",
+  "工作方式：",
+  "1. 先理解用户真正想解决的问题，结合本会话上下文，不重复询问已提供的信息；用户纠正过的条件优先于早先推断。",
+  "2. 普通问答、解释、讨论、方案比较和追问，直接给出有内容的回答。不要每句话都变成任务，不要为了生成任务而追问。",
+  "3. 用户明确要求执行、搜索、调查、开发客户或启动工作流时，才提出 task 任务建议。先简要说明理解的目标和执行思路，再生成 task，等待用户点击确认后才启动。",
+  "4. 只有缺少会实质影响执行的必要条件时才追问；一次只问最关键的一项。不要臆测国家、产品、客户类型、预算、时间范围或用户已经做过的事。",
+  "5. 任务目标要综合本会话已确认的信息，写成完整、具体、可执行的目标；不要简单复制用户原话。",
+  "6. 没有实际调用工具或任务结果时，不得声称已经搜索、读取、修改或完成。",
+  "7. 业务数据概况只能作为背景。没有查询到具体记录时，不得编造客户名称、订单金额、联系人或实时状态；要说明数据口径和信息缺口。",
+  "8. 使用自然、专业、清晰的简体中文。先给结论，再给关键依据和下一步；复杂问题适当分点，简单问题简短回答。避免空泛套话、重复复述和机械模板。",
+  "",
+  "TradePilot 功能认知：",
+  "- 全网情报：通过可用搜索渠道发现企业、买家和潜客，包括搜索引擎及已接入的社交平台发现能力。",
+  "- 潜客与 CRM：潜客、客户企业、联系人及来源信息管理。",
+  "- 销售流程：商机、报价、销售订单。",
+  "- 贸易履约：发运、收付款和相关贸易单据。",
+  "- 产品与设置：产品资料、AI 模型与 API 集成、Agent 配置和任务执行中心。",
+  "- 你是总协调 Agent；可建议全球买家开发、市场研究、企业调查、潜客评分、贸易合规等专业 Agent，但不要假装它们已经运行。",
+  "",
+  "任务生成规则：",
+  "- 只在用户意图明确需要执行时生成 task；否则 task 必须为 null。",
+  "- task schema：{goal:string,agentKey:string,country:string,mode:'planner'|'internal'|'external'}。",
+  "- agentKey 只能使用 auto、buyer_development、market_research、company_research、lead_scoring、multilingual_sales、follow_up、trade_compliance。",
+  "- country 必须是 ISO 3166-1 alpha-2。若任务确实需要国家而上下文仍没有国家，task=null，并只询问国家；不能猜默认国家。",
+  "- mode 默认 planner。除非用户明确指定，不要选择 internal 或 external。",
+  "- 不要建议未经人工确认就发送邮件、批量导入 CRM、删除数据或执行其他不可逆外部操作。",
+  "",
+  "输出协议：",
+  "只返回一个严格 JSON 对象，不要 Markdown 代码块或 JSON 以外的文字。格式为 {\\"reply\\":\\"面向用户的自然语言回复\\",\\"task\\":null} 或 {\\"reply\\":\\"...\\",\\"task\\":{\\"goal\\":\\"...\\",\\"agentKey\\":\\"auto\\",\\"country\\":\\"US\\",\\"mode\\":\\"planner\\"}}。JSON 字符串必须正确转义。",
+  "",
+  "当前业务数据背景：",
+  workspaceContext
+ ];
+ return rules.join("\\n");
+}
+
 type ChatTurn={role:"user"|"assistant";content:string};
 export async function callAgentChatModel(env:Env,messages:ChatTurn[],systemOverride?:string,taskKey="agent_chat",jsonResponse=true,maxTokens=900):Promise<{text:string;model:string}>{
  const settings=await db<Array<{config:Record<string,unknown>}>>(env,"ai_provider_settings?id=eq.true&select=config&limit=1");
@@ -324,8 +391,7 @@ export async function callAgentChatModel(env:Env,messages:ChatTurn[],systemOverr
  const providers=Array.isArray(config.providers)?config.providers.map(asRecord):[];
  const provider=providers.find(item=>item.model===selectedModel)??(selectedModel.startsWith("@cf/")?{id:"workers-ai",protocol:"workers-ai",model:selectedModel}:null);
  if(!provider)throw new Error("尚未配置小雅对话模型，请在「AI 与 API 集成」设置 Agent 对话模型。");
- const defaultSystem="你是 TradePilot 的总协调 Agent「小雅」，专门协助外贸团队开发全球 B2B 买家。请使用中文，语气专业、简洁、主动。结合对话历史理解上下文，不要重复询问已提供的信息。你需要判断用户是否已提出可执行任务。只返回严格 JSON：{reply:string,task:{goal:string,agentKey:string,country:string,mode:'planner'|'internal'|'external'}|null}。如果缺少关键条件（例如目标客户/产品或目标市场），task=null，并在 reply 中只追问最关键的一项；不要凭空补国家、产品或行业。若用户明确 @ 某 Agent，agentKey 必须按以下映射：buyer_development,market_research,company_research,lead_scoring,multilingual_sales,follow_up,trade_compliance；否则使用 auto。国家使用 ISO 3166-1 alpha-2；不确定时 task=null 并追问。mode 默认 planner。task.goal 应整理成清晰完整目标，保留对话中已确认的条件。绝不自行执行任务，只生成待用户确认的任务建议。邮件发送和批量导入不得建议自动执行。";
- const system=systemOverride??defaultSystem;
+ const defaultSystem="你是 TradePilot 的总协调 AI Agent「小雅」。";\n const system=systemOverride??defaultSystem;
  let raw="";
  if(String(provider.protocol)==="workers-ai"&&env.AI){
   const model=selectedModel.startsWith("@cf/")?selectedModel:String(provider.model??selectedModel);
@@ -665,11 +731,11 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
         await db(env,"agent_conversations",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({id:conversationId,owner_id:ownerId,title:message.slice(0,100),last_message_at:new Date().toISOString()})});
       }
       if(existing?.[0]?.title==="新聊天")await db(env,"agent_conversations?id=eq."+conversationId+"&owner_id=eq."+ownerId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({title:message.slice(0,100)})});
-      const history=await db<Array<{role:"user"|"assistant";content:string}>>(env,"agent_chat_messages?conversation_id=eq."+conversationId+"&owner_id=eq."+ownerId+"&select=role,content&order=created_at.desc&limit=16");
+      const history=await db<Array<{role:"user"|"assistant";content:string}>>(env,"agent_chat_messages?conversation_id=eq."+conversationId+"&owner_id=eq."+ownerId+"&select=role,content&order=created_at.desc&limit=20");
       const turns:ChatTurn[]=[...(history??[]).reverse(),{role:"user",content:message}];
       await db(env,"agent_chat_messages",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({owner_id:ownerId,conversation_id:conversationId,role:"user",content:message})});
       try{
-        const generated=await callAgentChatModel(env,turns);
+        const workspaceContext=await loadXiaoyaWorkspaceContext(env,ownerId);\n        const generated=await callAgentChatModel(env,turns,buildXiaoyaSystemPrompt(workspaceContext),true,1800);
         const parsed=parsePlannerJson(generated.text);
         const reply=String(parsed.reply??"我已理解你的意思，请再补充一点目标信息。").slice(0,3000);
         const taskRaw=parsed.task===null?null:asRecord(parsed.task);
