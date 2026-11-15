@@ -1,8 +1,10 @@
 import { errorResponse, successResponse } from "../lib/http";
+import { readIntegrationSecret } from "../lib/integrations";
 
 interface TranslationEnv {
   SUPABASE_URL: string;
   SUPABASE_ANON_KEY: string;
+  SUPABASE_SERVICE_ROLE_KEY: string;
   DEEPL_API_KEY?: string;
 }
 const TARGET_LANGUAGES = new Set(["AR","BG","CS","DA","DE","EL","EN-US","EN-GB","ES","ET","FI","FR","HE","HU","ID","IT","JA","KO","LT","LV","NB","NL","PL","PT-BR","PT-PT","RO","RU","SK","SL","SV","TH","TR","UK","VI","ZH","ZH-HANS","ZH-HANT"]);
@@ -21,7 +23,8 @@ export async function handleTranslation(request: Request, env: TranslationEnv): 
     return errorResponse(request, "NOT_FOUND", "翻译接口不存在。", 404);
   }
   if (!(await authenticated(request, env))) return errorResponse(request, "UNAUTHORIZED", "请先登录后使用关键词翻译。", 401);
-  if (!env.DEEPL_API_KEY) return errorResponse(request, "DEEPL_NOT_CONFIGURED", "请先在设置中心的「外贸工具 API」中配置 DeepL API Key。", 503);
+  const deeplApiKey = await readIntegrationSecret(env, "tradepilot_api_deepl", "DEEPL_API_KEY");
+  if (!deeplApiKey) return errorResponse(request, "DEEPL_NOT_CONFIGURED", "请先在设置中心的「集成与 API → API 集成」中配置 DeepL API Key。", 503);
   let body: { text?: string; targetLanguage?: string; sourceLanguage?: string };
   try { body = await request.json() as { text?: string; targetLanguage?: string; sourceLanguage?: string }; }
   catch { return errorResponse(request, "INVALID_JSON", "请求内容格式不正确。", 400); }
@@ -31,11 +34,11 @@ export async function handleTranslation(request: Request, env: TranslationEnv): 
   if (!text || text.length > maxLength || !TARGET_LANGUAGES.has(targetLanguage)) {
     return errorResponse(request, "VALIDATION_ERROR", "翻译内容不能为空（最多 " + maxLength + " 字符），并请选择支持的目标语言。", 400);
   }
-  const baseUrl = env.DEEPL_API_KEY.endsWith(":fx") ? "https://api-free.deepl.com" : "https://api.deepl.com";
+  const baseUrl = deeplApiKey.endsWith(":fx") ? "https://api-free.deepl.com" : "https://api.deepl.com";
   try {
     const response = await fetch(baseUrl + "/v2/translate", {
       method: "POST",
-      headers: { Authorization: "DeepL-Auth-Key " + env.DEEPL_API_KEY, "Content-Type": "application/json" },
+      headers: { Authorization: "DeepL-Auth-Key " + deeplApiKey, "Content-Type": "application/json" },
       body: JSON.stringify({ text: [text], ...(body.sourceLanguage && body.sourceLanguage.toLowerCase() !== "auto" ? { source_lang: body.sourceLanguage.toUpperCase() } : {}), target_lang: targetLanguage, context: "B2B company and industry search keyword for local business discovery. Preserve brand names, model names and technical product terms where appropriate." }),
     });
     if (!response.ok) {
