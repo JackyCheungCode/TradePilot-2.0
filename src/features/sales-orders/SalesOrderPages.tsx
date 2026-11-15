@@ -63,9 +63,9 @@ export function SalesOrderConsolePage(){
  const invoiceData=[['uninvoiced','未开票'],['partial','部分开票'],['invoiced','已开票']].map(([key,label])=>({group:label,key:'订单数量',value:rows.filter(r=>(r.metadata?.sales_order?.invoice_status||'uninvoiced')===key).length})).filter(x=>x.value>0);
  const procurementData=[['not_started','未备货'],['in_progress','备货中'],['ready','已备齐']].map(([key,label])=>({group:label,key:'订单数量',value:rows.filter(r=>(r.metadata?.sales_order?.procurement_status||'not_started')===key).length})).filter(x=>x.value>0);
  const days=Array.from({length:30},(_,i)=>{const d=new Date();d.setDate(d.getDate()-(29-i));d.setHours(0,0,0,0);return d;});
- const dayKey=(d:Date)=>d.toISOString().slice(0,10);
+ const dayKey=(d:Date)=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
  const amountMap=new Map<string,number>();const countMap=new Map<string,number>();days.forEach(d=>{amountMap.set(dayKey(d),0);countMap.set(dayKey(d),0)});
- rows.forEach(r=>{const key=String(r.created_at||'').slice(0,10);if(!countMap.has(key))return;countMap.set(key,(countMap.get(key)||0)+1);if(r.currency_code===currency)amountMap.set(key,(amountMap.get(key)||0)+totalFor(r));});
+ rows.forEach(r=>{const key=r.created_at?dayKey(new Date(r.created_at)):'';if(!countMap.has(key))return;countMap.set(key,(countMap.get(key)||0)+1);if(r.currency_code===currency)amountMap.set(key,(amountMap.get(key)||0)+totalFor(r));});
  const dailyAmount=days.map(d=>({group:(d.getMonth()+1)+'/'+d.getDate(),key:currency+' 订单金额',value:Number(amountMap.get(dayKey(d))||0)}));
  const dailyCount=days.map(d=>({group:(d.getMonth()+1)+'/'+d.getDate(),key:'订单数量',value:Number(countMap.get(dayKey(d))||0)}));
  const options={height:'260px',legend:{enabled:false},toolbar:{enabled:false},axes:{bottom:{title:'日期',mapsTo:'group',scaleType:ScaleTypes.LABELS},left:{mapsTo:'value',scaleType:ScaleTypes.LINEAR}}};
