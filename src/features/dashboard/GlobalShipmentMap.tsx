@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, Tile, CarbonIcons } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
-import './global-shipment-map.scss';
+import '@/design-system/patterns/global-shipment-map.scss';
 
 type Shipment = {
   id: string;
