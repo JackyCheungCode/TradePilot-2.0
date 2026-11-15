@@ -3,6 +3,7 @@ import { errorResponse, successResponse } from "../lib/http";
 interface TradeToolsEnv {
   SUPABASE_URL: string;
   SUPABASE_ANON_KEY: string;
+  GOOGLE_MAPS_API_KEY?: string;
   DHL_API_KEY?: string;
   UPS_CLIENT_ID?: string;
   UPS_CLIENT_SECRET?: string;
