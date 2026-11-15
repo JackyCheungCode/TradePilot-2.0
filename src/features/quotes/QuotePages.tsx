@@ -5,6 +5,8 @@ import {
   Tabs, TabList, Tab, TabPanels, TabPanel, Table, TableHead, TableRow, TableHeader, TableBody, TableCell,
   CarbonIcons,
 } from '@/design-system';
+import { LineChart, BarChart } from '@carbon/charts-react';
+import '@carbon/charts/styles.css';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/quotes.scss';
 
@@ -28,11 +30,13 @@ function calculate(lines: QuoteLine[], charges: Array<{name:string;amount:string
   const chargeTax = charges.reduce((sum,x)=>sum+(x.taxable?Math.max(0,Number(x.amount)||0)*Math.max(0,Number(x.taxRate)||0)/100:0),0);
   return { product_subtotal:productSubtotal, order_discount:orderDiscount, charge_subtotal:chargeSubtotal, tax_total:lineTax+chargeTax, grand_total:productSubtotal-orderDiscount+chargeSubtotal+lineTax+chargeTax };
 }
-function QuoteMetric({label,value}:{label:string;value:string}) { return <div className="tp-quotes__metric"><span>{label}</span><strong>{value}</strong></div>; }
+function QuoteMetric({label,value,icon:Icon}:{label:string;value:string;icon:React.ElementType}) { return <div className="tp-quotes__metric"><div className="tp-quotes__metric-heading"><span>{label}</span><Icon size={24} aria-hidden="true"/></div><strong>{value}</strong></div>; }
 
 export function QuoteConsolePage() {
   const nav=useNavigate();
   const [rows,setRows]=useState<QuoteDoc[]>([]);
+  const [trendRows,setTrendRows]=useState<QuoteDoc[]>([]);
+  const [trendCurrency,setTrendCurrency]=useState('USD');
   const [accounts,setAccounts]=useState<Account[]>([]);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState('');
@@ -42,12 +46,14 @@ export function QuoteConsolePage() {
     setLoading(true);setError('');
     try {
       const db=await getSupabaseClient();
-      const [docs,acc]=await Promise.all([
+      const trendStart=new Date();trendStart.setDate(trendStart.getDate()-29);trendStart.setHours(0,0,0,0);
+      const [docs,trend,acc]=await Promise.all([
         db.from('trade_documents').select('*').eq('document_type','quotation').order('updated_at',{ascending:false}).range(0,1999),
+        db.from('trade_documents').select('id,created_at,currency_code,totals').eq('document_type','quotation').gte('created_at',trendStart.toISOString()).order('created_at',{ascending:true}).range(0,4999),
         db.from('crm_accounts').select('id,account_name,currency_code').eq('is_archived',false).order('account_name'),
       ]);
-      if(docs.error)throw docs.error;if(acc.error)throw acc.error;
-      setRows((docs.data||[]) as QuoteDoc[]);setAccounts((acc.data||[]) as Account[]);
+      if(docs.error)throw docs.error;if(trend.error)throw trend.error;if(acc.error)throw acc.error;
+      setRows((docs.data||[]) as QuoteDoc[]);setTrendRows((trend.data||[]) as QuoteDoc[]);setAccounts((acc.data||[]) as Account[]);
     } catch(e) { setError(e instanceof Error?e.message:'读取报价单失败'); }
     finally { setLoading(false); }
   },[]);
@@ -61,7 +67,10 @@ export function QuoteConsolePage() {
   return <main className="tp-quotes">
     <header className="tp-quotes__header"><div><p className="tp-quotes__eyebrow">TRADEPILOT / SALES</p><h1>报价单（Quote）</h1><p>管理客户报价、版本、发送确认和销售订单转换。</p></div><div className="tp-quotes__actions"><Button kind="tertiary" onClick={()=>void load()} disabled={loading}><CarbonIcons.Renew size={16}/>刷新</Button><Button kind="primary" onClick={()=>nav('/quotes/new')}><CarbonIcons.Add size={16}/>创建报价单</Button></div></header>
     {error&&<InlineNotification kind="error" title="报价单读取失败" subtitle={error}/>}
-    <div className="tp-quotes__metrics"><QuoteMetric label="全部报价" value={String(rows.length)}/><QuoteMetric label="草稿" value={String(count('draft'))}/><QuoteMetric label="待客户确认" value={String(count('sent')+count('viewed'))}/><QuoteMetric label="已接受" value={String(count('accepted'))}/></div>
+    <div className="tp-quotes__metrics"><QuoteMetric label="全部报价" value={String(rows.length)} icon={CarbonIcons.Document}/><QuoteMetric label="草稿" value={String(count('draft'))} icon={CarbonIcons.Edit}/><QuoteMetric label="待客户确认" value={String(count('sent')+count('viewed'))} icon={CarbonIcons.Send}/><QuoteMetric label="已接受" value={String(count('accepted'))} icon={CarbonIcons.CheckmarkFilled}/></div>
+    <section className="tp-quotes__panel tp-quotes__trends"><div className="tp-quotes__panel-head"><div><h2>报价趋势</h2><p>最近 30 天新建报价单的金额与数量。</p></div><Select id="quote-trend-currency" labelText="金额统计币种" value={trendCurrency} onChange={e=>setTrendCurrency(e.currentTarget.value)}>{currencies.map(currency=><SelectItem key={currency} value={currency} text={currency}/>)}</Select></div>
+      {(() => { const days=Array.from({length:30},(_,i)=>{const d=new Date();d.setDate(d.getDate()-(29-i));d.setHours(0,0,0,0);return d;});const dayKey=(d:Date)=>d.toISOString().slice(0,10);const amountByDay=new Map<string,number>();const countByDay=new Map<string,number>();days.forEach(d=>{amountByDay.set(dayKey(d),0);countByDay.set(dayKey(d),0)});trendRows.forEach(r=>{const key=String(r.created_at||'').slice(0,10);if(!countByDay.has(key))return;countByDay.set(key,(countByDay.get(key)||0)+1);if(r.currency_code===trendCurrency)amountByDay.set(key,(amountByDay.get(key)||0)+Number(r.totals?.grand_total||0));});const labels=days.map(d=>({key:dayKey(d),label:(d.getMonth()+1)+'/'+d.getDate()}));const amountData=labels.map(d=>({group:d.label,key:trendCurrency+' 报价金额',value:Number(amountByDay.get(d.key)||0)}));const countData=labels.map(d=>({group:d.label,key:'报价数量',value:Number(countByDay.get(d.key)||0)}));const chartOptions={height:'280px',legend:{enabled:false},toolbar:{enabled:false},axes:{bottom:{title:'日期',mapsTo:'group',scaleType:'labels'},left:{mapsTo:'value',scaleType:'linear'}}};return <div className="tp-quotes__charts"><div className="tp-quotes__chart"><h3>每日报价金额 <span>{trendCurrency}</span></h3><LineChart data={amountData} options={{...chartOptions,axes:{...chartOptions.axes,left:{title:'金额（'+trendCurrency+'）',mapsTo:'value',scaleType:'linear'}}}} /></div><div className="tp-quotes__chart"><h3>每日报价数量</h3><BarChart data={countData} options={{...chartOptions,axes:{...chartOptions.axes,left:{title:'报价单数量',mapsTo:'value',scaleType:'linear'}}}} /></div></div>})()}
+    </section>
     <section className="tp-quotes__panel"><div className="tp-quotes__panel-head"><div><h2>报价单列表</h2><p>一个报价编号包含多个修订版本；列表显示当前版本。</p></div><Tag type="blue">{filtered.length} 条记录</Tag></div>
       <div className="tp-quotes__filters"><TextInput id="quote-search" labelText="搜索报价单" placeholder="报价编号、标题或客户" value={query} onChange={e=>setQuery(e.currentTarget.value)}/><Select id="quote-status" labelText="报价状态" value={status} onChange={e=>setStatus(e.currentTarget.value)}><SelectItem value="all" text="全部状态"/>{Object.entries(quoteStatusLabel).map(([v,t])=><SelectItem key={v} value={v} text={t}/>)}</Select></div>
       {loading?<div className="tp-quotes__loading"><InlineLoading description="正在读取报价单…"/></div>:<div className="tp-quotes__table-wrap"><Table><TableHead><TableRow><TableHeader>报价编号 / 标题</TableHeader><TableHeader>客户</TableHeader><TableHeader>版本</TableHeader><TableHeader>报价金额</TableHeader><TableHeader>报价日期</TableHeader><TableHeader>有效期</TableHeader><TableHeader>状态</TableHeader></TableRow></TableHead><TableBody>{filtered.map(r=>{const s=String(r.content?.quote_status||(r.status==='draft'?'draft':r.status==='issued'?'sent':r.status==='approved'?'accepted':r.status));const total=Number(r.totals?.grand_total||0);const customer=r.content?.account_snapshot?.account_name||accountMap.get(r.content?.account_id)||'—';return <TableRow key={r.id}><TableCell><button className="tp-quotes__row-link" onClick={()=>nav('/quotes/'+r.id)}>{r.document_number}</button><span className="tp-quotes__secondary">{r.title}</span></TableCell><TableCell>{customer}</TableCell><TableCell>V{r.current_version}</TableCell><TableCell>{money(total,r.currency_code)}</TableCell><TableCell>{r.content?.quote_date||'—'}</TableCell><TableCell>{r.content?.valid_until||'—'}</TableCell><TableCell><Tag type={s==='accepted'?'green':s==='rejected'||s==='expired'||s==='cancelled'?'red':s==='draft'?'cool-gray':'blue'}>{quoteStatusLabel[s]||s}</Tag></TableCell></TableRow>})}</TableBody></Table>{!filtered.length&&<p className="tp-quotes__empty">没有符合条件的报价单。</p>}</div>}
