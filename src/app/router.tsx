@@ -1,18 +1,15 @@
-import { createBrowserRouter, Outlet } from 'react-router-dom';
+import { createBrowserRouter } from 'react-router-dom';
+import { AppShell } from '../shell/AppShell';
 
 /**
  * Route infrastructure only.
- * Product pages and navigation entries are intentionally not created here.
- * Add each approved page as its own lazy-loaded route and feature module.
+ * No product pages or navigation entries are registered until approved.
+ * Each approved page will be added as its own lazy-loaded route/module.
  */
-function ApplicationRouteRoot() {
-  return <Outlet />;
-}
-
 export const router = createBrowserRouter([
   {
     path: '/',
-    element: <ApplicationRouteRoot />,
+    element: <AppShell />,
     children: [],
   },
 ]);
