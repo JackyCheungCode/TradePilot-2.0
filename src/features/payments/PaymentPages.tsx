@@ -17,6 +17,7 @@ const ALLOCATION_TYPES = ['定金','尾款','全款','预收','其他'];
 const statusLabel = (v:string) => PAYMENT_STATES.find(x=>x[0]===v)?.[1] || v || '—';
 const money = (v:number,c:string) => c+' '+Number(v||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
 const dateToday = () => new Date().toISOString().slice(0,10);
+const datePlusDays=(date:string,days:number)=>{const d=new Date(date+'T00:00:00');d.setDate(d.getDate()+days);return d.toISOString().slice(0,10)};
 const emptyAllocation = () => ({order_id:'',schedule_node_id:'',allocation_type:'定金',allocated_amount:'',allocated_amount_in_payment:'',allocation_date:dateToday()});
 const scheduleOf = (o?:AnyRow):AnyRow[] => Array.isArray(o?.metadata?.sales_order?.payment_schedule) ? o.metadata.sales_order.payment_schedule as AnyRow[] : [];
 const isAllocatableOrder = (o:AnyRow) => Boolean(o&&(o.status==='active'||o.status==='completed'||['confirmed','preparing','partially_shipped','shipped','completed'].includes(o.metadata?.sales_order?.order_status)));
@@ -149,6 +150,7 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
   const bankOptions=banks.filter(b=>b.is_active!==false&&!b.is_archived&&(!allocatedBankIds.length||(new Set(allocatedBankIds).size===1&&allocatedBankIds[0]===b.id)));
   const grossFees=Number(payment.bank_fee||0)+Number(payment.intermediary_fee||0);
   const suggestedNet=Math.max(0,Number(payment.amount||0)-grossFees);
+  const netMismatch=Boolean(payment.amount)&&Math.abs(Number(payment.net_received||suggestedNet)-suggestedNet)>0.005;
   const paymentEquivalent=(a:AnyRow)=>{const order=orders.find(o=>o.id===a.order_id);const orderRate=Number(order?.metadata?.sales_order?.form?.exchange_rate||1);const paymentRate=Number(payment.exchange_rate||1);return paymentRate>0?Number(a.allocated_amount||0)*orderRate/paymentRate:0};
   const allocatedSum=allocations.reduce((sum,a)=>{const order=orders.find(o=>o.id===a.order_id);const node=scheduleOf(order).find((n:AnyRow)=>String(n.id)===String(a.schedule_node_id));const outstanding=Math.max(0,Number(node?.amount||0)-Number(node?.paid_amount||0));const requested=Number(a.allocated_amount||0);const ratio=requested>0?Math.min(1,outstanding/requested):0;return sum+paymentEquivalent(a)*ratio},0);
   const remaining=Math.max(0,Number(payment.net_received||suggestedNet)-allocatedSum);
@@ -208,7 +210,7 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
     if(payment.payer_swift&&!/^[A-Za-z0-9]{8}([A-Za-z0-9]{3})?$/.test(payment.payer_swift))return '付款行 SWIFT 必须为 8 或 11 位。';
     if(payment.uetr&&payment.uetr.length!==36)return 'UETR 必须为 36 位。';
     if(payment.payment_method==='L/C'&&!payment.lc_no?.trim())return 'L/C 收款必须填写信用证号。';
-    if(payment.lc_type==='远期'&&!payment.usance_days)return '远期 L/C 必须填写远期天数。';
+    if(payment.lc_type==='远期'&&(!payment.usance_days||!payment.acceptance_date))return '远期 L/C 必须填写远期天数和承兑日期。';
     if(payment.discrepancy_status==='已提出'&&allocations.length)return 'L/C 不符点已提出，暂不能分配核销。';
     if(Math.abs(allocatedSum)>Number(payment.net_received||suggestedNet)+0.000001)return '已分配金额不能超过实际入账金额。';
     if(Math.abs(computedDiff)>0.005&&(!payment.diff_reason||!payment.diff_handling))return '存在短收或多收差异时，必须选择差异原因和处理方式。';
@@ -296,6 +298,7 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
     <header className="tp-payments__header"><div><p className="tp-payments__eyebrow">TRADEPILOT / FINANCE / PAYMENT</p><h1>{editing?paymentNo:'创建收款（Payment）'}</h1><p>{editing?'维护收款资料、分配与核销记录。':'录入真实到账，可分配多个订单节点，也可保留为预收款。'}</p></div><div className="tp-payments__actions"><Button kind="tertiary" onClick={()=>nav('/payments')}>返回收款列表</Button>{readOnly&&payment.status==='draft'&&<Button kind="tertiary" onClick={()=>nav('/payments/'+id+'/edit')}>编辑草稿</Button>}{readOnly&&payment.status==='draft'&&<Button kind="primary" disabled={saving} onClick={()=>void confirm()}>{payment.payment_type==='refund'?'确认退款 / 红冲':'确认收款并核销'}</Button>}{readOnly&&['confirmed','partially_reconciled','reconciled'].includes(payment.status)&&!payment.bank_reconciled&&<Button kind="tertiary" onClick={()=>nav('/payments/'+id+'/edit')}>登记银行对账</Button>}{readOnly&&['confirmed','partially_reconciled'].includes(payment.status)&&Number(payment.unallocated_amount)>0.005&&<Button kind="primary" onClick={()=>nav('/payments/'+id+'/allocate')}>分配预收余额</Button>}{editing&&!readOnly&&['confirmed','partially_reconciled','reconciled'].includes(payment.status)&&<Button kind="primary" disabled={saving} onClick={()=>void saveReconciliation()}>保存对账信息</Button>}{editing&&!readOnly&&payment.status==='draft'&&<Button kind="danger--tertiary" disabled={saving} onClick={()=>void voidPayment()}>作废</Button>}</div></header>
     {error&&<InlineNotification kind="error" title="收款操作未完成" subtitle={error}/>}
     {similarDuplicate&&<InlineNotification kind="warning" title="发现疑似重复收款" subtitle="同一客户在 3 天内存在相同币种和相同实际入账金额的收款记录，请核对银行流水号与水单。此提示不会阻止保存。"/>}
+    {netMismatch&&<InlineNotification kind="warning" title="实际入账金额与费用计算不一致" subtitle={'汇款金额减银行手续费和中间行费用为 '+money(suggestedNet,payment.currency)+'，当前实际入账为 '+money(Number(payment.net_received),payment.currency)+'。请确认扣款差异。'}/>} 
     <section className="tp-payments__basic">
       <div className="tp-payments__basic-head"><div><Tag type={payment.status==='reconciled'?'green':payment.status==='voided'?'red':'blue'}>{statusText}</Tag><span>{paymentNo}</span></div><Tag type="cool-gray">{payment.payment_type==='refund'?'退款':'收款'}</Tag></div>
       <div className="tp-payments__form-grid">
@@ -347,10 +350,10 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
             <Field id="pay-lc-advising" label="通知行" value={payment.lc_advising_bank} onChange={v=>set('lc_advising_bank',v)} disabled={locked}/>
             <Field id="pay-lc-amount" label="信用证金额" type="number" value={payment.lc_amount} onChange={v=>set('lc_amount',v)} disabled={locked}/>
             <Pick id="pay-lc-type" label="信用证类型" value={payment.lc_type} onChange={v=>set('lc_type',v)} options={['即期','远期']} disabled={locked}/>
-            {payment.lc_type==='远期'&&<Field id="pay-usance" label="远期天数（必填）" type="number" value={payment.usance_days} onChange={v=>set('usance_days',v)} disabled={locked}/>}
+            {payment.lc_type==='远期'&&<Field id="pay-usance" label="远期天数（必填）" type="number" value={payment.usance_days} onChange={v=>{set('usance_days',v);if(payment.acceptance_date&&Number(v)>=0)set('maturity_date',datePlusDays(payment.acceptance_date,Number(v)))}} disabled={locked}/>}
             <Field id="pay-presentation" label="交单日期" type="date" value={payment.presentation_date} onChange={v=>set('presentation_date',v)} disabled={locked}/>
-            <Field id="pay-acceptance" label="承兑日期" type="date" value={payment.acceptance_date} onChange={v=>set('acceptance_date',v)} disabled={locked}/>
-            <Field id="pay-maturity" label="到期付款日" type="date" value={payment.maturity_date} onChange={v=>set('maturity_date',v)} disabled={locked}/>
+            <Field id="pay-acceptance" label="承兑日期" type="date" value={payment.acceptance_date} onChange={v=>{set('acceptance_date',v);if(payment.usance_days)set('maturity_date',datePlusDays(v,Number(payment.usance_days)))}} disabled={locked}/>
+            <Field id="pay-maturity" label="到期付款日（自动计算）" type="date" value={payment.maturity_date} onChange={()=>{}} disabled/>
             <Pick id="pay-discrepancy-status" label="不符点状态" value={payment.discrepancy_status} onChange={v=>set('discrepancy_status',v)} options={['无','已提出','已接受','已拒付']} disabled={locked}/>
             <div className="tp-payments__field-wide"><TextArea id="pay-discrepancy" labelText="不符点说明" rows={3} value={payment.discrepancy||''} disabled={locked} onChange={e=>set('discrepancy',e.currentTarget.value)}/></div>
           </div></>}
