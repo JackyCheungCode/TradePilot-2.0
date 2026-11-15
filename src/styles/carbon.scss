@@ -1,10 +1,9 @@
+/**
+ * Global Carbon stylesheet entrypoint.
+ * Carbon owns component styles, reset behavior, and design tokens.
+ */
 @use '@carbon/react';
-@use '@carbon/react/scss/themes' as *;
-@use '@carbon/react/scss/theme' as *;
-
-:root {
-  @include theme($white);
-}
+@use '../design-system/tokens';
 
 html,
 body,
