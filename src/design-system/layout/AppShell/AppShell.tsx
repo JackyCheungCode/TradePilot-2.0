@@ -48,8 +48,8 @@ export function AppShell() {
           <HeaderGlobalAction
             aria-label={signingOut ? '正在退出登录' : '退出登录'}
             tooltipAlignment="end"
-            onClick={() => void signOut()}
-            disabled={signingOut}
+            onClick={() => { if (!signingOut) void signOut(); }}
+            aria-disabled={signingOut}
           >
             <CarbonIcons.Logout size={20} aria-hidden="true" />
           </HeaderGlobalAction>
