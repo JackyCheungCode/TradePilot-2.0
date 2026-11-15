@@ -175,6 +175,14 @@ export function TradeToolsPage() {
     if(!searchTerm) return;
     setBusy(true);setError('');
     try {
+      if(locationQuery.trim()){
+        try{
+          const token=await getToken();
+          const response=await fetch('/api/v1/trade-tools/geocode',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({address:locationQuery.trim()})});
+          const body=await response.json() as {data?:LocationResult};
+          if(response.ok&&body.data){setLocations([body.data]);return;}
+        }catch{/* Fall back to Open-Meteo city geocoding when address APIs are not configured. */}
+      }
       const data=await readJson('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(searchTerm)+'&count=8&language=zh');
       setLocations((data.results||[]) as LocationResult[]);
     } catch(e) {setError(e instanceof Error?e.message:'地点搜索失败。');}
@@ -203,8 +211,17 @@ export function TradeToolsPage() {
     setLocationQuery(found.address);
     setBusy(true);
     try {
-      const data=await readJson('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(found.address)+'&count=1&language=zh');
-      const place=data.results?.[0] as LocationResult|undefined;
+      let place:LocationResult|undefined;
+      try{
+        const token=await getToken();
+        const response=await fetch('/api/v1/trade-tools/geocode',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({address:found.address})});
+        const body=await response.json() as {data?:LocationResult};
+        if(response.ok&&body.data) place=body.data;
+      }catch{/* Use Open-Meteo location search as a fallback. */}
+      if(!place){
+        const data=await readJson('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(found.address)+'&count=1&language=zh');
+        place=data.results?.[0] as LocationResult|undefined;
+      }
       if(!place) throw new Error('无法从该客户地址解析出城市和时区，请手动搜索城市。');
       await loadContactTime(place);
     } catch(e) {setError(e instanceof Error?e.message:'客户地址解析失败。');setBusy(false);}
