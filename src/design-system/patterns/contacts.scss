@@ -173,3 +173,46 @@
   .tp-contacts__avatar-field{min-height:10rem;padding:1rem}
   .tp-contacts__avatar-uploader{align-items:center;flex-direction:column}
 }
+
+
+/* Carbon icon alignment for Contact KPI tiles and section headings */
+.tp-contacts__stat-top{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:.75rem;
+}
+.tp-contacts__stat-top>span:first-child{
+  color:var(--cds-text-secondary);
+  font-size:.75rem;
+  line-height:1.35;
+}
+.tp-contacts__stat-icon{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 2rem;
+  width:2rem;
+  height:2rem;
+  color:var(--cds-icon-secondary);
+}
+.tp-contacts__stat-tile strong{
+  display:block;
+  margin:.25rem 0;
+  font-size:1.75rem;
+  line-height:1.2;
+  font-weight:400;
+  font-variant-numeric:tabular-nums;
+  color:var(--cds-text-primary);
+}
+.tp-contacts__heading{
+  display:flex;
+  align-items:center;
+  gap:.625rem;
+  min-height:1.5rem;
+}
+.tp-contacts__heading>svg{
+  flex:0 0 1.25rem;
+  color:var(--cds-icon-secondary);
+}
+.tp-contacts__heading>span{display:inline-block}
