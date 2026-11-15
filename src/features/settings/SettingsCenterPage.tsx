@@ -10,7 +10,7 @@ import { OpportunitySettings, opportunitySettingSections } from './OpportunitySe
 import { CrmDomainSettings, crmSettingSections, type CrmSettingsDomain } from './CrmDomainSettings';
 
 type Domain = { id: string; label: string; icon: React.ReactNode; available: boolean };
-type Section = { id: string; label: string; group: string; description: string; implemented?: boolean };
+type Section = { id: string; label: string; group: string; description: string; implemented?: boolean; integration?: 'connected'|'config-only'|'pending' };
 type Category = { id: string; name: string; parent_id: string | null; code: string | null; description?: string | null; sequence: number; is_active: boolean };
 type Attribute = { id: string; name: string; display_type: string; create_variant: string; sequence: number; is_active: boolean };
 type AttributeValue = { id: string; attribute_id: string; name: string; html_color: string | null; sequence: number; is_active: boolean };
@@ -66,6 +66,8 @@ export function SettingsCenterPage() {
   const [variantMode, setVariantMode] = useState('never');
 
   const activeSections: Section[] = domain === 'opportunities' ? opportunitySettingSections : domain === 'contacts' || domain === 'accounts' || domain === 'leads' ? crmSettingSections[domain as CrmSettingsDomain] : productSections;
+  const connectedCount = activeSections.filter(item => item.integration === 'connected' || item.implemented === true).length;
+  const configOnlyCount = activeSections.filter(item => item.integration === 'config-only').length;
   const activeSection = activeSections.find((item) => item.id === section) ?? activeSections[0];
   const load = useCallback(async () => {
     setLoading(true);
@@ -226,7 +228,7 @@ export function SettingsCenterPage() {
               <h2>{domain === 'opportunities' ? '商机设置' : domain === 'contacts' ? '联系人设置' : domain === 'accounts' ? '客户设置' : domain === 'leads' ? '线索设置' : '产品设置'}</h2>
               <p>{domain === 'opportunities' ? '维护销售流程、商机分类、销售组织、活动与预测规则。' : domain === 'contacts' ? '维护联系人身份、组织、联系方式、沟通偏好、合规与数据规则。' : domain === 'accounts' ? '维护客户主数据、客户分级、地址、交易财务、销售归属与风险规则。' : domain === 'leads' ? '维护线索分类、来源画像、资格评估、分配跟进、查重与转换规则。' : '维护产品主数据字典、模板、包装贸易规则和数据校验策略。'}</p>
             </div>
-            <Tag type="green">已接入 {activeSections.length} 项</Tag>
+            {domain === "contacts" || domain === "accounts" || domain === "leads" ? <div className="tp-settings__workspace-status"><Tag type="green">字典已接入 {connectedCount}/{activeSections.length}</Tag><Tag type="cool-gray">规则待接入 {configOnlyCount}</Tag></div> : <Tag type="green">已接入 {activeSections.length} 项</Tag>}
           </div>
 
           <div className="tp-settings__section-layout">
@@ -243,7 +245,7 @@ export function SettingsCenterPage() {
                       onClick={() => { setSection(item.id); setQuery(''); }}
                     >
                       {item.label}
-                      {!item.implemented && <span className="tp-settings__planned-dot" aria-label="尚未接入" />}
+                      {(item.integration === "config-only" || item.integration === "pending" || item.implemented === false) && <span className="tp-settings__planned-dot" aria-label={item.integration === "config-only" ? "仅维护配置，尚未接入业务流程" : "尚未接入"} title={item.integration === "config-only" ? "仅维护配置，尚未接入业务流程" : "尚未接入"} />}
                     </Button>
                   ))}
                 </div>
