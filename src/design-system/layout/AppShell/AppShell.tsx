@@ -94,6 +94,14 @@ export function AppShell() {
             商机（Opportunity）
           </SideNavLink>
           <SideNavLink
+            href="/products"
+            isActive={location.pathname.startsWith('/products')}
+            title="产品（Product）"
+            renderIcon={CarbonIcons.Product}
+          >
+            产品（Product）
+          </SideNavLink>
+          <SideNavLink
             href="/accounts"
             isActive={location.pathname.startsWith('/accounts')}
             title="客户（Account）"
