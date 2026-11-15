@@ -6,6 +6,7 @@ import {
   CarbonIcons, Table, TableHead, TableRow, TableHeader, TableBody, TableCell,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
+import { useCrmSettingOptions } from '../settings/CrmDomainSettings';
 import '@carbon/charts/styles.css';
 import '@/design-system/patterns/contacts.scss';
 
@@ -40,7 +41,6 @@ const emptyForm: FormState = {
   activity:{lastContactAt:'',lastReplyAt:'',contactCount:'0',opportunityCount:'0',orderCount:'0',lastEmailOpen:'',lastEmailClick:''},
   notes:'', internalNotes:'', customFields:'', createdMethod:'manual',
 };
-const roleItems = ['决策人','采购','财务','物流','技术质检','其他'].map(id=>({id,text:id}));
 const socialPlatforms = ['LinkedIn','Facebook','Instagram','X','微信','Skype','其他'];
 const methodKinds = [{id:'work',text:'工作'},{id:'personal',text:'个人'},{id:'other',text:'其他'}];
 const field = (label:string, child:import('react').ReactElement<any>, required=false) => <div className="tp-contacts__field"><label className="tp-contacts__label" htmlFor={child.props.id}>{label}{required&&<span> *</span>}</label>{cloneElement(child,{hideLabel:true})}</div>;
@@ -279,6 +279,7 @@ export function ContactConsolePage() {
 
 export function ContactFormPage() {
   const navigate=useNavigate();const {id}=useParams();const editing=Boolean(id);
+  const roleItems=useCrmSettingOptions('contacts','roles',['决策人','采购','财务','物流','技术质检','影响者','其他'].map(id=>({id,text:id})));
   const [form,setForm]=useState<FormState>(emptyForm);const [accounts,setAccounts]=useState<Account[]>([]);const [contacts,setContacts]=useState<ContactRow[]>([]);
   const [loading,setLoading]=useState(true);const [saving,setSaving]=useState(false);const [error,setError]=useState('');const [tab,setTab]=useState(0);const [avatarFile,setAvatarFile]=useState<File|null>(null);const [avatarPreview,setAvatarPreview]=useState('');
   const set=<K extends keyof FormState>(key:K,value:FormState[K])=>setForm(p=>({...p,[key]:value}));
