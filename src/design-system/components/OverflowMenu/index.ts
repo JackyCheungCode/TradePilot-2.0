@@ -1,2 +1,2 @@
-/** Local Carbon-native entry point. Import from this module, not directly from @carbon/react. */
-export { OverflowMenu, OverflowMenuItem } from '@carbon/react';
+/** Local Carbon-native overflow menu entry point. */
+export { OverflowMenu } from '@carbon/react';
