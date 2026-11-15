@@ -581,7 +581,7 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
     }
     if(path==="/api/v1/agent/appearance"&&request.method==="GET"){
       const rows=await db<Array<{config:Record<string,unknown>}>>(env,"agent_appearance_settings?owner_id=eq."+ownerId+"&select=config&limit=1");
-      const fallback={default:{shape:"mochi",color:"ivory",styleId:"vector",variant:"soft",face:"cute"},agents:{}};
+      const fallback={default:{shape:"blob",color:"ivory",styleId:"vector",variant:"soft",face:"cute",eyeColor:"#1A1A1A",eyeScale:1},agents:{}};
       return successResponse(request,rows?.[0]?.config??fallback);
     }
     if(path==="/api/v1/agent/appearance"&&request.method==="PUT"){
@@ -595,7 +595,7 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
         const item=value as Record<string,unknown>;
         const styleId=typeof item.styleId==="string"?item.styleId:"vector";
         if(!variants[styleId]||typeof item.shape!=="string"||!/^[a-z0-9-]{2,40}$/.test(item.shape)||typeof item.color!=="string"||!allowedColors.has(item.color)||typeof item.variant!=="string"||!variants[styleId].has(item.variant)||!["cute","eyes","line","symbol","button","capsule","brow","glossy","sparkle","shades","droopy","bigmouth","pie","screen","teardrop","specs"].includes(String(item.face)))return null;
-        return {shape:item.shape,color:item.color,styleId,variant:item.variant,face:item.face};
+        const eyeColor=typeof item.eyeColor==="string"&&/^#[0-9a-f]{6}$/i.test(item.eyeColor)?item.eyeColor:"#1A1A1A";\n        const eyeScale=typeof item.eyeScale==="number"&&Number.isFinite(item.eyeScale)?Math.max(0.7,Math.min(1.4,item.eyeScale)):1;\n        return {shape:item.shape,color:item.color,styleId,variant:item.variant,face:item.face,eyeColor,eyeScale};
       };
       const defaultAppearance=normalizeAppearance(input.default);
       const rawAgents=input.agents&&typeof input.agents==="object"&&!Array.isArray(input.agents)?input.agents as Record<string,unknown>:{};
