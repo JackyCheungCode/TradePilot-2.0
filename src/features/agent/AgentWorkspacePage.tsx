@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextArea, Tile, CarbonIcons,
@@ -53,6 +53,21 @@ export function AgentWorkspacePage() {
   const [startingTask, setStartingTask] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const messagesViewportRef = useRef<HTMLDivElement>(null);
+  const shouldStickToBottomRef = useRef(true);
+
+  const handleMessagesScroll = useCallback(() => {
+    const viewport = messagesViewportRef.current;
+    if (!viewport) return;
+    const distanceFromBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
+    shouldStickToBottomRef.current = distanceFromBottom < 96;
+  }, []);
+
+  useEffect(() => {
+    const viewport = messagesViewportRef.current;
+    if (!viewport || !shouldStickToBottomRef.current) return;
+    viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' });
+  }, [messages, sending]);
 
   const loadConversations = useCallback(async () => {
     const rows = await agentRequest<Conversation[]>('/api/v1/agent/conversations');
@@ -221,7 +236,7 @@ export function AgentWorkspacePage() {
             </div>
           </div>
 
-          <div className="tp-agent__messages" aria-live="polite">
+          <div ref={messagesViewportRef} onScroll={handleMessagesScroll} className="tp-agent__messages" aria-live="polite">
             {!messages.length && !loading && (
               <div className="tp-agent__welcome">
                 <h3>你好，我是小雅。</h3>
