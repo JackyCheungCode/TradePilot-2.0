@@ -28,7 +28,6 @@ const domains: Domain[] = [
   { id: 'trade-documents', label: '销售单据', icon: <CarbonIcons.Document size={20} />, available: true },
   { id: 'trade-operations', label: '发运与收款', icon: <CarbonIcons.Delivery size={20} />, available: true },
   { id: 'agent', label: 'Agent 设置', icon: <CarbonIcons.Settings size={20} />, available: true },
-  { id: 'integrations', label: '集成与 API', icon: <CarbonIcons.Api size={20} />, available: true },
 ];
 
 const integrationSections: Section[] = [
@@ -245,6 +244,10 @@ export function SettingsCenterPage() {
           ))}
           <div className="tp-settings__nav-divider" />
           <div className="tp-settings__nav-heading">系统设置</div>
+          <Button kind="ghost" size="md" className={`tp-settings__domain ${domain === 'integrations' ? 'is-active' : ''}`} onClick={() => { setDomain('integrations'); setSection('api'); setQuery(''); }} aria-pressed={domain === 'integrations'}>
+            <span className="tp-settings__domain-icon"><CarbonIcons.Api size={20} /></span>
+            <span className="tp-settings__domain-copy"><strong>集成与 API</strong></span>
+          </Button>
           <div className="tp-settings__system-item"><CarbonIcons.User size={18} /><span>用户与权限</span><Tag type="cool-gray">后续接入</Tag></div>
           <div className="tp-settings__system-item"><CarbonIcons.Settings size={18} /><span>通用数据</span><Tag type="cool-gray">后续接入</Tag></div>
         </aside>
