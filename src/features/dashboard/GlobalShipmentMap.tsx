@@ -227,9 +227,9 @@ export function GlobalShipmentMap() {
       aria-label="可拖动和缩放的 OpenStreetMap 全球发运地图"
     >
       {loading ? <div className="tp-shipment-map__loading"><InlineLoading description="正在加载全球发运路线…"/></div> : <>
-        <div className="tp-shipment-map__tiles" aria-hidden="true">
-          {map.tiles.map(tile => <img key={tile.key} src={tile.url} alt="" draggable={false} loading="lazy" referrerPolicy="strict-origin-when-cross-origin" style={{ left: tile.left, top: tile.top }}/>)}
-        </div>
+        <svg className="tp-shipment-map__tiles" width={mapSize.width} height={mapSize.height} viewBox={'0 0 ' + mapSize.width + ' ' + mapSize.height} aria-hidden="true">
+          {map.tiles.map(tile => <image key={tile.key} href={tile.url} x={tile.left} y={tile.top} width={TILE_SIZE} height={TILE_SIZE}/>)}
+        </svg>
         <svg className="tp-shipment-map__overlay" width={mapSize.width} height={mapSize.height} viewBox={'0 0 ' + mapSize.width + ' ' + mapSize.height} aria-label="发运路线与目的地">
           {visible.map((shipment, index) => {
             const destination = destinationOf(shipment);
