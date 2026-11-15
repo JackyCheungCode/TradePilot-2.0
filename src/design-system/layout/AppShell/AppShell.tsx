@@ -44,7 +44,7 @@ export function AppShell() {
           onClick={() => setSideNavExpanded((expanded) => !expanded)}
         />
         <HeaderName href="/" prefix="" className="tp-header__brand" aria-label="TradePilot 首页">
-          <img src="/tradepilot-mark.svg" alt="TradePilot" />
+          <img src="/tradepilot-wordmark.svg" alt="TradePilot" />
         </HeaderName>
         <HeaderGlobalBar>
           <HeaderGlobalAction
