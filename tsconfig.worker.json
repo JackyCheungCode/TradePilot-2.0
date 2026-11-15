@@ -16,11 +16,11 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "types": [
-      "./worker/worker-configuration.d.ts",
       "node"
     ]
   },
   "include": [
-    "worker/src"
+    "worker/src",
+    "worker/worker-configuration.d.ts"
   ]
 }
