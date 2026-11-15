@@ -102,7 +102,7 @@ export function PaymentConsolePage() {
   const overdueTotal=receivables.filter(r=>r.currency===currency&&r.overdue_days>0).reduce((s,r)=>s+r.outstanding,0);
 
   const days=Array.from({length:30},(_,i)=>{const d=new Date();d.setDate(d.getDate()-29+i);const key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');return {key,label:(d.getMonth()+1)+'/'+d.getDate()};});
-  const trend=days.map(day=>({group:day.label,key:'实际到账',value:currencyRows.filter(r=>r.payment_type==='receipt'&&['confirmed','partially_reconciled','reconciled','returned'].includes(r.status)&&r.received_date===day.key).reduce((s,r)=>s+Number(r.net_received||0),0)}));
+  const trend=days.map(day=>{const received=currencyRows.filter(r=>r.payment_type==='receipt'&&['confirmed','partially_reconciled','reconciled','returned'].includes(r.status)&&r.received_date===day.key).reduce((s,r)=>s+Number(r.net_received||0),0);const refunded=currencyRows.filter(r=>r.payment_type==='refund'&&r.status==='returned'&&r.refund_date===day.key).reduce((s,r)=>s+Number(r.refund_amount||0),0);return {group:day.label,key:'净回款',value:received-refunded};});
   const statusData=PAYMENT_STATES.map(([k,v])=>({group:v,key:'收款笔数',value:currencyRows.filter(r=>r.status===k).length})).filter(x=>x.value);
   const methodData=METHODS.map(m=>({group:m,key:'收款笔数',value:currencyRows.filter(r=>r.payment_method===m).length})).filter(x=>x.value);
   const agingData=['未到期','1–30','31–60','61–90','90+'].map(k=>({group:k,key:'未收金额',value:receivables.filter(r=>r.currency===currency&&r.aging_bucket===k).reduce((s,r)=>s+r.outstanding,0)})).filter(x=>x.value>0);
