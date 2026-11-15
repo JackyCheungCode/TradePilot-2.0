@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Button, InlineLoading, InlineNotification, Select, SelectItem, TextInput, Tag, ProgressIndicator, ProgressStep,
   Table, TableHead, TableRow, TableHeader, TableBody, TableCell, Tile,
@@ -34,6 +34,7 @@ const dateLabel = (value?: string | null) => value ? new Date(value).toLocaleDat
 const unwrap = <T,>(payload: any): T => (payload?.data ?? payload?.result ?? payload) as T;
 
 export function DocumentsCenterPage() {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const initialOrderId = searchParams.get('order_id') || '';
   const initialShipmentId = searchParams.get('shipment_id') || '';
@@ -153,7 +154,7 @@ export function DocumentsCenterPage() {
 
     {created && <section className="tp-documents__created" aria-live="polite">
       <div><Tag type="green">草稿已创建</Tag><h2>{created.document_number}</h2><p>{typeLabel(created.document_type)} · {created.title}</p></div>
-      <div className="tp-documents__actions"><Button kind="secondary" onClick={() => setCreated(null)}>返回列表</Button></div>
+      <div className="tp-documents__actions"><Button kind="secondary" onClick={() => setCreated(null)}>返回列表</Button><Button kind="primary" onClick={() => navigate(`/documents/${created.id}`)}>打开单据预览</Button></div>
     </section>}
 
     {step > 0 && <section className="tp-documents__wizard" aria-label="单据创建流程">
@@ -187,7 +188,7 @@ export function DocumentsCenterPage() {
 
     <section className="tp-documents__list">
       <div className="tp-documents__list-head"><div><h2>已生成单据</h2><p>所有单据统一管理，并保留业务来源和版本记录。</p></div><div className="tp-documents__search"><TextInput id="tp-doc-search" labelText="搜索单据" hideLabel placeholder="单据编号、名称或类型" value={search} onChange={e => setSearch(e.currentTarget.value)} /></div></div>
-      {loading ? <div className="tp-documents__loading"><InlineLoading description="正在加载单据…" /></div> : filteredDocs.length ? <div className="tp-documents__table-wrap"><Table size="lg"><TableHead><TableRow><TableHeader>单据编号</TableHeader><TableHeader>单据类型</TableHeader><TableHeader>币种</TableHeader><TableHeader>语言</TableHeader><TableHeader>版本</TableHeader><TableHeader>状态</TableHeader><TableHeader>创建时间</TableHeader></TableRow></TableHead><TableBody>{filteredDocs.map(doc => <TableRow key={doc.id}><TableCell><strong>{doc.document_number}</strong><small className="tp-documents__cell-secondary">{doc.title}</small></TableCell><TableCell>{typeLabel(doc.document_type)}</TableCell><TableCell>{doc.currency_code || '—'}</TableCell><TableCell>{doc.locale || '—'}</TableCell><TableCell>v{doc.current_version || 1}</TableCell><TableCell><Tag type={doc.status === 'issued' ? 'green' : doc.status === 'voided' ? 'red' : 'blue'}>{statusLabel(doc.status)}</Tag></TableCell><TableCell>{dateLabel(doc.created_at)}</TableCell></TableRow>)}</TableBody></Table></div> : <div className="tp-documents__empty"><p>还没有单据。可以从销售订单或发运批次开始创建。</p><Button kind="primary" onClick={() => { setCreated(null); setStep(1); }}>创建第一份单据</Button></div>}
+      {loading ? <div className="tp-documents__loading"><InlineLoading description="正在加载单据…" /></div> : filteredDocs.length ? <div className="tp-documents__table-wrap"><Table size="lg"><TableHead><TableRow><TableHeader>单据编号</TableHeader><TableHeader>单据类型</TableHeader><TableHeader>币种</TableHeader><TableHeader>语言</TableHeader><TableHeader>版本</TableHeader><TableHeader>状态</TableHeader><TableHeader>创建时间</TableHeader><TableHeader>操作</TableHeader></TableRow></TableHead><TableBody>{filteredDocs.map(doc => <TableRow key={doc.id}><TableCell><strong>{doc.document_number}</strong><small className="tp-documents__cell-secondary">{doc.title}</small></TableCell><TableCell>{typeLabel(doc.document_type)}</TableCell><TableCell>{doc.currency_code || '—'}</TableCell><TableCell>{doc.locale || '—'}</TableCell><TableCell>v{doc.current_version || 1}</TableCell><TableCell><Tag type={doc.status === 'issued' ? 'green' : doc.status === 'voided' ? 'red' : 'blue'}>{statusLabel(doc.status)}</Tag></TableCell><TableCell>{dateLabel(doc.created_at)}</TableCell><TableCell><Button kind="ghost" size="sm" onClick={() => navigate(`/documents/${doc.id}`)}>查看</Button></TableCell></TableRow>)}</TableBody></Table></div> : <div className="tp-documents__empty"><p>还没有单据。可以从销售订单或发运批次开始创建。</p><Button kind="primary" onClick={() => { setCreated(null); setStep(1); }}>创建第一份单据</Button></div>}
     </section>
   </main>;
 }
