@@ -92,6 +92,9 @@ export function AppShell() {
           <SideNavLink href="/quotes" isActive={location.pathname.startsWith('/quotes')} title="报价单（Quote）" renderIcon={CarbonIcons.Document}>
             报价单（Quote）
           </SideNavLink>
+          <SideNavLink href="/sales-orders" isActive={location.pathname.startsWith('/sales-orders')} title="销售订单（Sales Order）" renderIcon={CarbonIcons.Document}>
+            销售订单（Sales Order）
+          </SideNavLink>
           <SideNavLink href="/products" isActive={location.pathname.startsWith('/products')} title="产品（Product）" renderIcon={CarbonIcons.Product}>
             产品（Product）
           </SideNavLink>
