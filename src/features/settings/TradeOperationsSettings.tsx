@@ -4,6 +4,7 @@ import {
   Table, TableHead, TableRow, TableHeader, TableBody, TableCell,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
+import { PaymentSettings } from './PaymentSettings';
 
 type Scope = 'shared' | 'shipment' | 'payment';
 type SettingItem = { id: string; setting_type: string; code: string; name: string; config: Record<string, unknown>; sequence: number; is_active: boolean };
@@ -179,7 +180,7 @@ export function TradeOperationsSettings({ scope }: { scope: Scope }) {
   const activeCurrency=items.filter(x=>x.setting_type==='currency'&&x.is_active);
   const visibleItems=items.filter(x=>x.setting_type===itemType);
 
-  if(scope==='payment') return <div className="tp-settings__advanced"><InlineNotification kind="info" title="收款设置开发中" subtitle="共享基础设置与发运设置完成验收后，将在本设置中心内接入收款方式、手续费、应收节点、账龄、信用证及对账规则。" /></div>;
+  if(scope==='payment') return <PaymentSettings />;
 
   return <div className="tp-settings__advanced">
     {error&&<InlineNotification kind="error" title="设置操作失败" subtitle={error} onCloseButtonClick={()=>setError('')}/>}
