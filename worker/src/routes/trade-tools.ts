@@ -178,7 +178,7 @@ async function omniboxQuery(request: Request, apiKey: string): Promise<Response>
     input = { keyword, match_threshold: threshold };
   } else return errorResponse(request, "INVALID_OMNIBOX_ACTION", "不支持的 Omnibox 查询类型。", 400);
   try {
-    const response = await fetch("https://omnibox.app" + endpoint, { method: "POST", redirect: "manual", headers: { "Content-Type": "application/json", Accept: "application/json", "X-API-Key": apiKey, Authorization: "Bearer " + apiKey }, body: JSON.stringify(input) });
+    const response = await fetch("https://omnibox.app" + endpoint, { method: "POST", redirect: "manual", headers: { "Content-Type": "application/json", Accept: "application/json", Authorization: "Bearer " + apiKey }, body: JSON.stringify(input) });
     const data = await readBody(response);
     if (response.status >= 300 && response.status < 400) return errorResponse(request, "OMNIBOX_REDIRECT", "Omnibox API 返回重定向，暂无法安全转发请求。", 502);
     if (!response.ok) { const reason = data.message ?? data.error ?? data.detail ?? data.errors ?? data; const detail = typeof reason === "string" ? reason : JSON.stringify(reason); return errorResponse(request, "OMNIBOX_REQUEST_FAILED", "Omnibox API 返回 HTTP " + response.status + "：" + (detail || "未提供错误详情").slice(0, 800), 502); }
