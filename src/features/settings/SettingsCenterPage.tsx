@@ -7,6 +7,7 @@ import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/settings.scss';
 import { ProductAdvancedSettings } from './ProductAdvancedSettings';
 import { OpportunitySettings, opportunitySettingSections } from './OpportunitySettings';
+import { CrmDomainSettings, crmSettingSections, type CrmSettingsDomain } from './CrmDomainSettings';
 
 type Domain = { id: string; label: string; icon: React.ReactNode; available: boolean };
 type Section = { id: string; label: string; group: string; description: string; implemented?: boolean };
@@ -17,9 +18,9 @@ type AttributeValue = { id: string; attribute_id: string; name: string; html_col
 const domains: Domain[] = [
   { id: 'products', label: '产品', icon: <CarbonIcons.Product size={20} />, available: true },
   { id: 'opportunities', label: '商机', icon: <CarbonIcons.UserMultiple size={20} />, available: true },
-  { id: 'contacts', label: '联系人', icon: <CarbonIcons.User size={20} />, available: false },
-  { id: 'accounts', label: '客户', icon: <CarbonIcons.Building size={20} />, available: false },
-  { id: 'leads', label: '线索', icon: <CarbonIcons.UserMultiple size={20} />, available: false },
+  { id: 'contacts', label: '联系人', icon: <CarbonIcons.User size={20} />, available: true },
+  { id: 'accounts', label: '客户', icon: <CarbonIcons.Building size={20} />, available: true },
+  { id: 'leads', label: '线索', icon: <CarbonIcons.UserMultiple size={20} />, available: true },
   { id: 'quotes', label: '报价', icon: <CarbonIcons.Document size={20} />, available: false },
   { id: 'orders', label: '订单', icon: <CarbonIcons.Product size={20} />, available: false },
 ];
@@ -64,7 +65,7 @@ export function SettingsCenterPage() {
   const [displayType, setDisplayType] = useState('select');
   const [variantMode, setVariantMode] = useState('never');
 
-  const activeSections: Section[] = domain === 'opportunities' ? opportunitySettingSections : productSections;
+  const activeSections: Section[] = domain === 'opportunities' ? opportunitySettingSections : domain === 'contacts' || domain === 'accounts' || domain === 'leads' ? crmSettingSections[domain as CrmSettingsDomain] : productSections;
   const activeSection = activeSections.find((item) => item.id === section) ?? activeSections[0];
   const load = useCallback(async () => {
     setLoading(true);
@@ -203,7 +204,7 @@ export function SettingsCenterPage() {
               size="md"
               className={`tp-settings__domain ${domain === item.id ? 'is-active' : ''}`}
               disabled={!item.available}
-              onClick={() => { setDomain(item.id); setSection(item.id === 'opportunities' ? 'stages' : 'categories'); setQuery(''); }}
+              onClick={() => { setDomain(item.id); setSection(item.id === 'opportunities' ? 'stages' : item.id === 'contacts' ? 'salutations' : item.id === 'accounts' ? 'account-types' : item.id === 'leads' ? 'lead-types' : 'categories'); setQuery(''); }}
               aria-pressed={domain === item.id}
             >
               <span className="tp-settings__domain-icon">{item.icon}</span>
@@ -221,15 +222,15 @@ export function SettingsCenterPage() {
         <section className="tp-settings__workspace">
           <div className="tp-settings__workspace-heading">
             <div>
-              <p className="tp-settings__eyebrow">{domain === 'opportunities' ? 'OPPORTUNITY SETTINGS' : 'PRODUCT SETTINGS'}</p>
-              <h2>{domain === 'opportunities' ? '商机设置' : '产品设置'}</h2>
-              <p>{domain === 'opportunities' ? '维护销售流程、商机分类、销售组织、活动与预测规则。' : '维护产品主数据字典、模板、包装贸易规则和数据校验策略。'}</p>
+              <p className="tp-settings__eyebrow">{domain === 'opportunities' ? 'OPPORTUNITY SETTINGS' : domain === 'contacts' ? 'CONTACT SETTINGS' : domain === 'accounts' ? 'ACCOUNT SETTINGS' : domain === 'leads' ? 'LEAD SETTINGS' : 'PRODUCT SETTINGS'}</p>
+              <h2>{domain === 'opportunities' ? '商机设置' : domain === 'contacts' ? '联系人设置' : domain === 'accounts' ? '客户设置' : domain === 'leads' ? '线索设置' : '产品设置'}</h2>
+              <p>{domain === 'opportunities' ? '维护销售流程、商机分类、销售组织、活动与预测规则。' : domain === 'contacts' ? '维护联系人身份、组织、联系方式、沟通偏好、合规与数据规则。' : domain === 'accounts' ? '维护客户主数据、客户分级、地址、交易财务、销售归属与风险规则。' : domain === 'leads' ? '维护线索分类、来源画像、资格评估、分配跟进、查重与转换规则。' : '维护产品主数据字典、模板、包装贸易规则和数据校验策略。'}</p>
             </div>
             <Tag type="green">已接入 {activeSections.length} 项</Tag>
           </div>
 
           <div className="tp-settings__section-layout">
-            <nav className="tp-settings__section-nav" aria-label={domain === 'opportunities' ? '商机设置分类' : '产品设置分类'}>
+            <nav className="tp-settings__section-nav" aria-label={domain === 'opportunities' ? '商机设置分类' : domain === 'contacts' ? '联系人设置分类' : domain === 'accounts' ? '客户设置分类' : domain === 'leads' ? '线索设置分类' : '产品设置分类'}>
               {sectionGroups.map(({ group, items }) => (
                 <div className="tp-settings__section-group" key={group}>
                   <div className="tp-settings__section-label">{group}</div>
@@ -258,7 +259,7 @@ export function SettingsCenterPage() {
               {error && <InlineNotification kind="error" title="设置操作失败" subtitle={error} onCloseButtonClick={() => setError('')} />}
               {notice && <InlineNotification kind="success" title="保存成功" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
 
-              {loading && activeSection.implemented ? <InlineLoading description="正在读取设置…" /> : null}
+              {loading && domain === 'products' && activeSection.implemented ? <InlineLoading description="正在读取设置…" /> : null}
 
               {section === 'categories' && !loading && (
                 <>
@@ -347,7 +348,7 @@ export function SettingsCenterPage() {
                 </>
               )}
 
-              {domain === 'opportunities' ? <OpportunitySettings section={section} /> : !['categories','attributes'].includes(section) && <ProductAdvancedSettings section={section} />}
+              {domain === 'opportunities' ? <OpportunitySettings section={section} /> : domain === 'contacts' || domain === 'accounts' || domain === 'leads' ? <CrmDomainSettings domain={domain as CrmSettingsDomain} section={section} /> : !['categories','attributes'].includes(section) && <ProductAdvancedSettings section={section} />}
 
             </div>
           </div>
