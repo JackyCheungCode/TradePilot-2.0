@@ -23,7 +23,7 @@ export function AgentSettings() {
   const [providers,setProviders] = useState<Provider[]>([]);
   const [selectedModel,setSelectedModel] = useState('');
   const [profiles,setProfiles] = useState<Profile[]>([]);
-  const [appearance,setAppearance] = useState<Appearance>({shape:'blob',color:'cream',styleId:'vector',variant:'soft',face:'cute'});
+  const [appearance,setAppearance] = useState<Appearance>({shape:'blob',color:'ivory',styleId:'vector',variant:'soft',face:'cute'});
   const [loading,setLoading] = useState(true);
   const [saving,setSaving] = useState(false);
   const [error,setError] = useState('');
@@ -130,11 +130,11 @@ export function AgentSettings() {
         <Select id="agent-avatar-color" labelText="头像配色" value={appearance.color} onChange={event => setAppearance(item => ({...item,color:event.currentTarget.value}))}>
           {['ivory','black','brown','red','orange','yellow','green','cyan','blue','violet','magenta','pink','gray','sage','clay','navy','mauve','night','cocoa','sky','blush','lilac','butter','meadow'].map(value => <SelectItem key={value} value={value} text={value} />)}
         </Select>
-        <Select id="agent-avatar-style" labelText="视觉风格" value={appearance.styleId} onChange={event => setAppearance(item => ({...item,styleId:event.currentTarget.value}))}>
+        <Select id="agent-avatar-style" labelText="视觉风格" value={appearance.styleId} onChange={event => { const styleId = event.currentTarget.value; setAppearance(item => ({...item,styleId,variant:styleId === 'pixel' ? 'crisp' : styleId === 'kaomoji' ? 'plain' : 'soft'})); }}>
           {['vector','pixel','kaomoji'].map(value => <SelectItem key={value} value={value} text={value} />)}
         </Select>
         <Select id="agent-avatar-variant" labelText="表面效果" value={appearance.variant} onChange={event => setAppearance(item => ({...item,variant:event.currentTarget.value}))}>
-          {['solid','outline','glass','sticker','paper','soft','riso','pencil','marker','crayon','watercolor','neon','chalk','origami','relief','gothic'].map(value => <SelectItem key={value} value={value} text={value} />)}
+          {(appearance.styleId === 'pixel' ? ['crisp','dot','block'] : appearance.styleId === 'kaomoji' ? ['plain','bubble'] : ['solid','outline','glass','sticker','paper','soft','riso','pencil','marker','crayon','watercolor','neon','chalk','origami','relief','gothic']).map(value => <SelectItem key={value} value={value} text={value} />)}
         </Select>
         <Select id="agent-avatar-face" labelText="面部样式" value={appearance.face} onChange={event => setAppearance(item => ({...item,face:event.currentTarget.value}))}>
           {['cute','eyes','line','symbol','button','capsule','brow','glossy','sparkle','shades','droopy','bigmouth','pie','screen','teardrop','specs'].map(value => <SelectItem key={value} value={value} text={value} />)}
