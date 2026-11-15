@@ -1,0 +1,24 @@
+@use '@carbon/react';
+@use '@carbon/react/scss/themes' as themes;
+@use '@carbon/react/scss/theme' as theme;
+
+:root {
+  @include theme.theme(themes.$white);
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--cds-background);
+  color: var(--cds-text-primary);
+  font-family: 'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
