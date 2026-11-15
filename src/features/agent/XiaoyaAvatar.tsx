@@ -26,7 +26,7 @@ declare global {
 }
 
 const AVATAR_COLORS: Record<string,string> = {
-  ivory:'#F3F0EA', black:'#292929', brown:'#8B5E3C', red:'#D94B4B', orange:'#E98A3A',
+  cream:'#F3F0EA', ivory:'#F3F0EA', black:'#292929', brown:'#8B5E3C', red:'#D94B4B', orange:'#E98A3A',
   yellow:'#E8C84A', green:'#4F9D69', cyan:'#42A9B8', blue:'#4D83C6', violet:'#8064B8',
   magenta:'#B84D91', pink:'#E58BAA', gray:'#8B929A', sage:'#9AAE91', clay:'#B87861',
   navy:'#354B70', mauve:'#A47F9B', night:'#41465A', cocoa:'#795548', sky:'#86B9D8',
