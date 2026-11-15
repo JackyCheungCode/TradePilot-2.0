@@ -151,18 +151,19 @@ export function ProspectDiscoveryPage() {
     {step===1&&<>
       <section className="tp-discovery__panel tp-discovery__category-panel">
         <div className="tp-discovery__section-head"><div><h2><CarbonIcons.Search size={20} aria-hidden="true"/>选择发现平台大类</h2><p>先选择发现渠道类别。默认显示全部平台，便于快速浏览。</p></div><Tag type="gray">第 1 层 · 平台类别</Tag></div>
-        <Tabs
-          selectedIndex={(['all','maps','social','ecommerce'] as CategoryFilter[]).indexOf(category)}
-          onChange={({selectedIndex})=>selectCategory((['all','maps','social','ecommerce'] as CategoryFilter[])[selectedIndex]??'all')}
-          className="tp-discovery__category-tabs"
-        >
-          <TabList aria-label="发现平台大类" contained>
-            <Tab><span className="tp-discovery__category-tab"><CarbonIcons.Apps size={20} aria-hidden="true"/>全部平台</span></Tab>
-            <Tab><span className="tp-discovery__category-tab"><CarbonIcons.Map size={20} aria-hidden="true"/>地图平台</span></Tab>
-            <Tab><span className="tp-discovery__category-tab"><CarbonIcons.Share size={20} aria-hidden="true"/>社交媒体</span></Tab>
-            <Tab><span className="tp-discovery__category-tab"><CarbonIcons.ShoppingCart size={20} aria-hidden="true"/>电商平台</span></Tab>
-          </TabList>
-        </Tabs>
+        <div className="tp-discovery__category-tabs">
+          <Tabs
+            selectedIndex={(['all','maps','social','ecommerce'] as CategoryFilter[]).indexOf(category)}
+            onChange={({selectedIndex})=>selectCategory((['all','maps','social','ecommerce'] as CategoryFilter[])[selectedIndex]??'all')}
+          >
+            <TabList aria-label="发现平台大类" contained>
+              <Tab><span className="tp-discovery__category-tab"><CarbonIcons.Apps size={20} aria-hidden="true"/>全部平台</span></Tab>
+              <Tab><span className="tp-discovery__category-tab"><CarbonIcons.Map size={20} aria-hidden="true"/>地图平台</span></Tab>
+              <Tab><span className="tp-discovery__category-tab"><CarbonIcons.Share size={20} aria-hidden="true"/>社交媒体</span></Tab>
+              <Tab><span className="tp-discovery__category-tab"><CarbonIcons.ShoppingCart size={20} aria-hidden="true"/>电商平台</span></Tab>
+            </TabList>
+          </Tabs>
+        </div>
       </section>
       <section className="tp-discovery__panel tp-discovery__platform-panel">
         <div className="tp-discovery__section-head"><div><h2><CarbonIcons.Search size={20} aria-hidden="true"/>选择具体发现平台</h2><p>{category==='all'?'当前展示全部平台；选择上方类别后，这里会同步筛选对应平台。':('当前展示'+(platformGroups.find(group=>group.id===category)?.title??'所选类别')+'下的平台。')}</p></div><Tag type="gray">第 2 层 · 具体平台 · 单选</Tag></div>
