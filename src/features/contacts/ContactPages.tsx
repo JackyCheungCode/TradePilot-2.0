@@ -87,6 +87,7 @@ function SocialRows({items,onChange}:{items:ContactMethod[];onChange:(v:ContactM
   </div>;
 }
 
+
 const PAGE_SIZE = 15;
 type CountryStat = { key: string; label: string; total: number; verified: number; active: number };
 const GROUP_FIELDS = [
@@ -127,6 +128,7 @@ export function ContactConsolePage() {
   const [total,setTotal]=useState(0);
   const [stats,setStats]=useState({total:0,verified:0,new30:0,active:0,primary:0});
   const [loading,setLoading]=useState(true);
+  const [analyticsLoading,setAnalyticsLoading]=useState(true);
   const [error,setError]=useState('');
   const [query,setQuery]=useState('');
   const [statusFilter,setStatusFilter]=useState('all');
@@ -137,8 +139,8 @@ export function ContactConsolePage() {
   const [thenBy,setThenBy]=useState('account');
   const [showGroups,setShowGroups]=useState(true);
 
-  const load=useCallback(async()=>{
-    setLoading(true);setError('');
+  const loadAnalytics=useCallback(async()=>{
+    setAnalyticsLoading(true);
     try {
       const client=await getSupabaseClient();
       const now=Date.now();
@@ -176,6 +178,15 @@ export function ContactConsolePage() {
         countryMap.set(key,current);
       });
       setCountryStats([...countryMap.values()].sort((a,b)=>b.total-a.total));
+    } catch(e) {
+      setError(e instanceof Error?e.message:'汇总联系人统计失败');
+    } finally { setAnalyticsLoading(false); }
+  },[]);
+
+  const loadRows=useCallback(async()=>{
+    setLoading(true);setError('');
+    try {
+      const client=await getSupabaseClient();
       let listQuery=client.from('crm_contacts')
         .select('id,account_id,first_name,last_name,full_name,job_title,department,email,phone,mobile,whatsapp,contact_type,decision_role,is_primary,is_active,notes,custom_fields,created_at,updated_at,crm_accounts(account_name,country_code)',{count:'exact'})
         .eq('is_archived',false).order('updated_at',{ascending:false});
@@ -196,7 +207,8 @@ export function ContactConsolePage() {
     } finally { setLoading(false); }
   },[page,query,statusFilter,sourceFilter,primaryFilter]);
 
-  useEffect(()=>{void load();},[load]);
+  useEffect(()=>{void loadAnalytics();},[loadAnalytics]);
+  useEffect(()=>{void loadRows();},[loadRows]);
   const grouped=useMemo(()=>{
     const parents=new Map<string,Map<string,ContactRow[]>>();
     rows.forEach(row=>{
@@ -220,8 +232,9 @@ export function ContactConsolePage() {
   const pages=Math.max(1,Math.ceil(total/PAGE_SIZE));
   const start=total===0?0:(page-1)*PAGE_SIZE+1;
   const end=Math.min(page*PAGE_SIZE,total);
+  const refresh=()=>{void Promise.all([loadAnalytics(),loadRows()]);};
   return <main className="tp-contacts">
-    <header className="tp-contacts__header"><div><p className="tp-contacts__eyebrow">TRADEPILOT / CRM</p><h1>联系人（Contact）</h1><p>管理客户组织中的联系人及其关系、联系方式与沟通偏好。</p></div><div className="tp-contacts__actions"><Button kind="tertiary" onClick={()=>void load()} disabled={loading}><CarbonIcons.Renew size={16}/>刷新</Button><Button kind="primary" onClick={()=>navigate('/contacts/new')}><CarbonIcons.Add size={16}/>创建联系人</Button></div></header>
+    <header className="tp-contacts__header"><div><p className="tp-contacts__eyebrow">TRADEPILOT / CRM</p><h1>联系人（Contact）</h1><p>管理客户组织中的联系人及其关系、联系方式与沟通偏好。</p></div><div className="tp-contacts__actions"><Button kind="tertiary" onClick={refresh} disabled={loading||analyticsLoading}><CarbonIcons.Renew size={16}/>刷新</Button><Button kind="primary" onClick={()=>navigate('/contacts/new')}><CarbonIcons.Add size={16}/>创建联系人</Button></div></header>
     {error&&<InlineNotification kind="error" title="联系人读取失败" subtitle={error} onCloseButtonClick={()=>setError('')}/>}
     <section className="tp-contacts__stats">
       {[['全部联系人',stats.total,'总记录'],['已验证联系人',stats.verified,'至少一项联系方式已验证'],['近 30 天新增',stats.new30,'按创建时间统计'],['在职联系人',stats.active,'当前在职'],['主要联系人',stats.primary,'Account 主联系人']].map(([label,value,description])=><Tile key={String(label)} className="tp-contacts__stat-tile"><span>{label}</span><strong>{Number(value).toLocaleString()}</strong><small>{description}</small></Tile>)}
@@ -229,7 +242,7 @@ export function ContactConsolePage() {
     <section className="tp-contacts__panel">
       <div className="tp-contacts__country-panel">
         <div className="tp-contacts__section-head"><div><h2>国家 / 地区分布</h2><p>按联系人国家汇总；验证数按已验证联系方式去重统计。</p></div></div>
-        {loading&&!countryStats.length?<InlineLoading description="正在汇总国家 / 地区…" />:countryStats.length?<div className="tp-contacts__country-chart">{chartCountries.map(item=><div className="tp-contacts__country-row" key={item.key}><div className="tp-contacts__country-label"><span>{item.label}</span><strong>{item.total}</strong></div><svg className="tp-contacts__country-chart-bar" viewBox="0 0 100 8" preserveAspectRatio="none" role="img" aria-label={item.label+' 联系人数 '+item.total}><rect className="tp-contacts__country-chart-track" x="0" y="0" width="100" height="8"/><rect className="tp-contacts__country-chart-fill" x="0" y="0" width={Math.max(2,item.total/maxCountry*100)} height="8"/></svg><div className="tp-contacts__country-meta"><span>已验证 {item.verified}</span><span>在职 {item.active}</span></div></div>)}</div>:<p className="tp-contacts__empty">暂无可用于统计的联系人国家 / 地区数据。</p>}
+        {analyticsLoading&&!countryStats.length?<InlineLoading description="正在汇总国家 / 地区…" />:chartCountries.length?<div className="tp-contacts__country-chart">{chartCountries.map(item=><div className="tp-contacts__country-row" key={item.key}><div className="tp-contacts__country-label"><span>{item.label}</span><strong>{item.total}</strong></div><svg className="tp-contacts__country-chart-bar" viewBox="0 0 100 8" preserveAspectRatio="none" role="img" aria-label={item.label+' 联系人数 '+item.total}><rect className="tp-contacts__country-chart-track" x="0" y="0" width="100" height="8"/><rect className="tp-contacts__country-chart-fill" x="0" y="0" width={Math.max(2,item.total/maxCountry*100)} height="8"/></svg><div className="tp-contacts__country-meta"><span>已验证 {item.verified}</span><span>在职 {item.active}</span></div></div>)}</div>:<p className="tp-contacts__empty">暂无可用于统计的联系人国家 / 地区数据。</p>}
       </div>
       <div className="tp-contacts__list-head"><div><h2>联系人列表</h2><p>当前筛选共 {total.toLocaleString()} 条记录；每页最多 {PAGE_SIZE} 条。</p></div><div className="tp-contacts__search"><TextInput id="contacts-search" labelText="搜索联系人" placeholder="姓名、职位、邮箱或电话" value={query} onChange={e=>{setQuery(e.currentTarget.value);setPage(1);}}/></div></div>
       <div className="tp-contacts__filters">
