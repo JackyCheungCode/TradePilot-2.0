@@ -350,9 +350,9 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
             <Field id="pay-lc-advising" label="通知行" value={payment.lc_advising_bank} onChange={v=>set('lc_advising_bank',v)} disabled={locked}/>
             <Field id="pay-lc-amount" label="信用证金额" type="number" value={payment.lc_amount} onChange={v=>set('lc_amount',v)} disabled={locked}/>
             <Pick id="pay-lc-type" label="信用证类型" value={payment.lc_type} onChange={v=>set('lc_type',v)} options={['即期','远期']} disabled={locked}/>
-            {payment.lc_type==='远期'&&<Field id="pay-usance" label="远期天数（必填）" type="number" value={payment.usance_days} onChange={v=>{set('usance_days',v);if(payment.acceptance_date&&Number(v)>=0)set('maturity_date',datePlusDays(payment.acceptance_date,Number(v)))}} disabled={locked}/>}
+            {payment.lc_type==='远期'&&<Field id="pay-usance" label="远期天数（必填）" type="number" value={payment.usance_days} onChange={v=>{set('usance_days',v);if(payment.acceptance_date&&v!==''&&Number(v)>=0)set('maturity_date',datePlusDays(payment.acceptance_date,Number(v)));else set('maturity_date','')}} disabled={locked}/>}
             <Field id="pay-presentation" label="交单日期" type="date" value={payment.presentation_date} onChange={v=>set('presentation_date',v)} disabled={locked}/>
-            <Field id="pay-acceptance" label="承兑日期" type="date" value={payment.acceptance_date} onChange={v=>{set('acceptance_date',v);if(payment.usance_days)set('maturity_date',datePlusDays(v,Number(payment.usance_days)))}} disabled={locked}/>
+            <Field id="pay-acceptance" label="承兑日期" type="date" value={payment.acceptance_date} onChange={v=>{set('acceptance_date',v);if(v&&payment.usance_days)set('maturity_date',datePlusDays(v,Number(payment.usance_days)));else set('maturity_date','')}} disabled={locked}/>
             <Field id="pay-maturity" label="到期付款日（自动计算）" type="date" value={payment.maturity_date} onChange={()=>{}} disabled/>
             <Pick id="pay-discrepancy-status" label="不符点状态" value={payment.discrepancy_status} onChange={v=>set('discrepancy_status',v)} options={['无','已提出','已接受','已拒付']} disabled={locked}/>
             <div className="tp-payments__field-wide"><TextArea id="pay-discrepancy" labelText="不符点说明" rows={3} value={payment.discrepancy||''} disabled={locked} onChange={e=>set('discrepancy',e.currentTarget.value)}/></div>
