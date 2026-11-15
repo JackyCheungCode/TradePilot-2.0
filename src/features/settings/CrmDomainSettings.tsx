@@ -160,8 +160,6 @@ const defaults:Record<string,Array<[string,string,Record<string,unknown>]>> = {
 };
 
 const blank = (schema:Field[]) => Object.fromEntries(schema.map(field=>[field.key,field.type==='select'?(field.options?.[0]?.[0]??''):field.type==='number'?'':'']));
-const labels:Record<string,string> = Object.fromEntries(Object.entries(crmSettingSections).flatMap(([domain,sections])=>sections.map(section=>[domain+'.'+section.id,section.label])));
-
 export function useCrmSettingOptions(domain:CrmSettingsDomain,section:string,fallback:Array<{id:string;text:string}>) {
  const [items,setItems]=useState(fallback);
  useEffect(()=>{
@@ -245,7 +243,7 @@ export function CrmDomainSettings({domain,section}:{domain:CrmSettingsDomain;sec
   {error&&<InlineNotification kind="error" title="设置操作失败" subtitle={error} onCloseButtonClick={()=>setError('')}/>}
   {notice&&<InlineNotification kind="info" title="提示" subtitle={notice} onCloseButtonClick={()=>setNotice('')}/>}
   <div className="tp-settings__editor">
-   <div className="tp-settings__editor-title"><h4>{editing?'编辑':'新增'}{labels[domain+'.'+section]??'CRM 设置'}</h4>{(editing||name)&&<Button kind="ghost" size="sm" onClick={reset}>取消编辑</Button>}</div>
+   <div className="tp-settings__editor-title"><h4>{editing?'编辑':'新增'}{crmSettingSections[domain].find(item=>item.id===section)?.label??'CRM 设置'}</h4>{(editing||name)&&<Button kind="ghost" size="sm" onClick={reset}>取消编辑</Button>}</div>
    <div className="tp-settings__editor-grid">
     <TextInput id={'crm-setting-name-'+domain+'-'+section} labelText="名称" value={name} onChange={e=>setName(e.currentTarget.value)}/>
     <TextInput id={'crm-setting-code-'+domain+'-'+section} labelText="编码（建议唯一）" value={code} onChange={e=>setCode(e.currentTarget.value)}/>
