@@ -137,7 +137,44 @@ begin
       from public.enterprise_bank_accounts ba
       where ba.enterprise_id = new.enterprise_profile_id
         and ba.owner_id = new.owner_id and ba.is_active = true and ba.is_archived = false
-    ), '[]'::jsonb)
+    ), '[]'::jsonb),
+      'sales_order', jsonb_build_object(
+      'account_snapshot', new.metadata #> '{sales_order,account_snapshot}',
+      'contact_snapshot', new.metadata #> '{sales_order,contact_snapshot}',
+      'bank_account_snapshot', new.metadata #> '{sales_order,bank_account_snapshot}',
+      'selected_addresses', new.metadata #> '{sales_order,selected_addresses}',
+      'charges', coalesce((
+        select jsonb_agg(jsonb_build_object(
+          'name', charge->'name', 'amount', charge->'amount',
+          'taxable', charge->'taxable', 'taxRate', charge->'taxRate'
+        ))
+        from jsonb_array_elements(case
+          when jsonb_typeof(new.metadata #> '{sales_order,charges}') = 'array'
+          then new.metadata #> '{sales_order,charges}'
+          else '[]'::jsonb end) charge
+      ), '[]'::jsonb),
+      'payment_schedule', coalesce((
+        select jsonb_agg(jsonb_build_object(
+          'milestone', payment->'milestone', 'ratio', payment->'ratio',
+          'due_date', payment->'due_date', 'trigger', payment->'trigger',
+          'amount', payment->'amount', 'status', payment->'status'
+        ))
+        from jsonb_array_elements(case
+          when jsonb_typeof(new.metadata #> '{sales_order,payment_schedule}') = 'array'
+          then new.metadata #> '{sales_order,payment_schedule}'
+          else '[]'::jsonb end) payment
+      ), '[]'::jsonb),
+      'totals', jsonb_build_object(
+        'product_subtotal', coalesce(new.metadata #> '{sales_order,totals,product_subtotal}', '0'::jsonb),
+        'line_discount_total', coalesce(new.metadata #> '{sales_order,totals,line_discount_total}', '0'::jsonb),
+        'order_discount', coalesce(new.metadata #> '{sales_order,totals,order_discount}', '0'::jsonb),
+        'charge_subtotal', coalesce(new.metadata #> '{sales_order,totals,charge_subtotal}', '0'::jsonb),
+        'tax_total', coalesce(new.metadata #> '{sales_order,totals,tax_total}', '0'::jsonb),
+        'grand_total', coalesce(new.metadata #> '{sales_order,totals,grand_total}', '0'::jsonb)
+      ),
+      'tax_mode', new.metadata #> '{sales_order,form,tax_mode}',
+      'order_discount', new.metadata #> '{sales_order,form,order_discount}'
+    )
     );
   end if;
 
