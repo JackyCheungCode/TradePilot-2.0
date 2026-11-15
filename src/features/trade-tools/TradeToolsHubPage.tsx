@@ -6,17 +6,61 @@ import '@/design-system/patterns/trade-tools.scss';
 
 type ToolKey = 'hs' | 'tariff' | 'screen' | 'rulings';
 type ToolMeta = { id: ToolKey; name: string; description: string; icon: React.ReactNode; category: string };
+type ResultRecord = Record<string, unknown>;
 const omniboxTools: ToolMeta[] = [
   { id: 'hs', name: 'HS Code 智能归类', description: '根据商品描述预测美国 10 位 HTS 编码', icon: <CarbonIcons.Product size={20}/>, category: '产品与关税' },
   { id: 'tariff', name: '出口关税预估', description: '查询基础、优惠及附加关税结构', icon: <CarbonIcons.Calculator size={20}/>, category: '产品与关税' },
   { id: 'screen', name: '贸易实体制裁筛查', description: '检查企业或个人是否命中受限名单', icon: <CarbonIcons.Security size={20}/>, category: '贸易合规' },
   { id: 'rulings', name: '美国 CBP 海关裁决检索', description: '语义检索美国海关历史裁决', icon: <CarbonIcons.Document size={20}/>, category: '贸易合规' },
 ];
-async function authToken() {
-  const db = await getSupabaseClient();
-  const { data } = await db.auth.getSession();
-  if (!data.session?.access_token) throw new Error('登录状态已失效，请重新登录。');
-  return data.session.access_token;
+const fieldLabels: Record<string, string> = {
+  hs_code: 'HS 编码', hts_code: 'HTS 编码', code: '编码', description: '商品描述', product_description: '商品描述',
+  heading: '税目', subheading: '子目', chapter: '章节', confidence: '匹配置信度', confidence_score: '匹配置信度',
+  general_rate: '基础税率', general: '基础税率', special_rate: '优惠税率', special: '优惠税率',
+  other_rate: '其他附加税率', additional_rate: '附加税率', tariff_rate: '关税税率', duty_rate: '关税税率',
+  estimated_duty: '预估关税', duty: '关税', value: '申报价值', currency: '币种', origin_country: '原产国',
+  country: '国家/地区', countries: '国家/地区', name: '主体名称', entity_name: '主体名称',
+  matched_name: '命中名称', list_name: '名单来源', source: '数据来源', program: '限制项目',
+  match_type: '匹配类型', score: '匹配分数', status: '筛查状态', is_match: '是否命中',
+  address: '地址', city: '城市', state: '州/省', date: '日期', ruling_date: '裁决日期',
+  ruling_number: '裁决编号', control_number: '裁决编号', title: '标题', subject: '裁决主题',
+  summary: '摘要', url: '来源链接', link: '来源链接', keyword: '检索关键词', reason: '说明',
+};
+const preferredArrayKeys = ['results', 'items', 'matches', 'rulings', 'records', 'classifications', 'candidates', 'data'];
+function labelFor(key: string) {
+  const normalized = key.replace(/([a-z])([A-Z])/g, '$1_$2').toLowerCase();
+  return fieldLabels[normalized] || key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+function displayValue(value: unknown): string {
+  if (value === null || value === undefined || value === '') return '—';
+  if (typeof value === 'boolean') return value ? '是' : '否';
+  if (typeof value === 'object') return Array.isArray(value) ? value.map(displayValue).join('；') : JSON.stringify(value);
+  return String(value);
+}
+function findRecords(value: unknown, depth = 0): ResultRecord[] {
+  if (depth > 5 || !value || typeof value !== 'object') return [];
+  if (Array.isArray(value)) {
+    if (value.length && value.every(item => item && typeof item === 'object' && !Array.isArray(item))) return value as ResultRecord[];
+    for (const item of value) { const found = findRecords(item, depth + 1); if (found.length) return found; }
+    return [];
+  }
+  const object = value as Record<string, unknown>;
+  for (const key of preferredArrayKeys) {
+    if (key in object) { const found = findRecords(object[key], depth + 1); if (found.length) return found; }
+  }
+  for (const nested of Object.values(object)) { const found = findRecords(nested, depth + 1); if (found.length) return found; }
+  return [];
+}
+function resultEntries(value: unknown): Array<[string, unknown]> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return [['查询结果', value]];
+  return Object.entries(value as Record<string, unknown>).filter(([, item]) => item === null || ['string', 'number', 'boolean'].includes(typeof item));
+}
+function authToken() {
+  return getSupabaseClient().then(async db => {
+    const { data } = await db.auth.getSession();
+    if (!data.session?.access_token) throw new Error('登录状态已失效，请重新登录。');
+    return data.session.access_token;
+  });
 }
 export function TradeToolsHubPage() {
   const navigate = useNavigate();
@@ -36,6 +80,8 @@ export function TradeToolsHubPage() {
   const filteredTools = useMemo(() => omniboxTools.filter(tool => (tool.name + tool.description + tool.category).toLowerCase().includes(query.trim().toLowerCase())), [query]);
   const categories = useMemo(() => [{ name: '产品与关税', tools: filteredTools.filter(tool => tool.category === '产品与关税') }, { name: '贸易合规', tools: filteredTools.filter(tool => tool.category === '贸易合规') }], [filteredTools]);
   const activeTool = omniboxTools.find(tool => tool.id === active) || null;
+  const records = useMemo(() => findRecords(result), [result]);
+  const entries = useMemo(() => resultEntries(result), [result]);
   const runQuery = async () => {
     if (!active) return;
     setBusy(true); setError(''); setResult(null);
@@ -70,7 +116,11 @@ export function TradeToolsHubPage() {
           {active === 'rulings' && <><TextArea id="omnibox-rulings-keyword" labelText="裁决检索关键词" rows={4} value={keyword} onChange={e => setKeyword(e.currentTarget.value)} placeholder="例如：waterproof footwear, wireless bluetooth speaker"/><TextInput id="omnibox-rulings-threshold" labelText="匹配阈值（0–1）" type="number" value={threshold} onChange={e => setThreshold(e.currentTarget.value)}/></>}
           {error && <InlineNotification kind="error" title="查询失败" subtitle={error}/>}
           <div className="tp-tool-center__actions"><Button kind="primary" disabled={busy || ((active === 'hs' || active === 'tariff') ? !productDescription.trim() : active === 'screen' ? !entityName.trim() : !keyword.trim())} onClick={() => void runQuery()}>{busy ? '正在查询…' : '查询'}</Button>{busy && <InlineLoading description="正在请求 Omnibox 服务…"/>}</div>
-          {result !== null && <div className="tp-tool-center__result"><div className="tp-tool-center__result-heading"><h3>查询结果</h3><Button kind="ghost" size="sm" onClick={() => void navigator.clipboard?.writeText(JSON.stringify(result, null, 2))}>复制结果</Button></div><pre>{JSON.stringify(result, null, 2)}</pre></div>}
+          {result !== null && <section className="tp-tool-center__result" aria-live="polite">
+            <div className="tp-tool-center__result-heading"><h3>查询结果</h3><Button kind="ghost" size="sm" onClick={() => void navigator.clipboard?.writeText(JSON.stringify(result, null, 2))}>复制原始数据</Button></div>
+            {records.length > 0 ? <div className="tp-tool-center__table-wrap"><table className="cds--data-table cds--data-table--md"><thead><tr>{Object.keys(records[0]).filter(key => !['raw', 'metadata'].includes(key.toLowerCase())).slice(0, 9).map(key => <th key={key} scope="col">{labelFor(key)}</th>)}</tr></thead><tbody>{records.map((record, index) => <tr key={String(record.id ?? record.ruling_number ?? record.hts_code ?? index)}>{Object.keys(records[0]).filter(key => !['raw', 'metadata'].includes(key.toLowerCase())).slice(0, 9).map(key => <td key={key}>{displayValue(record[key])}</td>)}</tr>)}</tbody></table></div> : <div className="tp-tool-center__table-wrap"><table className="cds--data-table cds--data-table--md"><thead><tr><th scope="col">业务字段</th><th scope="col">查询结果</th></tr></thead><tbody>{entries.map(([key, value]) => <tr key={key}><th scope="row">{labelFor(key)}</th><td>{displayValue(value)}</td></tr>)}</tbody></table></div>}
+            <details className="tp-tool-center__raw"><summary>查看原始 JSON 数据</summary><pre>{JSON.stringify(result, null, 2)}</pre></details>
+          </section>}
           <p className="tp-tool-center__footnote">查询结果仅供业务预判。HS Code 和关税信息不构成海关正式归类或报关意见；实体筛查命中结果需要结合主体身份、地址和官方清单进一步核实。</p>
         </>}
       </section>
