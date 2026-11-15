@@ -72,3 +72,7 @@
 .tp-console__filters{grid-template-columns:repeat(4,minmax(0,1fr))}
 @media(max-width:1000px){.tp-console__filters{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:672px){.tp-console__date-range,.tp-console__filters{grid-template-columns:1fr}}
+
+.tp-console__bulk-actions{display:flex;align-items:center;flex-wrap:wrap;gap:var(--cds-spacing-03);padding:var(--cds-spacing-03) var(--cds-spacing-04);background:var(--cds-layer-02)}
+.tp-console__bulk-actions>span{margin-right:auto;font-size:.875rem;font-weight:600;font-variant-numeric:tabular-nums}
+.tp-console__table-scroll .cds--checkbox-label-text{font-size:.75rem}
