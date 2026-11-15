@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Button, InlineLoading, InlineNotification, Tag, TextInput } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
+import '@/design-system/patterns/trade-tools.scss';
 
 type Status = { dhl?:boolean; upsClientId?:boolean; upsClientSecret?:boolean; fedexClientId?:boolean; fedexClientSecret?:boolean };
 type Credential = { id:string; label:string; hint:string; field:string; statusKey:keyof Status; placeholder:string };
