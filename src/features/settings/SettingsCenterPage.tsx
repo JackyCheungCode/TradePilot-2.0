@@ -31,7 +31,11 @@ const domains: Domain[] = [
   { id: 'integrations', label: '外贸工具 API', icon: <CarbonIcons.Api size={20} />, available: true },
 ];
 
-const integrationSections: Section[] = [\n  { id: 'credentials', label: '承运商接口凭证', group: '外贸工具 API', description: '安全配置 DHL、UPS、FedEx 官方物流追踪 API 凭证。', implemented: true },\n];\n\nconst agentSections: Section[] = [
+const integrationSections: Section[] = [
+  { id: 'credentials', label: '承运商接口凭证', group: '外贸工具 API', description: '安全配置 DHL、UPS、FedEx 官方物流追踪 API 凭证。', implemented: true },
+];
+
+const agentSections: Section[] = [
   { id: 'models', label: '模型配置', group: '小雅与 Agent', description: '设置小雅使用的模型供应商、对话模型和任务规划模型。', implemented: true },
   { id: 'profiles', label: 'Agent 管理', group: '小雅与 Agent', description: '管理内置专业 Agent 的启用状态与专属指令。', implemented: true },
   { id: 'appearance', label: '头像与形象', group: '小雅与 Agent', description: '配置小雅默认头像的形状、配色和视觉风格。', implemented: true },
