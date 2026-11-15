@@ -5,7 +5,8 @@ import type { Session, SupabaseClient } from '@supabase/supabase-js';
 import {
   Button, Checkbox, InlineLoading, InlineNotification, NumberInput, ProgressBar,
   Select, SelectItem, Table, TableBody, TableCell, TableContainer, TableHead,
-  TableHeader, TableRow, Tag, TextInput, RadioButton, RadioButtonGroup, Tabs, TabList, Tab, CarbonIcons,
+  TableHeader, TableRow, Tag, TextInput, RadioButton, RadioButtonGroup, Tabs, TabList, Tab,
+  Layer, StructuredListWrapper, StructuredListBody, StructuredListRow, StructuredListCell, CarbonIcons,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import {
