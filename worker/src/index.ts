@@ -53,7 +53,7 @@ export default {
   try {
    if (url.pathname === "/api/v1/public-config" && request.method === "GET") return successResponse(request, { supabaseUrl: env.SUPABASE_URL, supabasePublishableKey: env.SUPABASE_ANON_KEY });
    if (url.pathname === "/api/v1/health" && request.method === "GET") return handleHealth(request);
-   if (url.pathname === "/api/v1/trade-tools/track") return await handleTradeTools(request, env);
+   if (url.pathname.startsWith("/api/v1/trade-tools/")) return await handleTradeTools(request, env);
    if (url.pathname.startsWith("/api/v1/agent/")) return await handleAgentCenter(request, env);
    if (url.pathname.startsWith("/api/v1/trade/")) return await handleTradeDocuments(request, env);
    if (url.pathname.startsWith("/api/v1/master-data/")) return await handleMasterData(request, env);
