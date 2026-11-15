@@ -28,8 +28,8 @@ function Metric({label,value,detail,icon:Icon}:{label:string;value:string;detail
 function Field({id,label,value,onChange,type='text',disabled=false,placeholder=''}:{id:string;label:string;value:any;onChange:(v:string)=>void;type?:string;disabled?:boolean;placeholder?:string}) {
   return <TextInput id={id} labelText={label} type={type} value={String(value??'')} disabled={disabled} placeholder={placeholder} onChange={e=>onChange(e.currentTarget.value)}/>;
 }
-function Pick({id,label,value,onChange,options,disabled=false}:{id:string;label:string;value:any;onChange:(v:string)=>void;options:string[];disabled?:boolean}) {
-  return <Select id={id} labelText={label} value={String(value??'')} disabled={disabled} onChange={e=>onChange(e.currentTarget.value)}><SelectItem value="" text="请选择"/>{options.map(x=><SelectItem key={x} value={x} text={x}/>)}</Select>;
+function Pick({id,label,value,onChange,options,disabled=false}:{id:string;label:string;value:any;onChange:(v:string)=>void;options:Array<string|{value:string;label:string}>;disabled?:boolean}) {
+  return <Select id={id} labelText={label} value={String(value??'')} disabled={disabled} onChange={e=>onChange(e.currentTarget.value)}><SelectItem value="" text="请选择"/>{options.map(x=>{const option=typeof x==='string'?{value:x,label:x}:x;return <SelectItem key={option.value} value={option.value} text={option.label}/>;})}</Select>;
 }
 
 export function PaymentConsolePage() {
@@ -130,7 +130,7 @@ export function PaymentConsolePage() {
 }
 
 export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
-  const nav=useNavigate();const {id}=useParams();const editing=Boolean(id);const [accounts,setAccounts]=useState<AnyRow[]>([]);const [contacts,setContacts]=useState<AnyRow[]>([]);const [orders,setOrders]=useState<AnyRow[]>([]);const [banks,setBanks]=useState<AnyRow[]>([]);
+  const nav=useNavigate();const {id}=useParams();const editing=Boolean(id);const [accounts,setAccounts]=useState<AnyRow[]>([]);const [contacts,setContacts]=useState<AnyRow[]>([]);const [orders,setOrders]=useState<AnyRow[]>([]);const [banks,setBanks]=useState<AnyRow[]>([]);const [payments,setPayments]=useState<AnyRow[]>([]);
   const [payment,setPayment]=useState<AnyRow>({payment_type:'receipt',status:'draft',payment_date:dateToday(),received_date:dateToday(),owner_name:'',account_id:'',contact_id:'',payer_name:'',is_third_party:false,currency:'USD',amount:'',bank_fee:'0',intermediary_fee:'0',net_received:'',fee_bearer:'SHA',payment_method:'T/T',bank_account_id:'',bank_reference:'',uetr:'',remittance_info:'',exchange_rate:'',rate_date:'',payer_relation:'',payer_country:'',payer_bank:'',payer_swift:'',lc_no:'',lc_issuing_bank:'',lc_advising_bank:'',lc_amount:'',lc_type:'即期',usance_days:'',presentation_date:'',acceptance_date:'',maturity_date:'',discrepancy:'',discrepancy_status:'无',diff_amount:'0',diff_type:'无',diff_reason:'',diff_handling:'',diff_note:'',original_payment_id:'',refund_reason:'',refund_amount:'',refund_date:'',refund_bank_ref:'',bank_reconciled:false,statement_date:'',statement_ref:'',void_reason:'',remarks_internal:'',bank_slip:'',receipt_sent:false,tags_text:'',source:'manual'});
   const [allocations,setAllocations]=useState<AnyRow[]>([]);
   const [activeTab,setActiveTab]=useState(0);const [loading,setLoading]=useState(true);const [saving,setSaving]=useState(false);const [error,setError]=useState('');const [paymentNo,setPaymentNo]=useState('新建收款');
@@ -147,14 +147,15 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
   useEffect(()=>{(async()=>{
     try {
       const db=await getSupabaseClient();
-      const [a,c,o,b]=await Promise.all([
+      const [a,c,o,b,payRows]=await Promise.all([
         db.from('crm_accounts').select('id,account_name,legal_name,country_code,currency_code').eq('is_archived',false).order('account_name'),
         db.from('crm_contacts').select('id,account_id,first_name,last_name,full_name').eq('is_archived',false).order('first_name'),
         db.from('trade_orders').select('*').eq('order_type','sales').order('created_at',{ascending:false}).range(0,2999),
         db.from('enterprise_bank_accounts').select('*').eq('is_archived',false).order('bank_name'),
+        db.from('trade_payments').select('id,payment_no,payment_type,account_id,status,net_received,currency').order('created_at',{ascending:false}).range(0,1999),
       ]);
-      if(a.error)throw a.error;if(c.error)throw c.error;if(o.error)throw o.error;if(b.error)throw b.error;
-      setAccounts(a.data||[]);setContacts(c.data||[]);setOrders(o.data||[]);setBanks(b.data||[]);
+      if(a.error)throw a.error;if(c.error)throw c.error;if(o.error)throw o.error;if(b.error)throw b.error;if(payRows.error)throw payRows.error;
+      setAccounts(a.data||[]);setContacts(c.data||[]);setOrders(o.data||[]);setBanks(b.data||[]);setPayments(payRows.data||[]);
       if(editing&&id){
         const [p,al]=await Promise.all([db.from('trade_payments').select('*').eq('id',id).single(),db.from('trade_payment_allocations').select('*').eq('payment_id',id).order('created_at')]);
         if(p.error)throw p.error;if(al.error)throw al.error;
@@ -226,17 +227,17 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
   if(loading)return <main className="tp-payments"><InlineLoading description="正在加载收款资料…"/></main>;
   const statusText=statusLabel(payment.status);
   return <main className="tp-payments">
-    <header className="tp-payments__header"><div><p className="tp-payments__eyebrow">TRADEPILOT / FINANCE / PAYMENT</p><h1>{editing?paymentNo:'创建收款（Payment）'}</h1><p>{editing?'维护收款资料、分配与核销记录。':'录入真实到账，可分配多个订单节点，也可保留为预收款。'}</p></div><div className="tp-payments__actions"><Button kind="tertiary" onClick={()=>nav('/payments')}>返回收款列表</Button>{editing&&!readOnly&&payment.status==='draft'&&<Button kind="primary" disabled={saving} onClick={()=>void confirm()}>确认收款并核销</Button>}</div></header>
+    <header className="tp-payments__header"><div><p className="tp-payments__eyebrow">TRADEPILOT / FINANCE / PAYMENT</p><h1>{editing?paymentNo:'创建收款（Payment）'}</h1><p>{editing?'维护收款资料、分配与核销记录。':'录入真实到账，可分配多个订单节点，也可保留为预收款。'}</p></div><div className="tp-payments__actions"><Button kind="tertiary" onClick={()=>nav('/payments')}>返回收款列表</Button>{readOnly&&payment.status==='draft'&&<Button kind="tertiary" onClick={()=>nav('/payments/'+id+'/edit')}>编辑草稿</Button>}{editing&&!readOnly&&payment.status==='draft'&&<Button kind="primary" disabled={saving} onClick={()=>void confirm()}>确认收款并核销</Button>}</div></header>
     {error&&<InlineNotification kind="error" title="收款操作未完成" subtitle={error}/>}
     <section className="tp-payments__basic">
       <div className="tp-payments__basic-head"><div><Tag type={payment.status==='reconciled'?'green':payment.status==='voided'?'red':'blue'}>{statusText}</Tag><span>{paymentNo}</span></div><Tag type="cool-gray">{payment.payment_type==='refund'?'退款':'收款'}</Tag></div>
       <div className="tp-payments__form-grid">
-        <Pick id="pay-type" label="收款类型" value={payment.payment_type} onChange={v=>set('payment_type',v)} options={['receipt','refund']} disabled={locked}/>
+        <Pick id="pay-type" label="收款类型" value={payment.payment_type} onChange={v=>set('payment_type',v)} options={[{value:'receipt',label:'收款'},{value:'refund',label:'退款'}]} disabled={locked}/>
         <Field id="pay-date" label="付款日期" type="date" value={payment.payment_date} onChange={v=>set('payment_date',v)} disabled={locked}/>
         <Field id="pay-received-date" label="到账日期" type="date" value={payment.received_date} onChange={v=>set('received_date',v)} disabled={locked}/>
         <Field id="pay-owner" label="负责人" value={payment.owner_name} onChange={v=>set('owner_name',v)} disabled={locked}/>
-        <Pick id="pay-account" label="客户" value={payment.account_id} onChange={v=>{set('account_id',v);set('contact_id','');const a=accounts.find(x=>x.id===v);set('payer_name',a?.legal_name||a?.account_name||'')}} options={accounts.map(a=>a.id+'|'+a.account_name).map(x=>x)} disabled={locked}/>
-        <Pick id="pay-contact" label="联系人" value={payment.contact_id} onChange={v=>set('contact_id',v)} options={contacts.filter(c=>c.account_id===payment.account_id).map(c=>({id:c.id,name:c.full_name||[c.first_name,c.last_name].filter(Boolean).join(' ')})).map(c=>c.id+'|'+c.name)} disabled={locked}/>
+        <Pick id="pay-account" label="客户" value={payment.account_id} onChange={v=>{set('account_id',v);set('contact_id','');const a=accounts.find(x=>x.id===v);set('payer_name',a?.legal_name||a?.account_name||'')}} options={accounts.map(a=>({value:a.id,label:a.account_name}))} disabled={locked}/>
+        <Pick id="pay-contact" label="联系人" value={payment.contact_id} onChange={v=>set('contact_id',v)} options={contacts.filter(c=>c.account_id===payment.account_id).map(c=>({value:c.id,label:c.full_name||[c.first_name,c.last_name].filter(Boolean).join(' ')}))} disabled={locked}/>
         <Field id="pay-payer" label="实际付款人" value={payment.payer_name} onChange={v=>set('payer_name',v)} disabled={locked}/>
         <Field id="pay-tags" label="标签（逗号分隔）" value={payment.tags_text} onChange={v=>set('tags_text',v)} disabled={locked}/>
       </div>
@@ -269,7 +270,7 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
           </div>
           <h2>收款方式与我方账户</h2><div className="tp-payments__form-grid">
             <Pick id="pay-method" label="收款方式" value={payment.payment_method} onChange={v=>set('payment_method',v)} options={METHODS} disabled={locked}/>
-            <Pick id="pay-bank-account" label="我方收款账户" value={payment.bank_account_id} onChange={v=>set('bank_account_id',v)} options={bankOptions.map(b=>b.id+'|'+b.bank_name+' · '+b.account_name+' · '+(b.currency_code||'多币种'))} disabled={locked}/>
+            <Pick id="pay-bank-account" label="我方收款账户" value={payment.bank_account_id} onChange={v=>set('bank_account_id',v)} options={bankOptions.map(b=>({value:b.id,label:b.bank_name+' · '+b.account_name+' · '+(b.currency_code||'多币种')}))} disabled={locked}/>
             <Field id="pay-bank-slip" label="银行水单文件路径 / URL" value={payment.bank_slip} onChange={v=>set('bank_slip',v)} disabled={locked}/>
           </div>
           {payment.payment_method==='L/C'&&<><h2>L/C 信用证信息</h2><div className="tp-payments__form-grid">
@@ -291,8 +292,8 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
           {allocations.map((a,i)=><div className="tp-payments__allocation" key={i}>
             <div className="tp-payments__allocation-head"><strong>分配 {i+1}</strong><Button kind="ghost" size="sm" disabled={locked} onClick={()=>removeAllocation(i)}>移除</Button></div>
             <div className="tp-payments__form-grid">
-              <Pick id={'alloc-order-'+i} label="订单" value={a.order_id} onChange={v=>setAllocation(i,'order_id',v)} options={accountOrders.filter(o=>o.status==='active'||o.status==='completed').map(o=>o.id+'|'+o.order_number+' · '+o.title)} disabled={locked}/>
-              <Pick id={'alloc-node-'+i} label="收款节点" value={a.schedule_node_id} onChange={v=>setAllocation(i,'schedule_node_id',v)} options={nodesFor(a.order_id).map(n=>String(n.id)+'|'+(n.milestone||'收款节点')+' · '+money(Number(n.amount||0),orders.find(o=>o.id===a.order_id)?.currency_code||'USD'))} disabled={locked}/>
+              <Pick id={'alloc-order-'+i} label="订单" value={a.order_id} onChange={v=>setAllocation(i,'order_id',v)} options={accountOrders.filter(o=>o.status==='active'||o.status==='completed').map(o=>({value:o.id,label:o.order_number+' · '+o.title}))} disabled={locked}/>
+              <Pick id={'alloc-node-'+i} label="收款节点" value={a.schedule_node_id} onChange={v=>setAllocation(i,'schedule_node_id',v)} options={nodesFor(a.order_id).map(n=>({value:String(n.id),label:(n.milestone||'收款节点')+' · '+money(Number(n.amount||0),orders.find(o=>o.id===a.order_id)?.currency_code||'USD')}))} disabled={locked}/>
               <Pick id={'alloc-type-'+i} label="分配类型" value={a.allocation_type} onChange={v=>setAllocation(i,'allocation_type',v)} options={ALLOCATION_TYPES} disabled={locked}/>
               <Field id={'alloc-amount-'+i} label="分配金额（订单币种）" type="number" value={a.allocated_amount} onChange={v=>setAllocation(i,'allocated_amount',v)} disabled={locked}/>
               <Field id={'alloc-payment-amount-'+i} label="折合收款币种金额" type="number" value={a.allocated_amount_in_payment} onChange={v=>setAllocation(i,'allocated_amount_in_payment',v)} disabled={locked}/>
@@ -317,7 +318,7 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
             <Field id="pay-void-reason" label="作废原因" value={payment.void_reason} onChange={v=>set('void_reason',v)} disabled={locked}/>
           </div>
           {payment.payment_type==='refund'&&<><h2>退款 / 红冲</h2><div className="tp-payments__form-grid">
-            <Pick id="pay-original" label="原收款记录" value={payment.original_payment_id} onChange={v=>set('original_payment_id',v)} options={rows.filter(r=>r.payment_type==='receipt'&&r.account_id===payment.account_id&&r.status!=='voided').map(r=>r.id+'|'+r.payment_no+' · '+money(r.net_received,r.currency))} disabled={locked}/>
+            <Pick id="pay-original" label="原收款记录" value={payment.original_payment_id} onChange={v=>set('original_payment_id',v)} options={payments.filter(r=>r.payment_type==='receipt'&&r.account_id===payment.account_id&&r.status!=='voided').map(r=>({value:r.id,label:r.payment_no+' · '+money(r.net_received,r.currency)}))} disabled={locked}/>
             <Pick id="pay-refund-reason" label="退款原因" value={payment.refund_reason} onChange={v=>set('refund_reason',v)} options={['多付','订单取消','质量索赔','重复付款','其他']} disabled={locked}/>
             <Field id="pay-refund-amount" label="退款金额" type="number" value={payment.refund_amount} onChange={v=>set('refund_amount',v)} disabled={locked}/>
             <Field id="pay-refund-date" label="退款日期" type="date" value={payment.refund_date} onChange={v=>set('refund_date',v)} disabled={locked}/>
