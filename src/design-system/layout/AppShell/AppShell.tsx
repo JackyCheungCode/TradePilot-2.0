@@ -112,6 +112,9 @@ export function AppShell() {
           <SideNavLink href="/products" isActive={location.pathname.startsWith('/products')} title="产品（Product）" renderIcon={CarbonIcons.Product}>
             产品（Product）
           </SideNavLink>
+          <SideNavLink href="/trade-tools" isActive={location.pathname.startsWith('/trade-tools')} title="外贸工具" renderIcon={CarbonIcons.Calculator}>
+            外贸工具
+          </SideNavLink>
           <SideNavLink href="/settings" isActive={location.pathname.startsWith('/settings')} title="设置中心" renderIcon={CarbonIcons.Settings}>
             设置中心
           </SideNavLink>
