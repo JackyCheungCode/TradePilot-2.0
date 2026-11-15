@@ -203,6 +203,9 @@ export function AgentWorkspacePage() {
           setMessages(rows => rows.map(row => row.id === item.id ? { ...row, metadata: { ...row.metadata, runStatus: status, runProgress: progress } } : row));
           if (['succeeded','failed','cancelled'].includes(status) && !reportedRunIdsRef.current.has(runId)) {
             reportedRunIdsRef.current.add(runId);
+            try {
+              await agentRequest('/api/v1/agent/conversations/' + conversationId + '/messages/' + item.id, { method:'PATCH', body:JSON.stringify({ metadata:{ ...item.metadata, runStatus:status, runProgress:progress } }) });
+            } catch { /* local state still reflects the terminal status */ }
             const content = status === 'succeeded'
               ? '任务已完成。\n\n' + (detail.discoveryRun?.message || '执行工作流已完成。') + '\n发现记录：' + (detail.records?.length || 0) + ' 条。\n\n任务编号：' + runId
               : '任务' + (status === 'cancelled' ? '已取消' : '执行失败') + '。\n\n' + (detail.run.error_message || detail.discoveryRun?.message || '请前往任务执行中心查看详情。');
