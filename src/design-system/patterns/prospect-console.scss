@@ -87,3 +87,17 @@
 .tp-console__source-detail dt{font-size:.75rem;color:var(--cds-text-secondary)}
 .tp-console__source-detail dd{margin:0;font-size:.8125rem;overflow-wrap:anywhere;white-space:pre-wrap}
 @media(max-width:672px){.tp-console__source-detail dl{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* OpenStreetMap tile layer: keep all explanatory text outside the map canvas. */
+.tp-console__map-wrap{display:grid;gap:var(--cds-spacing-02);min-width:0}
+.tp-console__map{position:relative;min-width:0;background:var(--cds-layer-02);overflow:hidden;aspect-ratio:2/1}
+.tp-console__map svg{display:block;width:100%;height:100%;min-height:0}
+.tp-console__map svg image{image-rendering:auto}
+.tp-console__map-attribution{justify-self:end;font-size:.6875rem;line-height:1.25;color:var(--cds-text-secondary)}
+.tp-console__map-attribution a{color:var(--cds-link-primary);text-decoration:underline}
+.tp-console__map-empty{margin:0;padding:var(--cds-spacing-03) 0;font-size:.8125rem;color:var(--cds-text-secondary)}
+/* Carbon table headings stay on one line; the table viewport scrolls horizontally when needed. */
+.tp-console__table-scroll .cds--table thead th,
+.tp-console__table-scroll .cds--table thead th .cds--table-header-label,
+.tp-console__table-scroll .cds--table thead th button{white-space:nowrap}
+.tp-console__table-scroll .cds--table{min-width:76rem;table-layout:auto}
