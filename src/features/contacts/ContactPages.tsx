@@ -184,7 +184,7 @@ export function ContactConsolePage() {
       if(primaryFilter==='yes') listQuery=listQuery.eq('is_primary',true);
       if(primaryFilter==='no') listQuery=listQuery.eq('is_primary',false);
       if(sourceFilter!=='all') listQuery=listQuery.eq('custom_fields->>source',sourceFilter);
-      const q=query.trim().replace(/[(),]/g,' ').replace(/[%_]/g,' ').replace(/\\/g,' ').replace(/\s+/g,' ');
+      const q=query.trim().replace(/[^\p{L}\p{N}\s@+.-]/gu,' ').replace(/\s+/g,' ');
       if(q) listQuery=listQuery.or(['full_name','first_name','last_name','email','phone','mobile','job_title','department'].map(k=>k+'.ilike.%'+q+'%').join(','));
       const from=(page-1)*PAGE_SIZE;
       const {data,error:e,count}=await listQuery.range(from,from+PAGE_SIZE-1);
@@ -223,7 +223,7 @@ export function ContactConsolePage() {
     <section className="tp-contacts__panel">
       <div className="tp-contacts__country-panel">
         <div className="tp-contacts__section-head"><div><h2>国家 / 地区分布</h2><p>按联系人国家汇总；验证数按已验证联系方式去重统计。</p></div></div>
-        {loading&&!countryStats.length?<InlineLoading description="正在汇总国家 / 地区…" />:countryStats.length?<div className="tp-contacts__country-chart">{countryStats.slice(0,12).map(item=><div className="tp-contacts__country-row" key={item.key}><div className="tp-contacts__country-label"><span>{item.label}</span><strong>{item.total}</strong></div><div className="tp-contacts__country-track"><div className="tp-contacts__country-bar" style={{width:(Math.max(2,item.total/maxCountry*100))+'%'}}/></div><div className="tp-contacts__country-meta"><span>已验证 {item.verified}</span><span>在职 {item.active}</span></div></div>)}</div>:<p className="tp-contacts__empty">暂无可用于统计的联系人国家 / 地区数据。</p>}
+        {loading&&!countryStats.length?<InlineLoading description="正在汇总国家 / 地区…" />:countryStats.length?<div className="tp-contacts__country-chart">{countryStats.slice(0,12).map(item=><div className="tp-contacts__country-row" key={item.key}><div className="tp-contacts__country-label"><span>{item.label}</span><strong>{item.total}</strong></div><svg className="tp-contacts__country-chart-bar" viewBox="0 0 100 8" preserveAspectRatio="none" role="img" aria-label={item.label+' 联系人数 '+item.total}><rect className="tp-contacts__country-chart-track" x="0" y="0" width="100" height="8"/><rect className="tp-contacts__country-chart-fill" x="0" y="0" width={Math.max(2,item.total/maxCountry*100)} height="8"/></svg><div className="tp-contacts__country-meta"><span>已验证 {item.verified}</span><span>在职 {item.active}</span></div></div>)}</div>:<p className="tp-contacts__empty">暂无可用于统计的联系人国家 / 地区数据。</p>}
       </div>
       <div className="tp-contacts__list-head"><div><h2>联系人列表</h2><p>当前筛选共 {total.toLocaleString()} 条记录；每页最多 {PAGE_SIZE} 条。</p></div><div className="tp-contacts__search"><TextInput id="contacts-search" labelText="搜索联系人" placeholder="姓名、职位、邮箱或电话" value={query} onChange={e=>{setQuery(e.currentTarget.value);setPage(1);}}/></div></div>
       <div className="tp-contacts__filters">
