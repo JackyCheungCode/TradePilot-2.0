@@ -37,3 +37,15 @@ drop policy if exists trade_document_events_insert_own on public.trade_document_
 create policy trade_document_events_insert_own on public.trade_document_events for insert to authenticated with check ((select auth.uid()) = owner_id);
 grant select, insert on public.trade_document_events to authenticated;
 revoke all on public.trade_document_events from anon;
+
+alter table public.crm_account_addresses enable row level security;
+drop policy if exists crm_account_addresses_select_own on public.crm_account_addresses;
+create policy crm_account_addresses_select_own on public.crm_account_addresses for select to authenticated using ((select auth.uid()) = owner_id);
+grant select on public.crm_account_addresses to authenticated;
+revoke all on public.crm_account_addresses from anon;
+
+alter table public.enterprise_bank_accounts enable row level security;
+drop policy if exists enterprise_bank_accounts_select_own on public.enterprise_bank_accounts;
+create policy enterprise_bank_accounts_select_own on public.enterprise_bank_accounts for select to authenticated using ((select auth.uid()) = owner_id);
+grant select on public.enterprise_bank_accounts to authenticated;
+revoke all on public.enterprise_bank_accounts from anon;
