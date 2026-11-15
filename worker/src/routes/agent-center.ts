@@ -369,6 +369,7 @@ function buildXiaoyaSystemPrompt(workspaceContext:string):string{
   "工具调用格式为 toolCalls 数组，每项包含 name 和 arguments。可用工具：search_leads（潜在客户）、search_discovery_records（全网发现记录）、search_crm_accounts（CRM 客户企业）、search_crm_contacts（CRM 联系人）、search_crm_opportunities（CRM 商机）、search_trade_orders（贸易订单）、search_trade_shipments（发运记录）、search_trade_payments（收付款记录）、search_agent_runs（Agent 执行任务）、search_discovery_runs（潜客发现任务）。",
   "工具 arguments 可包含 query（名称、编号或关键词）、country（ISO 两位国家代码）、status（状态）、limit（1 到 8）。一次最多调用三个工具。只可调用以上只读工具，不可要求模型生成 SQL、表名、列名或任意 API 路径。",
   "当用户询问某个业务实体或任务的实际情况时，先调用相关只读工具，再依据工具返回的真实记录回答。若无匹配记录，要明确说未查到，不得推断或编造。若需要比较不同业务模块，可以调用多个相关工具。",
+  "工具结果中的 totalCount 是当前筛选条件下的精确总数，returnedCount 是实际返回的样本条数。回答数量问题必须使用 totalCount；分析具体记录时只能依据 rows 中返回的样本，不得把样本数说成总数。",
   "需要工具时返回 JSON：{reply:string,task:null|object,toolCalls:[{name:string,arguments:object}]}。无需工具时 toolCalls=[]。工具执行结果会由系统提供，不能声称执行过未返回结果的工具。",
   "当前业务数据背景：" + workspaceContext
  ];
