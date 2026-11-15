@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ProspectDiscoveryHeader } from './ProspectDiscoveryHeader';
 import type { Session } from '@supabase/supabase-js';
 import {
   Button, InlineLoading, InlineNotification, Tag, Table, TableBody, TableCell,
@@ -85,10 +86,10 @@ export function RecentTasksPage() {
   if (loading && !session) return <main className="tp-discovery"><InlineLoading description="正在读取最近任务…"/></main>;
 
   return <main className="tp-discovery tp-recent-tasks">
-    <header className="tp-discovery__heading">
-      <div><p className="tp-discovery__eyebrow">TRADEPILOT / PROSPECTING</p><h1>最近任务</h1><p>查看历史发现任务，打开执行详情、重试任务，或将任务从此列表排除。</p></div>
-      <div className="tp-discovery__heading-actions"><Button kind="secondary" onClick={()=>navigate('/prospect-discovery')}>返回潜客发现</Button><Button kind="ghost" onClick={()=>void refresh()} disabled={loading}>刷新</Button></div>
-    </header>
+    <ProspectDiscoveryHeader title="最近任务" description="查看历史发现任务，打开执行详情、重试任务，或将任务从此列表排除。" showRecentTasks={false}>
+      <Button kind="secondary" onClick={()=>navigate('/prospect-discovery')}>返回潜客发现</Button>
+      <Button kind="ghost" onClick={()=>void refresh()} disabled={loading}>刷新</Button>
+    </ProspectDiscoveryHeader>
     {error&&<InlineNotification kind="error" title="操作未完成" subtitle={error} onCloseButtonClick={()=>setError('')}/>}
     <section className="tp-discovery__panel">
       <div className="tp-discovery__section-head"><div><h2>任务列表</h2><p>任务详情包含执行状态、进度、日志及该任务发现的结果。</p></div><Tag type="gray">{visibleRuns.length} 个任务</Tag></div>
