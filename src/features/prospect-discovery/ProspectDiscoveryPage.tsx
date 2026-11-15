@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import type { Session, SupabaseClient } from '@supabase/supabase-js';
 import {
   Button, Checkbox, InlineLoading, InlineNotification, NumberInput, ProgressBar,
@@ -42,6 +43,7 @@ function extraContactValues(record:DiscoveryRecord):string[]{
 }
 
 export function ProspectDiscoveryPage() {
+  const [searchParams]=useSearchParams();
   const [client,setClient]=useState<SupabaseClient|null>(null);
   const [session,setSession]=useState<Session|null>(null);
   const [email,setEmail]=useState('');
@@ -86,6 +88,18 @@ export function ProspectDiscoveryPage() {
   const currentPlatform=useMemo(()=>platformGroups.flatMap(g=>g.platforms).find(p=>p.id===platform),[platform]);
   const visiblePlatformGroups=useMemo(()=>category==='all'?platformGroups:platformGroups.filter(group=>group.id===category),[category]);
   const token=session?.access_token??'';
+  useEffect(()=>{
+    const runId=searchParams.get('runId');
+    if(!runId||!token)return;
+    let alive=true;
+    Promise.all([getDiscoveryRun(token,runId),getDiscoveryRecords(token,runId)]).then(([run,rows])=>{
+      if(!alive)return;setActiveRun(run);setRecords(rows);setSelectedRecordIds([]);
+      setStep(isTerminal(run.status)&&(run.status==='completed'||run.status==='partial')?5:4);
+      setLastUpdate(new Date());
+    }).catch(e=>{if(alive)setError(e instanceof Error?e.message:'无法打开任务详情');});
+    return()=>{alive=false;};
+  },[searchParams,token]);
+
 
   const refreshRun=useCallback(async(id:string)=>{
     if(!token)return;
@@ -159,7 +173,7 @@ export function ProspectDiscoveryPage() {
     <header className="tp-discovery__heading"><div><p className="tp-discovery__eyebrow">TRADEPILOT / PROSPECTING</p><h1>潜客发现</h1><p>选择渠道、配置发现条件，并实时跟踪采集任务。</p></div><div className="tp-discovery__heading-actions"><Tag type="blue">Google Maps / Apify</Tag><Button kind="ghost" size="sm" onClick={()=>client?.auth.signOut()}>退出登录</Button></div></header>
     {error&&<InlineNotification kind="error" title="操作未完成" subtitle={error} onCloseButtonClick={()=>setError('')} />}
     <nav className="tp-discovery__steps" aria-label="发现任务步骤">
-      {([['01','发现途径'],['02','数据引擎'],['03','条件配置'],['04','执行结果']] as const).map(([number,label],index)=><button key={number} className={step===index+1?'is-active':step>index+1?'is-complete':''} onClick={()=>{if(index<5&&index+1<=step)setStep((index+1) as Step);}} disabled={index+1>step}><span>{number}</span>{label}</button>)}
+      {([['01','发现途径'],['02','数据引擎'],['03','条件配置'],['04','任务执行'],['05','查看结果']] as const).map(([number,label],index)=><button key={number} className={step===index+1?'is-active':step>index+1?'is-complete':''} onClick={()=>{if(index<5&&index+1<=step)setStep((index+1) as Step);}} disabled={index+1>step}><span>{number}</span>{label}</button>)}
     </nav>
     {step===1&&<>
       <section className="tp-discovery__panel tp-discovery__category-panel">
