@@ -34,17 +34,20 @@ function dateKey(date: Date) {
   return d.toISOString().slice(0, 10);
 }
 function getRange(period: string, from: string, to: string) {
-  const end = period === 'custom' && to ? new Date(to + 'T23:59:59') : new Date();
+  const end = period === 'custom' && to ? new Date(to + 'T23:59:59.999') : new Date();
   const start = period === 'custom' && from ? new Date(from + 'T00:00:00') : new Date(end);
   if (period !== 'custom') {
-    const days = period === 'week' ? 7 : period === 'month' ? 30 : period === 'quarter' ? 90 : 365;
-    start.setTime(end.getTime() - (days - 1) * DAY);
+    const periodDays = period === 'week' ? 7 : period === 'month' ? 30 : period === 'quarter' ? 90 : 365;
     start.setHours(0, 0, 0, 0);
+    start.setDate(start.getDate() - periodDays + 1);
   }
-  const duration = Math.max(DAY, end.getTime() - start.getTime() + DAY);
-  const previousStart = new Date(start.getTime() - duration);
+  const startDay = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate());
+  const endDay = Date.UTC(end.getFullYear(), end.getMonth(), end.getDate());
+  const days = Math.min(366, Math.max(1, Math.round((endDay - startDay) / DAY) + 1));
+  const previousStart = new Date(start);
+  previousStart.setDate(previousStart.getDate() - days);
   const previousEnd = new Date(start.getTime() - 1);
-  return { start, end, previousStart, previousEnd, days: Math.min(366, Math.max(1, Math.ceil(duration / DAY))) };
+  return { start, end, previousStart, previousEnd, days };
 }
 function Sparkline({ values, tone }: { values: number[]; tone: string }) {
   const max = Math.max(1, ...values), min = Math.min(0, ...values);
