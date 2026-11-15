@@ -1,15 +1,23 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { AppShell } from '../design-system/layout/AppShell';
+import { RequireAuth } from './RequireAuth';
+import { LoginPage } from '../features/auth/LoginPage';
 import { ProspectDiscoveryPage, RecentTasksPage } from '../features/prospect-discovery';
 
 export const router = createBrowserRouter([
+  { path: '/login', element: <LoginPage /> },
   {
     path: '/',
-    element: <AppShell />,
+    element: <RequireAuth />,
     children: [
-      { index: true, element: <Navigate to="/prospect-discovery" replace /> },
-      { path: 'prospect-discovery', element: <ProspectDiscoveryPage /> },
-      { path: 'recent-tasks', element: <RecentTasksPage /> },
+      {
+        element: <AppShell />,
+        children: [
+          { index: true, element: <Navigate to="/prospect-discovery" replace /> },
+          { path: 'prospect-discovery', element: <ProspectDiscoveryPage /> },
+          { path: 'recent-tasks', element: <RecentTasksPage /> },
+        ],
+      },
     ],
   },
 ]);
