@@ -111,7 +111,7 @@ export function ProspectDiscoveryPage() {
   const selectPlatform=(id:Platform)=>{const p=platformGroups.flatMap(g=>g.platforms).find(x=>x.id===id);if(!p?.enabled)return;setPlatform(id);setCategory(platformGroups.find(g=>g.platforms.some(x=>x.id===id))!.id);};
   const elapsed=activeRun?Math.max(0,Math.floor((clock-new Date(activeRun.createdAt).getTime())/1000)):0;
   const elapsedLabel=elapsed<60?`${elapsed} 秒`:`${Math.floor(elapsed/60)} 分 ${elapsed%60} 秒`;
-  const stale=!!activeRun&&!isTerminal(activeRun.status)&&lastUpdate!==null&&(clock-lastUpdate.getTime()>15000);
+  const stale=!!activeRun&&!isTerminal(activeRun.status)&&lastUpdate!==null&&(clock-lastUpdate.getTime()>45000);
 
   if(booting)return <div className="tp-discovery__center"><InlineLoading description="正在连接 TradePilot…" /></div>;
   if(!session)return <main className="tp-discovery">
