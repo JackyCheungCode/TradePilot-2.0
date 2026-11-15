@@ -1,6 +1,7 @@
 import type { DiscoveryEnv, DiscoveryRunInput } from "./discovery";
 import { DEFAULT_SEARCH_EXCLUSIONS } from "./search-exclusions";
 import { discoveryRunQuery } from "../lib/owner-scoped-query";
+import { readIntegrationSecret } from "../lib/integrations";
 type Engine="serper"|"serpapi"; type Vertical="web"|"shopping"|"images"|"news"|"videos"|"scholar"|"patents";
 type Result={title:string;url:string;snippet:string;raw:Record<string,unknown>};
 const serper:Record<Vertical,string>={web:"search",shopping:"shopping",images:"images",news:"news",videos:"videos",scholar:"scholar",patents:"patents"};
