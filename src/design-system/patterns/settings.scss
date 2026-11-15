@@ -620,3 +620,95 @@
     max-width: 100%;
   }
 }
+
+
+/* Enterprise profile master data */
+.tp-enterprise-profile {
+  display: grid;
+  gap: var(--cds-spacing-06);
+  min-width: 0;
+}
+.tp-enterprise-profile__intro,
+.tp-enterprise-profile__group-head,
+.tp-enterprise-profile__actions {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--cds-spacing-04);
+  min-width: 0;
+}
+.tp-enterprise-profile__intro h3,
+.tp-enterprise-profile__group-head h4 {
+  margin: 0;
+  color: var(--cds-text-primary);
+  font-weight: 600;
+}
+.tp-enterprise-profile__intro p,
+.tp-enterprise-profile__group-head p {
+  margin: var(--cds-spacing-02) 0 0;
+  color: var(--cds-text-secondary);
+  font-size: .8125rem;
+  line-height: 1.5;
+}
+.tp-enterprise-profile__group {
+  display: grid;
+  gap: var(--cds-spacing-04);
+  min-width: 0;
+  padding: var(--cds-spacing-05);
+  background: var(--cds-layer-02);
+}
+.tp-enterprise-profile__grid,
+.tp-enterprise-profile__bank-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--cds-spacing-04);
+  min-width: 0;
+}
+.tp-enterprise-profile__field {
+  min-width: 0;
+}
+.tp-enterprise-profile__field--wide {
+  grid-column: 1 / -1;
+}
+.tp-enterprise-profile__field .cds--text-input-wrapper,
+.tp-enterprise-profile__field .cds--text-area-wrapper {
+  width: 100%;
+  min-width: 0;
+}
+.tp-enterprise-profile__actions {
+  align-items: center;
+  padding: var(--cds-spacing-04) 0;
+  border-bottom: 1px solid var(--cds-border-subtle-01);
+}
+.tp-enterprise-profile__actions p {
+  max-width: 48rem;
+}
+.tp-enterprise-profile__bank-form {
+  padding-top: var(--cds-spacing-03);
+}
+.tp-enterprise-profile__bank-form .cds--btn {
+  align-self: end;
+  justify-self: start;
+}
+@media (max-width: 672px) {
+  .tp-enterprise-profile__intro,
+  .tp-enterprise-profile__group-head,
+  .tp-enterprise-profile__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .tp-enterprise-profile__grid,
+  .tp-enterprise-profile__bank-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .tp-enterprise-profile__field--wide {
+    grid-column: auto;
+  }
+  .tp-enterprise-profile__group {
+    padding: var(--cds-spacing-04);
+  }
+  .tp-enterprise-profile__actions .cds--btn,
+  .tp-enterprise-profile__bank-form .cds--btn {
+    width: 100%;
+  }
+}
