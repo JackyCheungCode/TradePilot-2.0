@@ -44,7 +44,9 @@ export function AgentSettings({ section }: { section: string }) {
       ]);
       const available = (config.providers || []).filter(item => item.configured !== false && item.configured !== 'false');
       setProviders(available);
-      const current = config.taskModels?.agent_chat || config.defaultModel || (available[0] ? providerValue(available[0]) : '');
+      const currentValue = config.taskModels?.agent_chat || config.defaultModel || '';
+      const legacyProvider = available.find(item => item.model === currentValue);
+      const current = currentValue && !currentValue.includes('::') && legacyProvider ? providerValue(legacyProvider) : currentValue || (available[0] ? providerValue(available[0]) : '');
       setSelectedModel(current);
       const knownAgents = Object.keys(agentLabels).map(agent_key => ({ agent_key, enabled:true, config:{} as Profile['config'] }));
       setProfiles(knownAgents.map(base => profileRows?.find(item => item.agent_key === base.agent_key) || base));
