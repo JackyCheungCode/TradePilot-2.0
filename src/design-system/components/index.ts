@@ -37,7 +37,6 @@ export * from './Tag';
 export * from './Notification';
 export * from './Loading';
 export * from './Modal';
-export * from './Dialog';
 export * from './Accordion';
 export * from './Breadcrumb';
 export * from './Progress';
