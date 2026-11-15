@@ -6,6 +6,11 @@ interface SettingsEnv {
   SUPABASE_SERVICE_ROLE_KEY?: string;
   GOOGLE_MAPS_API_KEY?: string;
   DEEPL_API_KEY?: string;
+  DHL_API_KEY?: string;
+  UPS_CLIENT_ID?: string;
+  UPS_CLIENT_SECRET?: string;
+  FEDEX_CLIENT_ID?: string;
+  FEDEX_CLIENT_SECRET?: string;
   SERPER_API_KEY?: string;
   SERPAPI_API_KEY?: string;
   APIFY_API_TOKEN?: string;
@@ -14,8 +19,8 @@ interface SettingsEnv {
   CLOUDFLARE_WORKER_NAME?: string;
   AI?: { run(model:string,input:Record<string,unknown>): Promise<unknown> };
 }
-type ServiceKey = "cloudflare" | "supabase" | "googleMaps" | "deepl" | "serper" | "serpapi" | "apify";
-type CredentialBody = { cloudflareApiToken?: string; supabaseServiceRoleKey?: string; googleMapsApiKey?: string; deeplApiKey?: string; serperApiKey?: string; serpapiApiKey?: string; apifyApiToken?: string };
+type ServiceKey = "cloudflare" | "supabase" | "googleMaps" | "deepl" | "serper" | "serpapi" | "apify" | "dhl" | "upsClientId" | "upsClientSecret" | "fedexClientId" | "fedexClientSecret";
+type CredentialBody = { cloudflareApiToken?: string; supabaseServiceRoleKey?: string; googleMapsApiKey?: string; deeplApiKey?: string; serperApiKey?: string; serpapiApiKey?: string; apifyApiToken?: string; dhlApiKey?: string; upsClientId?: string; upsClientSecret?: string; fedexClientId?: string; fedexClientSecret?: string };
 const secretNames: Record<ServiceKey, string> = {
   cloudflare: "CLOUDFLARE_API_TOKEN",
   supabase: "SUPABASE_SERVICE_ROLE_KEY",
@@ -24,6 +29,11 @@ const secretNames: Record<ServiceKey, string> = {
   serper: "SERPER_API_KEY",
   serpapi: "SERPAPI_API_KEY",
   apify: "APIFY_API_TOKEN",
+  dhl: "DHL_API_KEY",
+  upsClientId: "UPS_CLIENT_ID",
+  upsClientSecret: "UPS_CLIENT_SECRET",
+  fedexClientId: "FEDEX_CLIENT_ID",
+  fedexClientSecret: "FEDEX_CLIENT_SECRET",
 };
 const bodyFields: Record<ServiceKey, keyof CredentialBody> = {
   cloudflare: "cloudflareApiToken",
@@ -33,6 +43,11 @@ const bodyFields: Record<ServiceKey, keyof CredentialBody> = {
   serper: "serperApiKey",
   serpapi: "serpapiApiKey",
   apify: "apifyApiToken",
+  dhl: "dhlApiKey",
+  upsClientId: "upsClientId",
+  upsClientSecret: "upsClientSecret",
+  fedexClientId: "fedexClientId",
+  fedexClientSecret: "fedexClientSecret",
 };
 
 async function authenticated(request: Request, env: SettingsEnv): Promise<boolean> {
@@ -109,7 +124,7 @@ async function testOneService(service: ServiceKey, env: SettingsEnv) {
     if (!env.APIFY_API_TOKEN) return { ok: false, message: "尚未配置" };
     try { const response = await fetch("https://api.apify.com/v2/users/me", { headers: { Authorization: "Bearer " + env.APIFY_API_TOKEN.trim(), Accept: "application/json" } }); const raw = await response.text(); let body: { data?: { username?: string }; error?: { type?: string; message?: string } } = {}; try { body = raw ? JSON.parse(raw) as typeof body : {}; } catch { /* handled by status below */ } if (!response.ok) { const reason = body.error?.message || body.error?.type || "Apify 未接受此 Token"; return { ok: false, message: "Apify HTTP " + response.status + " · " + reason + (response.status === 401 ? "。请在 Apify Console 新建有效 API Token，并重新保存。" : "") }; } return { ok: true, message: "Apify API 可用" + (body.data?.username ? " · 账户 " + body.data.username : "") }; } catch { return { ok: false, message: "无法连接 Apify API，请检查网络后重试" }; }
   }
-  if (service === "serpapi") {
+  if (service === "dhl") {\n    if (!env.DHL_API_KEY) return { ok: false, message: "尚未配置" };\n    try { const r = await fetch("https://api-eu.dhl.com/track/shipments?trackingNumber=00340434161094000000", { headers: { "DHL-API-Key": env.DHL_API_KEY, Accept: "application/json" } }); return { ok: r.ok || r.status === 404, message: r.ok || r.status === 404 ? "DHL API 凭证可用" : "DHL API 返回 HTTP " + r.status + "，请检查 API Key 与授权" }; } catch { return { ok: false, message: "无法连接 DHL API" }; }\n  }\n  if (service === "upsClientId" || service === "upsClientSecret") {\n    if (!env.UPS_CLIENT_ID || !env.UPS_CLIENT_SECRET) return { ok: false, message: "请同时配置 UPS Client ID 和 Client Secret" };\n    try { const auth = btoa(env.UPS_CLIENT_ID + ":" + env.UPS_CLIENT_SECRET); const r = await fetch("https://onlinetools.ups.com/security/v1/oauth/token", { method: "POST", headers: { Authorization: "Basic " + auth, "Content-Type": "application/x-www-form-urlencoded" }, body: "grant_type=client_credentials" }); return { ok: r.ok, message: r.ok ? "UPS OAuth 凭证可用" : "UPS OAuth 认证失败（HTTP " + r.status + "）" }; } catch { return { ok: false, message: "无法连接 UPS API" }; }\n  }\n  if (service === "fedexClientId" || service === "fedexClientSecret") {\n    if (!env.FEDEX_CLIENT_ID || !env.FEDEX_CLIENT_SECRET) return { ok: false, message: "请同时配置 FedEx API Key 和 Secret Key" };\n    try { const r = await fetch("https://apis.fedex.com/oauth/token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ grant_type: "client_credentials", client_id: env.FEDEX_CLIENT_ID, client_secret: env.FEDEX_CLIENT_SECRET }) }); return { ok: r.ok, message: r.ok ? "FedEx OAuth 凭证可用" : "FedEx OAuth 认证失败（HTTP " + r.status + "）" }; } catch { return { ok: false, message: "无法连接 FedEx API" }; }\n  }\n  if (service === "serpapi") {
     if (!env.SERPAPI_API_KEY) return { ok: false, message: "尚未配置" };
     try {
       const params = new URLSearchParams({ engine: "google", q: "TradePilot API connection test", gl: "us", hl: "en", num: "1", api_key: env.SERPAPI_API_KEY });
@@ -222,7 +237,7 @@ export async function handleSettings(request: Request, env: SettingsEnv): Promis
       deepl: Boolean(env.DEEPL_API_KEY),
       serper: Boolean(env.SERPER_API_KEY),
       serpapi: Boolean(env.SERPAPI_API_KEY),
-      apify: Boolean(env.APIFY_API_TOKEN),
+      apify: Boolean(env.APIFY_API_TOKEN),\n      dhl: Boolean(env.DHL_API_KEY),\n      upsClientId: Boolean(env.UPS_CLIENT_ID),\n      upsClientSecret: Boolean(env.UPS_CLIENT_SECRET),\n      fedexClientId: Boolean(env.FEDEX_CLIENT_ID),\n      fedexClientSecret: Boolean(env.FEDEX_CLIENT_SECRET),
     });
   }
 
