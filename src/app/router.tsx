@@ -2,6 +2,7 @@ import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { AppShell } from '../design-system/layout/AppShell';
 import { RequireAuth } from './RequireAuth';
 import { LoginPage } from '../features/auth/LoginPage';
+import { AgentWorkspacePage } from '../features/agent/AgentWorkspacePage';
 import { ProspectDiscoveryPage, ProspectConsolePage, RecentTasksPage } from '../features/prospect-discovery';
 import { LeadCreatePage } from '../features/leads/LeadCreatePage';
 import { LeadConsolePage } from '../features/leads/LeadConsolePage';
@@ -25,6 +26,7 @@ export const router = createBrowserRouter([
         element: <AppShell />,
         children: [
           { index: true, element: <Navigate to="/prospect-console" replace /> },
+          { path: 'agent', element: <AgentWorkspacePage /> },
           { path: 'prospect-discovery', element: <ProspectDiscoveryPage /> },
           { path: 'prospect-console', element: <ProspectConsolePage /> },
           { path: 'leads', element: <LeadConsolePage /> },
