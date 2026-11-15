@@ -89,7 +89,7 @@ export function AppShell() {
             href="/opportunities"
             isActive={location.pathname.startsWith('/opportunities')}
             title="商机（Opportunity）"
-            renderIcon={CarbonIcons.Briefcase}
+            renderIcon={CarbonIcons.UserMultiple}
           >
             商机（Opportunity）
           </SideNavLink>
