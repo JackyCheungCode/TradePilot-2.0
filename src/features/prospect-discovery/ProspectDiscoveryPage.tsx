@@ -3,7 +3,7 @@ import type { Session, SupabaseClient } from '@supabase/supabase-js';
 import {
   Button, Checkbox, InlineLoading, InlineNotification, NumberInput, ProgressBar,
   Select, SelectItem, Table, TableBody, TableCell, TableContainer, TableHead,
-  TableHeader, TableRow, Tag, TextInput,
+  TableHeader, TableRow, Tag, TextInput, RadioButton, RadioButtonGroup, CarbonIcons,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import {
@@ -49,7 +49,6 @@ export function ProspectDiscoveryPage() {
   const [authBusy,setAuthBusy]=useState(false);
   const [error,setError]=useState('');
   const [step,setStep]=useState<Step>(1);
-  const [category,setCategory]=useState<Category>('maps');
   const [platform,setPlatform]=useState<Platform>('google_maps');
   const [query,setQuery]=useState('电子产品批发商');
   const [country,setCountry]=useState('US');
@@ -81,7 +80,6 @@ export function ProspectDiscoveryPage() {
   },[]);
   useEffect(()=>{const timer=window.setInterval(()=>setClock(Date.now()),1000);return()=>window.clearInterval(timer);},[]);
   const currentPlatform=useMemo(()=>platformGroups.flatMap(g=>g.platforms).find(p=>p.id===platform),[platform]);
-  const chooseCategory=(next:Category)=>{setCategory(next);const first=platformGroups.find(g=>g.id===next)?.platforms.find(p=>p.enabled);if(first)setPlatform(first.id);setStep(1);};
   const token=session?.access_token??'';
 
   const refreshRun=useCallback(async(id:string)=>{
@@ -121,7 +119,7 @@ export function ProspectDiscoveryPage() {
       const current=await getDiscoveryRuns(token);setRuns(current);
     }catch(e){setError(e instanceof Error?e.message:'无法创建发现任务');}finally{setAuthBusy(false);}
   };
-  const selectPlatform=(id:Platform)=>{const p=platformGroups.flatMap(g=>g.platforms).find(x=>x.id===id);if(!p?.enabled)return;setPlatform(id);setCategory(platformGroups.find(g=>g.platforms.some(x=>x.id===id))!.id);};
+  const selectPlatform=(id:Platform)=>{const p=platformGroups.flatMap(g=>g.platforms).find(x=>x.id===id);if(!p?.enabled)return;setPlatform(id);};
   const elapsed=activeRun?Math.max(0,Math.floor((clock-new Date(activeRun.createdAt).getTime())/1000)):0;
   const elapsedLabel=elapsed<60?`${elapsed} 秒`:`${Math.floor(elapsed/60)} 分 ${elapsed%60} 秒`;
   const stale=!!activeRun&&!isTerminal(activeRun.status)&&lastUpdate!==null&&(clock-lastUpdate.getTime()>45000);
@@ -147,9 +145,35 @@ export function ProspectDiscoveryPage() {
       {([['01','发现途径'],['02','数据引擎'],['03','条件配置'],['04','执行结果']] as const).map(([number,label],index)=><button key={number} className={step===index+1?'is-active':step>index+1?'is-complete':''} onClick={()=>{if(index<3&&index+1<=step)setStep((index+1) as Step);}} disabled={index+1>step}><span>{number}</span>{label}</button>)}
     </nav>
     {step===1&&<section className="tp-discovery__panel">
-      <div className="tp-discovery__section-head"><div><h2>选择发现途径</h2><p>先选择发现大类，再选择一个具体平台。每次任务只使用一个平台。</p></div><Tag type="gray">单选渠道</Tag></div>
-      <div className="tp-discovery__category-grid">{platformGroups.map(group=><button key={group.id} className={category===group.id?'tp-discovery__category is-selected':'tp-discovery__category'} onClick={()=>chooseCategory(group.id)}><strong>{group.title}</strong><span>{group.description}</span></button>)}</div>
-      <div className="tp-discovery__platform-list">{platformGroups.find(g=>g.id===category)?.platforms.map(item=><button key={item.id} disabled={!item.enabled} className={platform===item.id?'tp-discovery__platform is-selected':'tp-discovery__platform'} onClick={()=>selectPlatform(item.id)}><span><strong>{item.name}</strong><small>{item.hint}</small></span><Tag type={item.enabled?'green':'gray'}>{item.enabled?'可用':'接入中'}</Tag></button>)}</div>
+      <div className="tp-discovery__section-head"><div><h2><CarbonIcons.Search size={20} aria-hidden="true"/>选择发现途径</h2><p>按地图、社交媒体和电商平台分组；选择一个具体平台开始任务。</p></div><Tag type="gray">单选渠道</Tag></div>
+      <RadioButtonGroup
+        legendText="具体平台"
+        name="discovery-platform"
+        value={platform}
+        orientation="vertical"
+        onChange={(value)=>selectPlatform(value as Platform)}
+        className="tp-discovery__platform-groups"
+      >
+        {platformGroups.map(group=>{
+          const GroupIcon=group.id==='maps'?CarbonIcons.Map:group.id==='social'?CarbonIcons.Share:CarbonIcons.ShoppingCart;
+          const GroupPlatformIcon=group.id==='maps'?CarbonIcons.Location:group.id==='social'?CarbonIcons.UserMultiple:CarbonIcons.ShoppingBag;
+          return <section key={group.id} className="tp-discovery__platform-group" aria-labelledby={`discovery-group-${group.id}`}>
+            <div className="tp-discovery__platform-group-head">
+              <GroupIcon size={20} aria-hidden="true"/>
+              <div><h3 id={`discovery-group-${group.id}`}>{group.title}</h3><p>{group.description}</p></div>
+            </div>
+            <div className="tp-discovery__platform-options">
+              {group.platforms.map(item=><div key={item.id} className="tp-discovery__platform-option">
+                <div className="tp-discovery__platform-choice">
+                  <GroupPlatformIcon size={16} aria-hidden="true"/>
+                  <RadioButton id={`platform-${item.id}`} labelText={item.name} value={item.id} disabled={!item.enabled}/>
+                </div>
+                <div className="tp-discovery__platform-meta"><small>{item.hint}</small><Tag type={item.enabled?'green':'gray'}>{item.enabled?'可用':'接入中'}</Tag></div>
+              </div>)}
+            </div>
+          </section>;
+        })}
+      </RadioButtonGroup>
       <div className="tp-discovery__actions"><Button onClick={()=>setStep(2)} disabled={!currentPlatform?.enabled}>下一步</Button></div>
     </section>}
     {step===2&&<section className="tp-discovery__panel">
@@ -177,22 +201,22 @@ export function ProspectDiscoveryPage() {
       </form>
     </section>}
     {step===4&&<section className="tp-discovery__panel">
-      <div className="tp-discovery__section-head"><div><h2>任务执行与发现结果</h2><p>日志每 2.5 秒刷新一次；任务阶段和进度来自后台真实状态，不使用虚假的动画百分比。</p></div>{activeRun&&<Tag type={isTerminal(activeRun.status)?'green':'blue'}>{statusLabels[activeRun.status]??activeRun.status}</Tag>}</div>
+      <div className="tp-discovery__section-head"><div><h2><CarbonIcons.Activity size={20} aria-hidden="true"/>任务执行与发现结果</h2><p>日志每 2.5 秒刷新一次；任务阶段和进度来自后台真实状态，不使用虚假的动画百分比。</p></div>{activeRun&&<Tag type={isTerminal(activeRun.status)?'green':'blue'}>{statusLabels[activeRun.status]??activeRun.status}</Tag>}</div>
       {activeRun?<><div className="tp-discovery__run-summary"><div><small>任务编号</small><strong>{activeRun.taskCode}</strong></div><div><small>已运行</small><strong>{elapsedLabel}</strong></div><div><small>发现记录</small><strong>{activeRun.discoveredCount}</strong></div><div><small>潜客入库</small><strong>{activeRun.createdLeadCount}</strong></div></div>
-        <ProgressBar label="后台执行进度" value={activeRun.progress??0} max={100} helperText={activeRun.message}/>
+        {activeRun.progress>0?<ProgressBar label="后台执行进度" value={activeRun.progress} max={100} helperText={activeRun.message}/>:<div className="tp-discovery__progress-wait"><InlineLoading description={activeRun.status==='queued'?'等待后台工作流启动…':activeRun.message||'等待后台阶段进度…'}/></div>}
         <div className="tp-discovery__activity"><div className="tp-discovery__activity-head"><h3>动态执行日志</h3><span>{polling?'实时轮询中':isTerminal(activeRun.status)?'执行已结束':'等待更新'} · {lastUpdate?lastUpdate.toLocaleTimeString():'读取中'}</span></div>
           {stale&&<InlineNotification kind="warning" lowContrast title="正在等待数据源响应" subtitle="后台仍在运行或重试。当前没有收到新日志，页面会继续检查，不代表任务已经卡死。" />}
           {activeRun.logs.length?<ol className="tp-discovery__log-list">{activeRun.logs.map(log=><li key={log.id} className={`is-${log.level}`}><span className="tp-discovery__log-dot"/><div><p>{log.message}</p><time>{new Date(log.createdAt).toLocaleTimeString()}</time></div></li>)}</ol>:<InlineLoading description="等待后台工作流写入第一条执行日志…" />}
           {!isTerminal(activeRun.status)&&<div className="tp-discovery__heartbeat"><span className="tp-discovery__pulse"/><span>任务仍在执行 · 已运行 {elapsedLabel} · 自动刷新中</span></div>}
         </div>
-        <div className="tp-discovery__results"><div className="tp-discovery__activity-head"><h3>搜索结果</h3><Tag type="gray">{records.length} 条</Tag></div>
+        <div className="tp-discovery__results"><div className="tp-discovery__activity-head"><h3><CarbonIcons.Building size={16} aria-hidden="true"/>搜索结果</h3><Tag type="gray">{records.length} 条</Tag></div>
           <TableContainer><Table size="lg"><TableHead><TableRow><TableHeader>名称</TableHeader><TableHeader>类型 / 地区</TableHeader><TableHeader>地址</TableHeader><TableHeader>联系方式</TableHeader><TableHeader>来源</TableHeader></TableRow></TableHead><TableBody>{records.map(record=><TableRow key={record.id}><TableCell><strong>{record.name}</strong><div className="tp-discovery__muted">{record.website??'暂无官网'}</div></TableCell><TableCell>{record.record_type} · {record.country_code??'—'}</TableCell><TableCell>{record.address??'—'}</TableCell><TableCell>{[record.email,record.phone,...extraContactValues(record)].filter(Boolean).join(' / ')||'待补充'}</TableCell><TableCell>{channelLabels[record.channel]??record.channel}</TableCell></TableRow>)}</TableBody></Table></TableContainer>
           {records.length===0&&<p className="tp-discovery__empty">任务发现结果将在采集并写入数据库后自动出现。</p>}
         </div>
       </>:<InlineNotification kind="info" title="尚未选择任务" subtitle="请先完成发现途径和条件配置。" />}
       <div className="tp-discovery__actions"><Button kind="secondary" onClick={()=>setStep(1)}>创建新任务</Button><Button kind="ghost" onClick={()=>{if(activeRun)void refreshRun(activeRun.id);}}>刷新状态</Button></div>
     </section>}
-    <section className="tp-discovery__history"><div className="tp-discovery__activity-head"><h2>最近任务</h2><Button kind="ghost" size="sm" onClick={()=>getDiscoveryRuns(token).then(setRuns).catch(e=>setError(String(e)))}>刷新列表</Button></div>
+    <section className="tp-discovery__history"><div className="tp-discovery__activity-head"><h2><CarbonIcons.Time size={20} aria-hidden="true"/>最近任务</h2><Button kind="ghost" size="sm" onClick={()=>getDiscoveryRuns(token).then(setRuns).catch(e=>setError(String(e)))}>刷新列表</Button></div>
       {runs.length?<div className="tp-discovery__history-list">{runs.slice(0,8).map(run=><button key={run.id} onClick={()=>{void refreshRun(run.id);setStep(4);}}><span><strong>{run.taskCode}</strong><small>{channelLabels[run.channel]??run.channel} · {run.query}</small></span><span><Tag type={isTerminal(run.status)?'green':'blue'}>{statusLabels[run.status]??run.status}</Tag><small>{run.discoveredCount} 条 · {new Date(run.createdAt).toLocaleString()}</small></span></button>)}</div>:<p className="tp-discovery__empty">暂无发现任务。</p>}
     </section>
   </main>;
