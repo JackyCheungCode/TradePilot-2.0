@@ -13,6 +13,7 @@ import { SalesOrderConsolePage, SalesOrderDetailPage, SalesOrderFormPage } from 
 import { ProductConsolePage, ProductDetailPage, ProductFormPage } from '../features/products/ProductPages';
 import { SettingsCenterPage } from '../features/settings/SettingsCenterPage';
 import { ShipmentConsolePage, ShipmentDetailPage, ShipmentFormPage } from '../features/shipments/ShipmentPages';
+import { PaymentConsolePage, PaymentDetailPage, PaymentFormPage } from '../features/payments/PaymentPages';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -44,6 +45,10 @@ export const router = createBrowserRouter([
           { path: 'shipments/new', element: <ShipmentFormPage /> },
           { path: 'shipments/:id/edit', element: <ShipmentFormPage /> },
           { path: 'shipments/:id', element: <ShipmentDetailPage /> },
+          { path: 'payments', element: <PaymentConsolePage /> },
+          { path: 'payments/new', element: <PaymentFormPage /> },
+          { path: 'payments/:id/edit', element: <PaymentFormPage /> },
+          { path: 'payments/:id', element: <PaymentDetailPage /> },
           { path: 'products', element: <ProductConsolePage /> },
           { path: 'products/new', element: <ProductFormPage /> },
           { path: 'products/:id/edit', element: <ProductFormPage /> },
