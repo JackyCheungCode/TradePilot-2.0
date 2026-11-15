@@ -4,8 +4,8 @@ import path from 'node:path';
 const sourceRoot = path.resolve('src');
 const allowedRoot = path.resolve('src/design-system');
 const violations = [];
-const forbiddenPackages = /(?:from\\s*|import\\s*|@use\\s*|@forward\\s*)['"](?:@carbon\\/(?:react|icons-react)|@fontsource\\/|lucide-react|react-icons(?:\\/[^'"]*)?|@fortawesome\\/)[^'"]*['"]/g;
-const cssDeclaration = /(?:^|[;{}\\s])[-a-zA-Z]+\\s*:\\s*[^;{}]+;/m;
+const forbiddenPackages = /(?:from\s*|import\s*|@use\s*|@forward\s*)['"](?:@carbon\/(?:react|icons-react)|@fontsource\/|lucide-react|react-icons(?:\/[^'"]*)?|@fortawesome\/)[^'"]*['"]/g;
+const cssDeclaration = /(?:^|[;{}\s])[-a-zA-Z]+\s*:\s*[^;{}]+;/m;
 
 async function scan(directory) {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
@@ -14,26 +14,26 @@ async function scan(directory) {
       await scan(fullPath);
       continue;
     }
-    if (!/\\.[cm]?[jt]sx?$|\\.s[ac]ss$|\\.css$/.test(entry.name)) continue;
+    if (!/\.[cm]?[jt]sx?$|\.s[ac]ss$|\.css$/.test(entry.name)) continue;
     if (fullPath.startsWith(allowedRoot + path.sep)) continue;
 
     const source = await readFile(fullPath, 'utf8');
     const relative = path.relative(process.cwd(), fullPath);
 
     if (forbiddenPackages.test(source)) {
-      violations.push(`${relative}: import UI, icon, and font packages through src/design-system only`);
+      violations.push(\`\${relative}: import UI, icon, and font packages through src/design-system only\`);
     }
     forbiddenPackages.lastIndex = 0;
 
-    if (/\\.s[ac]ss$|\\.css$/.test(entry.name)) {
-      const withoutComments = source.replace(/\\/\\*[\\s\\S]*?\\*\\//g, '');
+    if (/\.s[ac]ss$|\.css$/.test(entry.name)) {
+      const withoutComments = source.replace(/\/\*[\s\S]*?\*\//g, '');
       if (cssDeclaration.test(withoutComments)) {
-        violations.push(`${relative}: feature-owned CSS declarations are forbidden; compose Carbon and design-system resources`);
+        violations.push(\`\${relative}: feature-owned CSS declarations are forbidden; compose Carbon and design-system resources\`);
       }
     }
 
-    if (/\\.tsx?$/.test(entry.name) && /style\\s*=\\s*\\{\\s*\\{/.test(source)) {
-      violations.push(`${relative}: inline styles are forbidden; use Carbon components and design-system tokens`);
+    if (/\.tsx?$/.test(entry.name) && /style\s*=\s*\{\s*\{/.test(source)) {
+      violations.push(\`\${relative}: inline styles are forbidden; use Carbon components and design-system tokens\`);
     }
   }
 }
