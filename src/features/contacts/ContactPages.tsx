@@ -2,7 +2,7 @@ import { cloneElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Accordion, AccordionItem, Button, Checkbox, ComboBox, InlineLoading, InlineNotification, MultiSelect,
-  Select, SelectItem, Tab, TabList, TabPanel, TabPanels, Tabs, Tag, TextArea, TextInput, Tile, FileUploader, LineChart,
+  Select, SelectItem, Tab, TabList, TabPanel, TabPanels, Tabs, Tag, TextArea, TextInput, Tile, FileUploader, LineChart, ScaleTypes,
   CarbonIcons, Table, TableHead, TableRow, TableHeader, TableBody, TableCell,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
@@ -237,7 +237,7 @@ export function ContactConsolePage() {
   },[countryStats]);
   const maxCountry=chartCountries[0]?.total??1;
   const dailyChartData=dailyStats.map(item=>({group:'每日新增',date:new Date(item.date+'T00:00:00'),value:item.count}));
-  const dailyChartOptions={title:'每日新增联系人',axes:{bottom:{title:'日期',mapsTo:'date',scaleType:'time'},left:{title:'新增联系人',mapsTo:'value'}},curve:'curveMonotoneX',points:{enabled:true},legend:{enabled:false},toolbar:{enabled:false},height:'280px'} as const;
+  const dailyChartOptions={title:'每日新增联系人',axes:{bottom:{title:'日期',mapsTo:'date',scaleType:ScaleTypes.TIME},left:{title:'新增联系人',mapsTo:'value',scaleType:ScaleTypes.LINEAR}},curve:'curveMonotoneX',points:{enabled:true},legend:{enabled:false},toolbar:{enabled:false},height:'280px'} as const;
   const pages=Math.max(1,Math.ceil(total/PAGE_SIZE));
   const start=total===0?0:(page-1)*PAGE_SIZE+1;
   const end=Math.min(page*PAGE_SIZE,total);
