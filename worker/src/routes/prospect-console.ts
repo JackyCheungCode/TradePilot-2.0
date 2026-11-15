@@ -52,6 +52,7 @@ function localDay(value: string): string {
   const part = (type: string) => parts.find(item => item.type === type)?.value ?? "";
   return part("year") + "-" + part("month") + "-" + part("day");
 }
+// Canonical identity fallback for legacy discovery records without entity_id.
 function canonicalEntityKey(record: NonNullable<OccurrenceRow["record"]>): string {
   if (record.entity_id) return record.entity_id;
   const raw = record.raw_data ?? {};
