@@ -4,7 +4,7 @@ import {
   Button, Column, Grid, InlineLoading, InlineNotification, Tag, TextArea, Tile, CarbonIcons,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
-import './AgentWorkspacePage.scss';
+import '@/design-system/layout/AgentWorkspace.scss';
 
 type AgentTask = {
   goal: string;
