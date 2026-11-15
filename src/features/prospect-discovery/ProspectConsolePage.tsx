@@ -79,38 +79,44 @@ function DailyChart({ items }: { items: ConsoleStats['daily'] }) {
 }
 function ProspectMap({ rows, onSelect }: { rows: ProspectRow[]; onSelect: (row: ProspectRow) => void }) {
   const located = rows.filter(row => row.latitude !== null && row.longitude !== null &&
-    Number.isFinite(row.latitude) && Number.isFinite(row.longitude) && row.latitude >= -90 && row.latitude <= 90 && row.longitude >= -180 && row.longitude <= 180);
+    Number.isFinite(row.latitude) && Number.isFinite(row.longitude) && row.latitude >= -85.0511 && row.latitude <= 85.0511 && row.longitude >= -180 && row.longitude <= 180);
   const clusters = new Map<string, { x: number; y: number; rows: ProspectRow[] }>();
   located.forEach(row => {
-    const x=(Number(row.longitude)+180)/360*1000, y=(90-Number(row.latitude))/180*440;
-    const key=Math.round(x)+':'+Math.round(y);
-    const cluster=clusters.get(key)??{x,y,rows:[]};
-    cluster.rows.push(row); clusters.set(key,cluster);
+    const longitude = Number(row.longitude);
+    const latitude = Number(row.latitude) * Math.PI / 180;
+    const x = (longitude + 180) / 360 * 1024;
+    const y = (1 - Math.log(Math.tan(latitude) + 1 / Math.cos(latitude)) / Math.PI) / 2 * 1024;
+    const key = Math.round(x / 5) + ':' + Math.round(y / 5);
+    const cluster = clusters.get(key) ?? { x, y, rows: [] };
+    cluster.rows.push(row);
+    clusters.set(key, cluster);
   });
-  return <div className="tp-console__map" aria-label="全球潜客主要地址分布图">
-    <svg viewBox="0 0 1000 440" role="img" aria-label={`地图上有 ${located.length} 家具有有效坐标的企业`}>
-      <defs><pattern id="tp-map-grid" width="100" height="55" patternUnits="userSpaceOnUse"><path d="M 100 0 L 0 0 0 55" fill="none" className="tp-console__map-grid"/></pattern></defs>
-      <rect x="0" y="0" width="1000" height="440" fill="url(#tp-map-grid)"/>
-      <g className="tp-console__landmasses" aria-hidden="true">
-        <path d="M70 95 L110 60 170 48 215 67 245 100 230 130 205 142 192 177 160 192 142 230 115 215 103 180 80 155 62 120 Z"/>
-        <path d="M205 230 L238 242 254 275 245 320 225 370 208 340 195 295 185 260 Z"/>
-        <path d="M430 95 L460 78 495 85 510 110 490 130 455 128 Z"/>
-        <path d="M455 145 L500 140 535 170 530 225 510 270 485 290 465 250 450 205 Z"/>
-        <path d="M520 90 L570 62 650 55 730 78 790 112 830 150 800 180 745 170 700 190 650 165 600 175 560 145 Z"/>
-        <path d="M770 275 L810 265 850 285 855 315 825 335 785 320 Z"/>
-        <path d="M865 205 L900 195 925 210 915 235 880 238 Z"/>
-      </g>
-      {[0,1,2,3,4,5,6,7].map(i=><line key={i} x1={0} x2={1000} y1={55*i} y2={55*i} className="tp-console__map-latitude"/>)}
-      {[...clusters.values()].map(cluster=>{
-        const row=cluster.rows[0], count=cluster.rows.length;
-        return <g key={row.id} className="tp-console__map-marker" role="button" tabIndex={0} aria-label={count>1?`${count} 家企业，选择查看 ${row.name}`:row.name} onClick={()=>onSelect(row)} onKeyDown={event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();onSelect(row);}}}>
-          <circle cx={cluster.x} cy={cluster.y} r={count>1?12:9} className="tp-console__map-halo"/><circle cx={cluster.x} cy={cluster.y} r={count>1?7:4} className="tp-console__map-dot"><title>{count>1?`${count} 家企业聚合`:row.name+' · '+row.country}</title></circle>
-          {count>1&&<text x={cluster.x} y={cluster.y+3} textAnchor="middle" className="tp-console__cluster-count">{count}</text>}
-        </g>;
-      })}
-    </svg>
-    <div className="tp-console__map-legend"><span><i/>企业主要地址</span><span>{located.length} / {rows.length} 家有坐标</span></div>
-    {!located.length&&<p className="tp-console__map-empty">当前筛选结果没有可用坐标的企业；未确认地址不会被虚构到地图上。</p>}
+  return <div className="tp-console__map-wrap">
+    <div className="tp-console__map" aria-label="OpenStreetMap 全球潜客主要地址分布图">
+      <svg viewBox="0 256 1024 512" role="img" aria-label={`OpenStreetMap 地图上有 ${located.length} 家具有有效坐标的企业`}>
+        <g aria-hidden="true">
+          {[0,1,2,3].map(x => <g key={x}>
+            {[1,2].map(y => <image key={y} href={`https://tile.openstreetmap.org/2/${x}/${y}.png`} x={x*256} y={y*256} width="256" height="256" />)}
+          </g>)}
+        </g>
+        {[...clusters.values()].map(cluster => {
+          const row = cluster.rows[0], count = cluster.rows.length;
+          const markerY = cluster.y - 256;
+          return <g key={row.id} className="tp-console__map-marker" role="button" tabIndex={0}
+            aria-label={count > 1 ? `${count} 家企业，选择查看 ${row.name}` : row.name}
+            onClick={() => onSelect(row)}
+            onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onSelect(row); } }}>
+            <circle cx={cluster.x} cy={markerY} r={count > 1 ? 12 : 9} className="tp-console__map-halo" />
+            <circle cx={cluster.x} cy={markerY} r={count > 1 ? 7 : 4} className="tp-console__map-dot">
+              <title>{count > 1 ? `${count} 家企业聚合` : row.name + ' · ' + row.country}</title>
+            </circle>
+            {count > 1 && <text x={cluster.x} y={markerY+3} textAnchor="middle" className="tp-console__cluster-count">{count}</text>}
+          </g>;
+        })}
+      </svg>
+    </div>
+    <div className="tp-console__map-attribution">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors</div>
+    {!located.length && <p className="tp-console__map-empty">当前筛选结果没有可用坐标的企业；未确认地址不会被虚构到地图上。</p>}
   </div>;
 }
 export function ProspectConsolePage() {
@@ -235,7 +241,7 @@ export function ProspectConsolePage() {
         <section className="tp-console__panel"><div className="tp-console__panel-heading"><div><h2>每日潜客获取趋势</h2><p>同一企业同一天跨平台重复发现只计一次。</p></div></div><DailyChart items={stats.daily}/><div className="tp-console__chart-footnote">统计时区：{stats.timezone} · 日均 {stats.daily.length?Math.round(stats.daily.reduce((sum,item)=>sum+item.count,0)/stats.daily.length):0} 家 · 峰值 {maxDaily} 家</div></section>
       </div>
       <section className="tp-console__panel tp-console__map-panel">
-        <div className="tp-console__panel-heading"><div><h2>全球潜客分布</h2><p>每家企业仅展示一个主要地址；无可靠坐标的企业仍保留在下方列表。</p></div><Tag type="green">地图与列表联动</Tag></div>
+        <div className="tp-console__panel-heading"><div><h2>全球潜客分布</h2><p>每家企业仅展示一个主要地址；无可靠坐标的企业仍保留在下方列表。</p></div></div>
         <ProspectMap rows={filtered} onSelect={setSelected}/>
       </section>
       <section className="tp-console__panel tp-console__records-panel">
