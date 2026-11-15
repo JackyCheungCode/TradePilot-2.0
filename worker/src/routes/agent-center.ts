@@ -770,6 +770,19 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
       return successResponse(request,rows?.[0]??{});
     }
 
+    const messagePatchMatch=path.match(/^\/api\/v1\/agent\/conversations\/([0-9a-f-]{36})\/messages\/([0-9a-f-]{36})$/i);
+    if(messagePatchMatch&&request.method==="PATCH"){
+      const conversationId=messagePatchMatch[1],messageId=messagePatchMatch[2];
+      const owned=await db<Array<{id:string}>>(env,"agent_conversations?id=eq."+conversationId+"&owner_id=eq."+ownerId+"&select=id&limit=1");
+      if(!owned?.length)return errorResponse(request,"CONVERSATION_NOT_FOUND","聊天会话不存在。",404);
+      let body:Record<string,unknown>;try{body=await request.json() as Record<string,unknown>;}catch{return errorResponse(request,"INVALID_JSON","请求内容不是有效 JSON。",400);}
+      const metadata=asRecord(body.metadata);
+      if(JSON.stringify(metadata).length>30000)return errorResponse(request,"PAYLOAD_TOO_LARGE","消息元数据过大。",413);
+      const rows=await db<Array<Record<string,unknown>>>(env,"agent_chat_messages?id=eq."+messageId+"&conversation_id=eq."+conversationId+"&owner_id=eq."+ownerId+"&select=id,role,content,metadata",{method:"PATCH",headers:{Prefer:"return=representation"},body:JSON.stringify({metadata})});
+      if(!rows?.length)return errorResponse(request,"MESSAGE_NOT_FOUND","聊天消息不存在。",404);
+      return successResponse(request,rows[0]);
+    }
+
     if(path==="/api/v1/agent/chat"&&request.method==="POST"){
       let body:Record<string,unknown>;try{body=await request.json() as Record<string,unknown>;}catch{return errorResponse(request,"INVALID_JSON","请求内容不是有效 JSON。",400);}
       const message=typeof body.message==="string"?body.message.trim():"";
@@ -807,9 +820,9 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
           if(!/^[A-Z]{2}$/.test(country))task=null;
           else task={goal:String(taskRaw.goal).slice(0,10000),agentKey,country,mode};
         }
-        await db(env,"agent_chat_messages",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({owner_id:ownerId,conversation_id:conversationId,role:"assistant",content:reply,metadata:{task,model:generated.model,toolsUsed:toolResults.filter(item=>item.ok===true).map(item=>({name:item.tool,label:item.label,count:item.count}))}})});
+        const assistantRows=await db<Array<{id:string}>>(env,"agent_chat_messages",{method:"POST",headers:{Prefer:"return=representation"},body:JSON.stringify({owner_id:ownerId,conversation_id:conversationId,role:"assistant",content:reply,metadata:{task,model:generated.model,toolsUsed:toolResults.filter(item=>item.ok===true).map(item=>({name:item.tool,label:item.label,count:item.count}))}})});
         await db(env,"agent_conversations?id=eq."+conversationId+"&owner_id=eq."+ownerId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({last_message_at:new Date().toISOString()})});
-        return successResponse(request,{conversationId,reply,task,model:generated.model,toolsUsed:toolResults.filter(item=>item.ok===true).map(item=>({name:item.tool,label:item.label,count:item.count}))});
+        return successResponse(request,{conversationId,messageId:assistantRows?.[0]?.id??null,reply,task,model:generated.model,toolsUsed:toolResults.filter(item=>item.ok===true).map(item=>({name:item.tool,label:item.label,count:item.count}))});
       }catch(error){
         const message=error instanceof Error?error.message:"小雅暂时无法生成回复。";
         await db(env,"agent_chat_messages",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({owner_id:ownerId,conversation_id:conversationId,role:"assistant",content:message,metadata:{error:true}})});
