@@ -86,6 +86,14 @@ export function AppShell() {
             线索（Lead）
           </SideNavLink>
           <SideNavLink
+            href="/accounts"
+            isActive={location.pathname.startsWith('/accounts')}
+            title="客户（Account）"
+            renderIcon={CarbonIcons.Building}
+          >
+            客户（Account）
+          </SideNavLink>
+          <SideNavLink
             href="/contacts"
             isActive={location.pathname.startsWith('/contacts')}
             title="联系人（Contact）"
