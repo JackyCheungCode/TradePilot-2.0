@@ -243,6 +243,12 @@ function defaultAIBase(providerKey:string,protocol:AIProtocol):string{
  if(providerKey==="kimi")return "https://api.moonshot.cn/v1";
  if(providerKey==="minimax")return "https://api.minimax.chat/v1";
  if(providerKey==="siliconflow")return "https://api.siliconflow.cn/v1";
+ if(providerKey==="xai")return "https://api.x.ai/v1";
+ if(providerKey==="groq")return "https://api.groq.com/openai/v1";
+ if(providerKey==="baidu-qianfan")return "https://qianfan.baidubce.com/v2";
+ if(providerKey==="tencent-hunyuan")return "https://api.hunyuan.cloud.tencent.com/v1";
+ if(providerKey==="volcengine-ark")return "https://ark.cn-beijing.volces.com/api/v3";
+ if(providerKey==="together")return "https://api.together.xyz/v1";
  if(protocol==="anthropic")return "https://api.anthropic.com/v1";
  if(protocol==="gemini")return "https://generativelanguage.googleapis.com/v1beta";
  return "https://api.openai.com/v1";
