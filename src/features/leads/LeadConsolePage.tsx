@@ -230,7 +230,7 @@ export function LeadConsolePage() {
         <div className="tp-leads__table-wrap"><TableContainer><Table size="lg">
           <TableHead><TableRow>
             <TableHeader>线索编号</TableHeader><TableHeader>线索名称</TableHeader><TableHeader>国家 / 地区</TableHeader>
-            <TableHeader>来源</TableHeader><TableHeader>评级</TableHeader><TableHeader>状态</TableHeader><TableHeader>创建时间</TableHeader><TableHeader>操作</TableHeader>
+            <TableHeader>来源</TableHeader><TableHeader>评级</TableHeader><TableHeader>状态</TableHeader><TableHeader>创建时间</TableHeader>
           </TableRow></TableHead>
           <TableBody>{filtered.map(row => {
             const status = normalizeStatus(row);
@@ -243,7 +243,6 @@ export function LeadConsolePage() {
               <TableCell><Tag type={rating === 'hot' ? 'red' : rating === 'warm' ? 'warm-gray' : 'blue'}>{rating === 'hot' ? '热' : rating === 'warm' ? '温' : rating === 'cold' ? '冷' : '未评级'}</Tag></TableCell>
               <TableCell><Tag type={['invalid', 'rejected'].includes(status) ? 'red' : ['confirmed', 'qualified', 'converted'].includes(status) ? 'green' : 'blue'}>{statusLabel(status)}</Tag></TableCell>
               <TableCell>{new Date(row.created_at).toLocaleDateString('zh-TW')}</TableCell>
-              <TableCell><Button kind="ghost" size="sm" onClick={() => navigate('/leads/new?leadId=' + encodeURIComponent(row.id))}>查看资料</Button></TableCell>
             </TableRow>;
           })}</TableBody>
         </Table></TableContainer></div>
