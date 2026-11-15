@@ -113,7 +113,7 @@ export function OpportunityFormPage() {
   const availableContacts=contacts.filter(c=>c.account_id===data.account_id);
   const settingRows=(type:string)=>settings.filter(x=>x.setting_type===type);
   const configured=(type:string)=>settingRows(type).filter(x=>x.is_active);
-  const stageItems=configured('stages'), typeItems=configured('types'), priorityItems=configured('priorities'), sourceItems=configured('sources'), qualificationItems=configured('qualification'), activityItems=configured('activities'), teamItems=configured('teams'), reasonItems=configured('win-loss-reasons');
+  const stageItems=configured('stages'), teamItems=configured('teams');
   const stageOptions=asOptions(settingRows('stages'),stages), opportunityTypes=asOptions(settingRows('types'),typeOptions), priorities=asOptions(settingRows('priorities'),priorityOptions), sources=asOptions(settingRows('sources'),sourceOptions), qualifications=asOptions(settingRows('qualification'),qualificationOptions), activities=asOptions(settingRows('activities'),[['call','电话'],['email','邮件'],['whatsapp','WhatsApp'],['meeting','会议'],['video','视频会议'],['visit','客户拜访'],['task','任务']]);
   const teams=asOptions(teamItems,[]);
   const lostReasons: Array<[string,string]>=asOptions(settingRows('win-loss-reasons').filter(x=>x.config?.result==='lost'),[['price','价格'],['competitor','竞争对手'],['timing','时机不合适'],['no_budget','预算不足'],['no_response','客户无回应'],['other','其他']]);
