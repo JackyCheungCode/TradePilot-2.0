@@ -21,6 +21,7 @@
   "include": [
     "worker/src/**/*.ts",
     "worker/src/**/*.d.ts",
-    "worker/worker-configuration.d.ts"
+    "worker/worker-configuration.d.ts",
+    "worker-workflows.d.ts"
   ]
 }
