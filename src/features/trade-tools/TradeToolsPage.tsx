@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput, TextArea,
+  Button, Dropdown, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput, TextArea,
   CarbonIcons,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
@@ -11,6 +11,7 @@ type Holiday = { date: string; localName: string; name: string; global: boolean;
 type LocationResult = { name: string; country: string; country_code: string; admin1?: string; latitude: number; longitude: number; timezone: string };
 type WeatherDay = { date: string; code: number; high: number; low: number; rain: number };
 type ContactOption = { id: string; label: string; address: string };
+type CountryOption = { countryCode: string; name: string };
 type CarrierResult = Record<string, unknown>;
 
 const currencies = ['USD','CNY','EUR','GBP','JPY','HKD','TWD','AUD','CAD','SGD','CHF','KRW','INR','THB','MYR','IDR','VND','AED','SAR','BRL','MXN','PLN','SEK','NOK','DKK','NZD','ZAR'];
@@ -95,6 +96,13 @@ export function TradeToolsPage() {
   const [margin,setMargin] = useState('25');
   const [saleQty,setSaleQty] = useState('1');
 
+  const countryOptions = useMemo<CountryOption[]>(() => {
+    const defaults:CountryOption[]=[{countryCode:'DE',name:'Germany'},{countryCode:'HK',name:'Hong Kong'},{countryCode:'MO',name:'Macao'},{countryCode:'TW',name:'Taiwan'}];
+    const available=holidayCountries.filter(item=>!defaults.some(entry=>entry.countryCode===item.countryCode));
+    return [...defaults,...available];
+  },[holidayCountries]);
+  const countryLabel = (item:CountryOption|null) => item ? (countryNames[item.countryCode]||item.name) : '';
+  const renderCountryOption = (item:CountryOption) => <span className="tp-trade-tools__country-option"><img src={'https://hatscripts.github.io/circle-flags/flags/'+item.countryCode.toLowerCase()+'.svg'} alt="" loading="lazy"/><span>{countryLabel(item)}</span></span>;
   const conversion = useMemo(() => rate === null ? null : Number(amount || 0) * rate,[amount,rate]);
   const profit = useMemo(() => {
     const totalCost = Number(cost||0)+Number(freight||0)+Number(duty||0)+Number(other||0);
@@ -269,13 +277,7 @@ export function TradeToolsPage() {
         {active==='holidays'&&<section className="tp-trade-tools__tool">
           <div className="tp-trade-tools__tool-title"><CarbonIcons.Calendar size={24}/><div><h2>全球公共假期</h2><p>Nager.Date · 支持国家及一级行政区假期</p></div></div>
           <div className="tp-trade-tools__form-grid">
-            <Select id="holiday-country" labelText="国家或地区" value={holidayCountry} onChange={e=>{setHolidayCountry(e.currentTarget.value);setHolidayRegion('all');}}>
-              <SelectItem value="DE" text="🇩🇪 德国（默认）"/>
-              {holidayCountries.filter(c=>c.countryCode!=='DE'&&!['HK','MO','TW'].includes(c.countryCode)).map(c=><SelectItem key={c.countryCode} value={c.countryCode} text={(flags[c.countryCode]||'🌐')+' '+(countryNames[c.countryCode]||c.name)}/>)}
-              <SelectItem value="HK" text="🇭🇰 中国·香港（数据可能不可用）"/>
-              <SelectItem value="MO" text="🇲🇴 中国·澳门（数据可能不可用）"/>
-              <SelectItem value="TW" text="🇹🇼 中国·台湾（数据可能不可用）"/>
-            </Select>
+            <Dropdown id="holiday-country" titleText="国家或地区" label="选择国家或地区" items={countryOptions} selectedItem={countryOptions.find(item=>item.countryCode===holidayCountry)} itemToString={countryLabel} itemToElement={renderCountryOption} renderSelectedItem={renderCountryOption} onChange={({selectedItem})=>{if(selectedItem){setHolidayCountry(selectedItem.countryCode);setHolidayRegion('all');}}}/>
             <Select id="holiday-year" labelText="年份" value={holidayYear} onChange={e=>setHolidayYear(e.currentTarget.value)}>{[2025,2026,2027,2028].map(y=><SelectItem key={y} value={String(y)} text={String(y)}/>)}</Select>
             <Select id="holiday-region" labelText="州／省／地区" value={holidayRegion} onChange={e=>setHolidayRegion(e.currentTarget.value)}><SelectItem value="all" text="全部地区"/>{holidayRegions.map(r=><SelectItem key={r} value={r} text={r}/>)}</Select>
             <Button kind="primary" onClick={()=>void loadHolidays()} disabled={busy}>查询假期</Button>
@@ -310,7 +312,7 @@ export function TradeToolsPage() {
           <div className="tp-trade-tools__tool-title"><CarbonIcons.Time size={24}/><div><h2>客户联系时机</h2><p>当地时间、工作日状态、昼夜和近三天天气</p></div></div>
           <div className="tp-trade-tools__form-grid">
             <Select id="contact-select" labelText="选择客户／联系人（可选）" value={selectedContact} onChange={e=>void chooseContact(e.currentTarget.value)}><SelectItem value="" text="手动选择地点"/>{contacts.map(c=><SelectItem key={c.id} value={c.id} text={c.label+' · '+c.address}/>)}</Select>
-            <Select id="contact-country" labelText="国家或地区" value={locationCountry} onChange={e=>setLocationCountry(e.currentTarget.value)}>{holidayCountries.filter(c=>!['HK','MO','TW'].includes(c.countryCode)).map(c=><SelectItem key={c.countryCode} value={c.countryCode} text={(flags[c.countryCode]||'🌐')+' '+(countryNames[c.countryCode]||c.name)}/>)}<SelectItem value="HK" text="🇭🇰 中国·香港"/><SelectItem value="MO" text="🇲🇴 中国·澳门"/><SelectItem value="TW" text="🇹🇼 中国·台湾"/></Select>
+            <Dropdown id="contact-country" titleText="国家或地区" label="选择国家或地区" items={countryOptions} selectedItem={countryOptions.find(item=>item.countryCode===locationCountry)} itemToString={countryLabel} itemToElement={renderCountryOption} renderSelectedItem={renderCountryOption} onChange={({selectedItem})=>{if(selectedItem)setLocationCountry(selectedItem.countryCode);}}/>
             <TextInput id="contact-region" labelText="省／州／地区（可选）" value={locationRegion} onChange={e=>setLocationRegion(e.currentTarget.value)} placeholder="例如 California / Bayern"/>
             <TextInput id="contact-city" labelText="城市（可选）" value={locationCity} onChange={e=>setLocationCity(e.currentTarget.value)} placeholder="例如 Los Angeles / Berlin"/>
             <TextInput id="contact-location" labelText="客户地址（可选）" value={locationQuery} onChange={e=>setLocationQuery(e.currentTarget.value)} placeholder="可输入完整地址覆盖上方地区"/>
