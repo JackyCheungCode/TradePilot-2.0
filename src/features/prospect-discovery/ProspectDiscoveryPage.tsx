@@ -187,8 +187,9 @@ export function ProspectDiscoveryPage() {
                   <div className="tp-discovery__platform-choice">
                     <img className={"tp-discovery__platform-logo tp-discovery__platform-logo--"+item.id} src={"/platform-logos/"+item.id+".svg"} alt="" aria-hidden="true"/>
                     <RadioButton id={"platform-"+item.id} labelText={item.name} value={item.id} disabled={!item.enabled}/>
+                    <span className={"tp-discovery__status-dot "+(item.enabled?'is-available':'is-connecting')} role="img" aria-label={item.enabled?'可用':'接入中'} title={item.enabled?'可用':'接入中'}/>
                   </div>
-                  <div className="tp-discovery__platform-meta"><small>{item.hint}</small><Tag type={item.enabled?'green':'gray'}>{item.enabled?'可用':'接入中'}</Tag></div>
+                  <div className="tp-discovery__platform-meta"><small>{item.hint}</small></div>
                 </div>)}
               </div>
             </section>;
