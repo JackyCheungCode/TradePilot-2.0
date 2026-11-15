@@ -1,8 +1,10 @@
 import { errorResponse, successResponse } from "../lib/http";
+import { readIntegrationSecrets } from "../lib/integrations";
 
 interface TradeToolsEnv {
   SUPABASE_URL: string;
   SUPABASE_ANON_KEY: string;
+  SUPABASE_SERVICE_ROLE_KEY: string;
   GOOGLE_MAPS_API_KEY?: string;
   DHL_API_KEY?: string;
   UPS_CLIENT_ID?: string;
@@ -148,5 +150,18 @@ export async function handleTradeTools(request: Request, env: TradeToolsEnv): Pr
     return errorResponse(request, "NOT_FOUND", "外贸工具接口不存在。", 404);
   }
   if (!(await authenticated(request, env))) return errorResponse(request, "UNAUTHORIZED", "请先登录后使用外贸工具。", 401);
-  return pathname === "/api/v1/trade-tools/geocode" ? geocodeAddress(request, env) : trackShipment(request, env);
+  const secrets = await readIntegrationSecrets(env, [
+    "tradepilot_api_google_maps", "tradepilot_api_dhl", "tradepilot_api_ups_client_id",
+    "tradepilot_api_ups_client_secret", "tradepilot_api_fedex_client_id", "tradepilot_api_fedex_client_secret",
+  ]);
+  const configuredEnv: TradeToolsEnv = {
+    ...env,
+    GOOGLE_MAPS_API_KEY: secrets.tradepilot_api_google_maps || env.GOOGLE_MAPS_API_KEY,
+    DHL_API_KEY: secrets.tradepilot_api_dhl || env.DHL_API_KEY,
+    UPS_CLIENT_ID: secrets.tradepilot_api_ups_client_id || env.UPS_CLIENT_ID,
+    UPS_CLIENT_SECRET: secrets.tradepilot_api_ups_client_secret || env.UPS_CLIENT_SECRET,
+    FEDEX_CLIENT_ID: secrets.tradepilot_api_fedex_client_id || env.FEDEX_CLIENT_ID,
+    FEDEX_CLIENT_SECRET: secrets.tradepilot_api_fedex_client_secret || env.FEDEX_CLIENT_SECRET,
+  };
+  return pathname === "/api/v1/trade-tools/geocode" ? geocodeAddress(request, configuredEnv) : trackShipment(request, configuredEnv);
 }
