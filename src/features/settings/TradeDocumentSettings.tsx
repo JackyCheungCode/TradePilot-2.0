@@ -1,46 +1,46 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, InlineLoading, InlineNotification, TextInput, Tag } from '@/design-system';
+import { Button, InlineLoading, InlineNotification, TextInput, Select, SelectItem, Tag } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 
 type Scope = 'shared' | 'quotation' | 'sales_order';
-type Field = { key: string; label: string; initial: string; hint?: string };
+type Field = { key: string; label: string; initial: string; hint?: string; type?: 'text' | 'number' | 'boolean' | 'select'; options?: Array<{ value: string; label: string }> };
 
 const fields: Record<Scope, Field[]> = {
   shared: [
     { key: 'quotePrefix', label: '报价单编号前缀', initial: 'QT' },
-    { key: 'quoteDigits', label: '报价单序号位数', initial: '4' },
+    { key: 'quoteDigits', label: '报价单序号位数', initial: '4', type: 'number' },
     { key: 'orderPrefix', label: '销售订单编号前缀', initial: 'SO' },
-    { key: 'orderDigits', label: '销售订单序号位数', initial: '4' },
+    { key: 'orderDigits', label: '销售订单序号位数', initial: '4', type: 'number' },
     { key: 'defaultCurrency', label: '默认报价币种', initial: 'USD' },
     { key: 'supportedCurrencies', label: '启用币种（逗号分隔）', initial: 'USD, EUR, GBP, CNY' },
-    { key: 'defaultTaxRate', label: '默认税率（%）', initial: '0' },
-    { key: 'taxMode', label: '默认税价模式', initial: 'exclusive', hint: 'exclusive = 未税；inclusive = 含税' },
-    { key: 'productTaxable', label: '产品默认计税', initial: 'true', hint: 'true / false' },
-    { key: 'freightTaxable', label: '运费默认计税', initial: 'false', hint: 'true / false' },
-    { key: 'insuranceTaxable', label: '保险费默认计税', initial: 'false', hint: 'true / false' },
-    { key: 'otherFeesTaxable', label: '其他费用默认计税', initial: 'false', hint: 'true / false' },
-    { key: 'maxLineDiscount', label: '产品最大折扣（%）', initial: '30' },
-    { key: 'maxDocumentDiscount', label: '整单最大折扣（%）', initial: '20' },
+    { key: 'defaultTaxRate', label: '默认税率（%）', initial: '0', type: 'number' },
+    { key: 'taxMode', label: '默认税价模式', initial: 'exclusive', type: 'select', options: [{ value: 'exclusive', label: '未税' }, { value: 'inclusive', label: '含税' }] },
+    { key: 'productTaxable', label: '产品默认计税', initial: 'true', type: 'boolean' },
+    { key: 'freightTaxable', label: '运费默认计税', initial: 'false', type: 'boolean' },
+    { key: 'insuranceTaxable', label: '保险费默认计税', initial: 'false', type: 'boolean' },
+    { key: 'otherFeesTaxable', label: '其他费用默认计税', initial: 'false', type: 'boolean' },
+    { key: 'maxLineDiscount', label: '产品最大折扣（%）', initial: '30', type: 'number' },
+    { key: 'maxDocumentDiscount', label: '整单最大折扣（%）', initial: '20', type: 'number' },
     { key: 'defaultIncoterm', label: '默认贸易术语', initial: 'FOB' },
     { key: 'incotermVersion', label: '贸易术语版本', initial: 'Incoterms 2020' },
     { key: 'defaultPaymentTerms', label: '默认付款条款', initial: '30% deposit, 70% before shipment' },
     { key: 'feeItems', label: '默认费用项目（逗号分隔）', initial: 'Freight, Insurance, Packaging, Other' },
   ],
   quotation: [
-    { key: 'validityDays', label: '默认报价有效期（天）', initial: '30' },
+    { key: 'validityDays', label: '默认报价有效期（天）', initial: '30', type: 'number' },
     { key: 'validityStart', label: '有效期起算点', initial: 'issued_at', hint: 'issued_at = 发送/签发日期；created_at = 创建日期' },
-    { key: 'allowOnlineAcceptance', label: '允许客户在线接受整份报价', initial: 'false', hint: 'true / false；当前在线接受流程仍需独立接通' },
-    { key: 'publicLinkDays', label: '客户访问链接有效期（天）', initial: '7' },
-    { key: 'allowRevision', label: '允许创建报价修订版本', initial: 'true', hint: '已发送报价的商业信息变更应创建新版本' },
-    { key: 'requireRejectionReason', label: '客户拒绝时要求填写原因', initial: 'true', hint: 'true / false' },
+    { key: 'allowOnlineAcceptance', label: '允许客户在线接受整份报价', initial: 'false', type: 'boolean', hint: '在线接受流程接通后生效' },
+    { key: 'publicLinkDays', label: '客户访问链接有效期（天）', initial: '7', type: 'number' },
+    { key: 'allowRevision', label: '允许创建报价修订版本', initial: 'true', type: 'boolean', hint: '已发送报价的商业信息变更应创建新版本' },
+    { key: 'requireRejectionReason', label: '客户拒绝时要求填写原因', initial: 'true', type: 'boolean' },
   ],
   sales_order: [
-    { key: 'requireApproval', label: '订单确认前需要审批', initial: 'false', hint: 'true / false' },
-    { key: 'lockCommercialOnConfirm', label: '确认后锁定商业信息', initial: 'true', hint: 'true / false' },
-    { key: 'allowCancelAfterConfirm', label: '确认后允许取消订单', initial: 'false', hint: 'true / false；仍需记录取消原因' },
+    { key: 'requireApproval', label: '订单确认前需要审批', initial: 'false', type: 'boolean' },
+    { key: 'lockCommercialOnConfirm', label: '确认后锁定商业信息', initial: 'true', type: 'boolean' },
+    { key: 'allowCancelAfterConfirm', label: '确认后允许取消订单', initial: 'false', type: 'boolean', hint: '仍需记录取消原因' },
     { key: 'defaultFulfillmentStatus', label: '订单创建后的默认履行状态', initial: 'pending' },
-    { key: 'requireDeliveryDate', label: '订单是否要求交付日期', initial: 'false', hint: 'true / false' },
-    { key: 'allowPartialShipment', label: '允许分批发货', initial: 'true', hint: 'true / false' },
+    { key: 'requireDeliveryDate', label: '订单是否要求交付日期', initial: 'false', type: 'boolean' },
+    { key: 'allowPartialShipment', label: '允许分批发货', initial: 'true', type: 'boolean' },
   ],
 };
 
@@ -114,12 +114,18 @@ export function TradeDocumentSettings({ scope }: { scope: Scope }) {
           <div className="tp-trade-document-settings__grid">
             {currentFields.map((field) => (
               <div className="tp-trade-document-settings__field" key={field.key}>
-                <TextInput
-                  id={`trade-setting-${scope}-${field.key}`}
-                  labelText={field.label}
-                  value={values[field.key] ?? field.initial}
-                  onChange={(event) => setValues((current) => ({ ...current, [field.key]: event.currentTarget.value }))}
-                />
+                {field.type === 'boolean' ? (
+                  <Select id={`trade-setting-${scope}-${field.key}`} labelText={field.label} value={values[field.key] ?? field.initial} onChange={(event) => setValues((current) => ({ ...current, [field.key]: event.currentTarget.value }))}>
+                    <SelectItem value="true" text="启用" />
+                    <SelectItem value="false" text="停用" />
+                  </Select>
+                ) : field.type === 'select' ? (
+                  <Select id={`trade-setting-${scope}-${field.key}`} labelText={field.label} value={values[field.key] ?? field.initial} onChange={(event) => setValues((current) => ({ ...current, [field.key]: event.currentTarget.value }))}>
+                    {(field.options ?? []).map((option) => <SelectItem key={option.value} value={option.value} text={option.label} />)}
+                  </Select>
+                ) : (
+                  <TextInput id={`trade-setting-${scope}-${field.key}`} labelText={field.label} type={field.type === 'number' ? 'number' : 'text'} value={values[field.key] ?? field.initial} onChange={(event) => setValues((current) => ({ ...current, [field.key]: event.currentTarget.value }))} />
+                )}
                 {field.hint && <p className="tp-settings__hint">{field.hint}</p>}
               </div>
             ))}
