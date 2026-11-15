@@ -75,8 +75,13 @@ export function OpportunityConsolePage() {
   const filtered = useMemo(()=>rows.filter(r=>(stage==='all'||r.stage===stage)&&[r.name,r.opportunity_number,r.source,r.sales_person,r.sales_team].join(' ').toLowerCase().includes(query.trim().toLowerCase())),[rows,stage,query]);
   useEffect(()=>setPage(1),[query,stage]);
   const open = rows.filter(r=>r.status==='open');
-  const pipeline = open.reduce((sum,r)=>sum+Number(r.amount||0),0);
-  const weighted = open.reduce((sum,r)=>sum+Number(r.amount||0)*Number(r.probability||0)/100,0);
+  const currencyTotals = (items: Opportunity[], weightedAmount = false) => {
+    const totals = new Map<string,number>();
+    items.forEach(item => totals.set(item.currency_code || 'USD',(totals.get(item.currency_code || 'USD') || 0) + Number(item.amount || 0) * (weightedAmount ? Number(item.probability || 0) / 100 : 1)));
+    return [...totals.entries()].map(([currency,value])=>currency+' '+value.toLocaleString(undefined,{maximumFractionDigits:2})).join(' · ') || '—';
+  };
+  const pipeline = currencyTotals(open);
+  const weighted = currencyTotals(open,true);
   const pageRows = filtered.slice((page-1)*pageSize,page*pageSize);
   const accountMap = new Map(accounts.map(a=>[a.id,a.account_name] as [string,string]));
   const contactMap = new Map(contacts.map(c=>[c.id,contactName(c)]));
@@ -85,7 +90,7 @@ export function OpportunityConsolePage() {
       <div className="tp-opportunities__actions"><Button kind="tertiary" onClick={()=>void load()} disabled={loading}><CarbonIcons.Renew size={16}/>刷新</Button><Button kind="primary" onClick={()=>nav('/opportunities/new')}><CarbonIcons.Add size={16}/>新建商机</Button></div>
     </header>
     {error&&<InlineNotification kind="error" title="商机数据读取失败" subtitle={error}/>}
-    <div className="tp-opportunities__metrics"><Metric title="全部商机" value={String(rows.length)} detail="当前可见商机"/><Metric title="进行中" value={String(open.length)} detail="尚未关闭"/><Metric title="预计管道金额" value={pipeline.toLocaleString(undefined,{maximumFractionDigits:2})} detail="按商机金额汇总"/><Metric title="加权预测金额" value={weighted.toLocaleString(undefined,{maximumFractionDigits:2})} detail="金额 × 赢率"/></div>
+    <div className="tp-opportunities__metrics"><Metric title="全部商机" value={String(rows.length)} detail="当前可见商机"/><Metric title="进行中" value={String(open.length)} detail="尚未关闭"/><Metric title="预计管道金额" value={pipeline} detail="按商机金额汇总"/><Metric title="加权预测金额" value={weighted} detail="金额 × 赢率"/></div>
     <section className="tp-opportunities__panel">
       <div className="tp-opportunities__panel-head"><div><h2>商机列表</h2><p>可按商机名称、编号、阶段和负责人检索；列表每页最多 15 条。</p></div><Tag type="blue">{filtered.length} 条记录</Tag></div>
       <div className="tp-opportunities__filters"><TextInput id="opportunity-search" labelText="搜索商机" placeholder="名称、编号、来源或负责人" value={query} onChange={e=>setQuery(e.currentTarget.value)}/><Select id="opportunity-stage-filter" labelText="销售阶段" value={stage} onChange={e=>setStage(e.currentTarget.value)}><SelectItem value="all" text="全部阶段"/>{stages.map(([v,t])=><SelectItem key={v} value={v} text={t}/>)}</Select></div>
