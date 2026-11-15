@@ -101,8 +101,8 @@ export function PaymentConsolePage() {
   const outstandingTotal=receivables.filter(r=>r.currency===currency).reduce((s,r)=>s+r.outstanding,0);
   const overdueTotal=receivables.filter(r=>r.currency===currency&&r.overdue_days>0).reduce((s,r)=>s+r.outstanding,0);
 
-  const monthly=Array.from({length:6},(_,i)=>{const d=new Date();d.setMonth(d.getMonth()-5+i);return {key:d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'),label:(d.getMonth()+1)+'月'};});
-  const trend=monthly.map(m=>({group:m.label,key:'实际到账',value:currencyRows.filter(r=>r.payment_type==='receipt'&&['confirmed','partially_reconciled','reconciled'].includes(r.status)&&r.received_date?.slice(0,7)===m.key).reduce((s,r)=>s+Number(r.net_received||0),0)}));
+  const days=Array.from({length:30},(_,i)=>{const d=new Date();d.setDate(d.getDate()-29+i);const key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');return {key,label:(d.getMonth()+1)+'/'+d.getDate()};});
+  const trend=days.map(day=>({group:day.label,key:'实际到账',value:currencyRows.filter(r=>r.payment_type==='receipt'&&['confirmed','partially_reconciled','reconciled','returned'].includes(r.status)&&r.received_date===day.key).reduce((s,r)=>s+Number(r.net_received||0),0)}));
   const statusData=PAYMENT_STATES.map(([k,v])=>({group:v,key:'收款笔数',value:currencyRows.filter(r=>r.status===k).length})).filter(x=>x.value);
   const methodData=METHODS.map(m=>({group:m,key:'收款笔数',value:currencyRows.filter(r=>r.payment_method===m).length})).filter(x=>x.value);
   const agingData=['未到期','1–30','31–60','61–90','90+'].map(k=>({group:k,key:'未收金额',value:receivables.filter(r=>r.currency===currency&&r.aging_bucket===k).reduce((s,r)=>s+r.outstanding,0)})).filter(x=>x.value>0);
@@ -122,7 +122,7 @@ export function PaymentConsolePage() {
     <section className="tp-payments__panel">
       <div className="tp-payments__panel-head"><div><h2>收款与应收分析</h2><p>按币种、收款状态、方式、到账趋势和应收账龄分析。</p></div><Pick id="payment-currency" label="统计币种" value={currency} onChange={setCurrency} options={CURRENCIES}/></div>
       <div className="tp-payments__charts">
-        <div className="tp-payments__chart"><h3>近 6 个月到账趋势 <span>{currency}</span></h3><LineChart data={trend} options={{...chartOpts,axes:{...chartOpts.axes,left:{title:currency,mapsTo:'value',scaleType:ScaleTypes.LINEAR}}}}/></div>
+        <div className="tp-payments__chart"><h3>近 30 日到账趋势 <span>{currency}</span></h3><LineChart data={trend} options={{...chartOpts,axes:{...chartOpts.axes,left:{title:currency,mapsTo:'value',scaleType:ScaleTypes.LINEAR}}}}/></div>
         <div className="tp-payments__chart"><h3>收款状态分布</h3>{statusData.length?<SimpleBarChart data={statusData} options={chartOpts}/>:<p>暂无收款数据</p>}</div>
         <div className="tp-payments__chart"><h3>收款方式分布</h3>{methodData.length?<SimpleBarChart data={methodData} options={chartOpts}/>:<p>暂无收款数据</p>}</div>
         <div className="tp-payments__chart"><h3>应收账龄分布</h3>{agingData.length?<SimpleBarChart data={agingData} options={chartOpts}/>:<p>暂无未收应收</p>}</div>
