@@ -5,6 +5,7 @@ import {
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/settings.scss';
+import { ProductAdvancedSettings } from './ProductAdvancedSettings';
 
 type Domain = { id: string; label: string; icon: React.ReactNode; available: boolean };
 type Section = { id: string; label: string; group: string; description: string; implemented?: boolean };
@@ -24,15 +25,15 @@ const domains: Domain[] = [
 const productSections: Section[] = [
   { id: 'categories', label: '分类与产品线', group: '产品基础设置', description: '维护多级产品分类，创建产品时直接选择。', implemented: true },
   { id: 'attributes', label: '规格属性', group: '规格与属性', description: '定义可复用属性及变体生成方式。', implemented: true },
-  { id: 'templates', label: '规格模板', group: '规格与属性', description: '按产品分类组合属性模板。' },
-  { id: 'variants', label: '产品变体规则', group: '规格与属性', description: '维护变体组合与 SKU 生成规则。' },
-  { id: 'certifications', label: '认证类型', group: '规格与属性', description: '维护 CE、FCC、RoHS 等认证字典。' },
-  { id: 'units', label: '计量单位与换算', group: '计量与包装', description: '维护基本单位、销售单位、采购单位和换算关系。' },
-  { id: 'packaging', label: '包装层级', group: '计量与包装', description: '维护内盒、外箱、托盘和装柜规则。' },
-  { id: 'customs', label: '贸易与报关', group: '贸易与报关', description: '维护 HS 编码、申报要素、税率及监管条件。' },
-  { id: 'sales', label: '销售与采购', group: '销售与采购', description: '维护币种、税务分类、MOQ、交期和保修规则。' },
-  { id: 'files', label: '文件与多语言', group: '文件与多语言', description: '维护附件类型、支持语言和翻译字段规则。' },
-  { id: 'data-rules', label: '产品数据规则', group: '数据规则', description: '维护 SKU 编码、查重、审批及导入导出规则。' },
+  { id: 'templates', label: '规格模板', group: '规格与属性', description: '按产品分类组合属性模板。', implemented: true },
+  { id: 'variants', label: '产品变体规则', group: '规格与属性', description: '维护变体组合与 SKU 生成规则。', implemented: true },
+  { id: 'certifications', label: '认证类型', group: '规格与属性', description: '维护 CE、FCC、RoHS 等认证字典。', implemented: true },
+  { id: 'units', label: '计量单位与换算', group: '计量与包装', description: '维护基本单位、销售单位、采购单位和换算关系。', implemented: true },
+  { id: 'packaging', label: '包装层级', group: '计量与包装', description: '维护内盒、外箱、托盘和装柜规则。', implemented: true },
+  { id: 'customs', label: '贸易与报关', group: '贸易与报关', description: '维护 HS 编码、申报要素、税率及监管条件。', implemented: true },
+  { id: 'sales', label: '销售与采购', group: '销售与采购', description: '维护币种、税务分类、MOQ、交期和保修规则。', implemented: true },
+  { id: 'files', label: '文件与多语言', group: '文件与多语言', description: '维护附件类型、支持语言和翻译字段规则。', implemented: true },
+  { id: 'data-rules', label: '产品数据规则', group: '数据规则', description: '维护 SKU 编码、查重、审批及导入导出规则。', implemented: true },
 ];
 
 const groups = [...new Set(productSections.map((item) => item.group))];
@@ -183,7 +184,7 @@ export function SettingsCenterPage() {
             <div>
               <p className="tp-settings__eyebrow">PRODUCT SETTINGS</p>
               <h2>产品设置</h2>
-              <p>先完成产品主数据基础配置，其他业务域沿用相同框架逐步接入。</p>
+              <p>维护产品主数据字典、模板、包装贸易规则和数据校验策略。</p>
             </div>
             <Tag type="green">已接入 {productSections.filter((item) => item.implemented).length} 项</Tag>
           </div>
@@ -212,7 +213,7 @@ export function SettingsCenterPage() {
             <div className="tp-settings__content">
               <div className="tp-settings__content-head">
                 <div><h3>{activeSection.label}</h3><p>{activeSection.description}</p></div>
-                {activeSection.implemented && <TextInput id="settings-search" labelText="搜索设置项" hideLabel placeholder="搜索名称或编码" value={query} onChange={(event) => setQuery(event.currentTarget.value)} />}
+                {['categories','attributes'].includes(section) && <TextInput id="settings-search" labelText="搜索设置项" hideLabel placeholder="搜索名称或编码" value={query} onChange={(event) => setQuery(event.currentTarget.value)} />}
               </div>
 
               {error && <InlineNotification kind="error" title="设置操作失败" subtitle={error} onCloseButtonClick={() => setError('')} />}
