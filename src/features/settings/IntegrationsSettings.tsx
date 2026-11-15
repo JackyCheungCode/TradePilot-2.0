@@ -67,7 +67,8 @@ export function IntegrationsSettings({section}:{section:string}){
  const testSaved=async(p:Provider)=>{setTestingAI(true);try{const r=await request<{ok:boolean;message:string}>('/api/v1/settings/ai-providers/test',{method:'POST',body:JSON.stringify({providerKey:p.providerKey,protocol:p.protocol,baseUrl:p.baseUrl,model:p.model,secretName:p.secretName})});if(!r.ok)throw new Error(r.message);setAiNotice(p.name+'：'+r.message);}catch(e){setAiError(e instanceof Error?e.message:'测试失败');}finally{setTestingAI(false);}};
  const removeAI=async(p:Provider)=>{setSavingAI(true);try{await request('/api/v1/settings/ai-providers/'+encodeURIComponent(p.id),{method:'DELETE'});setAiNotice('AI 配置已删除。');await loadAI();}catch(e){setAiError(e instanceof Error?e.message:'删除失败');}finally{setSavingAI(false);}};
  const setDefault=async(p:Provider)=>{setSavingAI(true);try{const modelRef=p.id+'::'+p.model;const next={...config,defaultModel:modelRef,taskModels:{...config.taskModels,agent_chat:modelRef,agent_planning:modelRef}};await request('/api/v1/settings/ai-config',{method:'PUT',body:JSON.stringify(next)});setConfig(next);setAiNotice('已将 '+p.name+' 设为小雅默认模型。');}catch(e){setAiError(e instanceof Error?e.message:'设置默认模型失败');}finally{setSavingAI(false);}};
- return <div className="tp-integrations-settings">
+ return <>
+ <div className="tp-integrations-settings">
  {section==='api'&&<><div className="tp-integrations-settings__intro"><h3>API 集成</h3><p>统一管理业务模块的第三方服务凭证。凭证在服务端加密保存，页面不会读取或回显密钥。</p></div>
  {apiError&&<InlineNotification kind="error" title="API 配置失败" subtitle={apiError} onCloseButtonClick={()=>setApiError('')}/>}
  {apiNotice&&<InlineNotification kind="success" title="操作完成" subtitle={apiNotice} onCloseButtonClick={()=>setApiNotice('')}/>}
@@ -95,7 +96,7 @@ export function IntegrationsSettings({section}:{section:string}){
  <div className="tp-integrations-settings__actions"><Button kind="secondary" disabled={!model||testingAI} onClick={()=>void testAI()}>{testingAI?'正在测试…':'测试连接'}</Button><Button kind="primary" disabled={!model||!aiTestPassed||savingAI||testingAI} onClick={()=>void saveAI()}>{savingAI?'正在保存…':'保存模型配置'}</Button></div>
  </div></Tile></>}
  </>}
- </div>;
+ </div>
   <Modal
    open={Boolean(pendingDelete)}
    modalHeading={pendingDelete?.type==='api'?'删除 API 凭证？':'删除 AI 模型配置？'}
@@ -107,4 +108,5 @@ export function IntegrationsSettings({section}:{section:string}){
   >
    <p>{pendingDelete?.type==='api'?'删除后，使用该凭证的业务模块将无法继续调用对应 API，除非重新配置。':'删除后，小雅和 Agent 将无法再使用此供应商模型配置。'}</p>
   </Modal>
+ </>;
 }
