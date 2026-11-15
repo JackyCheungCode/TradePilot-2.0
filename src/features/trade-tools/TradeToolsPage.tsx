@@ -292,7 +292,7 @@ export function TradeToolsPage() {
             <Dropdown id="holiday-country" titleText="国家或地区" label="选择国家或地区" items={countryOptions} selectedItem={countryOptions.find(item=>item.countryCode===holidayCountry)} itemToString={countryLabel} itemToElement={renderCountryOption} renderSelectedItem={renderCountryOption} onChange={({selectedItem})=>{if(selectedItem){setHolidayCountry(selectedItem.countryCode);setHolidayRegion('all');}}}/>
             <Select id="holiday-year" labelText="年份" value={holidayYear} onChange={e=>setHolidayYear(e.currentTarget.value)}>{[2025,2026,2027,2028].map(y=><SelectItem key={y} value={String(y)} text={String(y)}/>)}</Select>
             <Select id="holiday-region" labelText="州／省／地区" value={holidayRegion} onChange={e=>setHolidayRegion(e.currentTarget.value)}><SelectItem value="all" text="全部地区"/>{holidayRegions.map(r=><SelectItem key={r} value={r} text={r}/>)}</Select>
-            <Button kind="primary" onClick={()=>void loadHolidays()} disabled={busyTools.currency}>查询假期</Button>
+            <Button kind="primary" onClick={()=>void loadHolidays()} disabled={busyTools.holidays}>查询假期</Button>
           </div>
           {busyTools.holidays?<InlineLoading description="正在读取公共假期…"/>:<div className="tp-trade-tools__holiday-list">{filteredHolidays.map(h=><div className="tp-trade-tools__holiday-row" key={h.date+h.name}><div className="tp-trade-tools__holiday-date">{h.date}</div><div><strong>{h.localName||h.name}</strong><small>{h.name} · {(h.types||[]).join(' / ')||'公共假期'}</small></div><Tag type={h.global?'green':'cool-gray'}>{h.global?'全国':'地区性'}</Tag></div>)}{!filteredHolidays.length&&<p className="tp-trade-tools__empty">该条件下没有返回假期记录；请确认国家、年份或地区支持情况。</p>}</div>}
         </section>
