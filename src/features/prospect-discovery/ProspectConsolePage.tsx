@@ -6,6 +6,7 @@ import {
 import { getSupabaseClient } from '@/lib/supabase';
 import { ProspectDiscoveryHeader } from './ProspectDiscoveryHeader';
 import { applyDiscoveryRecordAction } from './api';
+import { consolePlatformCatalog } from './platform-catalog';
 import '@/design-system/patterns/prospect-console.scss';
 
 interface ProspectRow {
@@ -128,9 +129,10 @@ export function ProspectConsolePage() {
       } else if(nextPeriod==='custom'&&fromDate&&toDate){
         query='?from='+fromDate+'&to='+toDate;
       } else if(nextPeriod!=='all'&&nextPeriod!=='custom'){
-        const end=new Date(),start=new Date(end);
-        start.setDate(start.getDate()-Number(nextPeriod)+1);
-        query='?from='+dateKey(start)+'&to='+dateKey(end);
+        const today=dateKey(new Date());
+        const end=new Date(today+'T00:00:00Z'),start=new Date(end);
+        start.setUTCDate(start.getUTCDate()-Number(nextPeriod)+1);
+        query='?from='+start.toISOString().slice(0,10)+'&to='+today;
       }
       const response=await fetch('/api/v1/prospect-console'+query,{headers:{Authorization:'Bearer '+token,Accept:'application/json'}});
       const payload=await response.json() as {data?:ConsoleStats;error?:{message?:string}};
@@ -139,7 +141,7 @@ export function ProspectConsolePage() {
     }catch(cause){setError(cause instanceof Error?cause.message:'读取潜客数据失败。');}
     finally{setLoading(false);setRefreshing(false);}
   },[]);
-  useEffect(()=>{if(period==='custom'&&(!customFrom||!customTo))return;void load(period,customFrom,customTo);},[load,period,customFrom,customTo]);
+  useEffect(()=>{if(period==='custom'){if(!customFrom||!customTo)return;if(customFrom>customTo){setError('开始日期不能晚于结束日期。');return;}}void load(period,customFrom,customTo);},[load,period,customFrom,customTo]);
   const filtered=useMemo(()=>{
     const q=search.trim().toLocaleLowerCase();
     return (stats?.prospects??[]).filter(row=>
@@ -167,8 +169,15 @@ export function ProspectConsolePage() {
     finally{setActionBusyId('');}
   };
   const countries=[...new Set((stats?.prospects??[]).map(row=>row.country).filter(value=>value&&value!=='—'))].sort();
+  const displayPlatforms=useMemo(()=>{
+    const configured=consolePlatformCatalog.filter(item=>item.enabled).map(item=>({
+      key:item.key,label:item.label,count:stats?.platforms.find(platform=>platform.key===item.key)?.count??0,
+    }));
+    const additional=(stats?.platforms??[]).filter(platform=>!consolePlatformCatalog.some(item=>item.key===platform.key));
+    return [...configured,...additional];
+  },[stats]);
   const maxDaily=Math.max(0,...(stats?.daily??[]).map(item=>item.count));
-  const tabs=[{key:'all',label:'全部平台',count:stats?.metrics.prospectCount??0},...(stats?.platforms??[]).map(item=>({key:item.key,label:item.label,count:item.count}))];
+  const tabs=[{key:'all',label:'全部平台',count:stats?.metrics.prospectCount??0},...displayPlatforms];
   return <main className="tp-console">
     <ProspectDiscoveryHeader title="潜客控制台" description="汇总各发现渠道的潜客资产，查看全球分布、平台贡献与每日发现趋势。" showRecentTasks={false}/>
     {error&&<InlineNotification kind="error" title="数据读取失败" subtitle={error} onCloseButtonClick={()=>setError('')}/>}
@@ -179,13 +188,13 @@ export function ProspectConsolePage() {
     </div>
     {loading?<div className="tp-console__loading"><InlineLoading description="正在汇总潜客数据…"/></div>:stats&&<>
       <div className="tp-console__metrics">
-        <Metric label="有潜客数据的平台" value={stats.metrics.platformCount} icon={<CarbonIcons.Apps size={20}/>}/>
+        <Metric label="已接入发现平台" value={displayPlatforms.length} icon={<CarbonIcons.Apps size={20}/>}/>
         <Metric label="潜在客户总数" value={stats.metrics.prospectCount} icon={<CarbonIcons.UserMultiple size={20}/>}/>
         <Metric label="已转化线索" value={stats.metrics.convertedCount} icon={<CarbonIcons.CheckmarkFilled size={20}/>}/>
         <Metric label="待处理潜客" value={stats.metrics.pendingCount} icon={<CarbonIcons.Time size={20}/>}/>
       </div>
       <div className="tp-console__analytics-grid">
-        <section className="tp-console__panel"><div className="tp-console__panel-heading"><div><h2>各平台潜客数量</h2><p>按发现渠道统计去重企业主体；同一企业可分别计入多个来源。</p></div></div><PlatformChart items={stats.platforms}/></section>
+        <section className="tp-console__panel"><div className="tp-console__panel-heading"><div><h2>各平台潜客数量</h2><p>按发现渠道统计去重企业主体；同一企业可分别计入多个来源。</p></div></div><PlatformChart items={displayPlatforms}/></section>
         <section className="tp-console__panel"><div className="tp-console__panel-heading"><div><h2>每日潜客获取趋势</h2><p>同一企业同一天跨平台重复发现只计一次。</p></div></div><DailyChart items={stats.daily}/><div className="tp-console__chart-footnote">统计时区：{stats.timezone} · 日均 {stats.daily.length?Math.round(stats.daily.reduce((sum,item)=>sum+item.count,0)/stats.daily.length):0} 家 · 峰值 {maxDaily} 家</div></section>
       </div>
       <section className="tp-console__panel tp-console__map-panel">
