@@ -1,11 +1,8 @@
 name: Deploy TradePilot Worker
 
 on:
-  push:
-    branches:
-      - develop
-    paths:
-      - .github/deploy-tradepilot.trigger
+  # Deployment is deliberately manual. Pushes to develop must never publish
+  # a Worker without an explicit, separately approved deployment action.
   workflow_dispatch:
 
 permissions:
