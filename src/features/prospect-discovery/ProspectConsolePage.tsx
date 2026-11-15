@@ -5,7 +5,7 @@ import {
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import { ProspectDiscoveryHeader } from './ProspectDiscoveryHeader';
-import './prospect-console.scss';
+import '@/design-system/patterns/prospect-console.scss';
 
 interface ProspectRow {
   id: string; name: string; type: string; country: string; address: string;
@@ -37,7 +37,7 @@ function PlatformChart({ items }: { items: ConsoleStats['platforms'] }) {
   return <div className="tp-console__bar-chart" role="img" aria-label="各发现平台潜客数量横向柱状图">
     {items.map(item => <div className="tp-console__bar-row" key={item.key}>
       <div className="tp-console__bar-label" title={item.label}>{item.label}</div>
-      <div className="tp-console__bar-track"><div className="tp-console__bar-fill" style={{ width: (item.count / max * 100) + '%' }} /></div>
+      <div className="tp-console__bar-track"><svg viewBox="0 0 100 16" preserveAspectRatio="none" aria-hidden="true"><rect x="0" y="0" width={item.count / max * 100} height="16" /></svg></div>
       <strong>{item.count.toLocaleString()}</strong>
     </div>)}
   </div>;
