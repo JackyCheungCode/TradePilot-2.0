@@ -1,2 +1,2 @@
-/** Local Carbon-native entry point. Import from this module, not directly from @carbon/react. */
-export { Tooltip } from '@carbon/react';
+/** Local Carbon-native entry point. */
+export { Tooltip, DefinitionTooltip } from '@carbon/react';
