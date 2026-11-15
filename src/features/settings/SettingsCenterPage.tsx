@@ -51,9 +51,11 @@ export function SettingsCenterPage() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [categoryName, setCategoryName] = useState('');
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [categoryCode, setCategoryCode] = useState('');
   const [categoryParent, setCategoryParent] = useState('');
   const [attributeName, setAttributeName] = useState('');
+  const [editingAttributeId, setEditingAttributeId] = useState<string | null>(null);
   const [displayType, setDisplayType] = useState('select');
   const [variantMode, setVariantMode] = useState('never');
 
@@ -92,14 +94,14 @@ export function SettingsCenterPage() {
       const { data: session } = await db.auth.getSession();
       const ownerId = session.session?.user.id;
       if (!ownerId) throw new Error('登录状态已失效，请重新登录。');
-      const result = await db.from('trade_product_categories').insert({
-        owner_id: ownerId, name: categoryName.trim(), code: categoryCode.trim() || null,
-        parent_id: categoryParent || null, sequence: (categories.length + 1) * 10, is_active: true,
-      }).select('id,name,parent_id,code,description,sequence,is_active').single();
+      const payload = { name: categoryName.trim(), code: categoryCode.trim() || null, parent_id: categoryParent || null };
+      const result = editingCategoryId
+        ? await db.from('trade_product_categories').update(payload).eq('id', editingCategoryId).select('id,name,parent_id,code,description,sequence,is_active').single()
+        : await db.from('trade_product_categories').insert({ ...payload, owner_id: ownerId, sequence: (categories.length + 1) * 10, is_active: true }).select('id,name,parent_id,code,description,sequence,is_active').single();
       if (result.error) throw result.error;
-      setCategories((items) => [...items, result.data as Category]);
-      setCategoryName(''); setCategoryCode(''); setCategoryParent('');
-      setNotice('产品分类已创建；现在可以在创建产品时直接选择。');
+      setCategories((items) => editingCategoryId ? items.map((item) => item.id === editingCategoryId ? result.data as Category : item) : [...items, result.data as Category]);
+      setCategoryName(''); setCategoryCode(''); setCategoryParent(''); setEditingCategoryId(null);
+      setNotice('产品分类已保存；现在可以在创建产品时直接选择。');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : '创建产品分类失败');
     } finally { setSaving(false); }
@@ -121,14 +123,14 @@ export function SettingsCenterPage() {
       const { data: session } = await db.auth.getSession();
       const ownerId = session.session?.user.id;
       if (!ownerId) throw new Error('登录状态已失效，请重新登录。');
-      const result = await db.from('trade_product_attributes').insert({
-        owner_id: ownerId, name: attributeName.trim(), display_type: displayType,
-        create_variant: variantMode, sequence: (attributes.length + 1) * 10, is_active: true,
-      }).select('id,name,display_type,create_variant,sequence,is_active').single();
+      const payload = { name: attributeName.trim(), display_type: displayType, create_variant: variantMode };
+      const result = editingAttributeId
+        ? await db.from('trade_product_attributes').update(payload).eq('id', editingAttributeId).select('id,name,display_type,create_variant,sequence,is_active').single()
+        : await db.from('trade_product_attributes').insert({ ...payload, owner_id: ownerId, sequence: (attributes.length + 1) * 10, is_active: true }).select('id,name,display_type,create_variant,sequence,is_active').single();
       if (result.error) throw result.error;
-      setAttributes((items) => [...items, result.data as Attribute]);
-      setAttributeName('');
-      setNotice('规格属性已创建。');
+      setAttributes((items) => editingAttributeId ? items.map((item) => item.id === editingAttributeId ? result.data as Attribute : item) : [...items, result.data as Attribute]);
+      setAttributeName(''); setEditingAttributeId(null);
+      setNotice('规格属性已保存。');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : '创建规格属性失败');
     } finally { setSaving(false); }
@@ -224,7 +226,7 @@ export function SettingsCenterPage() {
               {section === 'categories' && !loading && (
                 <>
                   <div className="tp-settings__editor">
-                    <h4>新增产品分类</h4>
+                    <h4>{editingCategoryId ? '编辑产品分类' : '新增产品分类'}</h4>
                     <div className="tp-settings__editor-grid">
                       <TextInput id="setting-category-name" labelText="分类名称" value={categoryName} onChange={(event) => setCategoryName(event.currentTarget.value)} />
                       <TextInput id="setting-category-code" labelText="分类编码（可选）" value={categoryCode} onChange={(event) => setCategoryCode(event.currentTarget.value)} />
@@ -232,7 +234,7 @@ export function SettingsCenterPage() {
                         <SelectItem value="" text="无上级分类（一级）" />
                         {parentOptions.map((item) => <SelectItem key={item.id} value={item.id} text={item.name} />)}
                       </Select>
-                      <Button kind="primary" disabled={saving || !categoryName.trim()} onClick={() => void addCategory()}><CarbonIcons.Add size={16} />新增分类</Button>
+                      <Button kind="primary" disabled={saving || !categoryName.trim()} onClick={() => void addCategory()}>{editingCategoryId ? '保存修改' : '新增分类'}</Button>{editingCategoryId && <Button kind="ghost" onClick={() => { setEditingCategoryId(null); setCategoryName(''); setCategoryCode(''); setCategoryParent(''); }}>取消</Button>}
                     </div>
                   </div>
                   <div className="tp-settings__table-wrap">
@@ -242,7 +244,7 @@ export function SettingsCenterPage() {
                         <TableRow key={item.id}>
                           <TableCell>{item.name}</TableCell><TableCell>{item.code || '—'}</TableCell><TableCell>{categories.find((parent) => parent.id === item.parent_id)?.name || '—'}</TableCell>
                           <TableCell><Tag type={item.is_active ? 'green' : 'cool-gray'}>{item.is_active ? '启用' : '停用'}</Tag></TableCell>
-                          <TableCell><Button kind="ghost" size="sm" onClick={() => void toggleCategory(item)}>{item.is_active ? '停用' : '启用'}</Button></TableCell>
+                          <TableCell><Button kind="ghost" size="sm" onClick={() => { setEditingCategoryId(item.id); setCategoryName(item.name); setCategoryCode(item.code || ''); setCategoryParent(item.parent_id || ''); }}>编辑</Button><Button kind="ghost" size="sm" onClick={() => void toggleCategory(item)}>{item.is_active ? '停用' : '启用'}</Button></TableCell>
                         </TableRow>
                       ))}</TableBody>
                     </Table>
@@ -254,7 +256,7 @@ export function SettingsCenterPage() {
               {section === 'attributes' && !loading && (
                 <>
                   <div className="tp-settings__editor">
-                    <h4>新增规格属性</h4>
+                    <h4>{editingAttributeId ? '编辑规格属性' : '新增规格属性'}</h4>
                     <div className="tp-settings__editor-grid tp-settings__editor-grid--attributes">
                       <TextInput id="setting-attribute-name" labelText="属性名称" value={attributeName} onChange={(event) => setAttributeName(event.currentTarget.value)} />
                       <Select id="setting-attribute-display" labelText="展示方式" value={displayType} onChange={(event) => setDisplayType(event.currentTarget.value)}>
@@ -263,7 +265,7 @@ export function SettingsCenterPage() {
                       <Select id="setting-attribute-variant" labelText="变体生成方式" value={variantMode} onChange={(event) => setVariantMode(event.currentTarget.value)}>
                         {variantModes.map((item) => <SelectItem key={item.value} value={item.value} text={item.label} />)}
                       </Select>
-                      <Button kind="primary" disabled={saving || !attributeName.trim()} onClick={() => void addAttribute()}><CarbonIcons.Add size={16} />新增属性</Button>
+                      <Button kind="primary" disabled={saving || !attributeName.trim()} onClick={() => void addAttribute()}>{editingAttributeId ? '保存修改' : '新增属性'}</Button>{editingAttributeId && <Button kind="ghost" onClick={() => { setEditingAttributeId(null); setAttributeName(''); setDisplayType('select'); setVariantMode('never'); }}>取消</Button>}
                     </div>
                   </div>
                   <div className="tp-settings__table-wrap">
@@ -274,7 +276,7 @@ export function SettingsCenterPage() {
                           <TableCell>{item.name}</TableCell><TableCell>{displayTypes.find((option) => option.value === item.display_type)?.label || item.display_type}</TableCell>
                           <TableCell>{variantModes.find((option) => option.value === item.create_variant)?.label || item.create_variant}</TableCell>
                           <TableCell><Tag type={item.is_active ? 'green' : 'cool-gray'}>{item.is_active ? '启用' : '停用'}</Tag></TableCell>
-                          <TableCell><Button kind="ghost" size="sm" onClick={() => void toggleAttribute(item)}>{item.is_active ? '停用' : '启用'}</Button></TableCell>
+                          <TableCell><Button kind="ghost" size="sm" onClick={() => { setEditingAttributeId(item.id); setAttributeName(item.name); setDisplayType(item.display_type); setVariantMode(item.create_variant); }}>编辑</Button><Button kind="ghost" size="sm" onClick={() => void toggleAttribute(item)}>{item.is_active ? '停用' : '启用'}</Button></TableCell>
                         </TableRow>
                       ))}</TableBody>
                     </Table>
