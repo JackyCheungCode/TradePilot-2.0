@@ -3,6 +3,8 @@
  * Theme implementation is owned by ../themes; aliases are defined in these partials.
  */
 @use './color';
+@use './borders';
+@use './states';
 @use './spacing';
 @use './typography';
 @use './motion';
