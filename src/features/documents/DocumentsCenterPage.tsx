@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  Button, InlineLoading, InlineNotification, Select, SelectItem, TextInput, Tag,
+  Button, InlineLoading, InlineNotification, Select, SelectItem, TextInput, Tag, ProgressIndicator, ProgressStep,
   Table, TableHead, TableRow, TableHeader, TableBody, TableCell, Tile,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
@@ -157,9 +157,12 @@ export function DocumentsCenterPage() {
     </section>}
 
     {step > 0 && <section className="tp-documents__wizard" aria-label="单据创建流程">
-      <div className="tp-documents__steps">
-        {(['单据分类', '选择单据', '选择业务来源', '模板与生成'] as const).map((label, index) => <div key={label} className={step === index + 1 ? 'is-active' : step > index + 1 ? 'is-complete' : ''}><span>{index + 1}</span>{label}</div>)}
-      </div>
+      <ProgressIndicator currentIndex={step - 1} spaceEqually>
+        <ProgressStep label="单据分类" description="选择业务场景" />
+        <ProgressStep label="选择单据" description="确定单据类型" />
+        <ProgressStep label="业务来源" description="关联订单或发运" />
+        <ProgressStep label="模板与生成" description="设置语言并创建草稿" />
+      </ProgressIndicator>
       {step === 1 && <div className="tp-documents__step-content"><h2>选择单据分类</h2><p>先确定业务场景，系统会据此筛选可用单据。</p><div className="tp-documents__category-grid">
         {documentGroups.map(group => <Tile key={group.id} className="tp-documents__category"><h3>{group.title}</h3><p>{group.description}</p><Button kind="tertiary" onClick={() => chooseCategory(group.id)}>选择分类</Button></Tile>)}
       </div></div>}
