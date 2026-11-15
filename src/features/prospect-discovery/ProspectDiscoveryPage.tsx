@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { ProspectDiscoveryHeader } from './ProspectDiscoveryHeader';
 import type { Session, SupabaseClient } from '@supabase/supabase-js';
 import {
   Button, Checkbox, InlineLoading, InlineNotification, NumberInput, ProgressBar,
@@ -46,8 +47,6 @@ export function ProspectDiscoveryPage() {
   const [searchParams]=useSearchParams();
   const [client,setClient]=useState<SupabaseClient|null>(null);
   const [session,setSession]=useState<Session|null>(null);
-  const [email,setEmail]=useState('');
-  const [password,setPassword]=useState('');
   const [booting,setBooting]=useState(true);
   const [authBusy,setAuthBusy]=useState(false);
   const [error,setError]=useState('');
@@ -114,7 +113,6 @@ export function ProspectDiscoveryPage() {
     return()=>{alive=false;window.clearInterval(timer);setPolling(false);};
   },[activeRun?.id,activeRun?.status,token]);
 
-  const signIn=async(event:FormEvent)=>{event.preventDefault();if(!client)return;setAuthBusy(true);setError('');try{const {error:authError}=await client.auth.signInWithPassword({email:email.trim(),password});if(authError)throw authError;}catch(e){setError(e instanceof Error?e.message:'登录失败');}finally{setAuthBusy(false);}};
   const startTask=async(event:FormEvent)=>{
     event.preventDefault();if(!client||!token)return;setError('');setAuthBusy(true);
     try{
@@ -148,21 +146,11 @@ export function ProspectDiscoveryPage() {
 
 
   if(booting)return <div className="tp-discovery__center"><InlineLoading description="正在连接 TradePilot…" /></div>;
-  if(!session)return <main className="tp-discovery">
-    <header className="tp-discovery__heading"><div><p className="tp-discovery__eyebrow">TRADEPILOT / PROSPECTING</p><h1>潜客发现</h1><p>登录后创建全球企业与商业账号发现任务。</p></div></header>
-    {error&&<InlineNotification kind="error" title="连接错误" subtitle={error} />}
-    <section className="tp-discovery__auth">
-      <h2>登录 TradePilot</h2><p>使用现有 TradePilot 账号继续。</p>
-      <form onSubmit={signIn}>
-        <TextInput id="discovery-email" labelText="邮箱" type="email" value={email} onChange={e=>setEmail(e.currentTarget.value)} required />
-        <TextInput id="discovery-password" labelText="密码" type="password" value={password} onChange={e=>setPassword(e.currentTarget.value)} required />
-        <Button type="submit" disabled={!client||authBusy}>{authBusy?'正在登录…':'登录'}</Button>
-      </form>
-    </section>
-  </main>;
 
   return <main className="tp-discovery">
-    <header className="tp-discovery__heading"><div><p className="tp-discovery__eyebrow">TRADEPILOT / PROSPECTING</p><h1>潜客发现</h1><p>选择渠道、配置发现条件，并实时跟踪采集任务。</p></div><div className="tp-discovery__heading-actions"><Tag type="blue">Google Maps / Apify</Tag><Button kind="ghost" size="sm" onClick={()=>client?.auth.signOut()}>退出登录</Button></div></header>
+    <ProspectDiscoveryHeader title="潜客发现" description="选择渠道、配置发现条件，并实时跟踪采集任务。">
+      <Tag type="blue">Google Maps / Apify</Tag>
+    </ProspectDiscoveryHeader>
     {error&&<InlineNotification kind="error" title="操作未完成" subtitle={error} onCloseButtonClick={()=>setError('')} />}
     <nav className="tp-discovery__steps" aria-label="发现任务步骤">
       {([['01','发现途径'],['02','数据引擎'],['03','条件配置'],['04','任务执行'],['05','查看结果']] as const).map(([number,label],index)=><button key={number} className={step===index+1?'is-active':step>index+1?'is-complete':''} onClick={()=>{if(index<5&&index+1<=step)setStep((index+1) as Step);}} disabled={index+1>step}><span>{number}</span>{label}</button>)}
@@ -245,13 +233,16 @@ export function ProspectDiscoveryPage() {
       <div className="tp-discovery__section-head"><div><h2><CarbonIcons.Activity size={20} aria-hidden="true"/>任务执行</h2><p>本步骤只负责任务执行、状态监控和日志展示，不在执行过程中混合展示结果表格。</p></div>{activeRun&&<Tag type={isTerminal(activeRun.status)?activeRun.status==='failed'?'red':'green':'blue'}>{statusLabels[activeRun.status]??activeRun.status}</Tag>}</div>
       {activeRun?<><div className="tp-discovery__run-summary"><div><small>任务编号</small><strong>{activeRun.taskCode}</strong></div><div><small>已运行</small><strong>{elapsedLabel}</strong></div><div><small>发现记录</small><strong>{activeRun.discoveredCount}</strong></div><div><small>潜客入库</small><strong>{activeRun.createdLeadCount}</strong></div></div>
         {activeRun.progress>0?<ProgressBar label="后台执行进度" value={activeRun.progress} max={100} helperText={activeRun.message}/>:<div className="tp-discovery__progress-wait"><InlineLoading description={activeRun.status==='queued'?'等待后台工作流启动…':activeRun.message||'等待后台阶段进度…'}/></div>}
-        <div className="tp-discovery__activity"><div className="tp-discovery__activity-head"><h3>动态执行日志</h3><span>{polling?'实时轮询中':isTerminal(activeRun.status)?'执行已结束':'等待更新'} · {lastUpdate?lastUpdate.toLocaleTimeString():'读取中'}</span></div>
-          {stale&&<InlineNotification kind="warning" lowContrast title="正在等待数据源响应" subtitle="后台仍在运行或重试。当前没有收到新日志，页面会继续检查，不代表任务已经卡死。"/>}
-          {activeRun.logs.length?<ol className="tp-discovery__log-list">{activeRun.logs.map(log=><li key={log.id} className={`is-${log.level}`}><span className="tp-discovery__log-dot"/><div><p>{log.message}</p><time>{new Date(log.createdAt).toLocaleTimeString()}</time></div></li>)}</ol>:<InlineLoading description="等待后台工作流写入第一条执行日志…"/>}
-          {!isTerminal(activeRun.status)&&<div className="tp-discovery__heartbeat"><span className="tp-discovery__pulse"/><span>任务仍在执行 · 已运行 {elapsedLabel} · 自动刷新中</span></div>}
-        </div>
+        <Layer level={2} className="tp-discovery__activity-layer">
+          <div className="tp-discovery__activity">
+            <div className="tp-discovery__activity-head"><h3>动态执行日志</h3><span>{polling?'实时轮询中':isTerminal(activeRun.status)?'执行已结束':'等待更新'} · {lastUpdate?lastUpdate.toLocaleTimeString():'读取中'}</span></div>
+            {stale&&<InlineNotification kind="warning" lowContrast title="正在等待数据源响应" subtitle="后台仍在运行或重试。当前没有收到新日志，页面会继续检查，不代表任务已经卡死。"/>}
+            {activeRun.logs.length?<StructuredListWrapper ariaLabel="动态执行日志" className="tp-discovery__log-list"><StructuredListBody>{activeRun.logs.map(log=><StructuredListRow key={log.id} className={`is-${log.level}`}><StructuredListCell className="tp-discovery__log-status"><span className="tp-discovery__log-dot" aria-hidden="true"/></StructuredListCell><StructuredListCell><p>{log.message}</p></StructuredListCell><StructuredListCell className="tp-discovery__log-time"><time>{new Date(log.createdAt).toLocaleTimeString()}</time></StructuredListCell></StructuredListRow>)}</StructuredListBody></StructuredListWrapper>:<InlineLoading description="等待后台工作流写入第一条执行日志…"/>}
+            {!isTerminal(activeRun.status)&&<div className="tp-discovery__heartbeat"><span className="tp-discovery__pulse"/><span>任务仍在执行 · 已运行 {elapsedLabel} · 自动刷新中</span></div>}
+          </div>
+        </Layer>
       </>:<InlineNotification kind="info" title="尚未启动任务" subtitle="请先完成发现途径、数据引擎和条件配置。"/>}
-      <div className="tp-discovery__actions"><Button kind="secondary" onClick={()=>setStep(3)}>返回条件配置</Button><Button kind="ghost" onClick={()=>{if(activeRun)void refreshRun(activeRun.id);}}>刷新状态</Button><Button onClick={()=>setStep(5)} disabled={!activeRun||!isTerminal(activeRun.status)||records.length===0}>查看结果</Button></div>
+      <div className="tp-discovery__actions tp-discovery__execution-actions"><Button kind="secondary" onClick={()=>setStep(3)}>返回条件配置</Button><Button kind="ghost" onClick={()=>{if(activeRun)void refreshRun(activeRun.id);}}>刷新状态</Button><Button className="tp-discovery__execution-results" onClick={()=>setStep(5)} disabled={!activeRun||!isTerminal(activeRun.status)||records.length===0}>查看结果</Button></div>
     </section>}
     {step===5&&<section className="tp-discovery__panel tp-discovery__results">
       <div className="tp-discovery__section-head"><div><h2><CarbonIcons.Building size={20} aria-hidden="true"/>发现结果</h2><p>任务执行结束后查看归档结果。表格采用单行布局，超长内容截断，悬停可查看完整值。</p></div><Tag type="gray">{records.length} 条记录</Tag></div>
