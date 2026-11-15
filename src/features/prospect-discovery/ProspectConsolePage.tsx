@@ -106,6 +106,7 @@ export function ProspectConsolePage() {
   const [refreshing,setRefreshing] = useState(false);
   const [selected,setSelected] = useState<ProspectRow|null>(null);
   const [actionBusyId,setActionBusyId] = useState('');
+  const [confirmRemoveId,setConfirmRemoveId] = useState('');
   const load = useCallback(async(nextPeriod:string)=>{
     setError('');
     try{
@@ -147,7 +148,7 @@ export function ProspectConsolePage() {
       const results=await Promise.allSettled(targets.map(id=>applyDiscoveryRecordAction(token,id,action)));
       const failed=results.filter(result=>result.status==='rejected').length;
       await load(period);
-      setSelected(null);
+      setSelected(null);setConfirmRemoveId('');
       if(failed)setError(failed+' 条来源记录操作失败，请刷新后核对结果。');
     }catch(cause){setError(cause instanceof Error?cause.message:'潜客操作失败。');}
     finally{setActionBusyId('');}
@@ -184,7 +185,7 @@ export function ProspectConsolePage() {
           <Select id="prospect-console-status" labelText="线索状态" value={status} onChange={event=>setStatus(event.currentTarget.value)}><SelectItem value="all" text="全部状态"/><SelectItem value="pending" text="待处理"/><SelectItem value="converted" text="已转化"/></Select>
         </div>
         <div className="tp-console__table-scroll"><TableContainer><Table size="lg"><TableHead><TableRow><TableHeader>企业 / 客户</TableHeader><TableHeader>国家 / 地区</TableHeader><TableHeader>网站</TableHeader><TableHeader>联系方式</TableHeader><TableHeader>发现来源</TableHeader><TableHeader>最近发现</TableHeader><TableHeader>状态</TableHeader><TableHeader>操作</TableHeader></TableRow></TableHead>
-          <TableBody>{filtered.map(row=><TableRow key={row.id}><TableCell><strong>{row.name}</strong><span className="tp-console__cell-secondary">{row.type}</span></TableCell><TableCell>{row.country}<span className="tp-console__cell-secondary">{row.address}</span></TableCell><TableCell>{row.website?<a href={row.website} target="_blank" rel="noreferrer">{row.website}</a>:'—'}</TableCell><TableCell>{[row.phone,row.email].filter(Boolean).join(' · ')||'—'}</TableCell><TableCell><div className="tp-console__source-tags">{row.platforms.map(item=><Tag key={item.key} type="cool-gray">{item.label}</Tag>)}</div></TableCell><TableCell>{new Date(row.discoveredAt).toLocaleDateString('zh-TW')}</TableCell><TableCell><Tag type={row.status==='converted'?'green':'blue'}>{row.status==='converted'?'已转化':'待处理'}</Tag></TableCell><TableCell><div className="tp-console__row-actions"><Button kind="ghost" size="sm" onClick={()=>setSelected(row)}>详情</Button>{row.status==='pending'&&<Button kind="ghost" size="sm" disabled={!!actionBusyId} onClick={()=>void runAction(row,'promote')}>转为线索</Button>}<Button kind="danger--ghost" size="sm" disabled={!!actionBusyId} onClick={()=>void runAction(row,'discard')}>排除</Button><Button kind="danger--ghost" size="sm" disabled={!!actionBusyId} onClick={()=>void runAction(row,'remove')}>删除</Button></div></TableCell></TableRow>)}</TableBody>
+          <TableBody>{filtered.map(row=><TableRow key={row.id}><TableCell><strong>{row.name}</strong><span className="tp-console__cell-secondary">{row.type}</span></TableCell><TableCell>{row.country}<span className="tp-console__cell-secondary">{row.address}</span></TableCell><TableCell>{row.website?<a href={row.website} target="_blank" rel="noreferrer">{row.website}</a>:'—'}</TableCell><TableCell>{[row.phone,row.email].filter(Boolean).join(' · ')||'—'}</TableCell><TableCell><div className="tp-console__source-tags">{row.platforms.map(item=><Tag key={item.key} type="cool-gray">{item.label}</Tag>)}</div></TableCell><TableCell>{new Date(row.discoveredAt).toLocaleDateString('zh-TW')}</TableCell><TableCell><Tag type={row.status==='converted'?'green':'blue'}>{row.status==='converted'?'已转化':'待处理'}</Tag></TableCell><TableCell><div className="tp-console__row-actions"><Button kind="ghost" size="sm" onClick={()=>setSelected(row)}>详情</Button>{row.status==='pending'&&<Button kind="ghost" size="sm" disabled={!!actionBusyId} onClick={()=>void runAction(row,'promote')}>转为线索</Button>}<Button kind="danger--ghost" size="sm" disabled={!!actionBusyId} onClick={()=>void runAction(row,'discard')}>排除</Button><Button kind="danger--ghost" size="sm" disabled={!!actionBusyId} onClick={()=>{if(confirmRemoveId===row.id)void runAction(row,'remove');else setConfirmRemoveId(row.id);}}>{confirmRemoveId===row.id?'再次点击确认删除':'删除'}</Button></div></TableCell></TableRow>)}</TableBody>
         </Table></TableContainer></div>
         {!filtered.length&&<p className="tp-console__empty">没有符合当前筛选条件的潜客。</p>}
       </section>
