@@ -242,6 +242,12 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
     } catch(e) { setError(e instanceof Error?e.message:'保存收款失败'); }
     finally { setSaving(false); }
   };
+  const saveReconciliation=async()=>{
+    if(!id)return;setError('');setSaving(true);
+    try{const db=await getSupabaseClient();const {data:s}=await db.auth.getSession();const user=s.session?.user;if(!user)throw new Error('登录状态已失效');const {error:e}=await db.from('trade_payments').update({bank_reconciled:Boolean(payment.bank_reconciled),statement_date:payment.statement_date||null,statement_ref:payment.statement_ref||null,attachments:payment.attachments||[],receipt_sent:Boolean(payment.receipt_sent),receipt_sent_at:payment.receipt_sent?payment.receipt_sent_at||new Date().toISOString():null,updated_by:user.id,updated_at:new Date().toISOString()}).eq('id',id).eq('owner_id',user.id);if(e)throw e;nav('/payments/'+id,{replace:true});}
+    catch(e){setError(e instanceof Error?e.message:'保存对账信息失败');}
+    finally{setSaving(false);}
+  };
   const confirm=async()=>{
     if(!id)return;setError('');setSaving(true);
     try{const db=await getSupabaseClient();const {error:e}=await db.rpc('confirm_trade_payment',{p_payment_id:id});if(e)throw e;nav('/payments',{replace:true});}
@@ -282,7 +288,7 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
   if(loading)return <main className="tp-payments"><InlineLoading description="正在加载收款资料…"/></main>;
   const statusText=statusLabel(payment.status);
   return <main className="tp-payments">
-    <header className="tp-payments__header"><div><p className="tp-payments__eyebrow">TRADEPILOT / FINANCE / PAYMENT</p><h1>{editing?paymentNo:'创建收款（Payment）'}</h1><p>{editing?'维护收款资料、分配与核销记录。':'录入真实到账，可分配多个订单节点，也可保留为预收款。'}</p></div><div className="tp-payments__actions"><Button kind="tertiary" onClick={()=>nav('/payments')}>返回收款列表</Button>{readOnly&&payment.status==='draft'&&<Button kind="tertiary" onClick={()=>nav('/payments/'+id+'/edit')}>编辑草稿</Button>}{editing&&!readOnly&&payment.status==='draft'&&<Button kind="danger--tertiary" disabled={saving} onClick={()=>void voidPayment()}>作废</Button>}{editing&&!readOnly&&payment.status==='draft'&&<Button kind="primary" disabled={saving} onClick={()=>void confirm()}>{payment.payment_type==='refund'?'确认退款 / 红冲':'确认收款并核销'}</Button>}</div></header>
+    <header className="tp-payments__header"><div><p className="tp-payments__eyebrow">TRADEPILOT / FINANCE / PAYMENT</p><h1>{editing?paymentNo:'创建收款（Payment）'}</h1><p>{editing?'维护收款资料、分配与核销记录。':'录入真实到账，可分配多个订单节点，也可保留为预收款。'}</p></div><div className="tp-payments__actions"><Button kind="tertiary" onClick={()=>nav('/payments')}>返回收款列表</Button>{readOnly&&payment.status==='draft'&&<Button kind="tertiary" onClick={()=>nav('/payments/'+id+'/edit')}>编辑草稿</Button>}{readOnly&&['confirmed','partially_reconciled','reconciled'].includes(payment.status)&&!payment.bank_reconciled&&<Button kind="tertiary" onClick={()=>nav('/payments/'+id+'/edit')}>登记银行对账</Button>}{editing&&!readOnly&&['confirmed','partially_reconciled','reconciled'].includes(payment.status)&&<Button kind="primary" disabled={saving} onClick={()=>void saveReconciliation()}>保存对账信息</Button>}{editing&&!readOnly&&payment.status==='draft'&&<Button kind="danger--tertiary" disabled={saving} onClick={()=>void voidPayment()}>作废</Button>}{editing&&!readOnly&&payment.status==='draft'&&<Button kind="primary" disabled={saving} onClick={()=>void confirm()}>{payment.payment_type==='refund'?'确认退款 / 红冲':'确认收款并核销'}</Button>}</div></header>
     {error&&<InlineNotification kind="error" title="收款操作未完成" subtitle={error}/>}
     <section className="tp-payments__basic">
       <div className="tp-payments__basic-head"><div><Tag type={payment.status==='reconciled'?'green':payment.status==='voided'?'red':'blue'}>{statusText}</Tag><span>{paymentNo}</span></div><Tag type="cool-gray">{payment.payment_type==='refund'?'退款':'收款'}</Tag></div>
@@ -327,7 +333,7 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
           <h2>收款方式与我方账户</h2><div className="tp-payments__form-grid">
             <Pick id="pay-method" label="收款方式" value={payment.payment_method} onChange={v=>set('payment_method',v)} options={METHODS} disabled={locked}/>
             <Pick id="pay-bank-account" label="我方收款账户" value={payment.bank_account_id} onChange={v=>set('bank_account_id',v)} options={bankOptions.map(b=>({value:b.id,label:b.bank_name+' · '+b.account_name+' · '+(b.currency_code||'多币种')}))} disabled={locked}/>
-            <div className="tp-payments__field-wide"><span className="tp-payments__upload-label">银行水单（PDF / JPG / PNG / WEBP，最大 15 MB）</span><div className="tp-payments__upload-row"><FileUploaderButton accept={['.pdf','.jpg','.jpeg','.png','.webp']} buttonKind="tertiary" labelText="上传银行水单" disabled={locked} onChange={e=>void uploadFiles(e,'bank_slip')}/>{payment.bank_slip&&<><Tag type="green">已上传</Tag><Button kind="ghost" size="sm" onClick={()=>void openStoredFile(payment.bank_slip)}>打开水单</Button></>}</div></div>
+            <div className="tp-payments__field-wide"><span className="tp-payments__upload-label">银行水单（PDF / JPG / PNG / WEBP，最大 15 MB）</span><div className="tp-payments__upload-row"><FileUploaderButton accept={['.pdf','.jpg','.jpeg','.png','.webp']} buttonKind="tertiary" labelText="上传银行水单" disabled={readOnly} onChange={e=>void uploadFiles(e,'bank_slip')}/>{payment.bank_slip&&<><Tag type="green">已上传</Tag><Button kind="ghost" size="sm" onClick={()=>void openStoredFile(payment.bank_slip)}>打开水单</Button></>}</div></div>
           </div>
           {payment.payment_method==='L/C'&&<><h2>L/C 信用证信息</h2><div className="tp-payments__form-grid">
             <Field id="pay-lc-no" label="信用证号（必填）" value={payment.lc_no} onChange={v=>set('lc_no',v)} disabled={locked}/>
@@ -368,9 +374,9 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
         </div></TabPanel>
         <TabPanel><div className="tp-payments__tab-content">
           <h2>银行对账</h2><div className="tp-payments__form-grid">
-            <Pick id="pay-bank-reconciled" label="已与银行对账" value={payment.bank_reconciled?'是':'否'} onChange={v=>set('bank_reconciled',v==='是')} options={['否','是']} disabled={locked}/>
-            <Field id="pay-statement-date" label="对账日期" type="date" value={payment.statement_date} onChange={v=>set('statement_date',v)} disabled={locked}/>
-            <Field id="pay-statement-ref" label="对账单据号" value={payment.statement_ref} onChange={v=>set('statement_ref',v)} disabled={locked}/>
+            <Pick id="pay-bank-reconciled" label="已与银行对账" value={payment.bank_reconciled?'是':'否'} onChange={v=>set('bank_reconciled',v==='是')} options={['否','是']} disabled={readOnly||payment.bank_reconciled}/>
+            <Field id="pay-statement-date" label="对账日期" type="date" value={payment.statement_date} onChange={v=>set('statement_date',v)} disabled={readOnly||payment.bank_reconciled}/>
+            <Field id="pay-statement-ref" label="对账单据号" value={payment.statement_ref} onChange={v=>set('statement_ref',v)} disabled={readOnly||payment.bank_reconciled}/>
             <Field id="pay-void-reason" label="作废原因" value={payment.void_reason} onChange={v=>set('void_reason',v)} disabled={locked}/>
           </div>
           {payment.payment_type==='refund'&&<><h2>退款 / 红冲</h2><div className="tp-payments__form-grid">
@@ -386,9 +392,9 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
         <TabPanel><div className="tp-payments__tab-content">
           <h2>备注与附件</h2><div className="tp-payments__form-grid">
             <div className="tp-payments__field-wide"><TextArea id="pay-remarks" labelText="内部备注（不会进入对客收款确认函）" rows={4} value={payment.remarks_internal||''} onChange={e=>set('remarks_internal',e.currentTarget.value)} disabled={locked}/></div>
-            <div className="tp-payments__field-wide"><span className="tp-payments__upload-label">附件（L/C 副本、客户汇款通知等）</span><div className="tp-payments__upload-row"><FileUploaderButton accept={['.pdf','.jpg','.jpeg','.png','.webp']} buttonKind="tertiary" labelText="上传附件" multiple disabled={locked} onChange={e=>void uploadFiles(e,'attachments')}/>{(payment.attachments||[]).map((path:string,i:number)=><Button key={path} kind="ghost" size="sm" className="tp-payments__file-link" onClick={()=>void openStoredFile(path)}>附件 {i+1} · 打开</Button>)}</div></div>
-            <Pick id="pay-receipt-sent" label="已发送收款确认给客户" value={payment.receipt_sent?'是':'否'} onChange={v=>set('receipt_sent',v==='是')} options={['否','是']} disabled={locked}/>
-            <Field id="pay-receipt-sent-at" label="确认函发送时间" value={payment.receipt_sent_at||''} onChange={v=>set('receipt_sent_at',v)} disabled={locked}/>
+            <div className="tp-payments__field-wide"><span className="tp-payments__upload-label">附件（L/C 副本、客户汇款通知等）</span><div className="tp-payments__upload-row"><FileUploaderButton accept={['.pdf','.jpg','.jpeg','.png','.webp']} buttonKind="tertiary" labelText="上传附件" multiple disabled={readOnly} onChange={e=>void uploadFiles(e,'attachments')}/>{(payment.attachments||[]).map((path:string,i:number)=><Button key={path} kind="ghost" size="sm" className="tp-payments__file-link" onClick={()=>void openStoredFile(path)}>附件 {i+1} · 打开</Button>)}</div></div>
+            <Pick id="pay-receipt-sent" label="已发送收款确认给客户" value={payment.receipt_sent?'是':'否'} onChange={v=>set('receipt_sent',v==='是')} options={['否','是']} disabled={readOnly}/>
+            <Field id="pay-receipt-sent-at" label="确认函发送时间" value={payment.receipt_sent_at||''} onChange={v=>set('receipt_sent_at',v)} disabled={readOnly}/>
           </div>
           <p className="tp-payments__hint">内部备注、汇兑损益与差异处理方式仅供内部使用，不会写入对客收款确认函。</p>
         </div></TabPanel>
