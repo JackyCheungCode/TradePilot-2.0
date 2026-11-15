@@ -1,2 +1,2 @@
-/** Local Carbon-native entry point. Import from this module, not directly from @carbon/react. */
-export { ContextMenu } from '@carbon/react';
+/** Carbon context-menu behavior hook; the visual menu is composed from Carbon Menu primitives. */
+export { useContextMenu } from '@carbon/react';
