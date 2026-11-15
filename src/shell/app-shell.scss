@@ -1,0 +1,21 @@
+/**
+ * Shared shell layout only. Values come from Carbon spacing tokens.
+ * Do not add feature/page-specific styles here.
+ */
+.tp-content {
+  min-height: 100vh;
+}
+
+.tp-content__main {
+  width: 100%;
+  min-height: 100%;
+  padding-block: var(--cds-spacing-07);
+  padding-inline: var(--cds-spacing-06);
+}
+
+@media (max-width: 42rem) {
+  .tp-content__main {
+    padding-block: var(--cds-spacing-05);
+    padding-inline: var(--cds-spacing-05);
+  }
+}
