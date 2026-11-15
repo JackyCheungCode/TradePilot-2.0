@@ -102,7 +102,6 @@ export function DocumentsCenterPage() {
   }, [activeTemplates, templateId]);
 
   useEffect(() => {
-    setShipmentId('');
     if (!selectedType?.shipment || !orderId) { setShipments([]); return; }
     let alive = true;
     void (async () => {
@@ -164,7 +163,7 @@ export function DocumentsCenterPage() {
       </div></div>}
       {step === 2 && <div className="tp-documents__step-content"><h2>选择具体单据</h2><p>不同单据会读取不同的业务数据。</p><div className="tp-documents__form-grid"><div><Select id="tp-doc-type" labelText="单据类型" value={documentType} onChange={e => setDocumentType(e.currentTarget.value)}>{documentGroups.find(g => g.id === category)?.items.map(item => <SelectItem key={item.id} value={item.id} text={item.label} />)}</Select></div><div className="tp-documents__type-description"><strong>{selectedType?.label}</strong><span>{selectedType?.detail}</span><small>{selectedType?.shipment ? '需要选择具体发运批次' : '从已锁定的订单成交快照读取'}</small></div></div><div className="tp-documents__wizard-actions"><Button kind="tertiary" onClick={() => setStep(1)}>上一步</Button><Button kind="primary" onClick={() => setStep(3)}>下一步</Button></div></div>}
       {step === 3 && <div className="tp-documents__step-content"><h2>选择业务来源</h2><p>只显示销售订单。单据会从订单及其关联档案读取客户、企业、产品和成交条款。</p>
-        <div className="tp-documents__form-grid"><div><Select id="tp-doc-order" labelText="销售订单" value={orderId} onChange={e => { setOrderId(e.currentTarget.value); setCurrency(orders.find(o => o.id === e.currentTarget.value)?.currency_code || 'USD'); }}><SelectItem value="" text="请选择销售订单" />{orders.map(o => <SelectItem key={o.id} value={o.id} text={(o.order_number || o.title || o.id) + ' · ' + (o.crm_account?.account_name || '未关联客户')} />)}</Select></div>
+        <div className="tp-documents__form-grid"><div><Select id="tp-doc-order" labelText="销售订单" value={orderId} onChange={e => { setOrderId(e.currentTarget.value); setShipmentId(''); setCurrency(orders.find(o => o.id === e.currentTarget.value)?.currency_code || 'USD'); }}><SelectItem value="" text="请选择销售订单" />{orders.map(o => <SelectItem key={o.id} value={o.id} text={(o.order_number || o.title || o.id) + ' · ' + (o.crm_account?.account_name || '未关联客户')} />)}</Select></div>
         {selectedType?.shipment && <div><Select id="tp-doc-shipment" labelText="本次发运批次" value={shipmentId} onChange={e => setShipmentId(e.currentTarget.value)} disabled={!orderId}><SelectItem value="" text={orderId ? '请选择发运批次' : '请先选择销售订单'} />{shipments.map(s => <SelectItem key={s.id} value={s.id} text={s.shipment_no + ' · ' + s.status + ' · ' + dateLabel(s.actual_ship_date || s.planned_ship_date)} />)}</Select></div>}</div>
         {selectedOrder && <div className="tp-documents__source-summary"><strong>{selectedOrder.order_number || selectedOrder.title}</strong><span>{selectedOrder.crm_account?.account_name || '未关联客户'}</span><span>{selectedOrder.currency_code || 'USD'}</span><Tag type={selectedOrder.locked_at ? 'green' : 'warm-gray'}>{selectedOrder.locked_at ? '成交快照已锁定' : '尚未锁定成交快照'}</Tag></div>}
         {selectedType?.shipment && orderId && shipments.length === 0 && <InlineNotification kind="warning" lowContrast title="暂无发运批次" subtitle="请先在发运管理中创建该订单的实际发运批次，再生成商业发票或装箱单。" />}
