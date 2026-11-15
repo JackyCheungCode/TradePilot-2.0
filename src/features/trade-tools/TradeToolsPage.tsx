@@ -170,9 +170,32 @@ export function TradeToolsPage() {
   const loadContacts = async () => {
     try {
       const db=await getSupabaseClient();
-      const [accounts,people]=await Promise.all([db.from('crm_accounts').select('*').limit(200),db.from('crm_contacts').select('*').limit(200)]);
-      const rows=[...(accounts.data||[]).map((r:any)=>({id:'account:'+r.id,label:String(r.name||r.company_name||'客户'),address:String(r.full_address||r.address||[r.city,r.state,r.country].filter(Boolean).join(', '))})),...(people.data||[]).map((r:any)=>({id:'contact:'+r.id,label:String(r.full_name||r.name||r.email||'联系人'),address:String(r.full_address||r.address||[r.city,r.state,r.country].filter(Boolean).join(', '))}))].filter(x=>x.address.trim());
-      setContacts(rows);
+      const {data:sessionData}=await db.auth.getSession();
+      const ownerId=sessionData.session?.user.id;
+      if(!ownerId){setContacts([]);return;}
+      const [accounts,people]=await Promise.all([
+        db.from('crm_accounts').select('*').eq('owner_id',ownerId).limit(200),
+        db.from('crm_contacts').select('*').eq('owner_id',ownerId).limit(200),
+      ]);
+      const formatAddress=(row:any)=>{
+        const preferred=row.shipping_address||row.billing_address||{};
+        const address=typeof preferred==='string'?{formatted_address:preferred}:preferred;
+        return String(address.formatted_address||[
+          address.street||row.street,
+          address.city||row.city,
+          address.region||address.state||row.region,
+          address.postal_code||row.postal_code,
+          address.country||row.country_code,
+        ].filter(Boolean).join(', '));
+      };
+      const accountRows=(accounts.data||[]).map((row:any)=>({id:'account:'+row.id,label:String(row.account_name||row.legal_name||'客户'),address:formatAddress(row)}));
+      const accountById=new Map((accounts.data||[]).map((row:any)=>[row.id,row]));
+      const contactRows=(people.data||[]).map((row:any)=>{
+        const account=accountById.get(row.account_id);
+        const fullName=row.full_name||[row.first_name,row.last_name].filter(Boolean).join(' ')||row.email||'联系人';
+        return {id:'contact:'+row.id,label:String(fullName)+(account?' · '+String(account.account_name||account.legal_name||'') : ''),address:account?formatAddress(account):''};
+      });
+      setContacts([...accountRows,...contactRows].filter(item=>item.address.trim()));
     } catch { setContacts([]); }
   };
   useEffect(()=>{if(active==='contact-time') void loadContacts();},[active]);
