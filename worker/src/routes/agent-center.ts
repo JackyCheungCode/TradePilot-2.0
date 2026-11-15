@@ -595,7 +595,9 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
         const item=value as Record<string,unknown>;
         const styleId=typeof item.styleId==="string"?item.styleId:"vector";
         if(!variants[styleId]||typeof item.shape!=="string"||!/^[a-z0-9-]{2,40}$/.test(item.shape)||typeof item.color!=="string"||!allowedColors.has(item.color)||typeof item.variant!=="string"||!variants[styleId].has(item.variant)||!["cute","eyes","line","symbol","button","capsule","brow","glossy","sparkle","shades","droopy","bigmouth","pie","screen","teardrop","specs"].includes(String(item.face)))return null;
-        const eyeColor=typeof item.eyeColor==="string"&&/^#[0-9a-f]{6}$/i.test(item.eyeColor)?item.eyeColor:"#1A1A1A";\n        const eyeScale=typeof item.eyeScale==="number"&&Number.isFinite(item.eyeScale)?Math.max(0.7,Math.min(1.4,item.eyeScale)):1;\n        return {shape:item.shape,color:item.color,styleId,variant:item.variant,face:item.face,eyeColor,eyeScale};
+        const eyeColor=typeof item.eyeColor==="string"&&/^#[0-9a-f]{6}$/i.test(item.eyeColor)?item.eyeColor:"#1A1A1A";
+        const eyeScale=typeof item.eyeScale==="number"&&Number.isFinite(item.eyeScale)?Math.max(0.7,Math.min(1.4,item.eyeScale)):1;
+        return {shape:item.shape,color:item.color,styleId,variant:item.variant,face:item.face,eyeColor,eyeScale};
       };
       const defaultAppearance=normalizeAppearance(input.default);
       const rawAgents=input.agents&&typeof input.agents==="object"&&!Array.isArray(input.agents)?input.agents as Record<string,unknown>:{};
