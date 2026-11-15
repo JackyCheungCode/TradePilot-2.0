@@ -244,7 +244,7 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
   };
   const saveReconciliation=async()=>{
     if(!id)return;setError('');setSaving(true);
-    try{const db=await getSupabaseClient();const {data:s}=await db.auth.getSession();const user=s.session?.user;if(!user)throw new Error('登录状态已失效');const {error:e}=await db.from('trade_payments').update({bank_reconciled:Boolean(payment.bank_reconciled),statement_date:payment.statement_date||null,statement_ref:payment.statement_ref||null,attachments:payment.attachments||[],receipt_sent:Boolean(payment.receipt_sent),receipt_sent_at:payment.receipt_sent?payment.receipt_sent_at||new Date().toISOString():null,updated_by:user.id,updated_at:new Date().toISOString()}).eq('id',id).eq('owner_id',user.id);if(e)throw e;nav('/payments/'+id,{replace:true});}
+    try{const db=await getSupabaseClient();const {data:s}=await db.auth.getSession();const user=s.session?.user;if(!user)throw new Error('登录状态已失效');const {error:e}=await db.from('trade_payments').update({bank_reconciled:Boolean(payment.bank_reconciled),statement_date:payment.statement_date||null,statement_ref:payment.statement_ref||null,bank_slip:payment.bank_slip||null,attachments:payment.attachments||[],receipt_sent:Boolean(payment.receipt_sent),receipt_sent_at:payment.receipt_sent?payment.receipt_sent_at||new Date().toISOString():null,updated_by:user.id,updated_at:new Date().toISOString()}).eq('id',id).eq('owner_id',user.id);if(e)throw e;nav('/payments/'+id,{replace:true});}
     catch(e){setError(e instanceof Error?e.message:'保存对账信息失败');}
     finally{setSaving(false);}
   };
@@ -380,7 +380,7 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
             <Field id="pay-void-reason" label="作废原因" value={payment.void_reason} onChange={v=>set('void_reason',v)} disabled={locked}/>
           </div>
           {payment.payment_type==='refund'&&<><h2>退款 / 红冲</h2><div className="tp-payments__form-grid">
-            <Pick id="pay-original" label="原收款记录" value={payment.original_payment_id} onChange={v=>set('original_payment_id',v)} options={payments.filter(r=>r.payment_type==='receipt'&&r.account_id===payment.account_id&&r.status!=='voided').map(r=>({value:r.id,label:r.payment_no+' · '+money(r.net_received,r.currency)}))} disabled={locked}/>
+            <Pick id="pay-original" label="原收款记录" value={payment.original_payment_id} onChange={v=>{set('original_payment_id',v);set('refund_shipped_confirmed',false)}} options={payments.filter(r=>r.payment_type==='receipt'&&r.account_id===payment.account_id&&!['voided','returned'].includes(r.status)).map(r=>({value:r.id,label:r.payment_no+' · '+money(r.net_received,r.currency)}))} disabled={locked}/>
             <Pick id="pay-refund-reason" label="退款原因" value={payment.refund_reason} onChange={v=>set('refund_reason',v)} options={['多付','订单取消','质量索赔','重复付款','其他']} disabled={locked}/>
             <Field id="pay-refund-amount" label={'退款金额（可退余额 '+money(refundAvailable,payment.currency)+'）'} type="number" value={payment.refund_amount} onChange={v=>{set('refund_amount',v);set('amount',v);set('net_received',v)}} disabled={locked}/>
             <Field id="pay-refund-date" label="退款日期" type="date" value={payment.refund_date} onChange={v=>set('refund_date',v)} disabled={locked}/>
