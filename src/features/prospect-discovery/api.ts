@@ -28,7 +28,6 @@ export interface DiscoveryRecord {
   address?: string;
   phone?: string;
   email?: string;
-  address?: string;
   website?: string;
   confidence_score?: number;
   raw_data?: Record<string, unknown>;
