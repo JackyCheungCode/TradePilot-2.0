@@ -16,7 +16,7 @@ Loading, InlineLoading, skeleton primitives, Modal and ComposedModal, ModalWrapp
 
 ## Menus, content and utilities
 
-Menu, MenuItem, MenuButton, ComboButton, OverflowMenu, OverflowMenuItem, ContextMenu, CodeSnippet, Copy, CopyButton, OrderedList, UnorderedList, ListItem, ClassPrefix, IdPrefix, FeatureFlags, and Portal.
+Menu, MenuItem, MenuButton, ComboButton, OverflowMenu, OverflowMenuItem, Carbon's `useContextMenu` hook, CodeSnippet, Copy, CopyButton, OrderedList, UnorderedList, ListItem, ClassPrefix, IdPrefix, and FeatureFlags. Carbon's ListBox and Portal primitives are exposed as types only because they are not public rendered components in the installed package API.
 
 ## API stability
 
