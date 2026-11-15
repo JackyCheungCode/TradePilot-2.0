@@ -33,9 +33,10 @@ revoke all on public.trade_document_settings from anon;
 create or replace function public.set_trade_document_settings_updated_at()
 returns trigger
 language plpgsql
-as $$
+set search_path = ''
+as $
 begin
-  new.updated_at = now();
+  new.updated_at = pg_catalog.now();
   new.updated_by = auth.uid();
   return new;
 end;
