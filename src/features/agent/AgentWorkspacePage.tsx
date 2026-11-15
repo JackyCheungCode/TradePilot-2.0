@@ -188,8 +188,8 @@ export function AgentWorkspacePage() {
           <section className="tp-agent__history" aria-label="历史对话">
             <div className="tp-agent__history-header">
               <h2>历史对话</h2>
-              <Button kind="primary" size="sm" renderIcon={CarbonIcons.Add} onClick={() => void createConversation()}>
-                新建对话
+              <Button kind="primary" size="sm" onClick={() => void createConversation()}>
+                <CarbonIcons.Add size={16} /> 新建对话
               </Button>
             </div>
             {loading && <InlineLoading description="正在加载对话…" />}
@@ -206,8 +206,8 @@ export function AgentWorkspacePage() {
                 </Button>
               ))}
             </nav>
-            <Button kind="ghost" size="sm" className="tp-agent__tasks-link" renderIcon={CarbonIcons.Task} onClick={() => navigate('/recent-tasks')}>
-              查看任务执行中心
+            <Button kind="ghost" size="sm" className="tp-agent__tasks-link" onClick={() => navigate('/recent-tasks')}>
+              <CarbonIcons.Task size={16} /> 查看任务执行中心
             </Button>
           </section>
         </Column>
