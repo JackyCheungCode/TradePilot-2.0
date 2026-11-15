@@ -52,6 +52,30 @@ function localDay(value: string): string {
   const part = (type: string) => parts.find(item => item.type === type)?.value ?? "";
   return part("year") + "-" + part("month") + "-" + part("day");
 }
+function canonicalEntityKey(record: NonNullable<OccurrenceRow["record"]>): string {
+  if (record.entity_id) return record.entity_id;
+  const raw = record.raw_data ?? {};
+  const facebook = raw.facebook && typeof raw.facebook === "object" ? raw.facebook as Record<string, unknown> : {};
+  const facebookRaw = facebook.raw && typeof facebook.raw === "object" ? facebook.raw as Record<string, unknown> : {};
+  const instagram = raw.instagram && typeof raw.instagram === "object" ? raw.instagram as Record<string, unknown> : {};
+  const instagramRaw = instagram.raw && typeof instagram.raw === "object" ? instagram.raw as Record<string, unknown> : {};
+  const facebookId = raw.facebookId ?? facebookRaw.id;
+  if (facebookId) return "facebook:" + String(facebookId).trim().toLowerCase();
+  const instagramId = raw.instagramId ?? instagramRaw.id ?? instagramRaw.username ?? raw.username;
+  if (instagramId) return "instagram:" + String(instagramId).trim().toLowerCase();
+  const lastSearch = raw.last_search_result && typeof raw.last_search_result === "object"
+    ? raw.last_search_result as Record<string, unknown> : {};
+  const sourceUrl = String(record.website ?? raw.website ?? raw.url ?? lastSearch.url ?? "");
+  if (sourceUrl) {
+    try { return "domain:" + new URL(sourceUrl.startsWith("http") ? sourceUrl : "https://" + sourceUrl).hostname.toLowerCase().replace(/^www\./, ""); }
+    catch { /* continue to stable phone/name fallback */ }
+  }
+  const phone = String(record.phone ?? "").replace(/\D/g, "");
+  if (phone.length >= 8) return "phone:" + phone;
+  const name = String(record.name ?? "").normalize("NFKC").trim().toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ");
+  if (name) return "name:" + String(record.country_code ?? "") + ":" + name + ":" + String(record.address ?? "").normalize("NFKC").trim().toLocaleLowerCase();
+  return "record:" + record.id;
+}
 function platformFor(channel: string, provider: string): { key: string; label: string } {
   if (channel === "map_local_businesses") return { key: "google_maps", label: "Google Maps" };
   if (channel === "facebook") return { key: "facebook", label: "Facebook Pages" };
@@ -135,7 +159,7 @@ export async function handleProspectConsole(request: Request, env: ConsoleEnv): 
     }>();
     for (const row of filtered) {
       const record = row.record!;
-      const entityId = record.entity_id || record.id;
+      const entityId = canonicalEntityKey(record);
       const day = localDay(row.captured_at);
       entities.add(entityId);
       if (record.status === "promoted" || record.lead_id) converted.add(entityId);
