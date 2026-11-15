@@ -11,6 +11,7 @@ type Domain = { id: string; label: string; icon: React.ReactNode; available: boo
 type Section = { id: string; label: string; group: string; description: string; implemented?: boolean };
 type Category = { id: string; name: string; parent_id: string | null; code: string | null; description?: string | null; sequence: number; is_active: boolean };
 type Attribute = { id: string; name: string; display_type: string; create_variant: string; sequence: number; is_active: boolean };
+type AttributeValue = { id: string; attribute_id: string; name: string; html_color: string | null; sequence: number; is_active: boolean };
 
 const domains: Domain[] = [
   { id: 'products', label: '产品', icon: <CarbonIcons.Product size={20} />, available: true },
@@ -46,6 +47,10 @@ export function SettingsCenterPage() {
   const [query, setQuery] = useState('');
   const [categories, setCategories] = useState<Category[]>([]);
   const [attributes, setAttributes] = useState<Attribute[]>([]);
+  const [attributeValues, setAttributeValues] = useState<AttributeValue[]>([]);
+  const [attributeValueName, setAttributeValueName] = useState('');
+  const [attributeValueAttribute, setAttributeValueAttribute] = useState('');
+  const [attributeValueColor, setAttributeValueColor] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -65,14 +70,17 @@ export function SettingsCenterPage() {
     setError('');
     try {
       const db = await getSupabaseClient();
-      const [categoryResult, attributeResult] = await Promise.all([
+      const [categoryResult, attributeResult, valueResult] = await Promise.all([
         db.from('trade_product_categories').select('id,name,parent_id,code,description,sequence,is_active').order('sequence').order('name'),
         db.from('trade_product_attributes').select('id,name,display_type,create_variant,sequence,is_active').order('sequence').order('name'),
+        db.from('trade_product_attribute_values').select('id,attribute_id,name,html_color,sequence,is_active').order('sequence').order('name'),
       ]);
       if (categoryResult.error) throw categoryResult.error;
       if (attributeResult.error) throw attributeResult.error;
+      if (valueResult.error) throw valueResult.error;
       setCategories((categoryResult.data ?? []) as Category[]);
       setAttributes((attributeResult.data ?? []) as Attribute[]);
+      setAttributeValues((valueResult.data ?? []) as AttributeValue[]);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : '读取设置失败');
     } finally {
@@ -142,6 +150,34 @@ export function SettingsCenterPage() {
     const result = await db.from('trade_product_attributes').update({ is_active: !item.is_active }).eq('id', item.id);
     if (result.error) { setError(result.error.message); return; }
     setAttributes((items) => items.map((row) => row.id === item.id ? { ...row, is_active: !item.is_active } : row));
+  };
+
+  const addAttributeValue = async () => {
+    if (!attributeValueName.trim() || !attributeValueAttribute) return;
+    setSaving(true); setError(''); setNotice('');
+    try {
+      const db = await getSupabaseClient();
+      const { data: session } = await db.auth.getSession();
+      const ownerId = session.session?.user.id;
+      if (!ownerId) throw new Error('登录状态已失效，请重新登录。');
+      const result = await db.from('trade_product_attribute_values').insert({
+        owner_id: ownerId, attribute_id: attributeValueAttribute, name: attributeValueName.trim(),
+        html_color: attributeValueColor.trim() || null, sequence: attributeValues.filter((item) => item.attribute_id === attributeValueAttribute).length * 10 + 10, is_active: true,
+      }).select('id,attribute_id,name,html_color,sequence,is_active').single();
+      if (result.error) throw result.error;
+      setAttributeValues((items) => [...items, result.data as AttributeValue]);
+      setAttributeValueName(''); setAttributeValueColor('');
+      setNotice('规格属性值已创建。');
+    } catch (cause) { setError(cause instanceof Error ? cause.message : '创建属性值失败'); }
+    finally { setSaving(false); }
+  };
+
+  const toggleAttributeValue = async (item: AttributeValue) => {
+    setError(''); setNotice('');
+    const db = await getSupabaseClient();
+    const result = await db.from('trade_product_attribute_values').update({ is_active: !item.is_active }).eq('id', item.id);
+    if (result.error) { setError(result.error.message); return; }
+    setAttributeValues((items) => items.map((row) => row.id === item.id ? { ...row, is_active: !item.is_active } : row));
   };
 
   const sectionGroups = groups.map((group) => ({ group, items: productSections.filter((item) => item.group === group) }));
@@ -281,6 +317,31 @@ export function SettingsCenterPage() {
                       ))}</TableBody>
                     </Table>
                     {!filteredAttributes.length && <p className="tp-settings__empty">暂无规格属性。创建后可在产品规格配置中复用。</p>}
+                  </div>
+                  <div className="tp-settings__editor">
+                    <h4>新增规格属性值</h4>
+                    <div className="tp-settings__editor-grid">
+                      <Select id="setting-attribute-value-parent" labelText="所属规格属性" value={attributeValueAttribute} onChange={(event) => setAttributeValueAttribute(event.currentTarget.value)}>
+                        <SelectItem value="" text="请选择属性" />
+                        {attributes.filter((item) => item.is_active).map((item) => <SelectItem key={item.id} value={item.id} text={item.name} />)}
+                      </Select>
+                      <TextInput id="setting-attribute-value-name" labelText="属性值" value={attributeValueName} onChange={(event) => setAttributeValueName(event.currentTarget.value)} />
+                      <TextInput id="setting-attribute-value-color" labelText="颜色值（可选，如 #FF0000）" value={attributeValueColor} onChange={(event) => setAttributeValueColor(event.currentTarget.value)} />
+                      <Button kind="primary" disabled={saving || !attributeValueName.trim() || !attributeValueAttribute} onClick={() => void addAttributeValue()}>新增属性值</Button>
+                    </div>
+                  </div>
+                  <div className="tp-settings__table-wrap">
+                    <Table>
+                      <TableHead><TableRow><TableHeader>所属属性</TableHeader><TableHeader>属性值</TableHeader><TableHeader>颜色</TableHeader><TableHeader>状态</TableHeader><TableHeader>操作</TableHeader></TableRow></TableHead>
+                      <TableBody>{attributeValues.filter((item) => !attributeValueAttribute || item.attribute_id === attributeValueAttribute).map((item) => (
+                        <TableRow key={item.id}>
+                          <TableCell>{attributes.find((attribute) => attribute.id === item.attribute_id)?.name || '—'}</TableCell><TableCell>{item.name}</TableCell><TableCell>{item.html_color || '—'}</TableCell>
+                          <TableCell><Tag type={item.is_active ? 'green' : 'cool-gray'}>{item.is_active ? '启用' : '停用'}</Tag></TableCell>
+                          <TableCell><Button kind="ghost" size="sm" onClick={() => void toggleAttributeValue(item)}>{item.is_active ? '停用' : '启用'}</Button></TableCell>
+                        </TableRow>
+                      ))}</TableBody>
+                    </Table>
+                    {!attributeValues.filter((item) => !attributeValueAttribute || item.attribute_id === attributeValueAttribute).length && <p className="tp-settings__empty">该属性暂无可选值。</p>}
                   </div>
                 </>
               )}
