@@ -60,6 +60,8 @@ export function SalesOrderConsolePage(){
  const statusData=['draft','confirmed','preparing','partially_shipped','shipped','completed','cancelled'].map(s=>({group:stateLabel(s),key:'订单数量',value:count(s)})).filter(x=>x.value>0);
  const fulfillmentData=['not_shipped','partially_shipped','shipped'].map(s=>({group:fulfillmentLabel(s),key:'订单数量',value:rows.filter(r=>(r.metadata?.sales_order?.fulfillment_status||'not_shipped')===s).length})).filter(x=>x.value>0);
  const paymentData=['unpaid','partial','paid','overdue'].map(s=>({group:paymentLabel(s),key:'订单数量',value:rows.filter(r=>(r.metadata?.sales_order?.payment_status||'unpaid')===s).length})).filter(x=>x.value>0);
+ const invoiceData=[['uninvoiced','未开票'],['partial','部分开票'],['invoiced','已开票']].map(([key,label])=>({group:label,key:'订单数量',value:rows.filter(r=>(r.metadata?.sales_order?.invoice_status||'uninvoiced')===key).length})).filter(x=>x.value>0);
+ const procurementData=[['not_started','未备货'],['in_progress','备货中'],['ready','已备齐']].map(([key,label])=>({group:label,key:'订单数量',value:rows.filter(r=>(r.metadata?.sales_order?.procurement_status||'not_started')===key).length})).filter(x=>x.value>0);
  const days=Array.from({length:30},(_,i)=>{const d=new Date();d.setDate(d.getDate()-(29-i));d.setHours(0,0,0,0);return d;});
  const dayKey=(d:Date)=>d.toISOString().slice(0,10);
  const amountMap=new Map<string,number>();const countMap=new Map<string,number>();days.forEach(d=>{amountMap.set(dayKey(d),0);countMap.set(dayKey(d),0)});
@@ -87,6 +89,8 @@ export function SalesOrderConsolePage(){
     <div className="tp-sales-orders__chart"><h3>订单状态分布</h3>{statusData.length?<SimpleBarChart data={statusData} options={options}/>:<p className="tp-sales-orders__empty">暂无状态数据</p>}</div>
     <div className="tp-sales-orders__chart"><h3>发货履约状态</h3>{fulfillmentData.length?<SimpleBarChart data={fulfillmentData} options={options}/>:<p className="tp-sales-orders__empty">暂无履约数据</p>}</div>
     <div className="tp-sales-orders__chart"><h3>收款状态分布</h3>{paymentData.length?<SimpleBarChart data={paymentData} options={options}/>:<p className="tp-sales-orders__empty">暂无收款数据</p>}</div>
+    <div className="tp-sales-orders__chart"><h3>开票状态分布</h3>{invoiceData.length?<SimpleBarChart data={invoiceData} options={options}/>:<p className="tp-sales-orders__empty">暂无开票数据</p>}</div>
+    <div className="tp-sales-orders__chart"><h3>备货状态分布</h3>{procurementData.length?<SimpleBarChart data={procurementData} options={options}/>:<p className="tp-sales-orders__empty">暂无备货数据</p>}</div>
    </div>}
   </section>
   <section className="tp-sales-orders__panel"><div className="tp-sales-orders__panel-head"><div><h2>销售订单列表</h2><p>草稿可继续编辑；订单确认后商业条件锁定。</p></div><Tag type="blue">{filtered.length} 条记录</Tag></div>
