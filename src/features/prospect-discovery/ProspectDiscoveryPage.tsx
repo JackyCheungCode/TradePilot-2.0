@@ -8,7 +8,7 @@ import {
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import {
-  createDiscoveryRun, getDiscoveryRecords, getDiscoveryRun, getDiscoveryRuns,
+  createDiscoveryRun, getDiscoveryRecords, getDiscoveryRun,
   type DiscoveryRecord, type DiscoveryRun,
 } from './api';
 import '@/design-system/patterns/prospect-discovery.scss';
@@ -69,7 +69,6 @@ export function ProspectDiscoveryPage() {
   const [records,setRecords]=useState<DiscoveryRecord[]>([]);
   const [selectedRecordIds,setSelectedRecordIds]=useState<string[]>([]);
   const [recordActionBusy,setRecordActionBusy]=useState(false);
-  const [runs,setRuns]=useState<DiscoveryRun[]>([]);
   const [polling,setPolling]=useState(false);
   const [lastUpdate,setLastUpdate]=useState<Date|null>(null);
   const [clock,setClock]=useState(Date.now());
@@ -108,15 +107,9 @@ export function ProspectDiscoveryPage() {
     return nextRun;
   },[token]);
   useEffect(()=>{
-    if(!session)return;
-    let alive=true;
-    getDiscoveryRuns(session.access_token).then(data=>{if(alive)setRuns(data);}).catch(e=>{if(alive)setError(e instanceof Error?e.message:'无法读取任务列表');});
-    return()=>{alive=false;};
-  },[session]);
-  useEffect(()=>{
     if(!activeRun||!token||isTerminal(activeRun.status))return;
     let alive=true;setPolling(true);
-    const poll=async()=>{try{const next=await getDiscoveryRun(token,activeRun.id);const resultRows=await getDiscoveryRecords(token,activeRun.id);if(!alive)return;const latestLog=next.logs?.[next.logs.length-1];const signature=[next.status,next.progress,next.message,latestLog?.id??''].join('|');if(signature!==activitySignature.current){activitySignature.current=signature;setLastUpdate(new Date());}setActiveRun(next);setRecords(resultRows);if(isTerminal(next.status)){setPolling(false);setRuns(previous=>[next,...previous.filter(r=>r.id!==next.id)]);if(next.status==='completed'||next.status==='partial')setStep(5);}}catch(e){if(alive)setError(e instanceof Error?e.message:'读取任务状态失败');}};
+    const poll=async()=>{try{const next=await getDiscoveryRun(token,activeRun.id);const resultRows=await getDiscoveryRecords(token,activeRun.id);if(!alive)return;const latestLog=next.logs?.[next.logs.length-1];const signature=[next.status,next.progress,next.message,latestLog?.id??''].join('|');if(signature!==activitySignature.current){activitySignature.current=signature;setLastUpdate(new Date());}setActiveRun(next);setRecords(resultRows);if(isTerminal(next.status)){setPolling(false);if(next.status==='completed'||next.status==='partial')setStep(5);}}catch(e){if(alive)setError(e instanceof Error?e.message:'读取任务状态失败');}};
     void poll();const timer=window.setInterval(poll,2500);
     return()=>{alive=false;window.clearInterval(timer);setPolling(false);};
   },[activeRun?.id,activeRun?.status,token]);
@@ -135,7 +128,6 @@ export function ProspectDiscoveryPage() {
       }else{throw new Error('该平台尚未开放。');}
       const created=await createDiscoveryRun(client,token,channel,config);
       setActiveRun({...created,createdAt:new Date().toISOString(),logs:[]});activitySignature.current='';setLastUpdate(new Date());setRecords([]);setSelectedRecordIds([]);setStep(4);
-      const current=await getDiscoveryRuns(token);setRuns(current);
     }catch(e){setError(e instanceof Error?e.message:'无法创建发现任务');}finally{setAuthBusy(false);}
   };
   const selectPlatform=(id:Platform)=>{const p=platformGroups.flatMap(g=>g.platforms).find(x=>x.id===id);if(!p?.enabled)return;setPlatform(id);};
