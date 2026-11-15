@@ -1,3 +1,4 @@
+/// <reference path="../../../worker-workflows.d.ts" />
 import {WorkflowEntrypoint} from "cloudflare:workers";
 import type {WorkflowEvent,WorkflowStep} from "cloudflare:workers";
 import type {InstagramInput} from "../routes/instagram-discovery";
