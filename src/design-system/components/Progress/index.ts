@@ -1,2 +1,2 @@
-/** Local Carbon-native entry point. Import from this module, not directly from @carbon/react. */
-export { ProgressBar, ProgressIndicator, ProgressStep } from '@carbon/react';
+/** Local Carbon-native entry point. */
+export { ProgressBar, ProgressIndicator } from '@carbon/react';
