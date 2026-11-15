@@ -3,7 +3,8 @@ import { Outlet } from 'react-router-dom';
 
 /**
  * Shared application frame.
- * Navigation items are deliberately omitted until the product page map is approved.
+ * Product navigation and page routes are intentionally not defined
+ * until the information architecture has been approved.
  */
 export function AppShell() {
   return (
@@ -13,8 +14,8 @@ export function AppShell() {
           TradePilot
         </HeaderName>
       </Header>
-      <Content>
-        <main className="tp-app-content">
+      <Content className="tp-content">
+        <main className="tp-content__main">
           <Outlet />
         </main>
       </Content>
