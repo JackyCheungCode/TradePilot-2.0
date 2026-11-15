@@ -220,7 +220,7 @@ export function TradeToolsPage() {
 
   return <main className="tp-trade-tools">
     <header className="tp-trade-tools__header">
-      <div><p className="tp-trade-tools__eyebrow">TRADE TOOLS</p><h1>外贸工具</h1><p>汇率、假期、物流、翻译、客户联系时机与报价测算。</p></div>
+      <div><p className="tp-trade-tools__eyebrow">TRADE TOOLS</p><h1>Trade Tools</h1><p>汇率、假期、物流、翻译、客户联系时机与报价测算。</p></div>
       <Tag type="blue">6 项工具</Tag>
     </header>
     <div className="tp-trade-tools__layout">
