@@ -24,9 +24,21 @@ const STATUS_LABEL: Record<string, string> = {
   customs_cleared: '已清关', departed: '已离港', in_transit: '运输中',
   arrived: '已到港', import_cleared: '进口清关', delivered: '已签收', cancelled: '已取消',
 };
-const STATUS_TONE: Record<string, 'blue' | 'green' | 'gray' | 'red' | 'teal'> = {
-  in_transit: 'blue', departed: 'teal', arrived: 'green', delivered: 'green',
-  customs_cleared: 'teal', import_cleared: 'teal', booked: 'gray', cancelled: 'red',
+const STATUS_TONE: Record<string, 'blue' | 'green' | 'gray' | 'red' | 'teal' | 'purple'> = {
+  draft: 'gray', pending_booking: 'gray', booked: 'gray',
+  loaded: 'cyan', departed: 'teal', in_transit: 'blue',
+  customs_cleared: 'purple', import_cleared: 'purple',
+  arrived: 'green', delivered: 'green',
+  exception: 'red', delayed: 'red', failed: 'red', damaged: 'red', lost: 'red', returned: 'red',
+  cancelled: 'gray',
+};
+const ROUTE_TONE: Record<string, string> = {
+  arrived: 'arrived', delivered: 'arrived',
+  exception: 'exception', delayed: 'exception', failed: 'exception',
+  damaged: 'exception', lost: 'exception', returned: 'exception',
+  draft: 'pending', pending_booking: 'pending', booked: 'pending', cancelled: 'pending',
+  loaded: 'loaded', departed: 'departed', in_transit: 'transit',
+  customs_cleared: 'customs', import_cleared: 'customs',
 };
 const SHENZHEN: GeoPoint = { lat: 22.5431, lon: 114.0579 };
 const TILE_SIZE = 256;
@@ -208,7 +220,7 @@ export function GlobalShipmentMap() {
       <div><span>包裹总数</span><strong>{summary.packages.toLocaleString()}</strong></div>
     </div>
     <div className="tp-shipment-map__toolbar">
-      <div className="tp-shipment-map__legend"><span><i className="is-origin"/>深圳发货地</span><span><i className="is-route"/>订单路线</span><span><i className="is-particle"/>动态轨迹</span></div>
+      <div className="tp-shipment-map__legend"><span><i className="is-origin"/>深圳发货地</span><span><i className="is-arrived"/>到达 / 签收</span><span><i className="is-exception"/>异常</span><span><i className="is-route"/>运输中及其他状态</span><span><i className="is-particle"/>动态轨迹</span></div>
       <Select id="shipment-map-status" labelText="运输状态" size="sm" value={statusFilter} onChange={event => setStatusFilter(event.currentTarget.value)}>
         <SelectItem value="all" text="全部状态"/>
         {Object.entries(STATUS_LABEL).filter(([key]) => key !== 'draft' && key !== 'cancelled').map(([key, label]) => <SelectItem key={key} value={key} text={label}/>)}
@@ -236,7 +248,8 @@ export function GlobalShipmentMap() {
             if (!destination) return null;
             const geometry = routeGeometry(originOf(shipment), destination, index, zoom, map.left, map.top);
             const isSelected = selected === shipment.id;
-            return <g key={shipment.id} className={isSelected ? 'is-selected' : ''} onClick={() => setSelected(shipment.id)} role="button" tabIndex={0} aria-label={'查看发运单 ' + shipment.shipment_no} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') setSelected(shipment.id); }}>
+            const routeTone = ROUTE_TONE[shipment.status] || 'transit';
+            return <g key={shipment.id} className={'tp-shipment-map__shipment is-' + routeTone + (isSelected ? ' is-selected' : '')} onClick={() => setSelected(shipment.id)} role="button" tabIndex={0} aria-label={'查看发运单 ' + shipment.shipment_no} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') setSelected(shipment.id); }}>
               <path d={geometry.path} className="tp-shipment-map__route-glow"/>
               <path d={geometry.path} className="tp-shipment-map__route"/>
               <path d={geometry.path} className="tp-shipment-map__route-flow"/>
