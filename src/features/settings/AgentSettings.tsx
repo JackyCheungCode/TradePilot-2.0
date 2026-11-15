@@ -24,6 +24,7 @@ export function AgentSettings({ section }: { section: string }) {
   const [selectedModel,setSelectedModel] = useState('');
   const [profiles,setProfiles] = useState<Profile[]>([]);
   const [appearance,setAppearance] = useState<Appearance>({shape:'blob',color:'ivory',styleId:'vector',variant:'soft',face:'cute',eyeColor:'#1A1A1A',eyeScale:1});
+  const [avatarAgents,setAvatarAgents] = useState<Record<string,Appearance>>({});
   const [loading,setLoading] = useState(true);
   const [saving,setSaving] = useState(false);
   const [error,setError] = useState('');
@@ -48,7 +49,8 @@ export function AgentSettings({ section }: { section: string }) {
       setSelectedModel(current);
       const knownAgents = Object.keys(agentLabels).map(agent_key => ({ agent_key, enabled:true, config:{} as Profile['config'] }));
       setProfiles(knownAgents.map(base => profileRows?.find(item => item.agent_key === base.agent_key) || base));
-      if (avatar.default) setAppearance(avatar.default);
+      if (avatar.default) setAppearance({...avatar.default,eyeColor:avatar.default.eyeColor || '#1A1A1A',eyeScale:avatar.default.eyeScale ?? 1});
+      setAvatarAgents(avatar.agents || {});
     } catch (cause) { setError(cause instanceof Error ? cause.message : '读取 Agent 设置失败。'); }
     finally { setLoading(false); }
   };
@@ -80,7 +82,7 @@ export function AgentSettings({ section }: { section: string }) {
   const saveAppearance = async () => {
     setSaving(true); setError(''); setNotice('');
     try {
-      await agentApi('/api/v1/agent/appearance', { method:'PUT', body:JSON.stringify({config:{default:appearance,agents:{}}}) });
+      await agentApi('/api/v1/agent/appearance', { method:'PUT', body:JSON.stringify({config:{default:appearance,agents:avatarAgents}}) });
       setNotice('小雅默认头像形象设置已保存。');
     } catch (cause) { setError(cause instanceof Error ? cause.message : '头像设置保存失败。'); }
     finally { setSaving(false); }
@@ -128,7 +130,7 @@ export function AgentSettings({ section }: { section: string }) {
           {['blob','wedge','gem'].map(value => <SelectItem key={value} value={value} text={value} />)}
         </Select>
         <Select id="agent-avatar-color" labelText="头像主色" value={appearance.color} onChange={event => setAppearance(item => ({...item,color:event.currentTarget.value}))}>
-          {['ivory','black','brown','red','orange','yellow','green','cyan','blue','violet','magenta','pink','gray','sage','clay','navy','mauve','night','cocoa','sky','blush','lilac','butter','meadow'].map(value => <SelectItem key={value} value={value} text={value} />)}
+          {['cream','ivory','black','brown','red','orange','yellow','green','cyan','blue','violet','magenta','pink','gray','sage','clay','navy','mauve','night','cocoa','sky','blush','lilac','butter','meadow'].map(value => <SelectItem key={value} value={value} text={value} />)}
         </Select>
         <TextInput id="agent-avatar-eye-color" labelText="眼睛颜色（HEX）" value={appearance.eyeColor} onChange={event => setAppearance(item => ({...item,eyeColor:event.currentTarget.value}))} />
         <Select id="agent-avatar-eye-scale" labelText="眼睛比例" value={String(appearance.eyeScale)} onChange={event => setAppearance(item => ({...item,eyeScale:Number(event.currentTarget.value)}))}>
