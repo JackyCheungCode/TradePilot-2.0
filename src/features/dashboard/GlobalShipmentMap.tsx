@@ -28,7 +28,7 @@ const STATUS_LABEL: Record<string, string> = {
 };
 const STATUS_TONE: Record<string, 'blue' | 'green' | 'gray' | 'red' | 'teal' | 'purple'> = {
   draft: 'gray', pending_booking: 'gray', booked: 'gray',
-  loaded: 'cyan', departed: 'teal', in_transit: 'blue',
+  loaded: 'teal', departed: 'teal', in_transit: 'blue',
   customs_cleared: 'purple', import_cleared: 'purple',
   arrived: 'green', delivered: 'green',
   exception: 'red', delayed: 'red', failed: 'red', damaged: 'red', lost: 'red', returned: 'red',
