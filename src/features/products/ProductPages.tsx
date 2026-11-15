@@ -58,7 +58,7 @@ function Fields({defs,data,set}:{defs:FieldDef[];data:Record<string,any>;set:(k:
 function RowsEditor({title,rows,fields,onChange,addLabel='添加一行'}:{title:string;rows:Record<string,any>[];fields:RowDef[];onChange:(r:Record<string,any>[])=>void;addLabel?:string}){
  const add=()=>onChange([...rows,Object.fromEntries(fields.map(f=>[f.key,'']))]);
  return <section className="tp-products__repeat"><div className="tp-products__repeat-head"><strong>{title}</strong><Button kind="tertiary" size="sm" onClick={add}><CarbonIcons.Add size={16}/>{addLabel}</Button></div>
- {rows.map((row,i)=><div className="tp-products__repeat-row" key={i}>{fields.map(f=><TextInput key={f.key} id={title+'-'+i+'-'+f.key} labelText={f.label} value={String(row[f.key]??'')} onChange={e=>onChange(rows.map((r,n)=>n===i?{...r,[f.key]:e.currentTarget.value}:r))}/ >)}<Button kind="ghost" size="sm"  onClick={()=>onChange(rows.filter((_,n)=>n!==i))}/></div>)}
+ {rows.map((row,i)=><div className="tp-products__repeat-row" key={i}>{fields.map(f=><TextInput key={f.key} id={title+'-'+i+'-'+f.key} labelText={f.label} value={String(row[f.key]??'')} onChange={e=>onChange(rows.map((r,n)=>n===i?{...r,[f.key]:e.currentTarget.value}:r))}/ >)}<Button kind="ghost" size="sm"  onClick={()=>onChange(rows.filter((_,n)=>n!==i))}>删除</Button></div>)}
  {!rows.length&&<p className="tp-products__empty-inline">暂无记录，可添加多行。</p>}</section>;
 }
 function Metric({label,value,icon}:{label:string;value:string;icon:React.ReactNode}){return <section className="tp-products__metric"><div><span>{label}</span>{icon}</div><strong>{value}</strong></section>}
