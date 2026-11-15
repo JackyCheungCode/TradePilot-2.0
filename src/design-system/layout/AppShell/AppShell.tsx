@@ -116,8 +116,8 @@ export function AppShell() {
         <div className="tp-sidenav__footer">
           <div className="tp-sidenav__contact">联系：xg.y@icloud.com</div>
           <div className="tp-sidenav__copyright">
-            <img src="/tradepilot-mark.svg" alt="" />
-            <span>© {new Date().getFullYear()} TradePilot</span>
+            <span>© {new Date().getFullYear()}</span>
+            <img src="/tradepilot-mark.svg" alt="TradePilot" />
           </div>
         </div>
       </SideNav>
