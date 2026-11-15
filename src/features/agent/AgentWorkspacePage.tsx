@@ -138,13 +138,13 @@ export function AgentWorkspacePage() {
     };
     setMessages((items) => [...items, optimistic]);
     try {
-      const result = await agentRequest<{ conversationId: string; reply: string; task: AgentTask | null; model: string; toolsUsed?: Array<{ name: string; label: string; count: number }> }>(
+      const result = await agentRequest<{ conversationId: string; messageId: string | null; reply: string; task: AgentTask | null; model: string; toolsUsed?: Array<{ name: string; label: string; count: number }> }>(
         '/api/v1/agent/chat',
         { method: 'POST', body: JSON.stringify({ conversationId, message }) },
       );
       if (result.conversationId !== conversationId) setConversationId(result.conversationId);
       setMessages((items) => [...items, {
-        id: `assistant-${Date.now()}`,
+        id: result.messageId || `assistant-${Date.now()}`,
         role: 'assistant',
         content: result.reply,
         metadata: { task: result.task, model: result.model, toolsUsed: result.toolsUsed },
