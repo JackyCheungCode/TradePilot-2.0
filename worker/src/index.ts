@@ -13,6 +13,7 @@ import { handleInstagramDiscovery } from "./routes/instagram-discovery";
 import { handleAgentCenter } from "./routes/agent-center";
 import { handleTradeDocuments } from "./routes/trade-documents";
 import { handleMasterData } from "./routes/master-data";
+import { handleProspectConsole } from "./routes/prospect-console";
 import { AgentOrchestrationWorkflow } from "./workflows/agent-orchestration";
 
 export interface WorkerEnv {
@@ -49,6 +50,7 @@ export default {
    if (url.pathname.startsWith("/api/v1/agent/")) return await handleAgentCenter(request, env);
    if (url.pathname.startsWith("/api/v1/trade/")) return await handleTradeDocuments(request, env);
    if (url.pathname.startsWith("/api/v1/master-data/")) return await handleMasterData(request, env);
+   if (url.pathname === "/api/v1/prospect-console" && request.method === "GET") return await handleProspectConsole(request, env);
    if (url.pathname === "/api/v1/settings/search-exclusions") return await handleSearchExclusions(request, env);
    if (url.pathname.startsWith("/api/v1/settings/")) return await handleSettings(request, env);
    if (url.pathname.startsWith("/api/v1/discovery/translate")) return await handleTranslation(request, env);

@@ -46,6 +46,12 @@ export function ProspectDiscoveryHeader({
         </div>
         <div className="tp-discovery__heading-actions">
           {children}
+          {title !== '潜客控制台' && (
+            <Button kind="ghost" size="sm" onClick={() => navigate('/prospect-console')}>
+              <CarbonIcons.ChartLine size={16} aria-hidden="true" />
+              潜客控制台
+            </Button>
+          )}
           {showRecentTasks && (
             <Button kind="ghost" size="sm" onClick={() => navigate('/recent-tasks')}>
               <CarbonIcons.Time size={16} aria-hidden="true" />

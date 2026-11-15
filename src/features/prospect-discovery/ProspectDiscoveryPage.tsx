@@ -150,7 +150,7 @@ export function ProspectDiscoveryPage() {
 
   return <main className="tp-discovery">
     <ProspectDiscoveryHeader title="潜客发现" description="选择渠道、配置发现条件，并实时跟踪采集任务。">
-      <Tag type="blue">Google Maps / Apify</Tag>
+
     </ProspectDiscoveryHeader>
     {error&&<InlineNotification kind="error" title="操作未完成" subtitle={error} onCloseButtonClick={()=>setError('')} />}
     <nav className="tp-discovery__steps" aria-label="发现任务步骤">
