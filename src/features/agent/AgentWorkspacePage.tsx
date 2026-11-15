@@ -57,7 +57,7 @@ export function AgentWorkspacePage() {
     setConversations(rows);
     if (!conversationId && rows.length) setConversationId(rows[0].id);
   }, [conversationId]);
-\n
+
   useEffect(() => {
     let active = true;
     setLoading(true);
