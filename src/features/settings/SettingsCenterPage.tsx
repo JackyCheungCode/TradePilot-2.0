@@ -16,9 +16,9 @@ const domains: Domain[] = [
   { id: 'opportunities', label: '商机', description: '销售阶段、赢率、优先级与输单原因', icon: <CarbonIcons.UserMultiple size={20} />, available: false },
   { id: 'contacts', label: '联系人', description: '联系人角色、称谓、部门与沟通偏好', icon: <CarbonIcons.User size={20} />, available: false },
   { id: 'accounts', label: '客户', description: '客户类型、等级、行业、规模与地址', icon: <CarbonIcons.Building size={20} />, available: false },
-  { id: 'leads', label: '线索', description: '来源、状态、评级与分配规则', icon: <CarbonIcons.UserFollow size={20} />, available: false },
-  { id: 'quotes', label: '报价', description: '报价类型、有效期、贸易术语与审批', icon: <CarbonIcons.RequestQuote size={20} />, available: false },
-  { id: 'orders', label: '订单', description: '订单状态、交付方式与付款规则', icon: <CarbonIcons.ShoppingCart size={20} />, available: false },
+  { id: 'leads', label: '线索', description: '来源、状态、评级与分配规则', icon: <CarbonIcons.UserMultiple size={20} />, available: false },
+  { id: 'quotes', label: '报价', description: '报价类型、有效期、贸易术语与审批', icon: <CarbonIcons.Document size={20} />, available: false },
+  { id: 'orders', label: '订单', description: '订单状态、交付方式与付款规则', icon: <CarbonIcons.Product size={20} />, available: false },
 ];
 
 const productSections: Section[] = [
@@ -173,9 +173,9 @@ export function SettingsCenterPage() {
           ))}
           <div className="tp-settings__nav-divider" />
           <div className="tp-settings__nav-heading">系统设置</div>
-          <div className="tp-settings__system-item"><CarbonIcons.UserSettings size={18} /><span>用户与权限</span><Tag type="cool-gray">后续接入</Tag></div>
-          <div className="tp-settings__system-item"><CarbonIcons.DataBase size={18} /><span>通用数据</span><Tag type="cool-gray">后续接入</Tag></div>
-          <div className="tp-settings__system-item"><CarbonIcons.Api size={18} /><span>集成与 API</span><Tag type="cool-gray">现有独立页面</Tag></div>
+          <div className="tp-settings__system-item"><CarbonIcons.User size={18} /><span>用户与权限</span><Tag type="cool-gray">后续接入</Tag></div>
+          <div className="tp-settings__system-item"><CarbonIcons.Settings size={18} /><span>通用数据</span><Tag type="cool-gray">后续接入</Tag></div>
+          <div className="tp-settings__system-item"><CarbonIcons.Settings size={18} /><span>集成与 API</span><Tag type="cool-gray">现有独立页面</Tag></div>
         </aside>
 
         <section className="tp-settings__workspace">
