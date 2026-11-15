@@ -4,6 +4,6 @@
 .tp-accounts__balance-tile span{color:var(--cds-text-secondary);font-size:.75rem}
 .tp-accounts__balance-tile strong{font-size:1.25rem;font-weight:500;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
 .tp-accounts__payment-list{display:grid;gap:var(--cds-spacing-03);padding-top:var(--cds-spacing-03)}
-.tp-accounts__payment-list>div{display:flex;justify-content:space-between;gap:var(--cds-spacing-03);font-size:.8125rem}
+.tp-accounts__payment-list>div{display:flex;align-items:center;justify-content:space-between;gap:var(--cds-spacing-03);flex-wrap:wrap;font-size:.8125rem}
 .tp-accounts__payment-list>div span{color:var(--cds-text-secondary)}
 @media(max-width:672px){.tp-accounts__balance-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
