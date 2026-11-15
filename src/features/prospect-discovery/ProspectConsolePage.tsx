@@ -13,6 +13,7 @@ interface ProspectRow {
   phone: string; email: string; website: string; latitude: number | null; longitude: number | null;
   status: 'converted' | 'pending'; leadId: string | null; discoveredAt: string;
   platforms: Array<{ key: string; label: string }>;
+  recordIds: string[];
 }
 interface ConsoleStats {
   metrics: { platformCount: number; prospectCount: number; convertedCount: number; pendingCount: number };
