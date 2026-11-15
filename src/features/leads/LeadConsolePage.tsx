@@ -98,7 +98,7 @@ function LeadMap({ rows }: { rows: LeadRow[] }) {
       <p>按线索国家代码汇总；地图标记为国家 / 地区中心点示意，不代表企业的精确地址。</p>
     </div>
     <div className="tp-leads__map">
-      <svg viewBox="0 0 512 256" role="img" aria-label={'地图显示 ' + counts.size + ' 个国家或地区的线索分布'}>
+      <svg viewBox="0 128 512 256" role="img" aria-label={'地图显示 ' + counts.size + ' 个国家或地区的线索分布'}>
         <g aria-hidden="true">
           {[0, 1].map(x => [0, 1].map(y => <image key={x + '-' + y} href={'https://tile.openstreetmap.org/1/' + x + '/' + y + '.png'} x={x * 256} y={y * 256} width="256" height="256" />))}
         </g>
@@ -209,7 +209,7 @@ export function LeadConsolePage() {
         <Metric label="已失效" value={invalid} icon={<CarbonIcons.WarningAlt size={20} />} detail="已失效或审核拒绝" />
       </div>
       <div className="tp-leads__analytics">
-        <Distribution title="线索来源" description="按正式线索资料中的来源字段统计。" items={sourceItems} icon={<CarbonIcons.DataVis4 size={20} />} />
+        <Distribution title="线索来源" description="按正式线索资料中的来源字段统计。" items={sourceItems} icon={<CarbonIcons.DataVis_4 size={20} />} />
         <Distribution title="线索状态" description="反映线索当前所处的业务阶段。" items={statusItems} icon={<CarbonIcons.TaskComplete size={20} />} />
         <Distribution title="线索评级" description="按热、温、冷及未评级统计。" items={ratingItems} icon={<CarbonIcons.Star size={20} />} />
       </div>
