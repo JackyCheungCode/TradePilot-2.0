@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, InlineLoading, InlineNotification, TextInput, Select, SelectItem, Tag } from '@/design-system';
+import { Button, InlineLoading, InlineNotification, TextInput, Select, SelectItem, Tag, Table, TableHead, TableRow, TableHeader, TableBody, TableCell } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 
 type Scope = 'shared' | 'quotation' | 'sales_order';
+type HistoryRow = { id: string; old_config: Record<string, unknown>; new_config: Record<string, unknown>; created_at: string };
 type Field = { key: string; label: string; initial: string; hint?: string; type?: 'text' | 'number' | 'boolean' | 'select'; options?: Array<{ value: string; label: string }> };
 
 const fields: Record<Scope, Field[]> = {
@@ -56,6 +57,7 @@ export function TradeDocumentSettings({ scope }: { scope: Scope }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [history, setHistory] = useState<HistoryRow[]>([]);
 
   const currentFields = useMemo(() => fields[scope], [scope]);
   const load = useCallback(async () => {
@@ -67,10 +69,15 @@ export function TradeDocumentSettings({ scope }: { scope: Scope }) {
       if (sessionError) throw sessionError;
       const ownerId = sessionData.session?.user.id;
       if (!ownerId) throw new Error('登录状态已失效，请重新登录。');
-      const { data, error: readError } = await db.from('trade_document_settings').select('config').eq('owner_id', ownerId).eq('scope_key', scope).maybeSingle();
-      if (readError) throw readError;
+      const [settingsResult, historyResult] = await Promise.all([
+        db.from('trade_document_settings').select('config').eq('owner_id', ownerId).eq('scope_key', scope).maybeSingle(),
+        db.from('trade_document_settings_history').select('id,old_config,new_config,created_at').eq('owner_id', ownerId).eq('scope_key', scope).order('created_at', { ascending: false }).limit(10),
+      ]);
+      if (settingsResult.error) throw settingsResult.error;
+      if (historyResult.error) throw historyResult.error;
       const defaults = Object.fromEntries(currentFields.map((field) => [field.key, field.initial]));
-      setValues({ ...defaults, ...((data?.config ?? {}) as Record<string, string>) });
+      setValues({ ...defaults, ...((settingsResult.data?.config ?? {}) as Record<string, string>) });
+      setHistory((historyResult.data ?? []) as HistoryRow[]);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : '读取销售单据设置失败');
     } finally {
@@ -93,7 +100,10 @@ export function TradeDocumentSettings({ scope }: { scope: Scope }) {
         { onConflict: 'owner_id,scope_key' },
       );
       if (saveError) throw saveError;
-      setNotice('设置已保存。现有报价单和销售订单不会被追溯修改。');
+      const { data: historyData, error: historyError } = await db.from('trade_document_settings_history').select('id,old_config,new_config,created_at').eq('owner_id', ownerId).eq('scope_key', scope).order('created_at', { ascending: false }).limit(10);
+      if (historyError) throw historyError;
+      setHistory((historyData ?? []) as HistoryRow[]);
+      setNotice('设置已保存。变更已记录；现有报价单和销售订单不会被追溯修改。');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : '保存销售单据设置失败');
     } finally {
@@ -134,6 +144,18 @@ export function TradeDocumentSettings({ scope }: { scope: Scope }) {
             <p className="tp-settings__hint">保存只更新默认规则。已创建单据继续使用创建时保存的快照。</p>
             <Button kind="primary" disabled={saving} onClick={() => void save()}>{saving ? '正在保存…' : '保存设置'}</Button>
           </div>
+          <section className="tp-trade-document-settings__history">
+            <div><h4>最近设置变更</h4><p className="tp-settings__hint">保留最近 10 次变更，包含修改前后的配置快照。</p></div>
+            {history.length ? (
+              <Table>
+                <TableHead><TableRow><TableHeader>变更时间</TableHeader><TableHeader>变更项目</TableHeader></TableRow></TableHead>
+                <TableBody>{history.map((row) => {
+                  const keys = Array.from(new Set([...Object.keys(row.old_config || {}), ...Object.keys(row.new_config || {})])).filter((key) => JSON.stringify(row.old_config?.[key]) !== JSON.stringify(row.new_config?.[key]));
+                  return <TableRow key={row.id}><TableCell>{new Date(row.created_at).toLocaleString()}</TableCell><TableCell>{keys.length ? keys.join('、') : '首次保存配置'}</TableCell></TableRow>;
+                })}</TableBody>
+              </Table>
+            ) : <p className="tp-settings__hint">暂无变更记录。</p>}
+          </section>
         </>
       )}
     </div>
