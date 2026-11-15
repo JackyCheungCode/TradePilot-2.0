@@ -24,6 +24,7 @@ type OccurrenceRow = {
     phone?: string | null;
     email?: string | null;
     website?: string | null;
+    confidence_score?: number | null;
   } | null;
 };
 async function authenticate(request: Request, env: ConsoleEnv): Promise<string | null> {
@@ -69,7 +70,7 @@ export async function handleProspectConsole(request: Request, env: ConsoleEnv): 
   }
   try {
     const rows: OccurrenceRow[] = [];
-    const select = "id,provider,captured_at,run:discovery_runs!discovery_record_occurrences_run_id_owner_id_fkey!inner(channel),record:discovery_records!discovery_record_occurrences_record_id_owner_id_fkey!inner(id,entity_id,status,latitude,longitude,lead_id,name,record_type,country_code,address,phone,email,website)";
+    const select = "id,provider,captured_at,run:discovery_runs!discovery_record_occurrences_run_id_owner_id_fkey!inner(channel),record:discovery_records!discovery_record_occurrences_record_id_owner_id_fkey!inner(id,entity_id,status,latitude,longitude,lead_id,name,record_type,country_code,address,phone,email,website,confidence_score)";
     // Read in bounded pages; do not silently treat a partial 50k sample as a complete total.
     for (let offset = 0; offset < 200000; offset += 1000) {
       const page = await db<OccurrenceRow[]>(env,
@@ -93,7 +94,7 @@ export async function handleProspectConsole(request: Request, env: ConsoleEnv): 
     const prospects = new Map<string, {
       id: string; name: string; type: string; country: string; address: string;
       phone: string; email: string; website: string; latitude: number | null;
-      longitude: number | null; status: string; leadId: string | null;
+      longitude: number | null; status: string; leadId: string | null; locationScore: number;
       discoveredAt: string; platforms: Array<{ key: string; label: string }>; recordIds: string[];
     }>();
     for (const row of filtered) {
@@ -103,7 +104,10 @@ export async function handleProspectConsole(request: Request, env: ConsoleEnv): 
       entities.add(entityId);
       if (record.status === "promoted" || record.lead_id) converted.add(entityId);
       else pending.add(entityId);
-      const platform = platformFor(row.run?.channel ?? "", row.provider);
+      const channel = row.run?.channel ?? "";
+      const platform = platformFor(channel, row.provider);
+      const validCoordinates = typeof record.latitude === "number" && Number.isFinite(record.latitude) && record.latitude >= -90 && record.latitude <= 90 && typeof record.longitude === "number" && Number.isFinite(record.longitude) && record.longitude >= -180 && record.longitude <= 180;
+      const locationScore = (record.confidence_score ?? 0) + (channel === "map_local_businesses" ? 1000 : 0);
       if (!platformEntities.has(platform.key)) platformEntities.set(platform.key, { label: platform.label, entities: new Set() });
       platformEntities.get(platform.key)!.entities.add(entityId);
       if (!dailyEntities.has(day)) dailyEntities.set(day, new Set());
@@ -114,18 +118,20 @@ export async function handleProspectConsole(request: Request, env: ConsoleEnv): 
           id: entityId, name: record.name || "未命名企业", type: record.record_type || "—",
           country: record.country_code || "—", address: record.address || "—",
           phone: record.phone || "", email: record.email || "", website: record.website || "",
-          latitude: typeof record.latitude === "number" ? record.latitude : null,
-          longitude: typeof record.longitude === "number" ? record.longitude : null,
+          latitude: validCoordinates ? record.latitude! : null,
+          longitude: validCoordinates ? record.longitude! : null,
           status: record.status === "promoted" || record.lead_id ? "converted" : "pending",
-          leadId: record.lead_id || null, discoveredAt: row.captured_at, platforms: [platform], recordIds: [record.id],
+          leadId: record.lead_id || null, locationScore, discoveredAt: row.captured_at, platforms: [platform], recordIds: [record.id],
         });
       } else {
         if (row.captured_at > existing.discoveredAt) existing.discoveredAt = row.captured_at;
         if (!existing.platforms.some(item => item.key === platform.key)) existing.platforms.push(platform);
         if (!existing.recordIds.includes(record.id)) existing.recordIds.push(record.id);
-        if ((!existing.address || existing.address === "—") && record.address) existing.address = record.address;
-        if (existing.latitude === null && typeof record.latitude === "number") existing.latitude = record.latitude;
-        if (existing.longitude === null && typeof record.longitude === "number") existing.longitude = record.longitude;
+        if (locationScore > existing.locationScore && (record.address || validCoordinates)) {
+          existing.locationScore = locationScore;
+          if (record.address) existing.address = record.address;
+          if (validCoordinates) { existing.latitude = record.latitude!; existing.longitude = record.longitude!; }
+        } else if ((!existing.address || existing.address === "—") && record.address) existing.address = record.address;
         if (!existing.phone && record.phone) existing.phone = record.phone;
         if (!existing.email && record.email) existing.email = record.email;
         if (!existing.website && record.website) existing.website = record.website;
