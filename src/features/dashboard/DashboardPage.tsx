@@ -6,7 +6,9 @@ import '@/design-system/patterns/dashboard.scss';
 
 type Row = { id: string; created_at: string; status?: string };
 type Metric = { key: string; label: string; value: number; previous: number; daily: number[]; href: string; icon: string; polarity: 'positive' | 'negative'; unit?: string };
-type DashboardData = { metrics: Metric[]; dailyLabels: string[]; updatedAt: string };
+type Activity = { id: string; label: string; title: string; createdAt: string; href: string };
+type PendingItem = { key: string; label: string; count: number; href: string; tone: 'warning' | 'error' | 'info' };
+type DashboardData = { metrics: Metric[]; dailyLabels: string[]; updatedAt: string; activities: Activity[]; pending: PendingItem[] };
 const DAY = 86400000;
 const periodOptions = [
   { value: 'week', label: '最近一周' }, { value: 'month', label: '最近一个月' },
@@ -150,7 +152,44 @@ export function DashboardPage() {
           }
         }
       }
-      setData({ metrics, dailyLabels: labels, updatedAt: new Date().toISOString() });
+      const activitySpecs = [
+        { table: 'leads', field: 'name', label: '新增线索', href: '/leads' },
+        { table: 'crm_accounts', field: 'account_name', label: '新增客户', href: '/accounts', archived: true },
+        { table: 'crm_contacts', field: 'full_name', label: '新增联系人', href: '/contacts', archived: true },
+        { table: 'crm_opportunities', field: 'name', label: '新增商机', href: '/opportunities', archived: true },
+        { table: 'trade_documents', field: 'title', label: '报价单更新', href: '/quotes', filter: ['document_type', 'quotation'] },
+        { table: 'trade_orders', field: 'order_number', label: '销售订单更新', href: '/sales-orders', filter: ['order_type', 'sales'] },
+        { table: 'trade_shipments', field: 'shipment_no', label: '发运更新', href: '/shipments' },
+        { table: 'trade_payments', field: 'payment_no', label: '收款更新', href: '/payments' },
+        { table: 'agent_runs', field: 'goal', label: 'Agent 任务', href: '/agent' },
+      ] as const;
+      const activityResults = await Promise.all(activitySpecs.map(async spec => {
+        let q: any = db.from(spec.table).select('id,created_at,' + spec.field);
+        if ('filter' in spec && spec.filter) q = q.eq(spec.filter[0], spec.filter[1]);
+        if ('archived' in spec && spec.archived) q = q.eq('is_archived', false);
+        const result = await q.order('created_at', { ascending: false }).limit(5);
+        if (result.error) throw new Error(spec.label + '活动读取失败：' + result.error.message);
+        return (result.data || []).map((row: Record<string, string>) => ({
+          id: spec.table + ':' + row.id, label: spec.label,
+          title: row[spec.field] || '未命名记录', createdAt: row.created_at, href: spec.href,
+        })) as Activity[];
+      }));
+      const activities = activityResults.flat().sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 8);
+      const pendingSpecs = [
+        { key: 'new-discoveries', label: '待审核潜客', table: 'discovery_records', href: '/prospect-console', status: 'new', tone: 'warning' },
+        { key: 'draft-quotes', label: '待处理报价单', table: 'trade_documents', href: '/quotes', status: 'draft', tone: 'warning', filter: ['document_type', 'quotation'] },
+        { key: 'draft-orders', label: '待确认销售订单', table: 'trade_orders', href: '/sales-orders', status: 'draft', tone: 'warning', filter: ['order_type', 'sales'] },
+        { key: 'running-agents', label: '正在运行的 Agent', table: 'agent_runs', href: '/agent', status: 'running', tone: 'info' },
+        { key: 'failed-agents', label: '失败的 Agent 任务', table: 'agent_runs', href: '/agent', status: 'failed', tone: 'error' },
+      ] as const;
+      const pending = (await Promise.all(pendingSpecs.map(async spec => {
+        let q: any = db.from(spec.table).select('id', { count: 'exact', head: true }).eq('status', spec.status);
+        if ('filter' in spec && spec.filter) q = q.eq(spec.filter[0], spec.filter[1]);
+        const result = await q;
+        if (result.error) throw new Error(spec.label + '数量读取失败：' + result.error.message);
+        return { key: spec.key, label: spec.label, count: result.count || 0, href: spec.href, tone: spec.tone };
+      }))).filter(item => item.count > 0) as PendingItem[];
+      setData({ metrics, dailyLabels: labels, updatedAt: new Date().toISOString(), activities, pending });
       setLastUpdated(new Date().toLocaleTimeString());
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : '工作台数据读取失败。');
@@ -216,6 +255,16 @@ export function DashboardPage() {
       <Tile className="tp-dashboard__panel tp-dashboard__operations">
         <div className="tp-dashboard__panel-head"><div><h2>贸易运营</h2><p>报价、订单、发运与收款的周期新增量</p></div><Button kind="ghost" size="sm" onClick={() => navigate('/sales-orders')}>查看订单 <CarbonIcons.ArrowRight size={16}/></Button></div>
         <div className="tp-dashboard__trade-grid">{metrics.filter(item => ['quotes','orders','shipments','payments','products'].includes(item.key)).map(item => <button key={item.key} onClick={() => navigate(item.href)}><span>{item.label}</span><strong>{item.value.toLocaleString()}</strong></button>)}</div>
+      </Tile>
+    </section>
+    <section className="tp-dashboard__bottom-grid">
+      <Tile className="tp-dashboard__panel tp-dashboard__pending">
+        <div className="tp-dashboard__panel-head"><div><h2>待处理事项</h2><p>需要关注或继续处理的业务记录</p></div><CarbonIcons.Task size={20}/></div>
+        {data?.pending.length ? <div className="tp-dashboard__pending-list">{data.pending.map(item => <button key={item.key} type="button" onClick={() => navigate(item.href)}><span className={'tp-dashboard__pending-dot ' + item.tone}/><span>{item.label}</span><strong>{item.count.toLocaleString()}</strong><CarbonIcons.ChevronRight size={16}/></button>)}</div> : <p className="tp-dashboard__empty">当前没有待处理事项</p>}
+      </Tile>
+      <Tile className="tp-dashboard__panel tp-dashboard__activity">
+        <div className="tp-dashboard__panel-head"><div><h2>最近业务活动</h2><p>跨模块最新创建的业务记录</p></div><CarbonIcons.Activity size={20}/></div>
+        {data?.activities.length ? <div className="tp-dashboard__activity-list">{data.activities.map(item => <button key={item.id} type="button" onClick={() => navigate(item.href)}><span><strong>{item.label}</strong><small>{item.title}</small></span><time dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString()}</time></button>)}</div> : <p className="tp-dashboard__empty">暂无最近业务活动</p>}
       </Tile>
     </section>
     <footer className="tp-dashboard__footer"><span>数据来源：TradePilot 各业务模块数据库</span><span>{busy ? '正在同步…' : '最近同步：' + (lastUpdated || '—')} · 自动刷新间隔 60 秒</span></footer>
