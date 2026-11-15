@@ -146,7 +146,8 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
   const bankOptions=banks.filter(b=>b.is_active!==false&&!b.is_archived);
   const grossFees=Number(payment.bank_fee||0)+Number(payment.intermediary_fee||0);
   const suggestedNet=Math.max(0,Number(payment.amount||0)-grossFees);
-  const allocatedSum=allocations.reduce((sum,a)=>{const order=orders.find(o=>o.id===a.order_id);const node=scheduleOf(order).find(n=>String(n.id)===String(a.schedule_node_id));const outstanding=Math.max(0,Number(node?.amount||0)-Number(node?.paid_amount||0));const requested=Number(a.allocated_amount||0);const ratio=requested>0?Math.min(1,outstanding/requested):0;return sum+Number(a.allocated_amount_in_payment||0)*ratio},0);
+  const paymentEquivalent=(a:AnyRow)=>{const order=orders.find(o=>o.id===a.order_id);const orderRate=Number(order?.metadata?.sales_order?.form?.exchange_rate||1);const paymentRate=Number(payment.exchange_rate||1);return Number(a.allocated_amount||0)*orderRate/paymentRate};
+  const allocatedSum=allocations.reduce((sum,a)=>{const order=orders.find(o=>o.id===a.order_id);const node=scheduleOf(order).find(n=>String(n.id)===String(a.schedule_node_id));const outstanding=Math.max(0,Number(node?.amount||0)-Number(node?.paid_amount||0));const requested=Number(a.allocated_amount||0);const ratio=requested>0?Math.min(1,outstanding/requested):0;return sum+paymentEquivalent(a)*ratio},0);
   const remaining=Math.max(0,Number(payment.net_received||suggestedNet)-allocatedSum);
   const selectedAccount=accounts.find(a=>a.id===payment.account_id);
   const originalPayment=payments.find(p=>p.id===payment.original_payment_id);
@@ -214,7 +215,7 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
     if(payment.payment_type==='refund'&&Math.abs(Number(payment.refund_amount)-Number(payment.amount))>0.000001)return '退款记录的汇款金额应与退款金额一致。';
     const duplicate=new Set<string>();
     for(const a of allocations){
-      if(!a.order_id||!a.schedule_node_id||!(Number(a.allocated_amount)>0)||!(Number(a.allocated_amount_in_payment)>0))return '每条分配记录必须选择订单、收款节点并填写分配金额。';
+      if(!a.order_id||!a.schedule_node_id||!(Number(a.allocated_amount)>0)||!(paymentEquivalent(a)>0))return '每条分配记录必须选择订单、收款节点并填写有效分配金额。';
       if(!accountOrders.some(o=>o.id===a.order_id))return '分配订单必须属于当前客户，且订单处于已确认及之后状态。';
       const key=a.order_id+'|'+a.schedule_node_id;if(duplicate.has(key))return '同一收款记录不能重复分配到同一收款节点。';duplicate.add(key);
     }
@@ -233,7 +234,7 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
       else {const {data,error:e}=await db.from('trade_payments').insert(payload).select('id,payment_no').single();if(e)throw e;paymentId=data.id;setPaymentNo(data.payment_no);}
       if(!paymentId)throw new Error('收款记录编号未返回。');
       const {error:delError}=await db.from('trade_payment_allocations').delete().eq('payment_id',paymentId);if(delError)throw delError;
-      const allocationRows=allocations.map(a=>{const orderRow=orders.find(o=>o.id===a.order_id);const node=scheduleOf(orderRow).find(n=>String(n.id)===String(a.schedule_node_id));const outstanding=Math.max(0,Number(node?.amount||0)-Number(node?.paid_amount||0));const requested=Number(a.allocated_amount||0);const effective=Math.min(requested,outstanding);const ratio=requested>0?effective/requested:0;return {owner_id:user.id,payment_id:paymentId,order_id:a.order_id,schedule_node_id:a.schedule_node_id,allocation_type:a.allocation_type,allocated_amount:effective,allocated_amount_in_payment:Number(a.allocated_amount_in_payment)*ratio,allocation_date:a.allocation_date||dateToday()};}).filter(a=>a.allocated_amount>0&&a.allocated_amount_in_payment>0);
+      const allocationRows=allocations.map(a=>{const orderRow=orders.find(o=>o.id===a.order_id);const node=scheduleOf(orderRow).find(n=>String(n.id)===String(a.schedule_node_id));const outstanding=Math.max(0,Number(node?.amount||0)-Number(node?.paid_amount||0));const requested=Number(a.allocated_amount||0);const effective=Math.min(requested,outstanding);const ratio=requested>0?effective/requested:0;return {owner_id:user.id,payment_id:paymentId,order_id:a.order_id,schedule_node_id:a.schedule_node_id,allocation_type:a.allocation_type,allocated_amount:effective,allocated_amount_in_payment:paymentEquivalent(a)*ratio,allocation_date:a.allocation_date||dateToday()};}).filter(a=>a.allocated_amount>0&&a.allocated_amount_in_payment>0);
       if(allocationRows.length){const {error:e}=await db.from('trade_payment_allocations').insert(allocationRows);if(e)throw e;}
       nav('/payments/'+paymentId,{replace:true});
     } catch(e) { setError(e instanceof Error?e.message:'保存收款失败'); }
@@ -349,7 +350,7 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
               <Pick id={'alloc-node-'+i} label="收款节点" value={a.schedule_node_id} onChange={v=>setAllocation(i,'schedule_node_id',v)} options={nodesFor(a.order_id).map(n=>({value:String(n.id),label:(n.milestone||'收款节点')+' · '+money(Number(n.amount||0),orders.find(o=>o.id===a.order_id)?.currency_code||'USD')}))} disabled={locked}/>
               <Pick id={'alloc-type-'+i} label="分配类型" value={a.allocation_type} onChange={v=>setAllocation(i,'allocation_type',v)} options={ALLOCATION_TYPES} disabled={locked}/>
               <Field id={'alloc-amount-'+i} label="分配金额（订单币种）" type="number" value={a.allocated_amount} onChange={v=>setAllocation(i,'allocated_amount',v)} disabled={locked}/>
-              <Field id={'alloc-payment-amount-'+i} label="折合收款币种金额" type="number" value={a.allocated_amount_in_payment} onChange={v=>setAllocation(i,'allocated_amount_in_payment',v)} disabled={locked}/>
+              <Field id={'alloc-payment-amount-'+i} label="折合收款币种金额（自动计算）" value={paymentEquivalent(a).toFixed(2)} onChange={()=>{}} disabled/>
               <Field id={'alloc-date-'+i} label="分配日期" type="date" value={a.allocation_date||dateToday()} onChange={v=>setAllocation(i,'allocation_date',v)} disabled={locked}/>
             </div>
           </div>)}
