@@ -166,7 +166,7 @@ async function omniboxQuery(request: Request, apiKey: string): Promise<Response>
     const fuzzy = payload.fuzzy_name !== false;
     const countries = String(payload.countries || "").trim().toUpperCase();
     if (!name || name.length > 300) return errorResponse(request, "VALIDATION_ERROR", "请输入待筛查企业或个人名称（最多 300 字符）。", 400);
-    if (countries && !/^[A-Z,\\s]{2,200}$/.test(countries)) return errorResponse(request, "VALIDATION_ERROR", "国家过滤请使用逗号分隔的 ISO 两位国家代码。", 400);
+    if (countries && !/^[A-Z,\s]{2,200}$/.test(countries)) return errorResponse(request, "VALIDATION_ERROR", "国家过滤请使用逗号分隔的 ISO 两位国家代码。", 400);
     endpoint = "/api/v1/compliance/screen";
     input = { name, fuzzy_name: String(fuzzy), ...(countries ? { countries } : {}) };
   } else if (action === "rulings") {
