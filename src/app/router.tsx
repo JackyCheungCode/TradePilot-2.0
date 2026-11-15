@@ -13,6 +13,7 @@ import { QuoteConsolePage, QuoteDetailPage, QuoteFormPage } from '../features/qu
 import { SalesOrderConsolePage, SalesOrderDetailPage, SalesOrderFormPage } from '../features/sales-orders/SalesOrderPages';
 import { ProductConsolePage, ProductDetailPage, ProductFormPage } from '../features/products/ProductPages';
 import { SettingsCenterPage } from '../features/settings/SettingsCenterPage';
+import { TradeToolsPage } from '../features/trade-tools/TradeToolsPage';
 import { ShipmentConsolePage, ShipmentDetailPage, ShipmentFormPage } from '../features/shipments/ShipmentPages';
 import { PaymentAllocationPage, PaymentConsolePage, PaymentDetailPage, PaymentFormPage } from '../features/payments/PaymentPages';
 
@@ -56,6 +57,7 @@ export const router = createBrowserRouter([
           { path: 'products/new', element: <ProductFormPage /> },
           { path: 'products/:id/edit', element: <ProductFormPage /> },
           { path: 'products/:id', element: <ProductDetailPage /> },
+          { path: 'trade-tools', element: <TradeToolsPage /> },
           { path: 'settings', element: <SettingsCenterPage /> },
           { path: 'contacts', element: <ContactConsolePage /> },
           { path: 'contacts/new', element: <ContactFormPage /> },
