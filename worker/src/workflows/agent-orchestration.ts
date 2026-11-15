@@ -58,7 +58,7 @@ export class AgentOrchestrationWorkflow extends WorkflowEntrypoint<WorkflowEnv,P
     await log(this.env,runId,ownerId,"全球买家开发 Agent 完成搜索，交接给专业分析 Agent。",{discoveryStatus:result.status});
     return result;
    });
-   const dataset=await step.do("load-discovery-results",async()=>await getDiscoveryData(this.env,runId,ownerId));
+   const dataset=await step.do("load-discovery-results",async()=>(await getDiscoveryData(this.env,runId,ownerId)) as never) as unknown as {records:Array<Record<string,unknown>>;occurrences:Array<Record<string,unknown>>};
    const specialistResults:Array<Record<string,unknown>>=[];
    for(let index=0;index<specialists.length;index++){
     const specialist=specialists[index],label=labels[specialist.agentKey]??specialist.agentKey;
