@@ -109,7 +109,7 @@ const fields:Record<string,Field[]> = {
 };
 
 const defaults:Record<string,Array<[string,string,Record<string,unknown>]>> = {
- 'contacts.salutations':[['mr','先生',{}],['ms','女士',{}],['dr','博士',{}],['prof','教授',{}],['mx','Mx.',{}]],
+ 'contacts.salutations':[['Mr.','Mr.',{}],['Ms.','Ms.',{}],['Mrs.','Mrs.',{}],['Dr.','Dr.',{}],['Prof.','Prof.',{}],['Mx.','Mx.',{}]],
  'contacts.roles':[['决策人','决策人',{role_group:'decision',decision_power:'final'}],['采购','采购',{role_group:'commercial',decision_power:'execute'}],['财务','财务',{role_group:'finance',decision_power:'none'}],['物流','物流',{role_group:'operations',decision_power:'none'}],['技术质检','技术 / 质检',{role_group:'technical',decision_power:'influence'}],['影响者','影响者',{role_group:'decision',decision_power:'influence'}],['其他','其他',{role_group:'other',decision_power:'none'}]],
  'contacts.departments':[['sales','销售',{}],['purchasing','采购',{}],['finance','财务',{}],['logistics','物流',{}],['engineering','工程 / 技术',{}],['quality','质量管理',{}],['management','管理层',{}]],
  'contacts.job-titles':[['ceo','CEO',{seniority:'executive',decision_role:'decision_maker'}],['director','总监',{seniority:'director',decision_role:'decision_maker'}],['manager','经理',{seniority:'manager',decision_role:'influencer'}],['specialist','专员',{seniority:'specialist',decision_role:'user'}]],
