@@ -1,0 +1,18 @@
+/** Shared shell layout. Use only centralized Carbon and TradePilot tokens. */
+.tp-content {
+  min-height: 100vh;
+}
+
+.tp-content__main {
+  width: 100%;
+  min-height: 100%;
+  padding-block: var(--tp-space-07);
+  padding-inline: var(--tp-space-06);
+}
+
+@media (max-width: 42rem) {
+  .tp-content__main {
+    padding-block: var(--tp-space-05);
+    padding-inline: var(--tp-space-05);
+  }
+}
