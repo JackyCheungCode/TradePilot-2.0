@@ -127,7 +127,7 @@
 
 .tp-settings__workspace {
   display: grid;
-  gap: var(--cds-spacing-05);
+  gap: var(--cds-spacing-03);
   min-width: 0;
 }
 
@@ -136,7 +136,7 @@
   justify-content: space-between;
   align-items: flex-start;
   gap: var(--cds-spacing-04);
-  padding: var(--cds-spacing-05);
+  padding: var(--cds-spacing-03) var(--cds-spacing-05);
   background: var(--cds-layer-01);
 }
 
@@ -190,9 +190,9 @@
 
 .tp-settings__content {
   display: grid;
-  gap: var(--cds-spacing-05);
+  gap: var(--cds-spacing-04);
   min-width: 0;
-  padding: var(--cds-spacing-05);
+  padding: var(--cds-spacing-04);
   background: var(--cds-layer-01);
 }
 
@@ -239,14 +239,35 @@
 
 .tp-settings__editor-grid {
   display: grid;
-  grid-template-columns: minmax(10rem, 1.2fr) minmax(9rem, .8fr) minmax(12rem, 1fr) auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--cds-spacing-04);
   align-items: end;
   min-width: 0;
+  width: 100%;
 }
 
 .tp-settings__editor-grid--attributes {
-  grid-template-columns: minmax(10rem, 1.2fr) minmax(9rem, .8fr) minmax(10rem, 1fr) auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.tp-settings__editor-grid > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.tp-settings__editor-grid .cds--form-item,
+.tp-settings__editor-grid .cds--text-input-wrapper,
+.tp-settings__editor-grid .cds--select,
+.tp-settings__editor-grid .cds--dropdown {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.tp-settings__editor-grid .cds--btn {
+  width: 100%;
+  min-width: 0;
+  justify-content: center;
 }
 
 .tp-settings__table-wrap {
@@ -332,7 +353,14 @@
 
   .tp-settings__editor-grid,
   .tp-settings__editor-grid--attributes {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .tp-settings__editor,
+  .tp-settings__content,
+  .tp-settings__workspace-heading {
+    min-width: 0;
+    max-width: 100%;
   }
 
   .tp-settings__content {
