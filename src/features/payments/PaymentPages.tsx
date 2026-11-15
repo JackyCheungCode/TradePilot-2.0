@@ -145,7 +145,8 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
   const locked=readOnly||['confirmed','partially_reconciled','reconciled','returned','voided'].includes(payment.status);
   const set=(key:string,value:any)=>setPayment((p:AnyRow)=>({...p,[key]:value}));
   const accountOrders=orders.filter(o=>o.crm_account_id===payment.account_id&&isAllocatableOrder(o));
-  const bankOptions=banks.filter(b=>b.is_active!==false&&!b.is_archived);
+  const allocatedBankIds=allocations.map(a=>orders.find(o=>o.id===a.order_id)?.metadata?.sales_order?.form?.bank_account_id).filter(Boolean);
+  const bankOptions=banks.filter(b=>b.is_active!==false&&!b.is_archived&&(!allocatedBankIds.length||(new Set(allocatedBankIds).size===1&&allocatedBankIds[0]===b.id)));
   const grossFees=Number(payment.bank_fee||0)+Number(payment.intermediary_fee||0);
   const suggestedNet=Math.max(0,Number(payment.amount||0)-grossFees);
   const paymentEquivalent=(a:AnyRow)=>{const order=orders.find(o=>o.id===a.order_id);const orderRate=Number(order?.metadata?.sales_order?.form?.exchange_rate||1);const paymentRate=Number(payment.exchange_rate||1);return paymentRate>0?Number(a.allocated_amount||0)*orderRate/paymentRate:0};
@@ -200,6 +201,8 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
     if(!(Number(payment.amount)>0))return '汇款金额必须大于 0。';
     if(Number(payment.net_received||suggestedNet)<=0||Number(payment.net_received||suggestedNet)>Number(payment.amount))return '实际入账金额必须大于 0，且不得超过汇款金额。';
     if(!payment.bank_account_id||!payment.payment_method||!payment.currency)return '收款币种、收款方式和我方收款账户为必填。';
+    if(allocatedBankIds.length&&new Set(allocatedBankIds).size>1)return '本次分配订单使用了不同的收款账户，不能合并到同一笔收款记录。';
+    if(allocatedBankIds.length&&allocatedBankIds[0]!==payment.bank_account_id)return '我方收款账户必须与所分配订单上的收款账户一致。';
     if(payment.currency!==baseCurrency&&(!(Number(payment.exchange_rate)>0)))return '收款币种不同于本位币 '+baseCurrency+'，必须填写大于 0 的汇率。';
     if(payment.is_third_party&&(!payment.payer_relation||!payment.bank_slip))return '第三方付款必须填写付款关系并提供银行水单。';
     if(payment.payer_swift&&!/^[A-Za-z0-9]{8}([A-Za-z0-9]{3})?$/.test(payment.payer_swift))return '付款行 SWIFT 必须为 8 或 11 位。';
@@ -416,7 +419,7 @@ export function PaymentAllocationPage() {
     db.from('trade_payments').select('*').eq('id',id).single(),
     db.from('trade_orders').select('*').eq('order_type','sales').order('created_at',{ascending:false}).range(0,2999)
   ]);if(p.error)throw p.error;if(o.error)throw o.error;setPayment(p.data);setOrders(o.data||[]);}catch(e){setError(e instanceof Error?e.message:'加载预收款失败');}finally{setLoading(false);}})()},[id]);
-  const eligibleOrders=orders.filter(o=>o.crm_account_id===payment?.account_id&&isAllocatableOrder(o));
+  const eligibleOrders=orders.filter(o=>o.crm_account_id===payment?.account_id&&isAllocatableOrder(o)&&(!o.metadata?.sales_order?.form?.bank_account_id||o.metadata.sales_order.form.bank_account_id===payment?.bank_account_id));
   const equivalent=(a:AnyRow)=>{const order=orders.find(o=>o.id===a.order_id);const orderRate=Number(order?.metadata?.sales_order?.form?.exchange_rate||1);const paymentRate=Number(payment?.exchange_rate||1);return paymentRate>0?Number(a.allocated_amount||0)*orderRate/paymentRate:0;};
   const total=allocations.reduce((sum,a)=>sum+equivalent(a),0);
   const setRow=(index:number,key:string,value:string)=>setAllocations(prev=>prev.map((a,i)=>i===index?{...a,[key]:value,...(key==='order_id'?{schedule_node_id:''}:{})}:a));
