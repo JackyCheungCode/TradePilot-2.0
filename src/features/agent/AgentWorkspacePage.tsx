@@ -18,7 +18,7 @@ type ChatMessage = {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  metadata?: { task?: AgentTask | null; model?: string; error?: boolean };
+  metadata?: { task?: AgentTask | null; model?: string; error?: boolean; toolsUsed?: Array<{ name: string; label: string; count: number }> };
 };
 type ApiEnvelope<T> = { data: T } | { error?: { message?: string } };
 
@@ -137,7 +137,7 @@ export function AgentWorkspacePage() {
     };
     setMessages((items) => [...items, optimistic]);
     try {
-      const result = await agentRequest<{ conversationId: string; reply: string; task: AgentTask | null; model: string }>(
+      const result = await agentRequest<{ conversationId: string; reply: string; task: AgentTask | null; model: string; toolsUsed?: Array<{ name: string; label: string; count: number }> }>(
         '/api/v1/agent/chat',
         { method: 'POST', body: JSON.stringify({ conversationId, message }) },
       );
@@ -146,7 +146,7 @@ export function AgentWorkspacePage() {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
         content: result.reply,
-        metadata: { task: result.task, model: result.model },
+        metadata: { task: result.task, model: result.model, toolsUsed: result.toolsUsed },
       }]);
       await loadConversations();
     } catch (cause) {
@@ -256,6 +256,9 @@ export function AgentWorkspacePage() {
                   <div className="tp-agent__message-content">
                     <p>{item.content}</p>
                     {item.metadata?.model && <Tag type="cool-gray">模型：{item.metadata.model}</Tag>}
+                    {item.metadata?.toolsUsed?.map((tool) => (
+                      <Tag key={tool.name} type="green">已查询：{tool.label}（{tool.count}）</Tag>
+                    ))}
                     {item.metadata?.task && (
                       <Tile className="tp-agent__task-card">
                         <div className="tp-agent__task-card-heading">
