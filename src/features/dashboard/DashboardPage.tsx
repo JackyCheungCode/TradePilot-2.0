@@ -44,7 +44,7 @@ function getRange(period: string, from: string, to: string) {
   const previousEnd = new Date(start.getTime() - 1);
   return { start, end, previousStart, previousEnd, days: Math.min(366, Math.max(1, Math.ceil(duration / DAY))) };
 }
-function Sparkline({ values, color }: { values: number[]; color: string }) {
+function Sparkline({ values, tone }: { values: number[]; tone: string }) {
   const max = Math.max(1, ...values), min = Math.min(0, ...values);
   const range = Math.max(1, max - min);
   const points = values.map((value, index) => {
@@ -53,7 +53,7 @@ function Sparkline({ values, color }: { values: number[]; color: string }) {
     return x + ',' + y;
   }).join(' ');
   return <svg className="tp-dashboard__sparkline" viewBox="0 0 120 38" role="img" aria-label="所选周期内每日变化趋势">
-    <polyline points={points} fill="none" stroke={color} strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" />
+    <polyline points={points} className={"tp-dashboard__sparkline-line " + tone} fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" />
   </svg>;
 }
 function pct(value: number, previous: number) {
@@ -159,8 +159,6 @@ export function DashboardPage() {
   }, [load]);
 
   const metrics = data?.metrics || [];
-  const total = metrics.reduce((sum, item) => sum + item.value, 0);
-  const positive = metrics.filter(item => item.polarity === 'positive').length;
   const busy = loading || refreshing;
 
   return <main className="tp-dashboard">
@@ -185,11 +183,11 @@ export function DashboardPage() {
         const Icon = CarbonIcons[item.icon] || CarbonIcons.ChartLine;
         const change = item.value - item.previous;
         const favorable = item.polarity === 'negative' ? change <= 0 : change >= 0;
-        const color = change === 0 ? 'var(--cds-text-secondary)' : favorable ? 'var(--cds-support-success)' : 'var(--cds-support-error)';
+        const tone = change === 0 ? 'neutral' : favorable ? 'positive' : 'negative';
         return <Tile key={item.key} className={'tp-dashboard__metric tp-dashboard__metric--' + (index % 4)}>
-          <button type="button" className="tp-dashboard__metric-action" onClick={() => navigate(item.href)} aria-label={'打开' + item.label}>
-            <div className="tp-dashboard__metric-copy"><span>{item.label}</span><strong>{item.value.toLocaleString()}</strong><small style={{ color }}>{change > 0 ? '↑ ' : change < 0 ? '↓ ' : '— '}{pct(item.value, item.previous)} <span>对比上一周期</span></small></div>
-            <div className="tp-dashboard__metric-visual"><Icon size={20}/><Sparkline values={item.daily} color={color}/></div>
+          <button type="button" className={"tp-dashboard__metric-action tp-dashboard__metric-action--" + tone} onClick={() => navigate(item.href)} aria-label={'打开' + item.label}>
+            <div className="tp-dashboard__metric-copy"><span>{item.label}</span><strong>{item.value.toLocaleString()}</strong><small>{change > 0 ? '↑ ' : change < 0 ? '↓ ' : '— '}{pct(item.value, item.previous)} <span>对比上一周期</span></small></div>
+            <div className="tp-dashboard__metric-visual"><Icon size={20}/><Sparkline values={item.daily} tone={tone}/></div>
           </button>
         </Tile>;
       })}
@@ -198,11 +196,11 @@ export function DashboardPage() {
       <Tile className="tp-dashboard__panel tp-dashboard__intelligence">
         <div className="tp-dashboard__panel-head"><div><h2>全球情报与潜客发现</h2><p>Google、Facebook、Instagram 与搜索渠道统一去重后的发现趋势</p></div><Button kind="ghost" size="sm" onClick={() => navigate('/prospect-console')}>查看全球情报 <CarbonIcons.ArrowRight size={16}/></Button></div>
         <div className="tp-dashboard__summary-number">{metrics.find(item => item.key === 'discoveries')?.value.toLocaleString() || '0'}<span> 条发现记录</span></div>
-        <div className="tp-dashboard__daily-bars">{(metrics.find(item => item.key === 'discoveries')?.daily || []).map((value, index) => <span key={index} title={data?.dailyLabels[index] + ' · ' + value} style={{ height: (Math.max(2, value / Math.max(1, ...((metrics.find(item => item.key === 'discoveries')?.daily) || [1])) * 100)) + '%' }} />)}</div>
+        <div className="tp-dashboard__daily-bars">{(() => { const values = metrics.find(item => item.key === 'discoveries')?.daily || []; const max = Math.max(1, ...values); return <svg viewBox="0 0 360 88" preserveAspectRatio="none" role="img" aria-label="每日全球情报发现数量柱状图">{values.map((value, index) => { const barWidth = Math.max(1, 360 / Math.max(1, values.length) - 2); const x = index * 360 / Math.max(1, values.length); const height = Math.max(2, value / max * 84); return <rect key={index} x={x} y={88-height} width={barWidth} height={height}><title>{data?.dailyLabels[index]} · {value}</title></rect>; })}</svg>; })()}</div>
       </Tile>
       <Tile className="tp-dashboard__panel tp-dashboard__pipeline">
         <div className="tp-dashboard__panel-head"><div><h2>客户与销售转化</h2><p>从潜在客户到商机、报价与订单</p></div><Button kind="ghost" size="sm" onClick={() => navigate('/leads')}>查看线索 <CarbonIcons.ArrowRight size={16}/></Button></div>
-        <div className="tp-dashboard__pipeline-list">{metrics.filter(item => ['leads','accounts','opportunities','quotes','orders'].includes(item.key)).map(item => <button key={item.key} type="button" onClick={() => navigate(item.href)}><span>{item.label}</span><strong>{item.value.toLocaleString()}</strong><div><i style={{ width: Math.max(3, item.value / Math.max(1, ...metrics.map(metric => metric.value)) * 100) + '%' }} /></div></button>)}</div>
+        <div className="tp-dashboard__pipeline-list">{metrics.filter(item => ['leads','accounts','opportunities','quotes','orders'].includes(item.key)).map(item => <button key={item.key} type="button" onClick={() => navigate(item.href)}><span>{item.label}</span><strong>{item.value.toLocaleString()}</strong><div><svg viewBox="0 0 100 4" preserveAspectRatio="none" aria-hidden="true"><rect x="0" y="0" width={Math.max(3, item.value / Math.max(1, ...metrics.map(metric => metric.value)) * 100)} height="4" /></svg></div></button>)}</div>
       </Tile>
       <Tile className="tp-dashboard__panel tp-dashboard__agents">
         <div className="tp-dashboard__panel-head"><div><h2>Agent 与自动化</h2><p>任务运行情况与异常信号</p></div><Button kind="ghost" size="sm" onClick={() => navigate('/agent')}>进入 Agent <CarbonIcons.ArrowRight size={16}/></Button></div>
