@@ -1,8 +1,9 @@
 /**
- * Carbon's official component styles and TradePilot's Carbon White theme.
- * This is the only source file outside node_modules allowed to import Carbon Sass.
+ * Carbon's official component styles and TradePilot's centralized theme/tokens.
+ * Feature modules must not import Carbon Sass or define global visual styles.
  */
 @use '@carbon/react';
+@use '../themes/white';
 @use '../tokens';
 
 html,
@@ -12,14 +13,14 @@ body,
 }
 
 html {
-  background: var(--cds-background);
+  background: var(--tp-color-background);
 }
 
 body {
   margin: 0;
-  background: var(--cds-background);
-  color: var(--cds-text-primary);
-  font-family: 'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif;
+  background: var(--tp-color-background);
+  color: var(--tp-color-text-primary);
+  font-family: var(--tp-font-family-sans);
 }
 
 *,
