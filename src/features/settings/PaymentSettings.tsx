@@ -87,6 +87,7 @@ export function PaymentSettings() {
   const [items,setItems] = useState<SettingItem[]>([]);
   const [history,setHistory] = useState<HistoryItem[]>([]);
   const [currencies,setCurrencies] = useState<Array<{code:string;name:string}>>([]);
+  const [baseCurrency,setBaseCurrency] = useState('USD');
   const [bankAccounts,setBankAccounts] = useState<Array<{id:string;bank_name:string;account_name:string;currency_code:string|null;is_default:boolean}>>([]);
   const [itemType,setItemType] = useState('payment_method');
   const [itemCode,setItemCode] = useState('');
@@ -105,18 +106,20 @@ export function PaymentSettings() {
       const userId = session.session?.user.id;
       if(!userId) throw new Error('登录状态已失效，请重新登录。');
       setOwnerId(userId);
-      const [settingsResult,itemsResult,historyResult,currencyResult,bankResult] = await Promise.all([
+      const [settingsResult,itemsResult,historyResult,currencyResult,bankResult,profileResult] = await Promise.all([
         db.from('trade_business_settings').select('config').eq('owner_id',userId).eq('scope_key','payment').maybeSingle(),
         db.from('trade_business_setting_items').select('id,setting_type,code,name,config,sequence,is_active').eq('owner_id',userId).eq('scope_key','payment').order('sequence').order('code'),
         db.from('trade_business_setting_history').select('id,source_table,operation,changed_at').eq('owner_id',userId).eq('scope_key','payment').order('changed_at',{ascending:false}).limit(12),
         db.from('trade_business_setting_items').select('code,name').eq('owner_id',userId).eq('scope_key','shared').eq('setting_type','currency').eq('is_active',true).order('sequence'),
         db.from('enterprise_bank_accounts').select('id,bank_name,account_name,currency_code,is_default').eq('owner_id',userId).eq('is_active',true).eq('is_archived',false).order('is_default',{ascending:false}).order('bank_name'),
+        db.from('enterprise_profiles').select('default_currency').eq('is_default',true).eq('is_archived',false).maybeSingle(),
       ]);
       if(settingsResult.error) throw settingsResult.error;
       if(itemsResult.error) throw itemsResult.error;
       if(historyResult.error) throw historyResult.error;
       if(currencyResult.error) throw currencyResult.error;
       if(bankResult.error) throw bankResult.error;
+      if(profileResult.error) throw profileResult.error;
       let rows = (itemsResult.data||[]) as SettingItem[];
       let seeded = false;
       for(const dictionary of dictionaries) {
@@ -136,9 +139,11 @@ export function PaymentSettings() {
       const bankRows = (bankResult.data||[]) as Array<{id:string;bank_name:string;account_name:string;currency_code:string|null;is_default:boolean}>;
       setItems(rows); setHistory((historyResult.data||[]) as HistoryItem[]);
       setCurrencies(sharedCurrencies); setBankAccounts(bankRows);
+      const enterpriseCurrency = profileResult.data?.default_currency || 'USD';
+      setBaseCurrency(enterpriseCurrency);
       const saved = (settingsResult.data?.config||{}) as Config;
       const defaultBank = bankRows.find(x=>x.is_default)?.id || '';
-      setConfig({...paymentDefaults,...saved,default_bank_account_id:String(saved.default_bank_account_id||defaultBank)});
+      setConfig({...paymentDefaults,...saved,default_currency:String(saved.default_currency||enterpriseCurrency),default_bank_account_id:String(saved.default_bank_account_id||defaultBank)});
     } catch(e) { setError(e instanceof Error?e.message:'读取收款设置失败'); }
     finally { setLoading(false); }
   },[]);
@@ -207,6 +212,7 @@ export function PaymentSettings() {
       <h4>收款基础规则</h4>
       <p className="tp-settings__hint">收款编号独立生成，采用单级审批；银行账户与币种直接引用企业及共享基础设置，不在此重复维护。</p>
       <div className="tp-settings__editor-grid">
+        <TextInput id="payment-enterprise-base-currency" labelText="企业本位币（来自企业档案）" value={baseCurrency} readOnly />
         <Select id="payment-default-currency" labelText="默认收款币种" value={String(config.default_currency)} onChange={e=>update('default_currency',e.currentTarget.value)}>{currencies.map(x=><SelectItem key={x.code} value={x.code} text={x.code+' · '+x.name}/>)}</Select>
         <Select id="payment-default-bank" labelText="默认收款账户" value={String(config.default_bank_account_id)} onChange={e=>update('default_bank_account_id',e.currentTarget.value)}><SelectItem value="" text="不设置默认账户"/>{bankAccounts.map(x=><SelectItem key={x.id} value={x.id} text={x.bank_name+' · '+x.account_name+(x.currency_code?' · '+x.currency_code:'')}/>)}</Select>
         <Select id="payment-default-method" labelText="默认收款方式" value={String(config.default_payment_method)} onChange={e=>update('default_payment_method',e.currentTarget.value)}>{activeMethods.map(x=><SelectItem key={x.code} value={x.code} text={x.name+' · '+x.code}/>)}</Select>
