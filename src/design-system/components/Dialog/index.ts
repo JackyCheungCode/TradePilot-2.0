@@ -1,2 +1,2 @@
-/** Local Carbon-native entry point. Import from this module, not directly from @carbon/react. */
-export { Dialog } from '@carbon/react';
+/** Carbon dialog typing entry; the stable modal interaction is exposed from ../Modal. */
+export type { DialogProps } from '@carbon/react';
