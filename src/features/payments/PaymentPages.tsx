@@ -41,7 +41,6 @@ export function PaymentConsolePage() {
   const [query,setQuery]=useState('');
   const [status,setStatus]=useState('all');
   const [currency,setCurrency]=useState('USD');
-  const [baseCurrency,setBaseCurrency]=useState('USD');
   const [view,setView]=useState<'payments'|'receivables'>('payments');
 
   const load=useCallback(async()=>{
@@ -56,7 +55,7 @@ export function PaymentConsolePage() {
         db.from('enterprise_profiles').select('default_currency').eq('is_default',true).eq('is_archived',false).maybeSingle(),
       ]);
       if(p.error)throw p.error;if(a.error)throw a.error;if(o.error)throw o.error;if(al.error)throw al.error;if(ep.error)throw ep.error;
-      const base=ep.data?.default_currency||'USD';setBaseCurrency(base);setCurrency(base);
+      const base=ep.data?.default_currency||'USD';setCurrency(base);
       setRows(p.data||[]);setAccounts(a.data||[]);setOrders(o.data||[]);setAllocations(al.data||[]);
     } catch(e) { setError(e instanceof Error?e.message:'读取收款数据失败'); }
     finally { setLoading(false); }
