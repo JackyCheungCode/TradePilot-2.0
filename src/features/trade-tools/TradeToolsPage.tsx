@@ -170,10 +170,11 @@ export function TradeToolsPage() {
   useEffect(()=>{if(active==='contact-time') void loadContacts();},[active]);
 
   const searchLocation = async () => {
-    if(!locationQuery.trim()) return;
+    const searchTerm=locationQuery.trim()||[locationCity,locationRegion,countryNames[locationCountry]||locationCountry].filter(Boolean).join(', ');
+    if(!searchTerm) return;
     setBusy(true);setError('');
     try {
-      const data=await readJson('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(locationQuery)+'&count=8&language=zh');
+      const data=await readJson('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(searchTerm)+'&count=8&language=zh');
       setLocations((data.results||[]) as LocationResult[]);
     } catch(e) {setError(e instanceof Error?e.message:'地点搜索失败。');}
     finally {setBusy(false);}
