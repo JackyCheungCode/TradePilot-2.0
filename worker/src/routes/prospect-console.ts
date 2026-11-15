@@ -43,9 +43,11 @@ async function db<T>(env: ConsoleEnv, path: string, init: RequestInit = {}): Pro
   return raw ? JSON.parse(raw) as T : [] as T;
 }
 function localDay(value: string): string {
-  return new Intl.DateTimeFormat("en-CA", {
+  const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Taipei", year: "numeric", month: "2-digit", day: "2-digit",
-  }).format(new Date(value));
+  }).formatToParts(new Date(value));
+  const part = (type: string) => parts.find(item => item.type === type)?.value ?? "";
+  return part("year") + "-" + part("month") + "-" + part("day");
 }
 function platformFor(channel: string, provider: string): { key: string; label: string } {
   if (channel === "map_local_businesses") {

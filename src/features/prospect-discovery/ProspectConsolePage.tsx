@@ -91,7 +91,7 @@ export function ProspectConsolePage() {
     </div>
     {loading ? <div className="tp-console__loading"><InlineLoading description="正在汇总潜客数据…" /></div> : stats && <>
       <div className="tp-console__metrics">
-        <Metric label="已接入发现平台" value={stats.metrics.platformCount} icon={<CarbonIcons.Apps size={20}/>} />
+        <Metric label="有潜客数据的平台" value={stats.metrics.platformCount} icon={<CarbonIcons.Apps size={20}/>} />
         <Metric label="潜在客户总数" value={stats.metrics.prospectCount} icon={<CarbonIcons.UserMultiple size={20}/>} />
         <Metric label="已转化线索" value={stats.metrics.convertedCount} icon={<CarbonIcons.CheckmarkFilled size={20}/>} />
         <Metric label="待处理潜客" value={stats.metrics.pendingCount} icon={<CarbonIcons.Time size={20}/>} />
