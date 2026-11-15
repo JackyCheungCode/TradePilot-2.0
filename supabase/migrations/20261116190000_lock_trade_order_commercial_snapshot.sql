@@ -209,7 +209,64 @@ begin
       'owner_id','metadata','internal_notes','commercial_snapshot',
       'locked_at','confirmed_at'
     ],
-    'items', v_items
+    'items', v_items,
+    'enterprise_profile', (
+      select jsonb_build_object(
+        'id', ep.id, 'legal_name', ep.legal_name, 'trade_name', ep.trade_name, 'short_name', ep.short_name,
+        'registration_number', ep.registration_number, 'registration_authority', ep.registration_authority,
+        'established_on', ep.established_on, 'country_code', ep.country_code, 'registration_country', ep.registration_country,
+        'tax_number', ep.tax_number, 'vat_number', ep.vat_number, 'eori_number', ep.eori_number,
+        'duns_number', ep.duns_number, 'lei_number', ep.lei_number, 'export_license_number', ep.export_license_number,
+        'customs_registration_number', ep.customs_registration_number, 'legal_form', ep.legal_form,
+        'registered_address', ep.registered_address, 'headquarters_address', ep.headquarters_address,
+        'mailing_address', ep.mailing_address, 'email', ep.email, 'phone', ep.phone, 'fax', ep.fax,
+        'contact_name', ep.contact_name, 'contact_title', ep.contact_title, 'website', ep.website,
+        'logo_url', ep.logo_url, 'default_currency', ep.default_currency,
+        'default_payment_terms', ep.default_payment_terms, 'default_incoterms', ep.default_incoterms
+      )
+      from public.enterprise_profiles ep
+      where ep.id = v_order.enterprise_profile_id and ep.owner_id = p_owner_id
+    ),
+    'crm_account', (
+      select jsonb_build_object(
+        'id', ca.id, 'account_name', ca.account_name, 'legal_name', ca.legal_name,
+        'country_code', ca.country_code, 'region', ca.region, 'city', ca.city,
+        'registration_number', ca.registration_number, 'tax_number', ca.tax_number, 'vat_number', ca.vat_number,
+        'billing_address', ca.billing_address, 'shipping_address', ca.shipping_address,
+        'currency_code', ca.currency_code, 'payment_terms', ca.payment_terms,
+        'incoterms_code', ca.incoterms_code, 'incoterms_version', ca.incoterms_version,
+        'email', ca.email, 'phone', ca.phone, 'fax', ca.fax, 'website', ca.website,
+        'invoice_email', ca.invoice_email, 'remittance_email', ca.remittance_email,
+        'legal_form', ca.legal_form, 'language_code', ca.language_code,
+        'street', ca.street, 'postal_code', ca.postal_code
+      )
+      from public.crm_accounts ca
+      where ca.id = v_order.crm_account_id and ca.owner_id = p_owner_id
+    ),
+    'crm_contact', (
+      select jsonb_build_object(
+        'id', cc.id, 'first_name', cc.first_name, 'last_name', cc.last_name, 'full_name', cc.full_name,
+        'job_title', cc.job_title, 'department', cc.department, 'email', cc.email,
+        'phone', cc.phone, 'mobile', cc.mobile, 'whatsapp', cc.whatsapp,
+        'preferred_language', cc.preferred_language, 'salutation', cc.salutation,
+        'title', cc.title, 'phone_extension', cc.phone_extension, 'preferred_channel', cc.preferred_channel
+      )
+      from public.crm_contacts cc
+      where cc.id = v_order.crm_contact_id and cc.owner_id = p_owner_id
+    ),
+    'bank_accounts', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'id', ba.id, 'bank_name', ba.bank_name, 'bank_branch', ba.bank_branch,
+        'account_name', ba.account_name, 'account_number', ba.account_number, 'iban', ba.iban,
+        'swift_bic', ba.swift_bic, 'routing_number', ba.routing_number, 'sort_code', ba.sort_code,
+        'bank_code', ba.bank_code, 'branch_code', ba.branch_code, 'currency_code', ba.currency_code,
+        'country_code', ba.country_code, 'bank_address', ba.bank_address,
+        'intermediary_bank', ba.intermediary_bank, 'is_default', ba.is_default
+      ) order by ba.is_default desc, ba.created_at)
+      from public.enterprise_bank_accounts ba
+      where ba.enterprise_id = v_order.enterprise_profile_id
+        and ba.owner_id = p_owner_id and ba.is_active = true and ba.is_archived = false
+    ), '[]'::jsonb)
   );
 
   update public.trade_documents
