@@ -42,7 +42,7 @@ Forbidden outside `src/design-system/**`:
 - Direct imports from `@carbon/react`, `@carbon/icons-react`, or other icon libraries.
 - Direct imports from `@fontsource/*`.
 - New font families, colors, spacing scales, shadows, radii, breakpoints, or z-index values.
-- Inline visual styles and feature-owned stylesheets.
+- Inline visual styles and feature-owned CSS declarations.
 - Page-specific copies of shared components or design tokens.
 
 These are local entry points and wrappers, not copied or forked Carbon source. Carbon remains the implementation and accessibility source of truth.
