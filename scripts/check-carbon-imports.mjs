@@ -21,19 +21,19 @@ async function scan(directory) {
     const relative = path.relative(process.cwd(), fullPath);
 
     if (forbiddenPackages.test(source)) {
-      violations.push(\`\${relative}: import UI, icon, and font packages through src/design-system only\`);
+      violations.push(relative + ': import UI, icon, and font packages through src/design-system only');
     }
     forbiddenPackages.lastIndex = 0;
 
     if (/\.s[ac]ss$|\.css$/.test(entry.name)) {
       const withoutComments = source.replace(/\/\*[\s\S]*?\*\//g, '');
       if (cssDeclaration.test(withoutComments)) {
-        violations.push(\`\${relative}: feature-owned CSS declarations are forbidden; compose Carbon and design-system resources\`);
+        violations.push(relative + ': feature-owned CSS declarations are forbidden; compose Carbon and design-system resources');
       }
     }
 
     if (/\.tsx?$/.test(entry.name) && /style\s*=\s*\{\s*\{/.test(source)) {
-      violations.push(\`\${relative}: inline styles are forbidden; use Carbon components and design-system tokens\`);
+      violations.push(relative + ': inline styles are forbidden; use Carbon components and design-system tokens');
     }
   }
 }
