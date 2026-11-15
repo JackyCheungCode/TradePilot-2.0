@@ -98,7 +98,7 @@ export async function handleProspectConsole(request: Request, env: ConsoleEnv): 
       id: string; name: string; type: string; country: string; address: string;
       phone: string; email: string; website: string; latitude: number | null;
       longitude: number | null; status: string; leadId: string | null;
-      discoveredAt: string; platforms: Array<{ key: string; label: string }>;
+      discoveredAt: string; platforms: Array<{ key: string; label: string }>; recordIds: string[];
     }>();
     for (const row of filtered) {
       const record = row.record!;
@@ -121,11 +121,12 @@ export async function handleProspectConsole(request: Request, env: ConsoleEnv): 
           latitude: typeof record.latitude === "number" ? record.latitude : null,
           longitude: typeof record.longitude === "number" ? record.longitude : null,
           status: record.status === "promoted" || record.lead_id ? "converted" : "pending",
-          leadId: record.lead_id || null, discoveredAt: row.captured_at, platforms: [platform],
+          leadId: record.lead_id || null, discoveredAt: row.captured_at, platforms: [platform], recordIds: [record.id],
         });
       } else {
         if (row.captured_at > existing.discoveredAt) existing.discoveredAt = row.captured_at;
         if (!existing.platforms.some(item => item.key === platform.key)) existing.platforms.push(platform);
+        if (!existing.recordIds.includes(record.id)) existing.recordIds.push(record.id);
         if ((!existing.address || existing.address === "—") && record.address) existing.address = record.address;
         if (existing.latitude === null && typeof record.latitude === "number") existing.latitude = record.latitude;
         if (existing.longitude === null && typeof record.longitude === "number") existing.longitude = record.longitude;
