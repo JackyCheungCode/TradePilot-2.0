@@ -4,7 +4,7 @@ import path from 'node:path';
 const sourceRoot = path.resolve('src');
 const allowedRoot = path.resolve('src/design-system');
 const violations = [];
-const forbiddenPackages = /(?:from\s*|import\s*|@use\s*|@forward\s*)['"](?:@carbon\/(?:react|icons-react)|@fontsource\/|lucide-react|react-icons(?:\/[^'"]*)?|@fortawesome\/)[^'"]*['"]/g;
+const forbiddenPackages = /(?:from\s*|import\s*|@use\s*|@forward\s*|@import\s*)['"](?:@carbon\/(?:react|icons-react|pictograms-react)|@fontsource[^'"]*|lucide-react|react-icons(?:\/[^'"]*)?|@fortawesome\/|@tabler\/)[^'"]*['"]/g;
 const cssDeclaration = /(?:^|[;{}\s])[-a-zA-Z]+\s*:\s*[^;{}]+;/m;
 
 async function scan(directory) {
@@ -32,7 +32,7 @@ async function scan(directory) {
       }
     }
 
-    if (/\.tsx?$/.test(entry.name) && /style\s*=\s*\{\s*\{/.test(source)) {
+    if (/\.tsx?$/.test(entry.name) && /\bstyle\s*=/.test(source)) {
       violations.push(relative + ': inline styles are forbidden; use Carbon components and design-system tokens');
     }
   }
