@@ -61,3 +61,6 @@
 
 .tp-console__landmasses path{fill:var(--cds-layer-accent-01);stroke:var(--cds-border-subtle);stroke-width:1;opacity:.9}
 .tp-console__cluster-count{fill:var(--cds-text-inverse);font-size:8px;font-weight:600;pointer-events:none}
+
+.tp-console__bar-track svg{display:block;width:100%;height:1rem}
+.tp-console__bar-track svg rect{fill:var(--cds-support-info)}
