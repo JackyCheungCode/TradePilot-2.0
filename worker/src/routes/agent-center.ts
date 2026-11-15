@@ -576,7 +576,7 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
     }
     if(path==="/api/v1/agent/appearance"&&request.method==="GET"){
       const rows=await db<Array<{config:Record<string,unknown>}>>(env,"agent_appearance_settings?owner_id=eq."+ownerId+"&select=config&limit=1");
-      const fallback={default:{shape:"mochi",color:"cream",styleId:"vector",variant:"soft",face:"cute"},agents:{}};
+      const fallback={default:{shape:"mochi",color:"ivory",styleId:"vector",variant:"soft",face:"cute"},agents:{}};
       return successResponse(request,rows?.[0]?.config??fallback);
     }
     if(path==="/api/v1/agent/appearance"&&request.method==="PUT"){
