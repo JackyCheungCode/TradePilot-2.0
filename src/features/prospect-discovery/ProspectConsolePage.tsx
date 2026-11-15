@@ -69,7 +69,7 @@ function CountryChart({ rows }: { rows: ProspectRow[] }) {
     if (country && country !== '—') counts.set(country, (counts.get(country) ?? 0) + 1);
   });
   const items = [...counts.entries()].map(([country, count]) => ({ country, label: countryLabel(country), count }))
-    .sort((a,b) => b.count-a.count || a.label.localeCompare(b.label)).slice(0,10);
+    .sort((a,b) => b.count-a.count || a.label.localeCompare(b.label));
   const max = Math.max(1, ...items.map(item => item.count));
   if (!items.length) return <p className="tp-console__empty">当前时间范围内暂无可识别国家 / 地区的潜客。</p>;
   return <div className="tp-console__bar-chart" role="img" aria-label="按国家或地区统计的潜客与线索数量">
