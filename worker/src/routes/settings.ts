@@ -182,8 +182,8 @@ type AIProviderConfig = {id:string;providerKey:string;name:string;protocol:AIPro
 type AIConfig = {defaultModel:string;taskModels:Record<string,string>;providers:AIProviderConfig[]};
 const defaultAIConfig:AIConfig={defaultModel:"@cf/google/gemma-4-26b-a4b-it",taskModels:{},providers:[{id:"workers-ai",providerKey:"cloudflare-workers-ai",name:"Cloudflare Workers AI",protocol:"workers-ai",baseUrl:"",model:"@cf/google/gemma-4-26b-a4b-it",configured:true}]};
 const legacyAISecrets:Record<string,string>={openai:"AI_PROVIDER_OPENAI_API_KEY",anthropic:"AI_PROVIDER_ANTHROPIC_API_KEY",gemini:"AI_PROVIDER_GEMINI_API_KEY",deepseek:"AI_PROVIDER_DEEPSEEK_API_KEY",qwen:"AI_PROVIDER_QWEN_API_KEY",zhipu:"AI_PROVIDER_ZHIPU_API_KEY",kimi:"AI_PROVIDER_KIMI_API_KEY",minimax:"AI_PROVIDER_MINIMAX_API_KEY",openrouter:"AI_PROVIDER_OPENROUTER_API_KEY",siliconflow:"AI_PROVIDER_SILICONFLOW_API_KEY",custom:"AI_PROVIDER_CUSTOM_API_KEY"};
-const apiSecretNames:Record<string,string>={apify:"tradepilot_api_apify",deepl:"tradepilot_api_deepl",googleMaps:"tradepilot_api_google_maps",dhl:"tradepilot_api_dhl",upsClientId:"tradepilot_api_ups_client_id",upsClientSecret:"tradepilot_api_ups_client_secret",fedexClientId:"tradepilot_api_fedex_client_id",fedexClientSecret:"tradepilot_api_fedex_client_secret",cloudflareApiToken:"tradepilot_api_cloudflare_token",cloudflareAccountId:"tradepilot_api_cloudflare_account_id"};
-const legacyApiEnv:Record<string,string>={apify:"APIFY_API_TOKEN",deepl:"DEEPL_API_KEY",googleMaps:"GOOGLE_MAPS_API_KEY",dhl:"DHL_API_KEY",upsClientId:"UPS_CLIENT_ID",upsClientSecret:"UPS_CLIENT_SECRET",fedexClientId:"FEDEX_CLIENT_ID",fedexClientSecret:"FEDEX_CLIENT_SECRET"};
+const apiSecretNames:Record<string,string>={apify:"tradepilot_api_apify",deepl:"tradepilot_api_deepl",googleMaps:"tradepilot_api_google_maps",dhl:"tradepilot_api_dhl",upsClientId:"tradepilot_api_ups_client_id",upsClientSecret:"tradepilot_api_ups_client_secret",fedexClientId:"tradepilot_api_fedex_client_id",fedexClientSecret:"tradepilot_api_fedex_client_secret",cloudflareApiToken:"tradepilot_api_cloudflare_token",cloudflareAccountId:"tradepilot_api_cloudflare_account_id",serper:"tradepilot_api_serper",serpapi:"tradepilot_api_serpapi"};
+const legacyApiEnv:Record<string,string>={apify:"APIFY_API_TOKEN",deepl:"DEEPL_API_KEY",googleMaps:"GOOGLE_MAPS_API_KEY",dhl:"DHL_API_KEY",upsClientId:"UPS_CLIENT_ID",upsClientSecret:"UPS_CLIENT_SECRET",fedexClientId:"FEDEX_CLIENT_ID",fedexClientSecret:"FEDEX_CLIENT_SECRET",serper:"SERPER_API_KEY",serpapi:"SERPAPI_API_KEY"};
 async function vaultRpc<T>(name:string,args:Record<string,unknown>,env:SettingsEnv):Promise<T>{
  const key=env.SUPABASE_SERVICE_ROLE_KEY??"";
  if(!key)throw new Error("服务端凭证存储未配置");
@@ -376,6 +376,17 @@ export async function handleSettings(request: Request, env: SettingsEnv): Promis
     const names=Object.values(apiSecretNames);
     const secrets=await readVaultSecrets(names,env);
     const secret=(key:string)=>secrets[apiSecretNames[key]]||envSecret(env,legacyApiEnv[key]||"");
+    if(service==="serper"){
+      const key=secret("serper");if(!key)return successResponse(request,{ok:false,message:"尚未配置"});
+      const r=await fetch("https://google.serper.dev/search",{method:"POST",headers:{"X-API-KEY":key,"Content-Type":"application/json"},body:JSON.stringify({q:"TradePilot integration test",gl:"us",hl:"en",num:1})});
+      return successResponse(request,{ok:r.ok,message:r.ok?"Serper API 连接成功":"Serper API 返回 HTTP "+r.status});
+    }
+    if(service==="serpapi"){
+      const key=secret("serpapi");if(!key)return successResponse(request,{ok:false,message:"尚未配置"});
+      const p=new URLSearchParams({engine:"google",q:"TradePilot integration test",gl:"us",hl:"en",num:"1",api_key:key});
+      const r=await fetch("https://serpapi.com/search.json?"+p.toString());
+      return successResponse(request,{ok:r.ok,message:r.ok?"SerpApi 连接成功":"SerpApi 返回 HTTP "+r.status});
+    }
     if(service==="apify"){
       const key=secret("apify");if(!key)return successResponse(request,{ok:false,message:"尚未配置"});
       const r=await fetch("https://api.apify.com/v2/users/me",{headers:{Authorization:"Bearer "+key,Accept:"application/json"}});
