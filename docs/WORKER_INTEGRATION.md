@@ -44,6 +44,10 @@ The production Worker also has secret bindings named `AGENT_ENCRYPTION_KEY`, `AI
 - `worker/src/workflows/`: five durable Workflow classes.
 - `worker/src/lib/`: HTTP responses, deduplication, and owner-scoped query helpers.
 
+## Source validation
+
+The recovered source is typechecked independently from the frontend using the Cloudflare Workers runtime type package. A CI secret-literal scan checks Worker source before builds.
+
 ## Required integration work (not yet performed)
 
 - Choose the repository's Cloudflare configuration/build approach. The live Worker was deployed with Wrangler, but this repository had no Worker configuration file at the time of inspection.
