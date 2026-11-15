@@ -177,9 +177,7 @@ export function TradeOperationsSettings({ scope }: { scope: Scope }) {
   };
 
   const activeCurrency=items.filter(x=>x.setting_type==='currency'&&x.is_active);
-  const activeIncoterms=items.filter(x=>x.setting_type==='incoterm'&&x.is_active);
   const visibleItems=items.filter(x=>x.setting_type===itemType);
-  const selectedDictionary=shipmentDictionaries.find(x=>x.value===itemType);
 
   if(scope==='payment') return <div className="tp-settings__advanced"><InlineNotification kind="info" title="收款设置开发中" subtitle="共享基础设置与发运设置完成验收后，将在本设置中心内接入收款方式、手续费、应收节点、账龄、信用证及对账规则。" /></div>;
 
