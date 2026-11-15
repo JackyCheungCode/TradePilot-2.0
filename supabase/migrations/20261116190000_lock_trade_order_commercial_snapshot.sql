@@ -266,7 +266,44 @@ begin
       from public.enterprise_bank_accounts ba
       where ba.enterprise_id = v_order.enterprise_profile_id
         and ba.owner_id = p_owner_id and ba.is_active = true and ba.is_archived = false
-    ), '[]'::jsonb)
+    ), '[]'::jsonb),
+    'sales_order', jsonb_build_object(
+      'account_snapshot', v_order.metadata #> '{sales_order,account_snapshot}',
+      'contact_snapshot', v_order.metadata #> '{sales_order,contact_snapshot}',
+      'bank_account_snapshot', v_order.metadata #> '{sales_order,bank_account_snapshot}',
+      'selected_addresses', v_order.metadata #> '{sales_order,selected_addresses}',
+      'charges', coalesce((
+        select jsonb_agg(jsonb_build_object(
+          'name', charge->'name', 'amount', charge->'amount',
+          'taxable', charge->'taxable', 'taxRate', charge->'taxRate'
+        ))
+        from jsonb_array_elements(case
+          when jsonb_typeof(v_order.metadata #> '{sales_order,charges}') = 'array'
+          then v_order.metadata #> '{sales_order,charges}'
+          else '[]'::jsonb end) charge
+      ), '[]'::jsonb),
+      'payment_schedule', coalesce((
+        select jsonb_agg(jsonb_build_object(
+          'milestone', payment->'milestone', 'ratio', payment->'ratio',
+          'due_date', payment->'due_date', 'trigger', payment->'trigger',
+          'amount', payment->'amount', 'status', payment->'status'
+        ))
+        from jsonb_array_elements(case
+          when jsonb_typeof(v_order.metadata #> '{sales_order,payment_schedule}') = 'array'
+          then v_order.metadata #> '{sales_order,payment_schedule}'
+          else '[]'::jsonb end) payment
+      ), '[]'::jsonb),
+      'totals', jsonb_build_object(
+        'product_subtotal', coalesce(v_order.metadata #> '{sales_order,totals,product_subtotal}', '0'::jsonb),
+        'line_discount_total', coalesce(v_order.metadata #> '{sales_order,totals,line_discount_total}', '0'::jsonb),
+        'order_discount', coalesce(v_order.metadata #> '{sales_order,totals,order_discount}', '0'::jsonb),
+        'charge_subtotal', coalesce(v_order.metadata #> '{sales_order,totals,charge_subtotal}', '0'::jsonb),
+        'tax_total', coalesce(v_order.metadata #> '{sales_order,totals,tax_total}', '0'::jsonb),
+        'grand_total', coalesce(v_order.metadata #> '{sales_order,totals,grand_total}', '0'::jsonb)
+      ),
+      'tax_mode', v_order.metadata #> '{sales_order,form,tax_mode}',
+      'order_discount', v_order.metadata #> '{sales_order,form,order_discount}'
+    )
   );
 
   update public.trade_documents
