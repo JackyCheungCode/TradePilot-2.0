@@ -33,7 +33,7 @@ const domains: Domain[] = [
 ];
 
 const integrationSections: Section[] = [
-  { id: 'api', label: 'API 集成', group: '集成与 API', description: '统一管理 Apify、DeepL、Google Maps、DHL、UPS、FedEx 与 Cloudflare Workers AI 等 API 凭证。', implemented: true },
+  { id: 'api', label: 'API 集成', group: '集成与 API', description: '统一管理 Apify、DeepL、Google Maps、DHL、UPS、FedEx、Cloudflare Workers AI 与 Omnibox 等 API 凭证。', implemented: true },
   { id: 'ai', label: 'AI 模型集成', group: '集成与 API', description: '添加多个国内外 AI 供应商和模型配置，支持动态获取模型、连接测试和独立保存。', implemented: true },
 ];
 

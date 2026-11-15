@@ -14,6 +14,7 @@ import { SalesOrderConsolePage, SalesOrderDetailPage, SalesOrderFormPage } from 
 import { ProductConsolePage, ProductDetailPage, ProductFormPage } from '../features/products/ProductPages';
 import { SettingsCenterPage } from '../features/settings/SettingsCenterPage';
 import { TradeToolsPage } from '../features/trade-tools/TradeToolsPage';
+import { TradeToolsHubPage } from '../features/trade-tools/TradeToolsHubPage';
 import { ShipmentConsolePage, ShipmentDetailPage, ShipmentFormPage } from '../features/shipments/ShipmentPages';
 import { PaymentAllocationPage, PaymentConsolePage, PaymentDetailPage, PaymentFormPage } from '../features/payments/PaymentPages';
 import { DashboardPage } from '../features/dashboard/DashboardPage';
@@ -59,7 +60,8 @@ export const router = createBrowserRouter([
           { path: 'products/new', element: <ProductFormPage /> },
           { path: 'products/:id/edit', element: <ProductFormPage /> },
           { path: 'products/:id', element: <ProductDetailPage /> },
-          { path: 'trade-tools', element: <TradeToolsPage /> },
+          { path: 'trade-tools', element: <TradeToolsHubPage /> },
+          { path: 'trade-tools/legacy', element: <TradeToolsPage /> },
           { path: 'settings', element: <SettingsCenterPage /> },
           { path: 'contacts', element: <ContactConsolePage /> },
           { path: 'contacts/new', element: <ContactFormPage /> },

@@ -11,6 +11,7 @@ interface TradeToolsEnv {
   UPS_CLIENT_SECRET?: string;
   FEDEX_CLIENT_ID?: string;
   FEDEX_CLIENT_SECRET?: string;
+  OMNIBOX_API_KEY?: string;
 }
 
 async function authenticated(request: Request, env: TradeToolsEnv): Promise<boolean> {
@@ -144,24 +145,58 @@ async function trackShipment(request: Request, env: TradeToolsEnv): Promise<Resp
   }
 }
 
+async function omniboxQuery(request: Request, apiKey: string): Promise<Response> {
+  let body: { action?: string; payload?: Record<string, unknown> };
+  try { body = await request.json() as typeof body; } catch { return errorResponse(request, "INVALID_JSON", "请求内容格式不正确。", 400); }
+  const action = String(body.action || "");
+  const payload = body.payload && typeof body.payload === "object" ? body.payload : {};
+  let endpoint = "";
+  let input: Record<string, unknown> = {};
+  if (action === "classify") {
+    const productDescription = String(payload.productDescription || "").trim();
+    const originCountry = String(payload.originCountry || "").trim().toUpperCase();
+    const value = payload.value === undefined || payload.value === null || payload.value === "" ? undefined : Number(payload.value);
+    if (!productDescription || productDescription.length > 2000) return errorResponse(request, "VALIDATION_ERROR", "请输入商品描述（最多 2,000 字符）。", 400);
+    if (value !== undefined && (!Number.isFinite(value) || value < 0)) return errorResponse(request, "VALIDATION_ERROR", "申报价值必须为非负数字。", 400);
+    if (originCountry && !/^[A-Z]{2}$/.test(originCountry)) return errorResponse(request, "VALIDATION_ERROR", "原产国请使用 ISO 两位国家代码。", 400);
+    endpoint = "/api/v1/compliance/classify";
+    input = { productDescription, ...(originCountry ? { originCountry } : {}), ...(value !== undefined ? { value } : {}) };
+  } else if (action === "screen") {
+    const name = String(payload.name || "").trim();
+    const fuzzy = payload.fuzzy_name !== false;
+    const countries = String(payload.countries || "").trim().toUpperCase();
+    if (!name || name.length > 300) return errorResponse(request, "VALIDATION_ERROR", "请输入待筛查企业或个人名称（最多 300 字符）。", 400);
+    if (countries && !/^[A-Z,\\s]{2,200}$/.test(countries)) return errorResponse(request, "VALIDATION_ERROR", "国家过滤请使用逗号分隔的 ISO 两位国家代码。", 400);
+    endpoint = "/api/v1/compliance/screen";
+    input = { name, fuzzy_name: String(fuzzy), ...(countries ? { countries } : {}) };
+  } else if (action === "rulings") {
+    const keyword = String(payload.keyword || "").trim();
+    const threshold = Number(payload.match_threshold ?? 0.65);
+    if (!keyword || keyword.length > 1000) return errorResponse(request, "VALIDATION_ERROR", "请输入裁决检索关键词（最多 1,000 字符）。", 400);
+    if (!Number.isFinite(threshold) || threshold < 0 || threshold > 1) return errorResponse(request, "VALIDATION_ERROR", "匹配阈值必须介于 0 到 1。", 400);
+    endpoint = "/api/v1/compliance/rulings/search";
+    input = { keyword, match_threshold: threshold };
+  } else return errorResponse(request, "INVALID_OMNIBOX_ACTION", "不支持的 Omnibox 查询类型。", 400);
+  try {
+    const response = await fetch("https://omnibox.app" + endpoint, { method: "POST", redirect: "manual", headers: { "Content-Type": "application/json", Accept: "application/json", "X-API-Key": apiKey, Authorization: "Bearer " + apiKey }, body: JSON.stringify(input) });
+    const data = await readBody(response);
+    if (response.status >= 300 && response.status < 400) return errorResponse(request, "OMNIBOX_REDIRECT", "Omnibox API 返回重定向，暂无法安全转发请求。", 502);
+    if (!response.ok) return errorResponse(request, "OMNIBOX_REQUEST_FAILED", "Omnibox API 返回 HTTP " + response.status + "：" + String(data.message || data.error || data.detail || "请检查 API Key、账户状态或请求参数。").slice(0, 300), 502);
+    return successResponse(request, { action, data });
+  } catch (error) { return errorResponse(request, "OMNIBOX_UNAVAILABLE", error instanceof Error ? error.message : "Omnibox 服务暂时不可用。", 502); }
+}
+
 export async function handleTradeTools(request: Request, env: TradeToolsEnv): Promise<Response> {
   const pathname = new URL(request.url).pathname;
-  if (request.method !== "POST" || !["/api/v1/trade-tools/track", "/api/v1/trade-tools/geocode"].includes(pathname)) {
-    return errorResponse(request, "NOT_FOUND", "外贸工具接口不存在。", 404);
-  }
+  const allowed = ["/api/v1/trade-tools/track", "/api/v1/trade-tools/geocode", "/api/v1/trade-tools/omnibox"];
+  if (request.method !== "POST" || !allowed.includes(pathname)) return errorResponse(request, "NOT_FOUND", "外贸工具接口不存在。", 404);
   if (!(await authenticated(request, env))) return errorResponse(request, "UNAUTHORIZED", "请先登录后使用外贸工具。", 401);
-  const secrets = await readIntegrationSecrets(env, [
-    "tradepilot_api_google_maps", "tradepilot_api_dhl", "tradepilot_api_ups_client_id",
-    "tradepilot_api_ups_client_secret", "tradepilot_api_fedex_client_id", "tradepilot_api_fedex_client_secret",
-  ]);
-  const configuredEnv: TradeToolsEnv = {
-    ...env,
-    GOOGLE_MAPS_API_KEY: secrets.tradepilot_api_google_maps || env.GOOGLE_MAPS_API_KEY,
-    DHL_API_KEY: secrets.tradepilot_api_dhl || env.DHL_API_KEY,
-    UPS_CLIENT_ID: secrets.tradepilot_api_ups_client_id || env.UPS_CLIENT_ID,
-    UPS_CLIENT_SECRET: secrets.tradepilot_api_ups_client_secret || env.UPS_CLIENT_SECRET,
-    FEDEX_CLIENT_ID: secrets.tradepilot_api_fedex_client_id || env.FEDEX_CLIENT_ID,
-    FEDEX_CLIENT_SECRET: secrets.tradepilot_api_fedex_client_secret || env.FEDEX_CLIENT_SECRET,
-  };
+  const secretNames = ["tradepilot_api_google_maps", "tradepilot_api_dhl", "tradepilot_api_ups_client_id", "tradepilot_api_ups_client_secret", "tradepilot_api_fedex_client_id", "tradepilot_api_fedex_client_secret", ...(pathname === "/api/v1/trade-tools/omnibox" ? ["tradepilot_api_omnibox"] : [])];
+  const secrets = await readIntegrationSecrets(env, secretNames);
+  const configuredEnv: TradeToolsEnv = { ...env, GOOGLE_MAPS_API_KEY: secrets.tradepilot_api_google_maps || env.GOOGLE_MAPS_API_KEY, DHL_API_KEY: secrets.tradepilot_api_dhl || env.DHL_API_KEY, UPS_CLIENT_ID: secrets.tradepilot_api_ups_client_id || env.UPS_CLIENT_ID, UPS_CLIENT_SECRET: secrets.tradepilot_api_ups_client_secret || env.UPS_CLIENT_SECRET, FEDEX_CLIENT_ID: secrets.tradepilot_api_fedex_client_id || env.FEDEX_CLIENT_ID, FEDEX_CLIENT_SECRET: secrets.tradepilot_api_fedex_client_secret || env.FEDEX_CLIENT_SECRET, OMNIBOX_API_KEY: secrets.tradepilot_api_omnibox || env.OMNIBOX_API_KEY };
+  if (pathname === "/api/v1/trade-tools/omnibox") {
+    if (!configuredEnv.OMNIBOX_API_KEY) return errorResponse(request, "OMNIBOX_NOT_CONFIGURED", "请先在「设置中心 → API 集成」配置 Omnibox API Key。", 503);
+    return omniboxQuery(request, configuredEnv.OMNIBOX_API_KEY);
+  }
   return pathname === "/api/v1/trade-tools/geocode" ? geocodeAddress(request, configuredEnv) : trackShipment(request, configuredEnv);
 }

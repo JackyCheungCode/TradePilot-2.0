@@ -37,7 +37,8 @@ const apiCards=[
 {id:'dhl',name:'DHL',logo:'dhl',initial:'DHL',description:'DHL Shipment Tracking 官方接口。',fields:[{key:'dhl',label:'API Subscription Key'}],test:'dhl'},
 {id:'ups',name:'UPS',logo:'ups',initial:'UPS',description:'UPS OAuth 2.0 与 Shipment Tracking API。',fields:[{key:'upsClientId',label:'Client ID'},{key:'upsClientSecret',label:'Client Secret'}],test:'ups'},
 {id:'fedex',name:'FedEx',logo:'fedex',initial:'FX',description:'FedEx OAuth 2.0 与 Track API。',fields:[{key:'fedexClientId',label:'API Key / Client ID'},{key:'fedexClientSecret',label:'Secret Key'}],test:'fedex'},
-{id:'cloudflare',name:'Cloudflare Workers AI',logo:'cloudflare',initial:'C',description:'Workers AI 模型目录读取。请使用仅具备 Workers AI Read 权限的 API Token。',fields:[{key:'cloudflareApiToken',label:'Workers AI API Token'},{key:'cloudflareAccountId',label:'Account ID'}],test:'cloudflare'}
+{id:'cloudflare',name:'Cloudflare Workers AI',logo:'cloudflare',initial:'C',description:'Workers AI 模型目录读取。请使用仅具备 Workers AI Read 权限的 API Token。',fields:[{key:'cloudflareApiToken',label:'Workers AI API Token'},{key:'cloudflareAccountId',label:'Account ID'}],test:'cloudflare'},
+{id:'omnibox',name:'Omnibox 贸易百宝箱',logo:'',initial:'O',description:'HS Code 智能归类、关税预估、贸易实体筛查与美国 CBP 裁决检索。',fields:[{key:'omnibox',label:'Omnibox API Key'}],test:'omnibox'}
 ] as const;
 async function request<T>(path:string,init:RequestInit={}):Promise<T>{
  const db=await getSupabaseClient();const {data}=await db.auth.getSession();if(!data.session?.access_token)throw new Error('登录状态已失效，请重新登录。');
