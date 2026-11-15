@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextArea, TextInput } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 
-type Provider = { id: string; name: string; model: string; protocol: string; configured?: boolean | string; baseUrl?: string };
+type Provider = { id: string; name: string; model: string; protocol: string; configured?: boolean | string; baseUrl?: string; providerKey?: string; secretName?: string };
+type AIConfig = { providers?: Provider[]; taskModels?: Record<string,string>; defaultModel?: string };
 type Profile = { agent_key: string; enabled: boolean; config: { systemPrompt?: string; description?: string } };
 type Appearance = { shape: string; color: string; styleId: string; variant: string; face: string; eyeColor: string; eyeScale: number };
 const agentLabels: Record<string,string> = {
@@ -35,14 +36,11 @@ export function AgentSettings({ section }: { section: string }) {
   const load = async () => {
     setLoading(true); setError('');
     try {
-      const client = await getSupabaseClient();
-      const [settings, profileRows, avatar] = await Promise.all([
-        client.from('ai_provider_settings').select('config').eq('id',true).maybeSingle(),
+      const [config, profileRows, avatar] = await Promise.all([
+        agentApi<AIConfig>('/api/v1/settings/ai-config'),
         agentApi<Profile[]>('/api/v1/agent/profiles'),
         agentApi<{default?:Appearance;agents?:Record<string,Appearance>}>('/api/v1/agent/appearance'),
       ]);
-      if (settings.error) throw settings.error;
-      const config = (settings.data?.config || {}) as { providers?: Provider[]; taskModels?: Record<string,string>; defaultModel?: string };
       const available = (config.providers || []).filter(item => item.configured !== false && item.configured !== 'false');
       setProviders(available);
       const current = config.taskModels?.agent_chat || config.defaultModel || available[0]?.model || '';
@@ -59,13 +57,9 @@ export function AgentSettings({ section }: { section: string }) {
     if (!selectedModel) return;
     setSaving(true); setError(''); setNotice('');
     try {
-      const client = await getSupabaseClient();
-      const { data, error: readError } = await client.from('ai_provider_settings').select('config').eq('id',true).single();
-      if (readError) throw readError;
-      const config = (data?.config || {}) as Record<string,unknown>;
-      const taskModels = { ...((config.taskModels || {}) as Record<string,string>), agent_chat:selectedModel, agent_planning:selectedModel };
-      const result = await client.from('ai_provider_settings').upsert({ id:true, config:{...config,taskModels,defaultModel:selectedModel}, updated_at:new Date().toISOString() }, { onConflict:'id' });
-      if (result.error) throw result.error;
+      const config = await agentApi<AIConfig>('/api/v1/settings/ai-config');
+      const taskModels = { ...(config.taskModels || {}), agent_chat:selectedModel, agent_planning:selectedModel };
+      await agentApi('/api/v1/settings/ai-config', { method:'PUT', body:JSON.stringify({...config,taskModels,defaultModel:selectedModel}) });
       setNotice('小雅对话与任务规划模型已保存。');
     } catch (cause) { setError(cause instanceof Error ? cause.message : '模型设置保存失败。'); }
     finally { setSaving(false); }
