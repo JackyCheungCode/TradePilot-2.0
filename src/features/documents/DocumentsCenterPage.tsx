@@ -88,6 +88,10 @@ export function DocumentsCenterPage() {
   useEffect(() => { void load(); }, [load]);
 
   useEffect(() => {
+    if (templateId && !activeTemplates.some(template => template.id === templateId)) setTemplateId('');
+  }, [activeTemplates, templateId]);
+
+  useEffect(() => {
     setShipmentId('');
     if (!selectedType?.shipment || !orderId) { setShipments([]); return; }
     let alive = true;
