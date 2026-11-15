@@ -18,6 +18,10 @@ export interface DiscoveryRun {
   message: string;
   createdAt: string;
   logs: DiscoveryLog[];
+  countries?: string[];
+  state?: string;
+  city?: string;
+  searchConfig?: Record<string, unknown>;
 }
 export interface DiscoveryRecord {
   id: string;
@@ -76,4 +80,58 @@ export function getDiscoveryRuns(token: string): Promise<DiscoveryRun[]> {
 
 export function getDiscoveryRecords(token: string, runId: string): Promise<DiscoveryRecord[]> {
   return request<DiscoveryRecord[]>(`/api/v1/discovery-records?runId=${encodeURIComponent(runId)}&limit=500`, token);
+}
+
+
+export async function applyDiscoveryRecordAction(
+  token: string,
+  recordId: string,
+  action: 'remove' | 'discard' | 'promote',
+  runId?: string,
+): Promise<{ id: string; status: string; leadId?: string }> {
+  return request<{ id: string; status: string; leadId?: string }>(
+    `/api/v1/discovery-records/${recordId}/action`,
+    token,
+    { method: 'POST', body: JSON.stringify({ action, runId }) },
+  );
+}
+
+export async function retryDiscoveryRun(token: string, run: DiscoveryRun): Promise<DiscoveryRun> {
+  const config = run.searchConfig ?? {};
+  if (run.channel === 'map_local_businesses' || run.channel === 'map') {
+    return createDiscoveryRun({} as SupabaseClient, token, 'map', {
+      countries: run.countries ?? [],
+      query: run.query,
+      limitPerCountry: Number(config.limitPerCountry ?? config.limit_per_country ?? 100),
+      providers: (run.providers ?? ['google_maps']) as string[],
+      state: run.state,
+      city: run.city,
+      businessTypes: Array.isArray(config.businessTypes) ? config.businessTypes : [],
+      filters: (config.filters ?? {}) as Record<string, unknown>,
+      osmTags: Array.isArray(config.osmTags) ? config.osmTags : [],
+    });
+  }
+  if (run.channel === 'facebook') {
+    return createDiscoveryRun({} as SupabaseClient, token, 'facebook', {
+      country: run.countries?.[0],
+      state: run.state,
+      city: run.city,
+      query: run.query,
+      objectTypes: Array.isArray(config.objectTypes) ? config.objectTypes : ['page'],
+      limitPerType: Number(config.limitPerType ?? 100),
+      enrichPages: config.enrichPages === true,
+      enrichGroups: config.enrichGroups === true,
+      enrichPosts: config.enrichPosts === true,
+      dateFrom: config.dateFrom,
+      dateTo: config.dateTo,
+    });
+  }
+  if (run.channel === 'instagram') {
+    return createDiscoveryRun({} as SupabaseClient, token, 'instagram', {
+      ...config,
+      keywords: Array.isArray(config.keywords) ? config.keywords : run.query.split(' · '),
+      countries: run.countries ?? [],
+    });
+  }
+  throw new Error('该任务类型暂不支持重试。');
 }
