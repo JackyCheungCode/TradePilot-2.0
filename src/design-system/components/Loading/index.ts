@@ -1,2 +1,2 @@
-/** Local Carbon-native entry point. Import from this module, not directly from @carbon/react. */
+/** Local Carbon-native entry point. */
 export { Loading, InlineLoading, SkeletonText, SkeletonPlaceholder } from '@carbon/react';
