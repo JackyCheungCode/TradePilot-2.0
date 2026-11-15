@@ -56,7 +56,25 @@ function PlatformChart({ items }: { items: ConsoleStats['platforms'] }) {
   if (!items.length) return <p className="tp-console__empty">当前时间范围内暂无平台发现数据。</p>;
   return <div className="tp-console__bar-chart" role="img" aria-label="各发现平台潜客数量横向柱状图">
     {items.map(item => <div className="tp-console__bar-row" key={item.key}>
-      <div className="tp-console__bar-label" title={item.label}>{item.label}</div>
+      <div className="tp-console__bar-label" title={item.label}><PlatformIcon platform={item.key}/><span>{item.label}</span></div>
+      <div className="tp-console__bar-track"><svg viewBox="0 0 100 16" preserveAspectRatio="none" aria-hidden="true"><rect x="0" y="0" width={item.count / max * 100} height="16" /></svg></div>
+      <strong>{item.count.toLocaleString()}</strong>
+    </div>)}
+  </div>;
+}
+function CountryChart({ rows }: { rows: ProspectRow[] }) {
+  const counts = new Map<string, number>();
+  rows.forEach(row => {
+    const country = row.country?.trim();
+    if (country && country !== '—') counts.set(country, (counts.get(country) ?? 0) + 1);
+  });
+  const items = [...counts.entries()].map(([country, count]) => ({ country, label: countryLabel(country), count }))
+    .sort((a,b) => b.count-a.count || a.label.localeCompare(b.label)).slice(0,10);
+  const max = Math.max(1, ...items.map(item => item.count));
+  if (!items.length) return <p className="tp-console__empty">当前时间范围内暂无可识别国家 / 地区的潜客。</p>;
+  return <div className="tp-console__bar-chart" role="img" aria-label="按国家或地区统计的潜客与线索数量">
+    {items.map(item => <div className="tp-console__bar-row" key={item.country}>
+      <div className="tp-console__bar-label" title={item.label}><CarbonIcons.Map size={16} aria-hidden="true"/><span>{item.label}</span></div>
       <div className="tp-console__bar-track"><svg viewBox="0 0 100 16" preserveAspectRatio="none" aria-hidden="true"><rect x="0" y="0" width={item.count / max * 100} height="16" /></svg></div>
       <strong>{item.count.toLocaleString()}</strong>
     </div>)}
@@ -129,6 +147,8 @@ export function ProspectConsolePage() {
   const [status,setStatus] = useState('all');
   const [country,setCountry] = useState('all');
   const [sort,setSort] = useState('newest');
+  const [page,setPage] = useState(1);
+  const pageSize = 15;
   const [loading,setLoading] = useState(true);
   const [error,setError] = useState('');
   const [refreshing,setRefreshing] = useState(false);
@@ -191,7 +211,12 @@ export function ProspectConsolePage() {
     finally{setActionBusyId('');}
   };
   const toggleSelected=(id:string,checked:boolean)=>setSelectedIds(previous=>checked?[...new Set([...previous,id])]:previous.filter(value=>value!==id));
-  const allVisibleSelected=filtered.length>0&&filtered.every(row=>selectedIds.includes(row.id));
+  const totalPages=Math.max(1,Math.ceil(filtered.length/pageSize));
+  const currentPage=Math.min(page,totalPages);
+  const paginatedRows=filtered.slice((currentPage-1)*pageSize,currentPage*pageSize);
+  const allVisibleSelected=paginatedRows.length>0&&paginatedRows.every(row=>selectedIds.includes(row.id));
+  useEffect(()=>{setPage(1);},[platformKey,status,country,sort,search]);
+  useEffect(()=>{if(page>totalPages)setPage(totalPages);},[page,totalPages]);
   const runAction=async(row:ProspectRow,action:'promote'|'discard'|'remove')=>{
     if(!stats||actionBusyId)return;
     setActionBusyId(row.id);setError('');
@@ -238,6 +263,7 @@ export function ProspectConsolePage() {
       </div>
       <div className="tp-console__analytics-grid">
         <section className="tp-console__panel"><div className="tp-console__panel-heading"><div><h2>各平台潜客数量</h2><p>按发现渠道统计去重企业主体；同一企业可分别计入多个来源。</p></div></div><PlatformChart items={displayPlatforms}/></section>
+        <section className="tp-console__panel"><div className="tp-console__panel-heading"><div><h2>国家 / 地区潜客分布</h2><p>包含待处理潜客与已转化线索，按企业主体去重统计，不遗漏尚未转化的线索。</p></div></div><CountryChart rows={stats.prospects}/></section>
         <section className="tp-console__panel"><div className="tp-console__panel-heading"><div><h2>每日潜客获取趋势</h2><p>同一企业同一天跨平台重复发现只计一次。</p></div></div><DailyChart items={stats.daily}/><div className="tp-console__chart-footnote">统计时区：{stats.timezone} · 日均 {stats.daily.length?Math.round(stats.daily.reduce((sum,item)=>sum+item.count,0)/stats.daily.length):0} 家 · 峰值 {maxDaily} 家</div></section>
       </div>
       <section className="tp-console__panel tp-console__map-panel">
@@ -254,10 +280,11 @@ export function ProspectConsolePage() {
           <Select id="prospect-console-country" labelText="国家 / 地区" value={country} onChange={event=>setCountry(event.currentTarget.value)}><SelectItem value="all" text="全部国家 / 地区"/>{countries.map(value=><SelectItem key={value} value={value} text={value}/>)}</Select>
           <Select id="prospect-console-sort" labelText="发现时间排序" value={sort} onChange={event=>setSort(event.currentTarget.value)}><SelectItem value="newest" text="最近发现优先"/><SelectItem value="oldest" text="最早发现优先"/></Select>
         </div>
-        <div className="tp-console__table-scroll"><TableContainer><Table size="lg"><TableHead><TableRow><TableHeader><Checkbox id="prospect-console-select-all" labelText="全选当前结果" checked={allVisibleSelected} onChange={(_,data)=>setSelectedIds(data.checked?filtered.map(row=>row.id):[])}/></TableHeader><TableHeader>企业 / 客户</TableHeader><TableHeader>国家 / 地区</TableHeader><TableHeader>网站</TableHeader><TableHeader>联系方式</TableHeader><TableHeader>发现来源</TableHeader><TableHeader>最近发现</TableHeader><TableHeader>状态</TableHeader><TableHeader>操作</TableHeader></TableRow></TableHead>
-          <TableBody>{filtered.map(row=><TableRow key={row.id}><TableCell><Checkbox id={'prospect-select-'+row.id} labelText={'选择 '+row.name} checked={selectedIds.includes(row.id)} onChange={(_,data)=>toggleSelected(row.id,data.checked)}/></TableCell><TableCell><strong>{row.name}</strong><span className="tp-console__cell-secondary">{row.type}</span></TableCell><TableCell>{countryLabel(row.country)}<span className="tp-console__cell-secondary">{row.address}</span></TableCell><TableCell>{row.website?<a href={row.website} target="_blank" rel="noreferrer">{row.website}</a>:'—'}</TableCell><TableCell>{[row.phone,row.email].filter(Boolean).join(' · ')||'—'}</TableCell><TableCell><div className="tp-console__source-tags">{row.platforms.map(item=><Tag key={item.key} type="cool-gray">{item.label}</Tag>)}</div></TableCell><TableCell>{new Date(row.discoveredAt).toLocaleDateString('zh-TW')}</TableCell><TableCell><Tag type={row.status==='converted'?'green':'blue'}>{row.status==='converted'?'已转化':'待处理'}</Tag></TableCell><TableCell><div className="tp-console__row-actions"><Button kind="ghost" size="sm" onClick={()=>setSelected(row)}>详情</Button>{row.status==='pending'&&<Button kind="ghost" size="sm" disabled={!!actionBusyId} onClick={()=>void runAction(row,'promote')}>转为线索</Button>}<Button kind="danger--ghost" size="sm" disabled={!!actionBusyId} onClick={()=>void runAction(row,'discard')}>排除</Button><Button kind="danger--ghost" size="sm" disabled={!!actionBusyId} onClick={()=>{if(confirmRemoveId===row.id)void runAction(row,'remove');else setConfirmRemoveId(row.id);}}>{confirmRemoveId===row.id?'再次点击确认删除':'删除'}</Button></div></TableCell></TableRow>)}</TableBody>
+        <div className="tp-console__table-scroll"><TableContainer><Table size="lg"><TableHead><TableRow><TableHeader><Checkbox id="prospect-console-select-all" labelText="全选当前结果" checked={allVisibleSelected} onChange={(_,data)=>setSelectedIds(data.checked?[...new Set([...selectedIds,...paginatedRows.map(row=>row.id)])]:selectedIds.filter(id=>!paginatedRows.some(row=>row.id===id))}/></TableHeader><TableHeader>企业 / 客户</TableHeader><TableHeader>国家 / 地区</TableHeader><TableHeader>网站</TableHeader><TableHeader>联系方式</TableHeader><TableHeader>发现来源</TableHeader><TableHeader>最近发现</TableHeader><TableHeader>状态</TableHeader><TableHeader>操作</TableHeader></TableRow></TableHead>
+          <TableBody>{paginatedRows.map(row=><TableRow key={row.id}><TableCell><Checkbox id={'prospect-select-'+row.id} labelText={'选择 '+row.name} checked={selectedIds.includes(row.id)} onChange={(_,data)=>toggleSelected(row.id,data.checked)}/></TableCell><TableCell><strong>{row.name}</strong><span className="tp-console__cell-secondary">{row.type}</span></TableCell><TableCell>{countryLabel(row.country)}<span className="tp-console__cell-secondary">{row.address}</span></TableCell><TableCell>{row.website?<a href={row.website} target="_blank" rel="noreferrer">{row.website}</a>:'—'}</TableCell><TableCell>{[row.phone,row.email].filter(Boolean).join(' · ')||'—'}</TableCell><TableCell><div className="tp-console__source-tags">{row.platforms.map(item=><Tag key={item.key} type="cool-gray">{item.label}</Tag>)}</div></TableCell><TableCell>{new Date(row.discoveredAt).toLocaleDateString('zh-TW')}</TableCell><TableCell><Tag type={row.status==='converted'?'green':'blue'}>{row.status==='converted'?'已转化':'待处理'}</Tag></TableCell><TableCell><div className="tp-console__row-actions"><Button kind="ghost" size="sm" onClick={()=>setSelected(row)}>详情</Button>{row.status==='pending'&&<Button kind="ghost" size="sm" disabled={!!actionBusyId} onClick={()=>void runAction(row,'promote')}>转为线索</Button>}<Button kind="danger--ghost" size="sm" disabled={!!actionBusyId} onClick={()=>void runAction(row,'discard')}>排除</Button><Button kind="danger--ghost" size="sm" disabled={!!actionBusyId} onClick={()=>{if(confirmRemoveId===row.id)void runAction(row,'remove');else setConfirmRemoveId(row.id);}}>{confirmRemoveId===row.id?'再次点击确认删除':'删除'}</Button></div></TableCell></TableRow>)}</TableBody>
         </Table></TableContainer></div>
         {!filtered.length&&<p className="tp-console__empty">没有符合当前筛选条件的潜客。</p>}
+        {filtered.length>0&&<div className="tp-console__pagination" aria-label="潜客资产分页"><span>显示 {(currentPage-1)*pageSize+1}–{Math.min(currentPage*pageSize,filtered.length)} 条，共 {filtered.length.toLocaleString()} 条</span><div><Button kind="ghost" size="sm" disabled={currentPage<=1} onClick={()=>setPage(value=>Math.max(1,value-1))}>上一页</Button><span className="tp-console__page-number">{currentPage} / {totalPages}</span><Button kind="ghost" size="sm" disabled={currentPage>=totalPages} onClick={()=>setPage(value=>Math.min(totalPages,value+1))}>下一页</Button></div></div>}
       </section>
       {selected&&<section className="tp-console__detail" aria-live="polite"><div className="tp-console__detail-head"><h3>{selected.name}</h3><Button kind="ghost" size="sm" onClick={()=>setSelected(null)}>关闭详情</Button></div><div className="tp-console__detail-grid"><div><span>国家 / 地区</span><strong>{countryLabel(selected.country)}</strong></div><div><span>主要地址</span><strong>{selected.address}</strong></div><div><span>电话</span><strong>{selected.phone||'—'}</strong></div><div><span>邮箱</span><strong>{selected.email||'—'}</strong></div><div><span>网站</span><strong>{selected.website||'—'}</strong></div><div><span>发现渠道</span><strong>{selected.platforms.map(item=>item.label).join('、')}</strong></div></div>
         {selected.sourceDetails?.map(detail=><section className="tp-console__source-detail" key={detail.platform}><h4>{detail.platform==='map_local_businesses'?'Google Maps':detail.platform==='facebook'?'Facebook Pages':detail.platform==='instagram'?'Instagram':detail.platform==='search_engine'?'搜索引擎':'内置 Agent'} 平台数据</h4><dl>{detail.fields.map(field=><div key={field.label}><dt>{field.label}</dt><dd>{field.value}</dd></div>)}</dl></section>)}
