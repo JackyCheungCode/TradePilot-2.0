@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-  Button, InlineLoading, InlineNotification, Table, TableHead, TableRow,
+  Button, InlineLoading, InlineNotification, TextInput, TextArea, Table, TableHead, TableRow,
   TableHeader, TableBody, TableCell,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
@@ -39,6 +39,32 @@ export function DocumentPreviewPage() {
   const [doc, setDoc] = useState<DocumentRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [draftContent, setDraftContent] = useState<Json | null>(null);
+  const beginEdit = () => { if (doc?.status === 'draft') { setDraftContent(JSON.parse(JSON.stringify(doc.content || {})) as Json); setEditing(true); } };
+  const setDraftField = (key: string, value: string) => setDraftContent(current => current ? { ...current, [key]: value } : current);
+  const saveDraft = async () => {
+    if (!doc || !draftContent) return;
+    if (!String(draftContent.seller_name || '').trim() || !String(draftContent.buyer_name || '').trim()) { setError('卖方名称和买方名称为必填项。'); return; }
+    if (address(draftContent.seller_address) === '—' || address(draftContent.buyer_address) === '—') { setError('卖方地址和买方开票地址为必填项。'); return; }
+    setSaving(true); setError('');
+    try {
+      const client = await getSupabaseClient();
+      const { data: { session } } = await client.auth.getSession();
+      if (!session?.access_token) throw new Error('登录状态已失效，请重新登录。');
+      const response = await fetch('/api/v1/trade/documents/' + encodeURIComponent(doc.id), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
+        body: JSON.stringify({ content: draftContent, totals: doc.totals || {}, locale: doc.locale, currency_code: doc.currency_code }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.error?.message || '草稿保存失败。');
+      setEditing(false); setDraftContent(null); await load();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : '草稿保存失败。'); }
+    finally { setSaving(false); }
+  };
+
   const load = useCallback(async () => {
     if (!id) return;
     setLoading(true); setError('');
@@ -72,9 +98,24 @@ export function DocumentPreviewPage() {
   return <main className="tp-document-preview">
     <header className="tp-document-preview__toolbar">
       <div><p className="tp-document-preview__eyebrow">TRADEPILOT / DOCUMENTS / PREVIEW</p><h1>{doc.document_number}</h1><p>{labels[doc.document_type] || doc.document_type} · V{doc.current_version} · {statusLabel(doc.status)}</p></div>
-      <div className="tp-document-preview__actions"><Button kind="tertiary" onClick={() => navigate('/documents')}>返回单据中心</Button><Button kind="secondary" onClick={() => void load()}>刷新</Button><Button kind="primary" onClick={() => window.print()}>打印 / 导出 PDF</Button></div>
+      <div className="tp-document-preview__actions"><Button kind="tertiary" onClick={() => navigate('/documents')}>返回单据中心</Button>{doc.status === 'draft' && !editing && <Button kind="secondary" onClick={beginEdit}>编辑草稿</Button>}<Button kind="secondary" onClick={() => void load()}>刷新</Button><Button kind="primary" onClick={() => window.print()}>打印 / 导出 PDF</Button></div>
     </header>
 
+    {editing && draftContent && <section className="tp-document-preview__editor"><div><h2>编辑单据草稿</h2><p>可校对主体、地址与交易说明。产品、数量、单价和成交条款仍以已锁定订单快照为准。</p></div><div className="tp-document-preview__editor-grid">
+      <TextInput id="doc-edit-seller" labelText="卖方名称" value={String(draftContent.seller_name || '')} onChange={e => setDraftField('seller_name', e.currentTarget.value)} />
+      <TextInput id="doc-edit-buyer" labelText="买方名称" value={String(draftContent.buyer_name || '')} onChange={e => setDraftField('buyer_name', e.currentTarget.value)} />
+      <TextArea id="doc-edit-seller-address" labelText="卖方地址" rows={3} value={typeof draftContent.seller_address === 'string' ? draftContent.seller_address : address(draftContent.seller_address) === '—' ? '' : address(draftContent.seller_address)} onChange={e => setDraftField('seller_address', e.currentTarget.value)} />
+      <TextArea id="doc-edit-buyer-address" labelText="买方开票地址" rows={3} value={typeof draftContent.buyer_address === 'string' ? draftContent.buyer_address : address(draftContent.buyer_address) === '—' ? '' : address(draftContent.buyer_address)} onChange={e => setDraftField('buyer_address', e.currentTarget.value)} />
+      <TextArea id="doc-edit-shipping-address" labelText="收货地址" rows={3} value={typeof draftContent.buyer_shipping_address === 'string' ? draftContent.buyer_shipping_address : address(draftContent.buyer_shipping_address) === '—' ? '' : address(draftContent.buyer_shipping_address)} onChange={e => setDraftField('buyer_shipping_address', e.currentTarget.value)} />
+      <TextInput id="doc-edit-contact" labelText="联系人" value={String(draftContent.contact_name || '')} onChange={e => setDraftField('contact_name', e.currentTarget.value)} />
+      <TextInput id="doc-edit-contact-email" labelText="联系人邮箱" value={String(draftContent.contact_email || '')} onChange={e => setDraftField('contact_email', e.currentTarget.value)} />
+      <TextInput id="doc-edit-contact-phone" labelText="联系人电话" value={String(draftContent.contact_phone || '')} onChange={e => setDraftField('contact_phone', e.currentTarget.value)} />
+      <TextInput id="doc-edit-payment" labelText="付款条件" value={String(draftContent.payment_terms || '')} onChange={e => setDraftField('payment_terms', e.currentTarget.value)} />
+      <TextInput id="doc-edit-incoterm" labelText="贸易术语" value={String(draftContent.incoterms_code || '')} onChange={e => setDraftField('incoterms_code', e.currentTarget.value)} />
+      <TextInput id="doc-edit-place" labelText="指定地点" value={String(draftContent.named_place || '')} onChange={e => setDraftField('named_place', e.currentTarget.value)} />
+      <TextInput id="doc-edit-delivery" labelText="交付日期" value={String(draftContent.delivery_date || '')} onChange={e => setDraftField('delivery_date', e.currentTarget.value)} />
+      <TextArea id="doc-edit-notes" labelText="单据备注" rows={3} value={String(draftContent.notes || '')} onChange={e => setDraftField('notes', e.currentTarget.value)} />
+    </div><div className="tp-document-preview__editor-actions"><Button kind="tertiary" disabled={saving} onClick={() => { setEditing(false); setDraftContent(null); }}>取消</Button><Button kind="primary" disabled={saving} onClick={() => void saveDraft()}>{saving ? '保存中…' : '保存并创建新版本'}</Button></div></section>}
     <article className="tp-document-preview__sheet">
       <header className="tp-document-preview__paper-header">
         <div className="tp-document-preview__brand">
