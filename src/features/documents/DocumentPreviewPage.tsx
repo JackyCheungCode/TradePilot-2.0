@@ -42,6 +42,24 @@ export function DocumentPreviewPage() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [draftContent, setDraftContent] = useState<Json | null>(null);
+  const load = useCallback(async () => {
+    if (!id) return;
+    setLoading(true); setError('');
+    try {
+      const client = await getSupabaseClient();
+      const { data: { session } } = await client.auth.getSession();
+      if (!session?.access_token) throw new Error('登录状态已失效，请重新登录。');
+      const response = await fetch('/api/v1/trade/documents/' + encodeURIComponent(id), {
+        headers: { Authorization: 'Bearer ' + session.access_token, Accept: 'application/json' },
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.error?.message || '单据读取失败。');
+      setDoc(unwrap(payload) as DocumentRecord);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : '单据读取失败。'); }
+    finally { setLoading(false); }
+  }, [id]);
+  useEffect(() => { void load(); }, [load]);
+
   const beginEdit = () => { if (doc?.status === 'draft') { setDraftContent(JSON.parse(JSON.stringify(doc.content || {})) as Json); setEditing(true); } };
   const setDraftField = (key: string, value: string) => setDraftContent(current => current ? { ...current, [key]: value } : current);
   const saveDraft = async () => {
@@ -64,24 +82,6 @@ export function DocumentPreviewPage() {
     } catch (cause) { setError(cause instanceof Error ? cause.message : '草稿保存失败。'); }
     finally { setSaving(false); }
   };
-
-  const load = useCallback(async () => {
-    if (!id) return;
-    setLoading(true); setError('');
-    try {
-      const client = await getSupabaseClient();
-      const { data: { session } } = await client.auth.getSession();
-      if (!session?.access_token) throw new Error('登录状态已失效，请重新登录。');
-      const response = await fetch('/api/v1/trade/documents/' + encodeURIComponent(id), {
-        headers: { Authorization: 'Bearer ' + session.access_token, Accept: 'application/json' },
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload?.error?.message || '单据读取失败。');
-      setDoc(unwrap(payload) as DocumentRecord);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : '单据读取失败。'); }
-    finally { setLoading(false); }
-  }, [id]);
-  useEffect(() => { void load(); }, [load]);
 
   const content = doc?.content ?? {};
   const items = useMemo(() => Array.isArray(content.items) ? content.items as Json[] : [], [content.items]);
