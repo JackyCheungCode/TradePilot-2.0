@@ -829,7 +829,8 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
             const channel=["search_engine","facebook","instagram"].includes(String(taskRaw.channel))?String(taskRaw.channel):"search_engine";
             const allowedObjects=new Set(["page","person","post","group","video","event"]);
             const objectTypes=Array.isArray(taskRaw.objectTypes)?[...new Set(taskRaw.objectTypes.filter((value):value is string=>typeof value==="string"&&allowedObjects.has(value)))] as string[]:["page","group","post"];
-            task={goal:String(taskRaw.goal).slice(0,10000),agentKey,country,mode,channel,objectTypes:objectTypes.slice(0,6)};\n          }
+            task={goal:String(taskRaw.goal).slice(0,10000),agentKey,country,mode,channel,objectTypes:objectTypes.slice(0,6)};
+          }
         }
         const assistantRows=await db<Array<{id:string}>>(env,"agent_chat_messages",{method:"POST",headers:{Prefer:"return=representation"},body:JSON.stringify({owner_id:ownerId,conversation_id:conversationId,role:"assistant",content:reply,metadata:{task,model:generated.model,toolsUsed:toolResults.filter(item=>item.ok===true).map(item=>({name:item.tool,label:item.label,count:item.count}))}})});
         await db(env,"agent_conversations?id=eq."+conversationId+"&owner_id=eq."+ownerId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({last_message_at:new Date().toISOString()})});
