@@ -318,6 +318,30 @@ begin
       locked_at = coalesce(locked_at, now()),
       confirmed_from_document_id = v_doc.id,
       commercial_snapshot = v_snapshot,
+      metadata = jsonb_set(
+        coalesce(metadata, '{}'::jsonb),
+        '{sales_order}',
+        coalesce(metadata->'sales_order', '{}'::jsonb) || jsonb_build_object(
+          'order_status', 'confirmed',
+          'price_locked', true,
+          'confirmed_at', coalesce(confirmed_at, now()),
+          'change_log', (
+            case
+              when jsonb_typeof(metadata #> '{sales_order,change_log}') = 'array'
+              then metadata #> '{sales_order,change_log}'
+              else '[]'::jsonb
+            end
+          ) || case
+            when v_already_confirmed then '[]'::jsonb
+            else jsonb_build_array(jsonb_build_object(
+              'at', now(),
+              'action', 'confirmed',
+              'reason', '报价单确认，成交快照已锁定'
+            ))
+          end
+        ),
+        true
+      ),
       updated_at = now()
   where id = v_order.id and owner_id = p_owner_id;
 
