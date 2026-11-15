@@ -4,7 +4,7 @@ import {
   CarbonIcons,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
-import './TradeToolsPage.scss';
+import '@/design-system/patterns/trade-tools.scss';
 
 type ToolId = 'currency' | 'holidays' | 'shipping' | 'translation' | 'contact-time' | 'profit';
 type Holiday = { date: string; localName: string; name: string; global: boolean; counties?: string[]; types?: string[] };
