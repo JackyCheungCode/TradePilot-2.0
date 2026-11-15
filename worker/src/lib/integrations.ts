@@ -2,8 +2,8 @@ export interface IntegrationSecretEnv {
   SUPABASE_URL: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
 }
-export async function readIntegrationSecrets(
-  env: IntegrationSecretEnv & Record<string, unknown>,
+export async function readIntegrationSecrets<T extends IntegrationSecretEnv>(
+  env: T,
   names: string[],
 ): Promise<Record<string,string>> {
   const unique=[...new Set(names.filter(Boolean))];
@@ -17,11 +17,11 @@ export async function readIntegrationSecrets(
   const rows=await response.json() as Array<{name:string;secret:string}>;
   return Object.fromEntries((rows??[]).map(row=>[row.name,row.secret]));
 }
-export async function readIntegrationSecret(
-  env: IntegrationSecretEnv & Record<string, unknown>,
+export async function readIntegrationSecret<T extends IntegrationSecretEnv>(
+  env: T,
   name: string,
   legacyBinding?: string,
 ): Promise<string> {
   const values=await readIntegrationSecrets(env,[name]);
-  return values[name]||String(legacyBinding?env[legacyBinding]??"": "");
+  return values[name]||String(legacyBinding?(env as unknown as Record<string,unknown>)[legacyBinding]??"": "");
 }
