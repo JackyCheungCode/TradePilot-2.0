@@ -9,6 +9,7 @@ import { ContactConsolePage, ContactDetailPage, ContactFormPage } from '../featu
 import { AccountConsolePage, AccountDetailPage, AccountFormPage } from '../features/accounts/AccountPages';
 import { OpportunityConsolePage, OpportunityDetailPage, OpportunityFormPage } from '../features/opportunities/OpportunityPages';
 import { ProductConsolePage, ProductDetailPage, ProductFormPage } from '../features/products/ProductPages';
+import { SettingsCenterPage } from '../features/settings/SettingsCenterPage';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -32,6 +33,7 @@ export const router = createBrowserRouter([
           { path: 'products/new', element: <ProductFormPage /> },
           { path: 'products/:id/edit', element: <ProductFormPage /> },
           { path: 'products/:id', element: <ProductDetailPage /> },
+          { path: 'settings', element: <SettingsCenterPage /> },
           { path: 'contacts', element: <ContactConsolePage /> },
           { path: 'contacts/new', element: <ContactFormPage /> },
           { path: 'contacts/:id/edit', element: <ContactFormPage /> },
