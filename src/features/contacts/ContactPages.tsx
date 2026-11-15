@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   Accordion, AccordionItem, Button, Checkbox, ComboBox, InlineLoading, InlineNotification, MultiSelect,
   Select, SelectItem, Tab, TabList, TabPanel, TabPanels, Tabs, Tag, TextArea, TextInput, Tile, FileUploader,
-  CarbonIcons, Table, TableHead, TableRow, TableHeader, TableBody, TableCell, TableContainer,
+  CarbonIcons, Table, TableHead, TableRow, TableHeader, TableBody, TableCell,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/contacts.scss';
