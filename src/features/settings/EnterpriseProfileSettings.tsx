@@ -46,7 +46,7 @@ const profileFields: Array<{ title: string; description: string; fields: Field[]
     { key: 'contact_name', label: '单据默认联系人' }, { key: 'contact_title', label: '联系人职位' },
   ] },
   { title: '经营与组织信息', description: '用于企业主数据、客户沟通、销售组织和内部业务归属。', fields: [
-    { key: 'industry', label: '所属行业' }, { key: 'business_scope', label: '经营范围', type: 'textarea' },
+    { key: 'country_code', label: '企业所在国家 / 地区代码' }, { key: 'industry', label: '所属行业' }, { key: 'business_scope', label: '经营范围', type: 'textarea' },
     { key: 'company_size', label: '企业规模' }, { key: 'employee_count', label: '员工人数' },
     { key: 'annual_revenue', label: '年营业额' }, { key: 'registered_capital', label: '注册资本' },
     { key: 'parent_company', label: '母公司 / 集团名称' }, { key: 'stock_exchange', label: '上市交易所 / 股票代码' },
@@ -145,6 +145,7 @@ export function EnterpriseProfileSettings() {
       const payload = {
         ...profile, owner_id: ownerId, legal_name: String(profile.legal_name).trim(),
         former_names: String(getField('former_names')).split(',').map(x => x.trim()).filter(Boolean),
+        established_on: profile.established_on ? String(profile.established_on) : null,
         employee_count: profile.employee_count === '' ? null : Number(profile.employee_count),
         annual_revenue: profile.annual_revenue === '' ? null : Number(profile.annual_revenue),
         registered_capital: profile.registered_capital === '' ? null : Number(profile.registered_capital),
