@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Button, InlineLoading, InlineNotification, Select, SelectItem, TextInput, Tag,
   Table, TableHead, TableRow, TableHeader, TableBody, TableCell, Tile,
@@ -33,6 +34,12 @@ const dateLabel = (value?: string | null) => value ? new Date(value).toLocaleDat
 const unwrap = <T,>(payload: any): T => (payload?.data ?? payload?.result ?? payload) as T;
 
 export function DocumentsCenterPage() {
+  const [searchParams] = useSearchParams();
+  const initialOrderId = searchParams.get('order_id') || '';
+  const initialShipmentId = searchParams.get('shipment_id') || '';
+  const initialDocumentType = searchParams.get('document_type') || 'proforma_invoice';
+  const initialCategory = searchParams.get('category') || (['commercial_invoice', 'packing_list', 'shipping_instructions'].includes(initialDocumentType) ? 'shipping' : 'sales');
+  const initialNeedsShipment = Boolean(documentGroups.flatMap(group => group.items).find(item => item.id === initialDocumentType)?.shipment);
   const [docs, setDocs] = useState<Doc[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [shipments, setShipments] = useState<Shipment[]>([]);
@@ -41,11 +48,11 @@ export function DocumentsCenterPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [step, setStep] = useState<Step>(1);
-  const [category, setCategory] = useState('sales');
-  const [documentType, setDocumentType] = useState('proforma_invoice');
-  const [orderId, setOrderId] = useState('');
-  const [shipmentId, setShipmentId] = useState('');
+  const [step, setStep] = useState<Step>(initialOrderId ? (initialNeedsShipment && !initialShipmentId ? 3 : 4) : 1);
+  const [category, setCategory] = useState(initialCategory);
+  const [documentType, setDocumentType] = useState(initialDocumentType);
+  const [orderId, setOrderId] = useState(initialOrderId);
+  const [shipmentId, setShipmentId] = useState(initialShipmentId);
   const [templateId, setTemplateId] = useState('');
   const [locale, setLocale] = useState('en');
   const [currency, setCurrency] = useState('USD');
