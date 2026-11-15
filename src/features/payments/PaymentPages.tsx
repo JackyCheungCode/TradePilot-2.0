@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-  Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput, TextArea,
+  Button, FileUploaderButton, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput, TextArea,
   Tabs, TabList, Tab, TabPanels, TabPanel, Table, TableHead, TableRow, TableHeader, TableBody, TableCell,
   Tile, LineChart, SimpleBarChart, ScaleTypes, CarbonIcons,
 } from '@/design-system';
@@ -13,11 +13,9 @@ type AnyRow = Record<string, any>;
 const CURRENCIES = ['USD','EUR','GBP','CNY','TWD','JPY','HKD','AUD','CAD'];
 const METHODS = ['T/T','L/C','D/P','D/A','PayPal','Western Union','现金','支票','其他'];
 const PAYMENT_STATES = [['draft','草稿'],['pending_confirmation','待确认'],['confirmed','已确认'],['partially_reconciled','部分核销'],['reconciled','已核销'],['returned','已退回'],['voided','已作废']];
-const PAYMENT_TYPES = [['receipt','收款'],['refund','退款']];
 const ALLOCATION_TYPES = ['定金','尾款','全款','预收','其他'];
 const statusLabel = (v:string) => PAYMENT_STATES.find(x=>x[0]===v)?.[1] || v || '—';
 const money = (v:number,c:string) => c+' '+Number(v||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
-const fmt = (v:any) => v===null || v===undefined || v==='' ? '—' : String(v);
 const dateToday = () => new Date().toISOString().slice(0,10);
 const emptyAllocation = () => ({order_id:'',schedule_node_id:'',allocation_type:'定金',allocated_amount:'',allocated_amount_in_payment:'',allocation_date:dateToday()});
 const scheduleOf = (o:AnyRow) => Array.isArray(o?.metadata?.sales_order?.payment_schedule) ? o.metadata.sales_order.payment_schedule : [];
@@ -66,7 +64,9 @@ export function PaymentConsolePage() {
   const filtered=useMemo(()=>rows.filter(r=>(status==='all'||r.status===status)&&r.currency===currency&&[r.payment_no,accountMap.get(r.account_id)||'',r.payer_name,r.bank_reference,r.remittance_info].join(' ').toLowerCase().includes(query.trim().toLowerCase())),[rows,status,currency,query,accountMap]);
   const confirmed=rows.filter(r=>['confirmed','partially_reconciled','reconciled'].includes(r.status));
   const currencyRows=rows.filter(r=>r.currency===currency);
-  const totalReceived=currencyRows.filter(r=>r.payment_type==='receipt'&&['confirmed','partially_reconciled','reconciled'].includes(r.status)).reduce((s,r)=>s+Number(r.net_received||0),0);
+  const grossReceived=currencyRows.filter(r=>r.payment_type==='receipt'&&['confirmed','partially_reconciled','reconciled','returned'].includes(r.status)).reduce((s,r)=>s+Number(r.net_received||0),0);
+  const refunds=currencyRows.filter(r=>r.payment_type==='refund'&&r.status==='returned').reduce((s,r)=>s+Number(r.refund_amount||0),0);
+  const totalReceived=Math.max(0,grossReceived-refunds);
   const unallocated=currencyRows.filter(r=>r.payment_type==='receipt'&&['confirmed','partially_reconciled','reconciled'].includes(r.status)).reduce((s,r)=>s+Number(r.unallocated_amount||0),0);
   const pending=rows.filter(r=>r.status==='pending_confirmation'||r.status==='draft').length;
   const thirdParty=rows.filter(r=>r.is_third_party&&r.status!=='voided').length;
@@ -78,7 +78,8 @@ export function PaymentConsolePage() {
       const so=order.metadata?.sales_order||{};
       const customer=accountMap.get(order.crm_account_id)||so.account_snapshot?.account_name||'—';
       for(const node of scheduleOf(order)){
-        const received=paidAllocations.filter(a=>a.order_id===order.id&&a.schedule_node_id===String(node.id)).reduce((s,a)=>s+Number(a.allocated_amount||0),0);
+        const allocationReceived=paidAllocations.filter(a=>a.order_id===order.id&&a.schedule_node_id===String(node.id)).reduce((s,a)=>s+Number(a.allocated_amount||0),0);
+        const received=Number(node.paid_amount??allocationReceived);
         const amount=Number(node.amount||0);
         const outstanding=Math.max(0,amount-received);
         const due=node.due_date||null;
@@ -237,6 +238,28 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
     catch(e){setError(e instanceof Error?e.message:'作废收款失败');}
     finally{setSaving(false);}
   };
+  const uploadFiles=async(event:React.ChangeEvent<HTMLInputElement>,target:'bank_slip'|'attachments')=>{
+    const input=event.currentTarget;const files=Array.from(input.files||[]);input.value='';
+    if(!files.length)return;
+    setError('');
+    try{
+      const db=await getSupabaseClient();const {data:s}=await db.auth.getSession();const user=s.session?.user;if(!user)throw new Error('登录状态已失效');
+      for(const file of files){
+        if(file.size>15*1024*1024)throw new Error('单个附件不能超过 15 MB。');
+        if(!['application/pdf','image/jpeg','image/png','image/webp'].includes(file.type))throw new Error('仅支持 PDF、JPG、PNG、WEBP 文件。');
+        const safeName=file.name.replace(/[^a-zA-Z0-9._-]+/g,'_');
+        const path=user.id+'/'+(id||'draft')+'/'+crypto.randomUUID()+'-'+safeName;
+        const {error:e}=await db.storage.from('payment-documents').upload(path,file,{upsert:false,contentType:file.type});
+        if(e)throw e;
+        if(target==='bank_slip')set('bank_slip',path);
+        else setPayment((prev:AnyRow)=>({...prev,attachments:[...(prev.attachments||[]),path]}));
+      }
+    }catch(e){setError(e instanceof Error?e.message:'上传附件失败');}
+  };
+  const openStoredFile=async(path:string)=>{
+    try{const db=await getSupabaseClient();const {data,error:e}=await db.storage.from('payment-documents').createSignedUrl(path,3600);if(e)throw e;window.open(data.signedUrl,'_blank','noopener,noreferrer');}
+    catch(e){setError(e instanceof Error?e.message:'无法打开附件');}
+  };
 
   if(loading)return <main className="tp-payments"><InlineLoading description="正在加载收款资料…"/></main>;
   const statusText=statusLabel(payment.status);
@@ -286,7 +309,7 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
           <h2>收款方式与我方账户</h2><div className="tp-payments__form-grid">
             <Pick id="pay-method" label="收款方式" value={payment.payment_method} onChange={v=>set('payment_method',v)} options={METHODS} disabled={locked}/>
             <Pick id="pay-bank-account" label="我方收款账户" value={payment.bank_account_id} onChange={v=>set('bank_account_id',v)} options={bankOptions.map(b=>({value:b.id,label:b.bank_name+' · '+b.account_name+' · '+(b.currency_code||'多币种')}))} disabled={locked}/>
-            <Field id="pay-bank-slip" label="银行水单文件路径 / URL" value={payment.bank_slip} onChange={v=>set('bank_slip',v)} disabled={locked}/>
+            <div className="tp-payments__field-wide"><span className="tp-payments__upload-label">银行水单（PDF / JPG / PNG / WEBP，最大 15 MB）</span><div className="tp-payments__upload-row"><FileUploaderButton accept={['.pdf','.jpg','.jpeg','.png','.webp']} buttonKind="tertiary" labelText="上传银行水单" disabled={locked} onChange={e=>void uploadFiles(e,'bank_slip')}/>{payment.bank_slip&&<><Tag type="green">已上传</Tag><Button kind="ghost" size="sm" onClick={()=>void openStoredFile(payment.bank_slip)}>打开水单</Button></>}</div></div>
           </div>
           {payment.payment_method==='L/C'&&<><h2>L/C 信用证信息</h2><div className="tp-payments__form-grid">
             <Field id="pay-lc-no" label="信用证号（必填）" value={payment.lc_no} onChange={v=>set('lc_no',v)} disabled={locked}/>
@@ -344,7 +367,7 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
         <TabPanel><div className="tp-payments__tab-content">
           <h2>备注与附件</h2><div className="tp-payments__form-grid">
             <div className="tp-payments__field-wide"><TextArea id="pay-remarks" labelText="内部备注（不会进入对客收款确认函）" rows={4} value={payment.remarks_internal||''} onChange={e=>set('remarks_internal',e.currentTarget.value)} disabled={locked}/></div>
-            <div className="tp-payments__field-wide"><TextArea id="pay-attachments" labelText="附件清单（每行一个文件路径 / URL）" rows={3} value={(payment.attachments||[]).map((x:any)=>typeof x==='string'?x:x.path||'').join('\n')} onChange={e=>set('attachments',e.currentTarget.value.split('\n').map((x:string)=>x.trim()).filter(Boolean))} disabled={locked}/></div>
+            <div className="tp-payments__field-wide"><span className="tp-payments__upload-label">附件（L/C 副本、客户汇款通知等）</span><div className="tp-payments__upload-row"><FileUploaderButton accept={['.pdf','.jpg','.jpeg','.png','.webp']} buttonKind="tertiary" labelText="上传附件" multiple disabled={locked} onChange={e=>void uploadFiles(e,'attachments')}/>{(payment.attachments||[]).map((path:string,i:number)=><Tag key={path} type="cool-gray"><button className="tp-payments__file-link" onClick={()=>void openStoredFile(path)}>附件 {i+1} · 打开</button></Tag>)}</div></div>
             <Pick id="pay-receipt-sent" label="已发送收款确认给客户" value={payment.receipt_sent?'是':'否'} onChange={v=>set('receipt_sent',v==='是')} options={['否','是']} disabled={locked}/>
             <Field id="pay-receipt-sent-at" label="确认函发送时间" value={payment.receipt_sent_at||''} onChange={v=>set('receipt_sent_at',v)} disabled={locked}/>
           </div>
