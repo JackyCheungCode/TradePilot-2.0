@@ -26,6 +26,19 @@ const terminalStatuses=new Set(['completed','partial','failed','cancelled']);
 const statusLabels:Record<string,string>={queued:'排队中',running:'执行中',completed:'已完成',partial:'部分完成',failed:'失败',cancelled:'已取消',planned:'待执行',awaiting_approval:'等待确认'};
 const channelLabels:Record<string,string>={map_local_businesses:'Google Maps',facebook:'Facebook',instagram:'Instagram'};
 const isTerminal=(status:string)=>terminalStatuses.has(status);
+function extraContactValues(record:DiscoveryRecord):string[]{
+  const found:string[]=[];
+  const visit=(value:unknown,path:string):void=>{
+    if(value===null||value===undefined)return;
+    if(Array.isArray(value)){value.forEach(item=>visit(item,path));return;}
+    if(typeof value==='object'){for(const [key,item] of Object.entries(value as Record<string,unknown>))visit(item,key);return;}
+    if((typeof value==='string'||typeof value==='number')&&/email|phone|whatsapp|telegram|wechat|line|contact|social/i.test(path)){
+      const text=String(value).trim();if(text&&text.length<300)found.push(path+': '+text);
+    }
+  };
+  visit(record.raw_data,'');
+  return [...new Set(found)].slice(0,3);
+}
 
 export function ProspectDiscoveryPage() {
   const [client,setClient]=useState<SupabaseClient|null>(null);
@@ -173,7 +186,7 @@ export function ProspectDiscoveryPage() {
           {!isTerminal(activeRun.status)&&<div className="tp-discovery__heartbeat"><span className="tp-discovery__pulse"/><span>任务仍在执行 · 已运行 {elapsedLabel} · 自动刷新中</span></div>}
         </div>
         <div className="tp-discovery__results"><div className="tp-discovery__activity-head"><h3>搜索结果</h3><Tag type="gray">{records.length} 条</Tag></div>
-          <TableContainer><Table size="lg"><TableHead><TableRow><TableHeader>名称</TableHeader><TableHeader>类型 / 地区</TableHeader><TableHeader>联系方式</TableHeader><TableHeader>来源</TableHeader></TableRow></TableHead><TableBody>{records.map(record=><TableRow key={record.id}><TableCell><strong>{record.name}</strong><div className="tp-discovery__muted">{record.website??'暂无官网'}</div></TableCell><TableCell>{record.record_type} · {record.country_code??'—'}</TableCell><TableCell>{[record.email,record.phone].filter(Boolean).join(' / ')||'待补充'}</TableCell><TableCell>{channelLabels[record.channel]??record.channel}</TableCell></TableRow>)}</TableBody></Table></TableContainer>
+          <TableContainer><Table size="lg"><TableHead><TableRow><TableHeader>名称</TableHeader><TableHeader>类型 / 地区</TableHeader><TableHeader>地址</TableHeader><TableHeader>联系方式</TableHeader><TableHeader>来源</TableHeader></TableRow></TableHead><TableBody>{records.map(record=><TableRow key={record.id}><TableCell><strong>{record.name}</strong><div className="tp-discovery__muted">{record.website??'暂无官网'}</div></TableCell><TableCell>{record.record_type} · {record.country_code??'—'}</TableCell><TableCell>{record.address??'—'}</TableCell><TableCell>{[record.email,record.phone,...extraContactValues(record)].filter(Boolean).join(' / ')||'待补充'}</TableCell><TableCell>{channelLabels[record.channel]??record.channel}</TableCell></TableRow>)}</TableBody></Table></TableContainer>
           {records.length===0&&<p className="tp-discovery__empty">任务发现结果将在采集并写入数据库后自动出现。</p>}
         </div>
       </>:<InlineNotification kind="info" title="尚未选择任务" subtitle="请先完成发现途径和条件配置。" />}
