@@ -258,7 +258,7 @@ export function ProspectConsolePage() {
   const maxDaily=Math.max(0,...(stats?.daily??[]).map(item=>item.count));
   const tabs=[{key:'all',label:'全部平台',count:stats?.metrics.prospectCount??0},...displayPlatforms];
   return <main className="tp-console">
-    <ProspectDiscoveryHeader title="情报数据台" description="汇总全网发现渠道的潜客资产，查看来源贡献、全球分布与每日发现趋势。" showRecentTasks={false}/>
+    <ProspectDiscoveryHeader title="全球情报（Global Intelligence）" description="汇总全网发现渠道的潜客资产，查看来源贡献、全球分布与每日发现趋势。" showRecentTasks={false}/>
     {error&&<InlineNotification kind="error" title="数据读取失败" subtitle={error} onCloseButtonClick={()=>setError('')}/>}
     <div className="tp-console__toolbar">
       <div><span className="tp-console__toolbar-label">统计时间范围</span><Select id="prospect-console-period" labelText="统计时间范围" hideLabel value={period} onChange={event=>setPeriod(event.currentTarget.value)}>{periods.map(item=><SelectItem key={item.value} value={item.value} text={item.label}/>)}</Select>
