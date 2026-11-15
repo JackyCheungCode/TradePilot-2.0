@@ -1,0 +1,11 @@
+/** Semantic chart color aliases; use only after the approved chart library is selected. */
+:root {
+  --tp-chart-series-01: var(--cds-chart-1);
+  --tp-chart-series-02: var(--cds-chart-2);
+  --tp-chart-series-03: var(--cds-chart-3);
+  --tp-chart-series-04: var(--cds-chart-4);
+  --tp-chart-series-05: var(--cds-chart-5);
+  --tp-chart-series-06: var(--cds-chart-6);
+  --tp-chart-sequential-start: var(--cds-chart-sequential-color-1);
+  --tp-chart-sequential-end: var(--cds-chart-sequential-color-5);
+}
