@@ -81,25 +81,17 @@ export function AppShell() {
             href="/leads"
             isActive={location.pathname.startsWith('/leads')}
             title="线索（Lead）"
-            renderIcon={CarbonIcons.UserMultiple}
+            renderIcon={CarbonIcons.UserFollow}
           >
             线索（Lead）
           </SideNavLink>
           <SideNavLink
-            href="/opportunities"
-            isActive={location.pathname.startsWith('/opportunities')}
-            title="商机（Opportunity）"
-            renderIcon={CarbonIcons.UserMultiple}
+            href="/contacts"
+            isActive={location.pathname.startsWith('/contacts')}
+            title="联系人（Contact）"
+            renderIcon={CarbonIcons.User}
           >
-            商机（Opportunity）
-          </SideNavLink>
-          <SideNavLink
-            href="/products"
-            isActive={location.pathname.startsWith('/products')}
-            title="产品（Product）"
-            renderIcon={CarbonIcons.Product}
-          >
-            产品（Product）
+            联系人（Contact）
           </SideNavLink>
           <SideNavLink
             href="/accounts"
@@ -110,12 +102,20 @@ export function AppShell() {
             客户（Account）
           </SideNavLink>
           <SideNavLink
-            href="/contacts"
-            isActive={location.pathname.startsWith('/contacts')}
-            title="联系人（Contact）"
-            renderIcon={CarbonIcons.User}
+            href="/opportunities"
+            isActive={location.pathname.startsWith('/opportunities')}
+            title="商机（Opportunity）"
+            renderIcon={CarbonIcons.ChartLine}
           >
-            联系人（Contact）
+            商机（Opportunity）
+          </SideNavLink>
+          <SideNavLink
+            href="/products"
+            isActive={location.pathname.startsWith('/products')}
+            title="产品（Product）"
+            renderIcon={CarbonIcons.Product}
+          >
+            产品（Product）
           </SideNavLink>
           <SideNavLink
             href="/settings"
