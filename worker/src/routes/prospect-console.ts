@@ -25,6 +25,7 @@ type OccurrenceRow = {
     email?: string | null;
     website?: string | null;
     confidence_score?: number | null;
+    raw_data?: Record<string, unknown> | null;
   } | null;
 };
 async function authenticate(request: Request, env: ConsoleEnv): Promise<string | null> {
@@ -59,6 +60,40 @@ function platformFor(channel: string, provider: string): { key: string; label: s
   if (channel === "agent") return { key: "agent", label: "内置 Agent" };
   return { key: channel || provider, label: channel || provider };
 }
+function sourceDetails(channel: string, rawData?: Record<string, unknown> | null): { platform: string; fields: Array<{ label: string; value: string }> } | null {
+  if (!rawData) return null;
+  const nestedKey = channel === "facebook" ? "facebook" : channel === "instagram" ? "instagram" : channel === "search_engine" ? "last_search_result" : "";
+  const nested = nestedKey ? rawData[nestedKey] as Record<string, unknown> | undefined : undefined;
+  const source = nested && typeof nested === "object" && nested.raw && typeof nested.raw === "object"
+    ? nested.raw as Record<string, unknown>
+    : nested && typeof nested === "object" ? nested : rawData;
+  const keys: Record<string, string[]> = {
+    map_local_businesses: ["rating", "user_rating_count", "business_status", "types", "place_id", "formatted_address"],
+    facebook: ["id", "url", "searchType", "isVerified", "description", "followers", "likes", "location", "category", "actorId"],
+    instagram: ["username", "fullName", "followersCount", "followingCount", "postsCount", "biography", "externalUrl", "accountType", "engagementRatePct", "businessEmail", "businessPhone"],
+    search_engine: ["title", "snippet", "url", "engine", "search_type", "merchant", "product_id", "price"],
+  };
+  const labels: Record<string, string> = {
+    rating: "平台评分", user_rating_count: "评价数量", business_status: "营业状态", types: "业务类别",
+    place_id: "地图地点 ID", formatted_address: "平台地址", id: "平台账号 ID", url: "来源页面",
+    searchType: "搜索类型", isVerified: "平台认证", description: "平台简介", followers: "粉丝数",
+    likes: "获赞数", location: "平台位置", category: "平台类别", actorId: "采集 Actor",
+    username: "账号名称", fullName: "账号显示名称", followersCount: "粉丝数", followingCount: "关注数",
+    postsCount: "帖子数量", biography: "账号简介", externalUrl: "外部链接", accountType: "账号类型",
+    engagementRatePct: "互动率", businessEmail: "商业邮箱", businessPhone: "商业电话",
+    title: "搜索标题", snippet: "搜索摘要", engine: "搜索引擎", search_type: "搜索类型",
+    merchant: "商家", product_id: "商品 ID", price: "价格",
+  };
+  const fields = (keys[channel] ?? Object.keys(source)).flatMap(key => {
+    const value = source[key];
+    if (value === null || value === undefined || value === "") return [];
+    const text = Array.isArray(value) ? value.map(item => String(item)).join("、")
+      : typeof value === "object" ? "" : String(value);
+    if (!text || text.length > 600) return [];
+    return [{ label: labels[key] ?? key, value: text }];
+  }).slice(0, 12);
+  return fields.length ? { platform: channel, fields } : null;
+}
 export async function handleProspectConsole(request: Request, env: ConsoleEnv): Promise<Response> {
   const ownerId = await authenticate(request, env);
   if (!ownerId) return errorResponse(request, "UNAUTHORIZED", "请先登录 TradePilot。", 401);
@@ -70,7 +105,7 @@ export async function handleProspectConsole(request: Request, env: ConsoleEnv): 
   }
   try {
     const rows: OccurrenceRow[] = [];
-    const select = "id,provider,captured_at,run:discovery_runs!discovery_record_occurrences_run_id_owner_id_fkey!inner(channel),record:discovery_records!discovery_record_occurrences_record_id_owner_id_fkey!inner(id,entity_id,status,latitude,longitude,lead_id,name,record_type,country_code,address,phone,email,website,confidence_score)";
+    const select = "id,provider,captured_at,run:discovery_runs!discovery_record_occurrences_run_id_owner_id_fkey!inner(channel),record:discovery_records!discovery_record_occurrences_record_id_owner_id_fkey!inner(id,entity_id,status,latitude,longitude,lead_id,name,record_type,country_code,address,phone,email,website,confidence_score,raw_data)";
     // Read in bounded pages; do not silently treat a partial 50k sample as a complete total.
     for (let offset = 0; offset < 200000; offset += 1000) {
       const page = await db<OccurrenceRow[]>(env,
@@ -96,6 +131,7 @@ export async function handleProspectConsole(request: Request, env: ConsoleEnv): 
       phone: string; email: string; website: string; latitude: number | null;
       longitude: number | null; status: string; leadId: string | null; locationScore: number;
       discoveredAt: string; platforms: Array<{ key: string; label: string }>; recordIds: string[];
+      sourceDetails: Array<{ platform: string; fields: Array<{ label: string; value: string }> }>;
     }>();
     for (const row of filtered) {
       const record = row.record!;
@@ -108,6 +144,7 @@ export async function handleProspectConsole(request: Request, env: ConsoleEnv): 
       const platform = platformFor(channel, row.provider);
       const validCoordinates = typeof record.latitude === "number" && Number.isFinite(record.latitude) && record.latitude >= -90 && record.latitude <= 90 && typeof record.longitude === "number" && Number.isFinite(record.longitude) && record.longitude >= -180 && record.longitude <= 180;
       const locationScore = (record.confidence_score ?? 0) + (channel === "map_local_businesses" ? 1000 : 0);
+      const detail = sourceDetails(channel, record.raw_data);
       if (!platformEntities.has(platform.key)) platformEntities.set(platform.key, { label: platform.label, entities: new Set() });
       platformEntities.get(platform.key)!.entities.add(entityId);
       if (!dailyEntities.has(day)) dailyEntities.set(day, new Set());
@@ -121,12 +158,13 @@ export async function handleProspectConsole(request: Request, env: ConsoleEnv): 
           latitude: validCoordinates ? record.latitude! : null,
           longitude: validCoordinates ? record.longitude! : null,
           status: record.status === "promoted" || record.lead_id ? "converted" : "pending",
-          leadId: record.lead_id || null, locationScore, discoveredAt: row.captured_at, platforms: [platform], recordIds: [record.id],
+          leadId: record.lead_id || null, locationScore, discoveredAt: row.captured_at, platforms: [platform], recordIds: [record.id], sourceDetails: detail ? [detail] : [],
         });
       } else {
         if (row.captured_at > existing.discoveredAt) existing.discoveredAt = row.captured_at;
         if (!existing.platforms.some(item => item.key === platform.key)) existing.platforms.push(platform);
         if (!existing.recordIds.includes(record.id)) existing.recordIds.push(record.id);
+        if (detail && !existing.sourceDetails.some(item => item.platform === detail.platform)) existing.sourceDetails.push(detail);
         if (locationScore > existing.locationScore && (record.address || validCoordinates)) {
           existing.locationScore = locationScore;
           if (record.address) existing.address = record.address;
