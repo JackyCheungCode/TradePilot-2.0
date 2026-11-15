@@ -5,15 +5,16 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run check:design-system && npm run check:worker-secrets && tsc -b && tsc -p tsconfig.worker.json --noEmit && vite build",
+    "build": "npm run check:design-system && npm run check:worker-secrets && npm run worker:types && tsc -b && tsc -p tsconfig.worker.json --noEmit && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -b --pretty && tsc -p tsconfig.worker.json --noEmit",
+    "typecheck": "npm run worker:types && tsc -b --pretty && tsc -p tsconfig.worker.json --noEmit",
     "check:carbon-imports": "npm run check:design-system",
     "check:design-system": "node scripts/check-design-system.mjs",
     "check:worker-secrets": "node scripts/check-worker-secrets.mjs",
     "worker:dev": "wrangler dev --config wrangler.jsonc",
     "worker:validate": "wrangler deploy --dry-run --outdir .wrangler/dry-run --config wrangler.jsonc",
-    "worker:deploy": "wrangler deploy --config wrangler.jsonc"
+    "worker:deploy": "wrangler deploy --config wrangler.jsonc",
+    "worker:types": "wrangler types worker/worker-configuration.d.ts --config wrangler.jsonc"
   },
   "dependencies": {
     "@carbon/icons-react": "^11.55.0",
@@ -33,7 +34,6 @@
     "typescript": "~5.7.2",
     "vite": "^6.0.7",
     "@types/node": "^22.13.10",
-    "@cloudflare/workers-types": "5.20261114.1",
     "wrangler": "4.162.0"
   }
 }
