@@ -16,7 +16,6 @@ type CarrierResult = Record<string, unknown>;
 
 const currencies = ['USD','CNY','EUR','GBP','JPY','HKD','TWD','AUD','CAD','SGD','CHF','KRW','INR','THB','MYR','IDR','VND','AED','SAR','BRL','MXN','PLN','SEK','NOK','DKK','NZD','ZAR'];
 const countryNames: Record<string,string> = { DE:'德国',US:'美国',GB:'英国',FR:'法国',IT:'意大利',ES:'西班牙',NL:'荷兰',BE:'比利时',CH:'瑞士',AT:'奥地利',PL:'波兰',CZ:'捷克',JP:'日本',KR:'韩国',CN:'中国',HK:'中国·香港',MO:'中国·澳门',TW:'中国·台湾',SG:'新加坡',AU:'澳大利亚',CA:'加拿大',IN:'印度',BR:'巴西',MX:'墨西哥',TH:'泰国',MY:'马来西亚',ID:'印度尼西亚',VN:'越南',AE:'阿联酋',SA:'沙特阿拉伯',ZA:'南非' };
-const flags: Record<string,string> = { DE:'🇩🇪',US:'🇺🇸',GB:'🇬🇧',FR:'🇫🇷',IT:'🇮🇹',ES:'🇪🇸',NL:'🇳🇱',BE:'🇧🇪',CH:'🇨🇭',AT:'🇦🇹',PL:'🇵🇱',CZ:'🇨🇿',JP:'🇯🇵',KR:'🇰🇷',CN:'🇨🇳',HK:'🇭🇰',MO:'🇲🇴',TW:'🇹🇼',SG:'🇸🇬',AU:'🇦🇺',CA:'🇨🇦',IN:'🇮🇳',BR:'🇧🇷',MX:'🇲🇽',TH:'🇹🇭',MY:'🇲🇾',ID:'🇮🇩',VN:'🇻🇳',AE:'🇦🇪',SA:'🇸🇦',ZA:'🇿🇦' };
 const tools: Array<{id:ToolId;label:string;description:string;icon:React.ReactNode}> = [
   {id:'currency',label:'汇率换算',description:'参考汇率、币种换算与半年走势',icon:<CarbonIcons.Currency size={20}/>},
   {id:'holidays',label:'全球公共假期',description:'国家与州／省级公共假期查询',icon:<CarbonIcons.Calendar size={20}/>},
