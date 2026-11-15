@@ -164,7 +164,7 @@ export function PaymentSettings() {
         owner_id:ownerId,scope_key:'payment',config:{...config,numbering_mode:'independent',approval_mode:'single'},
       },{onConflict:'owner_id,scope_key'});
       if(saveError) throw saveError;
-      setNotice('收款规则已保存。配置用于新建及后续处理；历史收款记录保留原有数据。');
+      setNotice('收款规则已保存。历史收款记录不受影响；收款业务表单与服务端规则将在下一阶段接入这些配置。');
       await load();
     } catch(e) { setError(e instanceof Error?e.message:'保存收款设置失败'); }
     finally { setSaving(false); }
@@ -233,7 +233,7 @@ export function PaymentSettings() {
 
     <section className="tp-settings__editor">
       <h4>应收计划与账龄</h4>
-      <p className="tp-settings__hint">默认节点比例用于新销售订单的应收计划模板；调整比例时必须确保总和为 100%。</p>
+      <p className="tp-settings__hint">默认节点比例作为后续新销售订单应收计划模板；调整比例时必须确保总和为 100%。</p>
       <div className="tp-settings__editor-grid">
         <TextInput id="payment-deposit-percent" labelText="定金比例（%）" type="number" min="0" max="100" value={String(config.default_deposit_percent)} onChange={e=>update('default_deposit_percent',Math.max(0,Number(e.currentTarget.value)||0))}/>
         <TextInput id="payment-pre-shipment-percent" labelText="发运前比例（%）" type="number" min="0" max="100" value={String(config.default_pre_shipment_percent)} onChange={e=>update('default_pre_shipment_percent',Math.max(0,Number(e.currentTarget.value)||0))}/>
