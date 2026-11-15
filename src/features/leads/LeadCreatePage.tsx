@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button, Checkbox, ComboBox, InlineLoading, InlineNotification, MultiSelect, Select, SelectItem, Tab, TabList, TabPanel, TabPanels, Tabs, Tag, TextArea, TextInput } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
-import './lead-create.scss';
+import '@/design-system/patterns/lead-create.scss';
 
 type Social = { platform: string; value: string };
 type LeadForm = {
