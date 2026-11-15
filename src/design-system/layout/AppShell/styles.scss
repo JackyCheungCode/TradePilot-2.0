@@ -30,6 +30,9 @@
 }
 
 .tp-header__brand {
+  /* Remove Carbon HeaderName's default left offset so the wordmark sits
+     immediately beside the menu button without changing the button itself. */
+  margin-left: 0;
   display: inline-flex;
   align-items: center;
   justify-content: flex-start;
