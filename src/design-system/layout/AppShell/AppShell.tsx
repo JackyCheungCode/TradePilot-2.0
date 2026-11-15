@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useNavigate } from 'react-router-dom';
 import {
-  Header, HeaderName, HeaderMenuButton,
-  SideNav, SideNavItems, SideNavLink, Content, CarbonIcons,
+  Header, HeaderName, HeaderMenuButton, HeaderGlobalBar, HeaderGlobalAction,
+  SideNav, SideNavItems, SideNavLink, Content, CarbonIcons, InlineNotification,
 } from '@/design-system';
+import { getSupabaseClient } from '@/lib/supabase';
 
 /**
  * Shared Carbon application frame.
@@ -11,6 +12,25 @@ import {
  */
 export function AppShell() {
   const [sideNavExpanded, setSideNavExpanded] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+  const [signOutError, setSignOutError] = useState('');
+  const navigate = useNavigate();
+
+  const signOut = async () => {
+    if (signingOut) return;
+    setSigningOut(true);
+    setSignOutError('');
+    try {
+      const client = await getSupabaseClient();
+      const { error } = await client.auth.signOut();
+      if (error) throw error;
+      navigate('/login', { replace: true });
+    } catch (cause) {
+      setSignOutError(cause instanceof Error ? cause.message : '退出登录失败');
+    } finally {
+      setSigningOut(false);
+    }
+  };
 
   return (
     <>
@@ -24,6 +44,16 @@ export function AppShell() {
         <HeaderName href="/" prefix="">
           TradePilot
         </HeaderName>
+        <HeaderGlobalBar>
+          <HeaderGlobalAction
+            aria-label={signingOut ? '正在退出登录' : '退出登录'}
+            tooltipAlignment="end"
+            onClick={() => void signOut()}
+            disabled={signingOut}
+          >
+            <CarbonIcons.Logout size={20} aria-hidden="true" />
+          </HeaderGlobalAction>
+        </HeaderGlobalBar>
       </Header>
       <SideNav
         aria-label="TradePilot 主导航"
@@ -49,6 +79,7 @@ export function AppShell() {
       </SideNav>
       <Content className="tp-content">
         <div className="tp-content__main">
+          {signOutError && <InlineNotification kind="error" lowContrast title="退出登录失败" subtitle={signOutError} onCloseButtonClick={() => setSignOutError('')} />}
           <Outlet />
         </div>
       </Content>
