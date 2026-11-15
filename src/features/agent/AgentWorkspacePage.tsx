@@ -57,13 +57,7 @@ export function AgentWorkspacePage() {
     setConversations(rows);
     if (!conversationId && rows.length) setConversationId(rows[0].id);
   }, [conversationId]);
-
-  const loadMessages = useCallback(async (id: string) => {
-    if (!id) { setMessages([]); return; }
-    const rows = await agentRequest<ChatMessage[]>(`/api/v1/agent/conversations/${id}/messages`);
-    setMessages(rows);
-  }, []);
-
+\n
   useEffect(() => {
     let active = true;
     setLoading(true);
