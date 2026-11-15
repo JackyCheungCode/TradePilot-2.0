@@ -3,9 +3,10 @@ import { Button, InlineLoading, InlineNotification, Tag, TextInput } from '@/des
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/trade-tools.scss';
 
-type Status = { dhl?:boolean; upsClientId?:boolean; upsClientSecret?:boolean; fedexClientId?:boolean; fedexClientSecret?:boolean };
+type Status = { deepl?:boolean; dhl?:boolean; upsClientId?:boolean; upsClientSecret?:boolean; fedexClientId?:boolean; fedexClientSecret?:boolean };
 type Credential = { id:string; label:string; hint:string; field:string; statusKey:keyof Status; placeholder:string };
 const credentials:Credential[]=[
+ {id:'deepl',label:'DeepL API Key',hint:'DeepL API Free / Pro Authentication Key',field:'deeplApiKey',statusKey:'deepl',placeholder:'输入 DeepL API Key'},
  {id:'dhl',label:'DHL Shipment Tracking',hint:'DHL-API-Key（Shipment Tracking Unified API）',field:'dhlApiKey',statusKey:'dhl',placeholder:'输入 DHL API Subscription Key'},
  {id:'upsClientId',label:'UPS Client ID',hint:'UPS Developer Portal 应用 OAuth Client ID',field:'upsClientId',statusKey:'upsClientId',placeholder:'输入 UPS Client ID'},
  {id:'upsClientSecret',label:'UPS Client Secret',hint:'与 Client ID 配对的 OAuth Secret',field:'upsClientSecret',statusKey:'upsClientSecret',placeholder:'输入 UPS Client Secret'},
@@ -56,6 +57,7 @@ export function TradeToolsApiSettings(){
    </div>
   </div>)}
   <div className="tp-settings-trade-api__actions">
+   <Button kind="secondary" disabled={Boolean(testing)} onClick={()=>void test('deepl')}>测试 DeepL</Button>
    <Button kind="secondary" disabled={Boolean(testing)} onClick={()=>void test('dhl')}>{testing==='dhl'?'正在测试…':'测试 DHL'}</Button>
    <Button kind="secondary" disabled={Boolean(testing)} onClick={()=>void test('upsClientId')}>{testing==='upsClientId'?'正在测试…':'测试 UPS'}</Button>
    <Button kind="secondary" disabled={Boolean(testing)} onClick={()=>void test('fedexClientId')}>{testing==='fedexClientId'?'正在测试…':'测试 FedEx'}</Button>
