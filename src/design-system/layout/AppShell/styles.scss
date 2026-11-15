@@ -48,6 +48,12 @@
   margin-inline: 0.25rem;
 }
 
+.tp-sidenav--expanded .cds--side-nav__navigation {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
 .tp-sidenav__footer {
   position: sticky;
   bottom: 0;
