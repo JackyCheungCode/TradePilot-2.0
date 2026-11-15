@@ -19,7 +19,7 @@ async function agentApi<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!response.ok || !('data' in payload)) throw new Error(payload.error?.message || 'Agent 设置读取失败。');
   return payload.data as T;
 }
-export function AgentSettings() {
+export function AgentSettings({ section }: { section: string }) {
   const [providers,setProviders] = useState<Provider[]>([]);
   const [selectedModel,setSelectedModel] = useState('');
   const [profiles,setProfiles] = useState<Profile[]>([]);
@@ -89,7 +89,7 @@ export function AgentSettings() {
   return <div className="tp-settings-agent">
     {error && <InlineNotification kind="error" title="设置失败" subtitle={error} onCloseButtonClick={() => setError('')} />}
     {notice && <InlineNotification kind="success" title="保存成功" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
-    <section className="tp-settings__editor">
+    {section === 'models' && <section className="tp-settings__editor">
       <h4>小雅模型配置</h4>
       <p>从已在「AI 与 API 集成」中配置的供应商和模型中选择，不在此处重复保存 API Key。</p>
       <div className="tp-settings__editor-grid">
@@ -102,8 +102,8 @@ export function AgentSettings() {
         <Button kind="primary" disabled={saving || !selectedModel} onClick={() => void saveModel()}>保存模型配置</Button>
       </div>
       {!providers.length && <Tag type="red">尚无已配置的模型，请先在 AI 与 API 集成中配置供应商和 API Key。</Tag>}
-    </section>
-    <section className="tp-settings__editor">
+    </section>}
+    {section === 'profiles' && <section className="tp-settings__editor">
       <h4>内置 Agent 管理</h4>
       <p>启用或停用专业 Agent，并维护其专属指令。</p>
       <div className="tp-settings__editor-grid">
@@ -119,8 +119,8 @@ export function AgentSettings() {
         <TextArea id="agent-profile-description" labelText="Agent 描述" rows={2} value={activeProfile.config.description || ''} onChange={event => setProfiles(rows => rows.map(item => item.agent_key === activeAgent ? {...item,config:{...item.config,description:event.currentTarget.value}} : item))} />
         <TextArea id="agent-profile-prompt" labelText="系统指令" rows={6} value={activeProfile.config.systemPrompt || ''} onChange={event => setProfiles(rows => rows.map(item => item.agent_key === activeAgent ? {...item,config:{...item.config,systemPrompt:event.currentTarget.value}} : item))} />
       </> : <p>尚未保存该 Agent 的自定义配置；首次保存后即可管理启用状态和指令。</p>}
-    </section>
-    <section className="tp-settings__editor">
+    </section>}
+    {section === 'appearance' && <section className="tp-settings__editor">
       <h4>小雅头像与形象</h4>
       <p>管理默认头像形状、配色和表情风格。</p>
       <div className="tp-settings__editor-grid">
@@ -141,6 +141,6 @@ export function AgentSettings() {
         </Select>
         <Button kind="primary" disabled={saving} onClick={() => void saveAppearance()}>保存头像设置</Button>
       </div>
-    </section>
+    </section>}
   </div>;
 }
