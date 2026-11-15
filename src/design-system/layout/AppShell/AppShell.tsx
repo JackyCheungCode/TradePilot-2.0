@@ -117,6 +117,14 @@ export function AppShell() {
           >
             联系人（Contact）
           </SideNavLink>
+          <SideNavLink
+            href="/settings"
+            isActive={location.pathname.startsWith('/settings')}
+            title="设置中心"
+            renderIcon={CarbonIcons.Settings}
+          >
+            设置中心
+          </SideNavLink>
         </SideNavItems>
       </SideNav>
       <Content className="tp-content">
