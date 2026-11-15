@@ -62,6 +62,8 @@
 .tp-shipment-map__legend span { display: inline-flex; align-items: center; gap: .4rem; }
 .tp-shipment-map__legend i { display: inline-block; width: .8rem; height: .18rem; background: var(--cds-link-primary); }
 .tp-shipment-map__legend i.is-origin { width: .5rem; height: .5rem; border-radius: 50%; background: var(--cds-support-success); }
+.tp-shipment-map__legend i.is-arrived { background: #24a148; }
+.tp-shipment-map__legend i.is-exception { background: #da1e28; }
 .tp-shipment-map__legend i.is-particle { width: .4rem; height: .4rem; border-radius: 50%; background: var(--cds-support-info); }
 .tp-shipment-map__canvas {
   position: relative;
@@ -97,18 +99,25 @@
 .tp-shipment-map__overlay g[role="button"] { pointer-events: auto; cursor: pointer; outline: none; }
 .tp-shipment-map__route-glow {
   fill: none;
-  stroke: #0f62fe;
+  stroke: var(--tp-route-color, #0f62fe);
   stroke-width: 7;
   stroke-linecap: round;
   opacity: .16;
 }
 .tp-shipment-map__route {
   fill: none;
-  stroke: #0f62fe;
+  stroke: var(--tp-route-color, #0f62fe);
   stroke-width: 1.5;
   stroke-linecap: round;
-  opacity: .85;
+  opacity: .9;
 }
+.tp-shipment-map__shipment.is-arrived { --tp-route-color: #24a148; }
+.tp-shipment-map__shipment.is-exception { --tp-route-color: #da1e28; }
+.tp-shipment-map__shipment.is-pending { --tp-route-color: #8d8d8d; }
+.tp-shipment-map__shipment.is-loaded { --tp-route-color: #009d9a; }
+.tp-shipment-map__shipment.is-departed { --tp-route-color: #007d79; }
+.tp-shipment-map__shipment.is-transit { --tp-route-color: #0f62fe; }
+.tp-shipment-map__shipment.is-customs { --tp-route-color: #8a3ffc; }
 .tp-shipment-map__route-flow {
   fill: none;
   stroke: #ffffff;
@@ -118,21 +127,21 @@
   animation: tp-shipment-flow 1.2s linear infinite;
   opacity: 1;
 }
-.tp-shipment-map__particle { fill: #ffffff; stroke: #0f62fe; stroke-width: 1.5; filter: drop-shadow(0 0 3px #0f62fe); }
+.tp-shipment-map__particle { fill: #ffffff; stroke: var(--tp-route-color, #0f62fe); stroke-width: 1.5; filter: drop-shadow(0 0 3px var(--tp-route-color, #0f62fe)); }
 .tp-shipment-map__destination {
-  fill: #0f62fe;
+  fill: var(--tp-route-color, #0f62fe);
   stroke: #ffffff;
   stroke-width: 2;
   cursor: pointer;
 }
-.tp-shipment-map__destination-halo { fill: #0f62fe; opacity: .15; cursor: pointer; }
+.tp-shipment-map__destination-halo { fill: var(--tp-route-color, #0f62fe); opacity: .15; cursor: pointer; }
 .tp-shipment-map__overlay g.is-selected .tp-shipment-map__destination,
 .tp-shipment-map__overlay g:hover .tp-shipment-map__destination {
-  fill: #da1e28;
   stroke: #ffffff;
   stroke-width: 2.5;
+  filter: brightness(.82);
 }
-.tp-shipment-map__overlay g.is-selected .tp-shipment-map__route { stroke: #da1e28; stroke-width: 2.5; opacity: 1; }
+.tp-shipment-map__overlay g.is-selected .tp-shipment-map__route { stroke-width: 2.5; opacity: 1; }
 .tp-shipment-map__origin-halo { fill: #24a148; opacity: .18; }
 .tp-shipment-map__origin { fill: #24a148; stroke: #ffffff; stroke-width: 2; }
 .tp-shipment-map__origin-label {
