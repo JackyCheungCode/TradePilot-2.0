@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { useLocation } from 'react-router-dom';
-import { Outlet, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, Outlet } from 'react-router-dom';
 import {
   Header, HeaderName, HeaderMenuButton, HeaderGlobalBar, HeaderGlobalAction,
   SideNav, SideNavItems, SideNavLink, Content, CarbonIcons, InlineNotification,
@@ -9,7 +8,7 @@ import { getSupabaseClient } from '@/lib/supabase';
 
 /**
  * Shared Carbon application frame.
- * Carbon's native rail variant keeps primary navigation available while collapsed.
+ * Xiaoya is a global assistant entry, placed immediately before sign-out.
  */
 export function AppShell() {
   const [sideNavExpanded, setSideNavExpanded] = useState(false);
@@ -47,6 +46,14 @@ export function AppShell() {
           TradePilot
         </HeaderName>
         <HeaderGlobalBar>
+          <HeaderGlobalAction
+            aria-label="打开小雅 Agent 工作空间"
+            tooltipAlignment="end"
+            isActive={location.pathname.startsWith('/agent')}
+            onClick={() => navigate('/agent')}
+          >
+            <CarbonIcons.UserAvatar size={20} aria-hidden="true" />
+          </HeaderGlobalAction>
           <HeaderGlobalAction
             aria-label={signingOut ? '正在退出登录' : '退出登录'}
             tooltipAlignment="end"
@@ -95,7 +102,7 @@ export function AppShell() {
           <SideNavLink href="/sales-orders" isActive={location.pathname.startsWith('/sales-orders')} title="销售订单（Sales Order）" renderIcon={CarbonIcons.Document}>
             销售订单（Sales Order）
           </SideNavLink>
-          <SideNavLink href="/shipments" isActive={location.pathname.startsWith("/shipments")} title="发运（Shipment）" renderIcon={CarbonIcons.Delivery}>
+          <SideNavLink href="/shipments" isActive={location.pathname.startsWith('/shipments')} title="发运（Shipment）" renderIcon={CarbonIcons.Delivery}>
             发运（Shipment）
           </SideNavLink>
           <SideNavLink href="/payments" isActive={location.pathname.startsWith('/payments')} title="收款（Payment）" renderIcon={CarbonIcons.Currency}>
