@@ -285,14 +285,8 @@ export function SettingsCenterPage() {
                 </>
               )}
 
-              {!activeSection.implemented && (
-                <div className="tp-settings__planned">
-                  <CarbonIcons.Information size={32} />
-                  <h4>该设置分类已纳入统一架构</h4>
-                  <p>当前阶段先完成设置中心导航框架、产品分类和规格属性的真实数据管理。此分类将在对应业务数据模型接入时启用，不会使用临时假数据。</p>
-                  <Tag type="cool-gray">待接入数据模型</Tag>
-                </div>
-              )}
+              {!['categories','attributes'].includes(section) && <ProductAdvancedSettings section={section} />}
+
             </div>
           </div>
         </section>
