@@ -71,7 +71,7 @@ function Distribution({ title, description, items, icon }: {
     {items.length ? <div className="tp-leads__distribution">{items.slice(0, 8).map(item =>
       <div className="tp-leads__distribution-row" key={item.key}>
         <span title={item.label}>{item.label}</span>
-        <div className="tp-leads__bar-track"><div className="tp-leads__bar-fill" style={{ width: (item.count / max * 100) + '%' }} /></div>
+        <div className="tp-leads__bar-track"><svg viewBox="0 0 100 12" preserveAspectRatio="none" aria-hidden="true"><rect x="0" y="0" width={item.count / max * 100} height="12" /></svg></div>
         <strong>{item.count.toLocaleString()}</strong>
       </div>)}</div> : <p className="tp-leads__empty">暂无可统计数据</p>}
   </section>;
