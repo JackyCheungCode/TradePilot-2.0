@@ -3,7 +3,7 @@ import type { Session, SupabaseClient } from '@supabase/supabase-js';
 import {
   Button, Checkbox, InlineLoading, InlineNotification, NumberInput, ProgressBar,
   Select, SelectItem, Table, TableBody, TableCell, TableContainer, TableHead,
-  TableHeader, TableRow, Tag, TextInput, RadioButton, RadioButtonGroup, CarbonIcons,
+  TableHeader, TableRow, Tag, TextInput, RadioButton, RadioButtonGroup, RadioTile, TileGroup, CarbonIcons,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import {
@@ -13,6 +13,7 @@ import {
 import '@/design-system/patterns/prospect-discovery.scss';
 
 type Category = 'maps' | 'social' | 'ecommerce';
+type CategoryFilter = 'all' | Category;
 type Platform = 'google_maps' | 'facebook' | 'instagram' | 'linkedin' | 'tiktok' | 'amazon' | 'alibaba' | 'aliexpress';
 type Step = 1 | 2 | 3 | 4;
 const platformGroups: Array<{ id: Category; title: string; description: string; platforms: Array<{id: Platform;name:string;enabled:boolean;hint:string}> }> = [
@@ -49,6 +50,7 @@ export function ProspectDiscoveryPage() {
   const [authBusy,setAuthBusy]=useState(false);
   const [error,setError]=useState('');
   const [step,setStep]=useState<Step>(1);
+  const [category,setCategory]=useState<CategoryFilter>('all');
   const [platform,setPlatform]=useState<Platform>('google_maps');
   const [query,setQuery]=useState('电子产品批发商');
   const [country,setCountry]=useState('US');
@@ -80,6 +82,7 @@ export function ProspectDiscoveryPage() {
   },[]);
   useEffect(()=>{const timer=window.setInterval(()=>setClock(Date.now()),1000);return()=>window.clearInterval(timer);},[]);
   const currentPlatform=useMemo(()=>platformGroups.flatMap(g=>g.platforms).find(p=>p.id===platform),[platform]);
+  const visiblePlatformGroups=useMemo(()=>category==='all'?platformGroups:platformGroups.filter(group=>group.id===category),[category]);
   const token=session?.access_token??'';
 
   const refreshRun=useCallback(async(id:string)=>{
@@ -120,6 +123,7 @@ export function ProspectDiscoveryPage() {
     }catch(e){setError(e instanceof Error?e.message:'无法创建发现任务');}finally{setAuthBusy(false);}
   };
   const selectPlatform=(id:Platform)=>{const p=platformGroups.flatMap(g=>g.platforms).find(x=>x.id===id);if(!p?.enabled)return;setPlatform(id);};
+  const selectCategory=(value:CategoryFilter)=>{setCategory(value);const groups=value==='all'?platformGroups:platformGroups.filter(group=>group.id===value);setPlatform(current=>{const currentItem=groups.flatMap(group=>group.platforms).find(item=>item.id===current&&item.enabled);if(currentItem)return current;const firstEnabled=groups.flatMap(group=>group.platforms).find(item=>item.enabled);return firstEnabled?.id??groups[0]?.platforms[0]?.id??current;});};
   const elapsed=activeRun?Math.max(0,Math.floor((clock-new Date(activeRun.createdAt).getTime())/1000)):0;
   const elapsedLabel=elapsed<60?`${elapsed} 秒`:`${Math.floor(elapsed/60)} 分 ${elapsed%60} 秒`;
   const stale=!!activeRun&&!isTerminal(activeRun.status)&&lastUpdate!==null&&(clock-lastUpdate.getTime()>45000);
@@ -144,38 +148,62 @@ export function ProspectDiscoveryPage() {
     <nav className="tp-discovery__steps" aria-label="发现任务步骤">
       {([['01','发现途径'],['02','数据引擎'],['03','条件配置'],['04','执行结果']] as const).map(([number,label],index)=><button key={number} className={step===index+1?'is-active':step>index+1?'is-complete':''} onClick={()=>{if(index<3&&index+1<=step)setStep((index+1) as Step);}} disabled={index+1>step}><span>{number}</span>{label}</button>)}
     </nav>
-    {step===1&&<section className="tp-discovery__panel">
-      <div className="tp-discovery__section-head"><div><h2><CarbonIcons.Search size={20} aria-hidden="true"/>选择发现途径</h2><p>按地图、社交媒体和电商平台分组；选择一个具体平台开始任务。</p></div><Tag type="gray">单选渠道</Tag></div>
-      <RadioButtonGroup
-        legendText="具体平台"
-        name="discovery-platform"
-        value={platform}
-        orientation="vertical"
-        onChange={(value)=>selectPlatform(value as Platform)}
-        className="tp-discovery__platform-groups"
-      >
-        {platformGroups.map(group=>{
-          const GroupIcon=group.id==='maps'?CarbonIcons.Map:group.id==='social'?CarbonIcons.Share:CarbonIcons.ShoppingCart;
-          const GroupPlatformIcon=group.id==='maps'?CarbonIcons.Location:group.id==='social'?CarbonIcons.UserMultiple:CarbonIcons.ShoppingBag;
-          return <section key={group.id} className="tp-discovery__platform-group" aria-labelledby={`discovery-group-${group.id}`}>
-            <div className="tp-discovery__platform-group-head">
-              <GroupIcon size={20} aria-hidden="true"/>
-              <div><h3 id={`discovery-group-${group.id}`}>{group.title}</h3><p>{group.description}</p></div>
-            </div>
-            <div className="tp-discovery__platform-options">
-              {group.platforms.map(item=><div key={item.id} className="tp-discovery__platform-option">
-                <div className="tp-discovery__platform-choice">
-                  <GroupPlatformIcon size={16} aria-hidden="true"/>
-                  <RadioButton id={`platform-${item.id}`} labelText={item.name} value={item.id} disabled={!item.enabled}/>
-                </div>
-                <div className="tp-discovery__platform-meta"><small>{item.hint}</small><Tag type={item.enabled?'green':'gray'}>{item.enabled?'可用':'接入中'}</Tag></div>
-              </div>)}
-            </div>
-          </section>;
-        })}
-      </RadioButtonGroup>
-      <div className="tp-discovery__actions"><Button onClick={()=>setStep(2)} disabled={!currentPlatform?.enabled}>下一步</Button></div>
-    </section>}
+    {step===1&&<>
+      <section className="tp-discovery__panel tp-discovery__category-panel">
+        <div className="tp-discovery__section-head"><div><h2><CarbonIcons.Search size={20} aria-hidden="true"/>选择发现平台大类</h2><p>先选择发现渠道类别。默认显示全部平台，便于快速浏览。</p></div><Tag type="gray">第 1 层 · 平台类别</Tag></div>
+        <TileGroup
+          legend="发现平台大类"
+          name="discovery-category"
+          valueSelected={category}
+          onChange={(value)=>selectCategory(value as CategoryFilter)}
+          className="tp-discovery__category-tiles"
+        >
+          <RadioTile id="category-all" value="all">
+            <div className="tp-discovery__category-tile-content"><CarbonIcons.Apps size={24} aria-hidden="true"/><div><strong>全部平台</strong><small>显示所有已接入和待接入渠道</small></div></div>
+          </RadioTile>
+          <RadioTile id="category-maps" value="maps">
+            <div className="tp-discovery__category-tile-content"><CarbonIcons.Map size={24} aria-hidden="true"/><div><strong>地图平台</strong><small>地图商家与本地企业</small></div></div>
+          </RadioTile>
+          <RadioTile id="category-social" value="social">
+            <div className="tp-discovery__category-tile-content"><CarbonIcons.Share size={24} aria-hidden="true"/><div><strong>社交媒体</strong><small>企业主页与商业账号</small></div></div>
+          </RadioTile>
+          <RadioTile id="category-ecommerce" value="ecommerce">
+            <div className="tp-discovery__category-tile-content"><CarbonIcons.ShoppingCart size={24} aria-hidden="true"/><div><strong>电商平台</strong><small>商品、店铺与供应商</small></div></div>
+          </RadioTile>
+        </TileGroup>
+      </section>
+      <section className="tp-discovery__panel tp-discovery__platform-panel">
+        <div className="tp-discovery__section-head"><div><h2><CarbonIcons.Search size={20} aria-hidden="true"/>选择具体发现平台</h2><p>{category==='all'?'当前展示全部平台；选择上方类别后，这里会同步筛选对应平台。':('当前展示'+(platformGroups.find(group=>group.id===category)?.title??'所选类别')+'下的平台。')}</p></div><Tag type="gray">第 2 层 · 具体平台 · 单选</Tag></div>
+        <RadioButtonGroup
+          legendText="具体平台"
+          name="discovery-platform"
+          value={platform}
+          orientation="vertical"
+          onChange={(value)=>selectPlatform(value as Platform)}
+          className="tp-discovery__platform-groups"
+        >
+          {visiblePlatformGroups.map(group=>{
+            const GroupIcon=group.id==='maps'?CarbonIcons.Map:group.id==='social'?CarbonIcons.Share:CarbonIcons.ShoppingCart;
+            return <section key={group.id} className="tp-discovery__platform-group" aria-labelledby={"discovery-group-"+group.id}>
+              <div className="tp-discovery__platform-group-head">
+                <GroupIcon size={20} aria-hidden="true"/>
+                <div><h3 id={"discovery-group-"+group.id}>{group.title}</h3><p>{group.description}</p></div>
+              </div>
+              <div className="tp-discovery__platform-options">
+                {group.platforms.map(item=><div key={item.id} className="tp-discovery__platform-option">
+                  <div className="tp-discovery__platform-choice">
+                    <img className={"tp-discovery__platform-logo tp-discovery__platform-logo--"+item.id} src={"/platform-logos/"+item.id+".svg"} alt="" aria-hidden="true"/>
+                    <RadioButton id={"platform-"+item.id} labelText={item.name} value={item.id} disabled={!item.enabled}/>
+                  </div>
+                  <div className="tp-discovery__platform-meta"><small>{item.hint}</small><Tag type={item.enabled?'green':'gray'}>{item.enabled?'可用':'接入中'}</Tag></div>
+                </div>)}
+              </div>
+            </section>;
+          })}
+        </RadioButtonGroup>
+        <div className="tp-discovery__actions"><Button onClick={()=>setStep(2)} disabled={!currentPlatform?.enabled}>下一步</Button></div>
+      </section>
+    </>}
     {step===2&&<section className="tp-discovery__panel">
       <div className="tp-discovery__section-head"><div><h2>数据引擎</h2><p>系统根据平台自动匹配 API 或 Actor，不需要手动选择。</p></div><Tag type="green">自动匹配</Tag></div>
       <div className="tp-discovery__engine-card"><div><small>发现平台</small><strong>{currentPlatform?.name}</strong></div><div><small>执行服务</small><strong>{platform==='google_maps'?'Google Places API（官方）':'Apify Actor'}</strong></div><div><small>采集引擎</small><strong>{platform==='google_maps'?'Places API · Text Search / Nearby Search':platform==='facebook'?'coregent/facebook-search-scraper（主页详情按需补充）':'apify/instagram-search-scraper（公开账号资料补充）'}</strong></div><div><small>配置状态</small><Tag type="blue">运行时校验凭证</Tag></div></div>
