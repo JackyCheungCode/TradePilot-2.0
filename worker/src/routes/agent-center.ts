@@ -405,7 +405,7 @@ async function executeXiaoyaReadTool(env:Env,ownerId:string,name:string,rawArgs:
   }
  }
  if(country&&/^[A-Z]{2}$/.test(country)&&["leads","discovery_records","crm_accounts"].includes(tool.table))filters.push("country_code=eq."+country);
- if(status&&/^[\p{L}\p{N}_ -]{1,40}$/u.test(status))filters.push("status=eq."+encodeURIComponent(status));
+ if(status&&tool.table!=="crm_contacts"&&/^[\p{L}\p{N}_ -]{1,40}$/u.test(status))filters.push("status=eq."+encodeURIComponent(status));
  filters.push("select="+encodeURIComponent(tool.select),"order=created_at.desc","limit="+limit);
  try{
   const rows=await db<Array<Record<string,unknown>>>(env,tool.table+"?"+filters.join("&"));
