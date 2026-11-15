@@ -259,7 +259,21 @@ export function ContactFormPage() {
     const methodRows=[...form.extraEmails.filter(x=>x.value.trim()).map(x=>({...x,method_type:'email'})),...form.extraPhones.filter(x=>x.value.trim()).map(x=>({...x})),...form.social.filter(x=>x.value.trim()).map(x=>({...x,method_type:'social'}))].map((x,index)=>({owner_id:ownerId,contact_id:contactId,method_type:x.method_type,platform:x.platform||'',value:x.value.trim(),label:x.label||null,is_primary:x.is_primary,is_verified:x.is_verified,sort_order:index}));
     if(editing){const {error:e}=await client.from('crm_contact_methods').delete().eq('contact_id',contactId);if(e)throw e;}
     if(methodRows.length){const {error:e}=await client.from('crm_contact_methods').insert(methodRows);if(e)throw e;}
-    if(avatarFile) {\n      const extension=(avatarFile.name.split('.').pop()||'jpg').toLowerCase().replace(/[^a-z0-9]/g,'')||'jpg';\n      const objectPath=ownerId+'/contacts/'+contactId+'/avatar-'+crypto.randomUUID()+'.'+extension;\n      const {error:uploadError}=await client.storage.from('crm-assets').upload(objectPath,avatarFile,{contentType:avatarFile.type,upsert:false});\n      if(uploadError) throw uploadError;\n      const {data:publicUrl}=client.storage.from('crm-assets').getPublicUrl(objectPath);\n      custom.avatarUrl=publicUrl.publicUrl;\n      const {error:updateAvatarError}=await client.from('crm_contacts').update({custom_fields:custom}).eq('id',contactId);\n      if(updateAvatarError) throw updateAvatarError;\n    } else if(!form.avatarUrl && editing) {\n      custom.avatarUrl='';\n      const {error:updateAvatarError}=await client.from('crm_contacts').update({custom_fields:custom}).eq('id',contactId);\n      if(updateAvatarError) throw updateAvatarError;\n    }\n    navigate('/contacts/'+contactId,{replace:true});
+    if(avatarFile) {
+      const extension=(avatarFile.name.split('.').pop()||'jpg').toLowerCase().replace(/[^a-z0-9]/g,'')||'jpg';
+      const objectPath=ownerId+'/contacts/'+contactId+'/avatar-'+crypto.randomUUID()+'.'+extension;
+      const {error:uploadError}=await client.storage.from('crm-assets').upload(objectPath,avatarFile,{contentType:avatarFile.type,upsert:false});
+      if(uploadError) throw uploadError;
+      const {data:publicUrl}=client.storage.from('crm-assets').getPublicUrl(objectPath);
+      custom.avatarUrl=publicUrl.publicUrl;
+      const {error:updateAvatarError}=await client.from('crm_contacts').update({custom_fields:custom}).eq('id',contactId);
+      if(updateAvatarError) throw updateAvatarError;
+    } else if(!form.avatarUrl && editing) {
+      custom.avatarUrl='';
+      const {error:updateAvatarError}=await client.from('crm_contacts').update({custom_fields:custom}).eq('id',contactId);
+      if(updateAvatarError) throw updateAvatarError;
+    }
+    navigate('/contacts/'+contactId,{replace:true});
   }catch(e){setError(e instanceof Error?e.message:'保存联系人失败；请检查必填项及数据库权限。');}finally{setSaving(false);}};
   if(loading)return <main className="tp-contacts"><InlineLoading description="正在载入联系人资料…"/></main>;
   return <main className="tp-contacts tp-contacts--form"><header className="tp-contacts__header"><div><p className="tp-contacts__eyebrow">TRADEPILOT / CRM / CONTACT</p><h1>{editing?'编辑联系人':'创建联系人'}</h1><p>先维护主数据，扩展资料在下方标签页中维护。</p></div><div className="tp-contacts__actions"><Button kind="ghost" onClick={()=>navigate(-1)}>取消</Button><Button kind="primary" onClick={()=>void save()} disabled={saving}><CarbonIcons.Save size={16}/>{saving?'保存中…':'保存联系人'}</Button></div></header>
@@ -267,7 +281,7 @@ export function ContactFormPage() {
     {accounts.length===0&&<InlineNotification kind="warning" title="尚无可选客户" subtitle="请先创建 Account，再创建联系人。所属客户为必填项。"/>}
     <section className="tp-contacts__primary"><div className="tp-contacts__section-head"><div><h2>主数据</h2><p>联系人身份、所属客户、组织关系及主要联系方式。</p></div><Tag type="blue">核心资料</Tag></div>
       <div className="tp-contacts__grid tp-contacts__grid--four">
-        {field('头像 URL',<TextInput id="contact-avatar" labelText="头像 URL" type="url" value={form.avatarUrl} onChange={e=>set('avatarUrl',e.currentTarget.value)} placeholder="https://"/>)}
+        
         {field('联系人编号',<TextInput id="contact-number" labelText="联系人编号" value={editing?(id??'').slice(0,8).toUpperCase():'保存后自动生成'} readOnly/>)}
         {field('称谓',<Select id="contact-salutation" labelText="称谓" value={form.salutation} onChange={e=>setForm(p=>({...p,salutation:e.currentTarget.value,displayName:p.displayName===[p.salutation,p.firstName,p.lastName].filter(Boolean).join(' ').trim()?[e.currentTarget.value,p.firstName,p.lastName].filter(Boolean).join(' ').trim():p.displayName}))}><SelectItem value="" text="请选择"/>{['Mr.','Ms.','Mrs.','Dr.','Prof.','Mx.'].map(x=><SelectItem key={x} value={x} text={x}/>)}</Select>)}
         {field('名',<TextInput id="contact-first" labelText="名" value={form.firstName} onChange={e=>setForm(p=>({...p,firstName:e.currentTarget.value,displayName:p.displayName===[p.salutation,p.firstName,p.lastName].filter(Boolean).join(' ').trim()?[p.salutation,e.currentTarget.value,p.lastName].filter(Boolean).join(' ').trim():p.displayName}))}/>)}
