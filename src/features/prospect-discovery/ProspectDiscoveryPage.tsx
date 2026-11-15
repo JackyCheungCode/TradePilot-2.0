@@ -10,7 +10,7 @@ import {
   createDiscoveryRun, getDiscoveryRecords, getDiscoveryRun, getDiscoveryRuns,
   type DiscoveryRecord, type DiscoveryRun,
 } from './api';
-import './prospect-discovery.scss';
+import '@/design-system/patterns/prospect-discovery.scss';
 
 type Category = 'maps' | 'social' | 'ecommerce';
 type Platform = 'google_maps' | 'facebook' | 'instagram' | 'linkedin' | 'tiktok' | 'amazon' | 'alibaba' | 'aliexpress';
