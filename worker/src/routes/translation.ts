@@ -21,7 +21,7 @@ export async function handleTranslation(request: Request, env: TranslationEnv): 
     return errorResponse(request, "NOT_FOUND", "翻译接口不存在。", 404);
   }
   if (!(await authenticated(request, env))) return errorResponse(request, "UNAUTHORIZED", "请先登录后使用关键词翻译。", 401);
-  if (!env.DEEPL_API_KEY) return errorResponse(request, "DEEPL_NOT_CONFIGURED", "请先在设置与集成中配置 DeepL API Key。", 503);
+  if (!env.DEEPL_API_KEY) return errorResponse(request, "DEEPL_NOT_CONFIGURED", "请先在设置中心的「外贸工具 API」中配置 DeepL API Key。", 503);
   let body: { text?: string; targetLanguage?: string; sourceLanguage?: string };
   try { body = await request.json() as { text?: string; targetLanguage?: string; sourceLanguage?: string }; }
   catch { return errorResponse(request, "INVALID_JSON", "请求内容格式不正确。", 400); }
