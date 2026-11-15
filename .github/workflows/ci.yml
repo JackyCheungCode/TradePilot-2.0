@@ -44,3 +44,10 @@ jobs:
             dist/client/
           if-no-files-found: error
           retention-days: 1
+
+      - name: Deploy TradePilot Worker to production
+        if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+        run: npm run worker:deploy
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
