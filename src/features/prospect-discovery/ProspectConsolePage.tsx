@@ -165,7 +165,7 @@ export function ProspectConsolePage() {
       const {data}=await client.auth.getSession();
       const token=data.session?.access_token;
       if(!token)throw new Error('登录状态已失效，请重新登录。');
-      const selectedRows=filtered.filter(row=>selectedIds.includes(row.id));
+      const selectedRows=filtered.filter(row=>selectedIds.includes(row.id)&&(action!=='promote'||row.status==='pending'));
       const targets=selectedRows.flatMap(row=>(action==='promote'?row.recordIds.slice(0,1):row.recordIds));
       const results=await Promise.allSettled(targets.map(id=>applyDiscoveryRecordAction(token,id,action)));
       const failed=results.filter(result=>result.status==='rejected').length;
@@ -202,6 +202,8 @@ export function ProspectConsolePage() {
     const additional=(stats?.platforms??[]).filter(platform=>!consolePlatformCatalog.some(item=>item.key===platform.key));
     return [...configured,...additional];
   },[stats]);
+  const selectedPendingCount=filtered.filter(row=>selectedIds.includes(row.id)&&row.status==='pending').length;
+  useEffect(()=>{setSelectedIds(previous=>previous.filter(id=>filtered.some(row=>row.id===id)));},[filtered]);
   const maxDaily=Math.max(0,...(stats?.daily??[]).map(item=>item.count));
   const tabs=[{key:'all',label:'全部平台',count:stats?.metrics.prospectCount??0},...displayPlatforms];
   return <main className="tp-console">
@@ -230,7 +232,7 @@ export function ProspectConsolePage() {
       <section className="tp-console__panel tp-console__records-panel">
         <div className="tp-console__panel-heading"><div><h2>潜客资产</h2><p>按发现渠道查看聚合企业；平台来源标签来自实际发现记录。</p></div><Tag type="blue">{filtered.length.toLocaleString()} 家</Tag></div>
         <div className="tp-console__platform-tabs"><Tabs selectedIndex={Math.max(0,tabs.findIndex(item=>item.key===platformKey))} onChange={({selectedIndex})=>setPlatformKey(tabs[selectedIndex]?.key??'all')}><TabList aria-label="潜客发现平台">{tabs.map(item=><Tab key={item.key}>{item.label} <span className="tp-console__tab-count">{item.count}</span></Tab>)}</TabList></Tabs></div>
-        {selectedIds.length>0&&<div className="tp-console__bulk-actions"><span>已选择 {selectedIds.length} 家企业</span><Button kind="secondary" size="sm" disabled={!!actionBusyId} onClick={()=>void runBulkAction('promote')}>批量转为线索</Button><Button kind="danger--ghost" size="sm" disabled={!!actionBusyId} onClick={()=>void runBulkAction('discard')}>批量排除</Button><Button kind="danger--ghost" size="sm" disabled={!!actionBusyId} onClick={()=>{if(confirmBulkRemove)void runBulkAction('remove');else setConfirmBulkRemove(true);}}>{confirmBulkRemove?'再次点击确认删除':'批量删除'}</Button><Button kind="ghost" size="sm" onClick={()=>{setSelectedIds([]);setConfirmBulkRemove(false);}}>清除选择</Button></div>}
+        {selectedIds.length>0&&<div className="tp-console__bulk-actions"><span>已选择 {selectedIds.length} 家企业</span><Button kind="secondary" size="sm" disabled={!!actionBusyId||selectedPendingCount===0} onClick={()=>void runBulkAction('promote')}>批量转为线索</Button><Button kind="danger--ghost" size="sm" disabled={!!actionBusyId} onClick={()=>void runBulkAction('discard')}>批量排除</Button><Button kind="danger--ghost" size="sm" disabled={!!actionBusyId} onClick={()=>{if(confirmBulkRemove)void runBulkAction('remove');else setConfirmBulkRemove(true);}}>{confirmBulkRemove?'再次点击确认删除':'批量删除'}</Button><Button kind="ghost" size="sm" onClick={()=>{setSelectedIds([]);setConfirmBulkRemove(false);}}>清除选择</Button></div>}
         <div className="tp-console__filters">
           <TextInput id="prospect-console-search" labelText="搜索潜客" placeholder="企业名称、国家、地址、网站或联系方式" value={search} onChange={event=>setSearch(event.currentTarget.value)} />
           <Select id="prospect-console-status" labelText="线索状态" value={status} onChange={event=>setStatus(event.currentTarget.value)}><SelectItem value="all" text="全部状态"/><SelectItem value="pending" text="待处理"/><SelectItem value="converted" text="已转化"/></Select>
