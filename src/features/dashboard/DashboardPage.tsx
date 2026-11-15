@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ComponentType } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, InlineLoading, InlineNotification, Select, SelectItem, TextInput, Tile, CarbonIcons } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/dashboard.scss';
 
 type Row = { id: string; created_at: string; status?: string };
-type Metric = { key: string; label: string; value: number; previous: number; daily: number[]; href: string; icon: keyof typeof CarbonIcons; polarity: 'positive' | 'negative'; unit?: string };
+type Metric = { key: string; label: string; value: number; previous: number; daily: number[]; href: string; icon: string; polarity: 'positive' | 'negative'; unit?: string };
 type DashboardData = { metrics: Metric[]; dailyLabels: string[]; updatedAt: string };
 const DAY = 86400000;
 const periodOptions = [
@@ -87,13 +87,19 @@ export function DashboardPage() {
         if ('filter' in source && source.filter) query = query.eq(source.filter[0], source.filter[1]);
         if ('statusFilter' in source && source.statusFilter) query = query.eq('status', source.statusFilter);
         const dateField = dateFieldFor(source);
+        const currentFrom = dateField === 'received_date' ? dateKey(range.start) : range.start.toISOString();
+        const currentTo = dateField === 'received_date' ? dateKey(range.end) : endIso;
+        const previousFrom = dateField === 'received_date' ? dateKey(range.previousStart) : startIso;
+        const previousTo = dateField === 'received_date' ? dateKey(range.previousEnd) : previousEndIso;
+        if (['accounts', 'contacts', 'opportunities', 'products'].includes(source.key)) query = query.eq('is_archived', false);
         const [current, previous] = await Promise.all([
-          query.gte(dateField, range.start.toISOString()).lte(dateField, endIso).range(0, 9999),
+          query.gte(dateField, currentFrom).lte(dateField, currentTo).range(0, 9999),
           (async () => {
             let q: any = db.from(source.table).select('id', { count: 'exact', head: true });
             if ('filter' in source && source.filter) q = q.eq(source.filter[0], source.filter[1]);
             if ('statusFilter' in source && source.statusFilter) q = q.eq('status', source.statusFilter);
-            return q.gte(dateField, startIso).lt(dateField, range.start.toISOString()).lte(dateField, previousEndIso).range(0, 9999);
+            if (['accounts', 'contacts', 'opportunities', 'products'].includes(source.key)) q = q.eq('is_archived', false);
+            return q.gte(dateField, previousFrom).lte(dateField, previousTo).range(0, 9999);
           })(),
         ]);
         if (current.error) throw new Error(source.label + '数据读取失败：' + current.error.message);
@@ -114,7 +120,7 @@ export function DashboardPage() {
         return {
           key: source.key, label: source.label, value, previous,
           daily: labels.map(label => counts.get(label) || 0), href: source.href,
-          icon: source.icon as keyof typeof CarbonIcons, polarity: source.polarity,
+          icon: source.icon, polarity: source.polarity,
         } as Metric;
       });
       // Discovery records are the common entity pool for Google, Facebook, Instagram and search channels.
@@ -180,7 +186,7 @@ export function DashboardPage() {
     <section className="tp-dashboard__section-heading"><div><h2>业务指标</h2><p>各业务板块统一按所选日期范围统计，卡片趋势按日绘制</p></div><span>{periodOptions.find(item => item.value === period)?.label} · {data?.dailyLabels[0] || '—'} 至 {data?.dailyLabels.at(-1) || '—'}</span></section>
     {loading && !data ? <div className="tp-dashboard__loading"><InlineLoading description="正在汇聚各业务板块数据…" /></div> : <section className="tp-dashboard__metrics" aria-label="跨模块业务指标">
       {metrics.map((item, index) => {
-        const Icon = CarbonIcons[item.icon] || CarbonIcons.ChartLine;
+        const Icon = (CarbonIcons as unknown as Record<string, ComponentType<{ size?: number }>>)[item.icon] || CarbonIcons.ChartLine;
         const change = item.value - item.previous;
         const favorable = item.polarity === 'negative' ? change <= 0 : change >= 0;
         const tone = change === 0 ? 'neutral' : favorable ? 'positive' : 'negative';
