@@ -143,6 +143,9 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
   const allocatedSum=allocations.reduce((s,a)=>s+Number(a.allocated_amount_in_payment||0),0);
   const remaining=Math.max(0,Number(payment.net_received||suggestedNet)-allocatedSum);
   const selectedAccount=accounts.find(a=>a.id===payment.account_id);
+  const originalPayment=payments.find(p=>p.id===payment.original_payment_id);
+  const refundedBefore=payments.filter(p=>p.original_payment_id===payment.original_payment_id&&['confirmed','partially_reconciled','reconciled','returned'].includes(p.status)).reduce((sum,p)=>sum+Number(p.refund_amount||0),0);
+  const refundAvailable=Math.max(0,Number(originalPayment?.net_received||0)-refundedBefore);
 
   useEffect(()=>{(async()=>{
     try {
@@ -152,7 +155,7 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
         db.from('crm_contacts').select('id,account_id,first_name,last_name,full_name').eq('is_archived',false).order('first_name'),
         db.from('trade_orders').select('*').eq('order_type','sales').order('created_at',{ascending:false}).range(0,2999),
         db.from('enterprise_bank_accounts').select('*').eq('is_archived',false).order('bank_name'),
-        db.from('trade_payments').select('id,payment_no,payment_type,account_id,status,net_received,currency').order('created_at',{ascending:false}).range(0,1999),
+        db.from('trade_payments').select('id,payment_no,payment_type,account_id,status,net_received,currency,original_payment_id,refund_amount').order('created_at',{ascending:false}).range(0,1999),
       ]);
       if(a.error)throw a.error;if(c.error)throw c.error;if(o.error)throw o.error;if(b.error)throw b.error;if(payRows.error)throw payRows.error;
       setAccounts(a.data||[]);setContacts(c.data||[]);setOrders(o.data||[]);setBanks(b.data||[]);setPayments(payRows.data||[]);
@@ -169,6 +172,7 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
   })()},[id,editing]);
 
   useEffect(()=>{if(!payment.payer_name&&selectedAccount?.account_name)set('payer_name',selectedAccount.legal_name||selectedAccount.account_name)},[selectedAccount?.id]);
+  useEffect(()=>{if(!selectedAccount||!payment.payer_name)return;const expected=String(selectedAccount.legal_name||selectedAccount.account_name||'').trim().toLowerCase();const actual=String(payment.payer_name||'').trim().toLowerCase();const thirdParty=Boolean(actual&&expected&&actual!==expected);if(payment.is_third_party!==thirdParty)set('is_third_party',thirdParty)},[selectedAccount?.id,selectedAccount?.legal_name,selectedAccount?.account_name,payment.payer_name]);
   const setAllocation=(index:number,key:string,value:string)=>setAllocations(prev=>prev.map((a,i)=>i===index?{...a,[key]:value,...(key==='order_id'?{schedule_node_id:''}:{})}:a));
   const addAllocation=()=>setAllocations(p=>[...p,emptyAllocation()]);
   const removeAllocation=(i:number)=>setAllocations(p=>p.filter((_,n)=>n!==i));
@@ -190,6 +194,8 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
     if(Number(payment.diff_amount||0)!==0&&(!payment.diff_reason||!payment.diff_handling))return '存在差异时，必须选择差异原因和处理方式。';
     if(payment.diff_handling==='坏账核销'&&!payment.diff_note?.trim())return '坏账核销必须填写差异说明。';
     if(payment.payment_type==='refund'&&(!payment.original_payment_id||!(Number(payment.refund_amount)>0)))return '退款必须关联原收款并填写退款金额。';
+    if(payment.payment_type==='refund'&&Number(payment.refund_amount)>refundAvailable+0.000001)return '退款金额超过原收款可退余额：'+money(refundAvailable,payment.currency);
+    if(payment.payment_type==='refund'&&Math.abs(Number(payment.refund_amount)-Number(payment.amount))>0.000001)return '退款记录的汇款金额应与退款金额一致。';
     const duplicate=new Set<string>();
     for(const a of allocations){
       if(!a.order_id||!a.schedule_node_id||!(Number(a.allocated_amount)>0)||!(Number(a.allocated_amount_in_payment)>0))return '每条分配记录必须选择订单、收款节点并填写分配金额。';
@@ -223,11 +229,19 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
     catch(e){setError(e instanceof Error?e.message:'确认收款失败');}
     finally{setSaving(false);}
   };
+  const voidPayment=async()=>{
+    if(!id)return;setError('');
+    if(!String(payment.void_reason||'').trim()){setError('作废前请在“对账与确认”填写作废原因。');setActiveTab(2);return;}
+    setSaving(true);
+    try{const db=await getSupabaseClient();const {error:e}=await db.rpc('void_trade_payment',{p_payment_id:id,p_reason:payment.void_reason});if(e)throw e;nav('/payments',{replace:true});}
+    catch(e){setError(e instanceof Error?e.message:'作废收款失败');}
+    finally{setSaving(false);}
+  };
 
   if(loading)return <main className="tp-payments"><InlineLoading description="正在加载收款资料…"/></main>;
   const statusText=statusLabel(payment.status);
   return <main className="tp-payments">
-    <header className="tp-payments__header"><div><p className="tp-payments__eyebrow">TRADEPILOT / FINANCE / PAYMENT</p><h1>{editing?paymentNo:'创建收款（Payment）'}</h1><p>{editing?'维护收款资料、分配与核销记录。':'录入真实到账，可分配多个订单节点，也可保留为预收款。'}</p></div><div className="tp-payments__actions"><Button kind="tertiary" onClick={()=>nav('/payments')}>返回收款列表</Button>{readOnly&&payment.status==='draft'&&<Button kind="tertiary" onClick={()=>nav('/payments/'+id+'/edit')}>编辑草稿</Button>}{editing&&!readOnly&&payment.status==='draft'&&<Button kind="primary" disabled={saving} onClick={()=>void confirm()}>确认收款并核销</Button>}</div></header>
+    <header className="tp-payments__header"><div><p className="tp-payments__eyebrow">TRADEPILOT / FINANCE / PAYMENT</p><h1>{editing?paymentNo:'创建收款（Payment）'}</h1><p>{editing?'维护收款资料、分配与核销记录。':'录入真实到账，可分配多个订单节点，也可保留为预收款。'}</p></div><div className="tp-payments__actions"><Button kind="tertiary" onClick={()=>nav('/payments')}>返回收款列表</Button>{readOnly&&payment.status==='draft'&&<Button kind="tertiary" onClick={()=>nav('/payments/'+id+'/edit')}>编辑草稿</Button>}{editing&&!readOnly&&payment.status==='draft'&&<Button kind="danger--tertiary" disabled={saving} onClick={()=>void voidPayment()}>作废</Button>}{editing&&!readOnly&&payment.status==='draft'&&<Button kind="primary" disabled={saving} onClick={()=>void confirm()}>{payment.payment_type==='refund'?'确认退款 / 红冲':'确认收款并核销'}</Button>}</div></header>
     {error&&<InlineNotification kind="error" title="收款操作未完成" subtitle={error}/>}
     <section className="tp-payments__basic">
       <div className="tp-payments__basic-head"><div><Tag type={payment.status==='reconciled'?'green':payment.status==='voided'?'red':'blue'}>{statusText}</Tag><span>{paymentNo}</span></div><Tag type="cool-gray">{payment.payment_type==='refund'?'退款':'收款'}</Tag></div>
@@ -265,7 +279,8 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
             <Pick id="pay-fee-bearer" label="费用承担" value={payment.fee_bearer} onChange={v=>set('fee_bearer',v)} options={['OUR','SHA','BEN']} disabled={locked}/>
             <Field id="pay-exchange" label="汇率（收款币种 → 本位币）" type="number" value={payment.exchange_rate} onChange={v=>set('exchange_rate',v)} disabled={locked}/>
             <Field id="pay-rate-date" label="汇率日期" type="date" value={payment.rate_date} onChange={v=>set('rate_date',v)} disabled={locked}/>
-            <Field id="pay-amount-base" label="本位币入账金额（自动计算）" value={payment.exchange_rate?money(Number(payment.net_received||suggestedNet)*Number(payment.exchange_rate),'BASE'):'—'} onChange={()=>{}} disabled/>
+            <Field id="pay-amount-base" label="本位币入账金额（自动计算）" value={payment.exchange_rate?Number(Number(payment.net_received||suggestedNet)*Number(payment.exchange_rate)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}):'—'} onChange={()=>{}} disabled/>
+            <Field id="pay-fx-gain-loss" label="汇兑损益（只读）" value={payment.fx_gain_loss??'确认核销后计算'} onChange={()=>{}} disabled/>
             <Field id="pay-order-currency" label="订单币种" value={[...new Set(accountOrders.map(o=>o.currency_code))].join(', ')||'分配订单后确定'} onChange={()=>{}} disabled/>
           </div>
           <h2>收款方式与我方账户</h2><div className="tp-payments__form-grid">
@@ -320,7 +335,7 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
           {payment.payment_type==='refund'&&<><h2>退款 / 红冲</h2><div className="tp-payments__form-grid">
             <Pick id="pay-original" label="原收款记录" value={payment.original_payment_id} onChange={v=>set('original_payment_id',v)} options={payments.filter(r=>r.payment_type==='receipt'&&r.account_id===payment.account_id&&r.status!=='voided').map(r=>({value:r.id,label:r.payment_no+' · '+money(r.net_received,r.currency)}))} disabled={locked}/>
             <Pick id="pay-refund-reason" label="退款原因" value={payment.refund_reason} onChange={v=>set('refund_reason',v)} options={['多付','订单取消','质量索赔','重复付款','其他']} disabled={locked}/>
-            <Field id="pay-refund-amount" label="退款金额" type="number" value={payment.refund_amount} onChange={v=>set('refund_amount',v)} disabled={locked}/>
+            <Field id="pay-refund-amount" label={'退款金额（可退余额 '+money(refundAvailable,payment.currency)+'）'} type="number" value={payment.refund_amount} onChange={v=>{set('refund_amount',v);set('amount',v);set('net_received',v)}} disabled={locked}/>
             <Field id="pay-refund-date" label="退款日期" type="date" value={payment.refund_date} onChange={v=>set('refund_date',v)} disabled={locked}/>
             <Field id="pay-refund-bank-ref" label="退款流水号" value={payment.refund_bank_ref} onChange={v=>set('refund_bank_ref',v)} disabled={locked}/>
           </div></>}
