@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   Button, InlineLoading, InlineNotification, Select, SelectItem, TextInput, Tag,
   Table, TableHead, TableRow, TableHeader, TableBody, TableCell, Tile,
@@ -17,7 +16,7 @@ const documentGroups = [
   { id: 'sales', title: '销售与成交', description: '根据已确认的销售订单生成对客文件', items: [
     { id: 'proforma_invoice', label: '形式发票（PI）', detail: '用于预付款、开证及正式发货前确认', shipment: false },
     { id: 'sales_contract', label: '销售合同', detail: '锁定买卖双方、价格和贸易条款', shipment: false },
-    { id: 'order_confirmation', label: '订单确认书', detail: '向买方确认订单内容和交付安排', shipment: false },
+    { id: 'sales_confirmation', label: '订单确认书', detail: '向买方确认订单内容和交付安排', shipment: false },
   ] },
   { id: 'shipping', title: '发运与出口', description: '根据订单和本次实际发运数量生成', items: [
     { id: 'commercial_invoice', label: '商业发票', detail: '按本次发运批次数量形成发票草稿', shipment: true },
@@ -26,12 +25,11 @@ const documentGroups = [
   ] },
 ] as const;
 const typeLabel = (type: string) => documentGroups.flatMap(g => g.items).find(x => x.id === type)?.label ?? type;
-const statusLabel = (status: string) => ({ draft: '草稿', review: '待审核', approved: '已批准', issued: '已签发', sent: '已发送', voided: '已作废' }[status] ?? status);
+const statusLabel = (status: string) => ({ draft: '草稿', review: '待审核', approved: '已批准', issued: '已签发', sent: '已发送', void: '已作废', voided: '已作废' }[status] ?? status);
 const dateLabel = (value?: string | null) => value ? new Date(value).toLocaleDateString() : '—';
 const unwrap = <T,>(payload: any): T => (payload?.data ?? payload?.result ?? payload) as T;
 
 export function DocumentsCenterPage() {
-  const navigate = useNavigate();
   const [docs, setDocs] = useState<Doc[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [shipments, setShipments] = useState<Shipment[]>([]);
@@ -75,7 +73,7 @@ export function DocumentsCenterPage() {
     try {
       const client = await getSupabaseClient();
       const [orderResult, docResult, templateResult] = await Promise.all([
-        client.from('trade_orders').select('id,order_number,title,order_type,status,currency_code,locked_at,confirmed_at,crm_account:crm_accounts(account_name)').eq('order_type', 'sales').order('updated_at', { ascending: false }).limit(100),
+        client.from('trade_orders').select('id,order_number,title,order_type,status,currency_code,locked_at,confirmed_at,crm_account:crm_accounts(account_name)') .eq('order_type', 'sales').not('locked_at', 'is', null).order('updated_at', { ascending: false }).limit(100),
         request('documents'),
         request('templates'),
       ]);
