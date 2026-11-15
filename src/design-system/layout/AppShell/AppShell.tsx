@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Outlet, useNavigate } from 'react-router-dom';
 import {
   Header, HeaderName, HeaderMenuButton, HeaderGlobalBar, HeaderGlobalAction,
@@ -15,6 +16,7 @@ export function AppShell() {
   const [signingOut, setSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState('');
   const navigate = useNavigate();
+  const location = useLocation();
 
   const signOut = async () => {
     if (signingOut) return;
@@ -68,12 +70,20 @@ export function AppShell() {
         </div>
         <SideNavItems>
           <SideNavLink
-            href="/prospect-discovery"
-            isActive
-            title="潜客发现"
-            renderIcon={CarbonIcons.Search}
+            href="/prospect-console"
+            isActive={location.pathname === '/prospect-console' || location.pathname === '/prospect-discovery' || location.pathname === '/recent-tasks'}
+            title="全网情报"
+            renderIcon={CarbonIcons.Globe}
           >
-            潜客发现
+            全网情报
+          </SideNavLink>
+          <SideNavLink
+            href="/leads"
+            isActive={location.pathname.startsWith('/leads')}
+            title="线索（Lead）"
+            renderIcon={CarbonIcons.UserMultiple}
+          >
+            线索（Lead）
           </SideNavLink>
         </SideNavItems>
       </SideNav>
