@@ -49,3 +49,15 @@ drop policy if exists enterprise_bank_accounts_select_own on public.enterprise_b
 create policy enterprise_bank_accounts_select_own on public.enterprise_bank_accounts for select to authenticated using ((select auth.uid()) = owner_id);
 grant select on public.enterprise_bank_accounts to authenticated;
 revoke all on public.enterprise_bank_accounts from anon;
+
+alter table public.crm_accounts enable row level security;
+drop policy if exists crm_accounts_select_own on public.crm_accounts;
+create policy crm_accounts_select_own on public.crm_accounts for select to authenticated using ((select auth.uid()) = owner_id);
+grant select on public.crm_accounts to authenticated;
+revoke all on public.crm_accounts from anon;
+
+alter table public.crm_contacts enable row level security;
+drop policy if exists crm_contacts_select_own on public.crm_contacts;
+create policy crm_contacts_select_own on public.crm_contacts for select to authenticated using ((select auth.uid()) = owner_id);
+grant select on public.crm_contacts to authenticated;
+revoke all on public.crm_contacts from anon;
