@@ -178,55 +178,138 @@ async function testOneService(service: ServiceKey, env: SettingsEnv) {
 
 
 type AIProtocol = "openai" | "anthropic" | "gemini" | "workers-ai";
-type AIProviderConfig = {id:string;name:string;protocol:AIProtocol;baseUrl:string;model:string;configured:boolean};
+type AIProviderConfig = {id:string;providerKey:string;name:string;protocol:AIProtocol;baseUrl:string;model:string;secretName?:string;configured:boolean;enabled?:boolean};
 type AIConfig = {defaultModel:string;taskModels:Record<string,string>;providers:AIProviderConfig[]};
-const defaultAIConfig:AIConfig={defaultModel:"@cf/google/gemma-4-26b-a4b-it",taskModels:{},providers:[{id:"workers-ai",name:"Cloudflare Workers AI",protocol:"workers-ai",baseUrl:"",model:"@cf/google/gemma-4-26b-a4b-it",configured:true}]};
-const aiSecretNames:Record<string,string>={openai:"AI_PROVIDER_OPENAI_API_KEY",anthropic:"AI_PROVIDER_ANTHROPIC_API_KEY",gemini:"AI_PROVIDER_GEMINI_API_KEY",deepseek:"AI_PROVIDER_DEEPSEEK_API_KEY",qwen:"AI_PROVIDER_QWEN_API_KEY",zhipu:"AI_PROVIDER_ZHIPU_API_KEY",kimi:"AI_PROVIDER_KIMI_API_KEY",minimax:"AI_PROVIDER_MINIMAX_API_KEY",openrouter:"AI_PROVIDER_OPENROUTER_API_KEY",siliconflow:"AI_PROVIDER_SILICONFLOW_API_KEY",custom:"AI_PROVIDER_CUSTOM_API_KEY"};
+const defaultAIConfig:AIConfig={defaultModel:"@cf/google/gemma-4-26b-a4b-it",taskModels:{},providers:[{id:"workers-ai",providerKey:"cloudflare-workers-ai",name:"Cloudflare Workers AI",protocol:"workers-ai",baseUrl:"",model:"@cf/google/gemma-4-26b-a4b-it",configured:true}]};
+const legacyAISecrets:Record<string,string>={openai:"AI_PROVIDER_OPENAI_API_KEY",anthropic:"AI_PROVIDER_ANTHROPIC_API_KEY",gemini:"AI_PROVIDER_GEMINI_API_KEY",deepseek:"AI_PROVIDER_DEEPSEEK_API_KEY",qwen:"AI_PROVIDER_QWEN_API_KEY",zhipu:"AI_PROVIDER_ZHIPU_API_KEY",kimi:"AI_PROVIDER_KIMI_API_KEY",minimax:"AI_PROVIDER_MINIMAX_API_KEY",openrouter:"AI_PROVIDER_OPENROUTER_API_KEY",siliconflow:"AI_PROVIDER_SILICONFLOW_API_KEY",custom:"AI_PROVIDER_CUSTOM_API_KEY"};
+const apiSecretNames:Record<string,string>={apify:"tradepilot_api_apify",deepl:"tradepilot_api_deepl",googleMaps:"tradepilot_api_google_maps",dhl:"tradepilot_api_dhl",upsClientId:"tradepilot_api_ups_client_id",upsClientSecret:"tradepilot_api_ups_client_secret",fedexClientId:"tradepilot_api_fedex_client_id",fedexClientSecret:"tradepilot_api_fedex_client_secret",cloudflareApiToken:"tradepilot_api_cloudflare_token",cloudflareAccountId:"tradepilot_api_cloudflare_account_id"};
+const legacyApiEnv:Record<string,string>={apify:"APIFY_API_TOKEN",deepl:"DEEPL_API_KEY",googleMaps:"GOOGLE_MAPS_API_KEY",dhl:"DHL_API_KEY",upsClientId:"UPS_CLIENT_ID",upsClientSecret:"UPS_CLIENT_SECRET",fedexClientId:"FEDEX_CLIENT_ID",fedexClientSecret:"FEDEX_CLIENT_SECRET"};
+async function vaultRpc<T>(name:string,args:Record<string,unknown>,env:SettingsEnv):Promise<T>{
+ const key=env.SUPABASE_SERVICE_ROLE_KEY??"";
+ if(!key)throw new Error("服务端凭证存储未配置");
+ const r=await fetch(env.SUPABASE_URL+"/rest/v1/rpc/"+name,{method:"POST",headers:{apikey:key,Authorization:"Bearer "+key,"Content-Type":"application/json"},body:JSON.stringify(args)});
+ if(!r.ok)throw new Error("安全凭证存储请求失败（HTTP "+r.status+"）");
+ return await r.json() as T;
+}
+async function readVaultSecrets(names:string[],env:SettingsEnv):Promise<Record<string,string>>{
+ if(!names.length)return {};
+ const rows=await vaultRpc<Array<{name:string;secret:string}>>("tradepilot_secret_get",{p_names:names},env);
+ return Object.fromEntries((rows??[]).map(row=>[row.name,row.secret]));
+}
+async function saveVaultSecret(name:string,value:string,description:string,env:SettingsEnv){
+ await vaultRpc<string>("tradepilot_secret_upsert",{p_name:name,p_secret:value,p_description:description},env);
+}
+async function deleteVaultSecret(name:string,env:SettingsEnv){
+ await vaultRpc<boolean>("tradepilot_secret_delete",{p_name:name},env);
+}
+function envSecret(env:SettingsEnv,name:string):string{
+ return String((env as unknown as Record<string,unknown>)[name]??"");
+}
+function aiSecretName(id:string):string{
+ const safe=id.toLowerCase().replace(/[^a-z0-9_-]/g,"").replace(/-/g,"_");
+ if(!safe||safe.length>72)throw new Error("AI 配置 ID 无效");
+ return "tradepilot_ai_"+safe;
+}
 async function readAIConfig(env:SettingsEnv):Promise<AIConfig>{
  const key=env.SUPABASE_SERVICE_ROLE_KEY??"";
  const r=await fetch(env.SUPABASE_URL+"/rest/v1/ai_provider_settings?id=eq.true&select=config",{headers:{apikey:key,Authorization:"Bearer "+key}});
  if(!r.ok)throw new Error("读取 AI 配置失败");
  const rows=await r.json() as Array<{config:AIConfig}>;
  const c=rows[0]?.config??defaultAIConfig;
- return {...defaultAIConfig,...c,providers:(c.providers??defaultAIConfig.providers).map(p=>({...p,configured:p.id==="workers-ai"||Boolean(aiSecretNames[p.id]&&(env as unknown as Record<string,unknown>)[aiSecretNames[p.id]])}))};
+ const providers=(c.providers??defaultAIConfig.providers).map(p=>({...p,providerKey:p.providerKey??(p.id==="workers-ai"?"cloudflare-workers-ai":p.id),secretName:p.secretName??(legacyAISecrets[p.id]?undefined:undefined)}));
+ const secretNames=providers.map(p=>p.secretName).filter((x):x is string=>Boolean(x));
+ const secrets=await readVaultSecrets(secretNames,env);
+ return {...defaultAIConfig,...c,providers:providers.map(p=>({...p,configured:p.protocol==="workers-ai"?(Boolean(env.AI)||Boolean(secrets.tradepilot_api_cloudflare_token)||Boolean(env.CLOUDFLARE_API_TOKEN)):Boolean((p.secretName&&secrets[p.secretName])||(legacyAISecrets[p.providerKey]&&envSecret(env,legacyAISecrets[p.providerKey])))}))};
 }
 async function writeAIConfig(config:AIConfig,env:SettingsEnv){
  const key=env.SUPABASE_SERVICE_ROLE_KEY??"";
- const safe:AIConfig={defaultModel:String(config.defaultModel??defaultAIConfig.defaultModel).slice(0,200),taskModels:Object.fromEntries(Object.entries(config.taskModels??{}).slice(0,30).map(([k,v])=>[k,String(v).slice(0,200)])),providers:(config.providers??[]).slice(0,40).map(p=>({id:String(p.id).slice(0,80),name:String(p.name).slice(0,100),protocol:p.protocol,baseUrl:String(p.baseUrl??"").slice(0,500),model:String(p.model??"").slice(0,200),configured:p.id==="workers-ai"||Boolean(aiSecretNames[p.id]&&(env as unknown as Record<string,unknown>)[aiSecretNames[p.id]])}))};
+ const safe:AIConfig={defaultModel:String(config.defaultModel??defaultAIConfig.defaultModel).slice(0,200),taskModels:Object.fromEntries(Object.entries(config.taskModels??{}).slice(0,30).map(([k,v])=>[k,String(v).slice(0,200)])),providers:(config.providers??[]).slice(0,40).map(p=>({id:String(p.id).slice(0,80),providerKey:String(p.providerKey??p.id).slice(0,80),name:String(p.name).slice(0,100),protocol:p.protocol,baseUrl:String(p.baseUrl??"").slice(0,500),model:String(p.model??"").slice(0,200),secretName:p.secretName?String(p.secretName).slice(0,120):undefined,configured:Boolean(p.configured),enabled:p.enabled!==false}))};
  const r=await fetch(env.SUPABASE_URL+"/rest/v1/ai_provider_settings?on_conflict=id",{method:"POST",headers:{apikey:key,Authorization:"Bearer "+key,"Content-Type":"application/json",Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({id:true,config:safe,updated_at:new Date().toISOString()})});
  if(!r.ok)throw new Error("保存 AI 配置失败");
 }
-async function saveAISecret(id:string,value:string,env:SettingsEnv){
- const secret=aiSecretNames[id];if(!secret)throw new Error("不支持的 AI 服务商");
- if(!env.CLOUDFLARE_API_TOKEN)throw new Error("请先配置 Cloudflare API Token");
- if(value.length>4096)throw new Error("API Key 长度不符合要求");
- const token=env.CLOUDFLARE_API_TOKEN,account=env.CLOUDFLARE_ACCOUNT_ID??"ea4e98dce9c478d7dd5c07f10e5c722d",worker=env.CLOUDFLARE_WORKER_NAME??"tradepilot";
- await cloudflareRequest(token,"/user/tokens/verify");
- await cloudflareRequest(token,"/accounts/"+account+"/workers/scripts/"+worker+"/secrets",{method:"PUT",body:JSON.stringify({name:secret,type:"secret_text",text:value})});
-}
 function safeAIBaseUrl(raw:string,fallback:string):string{
  const value=(raw||fallback).trim();
- let url:URL;try{url=new URL(value)}catch{throw new Error('模型 Base URL 格式无效')}
+ let url:URL;try{url=new URL(value)}catch{throw new Error("模型 Base URL 格式无效")}
  const host=url.hostname.toLowerCase();
- if(url.protocol!=='https:'||url.username||url.password||url.search||url.hash)throw new Error('模型接口只允许 HTTPS 公网地址');
- if(!host||host==='localhost'||host.endsWith('.localhost')||host.endsWith('.local')||host.endsWith('.internal')||host.endsWith('.test')||host.endsWith('.invalid')||host.endsWith('.example')||host.startsWith('[')||/^\d{1,3}(\.\d{1,3}){3}$/.test(host))throw new Error('模型 Base URL 不允许使用本地地址或 IP 地址');
- return url.toString().replace(/\/$/,'');
+ if(url.protocol!=="https:"||url.username||url.password||url.search||url.hash)throw new Error("模型接口只允许 HTTPS 公网地址");
+ if(!host||host==="localhost"||host.endsWith(".localhost")||host.endsWith(".local")||host.endsWith(".internal")||host.endsWith(".test")||host.endsWith(".invalid")||host.endsWith(".example")||/^\d{1,3}(\.\d{1,3}){3}$/.test(host))throw new Error("模型 Base URL 不允许使用本地地址或 IP 地址");
+ return url.toString().replace(/\/$/,"");
 }
-async function runAIProviderTest(id:string,env:SettingsEnv){
- if(id==="workers-ai"){if(!env.AI)return {ok:false,message:"Workers AI Binding 尚未启用"};try{await env.AI.run("@cf/google/gemma-4-26b-a4b-it",{messages:[{role:"user",content:"Reply with OK"}]});return {ok:true,message:"Workers AI 连接成功"};}catch{return {ok:false,message:"Workers AI 调用失败，请检查 AI Binding、模型状态与账户额度"};}}
- const config=await readAIConfig(env),p=config.providers.find(x=>x.id===id),secret=aiSecretNames[id],key=secret?(env as unknown as Record<string,unknown>)[secret] as string|undefined:undefined;
- if(!p||!key)return {ok:false,message:"请先添加服务商并保存 API Key"};
+function defaultAIBase(providerKey:string,protocol:AIProtocol):string{
+ if(providerKey==="openrouter")return "https://openrouter.ai/api/v1";
+ if(providerKey==="deepseek")return "https://api.deepseek.com/v1";
+ if(providerKey==="qwen")return "https://dashscope.aliyuncs.com/compatible-mode/v1";
+ if(providerKey==="zhipu")return "https://open.bigmodel.cn/api/paas/v4";
+ if(providerKey==="kimi")return "https://api.moonshot.cn/v1";
+ if(providerKey==="minimax")return "https://api.minimax.chat/v1";
+ if(providerKey==="siliconflow")return "https://api.siliconflow.cn/v1";
+ if(protocol==="anthropic")return "https://api.anthropic.com/v1";
+ if(protocol==="gemini")return "https://generativelanguage.googleapis.com/v1beta";
+ return "https://api.openai.com/v1";
+}
+async function providerApiKey(providerKey:string,secretName:string|undefined,apiKey:string|undefined,env:SettingsEnv):Promise<string>{
+ if(apiKey?.trim())return apiKey.trim();
+ if(providerKey==="cloudflare-workers-ai"){
+  const secrets=await readVaultSecrets([apiSecretNames.cloudflareApiToken],env);
+  return secrets[apiSecretNames.cloudflareApiToken]||env.CLOUDFLARE_API_TOKEN||"";
+ }
+ if(secretName){const secrets=await readVaultSecrets([secretName],env);return secrets[secretName]||"";}
+ return "";
+}
+async function listAIModels(providerKey:string,protocol:AIProtocol,baseUrl:string,apiKey:string|undefined,env:SettingsEnv):Promise<Array<{id:string;name:string}>>{
+ const key=await providerApiKey(providerKey,undefined,apiKey,env);
+ if(providerKey!=="cloudflare-workers-ai"&&!key)throw new Error("请填写 API Key 后获取模型");
+ let response:Response;
+ if(providerKey==="cloudflare-workers-ai"){
+  const secrets=await readVaultSecrets([apiSecretNames.cloudflareAccountId],env);
+  const account=secrets[apiSecretNames.cloudflareAccountId]||env.CLOUDFLARE_ACCOUNT_ID||"";
+  if(!account||!key)throw new Error("请先在 API 集成的 Cloudflare 配置中填写 Account ID 和 Workers AI API Token");
+  response=await fetch("https://api.cloudflare.com/client/v4/accounts/"+encodeURIComponent(account)+"/ai/models/search?per_page=100&page=1&hide_experimental=true",{headers:{Authorization:"Bearer "+key}});
+ }else{
+  const base=safeAIBaseUrl(baseUrl,defaultAIBase(providerKey,protocol));
+  const headers:Record<string,string>={Accept:"application/json"};
+  let endpoint=base+"/models";
+  if(protocol==="anthropic"){headers["x-api-key"]=key;headers["anthropic-version"]="2023-06-01";endpoint+="?limit=100";}
+  else if(protocol==="gemini"){endpoint+="?pageSize=100&key="+encodeURIComponent(key);}
+  else headers.Authorization="Bearer "+key;
+  response=await fetch(endpoint,{headers,redirect:"manual"});
+ }
+ const raw=await response.text();let body:Record<string,unknown>={};try{body=raw?JSON.parse(raw) as Record<string,unknown>:{};}catch{/* response checked below */}
+ if(!response.ok)return (()=>{throw new Error("获取模型失败（HTTP "+response.status+"）："+raw.slice(0,180));})();
+ let items:unknown[]=[];
+ if(providerKey==="cloudflare-workers-ai")items=Array.isArray(body.result)?body.result:[];
+ else if(protocol==="gemini")items=Array.isArray(body.models)?body.models:[];
+ else items=Array.isArray(body.data)?body.data:[];
+ const models=items.map(item=>{
+  const row=item as Record<string,unknown>;
+  const id=String(row.id??row.name??"").replace(/^models\//,"");
+  return id?{id,name:String(row.display_name??row.name??id)}:null;
+ }).filter((item):item is {id:string;name:string}=>Boolean(item));
+ if(!models.length)throw new Error("供应商接口已响应，但没有返回可用模型；请检查 API 权限或使用自定义模型 ID");
+ return models.slice(0,500);
+}
+async function testAIProvider(providerKey:string,protocol:AIProtocol,baseUrl:string,model:string,apiKey:string|undefined,env:SettingsEnv,secretName?:string){
+ if(!model)return {ok:false,message:"请先选择模型"};
+ const key=await providerApiKey(providerKey,secretName,apiKey,env);
  try{
- const fallback=id==="openrouter"?"https://openrouter.ai/api/v1":p.protocol==="anthropic"?"https://api.anthropic.com/v1":p.protocol==="gemini"?"https://generativelanguage.googleapis.com/v1beta":"https://api.openai.com/v1";
- const base=safeAIBaseUrl(p.baseUrl,fallback);
- let r:Response;
- if(p.protocol==="anthropic")r=await fetch(base+"/messages",{method:"POST",redirect:"manual",headers:{"x-api-key":key,"anthropic-version":"2023-06-01","content-type":"application/json"},body:JSON.stringify({model:p.model,max_tokens:12,messages:[{role:"user",content:"Reply with OK"}]})});
- else if(p.protocol==="gemini")r=await fetch(base+"/models/"+encodeURIComponent(p.model)+":generateContent?key="+encodeURIComponent(key),{method:"POST",redirect:"manual",headers:{"content-type":"application/json"},body:JSON.stringify({contents:[{parts:[{text:"Reply with OK"}]}],generationConfig:{maxOutputTokens:12}})});
- else {const headers:Record<string,string>={Authorization:"Bearer "+key,"content-type":"application/json"};if(id==="openrouter"){headers["HTTP-Referer"]="https://tradepilot.xg-y.workers.dev";headers["X-Title"]="TradePilot";}r=await fetch(base+"/chat/completions",{method:"POST",redirect:"manual",headers,body:JSON.stringify({model:p.model||"gpt-4o-mini",messages:[{role:"user",content:"Reply with OK"}],max_tokens:12})});}
- if(r.status>=300&&r.status<400)return {ok:false,message:"模型服务返回 HTTP "+r.status+" 重定向。边缘运行环境不自动跟随此类请求，请检查 Base URL 是否为服务商的最终 API 地址。"};
- if(!r.ok){const body=await r.text();return {ok:false,message:"模型接口返回 HTTP "+r.status+"："+body.slice(0,180)};}
- return {ok:true,message:"模型服务连接成功，已收到测试响应"};
- }catch(error){const detail=error instanceof Error?error.message:String(error);return {ok:false,message:"模型连接异常："+detail.slice(0,180)};}
+  if(providerKey==="cloudflare-workers-ai"){
+   if(env.AI){await env.AI.run(model,{messages:[{role:"user",content:"Reply with OK"}]});return {ok:true,message:"Cloudflare Workers AI 连接成功"};}
+   const secrets=await readVaultSecrets([apiSecretNames.cloudflareAccountId],env);
+   const account=secrets[apiSecretNames.cloudflareAccountId]||env.CLOUDFLARE_ACCOUNT_ID||"";
+   if(!account||!key)return {ok:false,message:"请先配置 Cloudflare Account ID 和 Workers AI API Token"};
+   const r=await fetch("https://api.cloudflare.com/client/v4/accounts/"+encodeURIComponent(account)+"/ai/run/"+encodeURIComponent(model),{method:"POST",headers:{Authorization:"Bearer "+key,"Content-Type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:"Reply with OK"}]})});
+   return {ok:r.ok,message:r.ok?"Cloudflare Workers AI 测试成功":"Workers AI 请求失败（HTTP "+r.status+"）"};
+  }
+  if(!key)return {ok:false,message:"请填写 API Key"};
+  const base=safeAIBaseUrl(baseUrl,defaultAIBase(providerKey,protocol));
+  let r:Response;
+  if(protocol==="anthropic")r=await fetch(base+"/messages",{method:"POST",redirect:"manual",headers:{"x-api-key":key,"anthropic-version":"2023-06-01","content-type":"application/json"},body:JSON.stringify({model,max_tokens:12,messages:[{role:"user",content:"Reply with OK"}]})});
+  else if(protocol==="gemini")r=await fetch(base+"/models/"+encodeURIComponent(model)+":generateContent?key="+encodeURIComponent(key),{method:"POST",redirect:"manual",headers:{"content-type":"application/json"},body:JSON.stringify({contents:[{parts:[{text:"Reply with OK"}]}],generationConfig:{maxOutputTokens:12}})});
+  else r=await fetch(base+"/chat/completions",{method:"POST",redirect:"manual",headers:{Authorization:"Bearer "+key,"content-type":"application/json",...(providerKey==="openrouter"?{"HTTP-Referer":"https://tradepilot.xg-y.workers.dev","X-Title":"TradePilot"}:{})},body:JSON.stringify({model,messages:[{role:"user",content:"Reply with OK"}],max_tokens:12})});
+  if(r.status>=300&&r.status<400)return {ok:false,message:"模型服务返回 HTTP "+r.status+" 重定向，请检查 Base URL"};
+  if(!r.ok){const detail=(await r.text()).slice(0,180);return {ok:false,message:"模型接口返回 HTTP "+r.status+"："+detail};}
+  return {ok:true,message:"模型服务连接成功，已收到测试响应"};
+ }catch(error){return {ok:false,message:"模型连接异常："+(error instanceof Error?error.message:String(error)).slice(0,180)};}
 }
 
 export async function handleSettings(request: Request, env: SettingsEnv): Promise<Response> {
@@ -242,54 +325,102 @@ export async function handleSettings(request: Request, env: SettingsEnv): Promis
   if(url.pathname==="/api/v1/settings/ai-config"&&request.method==="PUT"){
    try{const config=await request.json() as AIConfig;await writeAIConfig(config,env);return successResponse(request,{saved:true});}catch(error){return errorResponse(request,"AI_CONFIG_SAVE_FAILED",error instanceof Error?error.message:"保存 AI 配置失败",502);}
   }
-  if(url.pathname==="/api/v1/settings/ai-providers"&&request.method==="POST"){
-   try{const body=await request.json() as {id?:string;apiKey?:string};if(!body.id||!body.apiKey?.trim())return errorResponse(request,"INVALID_AI_CREDENTIAL","服务商和 API Key 不能为空",400);await saveAISecret(body.id,body.apiKey.trim(),env);return successResponse(request,{saved:true});}catch(error){return errorResponse(request,"AI_SECRET_SAVE_FAILED",error instanceof Error?error.message:"保存 AI 密钥失败",502);}
+  if(url.pathname==="/api/v1/settings/ai-providers/models"&&request.method==="POST"){
+   try{const body=await request.json() as {providerKey?:string;protocol?:AIProtocol;baseUrl?:string;apiKey?:string};if(!body.providerKey||!body.protocol)return errorResponse(request,"INVALID_AI_PROVIDER","请选择 AI 供应商",400);const models=await listAIModels(body.providerKey,body.protocol,body.baseUrl??"",body.apiKey,env);return successResponse(request,{models});}catch(error){return errorResponse(request,"AI_MODELS_FETCH_FAILED",error instanceof Error?error.message:"获取 AI 模型失败",502);}
   }
   if(url.pathname==="/api/v1/settings/ai-providers/test"&&request.method==="POST"){
-   try{const body=await request.json() as {providerId?:string};if(!body.providerId)return errorResponse(request,"INVALID_AI_PROVIDER","请选择服务商",400);return successResponse(request,await runAIProviderTest(body.providerId,env));}catch(error){return errorResponse(request,"AI_PROVIDER_TEST_FAILED",error instanceof Error?error.message:"AI 连接测试失败",502);}
+   try{const body=await request.json() as {providerKey?:string;protocol?:AIProtocol;baseUrl?:string;model?:string;apiKey?:string;secretName?:string};if(!body.providerKey||!body.protocol)return errorResponse(request,"INVALID_AI_PROVIDER","请选择服务商",400);return successResponse(request,await testAIProvider(body.providerKey,body.protocol,body.baseUrl??"",body.model??"",body.apiKey,env,body.secretName));}catch(error){return errorResponse(request,"AI_PROVIDER_TEST_FAILED",error instanceof Error?error.message:"AI 连接测试失败",502);}
+  }
+  if(url.pathname==="/api/v1/settings/ai-providers"&&request.method==="POST"){
+   try{
+    const body=await request.json() as {provider?:AIProviderConfig;apiKey?:string};
+    const p=body.provider;if(!p?.id||!p.providerKey||!p.name||!p.protocol||!p.model)return errorResponse(request,"INVALID_AI_PROVIDER","供应商、模型和配置 ID 均为必填项",400);
+    const config=await readAIConfig(env);
+    const existing=config.providers.find(item=>item.id===p.id);
+    const secretName=p.providerKey==="cloudflare-workers-ai"?undefined:(p.secretName||aiSecretName(p.id));
+    if(p.providerKey!=="cloudflare-workers-ai"&&!body.apiKey?.trim()&&!existing?.configured)return errorResponse(request,"INVALID_AI_CREDENTIAL","请填写该 AI 配置的 API Key",400);
+    if(p.providerKey!=="cloudflare-workers-ai"&&body.apiKey?.trim())await saveVaultSecret(secretName!,body.apiKey.trim(),"TradePilot AI · "+p.name,env);
+    const next:AIProviderConfig={...p,secretName,configured:p.providerKey==="cloudflare-workers-ai"||Boolean(body.apiKey?.trim())||Boolean(existing?.configured),enabled:true};
+    const providers=existing?config.providers.map(item=>item.id===p.id?next:item):[...config.providers,next];
+    await writeAIConfig({...config,providers},env);
+    return successResponse(request,{saved:true,provider:next});
+   }catch(error){return errorResponse(request,"AI_PROVIDER_SAVE_FAILED",error instanceof Error?error.message:"保存 AI 配置失败",502);}
+  }
+  if(url.pathname.startsWith("/api/v1/settings/ai-providers/")&&request.method==="DELETE"){
+   try{const id=decodeURIComponent(url.pathname.split("/").pop()||"");const config=await readAIConfig(env);const provider=config.providers.find(item=>item.id===id);if(!provider)return errorResponse(request,"AI_PROVIDER_NOT_FOUND","找不到该 AI 配置",404);if(provider.secretName)await deleteVaultSecret(provider.secretName,env);await writeAIConfig({...config,providers:config.providers.filter(item=>item.id!==id)},env);return successResponse(request,{deleted:true});}catch(error){return errorResponse(request,"AI_PROVIDER_DELETE_FAILED",error instanceof Error?error.message:"删除 AI 配置失败",502);}
   }
 
-  if (request.method === "GET" && url.pathname === "/api/v1/settings/integrations") {
-    return successResponse(request, {
-      cloudflare: Boolean(env.CLOUDFLARE_API_TOKEN),
-      supabase: Boolean(env.SUPABASE_SERVICE_ROLE_KEY),
-      googleMaps: Boolean(env.GOOGLE_MAPS_API_KEY),
-      deepl: Boolean(env.DEEPL_API_KEY),
-      serper: Boolean(env.SERPER_API_KEY),
-      serpapi: Boolean(env.SERPAPI_API_KEY),
-      apify: Boolean(env.APIFY_API_TOKEN),
-      dhl: Boolean(env.DHL_API_KEY),
-      upsClientId: Boolean(env.UPS_CLIENT_ID),
-      upsClientSecret: Boolean(env.UPS_CLIENT_SECRET),
-      fedexClientId: Boolean(env.FEDEX_CLIENT_ID),
-      fedexClientSecret: Boolean(env.FEDEX_CLIENT_SECRET),
-    });
+  if(request.method==="GET"&&url.pathname==="/api/v1/settings/integrations"){
+   try{
+    const names=Object.values(apiSecretNames);
+    const secrets=await readVaultSecrets(names,env);
+    const status:Record<string,boolean>={};
+    for(const [key,name] of Object.entries(apiSecretNames))status[key]=Boolean(secrets[name]||(legacyApiEnv[key]&&envSecret(env,legacyApiEnv[key])));
+    return successResponse(request,status);
+   }catch(error){return errorResponse(request,"INTEGRATIONS_READ_FAILED",error instanceof Error?error.message:"读取集成状态失败",502);}
   }
-
-  if (request.method === "POST" && url.pathname === "/api/v1/settings/integrations") {
-    let body: CredentialBody;
-    try { body = await request.json() as CredentialBody; } catch { return errorResponse(request, "INVALID_JSON", "请求内容格式不正确。", 400); }
-    const supplied = (Object.entries(bodyFields) as Array<[ServiceKey, keyof CredentialBody]>)
-      .filter(([, field]) => typeof body[field] === "string" && Boolean(body[field]?.trim()));
-    if (supplied.length !== 1) return errorResponse(request, "ONE_KEY_AT_A_TIME", "每次只能提交一个服务的密钥，请分别保存。", 400);
-    const [service, field] = supplied[0];
-    const value = body[field]?.trim() ?? "";
-    if (value.length > 4096) return errorResponse(request, "INVALID_CREDENTIAL", "密钥长度不符合要求。", 400);
-    try {
-      const message = await saveOneSecret(service, value, env);
-      return successResponse(request, { saved: true, service, message });
-    } catch (error) {
-      return errorResponse(request, "SECRET_UPDATE_FAILED", error instanceof Error ? error.message : "密钥保存失败，请检查 Cloudflare Token 权限。", 502);
+  if(request.method==="POST"&&url.pathname==="/api/v1/settings/integrations"){
+   try{
+    const body=await request.json() as Record<string,unknown>;
+    const allowed=Object.keys(apiSecretNames);
+    const supplied=allowed.filter(key=>typeof body[key]==="string"&&Boolean(String(body[key]).trim()));
+    if(!supplied.length)return errorResponse(request,"EMPTY_INTEGRATION_CREDENTIALS","请至少填写一项凭证",400);
+    for(const field of supplied){const value=String(body[field]).trim();if(value.length>12000)return errorResponse(request,"INVALID_CREDENTIAL","凭证长度超出限制："+field,400);await saveVaultSecret(apiSecretNames[field],value,"TradePilot API · "+field,env);}
+    return successResponse(request,{saved:true,fields:supplied});
+   }catch(error){return errorResponse(request,"INTEGRATION_SAVE_FAILED",error instanceof Error?error.message:"保存 API 配置失败",502);}
+  }
+  if(request.method==="POST"&&url.pathname==="/api/v1/settings/integrations/test"){
+   try{
+    const body=await request.json() as {service?:string};
+    const service=String(body.service||"");
+    const names=Object.values(apiSecretNames);
+    const secrets=await readVaultSecrets(names,env);
+    const secret=(key:string)=>secrets[apiSecretNames[key]]||envSecret(env,legacyApiEnv[key]||"");
+    if(service==="apify"){
+      const key=secret("apify");if(!key)return successResponse(request,{ok:false,message:"尚未配置"});
+      const r=await fetch("https://api.apify.com/v2/users/me",{headers:{Authorization:"Bearer "+key,Accept:"application/json"}});
+      return successResponse(request,{ok:r.ok,message:r.ok?"Apify API 连接成功": "Apify API 返回 HTTP "+r.status});
     }
+    if(service==="deepl"){
+      const key=secret("deepl");if(!key)return successResponse(request,{ok:false,message:"尚未配置"});
+      const base=key.endsWith(":fx")?"https://api-free.deepl.com":"https://api.deepl.com";
+      const r=await fetch(base+"/v2/usage",{headers:{Authorization:"DeepL-Auth-Key "+key}});
+      if(!r.ok)return successResponse(request,{ok:false,message:"DeepL API 返回 HTTP "+r.status});
+      const usage=await r.json() as {character_count?:number;character_limit?:number};
+      return successResponse(request,{ok:true,message:typeof usage.character_count==="number"?"DeepL 可用 · 已使用 "+usage.character_count.toLocaleString()+" / "+(usage.character_limit??0).toLocaleString()+" 字符":"DeepL API 连接成功"});
+    }
+    if(service==="googleMaps"){
+      const key=secret("googleMaps");if(!key)return successResponse(request,{ok:false,message:"尚未配置"});
+      const u=new URL("https://maps.googleapis.com/maps/api/geocode/json");u.searchParams.set("address","Berlin, Germany");u.searchParams.set("key",key);
+      const r=await fetch(u);const data=await r.json() as {status?:string};
+      return successResponse(request,{ok:r.ok&&data.status==="OK",message:r.ok&&data.status==="OK"?"Google Geocoding API 可用":"Google Maps 返回 "+String(data.status||r.status)});
+    }
+    if(service==="dhl"){
+      const key=secret("dhl");if(!key)return successResponse(request,{ok:false,message:"尚未配置"});
+      const r=await fetch("https://api-eu.dhl.com/track/shipments?trackingNumber=00340434161094000000",{headers:{"DHL-API-Key":key,Accept:"application/json"}});
+      return successResponse(request,{ok:r.ok||r.status===404,message:r.ok||r.status===404?"DHL Tracking API 凭证可用":"DHL API 返回 HTTP "+r.status});
+    }
+    if(service==="ups"){
+      const id=secret("upsClientId"),secretKey=secret("upsClientSecret");if(!id||!secretKey)return successResponse(request,{ok:false,message:"请同时填写 UPS Client ID 和 Client Secret"});
+      const r=await fetch("https://onlinetools.ups.com/security/v1/oauth/token",{method:"POST",headers:{Authorization:"Basic "+btoa(id+":"+secretKey),"Content-Type":"application/x-www-form-urlencoded"},body:"grant_type=client_credentials"});
+      return successResponse(request,{ok:r.ok,message:r.ok?"UPS OAuth 认证成功":"UPS OAuth 认证失败（HTTP "+r.status+"）"});
+    }
+    if(service==="fedex"){
+      const id=secret("fedexClientId"),secretKey=secret("fedexClientSecret");if(!id||!secretKey)return successResponse(request,{ok:false,message:"请同时填写 FedEx API Key 和 Secret Key"});
+      const r=await fetch("https://apis.fedex.com/oauth/token",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:new URLSearchParams({grant_type:"client_credentials",client_id:id,client_secret:secretKey})});
+      return successResponse(request,{ok:r.ok,message:r.ok?"FedEx OAuth 认证成功":"FedEx OAuth 认证失败（HTTP "+r.status+"）"});
+    }
+    if(service==="cloudflare"){
+      const token=secret("cloudflareApiToken");const account=secret("cloudflareAccountId")||env.CLOUDFLARE_ACCOUNT_ID||"";
+      if(!token||!account)return successResponse(request,{ok:false,message:"请同时填写 Cloudflare Workers AI API Token 和 Account ID"});
+      const r=await fetch("https://api.cloudflare.com/client/v4/accounts/"+encodeURIComponent(account)+"/ai/models/search?per_page=1",{headers:{Authorization:"Bearer "+token}});
+      return successResponse(request,{ok:r.ok,message:r.ok?"Cloudflare Workers AI API Token 与 Account ID 可用":"Cloudflare API 返回 HTTP "+r.status+"；请确认 Workers AI Read 权限"});
+    }
+    return errorResponse(request,"INVALID_SERVICE","未知的 API 服务商",400);
+   }catch(error){return errorResponse(request,"INTEGRATION_TEST_FAILED",error instanceof Error?error.message:"API 连接测试失败",502);}
   }
-
-  if (request.method === "POST" && url.pathname === "/api/v1/settings/integrations/test") {
-    let body: { service?: ServiceKey };
-    try { body = await request.json() as { service?: ServiceKey }; } catch { return errorResponse(request, "INVALID_JSON", "请求内容格式不正确。", 400); }
-    if (!body.service || !(body.service in secretNames)) return errorResponse(request, "INVALID_SERVICE", "请选择需要测试的服务。", 400);
-    const result = await testOneService(body.service, env);
-    return successResponse(request, { service: body.service, ...result });
+  if(request.method==="DELETE"&&url.pathname.startsWith("/api/v1/settings/integrations/")){
+   try{const service=decodeURIComponent(url.pathname.split("/").pop()||"");const groups:Record<string,string[]>={apify:["apify"],deepl:["deepl"],googleMaps:["googleMaps"],dhl:["dhl"],ups:["upsClientId","upsClientSecret"],fedex:["fedexClientId","fedexClientSecret"],cloudflare:["cloudflareApiToken","cloudflareAccountId"]};const fields=groups[service];if(!fields)return errorResponse(request,"INVALID_SERVICE","未知的 API 服务商",400);for(const field of fields)await deleteVaultSecret(apiSecretNames[field],env);return successResponse(request,{deleted:true});}catch(error){return errorResponse(request,"INTEGRATION_DELETE_FAILED",error instanceof Error?error.message:"删除 API 配置失败",502);}
   }
-
   return errorResponse(request, "NOT_FOUND", "设置接口不存在。", 404);
 }
