@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useLocation, useNavigate, Outlet } from 'react-router-dom';
 import {
   Header, HeaderName, HeaderMenuButton, HeaderGlobalBar, HeaderGlobalAction,
-  SideNav, SideNavItems, SideNavLink, Content, CarbonIcons, InlineNotification,
+  SideNav, SideNavItems, SideNavLink, Content, CarbonIcons, InlineNotification, OverflowMenu, OverflowMenuItem,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import { XiaoyaAvatar } from '@/features/agent/XiaoyaAvatar';
@@ -43,8 +43,8 @@ export function AppShell() {
           isActive={sideNavExpanded}
           onClick={() => setSideNavExpanded((expanded) => !expanded)}
         />
-        <HeaderName href="/" prefix="">
-          TradePilot
+        <HeaderName href="/" prefix="" className="tp-header__brand" aria-label="TradePilot 首页">
+          <img src="/tradepilot-mark.svg" alt="TradePilot" />
         </HeaderName>
         <HeaderGlobalBar>
           <HeaderGlobalAction
@@ -55,14 +55,21 @@ export function AppShell() {
           >
             <XiaoyaAvatar emotion="idle" size={30} />
           </HeaderGlobalAction>
-          <HeaderGlobalAction
-            aria-label={signingOut ? '正在退出登录' : '退出登录'}
-            tooltipAlignment="end"
-            onClick={() => { if (!signingOut) void signOut(); }}
-            aria-disabled={signingOut}
+          <OverflowMenu
+            ariaLabel="账户菜单"
+            iconDescription="账户菜单"
+            renderIcon={CarbonIcons.User}
+            flipped
+            size="lg"
+            className="tp-account-menu"
           >
-            <CarbonIcons.Logout size={20} aria-hidden="true" />
-          </HeaderGlobalAction>
+            <OverflowMenuItem itemText="个人设置" disabled />
+            <OverflowMenuItem
+              itemText={signingOut ? '正在退出系统…' : '退出系统'}
+              disabled={signingOut}
+              onClick={() => { if (!signingOut) void signOut(); }}
+            />
+          </OverflowMenu>
         </HeaderGlobalBar>
       </Header>
       <SideNav
@@ -73,13 +80,11 @@ export function AppShell() {
         isRail={!sideNavExpanded}
         onOverlayClick={() => setSideNavExpanded(false)}
       >
-        <div className="tp-sidenav__brand">
-          <img src="/tradepilot-logo.svg" alt="TradePilot" />
-        </div>
+        
         <div className="tp-sidenav__group">
           <div className="tp-sidenav__group-label">情报与线索</div>
           <SideNavItems>
-            <SideNavLink href="/prospect-console" isActive={location.pathname === '/prospect-console' || location.pathname === '/prospect-discovery' || location.pathname === '/recent-tasks'} title="全网情报" renderIcon={CarbonIcons.Globe}>全网情报</SideNavLink>
+            <SideNavLink href="/prospect-console" isActive={location.pathname === '/prospect-console' || location.pathname === '/prospect-discovery' || location.pathname === '/recent-tasks'} title="全球情报（Global Intelligence）" renderIcon={CarbonIcons.Globe}>全球情报（Global Intelligence）</SideNavLink>
             <SideNavLink href="/leads" isActive={location.pathname.startsWith('/leads')} title="线索（Lead）" renderIcon={CarbonIcons.UserFollow}>线索（Lead）</SideNavLink>
           </SideNavItems>
         </div>
@@ -95,7 +100,7 @@ export function AppShell() {
           <div className="tp-sidenav__group-label">贸易业务</div>
           <SideNavItems>
             <SideNavLink href="/quotes" isActive={location.pathname.startsWith('/quotes')} title="报价单（Quote）" renderIcon={CarbonIcons.Document}>报价单（Quote）</SideNavLink>
-            <SideNavLink href="/sales-orders" isActive={location.pathname.startsWith('/sales-orders')} title="销售订单（Sales Order）" renderIcon={CarbonIcons.Document}>销售订单（Sales Order）</SideNavLink>
+            <SideNavLink href="/sales-orders" isActive={location.pathname.startsWith('/sales-orders')} title="销售订单（Sales Order）" renderIcon={CarbonIcons.DocumentTasks}>销售订单（Sales Order）</SideNavLink>
             <SideNavLink href="/shipments" isActive={location.pathname.startsWith('/shipments')} title="发运（Shipment）" renderIcon={CarbonIcons.Delivery}>发运（Shipment）</SideNavLink>
             <SideNavLink href="/payments" isActive={location.pathname.startsWith('/payments')} title="收款（Payment）" renderIcon={CarbonIcons.Currency}>收款（Payment）</SideNavLink>
             <SideNavLink href="/products" isActive={location.pathname.startsWith('/products')} title="产品（Product）" renderIcon={CarbonIcons.Product}>产品（Product）</SideNavLink>
@@ -105,8 +110,15 @@ export function AppShell() {
           <div className="tp-sidenav__group-label">工具与系统</div>
           <SideNavItems>
             <SideNavLink href="/trade-tools" isActive={location.pathname.startsWith('/trade-tools')} title="外贸工具（Trade tools）" renderIcon={CarbonIcons.Calculator}>外贸工具（Trade tools）</SideNavLink>
-            <SideNavLink href="/settings" isActive={location.pathname.startsWith('/settings')} title="设置中心" renderIcon={CarbonIcons.Settings}>设置中心</SideNavLink>
+            <SideNavLink href="/settings" isActive={location.pathname.startsWith('/settings')} title="设置（Setting）" renderIcon={CarbonIcons.Settings}>设置（Setting）</SideNavLink>
           </SideNavItems>
+        </div>
+        <div className="tp-sidenav__footer">
+          <div className="tp-sidenav__contact">联系：xg.y@icloud.com</div>
+          <div className="tp-sidenav__copyright">
+            <img src="/tradepilot-mark.svg" alt="" />
+            <span>© {new Date().getFullYear()} TradePilot</span>
+          </div>
         </div>
       </SideNav>
       <Content className="tp-content">
