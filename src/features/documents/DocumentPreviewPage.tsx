@@ -102,7 +102,7 @@ export function DocumentPreviewPage() {
     </header>
 
     {error && <InlineNotification kind="error" lowContrast title="操作未完成" subtitle={error} onCloseButtonClick={() => setError('')} />}
-    {editing && draftContent && <section className="tp-document-preview__editor"><div><h2>编辑单据草稿</h2><p>可校对主体、地址与交易说明。产品、数量、单价和成交条款仍以已锁定订单快照为准。</p></div><div className="tp-document-preview__editor-grid">
+    {editing && draftContent && <section className="tp-document-preview__editor"><div><h2>编辑单据草稿</h2><p>可校对主体名称、地址、联系人和单据备注。产品、数量、单价、付款条件、贸易术语和交付日期仍以已锁定订单成交快照为准。</p></div><div className="tp-document-preview__editor-grid">
       <TextInput id="doc-edit-seller" labelText="卖方名称" value={String(draftContent.seller_name || '')} onChange={e => setDraftField('seller_name', e.currentTarget.value)} />
       <TextInput id="doc-edit-buyer" labelText="买方名称" value={String(draftContent.buyer_name || '')} onChange={e => setDraftField('buyer_name', e.currentTarget.value)} />
       <TextArea id="doc-edit-seller-address" labelText="卖方地址" rows={3} value={typeof draftContent.seller_address === 'string' ? draftContent.seller_address : address(draftContent.seller_address) === '—' ? '' : address(draftContent.seller_address)} onChange={e => setDraftField('seller_address', e.currentTarget.value)} />
@@ -111,10 +111,6 @@ export function DocumentPreviewPage() {
       <TextInput id="doc-edit-contact" labelText="联系人" value={String(draftContent.contact_name || '')} onChange={e => setDraftField('contact_name', e.currentTarget.value)} />
       <TextInput id="doc-edit-contact-email" labelText="联系人邮箱" value={String(draftContent.contact_email || '')} onChange={e => setDraftField('contact_email', e.currentTarget.value)} />
       <TextInput id="doc-edit-contact-phone" labelText="联系人电话" value={String(draftContent.contact_phone || '')} onChange={e => setDraftField('contact_phone', e.currentTarget.value)} />
-      <TextInput id="doc-edit-payment" labelText="付款条件" value={String(draftContent.payment_terms || '')} onChange={e => setDraftField('payment_terms', e.currentTarget.value)} />
-      <TextInput id="doc-edit-incoterm" labelText="贸易术语" value={String(draftContent.incoterms_code || '')} onChange={e => setDraftField('incoterms_code', e.currentTarget.value)} />
-      <TextInput id="doc-edit-place" labelText="指定地点" value={String(draftContent.named_place || '')} onChange={e => setDraftField('named_place', e.currentTarget.value)} />
-      <TextInput id="doc-edit-delivery" labelText="交付日期" value={String(draftContent.delivery_date || '')} onChange={e => setDraftField('delivery_date', e.currentTarget.value)} />
       <TextArea id="doc-edit-notes" labelText="单据备注" rows={3} value={String(draftContent.notes || '')} onChange={e => setDraftField('notes', e.currentTarget.value)} />
     </div><div className="tp-document-preview__editor-actions"><Button kind="tertiary" disabled={saving} onClick={() => { setEditing(false); setDraftContent(null); }}>取消</Button><Button kind="primary" disabled={saving} onClick={() => void saveDraft()}>{saving ? '保存中…' : '保存并创建新版本'}</Button></div></section>}
     <article className="tp-document-preview__sheet">
