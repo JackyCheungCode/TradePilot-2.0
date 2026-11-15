@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "npm run check:carbon-imports && tsc -b && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -b --pretty"
+    "typecheck": "tsc -b --pretty",
+    "check:carbon-imports": "node scripts/check-carbon-imports.mjs"
   },
   "dependencies": {
     "@carbon/icons-react": "^11.55.0",
