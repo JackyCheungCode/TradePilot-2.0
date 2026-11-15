@@ -9,6 +9,7 @@ import { ProductAdvancedSettings } from './ProductAdvancedSettings';
 import { OpportunitySettings, opportunitySettingSections } from './OpportunitySettings';
 import { CrmDomainSettings, crmSettingSections, type CrmSettingsDomain } from './CrmDomainSettings';
 import { TradeDocumentSettings } from './TradeDocumentSettings';
+import { TradeOperationsSettings } from './TradeOperationsSettings';
 
 type Domain = { id: string; label: string; icon: React.ReactNode; available: boolean };
 type Section = { id: string; label: string; group: string; description: string; implemented?: boolean; integration?: 'connected'|'config-only'|'pending' };
@@ -23,6 +24,13 @@ const domains: Domain[] = [
   { id: 'accounts', label: '客户', icon: <CarbonIcons.Building size={20} />, available: true },
   { id: 'leads', label: '线索', icon: <CarbonIcons.UserMultiple size={20} />, available: true },
   { id: 'trade-documents', label: '销售单据', icon: <CarbonIcons.Document size={20} />, available: true },
+  { id: 'trade-operations', label: '发运与收款', icon: <CarbonIcons.Delivery size={20} />, available: true },
+];
+
+const tradeOperationsSections: Section[] = [
+  { id: 'shared', label: '共享基础设置', group: '共享基础设置', description: '统一维护币种与贸易术语，发运和收款模块共用。', implemented: true },
+  { id: 'shipment', label: '发运设置', group: '业务模块设置', description: '运输方式、箱型、单据、费用、跟踪与发运校验。', integration: 'pending' },
+  { id: 'payment', label: '收款设置', group: '业务模块设置', description: '收款方式、汇率、手续费、应收计划、催款与对账。', integration: 'pending' },
 ];
 
 const tradeDocumentSections: Section[] = [
@@ -71,7 +79,7 @@ export function SettingsCenterPage() {
   const [displayType, setDisplayType] = useState('select');
   const [variantMode, setVariantMode] = useState('never');
 
-  const activeSections: Section[] = domain === 'trade-documents' ? tradeDocumentSections : domain === 'opportunities' ? opportunitySettingSections : domain === 'contacts' || domain === 'accounts' || domain === 'leads' ? crmSettingSections[domain as CrmSettingsDomain] : productSections;
+  const activeSections: Section[] = domain === 'trade-operations' ? tradeOperationsSections : domain === 'trade-documents' ? tradeDocumentSections : domain === 'opportunities' ? opportunitySettingSections : domain === 'contacts' || domain === 'accounts' || domain === 'leads' ? crmSettingSections[domain as CrmSettingsDomain] : productSections;
   const connectedCount = activeSections.filter(item => item.integration === 'connected' || item.implemented === true).length;
   const configOnlyCount = activeSections.filter(item => item.integration === 'config-only').length;
   const activeSection = activeSections.find((item) => item.id === section) ?? activeSections[0];
@@ -212,7 +220,7 @@ export function SettingsCenterPage() {
               size="md"
               className={`tp-settings__domain ${domain === item.id ? 'is-active' : ''}`}
               disabled={!item.available}
-              onClick={() => { setDomain(item.id); setSection(item.id === 'trade-documents' ? 'shared' : item.id === 'opportunities' ? 'stages' : item.id === 'contacts' ? 'salutations' : item.id === 'accounts' ? 'account-types' : item.id === 'leads' ? 'lead-types' : 'categories'); setQuery(''); }}
+              onClick={() => { setDomain(item.id); setSection(item.id === 'trade-documents' || item.id === 'trade-operations' ? 'shared' : item.id === 'opportunities' ? 'stages' : item.id === 'contacts' ? 'salutations' : item.id === 'accounts' ? 'account-types' : item.id === 'leads' ? 'lead-types' : 'categories'); setQuery(''); }}
               aria-pressed={domain === item.id}
             >
               <span className="tp-settings__domain-icon">{item.icon}</span>
@@ -230,15 +238,15 @@ export function SettingsCenterPage() {
         <section className="tp-settings__workspace">
           <div className="tp-settings__workspace-heading">
             <div>
-              <p className="tp-settings__eyebrow">{domain === 'trade-documents' ? 'TRADE DOCUMENT SETTINGS' : domain === 'opportunities' ? 'OPPORTUNITY SETTINGS' : domain === 'contacts' ? 'CONTACT SETTINGS' : domain === 'accounts' ? 'ACCOUNT SETTINGS' : domain === 'leads' ? 'LEAD SETTINGS' : 'PRODUCT SETTINGS'}</p>
-              <h2>{domain === 'trade-documents' ? '销售单据设置' : domain === 'opportunities' ? '商机设置' : domain === 'contacts' ? '联系人设置' : domain === 'accounts' ? '客户设置' : domain === 'leads' ? '线索设置' : '产品设置'}</h2>
-              <p>{domain === 'trade-documents' ? '统一维护销售单据共性规则，并分别配置报价单与销售订单的专属流程。' : domain === 'opportunities' ? '维护销售流程、商机分类、销售组织、活动与预测规则。' : domain === 'contacts' ? '维护联系人身份、组织、联系方式、沟通偏好、合规与数据规则。' : domain === 'accounts' ? '维护客户主数据、客户分级、地址、交易财务、销售归属与风险规则。' : domain === 'leads' ? '维护线索分类、来源画像、资格评估、分配跟进、查重与转换规则。' : '维护产品主数据字典、模板、包装贸易规则和数据校验策略。'}</p>
+              <p className="tp-settings__eyebrow">{domain === 'trade-operations' ? 'TRADE OPERATIONS SETTINGS' : domain === 'trade-documents' ? 'TRADE DOCUMENT SETTINGS' : domain === 'opportunities' ? 'OPPORTUNITY SETTINGS' : domain === 'contacts' ? 'CONTACT SETTINGS' : domain === 'accounts' ? 'ACCOUNT SETTINGS' : domain === 'leads' ? 'LEAD SETTINGS' : 'PRODUCT SETTINGS'}</p>
+              <h2>{domain === 'trade-operations' ? '发运与收款设置' : domain === 'trade-documents' ? '销售单据设置' : domain === 'opportunities' ? '商机设置' : domain === 'contacts' ? '联系人设置' : domain === 'accounts' ? '客户设置' : domain === 'leads' ? '线索设置' : '产品设置'}</h2>
+              <p>{domain === 'trade-operations' ? '集中管理共享基础数据，并分别配置发运与收款业务规则。' : domain === 'trade-documents' ? '统一维护销售单据共性规则，并分别配置报价单与销售订单的专属流程。' : domain === 'opportunities' ? '维护销售流程、商机分类、销售组织、活动与预测规则。' : domain === 'contacts' ? '维护联系人身份、组织、联系方式、沟通偏好、合规与数据规则。' : domain === 'accounts' ? '维护客户主数据、客户分级、地址、交易财务、销售归属与风险规则。' : domain === 'leads' ? '维护线索分类、来源画像、资格评估、分配跟进、查重与转换规则。' : '维护产品主数据字典、模板、包装贸易规则和数据校验策略。'}</p>
             </div>
             {domain === "contacts" || domain === "accounts" || domain === "leads" ? <div className="tp-settings__workspace-status"><Tag type="green">字典已接入 {connectedCount}/{activeSections.length}</Tag><Tag type="cool-gray">规则待接入 {configOnlyCount}</Tag></div> : <Tag type="green">已接入 {activeSections.length} 项</Tag>}
           </div>
 
           <div className="tp-settings__section-layout">
-            <nav className="tp-settings__section-nav" aria-label={domain === 'trade-documents' ? '销售单据设置分类' : domain === 'opportunities' ? '商机设置分类' : domain === 'contacts' ? '联系人设置分类' : domain === 'accounts' ? '客户设置分类' : domain === 'leads' ? '线索设置分类' : '产品设置分类'}>
+            <nav className="tp-settings__section-nav" aria-label={domain === 'trade-operations' ? '发运与收款设置分类' : domain === 'trade-documents' ? '销售单据设置分类' : domain === 'opportunities' ? '商机设置分类' : domain === 'contacts' ? '联系人设置分类' : domain === 'accounts' ? '客户设置分类' : domain === 'leads' ? '线索设置分类' : '产品设置分类'}>
               {sectionGroups.map(({ group, items }) => (
                 <div className="tp-settings__section-group" key={group}>
                   <div className="tp-settings__section-label">{group}</div>
@@ -356,7 +364,7 @@ export function SettingsCenterPage() {
                 </>
               )}
 
-              {domain === 'trade-documents' ? <TradeDocumentSettings scope={section as 'shared' | 'quotation' | 'sales_order'} /> : domain === 'opportunities' ? <OpportunitySettings section={section} /> : domain === 'contacts' || domain === 'accounts' || domain === 'leads' ? <CrmDomainSettings domain={domain as CrmSettingsDomain} section={section} /> : !['categories','attributes'].includes(section) && <ProductAdvancedSettings section={section} /> }
+              {domain === 'trade-operations' ? <TradeOperationsSettings scope={section as 'shared' | 'shipment' | 'payment'} /> : domain === 'trade-documents' ? <TradeDocumentSettings scope={section as 'shared' | 'quotation' | 'sales_order'} /> : domain === 'opportunities' ? <OpportunitySettings section={section} /> : domain === 'contacts' || domain === 'accounts' || domain === 'leads' ? <CrmDomainSettings domain={domain as CrmSettingsDomain} section={section} /> : !['categories','attributes'].includes(section) && <ProductAdvancedSettings section={section} /> }
 
             </div>
           </div>
