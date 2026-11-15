@@ -22,6 +22,7 @@ export interface DiscoveryRun {
   state?: string;
   city?: string;
   searchConfig?: Record<string, unknown>;
+  providers?: string[];
 }
 export interface DiscoveryRecord {
   id: string;
