@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Button, Column, Grid, InlineLoading, InlineNotification, Tag, TextArea, Tile, CarbonIcons,
+  Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextArea, Tile, CarbonIcons,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/layout/AgentWorkspace.scss';
+import { XiaoyaAvatar } from './XiaoyaAvatar';
 
 type AgentTask = {
   goal: string;
@@ -183,54 +184,59 @@ export function AgentWorkspacePage() {
       {error && <InlineNotification className="tp-agent__notification" kind="error" title="操作失败" subtitle={error} onCloseButtonClick={() => setError('')} />}
       {notice && <InlineNotification className="tp-agent__notification" kind="success" title="任务已创建" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
 
-      <Grid fullWidth className="tp-agent__workspace">
-        <Column sm={4} md={2} lg={4} className="tp-agent__history-column">
-          <section className="tp-agent__history" aria-label="历史对话">
-            <div className="tp-agent__history-header">
-              <h2>历史对话</h2>
-              <Button kind="primary" size="sm" onClick={() => void createConversation()}>
-                <CarbonIcons.Add size={16} /> 新建对话
-              </Button>
-            </div>
-            {loading && <InlineLoading description="正在加载对话…" />}
-            <nav className="tp-agent__conversation-list" aria-label="选择历史对话">
+      <div className="tp-agent__workspace">
+        <section className="tp-agent__history" aria-label="历史对话">
+          <div className="tp-agent__history-select">
+            <Select
+              id="agent-conversation-select"
+              labelText="历史对话"
+              size="md"
+              value={conversationId}
+              disabled={loading || !conversations.length}
+              onChange={(event) => setConversationId(event.currentTarget.value)}
+            >
+              <SelectItem value="" text="选择历史对话" />
               {conversations.map((item) => (
-                <Button
-                  key={item.id}
-                  kind={conversationId === item.id ? 'tertiary' : 'ghost'}
-                  size="sm"
-                  className="tp-agent__conversation"
-                  onClick={() => setConversationId(item.id)}
-                >
-                  <span>{item.title || '新聊天'}</span>
-                </Button>
+                <SelectItem key={item.id} value={item.id} text={item.title || '新聊天'} />
               ))}
-            </nav>
-            <Button kind="ghost" size="sm" className="tp-agent__tasks-link" onClick={() => navigate('/recent-tasks')}>
-              <CarbonIcons.Task size={16} /> 查看任务执行中心
+            </Select>
+          </div>
+          <div className="tp-agent__history-actions">
+            <Button kind="primary" size="md" onClick={() => void createConversation()}>
+              <CarbonIcons.Add size={16} /> 新建对话
             </Button>
-          </section>
-        </Column>
+            <Button kind="ghost" size="md" onClick={() => navigate('/recent-tasks')}>
+              <CarbonIcons.Task size={16} /> 任务执行中心
+            </Button>
+          </div>
+          {loading && <InlineLoading description="正在加载对话…" />}
+        </section>
 
-        <Column sm={4} md={6} lg={12} className="tp-agent__chat-column">
-          <section className="tp-agent__chat" aria-label="小雅聊天窗口">
-            <div className="tp-agent__chat-header">
-              <div>
-                <h2>与小雅对话</h2>
-                <p>描述你的业务目标，小雅会结合上下文分析并协助执行。</p>
-              </div>
+        <section className="tp-agent__chat" aria-label="小雅聊天窗口">
+          <div className="tp-agent__chat-header">
+            <XiaoyaAvatar emotion="idle" size={40} />
+            <div>
+              <h2>与小雅对话</h2>
+              <p>描述你的业务目标，小雅会结合上下文分析并协助执行。</p>
             </div>
+          </div>
 
-            <div className="tp-agent__messages" aria-live="polite">
-              {!messages.length && !loading && (
-                <div className="tp-agent__welcome">
-                  <h3>你好，我是小雅。</h3>
-                  <p>你可以让我分析客户、产品、销售订单、发运和收款数据，也可以让我研究全球市场或准备业务任务。</p>
-                  <p className="tp-agent__welcome-hint">直接输入目标开始对话。需要执行任务时，我会先向你展示任务方案。</p>
-                </div>
-              )}
-              {messages.map((item) => (
-                <article key={item.id} className={`tp-agent__message tp-agent__message--${item.role}`}>
+          <div className="tp-agent__messages" aria-live="polite">
+            {!messages.length && !loading && (
+              <div className="tp-agent__welcome">
+                <h3>你好，我是小雅。</h3>
+                <p>你可以让我分析客户、产品、销售订单、发运和收款数据，也可以让我研究全球市场或准备业务任务。</p>
+                <p className="tp-agent__welcome-hint">直接输入目标开始对话。需要执行任务时，我会先向你展示任务方案。</p>
+              </div>
+            )}
+            {messages.map((item) => (
+              <article key={item.id} className={`tp-agent__message tp-agent__message--${item.role}`}>
+                {item.role === 'assistant' && (
+                  <div className="tp-agent__message-avatar">
+                    <XiaoyaAvatar emotion="idle" size={32} />
+                  </div>
+                )}
+                <div className="tp-agent__message-body">
                   <div className="tp-agent__message-label">{item.role === 'user' ? '你' : '小雅'}</div>
                   <div className="tp-agent__message-content">
                     <p>{item.content}</p>
@@ -254,36 +260,41 @@ export function AgentWorkspacePage() {
                       </Tile>
                     )}
                   </div>
-                </article>
-              ))}
-              {sending && <div className="tp-agent__thinking"><InlineLoading description="小雅正在思考…" /></div>}
-            </div>
-
-            <div className="tp-agent__composer">
-              <TextArea
-                id="xiaoya-message"
-                labelText="发送给小雅"
-                placeholder="例如：帮我分析最近 30 天的潜在客户，并找出最值得优先跟进的客户。"
-                rows={3}
-                value={draft}
-                onChange={(event) => setDraft(event.currentTarget.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' && !event.shiftKey) {
-                    event.preventDefault();
-                    void sendMessage();
-                  }
-                }}
-              />
-              <div className="tp-agent__composer-footer">
-                <span>Enter 发送 · Shift + Enter 换行</span>
-                <Button kind="primary" disabled={!draft.trim() || sending || !conversationId} onClick={() => void sendMessage()}>
-                  <CarbonIcons.Send size={16} /> 发送
-                </Button>
+                </div>
+              </article>
+            ))}
+            {sending && (
+              <div className="tp-agent__thinking">
+                <XiaoyaAvatar emotion="thinking" size={32} />
+                <InlineLoading description="小雅正在思考…" />
               </div>
+            )}
+          </div>
+
+          <div className="tp-agent__composer">
+            <TextArea
+              id="xiaoya-message"
+              labelText="发送给小雅"
+              placeholder="例如：帮我分析最近 30 天的潜在客户，并找出最值得优先跟进的客户。"
+              rows={3}
+              value={draft}
+              onChange={(event) => setDraft(event.currentTarget.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                  event.preventDefault();
+                  void sendMessage();
+                }
+              }}
+            />
+            <div className="tp-agent__composer-footer">
+              <span>Enter 发送 · Shift + Enter 换行</span>
+              <Button kind="primary" disabled={!draft.trim() || sending || !conversationId} onClick={() => void sendMessage()}>
+                <CarbonIcons.Send size={16} /> 发送
+              </Button>
             </div>
-          </section>
-        </Column>
-      </Grid>
+          </div>
+        </section>
+      </div>
     </main>
   );
 }
