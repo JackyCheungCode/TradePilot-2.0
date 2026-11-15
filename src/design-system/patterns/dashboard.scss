@@ -71,7 +71,8 @@
  .tp-dashboard__date-range { width:100%; }
  .tp-dashboard__date-range .cds--form-item { flex:1 1 0; min-width:0; }
  .tp-dashboard__section-heading { align-items:flex-start; flex-direction:column; }
- .tp-dashboard__metric,.tp-dashboard__metric:nth-child(n) { grid-column:span 1; min-height:8.5rem; }
+ .tp-dashboard__metrics { grid-template-columns:minmax(0,1fr); }
+ .tp-dashboard__metric,.tp-dashboard__metric:nth-child(n) { grid-column:1 / -1; min-height:8.5rem; }
  .tp-dashboard__metric-action { padding:.9rem; }
  .tp-dashboard__metric-copy > strong { font-size:1.5rem; }
  .tp-dashboard__metric-visual { min-width:4rem; }
