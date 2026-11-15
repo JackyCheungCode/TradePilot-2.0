@@ -27,7 +27,7 @@ export function ProspectDiscoveryHeader({
       </div>
       <div className="tp-discovery__heading-actions">
         {children}
-        {title === '潜客控制台' ? (
+        {title === '情报数据台' ? (
           <>
             <Button kind="primary" size="sm" onClick={() => navigate('/prospect-discovery')}>
               <CarbonIcons.Add size={16} aria-hidden="true" />
@@ -41,7 +41,7 @@ export function ProspectDiscoveryHeader({
         ) : (
           <Button kind="ghost" size="sm" onClick={() => navigate('/prospect-console')}>
             <CarbonIcons.ChartLine size={16} aria-hidden="true" />
-            潜客控制台
+            情报数据台
           </Button>
         )}
         {showRecentTasks && (
