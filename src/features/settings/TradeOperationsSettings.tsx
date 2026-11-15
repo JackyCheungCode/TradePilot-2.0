@@ -7,6 +7,7 @@ import { getSupabaseClient } from '@/lib/supabase';
 
 type Scope = 'shared' | 'shipment' | 'payment';
 type SettingItem = { id: string; setting_type: string; code: string; name: string; config: Record<string, unknown>; sequence: number; is_active: boolean };
+type HistoryItem = { id: string; source_table: string; operation: string; before_data: Record<string, unknown> | null; after_data: Record<string, unknown> | null; changed_at: string };
 const currencies = [
   ['USD','美元',2],['EUR','欧元',2],['GBP','英镑',2],['CNY','人民币',2],['TWD','新台币',0],
   ['JPY','日元',0],['HKD','港币',2],['AUD','澳元',2],['CAD','加元',2],['SGD','新加坡元',2],
@@ -16,6 +17,7 @@ const incoterms = ['EXW','FCA','CPT','CIP','DAP','DPU','DDP','FAS','FOB','CFR','
 export function TradeOperationsSettings({ scope }: { scope: Scope }) {
   const [ownerId,setOwnerId] = useState('');
   const [items,setItems] = useState<SettingItem[]>([]);
+  const [history,setHistory] = useState<HistoryItem[]>([]);
   const [baseCurrency,setBaseCurrency] = useState('USD');
   const [incotermVersion,setIncotermVersion] = useState('2020');
   const [itemType,setItemType] = useState<'currency'|'incoterm'>('currency');
@@ -35,14 +37,17 @@ export function TradeOperationsSettings({ scope }: { scope: Scope }) {
       const userId = session.session?.user.id;
       if(!userId) throw new Error('登录状态已失效，请重新登录。');
       setOwnerId(userId);
-      const [settingsResult,itemsResult,profileResult] = await Promise.all([
+      const [settingsResult,itemsResult,profileResult,historyResult] = await Promise.all([
         db.from('trade_business_settings').select('config').eq('owner_id',userId).eq('scope_key','shared').maybeSingle(),
         db.from('trade_business_setting_items').select('id,setting_type,code,name,config,sequence,is_active').eq('owner_id',userId).eq('scope_key','shared').order('sequence').order('code'),
         db.from('enterprise_profiles').select('default_currency').eq('is_default',true).eq('is_archived',false).maybeSingle(),
+        db.from('trade_business_setting_history').select('id,source_table,operation,before_data,after_data,changed_at').eq('owner_id',userId).eq('scope_key','shared').order('changed_at',{ascending:false}).limit(10),
       ]);
       if(settingsResult.error) throw settingsResult.error;
       if(itemsResult.error) throw itemsResult.error;
       if(profileResult.error) throw profileResult.error;
+      if(historyResult.error) throw historyResult.error;
+      setHistory((historyResult.data||[]) as HistoryItem[]);
       let rows = (itemsResult.data || []) as SettingItem[];
       if(!rows.some(x=>x.setting_type==='currency')) {
         const seed = currencies.map(([code,name,decimal_places],i)=>({owner_id:userId,scope_key:'shared',setting_type:'currency',code:String(code),name:String(name),config:{decimal_places:Number(decimal_places)},sequence:(i+1)*10,is_active:true}));
@@ -159,6 +164,21 @@ export function TradeOperationsSettings({ scope }: { scope: Scope }) {
             </TableRow>)}</TableBody>
           </Table>
           {!visibleItems.length&&<p className="tp-settings__empty">暂无字典项目。</p>}
+        </div>
+      </section>
+      <section className="tp-settings__editor">
+        <h4>最近配置变更</h4>
+        <p className="tp-settings__hint">系统自动记录共享配置和字典的新增、修改及停用操作。</p>
+        <div className="tp-settings__table-wrap">
+          <Table>
+            <TableHead><TableRow><TableHeader>时间</TableHeader><TableHeader>对象</TableHeader><TableHeader>操作</TableHeader></TableRow></TableHead>
+            <TableBody>{history.map(row=><TableRow key={row.id}>
+              <TableCell>{new Date(row.changed_at).toLocaleString()}</TableCell>
+              <TableCell>{row.source_table==='trade_business_settings'?'共享默认规则':'共享基础字典'}</TableCell>
+              <TableCell>{row.operation==='INSERT'?'新增':row.operation==='UPDATE'?'修改':'停用'}</TableCell>
+            </TableRow>)}</TableBody>
+          </Table>
+          {!history.length&&<p className="tp-settings__empty">暂无配置变更记录。</p>}
         </div>
       </section>
     </>}
