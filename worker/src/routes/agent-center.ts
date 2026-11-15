@@ -365,9 +365,64 @@ function buildXiaoyaSystemPrompt(workspaceContext:string):string{
   "mode 默认 planner。除非用户明确指定，不要选择 internal 或 external。",
   "不要建议未经人工确认就发送邮件、批量导入 CRM、删除数据或执行其他不可逆外部操作。",
   "输出协议：只返回严格 JSON 对象，包含 reply 和 task 两个键；task 不需要执行时必须为 null。不得使用 Markdown 代码块，JSON 字符串必须正确转义。",
+  "可调用的只读业务工具（只有用户询问具体记录、数量、状态、名单或历史任务时才调用；一般知识问答不要调用）：",
+  "工具调用格式为 toolCalls 数组，每项包含 name 和 arguments。可用工具：search_leads（潜在客户）、search_discovery_records（全网发现记录）、search_crm_accounts（CRM 客户企业）、search_crm_contacts（CRM 联系人）、search_crm_opportunities（CRM 商机）、search_trade_orders（贸易订单）、search_trade_shipments（发运记录）、search_trade_payments（收付款记录）、search_agent_runs（Agent 执行任务）、search_discovery_runs（潜客发现任务）。",
+  "工具 arguments 可包含 query（名称、编号或关键词）、country（ISO 两位国家代码）、status（状态）、limit（1 到 8）。一次最多调用三个工具。只可调用以上只读工具，不可要求模型生成 SQL、表名、列名或任意 API 路径。",
+  "当用户询问某个业务实体或任务的实际情况时，先调用相关只读工具，再依据工具返回的真实记录回答。若无匹配记录，要明确说未查到，不得推断或编造。若需要比较不同业务模块，可以调用多个相关工具。",
+  "需要工具时返回 JSON：{reply:string,task:null|object,toolCalls:[{name:string,arguments:object}]}。无需工具时 toolCalls=[]。工具执行结果会由系统提供，不能声称执行过未返回结果的工具。",
   "当前业务数据背景：" + workspaceContext
  ];
  return rules.join(" ");
+}
+
+const xiaoyaReadTools:Record<string,{table:string;select:string;search:string[];label:string}>={
+ search_leads:{table:"leads",select:"id,lead_number,name,country_code,status,business_type,website,email,phone,confidence_score,created_at",search:["name","lead_number","business_type","website","email"],label:"潜在客户"},
+ search_discovery_records:{table:"discovery_records",select:"id,name,channel,record_type,country_code,status,website,email,phone,business_type,confidence_score,created_at",search:["name","business_type","website","email","phone"],label:"全网发现记录"},
+ search_crm_accounts:{table:"crm_accounts",select:"id,account_number,account_name,legal_name,account_type,status,industry,website,email,phone,country_code,region,city,currency_code,created_at",search:["account_name","legal_name","account_number","industry","website","email"],label:"CRM 客户企业"},
+ search_crm_contacts:{table:"crm_contacts",select:"id,full_name,first_name,last_name,job_title,department,email,phone,mobile,whatsapp,linkedin_url,account_id,is_active,created_at",search:["full_name","first_name","last_name","job_title","email","phone","whatsapp"],label:"CRM 联系人"},
+ search_crm_opportunities:{table:"crm_opportunities",select:"id,opportunity_number,name,stage,status,amount,currency_code,probability,expected_close_date,account_id,created_at",search:["name","opportunity_number","stage","status"],label:"CRM 商机"},
+ search_trade_orders:{table:"trade_orders",select:"id,order_number,order_type,title,status,currency_code,payment_terms,incoterms_code,trade_date,delivery_date,crm_account_id,created_at",search:["order_number","title","status","customer_reference"],label:"贸易订单"},
+ search_trade_shipments:{table:"trade_shipments",select:"id,shipment_no,status,order_id,planned_ship_date,actual_ship_date,shipment_value,currency_code,exception_flag,created_at",search:["shipment_no","status"],label:"发运记录"},
+ search_trade_payments:{table:"trade_payments",select:"id,payment_no,payment_type,status,payment_date,received_date,payer_name,currency,amount,net_received,reconcile_status,order_currency,created_at",search:["payment_no","payer_name","status","bank_reference","remittance_info"],label:"收付款记录"},
+ search_agent_runs:{table:"agent_runs",select:"id,agent_key,goal,status,error_message,created_at,started_at,completed_at,estimated_cost_usd,actual_cost_usd",search:["goal","agent_key","status","error_message"],label:"Agent 执行任务"},
+ search_discovery_runs:{table:"discovery_runs",select:"id,task_code,query,countries,status,progress,discovered_count,created_lead_count,channel,message,created_at",search:["task_code","query","channel","status"],label:"潜客发现任务"}
+};
+
+async function executeXiaoyaReadTool(env:Env,ownerId:string,name:string,rawArgs:unknown):Promise<Record<string,unknown>>{
+ const tool=xiaoyaReadTools[name];
+ if(!tool)return {tool:name,ok:false,error:"不支持的只读工具。"};
+ const args=asRecord(rawArgs);
+ const query=typeof args.query==="string"?args.query.trim().slice(0,120):"";
+ const country=typeof args.country==="string"?args.country.trim().toUpperCase():"";
+ const status=typeof args.status==="string"?args.status.trim().slice(0,40):"";
+ const requested=Number(args.limit??5),limit=Number.isFinite(requested)?Math.max(1,Math.min(8,Math.floor(requested))):5;
+ const filters=["owner_id=eq."+encodeURIComponent(ownerId)];
+ if(query){
+  const safe=query.replace(/[^\p{L}\p{N}\s._@+-]/gu," ").replace(/\s+/g," ").trim().slice(0,80);
+  if(safe){
+   const expression="or=("+tool.search.map(column=>column+".ilike.*"+safe+"*").join(",")+")";
+   filters.push("or="+encodeURIComponent(expression.slice(3)));
+  }
+ }
+ if(country&&/^[A-Z]{2}$/.test(country)&&["leads","discovery_records","crm_accounts"].includes(tool.table))filters.push("country_code=eq."+country);
+ if(status&&/^[\p{L}\p{N}_ -]{1,40}$/u.test(status))filters.push("status=eq."+encodeURIComponent(status));
+ filters.push("select="+encodeURIComponent(tool.select),"order=created_at.desc","limit="+limit);
+ try{
+  const rows=await db<Array<Record<string,unknown>>>(env,tool.table+"?"+filters.join("&"));
+  return {tool:name,label:tool.label,ok:true,count:rows?.length??0,limit,query:query||undefined,rows:rows??[]};
+ }catch(error){
+  return {tool:name,label:tool.label,ok:false,error:String(error).slice(0,240)};
+ }
+}
+
+async function executeXiaoyaReadTools(env:Env,ownerId:string,rawCalls:unknown):Promise<Array<Record<string,unknown>>>{
+ if(!Array.isArray(rawCalls))return [];
+ const results:Array<Record<string,unknown>>=[];
+ for(const raw of rawCalls.slice(0,3)){
+  const call=asRecord(raw),name=typeof call.name==="string"?call.name:"";
+  results.push(await executeXiaoyaReadTool(env,ownerId,name,call.arguments));
+ }
+ return results;
 }
 
 type ChatTurn={role:"user"|"assistant";content:string};
@@ -724,10 +779,18 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
       await db(env,"agent_chat_messages",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({owner_id:ownerId,conversation_id:conversationId,role:"user",content:message})});
       try{
         const workspaceContext=await loadXiaoyaWorkspaceContext(env,ownerId);
-        const generated=await callAgentChatModel(env,turns,buildXiaoyaSystemPrompt(workspaceContext),"agent_chat",true,1800);
+        const systemPrompt=buildXiaoyaSystemPrompt(workspaceContext);
+        const generated=await callAgentChatModel(env,turns,systemPrompt,"agent_chat",true,1800);
         const parsed=parsePlannerJson(generated.text);
-        const reply=String(parsed.reply??"我已理解你的意思，请再补充一点目标信息。").slice(0,3000);
-        const taskRaw=parsed.task===null?null:asRecord(parsed.task);
+        const toolResults=await executeXiaoyaReadTools(env,ownerId,parsed.toolCalls);
+        let finalParsed=parsed;
+        if(toolResults.length){
+          const toolMessage="系统已执行以下只读业务工具。请严格依据结果回答用户，不要再调用工具；无记录时明确说明未查到。工具结果 JSON："+JSON.stringify(toolResults);
+          const finalGenerated=await callAgentChatModel(env,[...turns,{role:"assistant",content:generated.text},{role:"user",content:toolMessage}],systemPrompt+" 这是一轮工具结果整理阶段：不得再提出工具调用；只根据系统附带的工具结果生成最终 reply 和 task，toolCalls 必须为空数组。","agent_chat",true,1800);
+          finalParsed=parsePlannerJson(finalGenerated.text);
+        }
+        const reply=String(finalParsed.reply??"我已理解你的意思，请再补充一点目标信息。").slice(0,3000);
+        const taskRaw=finalParsed.task===null?null:asRecord(finalParsed.task);
         let task:Record<string,unknown>|null=null;
         if(taskRaw&&typeof taskRaw.goal==="string"&&taskRaw.goal.trim().length>=2){
           const allowed=new Set(["auto","buyer_development","market_research","company_research","lead_scoring","multilingual_sales","follow_up","trade_compliance"]);
@@ -737,9 +800,9 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
           if(!/^[A-Z]{2}$/.test(country))task=null;
           else task={goal:String(taskRaw.goal).slice(0,10000),agentKey,country,mode};
         }
-        await db(env,"agent_chat_messages",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({owner_id:ownerId,conversation_id:conversationId,role:"assistant",content:reply,metadata:{task,model:generated.model}})});
+        await db(env,"agent_chat_messages",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({owner_id:ownerId,conversation_id:conversationId,role:"assistant",content:reply,metadata:{task,model:generated.model,toolsUsed:toolResults.filter(item=>item.ok===true).map(item=>({name:item.tool,label:item.label,count:item.count}))}})});
         await db(env,"agent_conversations?id=eq."+conversationId+"&owner_id=eq."+ownerId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({last_message_at:new Date().toISOString()})});
-        return successResponse(request,{conversationId,reply,task,model:generated.model});
+        return successResponse(request,{conversationId,reply,task,model:generated.model,toolsUsed:toolResults.filter(item=>item.ok===true).map(item=>({name:item.tool,label:item.label,count:item.count}))});
       }catch(error){
         const message=error instanceof Error?error.message:"小雅暂时无法生成回复。";
         await db(env,"agent_chat_messages",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({owner_id:ownerId,conversation_id:conversationId,role:"assistant",content:message,metadata:{error:true}})});
