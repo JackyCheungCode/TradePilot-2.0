@@ -7,7 +7,7 @@ All application UI must be sourced from this local design-system layer.
 Preferred:
 
 ```ts
-import { Button, TextInput, Dropdown } from '@/design-system';
+import { Button, TextInput, Dropdown, Header } from '@/design-system';
 import { Search, Add } from '@/design-system/icons';
 ```
 
