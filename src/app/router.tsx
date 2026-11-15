@@ -7,6 +7,7 @@ import { LeadCreatePage } from '../features/leads/LeadCreatePage';
 import { LeadConsolePage } from '../features/leads/LeadConsolePage';
 import { ContactConsolePage, ContactDetailPage, ContactFormPage } from '../features/contacts/ContactPages';
 import { AccountConsolePage, AccountDetailPage, AccountFormPage } from '../features/accounts/AccountPages';
+import { OpportunityConsolePage, OpportunityDetailPage, OpportunityFormPage } from '../features/opportunities/OpportunityPages';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -22,6 +23,10 @@ export const router = createBrowserRouter([
           { path: 'prospect-console', element: <ProspectConsolePage /> },
           { path: 'leads', element: <LeadConsolePage /> },
           { path: 'leads/new', element: <LeadCreatePage /> },
+          { path: 'opportunities', element: <OpportunityConsolePage /> },
+          { path: 'opportunities/new', element: <OpportunityFormPage /> },
+          { path: 'opportunities/:id/edit', element: <OpportunityFormPage /> },
+          { path: 'opportunities/:id', element: <OpportunityDetailPage /> },
           { path: 'contacts', element: <ContactConsolePage /> },
           { path: 'contacts/new', element: <ContactFormPage /> },
           { path: 'contacts/:id/edit', element: <ContactFormPage /> },
