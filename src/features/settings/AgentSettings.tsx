@@ -32,7 +32,8 @@ export function AgentSettings({ section }: { section: string }) {
   const [notice,setNotice] = useState('');
   const [activeAgent,setActiveAgent] = useState('buyer_development');
   const activeProfile = profiles.find(item => item.agent_key === activeAgent);
-  const selectedProvider = providers.find(item => item.model === selectedModel) || providers[0];
+  const providerValue = (item:Provider) => item.id + '::' + item.model;
+  const selectedProvider = providers.find(item => providerValue(item) === selectedModel || item.model === selectedModel) || providers[0];
   const load = async () => {
     setLoading(true); setError('');
     try {
@@ -43,7 +44,7 @@ export function AgentSettings({ section }: { section: string }) {
       ]);
       const available = (config.providers || []).filter(item => item.configured !== false && item.configured !== 'false');
       setProviders(available);
-      const current = config.taskModels?.agent_chat || config.defaultModel || available[0]?.model || '';
+      const current = config.taskModels?.agent_chat || config.defaultModel || (available[0] ? providerValue(available[0]) : '');
       setSelectedModel(current);
       const knownAgents = Object.keys(agentLabels).map(agent_key => ({ agent_key, enabled:true, config:{} as Profile['config'] }));
       setProfiles(knownAgents.map(base => profileRows?.find(item => item.agent_key === base.agent_key) || base));
@@ -89,11 +90,11 @@ export function AgentSettings({ section }: { section: string }) {
       <h4>小雅模型配置</h4>
       <p>从已在「集成与 API」中配置的供应商和模型中选择，不在此处重复保存 API Key。</p>
       <div className="tp-settings__editor-grid">
-        <Select id="agent-model-provider" labelText="模型供应商" value={selectedProvider?.id || ''} onChange={event => { const provider = providers.find(item => item.id === event.currentTarget.value); if (provider) setSelectedModel(provider.model); }}>
+        <Select id="agent-model-provider" labelText="模型供应商" value={selectedProvider?.id || ''} onChange={event => { const provider = providers.find(item => item.id === event.currentTarget.value); if (provider) setSelectedModel(providerValue(provider)); }}>
           {providers.map(item => <SelectItem key={item.id} value={item.id} text={item.name} />)}
         </Select>
         <Select id="agent-model-choice" labelText="模型选择" value={selectedModel} onChange={event => setSelectedModel(event.currentTarget.value)}>
-          {providers.map(item => <SelectItem key={item.model} value={item.model} text={item.model} />)}
+          {providers.map(item => <SelectItem key={item.id} value={providerValue(item)} text={item.name + ' · ' + item.model} />)}
         </Select>
         <Button kind="primary" disabled={saving || !selectedModel} onClick={() => void saveModel()}>保存模型配置</Button>
       </div>
