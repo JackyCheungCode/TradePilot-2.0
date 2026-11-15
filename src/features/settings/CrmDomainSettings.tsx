@@ -162,6 +162,30 @@ const defaults:Record<string,Array<[string,string,Record<string,unknown>]>> = {
 const blank = (schema:Field[]) => Object.fromEntries(schema.map(field=>[field.key,field.type==='select'?(field.options?.[0]?.[0]??''):field.type==='number'?'':'']));
 const labels:Record<string,string> = Object.fromEntries(Object.entries(crmSettingSections).flatMap(([domain,sections])=>sections.map(section=>[domain+'.'+section.id,section.label])));
 
+export function useCrmSettingOptions(domain:CrmSettingsDomain,section:string,fallback:Array<{id:string;text:string}>) {
+ const [items,setItems]=useState(fallback);
+ useEffect(()=>{
+  let alive=true;
+  void(async()=>{
+   try{
+    const db=await getSupabaseClient();
+    const result=await db.from('crm_master_setting_items').select('id,name,code,is_active,sequence').eq('domain',domain).eq('setting_type',section).order('sequence').order('name');
+    if(result.error)throw result.error;
+    if(!alive)return;
+    const merged=new Map<string,{id:string;text:string}>(fallback.map(item=>[item.id,item]));
+    for(const row of result.data??[]){
+     const key=String(row.code||row.name);
+     if(row.is_active)merged.set(key,{id:key,text:row.name});
+     else merged.delete(key);
+    }
+    setItems([...merged.values()]);
+   }catch{/* Keep safe built-in options when the settings API is unavailable. */}
+  })();
+  return()=>{alive=false};
+ },[domain,section]);
+ return items;
+}
+
 export function CrmDomainSettings({domain,section}:{domain:CrmSettingsDomain;section:string}) {
  const schema=fields[domain+'.'+section]??[];
  const [rows,setRows]=useState<Item[]>([]);
