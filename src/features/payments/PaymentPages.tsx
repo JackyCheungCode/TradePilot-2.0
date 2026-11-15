@@ -147,6 +147,8 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
   const originalPayment=payments.find(p=>p.id===payment.original_payment_id);
   const refundedBefore=payments.filter(p=>p.original_payment_id===payment.original_payment_id&&['confirmed','partially_reconciled','reconciled','returned'].includes(p.status)).reduce((sum,p)=>sum+Number(p.refund_amount||0),0);
   const refundAvailable=Math.max(0,Number(originalPayment?.net_received||0)-refundedBefore);
+  const computedDiff=allocations.reduce((sum,a)=>{const order=orders.find(o=>o.id===a.order_id);const node=scheduleOf(order).find(n=>String(n.id)===String(a.schedule_node_id));const outstanding=Math.max(0,Number(node?.amount||0)-Number(node?.paid_amount||0));return sum+outstanding-Number(a.allocated_amount||0)},0);
+  const computedDiffType=computedDiff>0.005?'短收':computedDiff< -0.005?'多收':'无';
 
   useEffect(()=>{(async()=>{
     try {
@@ -192,7 +194,8 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
     if(payment.lc_type==='远期'&&!payment.usance_days)return '远期 L/C 必须填写远期天数。';
     if(payment.discrepancy_status==='已提出'&&allocations.length)return 'L/C 不符点已提出，暂不能分配核销。';
     if(Math.abs(allocatedSum)>Number(payment.net_received||suggestedNet)+0.000001)return '已分配金额不能超过实际入账金额。';
-    if(Number(payment.diff_amount||0)!==0&&(!payment.diff_reason||!payment.diff_handling))return '存在差异时，必须选择差异原因和处理方式。';
+    if(Math.abs(computedDiff)>0.005&&(!payment.diff_reason||!payment.diff_handling))return '存在短收或多收差异时，必须选择差异原因和处理方式。';
+    if(computedDiff < -0.005&&!['转预收','退款'].includes(payment.diff_handling))return '发生多收时，差额必须转为预收或退款。';
     if(payment.diff_handling==='坏账核销'&&!payment.diff_note?.trim())return '坏账核销必须填写差异说明。';
     if(payment.payment_type==='refund'&&(!payment.original_payment_id||!(Number(payment.refund_amount)>0)))return '退款必须关联原收款并填写退款金额。';
     if(payment.payment_type==='refund'&&Number(payment.refund_amount)>refundAvailable+0.000001)return '退款金额超过原收款可退余额：'+money(refundAvailable,payment.currency);
@@ -218,7 +221,7 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
       else {const {data,error:e}=await db.from('trade_payments').insert(payload).select('id,payment_no').single();if(e)throw e;paymentId=data.id;setPaymentNo(data.payment_no);}
       if(!paymentId)throw new Error('收款记录编号未返回。');
       const {error:delError}=await db.from('trade_payment_allocations').delete().eq('payment_id',paymentId);if(delError)throw delError;
-      const allocationRows=allocations.map(a=>({owner_id:user.id,payment_id:paymentId,order_id:a.order_id,schedule_node_id:a.schedule_node_id,allocation_type:a.allocation_type,allocated_amount:Number(a.allocated_amount),allocated_amount_in_payment:Number(a.allocated_amount_in_payment),allocation_date:a.allocation_date||dateToday()}));
+      const allocationRows=allocations.map(a=>{const orderRow=orders.find(o=>o.id===a.order_id);const node=scheduleOf(orderRow).find(n=>String(n.id)===String(a.schedule_node_id));const outstanding=Math.max(0,Number(node?.amount||0)-Number(node?.paid_amount||0));const requested=Number(a.allocated_amount||0);const effective=Math.min(requested,outstanding);const ratio=requested>0?effective/requested:0;return {owner_id:user.id,payment_id:paymentId,order_id:a.order_id,schedule_node_id:a.schedule_node_id,allocation_type:a.allocation_type,allocated_amount:effective,allocated_amount_in_payment:Number(a.allocated_amount_in_payment)*ratio,allocation_date:a.allocation_date||dateToday()};}).filter(a=>a.allocated_amount>0&&a.allocated_amount_in_payment>0);
       if(allocationRows.length){const {error:e}=await db.from('trade_payment_allocations').insert(allocationRows);if(e)throw e;}
       nav('/payments/'+paymentId,{replace:true});
     } catch(e) { setError(e instanceof Error?e.message:'保存收款失败'); }
@@ -341,8 +344,8 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
           {!allocations.length&&<p className="tp-payments__empty">尚未添加分配。保存后可保留为未分配预收款。</p>}
           <div className="tp-payments__amount-strip"><div><span>已分配合计</span><strong>{money(allocatedSum,payment.currency)}</strong></div><div><span>未分配余额</span><strong>{money(remaining,payment.currency)}</strong></div><div><span>核销状态</span><strong>{allocatedSum<=0?'未核销':remaining>0?'部分核销':'已核销'}</strong></div></div>
           <h2>核销与差异处理</h2><div className="tp-payments__form-grid">
-            <Field id="pay-diff-amount" label="差异金额" type="number" value={payment.diff_amount} onChange={v=>set('diff_amount',v)} disabled={locked}/>
-            <Pick id="pay-diff-type" label="差异类型" value={payment.diff_type} onChange={v=>set('diff_type',v)} options={['短收','多收','无']} disabled={locked}/>
+            <Field id="pay-diff-amount" label="差异金额（自动计算）" value={Math.abs(computedDiff).toFixed(2)} onChange={()=>{}} disabled/>
+            <Field id="pay-diff-type" label="差异类型（自动计算）" value={computedDiffType} onChange={()=>{}} disabled/>
             <Pick id="pay-diff-reason" label="差异原因" value={payment.diff_reason} onChange={v=>set('diff_reason',v)} options={['银行手续费','汇率波动','客户扣款','议价折让','少付待补','多付待退','其他']} disabled={locked}/>
             <Pick id="pay-diff-handling" label="差异处理" value={payment.diff_handling} onChange={v=>set('diff_handling',v)} options={['计入手续费','计入汇兑损益','保留为应收待补','转预收','退款','折让冲销','坏账核销']} disabled={locked}/>
             <div className="tp-payments__field-wide"><TextArea id="pay-diff-note" labelText="差异说明" rows={3} value={payment.diff_note||''} onChange={e=>set('diff_note',e.currentTarget.value)} disabled={locked}/></div>
