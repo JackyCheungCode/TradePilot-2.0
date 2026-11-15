@@ -39,6 +39,14 @@ function dateKey(date: Date) {
   const part = (type: string) => parts.find(item => item.type === type)?.value ?? '';
   return part('year') + '-' + part('month') + '-' + part('day');
 }
+function PlatformIcon({ platform }: { platform: string }) {
+  const Icon = platform === 'google_maps' ? CarbonIcons.Map
+    : platform === 'facebook' ? CarbonIcons.LogoFacebook
+    : platform === 'instagram' ? CarbonIcons.LogoInstagram
+    : platform === 'search_engine' ? CarbonIcons.Search
+    : CarbonIcons.Apps;
+  return <Icon size={16} aria-hidden="true"/>;
+}
 function Metric({ label, value, icon }: { label: string; value: number; icon: React.ReactNode }) {
   return <section className="tp-console__metric"><div className="tp-console__metric-head"><span>{label}</span>{icon}</div><strong>{value.toLocaleString()}</strong></section>;
 }
@@ -231,7 +239,7 @@ export function ProspectConsolePage() {
       </section>
       <section className="tp-console__panel tp-console__records-panel">
         <div className="tp-console__panel-heading"><div><h2>潜客资产</h2><p>按发现渠道查看聚合企业；平台来源标签来自实际发现记录。</p></div><Tag type="blue">{filtered.length.toLocaleString()} 家</Tag></div>
-        <div className="tp-console__platform-tabs"><Tabs selectedIndex={Math.max(0,tabs.findIndex(item=>item.key===platformKey))} onChange={({selectedIndex})=>setPlatformKey(tabs[selectedIndex]?.key??'all')}><TabList aria-label="潜客发现平台">{tabs.map(item=><Tab key={item.key}>{item.label} <span className="tp-console__tab-count">{item.count}</span></Tab>)}</TabList></Tabs></div>
+        <div className="tp-console__platform-tabs"><Tabs selectedIndex={Math.max(0,tabs.findIndex(item=>item.key===platformKey))} onChange={({selectedIndex})=>setPlatformKey(tabs[selectedIndex]?.key??'all')}><TabList aria-label="潜客发现平台">{tabs.map(item=><Tab key={item.key}><span className="tp-console__tab-label"><PlatformIcon platform={item.key}/>{item.label}</span><span className="tp-console__tab-count">{item.count}</span></Tab>)}</TabList></Tabs></div>
         {selectedIds.length>0&&<div className="tp-console__bulk-actions"><span>已选择 {selectedIds.length} 家企业</span><Button kind="secondary" size="sm" disabled={!!actionBusyId||selectedPendingCount===0} onClick={()=>void runBulkAction('promote')}>批量转为线索</Button><Button kind="danger--ghost" size="sm" disabled={!!actionBusyId} onClick={()=>void runBulkAction('discard')}>批量排除</Button><Button kind="danger--ghost" size="sm" disabled={!!actionBusyId} onClick={()=>{if(confirmBulkRemove)void runBulkAction('remove');else setConfirmBulkRemove(true);}}>{confirmBulkRemove?'再次点击确认删除':'批量删除'}</Button><Button kind="ghost" size="sm" onClick={()=>{setSelectedIds([]);setConfirmBulkRemove(false);}}>清除选择</Button></div>}
         <div className="tp-console__filters">
           <TextInput id="prospect-console-search" labelText="搜索潜客" placeholder="企业名称、国家、地址、网站或联系方式" value={search} onChange={event=>setSearch(event.currentTarget.value)} />
