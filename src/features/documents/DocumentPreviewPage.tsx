@@ -93,7 +93,7 @@ export function DocumentPreviewPage() {
   const showPricing = ['commercial_invoice', 'proforma_invoice', 'sales_contract', 'sales_confirmation'].includes(doc?.document_type || '');
 
   if (loading) return <main className="tp-document-preview"><div className="tp-document-preview__loading"><InlineLoading description="正在读取单据与版本快照…" /></div></main>;
-  if (error || !doc) return <main className="tp-document-preview"><InlineNotification kind="error" title="无法打开单据" subtitle={error || '单据不存在。'} /><Button kind="tertiary" onClick={() => navigate('/documents')}>返回单据中心</Button></main>;
+  if (!doc) return <main className="tp-document-preview"><InlineNotification kind="error" title="无法打开单据" subtitle={error || '单据不存在。'} /><Button kind="tertiary" onClick={() => navigate('/documents')}>返回单据中心</Button></main>;
 
   return <main className="tp-document-preview">
     <header className="tp-document-preview__toolbar">
@@ -101,6 +101,7 @@ export function DocumentPreviewPage() {
       <div className="tp-document-preview__actions"><Button kind="tertiary" onClick={() => navigate('/documents')}>返回单据中心</Button>{doc.status === 'draft' && !editing && <Button kind="secondary" onClick={beginEdit}>编辑草稿</Button>}<Button kind="secondary" onClick={() => void load()}>刷新</Button><Button kind="primary" onClick={() => window.print()}>打印 / 导出 PDF</Button></div>
     </header>
 
+    {error && <InlineNotification kind="error" lowContrast title="操作未完成" subtitle={error} onCloseButtonClick={() => setError('')} />}
     {editing && draftContent && <section className="tp-document-preview__editor"><div><h2>编辑单据草稿</h2><p>可校对主体、地址与交易说明。产品、数量、单价和成交条款仍以已锁定订单快照为准。</p></div><div className="tp-document-preview__editor-grid">
       <TextInput id="doc-edit-seller" labelText="卖方名称" value={String(draftContent.seller_name || '')} onChange={e => setDraftField('seller_name', e.currentTarget.value)} />
       <TextInput id="doc-edit-buyer" labelText="买方名称" value={String(draftContent.buyer_name || '')} onChange={e => setDraftField('buyer_name', e.currentTarget.value)} />
