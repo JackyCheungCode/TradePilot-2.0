@@ -15,15 +15,7 @@ import {
 } from './api';
 import '@/design-system/patterns/prospect-discovery.scss';
 
-type Category = 'maps' | 'social' | 'ecommerce';
-type CategoryFilter = 'all' | Category;
-type Platform = 'google_maps' | 'facebook' | 'instagram' | 'linkedin' | 'tiktok' | 'amazon' | 'alibaba' | 'aliexpress';
-type Step = 1 | 2 | 3 | 4 | 5;
-const platformGroups: Array<{ id: Category; title: string; description: string; platforms: Array<{id: Platform;name:string;enabled:boolean;hint:string}> }> = [
-  { id:'maps', title:'地图平台', description:'按地区发现企业、门店和经销商', platforms:[{id:'google_maps',name:'Google Maps',enabled:true,hint:'Google Places API（官方）'}] },
-  { id:'social', title:'社交媒体', description:'发现企业主页、品牌账号和公开商业资料', platforms:[{id:'facebook',name:'Facebook Pages',enabled:true,hint:'Apify · Facebook 搜索 Actor'},{id:'instagram',name:'Instagram',enabled:true,hint:'Apify · Instagram Scraper'},{id:'linkedin',name:'LinkedIn',enabled:false,hint:'Actor 接入待验证'},{id:'tiktok',name:'TikTok',enabled:false,hint:'Actor 接入待验证'}] },
-  { id:'ecommerce', title:'电商平台', description:'发现商品、店铺和供应商线索', platforms:[{id:'amazon',name:'Amazon',enabled:false,hint:'Actor 接入待验证'},{id:'alibaba',name:'Alibaba.com',enabled:false,hint:'Actor 接入待验证'},{id:'aliexpress',name:'AliExpress',enabled:false,hint:'Actor 接入待验证'}] },
-];
+import { platformGroups, type Category, type CategoryFilter, type Platform } from './platform-catalog';
 const countryItems=[['US','美国'],['GB','英国'],['DE','德国'],['FR','法国'],['JP','日本'],['TW','中国台湾'],['KR','韩国'],['SG','新加坡'],['AU','澳大利亚'],['CA','加拿大'],['AE','阿联酋'],['NL','荷兰'],['IT','意大利'],['ES','西班牙'],['IN','印度'],['BR','巴西']] as const;
 const businessOptions=[['distributor','经销商 / 分销商'],['manufacturer','制造商'],['electrical_equipment','电子设备供应商'],['electronics','电子产品零售商'],['computer_network','电脑与网络设备商'],['mobile_communications','手机与通信设备商'],['industrial_supplies','工业用品供应商'],['corporate_office','企业办公室']];
 const terminalStatuses=new Set(['completed','partial','failed','cancelled']);
