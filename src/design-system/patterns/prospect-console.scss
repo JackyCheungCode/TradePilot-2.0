@@ -121,3 +121,4 @@
 .tp-console__country{display:inline-flex;align-items:center;gap:var(--cds-spacing-03);white-space:nowrap}
 .tp-console__flag{display:inline-grid;place-items:center;width:1.5rem;height:1.5rem;flex:0 0 1.5rem;border-radius:50%;overflow:hidden;background:var(--cds-layer-02);font-size:1rem;line-height:1}
 .tp-console__flag:empty{display:none}
+.tp-console__flag{vertical-align:middle}
