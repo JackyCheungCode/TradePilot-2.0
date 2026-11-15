@@ -1,7 +1,7 @@
 import { cloneElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-  Button, Checkbox, ComboBox, InlineLoading, InlineNotification, MultiSelect,
+  Accordion, AccordionItem, Button, Checkbox, ComboBox, InlineLoading, InlineNotification, MultiSelect,
   Select, SelectItem, Tab, TabList, TabPanel, TabPanels, Tabs, Tag, TextArea, TextInput, Tile, FileUploader,
   CarbonIcons, Table, TableHead, TableRow, TableHeader, TableBody, TableCell, TableContainer,
 } from '@/design-system';
@@ -230,11 +230,11 @@ export function ContactConsolePage() {
         <Select id="contacts-status-filter" labelText="状态筛选" value={statusFilter} onChange={e=>{setStatusFilter(e.currentTarget.value);setPage(1);}}><SelectItem value="all" text="全部状态"/><SelectItem value="active" text="在职"/><SelectItem value="inactive" text="非在职"/></Select>
         <Select id="contacts-source-filter" labelText="来源筛选" value={sourceFilter} onChange={e=>{setSourceFilter(e.currentTarget.value);setPage(1);}}><SelectItem value="all" text="全部来源"/><SelectItem value="manual" text="手动"/><SelectItem value="lead_conversion" text="线索转换"/><SelectItem value="import" text="导入"/><SelectItem value="business_card" text="名片识别"/><SelectItem value="ai_crawl" text="AI 抓取"/></Select>
         <Select id="contacts-primary-filter" labelText="主联系人筛选" value={primaryFilter} onChange={e=>{setPrimaryFilter(e.currentTarget.value);setPage(1);}}><SelectItem value="all" text="全部联系人"/><SelectItem value="yes" text="主要联系人"/><SelectItem value="no" text="普通联系人"/></Select>
-        <Select id="contacts-group-primary" labelText="一级分组" value={groupBy} onChange={e=>setGroupBy(e.currentTarget.value)}>{GROUP_FIELDS.map(x=><SelectItem key={x.id} value={x.id} text={x.text}/>)}</Select>
+        <Select id="contacts-group-primary" labelText="一级分组" value={groupBy} onChange={e=>{const next=e.currentTarget.value;setGroupBy(next);if(next===thenBy)setThenBy('none');}}>{GROUP_FIELDS.map(x=><SelectItem key={x.id} value={x.id} text={x.text}/>)}</Select>
         <Select id="contacts-group-secondary" labelText="二级分组" value={thenBy} onChange={e=>setThenBy(e.currentTarget.value)}><SelectItem value="none" text="不使用二级分组"/>{GROUP_FIELDS.filter(x=>x.id!==groupBy).map(x=><SelectItem key={x.id} value={x.id} text={x.text}/>)}</Select>
       </div>
-      <div className="tp-contacts__group-toolbar"><span>分组视图 · 一级：{GROUP_FIELDS.find(x=>x.id===groupBy)?.text} · 二级：{thenBy==='none'?'关闭':GROUP_FIELDS.find(x=>x.id===thenBy)?.text}</span><Button kind="ghost" size="sm" onClick={()=>setShowGroups(v=>!v)}>{showGroups?'收起全部分组':'展开全部分组'}</Button></div>
-      {loading?<InlineLoading description="正在读取联系人…" />:rows.length?showGroups?<div className="tp-contacts__groups">{grouped.map(group=><details className="tp-contacts__group" key={group.label} open><summary><strong>{group.label}</strong><Tag>{group.children.reduce((sum,x)=>sum+x.items.length,0)}</Tag></summary>{group.children.map(child=><details className="tp-contacts__subgroup" key={child.label} open={thenBy!=='none'}><summary>{child.label}<Tag type="cool-gray">{child.items.length}</Tag></summary>{renderTable(child.items)}</details>)}</details>)}</div>:renderTable(rows):<p className="tp-contacts__empty">没有找到联系人记录。</p>}
+      <div className="tp-contacts__group-toolbar"><span>分组视图 · 一级：{GROUP_FIELDS.find(x=>x.id===groupBy)?.text} · 二级：{thenBy==='none'?'关闭':GROUP_FIELDS.find(x=>x.id===thenBy)?.text}</span><Button kind="ghost" size="sm" onClick={()=>setShowGroups(v=>!v)}>{showGroups?'切换为平铺列表':'恢复分组视图'}</Button></div>
+      {loading?<InlineLoading description="正在读取联系人…" />:rows.length?showGroups?<Accordion>{grouped.map(group=><AccordionItem key={group.label} title={group.label+' · '+group.children.reduce((sum,x)=>sum+x.items.length,0)}>{thenBy==='none'?renderTable(group.children[0]?.items??[]):<Accordion>{group.children.map(child=><AccordionItem key={child.label} title={child.label+' · '+child.items.length}>{renderTable(child.items)}</AccordionItem>)}</Accordion>}</AccordionItem>)}</Accordion>:renderTable(rows):<p className="tp-contacts__empty">没有找到联系人记录。</p>}
       <div className="tp-contacts__pagination"><span>显示 {start}–{end} 条，共 {total.toLocaleString()} 条</span><div><Button kind="tertiary" size="sm" disabled={loading||page<=1} onClick={()=>setPage(p=>Math.max(1,p-1))}><CarbonIcons.ChevronLeft size={16}/>上一页</Button><span>第 {page} / {pages} 页</span><Button kind="tertiary" size="sm" disabled={loading||page>=pages} onClick={()=>setPage(p=>Math.min(pages,p+1))}>下一页<CarbonIcons.ChevronRight size={16}/></Button></div></div>
     </section>
   </main>;
