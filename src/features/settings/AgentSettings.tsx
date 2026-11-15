@@ -93,7 +93,7 @@ export function AgentSettings({ section }: { section: string }) {
     {notice && <InlineNotification kind="success" title="保存成功" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
     {section === 'models' && <section className="tp-settings__editor">
       <h4>小雅模型配置</h4>
-      <p>从已在「AI 与 API 集成」中配置的供应商和模型中选择，不在此处重复保存 API Key。</p>
+      <p>从已在「集成与 API」中配置的供应商和模型中选择，不在此处重复保存 API Key。</p>
       <div className="tp-settings__editor-grid">
         <Select id="agent-model-provider" labelText="模型供应商" value={selectedProvider?.id || ''} onChange={event => { const provider = providers.find(item => item.id === event.currentTarget.value); if (provider) setSelectedModel(provider.model); }}>
           {providers.map(item => <SelectItem key={item.id} value={item.id} text={item.name} />)}
@@ -103,7 +103,7 @@ export function AgentSettings({ section }: { section: string }) {
         </Select>
         <Button kind="primary" disabled={saving || !selectedModel} onClick={() => void saveModel()}>保存模型配置</Button>
       </div>
-      {!providers.length && <Tag type="red">尚无已配置的模型，请先在 AI 与 API 集成中配置供应商和 API Key。</Tag>}
+      {!providers.length && <Tag type="red">尚无已配置的模型，请先在 集成与 API中配置供应商和 API Key。</Tag>}
     </section>}
     {section === 'profiles' && <section className="tp-settings__editor">
       <h4>内置 Agent 管理</h4>
