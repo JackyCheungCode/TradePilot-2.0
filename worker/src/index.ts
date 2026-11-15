@@ -60,7 +60,7 @@ export default {
    if (url.pathname === "/api/v1/prospect-console" && request.method === "GET") return await handleProspectConsole(request, env);
    if (url.pathname === "/api/v1/settings/search-exclusions") return await handleSearchExclusions(request, env);
    if (url.pathname.startsWith("/api/v1/settings/")) return await handleSettings(request, env);
-   if (url.pathname.startsWith("/api/v1/discovery/translate")) return await handleTranslation(request, env);
+   if (url.pathname.startsWith("/api/v1/discovery/translate") || url.pathname === "/api/v1/trade-tools/translate") return await handleTranslation(request, env);
    if (url.pathname === "/api/v1/facebook-discovery-runs" && request.method === "POST") return await handleFacebookDiscovery(request, env);
    if (url.pathname === "/api/v1/instagram-discovery-runs" && request.method === "POST") return await handleInstagramDiscovery(request, env);
    if (url.pathname === "/api/v1/search-discovery-runs" && request.method === "POST") { const { handleSearchDiscovery } = await import("./routes/search-discovery"); return await handleSearchDiscovery(request, env); }
