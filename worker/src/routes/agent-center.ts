@@ -739,7 +739,9 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
         db<Array<Record<string,unknown>>>(env,"discovery_records?owner_id=eq."+ownerId+"&select=id,name,country_code,address,phone,email,website,business_type,confidence_score,channel,record_type,raw_data,status,discovery_record_occurrences!inner(id,run_id,provider,keyword,source_url,raw_data,captured_at)&discovery_record_occurrences.run_id=eq."+runId+"&discovery_record_occurrences.is_removed=eq.false&order=created_at.desc&limit=100")
       ]);
       const detailedRecords=(records??[]).map(record=>({...record,sources:Array.isArray(record.discovery_record_occurrences)?record.discovery_record_occurrences:[]}));
-      const discoveryStatus=String(discovery?.[0]?.status??run.status);\n      const synchronizedStatus=discoveryStatus==="completed"?"succeeded":discoveryStatus;\n      return successResponse(request,{run:{...run,status:synchronizedStatus},discoveryRun:discovery?.[0]??null,events:events??[],logs:logs??[],records:detailedRecords});
+      const discoveryStatus=String(discovery?.[0]?.status??run.status);
+      const synchronizedStatus=discoveryStatus==="completed"?"succeeded":discoveryStatus;
+      return successResponse(request,{run:{...run,status:synchronizedStatus},discoveryRun:discovery?.[0]??null,events:events??[],logs:logs??[],records:detailedRecords});
     }
 
     if(path==="/api/v1/agent/conversations"&&request.method==="GET"){
