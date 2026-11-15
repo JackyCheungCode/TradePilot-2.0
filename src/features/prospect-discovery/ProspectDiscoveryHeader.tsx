@@ -27,7 +27,7 @@ export function ProspectDiscoveryHeader({
       </div>
       <div className="tp-discovery__heading-actions">
         {children}
-        {title === '情报数据台' ? (
+        {title.startsWith('全球情报') ? (
           <>
             <Button kind="primary" size="sm" onClick={() => navigate('/prospect-discovery')}>
               <CarbonIcons.Add size={16} aria-hidden="true" />
