@@ -6,6 +6,10 @@
   min-height: 100vh;
 }
 
+.tp-content.cds--content {
+  padding-inline: 0;
+}
+
 .tp-content__main {
   width: 100%;
   min-height: 100%;
@@ -14,7 +18,12 @@
 }
 
 @media (max-width: map.get(breakpoints.$tp-breakpoints, sm)) {
+  .tp-content.cds--content {
+    padding-inline: 0;
+  }
+
   .tp-content__main {
+    width: 100%;
     padding-block: var(--tp-space-05);
     padding-inline: 6px;
   }
