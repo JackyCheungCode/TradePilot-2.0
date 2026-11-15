@@ -21,7 +21,7 @@ async function createNumber(env:Env,ownerId:string,key:string):Promise<string>{
  const rows=await db<number>(env,"rpc/next_trade_document_number",{method:"POST",body:JSON.stringify({p_owner_id:ownerId,p_sequence_key:key,p_sequence_year:year})});
  return String(rows).padStart(5,"0");
 }
-async function list(env:Env,table:string,ownerId:string,url:URL,select:string,order="updated_at.desc"):Promise<unknown>{
+async function list(env:Env,table:string,ownerId:string,_url:URL,select:string,order="updated_at.desc"):Promise<unknown>{
  const params=new URLSearchParams({select,owner_id:"eq."+ownerId,order,limit:"100"});
 
  return db(env,table+"?"+params.toString());
