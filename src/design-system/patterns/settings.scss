@@ -460,3 +460,17 @@
     width: 100%;
   }
 }
+
+
+.tp-trade-document-settings__history {
+  display: grid;
+  gap: var(--cds-spacing-04);
+  padding-top: var(--cds-spacing-05);
+  border-top: 1px solid var(--cds-border-subtle-01);
+}
+
+.tp-trade-document-settings__history h4 {
+  margin: 0 0 var(--cds-spacing-02);
+  font-size: .9375rem;
+  font-weight: 600;
+}
