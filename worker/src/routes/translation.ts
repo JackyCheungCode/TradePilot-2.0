@@ -27,8 +27,9 @@ export async function handleTranslation(request: Request, env: TranslationEnv): 
   catch { return errorResponse(request, "INVALID_JSON", "请求内容格式不正确。", 400); }
   const text = body.text?.trim() ?? "";
   const targetLanguage = body.targetLanguage?.toUpperCase() ?? "";
-  if (!text || text.length > 500 || !TARGET_LANGUAGES.has(targetLanguage)) {
-    return errorResponse(request, "VALIDATION_ERROR", "关键词不能为空（最多 500 字符），并请选择支持的目标语言。", 400);
+  const maxLength = tradeToolsTranslation ? 20000 : 500;
+  if (!text || text.length > maxLength || !TARGET_LANGUAGES.has(targetLanguage)) {
+    return errorResponse(request, "VALIDATION_ERROR", "翻译内容不能为空（最多 " + maxLength + " 字符），并请选择支持的目标语言。", 400);
   }
   const baseUrl = env.DEEPL_API_KEY.endsWith(":fx") ? "https://api-free.deepl.com" : "https://api.deepl.com";
   try {
