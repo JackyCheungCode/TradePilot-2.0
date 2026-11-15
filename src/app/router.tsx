@@ -1,5 +1,5 @@
 import { createBrowserRouter } from 'react-router-dom';
-import { AppShell } from '../shell/AppShell';
+import { AppShell } from '../design-system/layout/AppShell';
 
 /**
  * Route infrastructure only.
