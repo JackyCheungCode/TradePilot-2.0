@@ -12,7 +12,10 @@ type Template = { id: string; name: string; document_type: string; locale: strin
 type Doc = { id: string; document_number: string; title: string; document_type: string; status: string; locale: string; currency_code: string; created_at: string; order_id: string; shipment_id?: string | null; current_version?: number };
 type Step = 1 | 2 | 3 | 4;
 
-type DocumentOption = { id: string; label: string; detail: string; shipment: boolean };\ntype DocumentGroup = { id: string; title: string; description: string; items: DocumentOption[] };\n\nconst documentGroups: DocumentGroup[] = [
+type DocumentOption = { id: string; label: string; detail: string; shipment: boolean };
+type DocumentGroup = { id: string; title: string; description: string; items: DocumentOption[] };
+
+const documentGroups: DocumentGroup[] = [
   { id: 'sales', title: '销售与成交', description: '根据已确认的销售订单生成对客文件', items: [
     { id: 'proforma_invoice', label: '形式发票（PI）', detail: '用于预付款、开证及正式发货前确认', shipment: false },
     { id: 'sales_contract', label: '销售合同', detail: '锁定买卖双方、价格和贸易条款', shipment: false },
@@ -23,7 +26,7 @@ type DocumentOption = { id: string; label: string; detail: string; shipment: boo
     { id: 'packing_list', label: '装箱单', detail: '使用本次发运的包装、箱数、重量和货品明细', shipment: true },
     { id: 'shipping_instructions', label: '装运指示', detail: '整理本次发运的收发货人与运输信息', shipment: true },
   ] },
-] as const;
+];
 const typeLabel = (type: string) => documentGroups.flatMap(g => g.items).find(x => x.id === type)?.label ?? type;
 const statusLabel = (status: string) => (({ draft: '草稿', review: '待审核', approved: '已批准', issued: '已签发', sent: '已发送', void: '已作废', voided: '已作废', archived: '已归档' } as Record<string, string>)[status] ?? status);
 const dateLabel = (value?: string | null) => value ? new Date(value).toLocaleDateString() : '—';
