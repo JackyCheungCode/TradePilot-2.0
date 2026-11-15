@@ -77,52 +77,25 @@ export function AppShell() {
           >
             全网情报
           </SideNavLink>
-          <SideNavLink
-            href="/leads"
-            isActive={location.pathname.startsWith('/leads')}
-            title="线索（Lead）"
-            renderIcon={CarbonIcons.UserFollow}
-          >
+          <SideNavLink href="/leads" isActive={location.pathname.startsWith('/leads')} title="线索（Lead）" renderIcon={CarbonIcons.UserFollow}>
             线索（Lead）
           </SideNavLink>
-          <SideNavLink
-            href="/contacts"
-            isActive={location.pathname.startsWith('/contacts')}
-            title="联系人（Contact）"
-            renderIcon={CarbonIcons.User}
-          >
+          <SideNavLink href="/contacts" isActive={location.pathname.startsWith('/contacts')} title="联系人（Contact）" renderIcon={CarbonIcons.User}>
             联系人（Contact）
           </SideNavLink>
-          <SideNavLink
-            href="/accounts"
-            isActive={location.pathname.startsWith('/accounts')}
-            title="客户（Account）"
-            renderIcon={CarbonIcons.Building}
-          >
+          <SideNavLink href="/accounts" isActive={location.pathname.startsWith('/accounts')} title="客户（Account）" renderIcon={CarbonIcons.Building}>
             客户（Account）
           </SideNavLink>
-          <SideNavLink
-            href="/opportunities"
-            isActive={location.pathname.startsWith('/opportunities')}
-            title="商机（Opportunity）"
-            renderIcon={CarbonIcons.ChartLine}
-          >
+          <SideNavLink href="/opportunities" isActive={location.pathname.startsWith('/opportunities')} title="商机（Opportunity）" renderIcon={CarbonIcons.ChartLine}>
             商机（Opportunity）
           </SideNavLink>
-          <SideNavLink
-            href="/products"
-            isActive={location.pathname.startsWith('/products')}
-            title="产品（Product）"
-            renderIcon={CarbonIcons.Product}
-          >
+          <SideNavLink href="/quotes" isActive={location.pathname.startsWith('/quotes')} title="报价单（Quote）" renderIcon={CarbonIcons.Document}>
+            报价单（Quote）
+          </SideNavLink>
+          <SideNavLink href="/products" isActive={location.pathname.startsWith('/products')} title="产品（Product）" renderIcon={CarbonIcons.Product}>
             产品（Product）
           </SideNavLink>
-          <SideNavLink
-            href="/settings"
-            isActive={location.pathname.startsWith('/settings')}
-            title="设置中心"
-            renderIcon={CarbonIcons.Settings}
-          >
+          <SideNavLink href="/settings" isActive={location.pathname.startsWith('/settings')} title="设置中心" renderIcon={CarbonIcons.Settings}>
             设置中心
           </SideNavLink>
         </SideNavItems>
