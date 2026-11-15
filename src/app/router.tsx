@@ -1,15 +1,14 @@
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { AppShell } from '../design-system/layout/AppShell';
+import { ProspectDiscoveryPage } from '../features/prospect-discovery';
 
-/**
- * Route infrastructure only.
- * No product pages or navigation entries are registered until approved.
- * Each approved page will be added as its own lazy-loaded route/module.
- */
 export const router = createBrowserRouter([
   {
     path: '/',
     element: <AppShell />,
-    children: [],
+    children: [
+      { index: true, element: <Navigate to="/prospect-discovery" replace /> },
+      { path: 'prospect-discovery', element: <ProspectDiscoveryPage /> },
+    ],
   },
 ]);
