@@ -82,6 +82,12 @@ export function AppShell() {
       >
         
         <div className="tp-sidenav__group">
+          <div className="tp-sidenav__group-label">工作区</div>
+          <SideNavItems>
+            <SideNavLink href="/dashboard" isActive={location.pathname === '/dashboard' || location.pathname === '/'} title="工作台（Dashboard）" renderIcon={CarbonIcons.Dashboard}>工作台（Dashboard）</SideNavLink>
+          </SideNavItems>
+        </div>
+        <div className="tp-sidenav__group">
           <div className="tp-sidenav__group-label">情报与线索</div>
           <SideNavItems>
             <SideNavLink href="/prospect-console" isActive={location.pathname === '/prospect-console' || location.pathname === '/prospect-discovery' || location.pathname === '/recent-tasks'} title="全球情报（Global Intelligence）" renderIcon={CarbonIcons.Globe}>全球情报（Global Intelligence）</SideNavLink>
