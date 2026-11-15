@@ -12,7 +12,7 @@ type Template = { id: string; name: string; document_type: string; locale: strin
 type Doc = { id: string; document_number: string; title: string; document_type: string; status: string; locale: string; currency_code: string; created_at: string; order_id: string; shipment_id?: string | null; current_version?: number };
 type Step = 1 | 2 | 3 | 4;
 
-const documentGroups = [
+type DocumentOption = { id: string; label: string; detail: string; shipment: boolean };\ntype DocumentGroup = { id: string; title: string; description: string; items: DocumentOption[] };\n\nconst documentGroups: DocumentGroup[] = [
   { id: 'sales', title: '销售与成交', description: '根据已确认的销售订单生成对客文件', items: [
     { id: 'proforma_invoice', label: '形式发票（PI）', detail: '用于预付款、开证及正式发货前确认', shipment: false },
     { id: 'sales_contract', label: '销售合同', detail: '锁定买卖双方、价格和贸易条款', shipment: false },
