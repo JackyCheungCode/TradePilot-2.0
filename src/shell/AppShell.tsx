@@ -1,10 +1,12 @@
-import { Content, Header, HeaderName } from '@carbon/react';
+import { Header, HeaderName } from '../design-system/layout/Header';
+import { Content } from '../design-system/layout/Content';
 import { Outlet } from 'react-router-dom';
 
 /**
  * Shared application frame.
  * Product navigation and page routes are intentionally not defined
  * until the information architecture has been approved.
+ * All Carbon primitives are consumed through local design-system entry points.
  */
 export function AppShell() {
   return (
