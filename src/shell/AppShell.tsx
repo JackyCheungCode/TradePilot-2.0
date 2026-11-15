@@ -15,9 +15,9 @@ export function AppShell() {
         </HeaderName>
       </Header>
       <Content className="tp-content">
-        <main className="tp-content__main">
+        <div className="tp-content__main">
           <Outlet />
-        </main>
+        </div>
       </Content>
     </>
   );
