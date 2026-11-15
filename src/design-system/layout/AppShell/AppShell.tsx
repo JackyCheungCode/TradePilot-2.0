@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Outlet } from 'react-router-dom';
 import {
-  Header, HeaderName, HeaderMenuButton, HeaderGlobalBar, HeaderGlobalAction,
+  Header, HeaderName, HeaderMenuButton,
   SideNav, SideNavItems, SideNavLink, Content, CarbonIcons,
 } from '@/design-system';
 
@@ -12,7 +11,6 @@ import {
  */
 export function AppShell() {
   const [sideNavExpanded, setSideNavExpanded] = useState(false);
-  const navigate = useNavigate();
 
   return (
     <>
@@ -26,11 +24,6 @@ export function AppShell() {
         <HeaderName href="/" prefix="">
           TradePilot
         </HeaderName>
-        <HeaderGlobalBar>
-          <HeaderGlobalAction aria-label="最近任务" tooltipAlignment="end" onClick={() => navigate('/recent-tasks')}>
-            <CarbonIcons.Time size={20} aria-hidden="true" />
-          </HeaderGlobalAction>
-        </HeaderGlobalBar>
       </Header>
       <SideNav
         aria-label="TradePilot 主导航"
