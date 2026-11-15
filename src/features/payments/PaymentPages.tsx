@@ -146,7 +146,7 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
   const bankOptions=banks.filter(b=>b.is_active!==false&&!b.is_archived);
   const grossFees=Number(payment.bank_fee||0)+Number(payment.intermediary_fee||0);
   const suggestedNet=Math.max(0,Number(payment.amount||0)-grossFees);
-  const paymentEquivalent=(a:AnyRow)=>{const order=orders.find(o=>o.id===a.order_id);const orderRate=Number(order?.metadata?.sales_order?.form?.exchange_rate||1);const paymentRate=Number(payment.exchange_rate||1);return Number(a.allocated_amount||0)*orderRate/paymentRate};
+  const paymentEquivalent=(a:AnyRow)=>{const order=orders.find(o=>o.id===a.order_id);const orderRate=Number(order?.metadata?.sales_order?.form?.exchange_rate||1);const paymentRate=Number(payment.exchange_rate||1);return paymentRate>0?Number(a.allocated_amount||0)*orderRate/paymentRate:0};
   const allocatedSum=allocations.reduce((sum,a)=>{const order=orders.find(o=>o.id===a.order_id);const node=scheduleOf(order).find(n=>String(n.id)===String(a.schedule_node_id));const outstanding=Math.max(0,Number(node?.amount||0)-Number(node?.paid_amount||0));const requested=Number(a.allocated_amount||0);const ratio=requested>0?Math.min(1,outstanding/requested):0;return sum+paymentEquivalent(a)*ratio},0);
   const remaining=Math.max(0,Number(payment.net_received||suggestedNet)-allocatedSum);
   const selectedAccount=accounts.find(a=>a.id===payment.account_id);
