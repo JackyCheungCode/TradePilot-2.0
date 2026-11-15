@@ -13,7 +13,7 @@ type ContactMethod = { id?: string; method_type: string; platform: string; value
 type ContactRow = {
   id: string; account_id: string; first_name: string; last_name: string | null; full_name: string | null;
   job_title: string | null; department: string | null; email: string | null; phone: string | null;
-  mobile: string | null; whatsapp: string | null; linkedin_url: string | null; preferred_language: string | null;
+  mobile: string | null; whatsapp: string | null; linkedin_url: string | null; preferred_language: string | null; timezone?: string | null; preferred_channel?: string | null;
   contact_type: string; decision_role: string | null; is_primary: boolean; is_active: boolean; notes: string | null;
   custom_fields: Record<string, any> | null; created_at: string; updated_at: string; do_not_contact?: boolean; phone_extension?: string | null; title?: string | null; contact_role?: string | null;
   crm_accounts?: { account_name: string } | null;
