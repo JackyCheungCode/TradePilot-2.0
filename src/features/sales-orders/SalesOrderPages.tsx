@@ -54,6 +54,8 @@ export function SalesOrderConsolePage(){
  const filtered=rows.filter(r=>(status==='all'||orderState(r)===status)&&[r.order_number,r.title,r.customer_reference,accountMap.get(r.crm_account_id||'')].join(' ').toLowerCase().includes(query.trim().toLowerCase()));
  const count=(s:string)=>rows.filter(r=>orderState(r)===s).length;
  const totalFor=(r:OrderRow)=>Number(r.metadata?.sales_order?.totals?.grand_total||0);
+ const currencyOrderValue=rows.filter(r=>r.currency_code===currency).reduce((sum,r)=>sum+totalFor(r),0);
+ const currencyOutstanding=rows.filter(r=>r.currency_code===currency).reduce((sum,r)=>sum+Number(r.metadata?.sales_order?.totals?.outstanding_amount||0),0);
  const statusData=['draft','confirmed','preparing','partially_shipped','shipped','completed','cancelled'].map(s=>({group:stateLabel(s),key:'订单数量',value:count(s)})).filter(x=>x.value>0);
  const fulfillmentData=['not_shipped','partially_shipped','shipped'].map(s=>({group:fulfillmentLabel(s),key:'订单数量',value:rows.filter(r=>(r.metadata?.sales_order?.fulfillment_status||'not_shipped')===s).length})).filter(x=>x.value>0);
  const paymentData=['unpaid','partial','paid','overdue'].map(s=>({group:paymentLabel(s),key:'订单数量',value:rows.filter(r=>(r.metadata?.sales_order?.payment_status||'unpaid')===s).length})).filter(x=>x.value>0);
@@ -69,9 +71,11 @@ export function SalesOrderConsolePage(){
   {error&&<InlineNotification kind="error" title="销售订单读取失败" subtitle={error}/>}
   <section className="tp-sales-orders__metrics">
    <Metric label="全部订单" value={String(rows.length)} detail="累计销售订单" icon={CarbonIcons.Document}/>
+   <Metric label="订单总金额" value={money(currencyOrderValue,currency)} detail={currency+' · 已创建订单'} icon={CarbonIcons.Document}/>
    <Metric label="草稿" value={String(count('draft'))} detail="尚未确认" icon={CarbonIcons.Edit}/>
    <Metric label="已确认" value={String(count('confirmed'))} detail="价格与条款已锁定" icon={CarbonIcons.CheckmarkFilled}/>
    <Metric label="履约中" value={String(count('preparing')+count('partially_shipped'))} detail="备货或部分发货" icon={CarbonIcons.Package}/>
+   <Metric label="未收款金额" value={money(currencyOutstanding,currency)} detail={currency+' · 尚未收齐'} icon={CarbonIcons.Package}/>
    <Metric label="已发货" value={String(count('shipped'))} detail="发运完成" icon={CarbonIcons.Package}/>
    <Metric label="已完成" value={String(count('completed'))} detail="履约闭环" icon={CarbonIcons.CheckmarkFilled}/>
   </section>
