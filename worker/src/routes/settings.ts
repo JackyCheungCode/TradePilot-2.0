@@ -260,7 +260,7 @@ async function providerApiKey(providerKey:string,secretName:string|undefined,api
   return secrets[apiSecretNames.cloudflareApiToken]||env.CLOUDFLARE_API_TOKEN||"";
  }
  if(secretName){const secrets=await readVaultSecrets([secretName],env);return secrets[secretName]||"";}
- return "";
+ const legacy=legacyAISecrets[providerKey];return legacy?envSecret(env,legacy):"";
 }
 async function listAIModels(providerKey:string,protocol:AIProtocol,baseUrl:string,apiKey:string|undefined,env:SettingsEnv):Promise<Array<{id:string;name:string}>>{
  const key=await providerApiKey(providerKey,undefined,apiKey,env);
@@ -442,7 +442,7 @@ export async function handleSettings(request: Request, env: SettingsEnv): Promis
    }catch(error){return errorResponse(request,"INTEGRATION_TEST_FAILED",error instanceof Error?error.message:"API 连接测试失败",502);}
   }
   if(request.method==="DELETE"&&url.pathname.startsWith("/api/v1/settings/integrations/")){
-   try{const service=decodeURIComponent(url.pathname.split("/").pop()||"");const groups:Record<string,string[]>={apify:["apify"],deepl:["deepl"],googleMaps:["googleMaps"],dhl:["dhl"],ups:["upsClientId","upsClientSecret"],fedex:["fedexClientId","fedexClientSecret"],cloudflare:["cloudflareApiToken","cloudflareAccountId"]};const fields=groups[service];if(!fields)return errorResponse(request,"INVALID_SERVICE","未知的 API 服务商",400);for(const field of fields)await deleteVaultSecret(apiSecretNames[field],env);return successResponse(request,{deleted:true});}catch(error){return errorResponse(request,"INTEGRATION_DELETE_FAILED",error instanceof Error?error.message:"删除 API 配置失败",502);}
+   try{const service=decodeURIComponent(url.pathname.split("/").pop()||"");const groups:Record<string,string[]>={apify:["apify"],deepl:["deepl"],googleMaps:["googleMaps"],dhl:["dhl"],ups:["upsClientId","upsClientSecret"],fedex:["fedexClientId","fedexClientSecret"],cloudflare:["cloudflareApiToken","cloudflareAccountId"],serper:["serper"],serpapi:["serpapi"]};const fields=groups[service];if(!fields)return errorResponse(request,"INVALID_SERVICE","未知的 API 服务商",400);for(const field of fields)await deleteVaultSecret(apiSecretNames[field],env);return successResponse(request,{deleted:true});}catch(error){return errorResponse(request,"INTEGRATION_DELETE_FAILED",error instanceof Error?error.message:"删除 API 配置失败",502);}
   }
   return errorResponse(request, "NOT_FOUND", "设置接口不存在。", 404);
 }
