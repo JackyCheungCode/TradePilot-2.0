@@ -396,3 +396,67 @@
     padding: var(--cds-spacing-04);
   }
 }
+
+
+.tp-trade-document-settings__intro,
+.tp-trade-document-settings__footer {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--cds-spacing-04);
+}
+
+.tp-trade-document-settings__intro h4 {
+  margin: 0;
+  color: var(--cds-text-primary);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.tp-trade-document-settings__intro p {
+  max-width: 48rem;
+  margin: var(--cds-spacing-02) 0 0;
+  color: var(--cds-text-secondary);
+  font-size: .8125rem;
+  line-height: 1.5;
+}
+
+.tp-trade-document-settings__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--cds-spacing-05);
+  min-width: 0;
+}
+
+.tp-trade-document-settings__field {
+  display: grid;
+  gap: var(--cds-spacing-02);
+  min-width: 0;
+}
+
+.tp-trade-document-settings__field .cds--text-input-wrapper {
+  width: 100%;
+  min-width: 0;
+}
+
+.tp-trade-document-settings__footer {
+  align-items: center;
+  padding-top: var(--cds-spacing-04);
+  border-top: 1px solid var(--cds-border-subtle-01);
+}
+
+@media (max-width: 672px) {
+  .tp-trade-document-settings__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .tp-trade-document-settings__intro,
+  .tp-trade-document-settings__footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .tp-trade-document-settings__footer .cds--btn {
+    width: 100%;
+  }
+}
