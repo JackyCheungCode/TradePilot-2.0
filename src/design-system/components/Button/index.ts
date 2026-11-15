@@ -1,2 +1,2 @@
-/** Local Carbon-native entry point. Import from this module, not directly from @carbon/react. */
-export { Button, ButtonSet, IconButton } from '@carbon/react';
+/** Local Carbon-native entry point. */
+export { Button, ButtonSet, IconButton, DangerButton, PrimaryButton, SecondaryButton } from '@carbon/react';
