@@ -414,7 +414,7 @@ export async function handleDiscovery(request: Request, env: DiscoveryEnv): Prom
     filters.push("discovery_record_occurrences.is_removed=eq.false");
     if(runId) filters.push("discovery_record_occurrences.run_id=eq."+runId);
     if(status) filters.push("status=eq."+encodeURIComponent(status));
-    else filters.push("status=neq.removed");
+    else filters.push("status=not.in.(removed,discarded)");
     const rows=await db<Array<Record<string,unknown>>>(env,"discovery_records?"+filters.join("&"));
     return successResponse(request,rows??[]);
   }
