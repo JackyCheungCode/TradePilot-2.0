@@ -3,7 +3,7 @@ import path from 'node:path';
 
 const sourceRoot = path.resolve('src');
 const allowedRoot = path.resolve('src/design-system');
-const forbidden = /from\s*['"]@carbon\/(?:react|icons-react)['"]/g;
+const forbidden = /(?:from\s*|@use\s*|@forward\s*)['"]@carbon\/(?:react|icons-react)['"]/g;
 const violations = [];
 
 async function scan(directory) {
@@ -13,7 +13,7 @@ async function scan(directory) {
       await scan(fullPath);
       continue;
     }
-    if (!/\.[cm]?[jt]sx?$/.test(entry.name)) continue;
+    if (!/\.[cm]?[jt]sx?$|\.s[ac]ss$/.test(entry.name)) continue;
     if (fullPath.startsWith(allowedRoot + path.sep)) continue;
     const source = await readFile(fullPath, 'utf8');
     if (forbidden.test(source)) violations.push(path.relative(process.cwd(), fullPath));
