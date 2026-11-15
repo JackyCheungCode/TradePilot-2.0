@@ -55,12 +55,11 @@ function resultEntries(value: unknown): Array<[string, unknown]> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return [['查询结果', value]];
   return Object.entries(value as Record<string, unknown>).filter(([, item]) => item === null || ['string', 'number', 'boolean'].includes(typeof item));
 }
-function authToken() {
-  return getSupabaseClient().then(async db => {
-    const { data } = await db.auth.getSession();
-    if (!data.session?.access_token) throw new Error('登录状态已失效，请重新登录。');
-    return data.session.access_token;
-  });
+async function authToken() {
+  const db = await getSupabaseClient();
+  const { data } = await db.auth.getSession();
+  if (!data.session?.access_token) throw new Error('登录状态已失效，请重新登录。');
+  return data.session.access_token;
 }
 export function TradeToolsHubPage() {
   const navigate = useNavigate();
