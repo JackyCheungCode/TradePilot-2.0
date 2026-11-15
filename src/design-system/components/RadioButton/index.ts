@@ -1,2 +1,2 @@
-/** Local Carbon-native entry point. Import from this module, not directly from @carbon/react. */
-export { RadioButton, RadioButtonGroup } from '@carbon/react';
+/** Local Carbon-native radio control entry point. */
+export { RadioButton } from '@carbon/react';
