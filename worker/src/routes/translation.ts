@@ -15,7 +15,9 @@ async function authenticated(request: Request, env: TranslationEnv) {
   return response.ok;
 }
 export async function handleTranslation(request: Request, env: TranslationEnv): Promise<Response> {
-  const pathname = new URL(request.url).pathname;\n  const tradeToolsTranslation = pathname === "/api/v1/trade-tools/translate";\n  if (request.method !== "POST" || (!tradeToolsTranslation && pathname !== "/api/v1/discovery/translate")) {
+  const pathname = new URL(request.url).pathname;
+  const tradeToolsTranslation = pathname === "/api/v1/trade-tools/translate";
+  if (request.method !== "POST" || (!tradeToolsTranslation && pathname !== "/api/v1/discovery/translate")) {
     return errorResponse(request, "NOT_FOUND", "翻译接口不存在。", 404);
   }
   if (!(await authenticated(request, env))) return errorResponse(request, "UNAUTHORIZED", "请先登录后使用关键词翻译。", 401);
