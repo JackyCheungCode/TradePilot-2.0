@@ -1,4 +1,5 @@
 import {errorResponse,successResponse} from "../lib/http";
+import { readIntegrationSecret } from "../lib/integrations";
 type AccountType="business"|"creator"|"personal";
 export interface InstagramInput {keywords:string[];countries:string[];languageCodes:string[];accountTypes:AccountType[];minFollowers:number;maxFollowers:number;recentDays:number;requireContact:boolean;excludeTerms:string[];limit:number;maxCostUsd?:number;includeCaptions:boolean;}
 interface Env {SUPABASE_URL:string;SUPABASE_ANON_KEY:string;SUPABASE_SERVICE_ROLE_KEY:string;INSTAGRAM_DISCOVERY_WORKFLOW:{create(options:{id:string;params:{runId:string;ownerId:string;input:InstagramInput}}):Promise<{id:string}>};}
