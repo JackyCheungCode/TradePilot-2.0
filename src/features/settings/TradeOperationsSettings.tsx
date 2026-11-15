@@ -87,13 +87,16 @@ export function TradeOperationsSettings({ scope }: { scope: Scope }) {
         }
       }
       if(scope==='shipment') {
+        let seededShipmentDictionary=false;
         for(const dictionary of shipmentDictionaries) {
           if(!rows.some(x=>x.setting_type===dictionary.value)) {
             const seed=dictionary.seeds.map(([code,name],i)=>({owner_id:userId,scope_key:scope,setting_type:dictionary.value,code,name,config:{},sequence:(i+1)*10,is_active:true}));
             const {error:seedError}=await db.from('trade_business_setting_items').upsert(seed,{onConflict:'owner_id,scope_key,setting_type,code',ignoreDuplicates:true});
             if(seedError) throw seedError;
+            seededShipmentDictionary=true;
           }
         }
+        if(seededShipmentDictionary) rows=[];
       }
       if(!itemsResult.data?.length || (scope==='shipment' && rows.length===0)) {
         const refreshed=await db.from('trade_business_setting_items').select('id,setting_type,code,name,config,sequence,is_active').eq('owner_id',userId).eq('scope_key',scope).order('sequence').order('code');
