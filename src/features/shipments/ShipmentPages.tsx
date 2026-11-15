@@ -1,8 +1,6 @@
 import {useCallback,useEffect,useMemo,useState} from 'react';
 import {useNavigate,useParams} from 'react-router-dom';
-import {Button,InlineLoading,InlineNotification,Select,SelectItem,Tag,TextInput,TextArea,Tabs,TabList,Tab,TabPanels,TabPanel,Table,TableHead,TableRow,TableHeader,TableBody,TableCell,CarbonIcons} from '@/design-system';
-import {LineChart,SimpleBarChart} from '@carbon/charts-react';
-import {ScaleTypes} from '@carbon/charts';
+import {Button,InlineLoading,InlineNotification,Select,SelectItem,Tag,TextInput,TextArea,Tabs,TabList,Tab,TabPanels,TabPanel,Table,TableHead,TableRow,TableHeader,TableBody,TableCell,Tile,LineChart,SimpleBarChart,ScaleTypes,CarbonIcons} from '@/design-system';
 import '@carbon/charts/styles.css';
 import '@/design-system/patterns/shipments.scss';
 
@@ -19,7 +17,7 @@ const fieldGroups=[
  {name:'备注与附件',fields:[['remarks_external','对外备注','textarea'],['notes_internal','内部备注（仅内部）','textarea'],['attachments_json','附件元数据 JSON','textarea'],['language','单据语言']]}
 ];
 function Field({f,value,onChange}:{f:string[];value:any;onChange:(v:string)=>void}){const [k,l,t='text',opts='']=f;if(t==='textarea')return <TextArea id={'ship-'+k} labelText={l} rows={3} value={String(value??'')} onChange={e=>onChange(e.currentTarget.value)}/>;if(t==='select')return <Select id={'ship-'+k} labelText={l} value={String(value??'')} onChange={e=>onChange(e.currentTarget.value)}><SelectItem value="" text="请选择"/>{opts.split(',').map(x=><SelectItem key={x} value={x} text={x}/>)}</Select>;return <TextInput id={'ship-'+k} labelText={l} type={t==='date'?'date':t==='number'?'number':'text'} value={String(value??'')} onChange={e=>onChange(e.currentTarget.value)}/>;}
-function Metric({label,value,detail,icon:Icon}:{label:string;value:string;detail:string;icon:React.ElementType}){return <div className="tp-shipments__metric"><div><span>{label}</span><Icon size={20}/></div><strong>{value}</strong><small>{detail}</small></div>}
+function Metric({label,value,detail,icon:Icon}:{label:string;value:string;detail:string;icon:React.ElementType}){return <Tile className="tp-shipments__metric"><div><span>{label}</span><Icon size={20}/></div><strong>{value}</strong><small>{detail}</small></Tile>}
 
 export function ShipmentConsolePage(){
  const nav=useNavigate();const [rows,setRows]=useState<any[]>([]);const [loading,setLoading]=useState(true);const [error,setError]=useState('');const [q,setQ]=useState('');const [status,setStatus]=useState('all');
