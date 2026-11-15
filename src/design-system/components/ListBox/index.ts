@@ -1,2 +1,2 @@
-/** Local Carbon-native entry point. Import from this module, not directly from @carbon/react. */
-export { ListBox, ListBoxField, ListBoxMenu, ListBoxMenuItem } from '@carbon/react';
+/** Type-only access to Carbon list-box primitives; use Dropdown, ComboBox, or MultiSelect for rendered controls. */
+export type { ListBoxProps, ListBoxFieldProps, ListBoxMenuProps, ListBoxMenuItemProps } from '@carbon/react';
