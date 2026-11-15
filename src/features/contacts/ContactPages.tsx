@@ -2,10 +2,11 @@ import { cloneElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Accordion, AccordionItem, Button, Checkbox, ComboBox, InlineLoading, InlineNotification, MultiSelect,
-  Select, SelectItem, Tab, TabList, TabPanel, TabPanels, Tabs, Tag, TextArea, TextInput, Tile, FileUploader,
+  Select, SelectItem, Tab, TabList, TabPanel, TabPanels, Tabs, Tag, TextArea, TextInput, Tile, FileUploader, LineChart,
   CarbonIcons, Table, TableHead, TableRow, TableHeader, TableBody, TableCell,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
+import '@carbon/charts/styles.css';
 import '@/design-system/patterns/contacts.scss';
 
 type Account = { id: string; account_name: string; country_code?: string | null; city?: string | null; timezone?: string | null; account_manager?: string | null };
@@ -90,6 +91,7 @@ function SocialRows({items,onChange}:{items:ContactMethod[];onChange:(v:ContactM
 
 const PAGE_SIZE = 15;
 type CountryStat = { key: string; label: string; total: number; verified: number; active: number };
+type DailyStat = { date: string; count: number };
 const GROUP_FIELDS = [
   {id:'country',text:'国家 / 地区'},{id:'account',text:'所属客户'},{id:'status',text:'联系人状态'},
   {id:'role',text:'联系人角色'},{id:'source',text:'联系人来源'},{id:'owner',text:'负责人'},
@@ -124,9 +126,10 @@ export function ContactConsolePage() {
   const navigate=useNavigate();
   const [rows,setRows]=useState<ContactRow[]>([]);
   const [countryStats,setCountryStats]=useState<CountryStat[]>([]);
+  const [dailyStats,setDailyStats]=useState<DailyStat[]>([]);
   const [verifiedIds,setVerifiedIds]=useState<Set<string>>(new Set());
   const [total,setTotal]=useState(0);
-  const [stats,setStats]=useState({total:0,verified:0,new30:0,active:0,primary:0});
+  const [stats,setStats]=useState({total:0,verified:0,new30:0,active:0});
   const [loading,setLoading]=useState(true);
   const [analyticsLoading,setAnalyticsLoading]=useState(true);
   const [error,setError]=useState('');
@@ -164,9 +167,13 @@ export function ContactConsolePage() {
         if(batch.length<1000) break;
       }
       const active=analyticsRows.filter(x=>x.is_active).length;
-      const primary=analyticsRows.filter(x=>x.is_primary).length;
       const new30=analyticsRows.filter(x=>new Date(x.created_at).getTime()>=now-30*24*60*60*1000).length;
-      setStats({total:analyticsRows.length,verified:analyticsRows.filter(x=>verified.has(x.id)).length,new30,active,primary});
+      setStats({total:analyticsRows.length,verified:analyticsRows.filter(x=>verified.has(x.id)).length,new30,active});
+      const dayKey=(date:Date)=>[date.getFullYear(),String(date.getMonth()+1).padStart(2,'0'),String(date.getDate()).padStart(2,'0')].join('-');
+      const dailyMap=new Map<string,number>();
+      for(let i=29;i>=0;i--){const day=new Date();day.setHours(0,0,0,0);day.setDate(day.getDate()-i);dailyMap.set(dayKey(day),0);}
+      analyticsRows.forEach(row=>{const date=new Date(row.created_at);if(!Number.isNaN(date.getTime())){const key=dayKey(date);if(dailyMap.has(key))dailyMap.set(key,(dailyMap.get(key)??0)+1);}});
+      setDailyStats([...dailyMap.entries()].map(([date,count])=>({date,count})));
       setVerifiedIds(verified);
       const countryMap=new Map<string,CountryStat>();
       analyticsRows.forEach(row=>{
@@ -229,6 +236,8 @@ export function ContactConsolePage() {
     return [...top,{key:'__other__',label:'其他国家 / 地区',...rest}].sort((a,b)=>b.total-a.total);
   },[countryStats]);
   const maxCountry=chartCountries[0]?.total??1;
+  const dailyChartData=dailyStats.map(item=>({group:'每日新增',date:new Date(item.date+'T00:00:00'),value:item.count}));
+  const dailyChartOptions={title:'每日新增联系人',axes:{bottom:{title:'日期',mapsTo:'date',scaleType:'time'},left:{title:'新增联系人',mapsTo:'value',scaleType:'linear'}},curve:'curveMonotoneX',points:{enabled:true},legend:{enabled:false},toolbar:{enabled:false},height:'280px'};
   const pages=Math.max(1,Math.ceil(total/PAGE_SIZE));
   const start=total===0?0:(page-1)*PAGE_SIZE+1;
   const end=Math.min(page*PAGE_SIZE,total);
@@ -237,13 +246,17 @@ export function ContactConsolePage() {
     <header className="tp-contacts__header"><div><p className="tp-contacts__eyebrow">TRADEPILOT / CRM</p><h1>联系人（Contact）</h1><p>管理客户组织中的联系人及其关系、联系方式与沟通偏好。</p></div><div className="tp-contacts__actions"><Button kind="tertiary" onClick={refresh} disabled={loading||analyticsLoading}><CarbonIcons.Renew size={16}/>刷新</Button><Button kind="primary" onClick={()=>navigate('/contacts/new')}><CarbonIcons.Add size={16}/>创建联系人</Button></div></header>
     {error&&<InlineNotification kind="error" title="联系人读取失败" subtitle={error} onCloseButtonClick={()=>setError('')}/>}
     <section className="tp-contacts__stats">
-      {[['全部联系人',stats.total,'总记录'],['已验证联系人',stats.verified,'至少一项联系方式已验证'],['近 30 天新增',stats.new30,'按创建时间统计'],['在职联系人',stats.active,'当前在职'],['主要联系人',stats.primary,'Account 主联系人']].map(([label,value,description])=><Tile key={String(label)} className="tp-contacts__stat-tile"><span>{label}</span><strong>{Number(value).toLocaleString()}</strong><small>{description}</small></Tile>)}
+      {[['全部联系人',stats.total,'总记录'],['已验证联系人',stats.verified,'至少一项联系方式已验证'],['近 30 天新增',stats.new30,'按创建时间统计'],['在职联系人',stats.active,'当前在职']].map(([label,value,description])=><Tile key={String(label)} className="tp-contacts__stat-tile"><span>{label}</span><strong>{Number(value).toLocaleString()}</strong><small>{description}</small></Tile>)}
     </section>
-    <section className="tp-contacts__panel">
-      <div className="tp-contacts__country-panel">
+    <section className="tp-contacts__country-panel">
         <div className="tp-contacts__section-head"><div><h2>国家 / 地区分布</h2><p>按联系人国家汇总；验证数按已验证联系方式去重统计。</p></div></div>
         {analyticsLoading&&!countryStats.length?<InlineLoading description="正在汇总国家 / 地区…" />:chartCountries.length?<div className="tp-contacts__country-chart">{chartCountries.map(item=><div className="tp-contacts__country-row" key={item.key}><div className="tp-contacts__country-label"><span>{item.label}</span><strong>{item.total}</strong></div><svg className="tp-contacts__country-chart-bar" viewBox="0 0 100 8" preserveAspectRatio="none" role="img" aria-label={item.label+' 联系人数 '+item.total}><rect className="tp-contacts__country-chart-track" x="0" y="0" width="100" height="8"/><rect className="tp-contacts__country-chart-fill" x="0" y="0" width={Math.max(2,item.total/maxCountry*100)} height="8"/></svg><div className="tp-contacts__country-meta"><span>已验证 {item.verified}</span><span>在职 {item.active}</span></div></div>)}</div>:<p className="tp-contacts__empty">暂无可用于统计的联系人国家 / 地区数据。</p>}
-      </div>
+    </section>
+    <section className="tp-contacts__daily-panel">
+      <div className="tp-contacts__section-head"><div><h2>每日新增</h2><p>按联系人创建时间统计最近 30 天每日新增数量。</p></div></div>
+      {analyticsLoading&&!dailyStats.length?<InlineLoading description="正在汇总每日新增…" />:dailyStats.some(item=>item.count>0)?<LineChart data={dailyChartData} options={dailyChartOptions}/>:<p className="tp-contacts__empty">最近 30 天暂无新增联系人记录。</p>}
+    </section>
+    <section className="tp-contacts__list-panel">
       <div className="tp-contacts__list-head"><div><h2>联系人列表</h2><p>当前筛选共 {total.toLocaleString()} 条记录；每页最多 {PAGE_SIZE} 条。</p></div><div className="tp-contacts__search"><TextInput id="contacts-search" labelText="搜索联系人" placeholder="姓名、职位、邮箱或电话" value={query} onChange={e=>{setQuery(e.currentTarget.value);setPage(1);}}/></div></div>
       <div className="tp-contacts__filters">
         <Select id="contacts-status-filter" labelText="状态筛选" value={statusFilter} onChange={e=>{setStatusFilter(e.currentTarget.value);setPage(1);}}><SelectItem value="all" text="全部状态"/><SelectItem value="active" text="在职"/><SelectItem value="inactive" text="非在职"/></Select>
@@ -300,20 +313,20 @@ export function ContactFormPage() {
     {accounts.length===0&&<InlineNotification kind="warning" title="尚无可选客户" subtitle="请先创建 Account，再创建联系人。所属客户为必填项。"/>}
     <section className="tp-contacts__primary"><div className="tp-contacts__section-head"><div><h2>主数据</h2><p>联系人身份、所属客户、组织关系及主要联系方式。</p></div><Tag type="blue">核心资料</Tag></div>
       <div className="tp-contacts__grid tp-contacts__grid--four">
-        
+        <div className="tp-contacts__avatar-field"><div className="tp-contacts__avatar-preview">{avatarPreview?<img src={avatarPreview} alt="联系人头像预览"/>:<CarbonIcons.UserAvatar size={48}/>}</div><div className="tp-contacts__avatar-uploader"><FileUploader accept={['.jpg','.jpeg','.png','.webp']} buttonLabel="选择图片" filenameStatus="edit" labelTitle="头像图片" labelDescription="支持 JPG、PNG、WEBP，最大 5 MB。" multiple={false} disabled={saving} onChange={(event:any)=>{const file=event.target.files?.[0] as File|undefined;if(!file)return;if(!['image/jpeg','image/png','image/webp'].includes(file.type)){setError('仅支持 JPG、PNG 或 WEBP 图片。');return;}if(file.size>5*1024*1024){setError('头像图片不能超过 5 MB。');return;}setError('');setAvatarFile(file);}}/>{(avatarPreview||form.avatarUrl)&&<Button kind="ghost" size="sm" onClick={()=>{setAvatarFile(null);set('avatarUrl','');setAvatarPreview('');}}>删除头像</Button>}</div></div>
         {field('联系人编号',<TextInput id="contact-number" labelText="联系人编号" value={editing?(id??'').slice(0,8).toUpperCase():'保存后自动生成'} readOnly/>)}
         {field('称谓',<Select id="contact-salutation" labelText="称谓" value={form.salutation} onChange={e=>setForm(p=>({...p,salutation:e.currentTarget.value,displayName:p.displayName===[p.salutation,p.firstName,p.lastName].filter(Boolean).join(' ').trim()?[e.currentTarget.value,p.firstName,p.lastName].filter(Boolean).join(' ').trim():p.displayName}))}><SelectItem value="" text="请选择"/>{['Mr.','Ms.','Mrs.','Dr.','Prof.','Mx.'].map(x=><SelectItem key={x} value={x} text={x}/>)}</Select>)}
         {field('名',<TextInput id="contact-first" labelText="名" value={form.firstName} onChange={e=>setForm(p=>({...p,firstName:e.currentTarget.value,displayName:p.displayName===[p.salutation,p.firstName,p.lastName].filter(Boolean).join(' ').trim()?[p.salutation,e.currentTarget.value,p.lastName].filter(Boolean).join(' ').trim():p.displayName}))}/>)}
         {field('姓',<TextInput id="contact-last" labelText="姓" value={form.lastName} onChange={e=>setForm(p=>({...p,lastName:e.currentTarget.value,displayName:p.displayName===[p.salutation,p.firstName,p.lastName].filter(Boolean).join(' ').trim()?[p.salutation,p.firstName,e.currentTarget.value].filter(Boolean).join(' ').trim():p.displayName}))}/>)}
         {field('显示名称',<TextInput id="contact-display" labelText="显示名称" value={form.displayName} onChange={e=>set('displayName',e.currentTarget.value)} />)}
-        <div className="tp-contacts__avatar-field"><div className="tp-contacts__avatar-preview">{avatarPreview?<img src={avatarPreview} alt="联系人头像预览"/>:<span>暂无头像</span>}</div><div className="tp-contacts__avatar-uploader"><FileUploader accept={['.jpg','.jpeg','.png','.webp']} buttonLabel="选择图片" filenameStatus="edit" labelTitle="头像图片" labelDescription="支持 JPG、PNG、WEBP，最大 5 MB。" multiple={false} disabled={saving} onChange={(event:any)=>{const file=event.target.files?.[0] as File|undefined;if(!file)return;if(!['image/jpeg','image/png','image/webp'].includes(file.type)){setError('仅支持 JPG、PNG 或 WEBP 图片。');return;}if(file.size>5*1024*1024){setError('头像图片不能超过 5 MB。');return;}setError('');setAvatarFile(file);}}/>{(avatarPreview||form.avatarUrl)&&<Button kind="ghost" size="sm" onClick={()=>{setAvatarFile(null);set('avatarUrl','');setAvatarPreview('');}}>删除头像</Button>}</div></div>
+        
         {field('性别',<Select id="contact-gender" labelText="性别" value={form.gender} onChange={e=>set('gender',e.currentTarget.value)}><SelectItem value="" text="不指定"/><SelectItem value="female" text="女"/><SelectItem value="male" text="男"/><SelectItem value="other" text="其他"/></Select>)}
         {field('状态',<Select id="contact-status" labelText="状态" value={form.status} onChange={e=>set('status',e.currentTarget.value)}><SelectItem value="active" text="在职"/><SelectItem value="departed" text="已离职"/><SelectItem value="invalid" text="无效"/></Select>)}
-        {field('所属客户 Account',<ComboBox id="contact-account" titleText="所属客户 Account" placeholder="搜索并选择客户" items={accountItems} itemToString={x=>x?.text??''} selectedItem={accountItems.find(x=>x.id===form.accountId)??null} onChange={({selectedItem})=>{set('accountId',selectedItem?.id??'');const a=accounts.find(x=>x.id===selectedItem?.id);if(a){setForm(p=>({...p,accountId:a.id,timezone:p.timezone||a.timezone||'',owner:p.owner||a.account_manager||''}))}}}/>,true)}
+        {field('所属客户 Account',<ComboBox id="contact-account" placeholder="搜索并选择客户" items={accountItems} itemToString={x=>x?.text??''} selectedItem={accountItems.find(x=>x.id===form.accountId)??null} onChange={({selectedItem})=>{set('accountId',selectedItem?.id??'');const a=accounts.find(x=>x.id===selectedItem?.id);if(a){setForm(p=>({...p,accountId:a.id,timezone:p.timezone||a.timezone||'',owner:p.owner||a.account_manager||''}))}}}/>,true)}
         {field('联系人角色',<MultiSelect id="contact-roles" titleText="联系人角色" label="选择角色" items={roleItems} itemToString={x=>x?.text??''} selectedItems={roleItems.filter(x=>form.roles.includes(x.id))} onChange={({selectedItems})=>set('roles',(selectedItems??[]).map(x=>x.id))}/>)}
         {field('职位',<TextInput id="contact-title" labelText="职位" value={form.title} onChange={e=>set('title',e.currentTarget.value)}/>)}
         {field('部门',<TextInput id="contact-department" labelText="部门" value={form.department} onChange={e=>set('department',e.currentTarget.value)}/>)}
-        {field('上级联系人',<ComboBox id="contact-manager" titleText="上级联系人" placeholder="选择同一客户的上级联系人" items={managerItems} itemToString={x=>x?.text??''} selectedItem={managerItems.find(x=>x.id===form.managerId)??null} onChange={({selectedItem})=>set('managerId',selectedItem?.id??'')}/>)}
+        {field('上级联系人',<ComboBox id="contact-manager" placeholder="选择同一客户的上级联系人" items={managerItems} itemToString={x=>x?.text??''} selectedItem={managerItems.find(x=>x.id===form.managerId)??null} onChange={({selectedItem})=>set('managerId',selectedItem?.id??'')}/>)}
       </div>
       <div className="tp-contacts__inline"><Checkbox id="contact-primary" labelText="设为该客户的主联系人" checked={form.isPrimary} onChange={(_,d)=>set('isPrimary',d.checked)}/><span className="tp-contacts__muted">同一客户原则上只应有一位主联系人；保存时会按数据库现有规则处理。</span></div>
       <div className="tp-contacts__grid tp-contacts__grid--four">
