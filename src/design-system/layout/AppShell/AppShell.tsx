@@ -94,6 +94,14 @@ export function AppShell() {
             客户（Account）
           </SideNavLink>
           <SideNavLink
+            href="/accounts/new"
+            isActive={location.pathname === '/accounts/new'}
+            title="新建客户"
+            renderIcon={CarbonIcons.Add}
+          >
+            新建客户
+          </SideNavLink>
+          <SideNavLink
             href="/contacts"
             isActive={location.pathname.startsWith('/contacts')}
             title="联系人（Contact）"
