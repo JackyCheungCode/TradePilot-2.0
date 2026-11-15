@@ -4,6 +4,7 @@ import {
   Button, Column, Grid, InlineLoading, InlineNotification, Tag, TextArea, Tile, CarbonIcons,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
+import './AgentWorkspacePage.scss';
 
 type AgentTask = {
   goal: string;
@@ -170,95 +171,117 @@ export function AgentWorkspacePage() {
   };
 
   return (
-    <main>
-      <Grid fullWidth>
-        <Column sm={4} md={4} lg={4}>
-          <Tile>
-            <Grid>
-              <Column sm={4} md={4} lg={4}>
-                <h2>小雅</h2>
-                <p>TradePilot 智能业务助理</p>
-              </Column>
-              <Column sm={4} md={4} lg={4}>
-                <Button kind="primary" size="sm" onClick={() => void createConversation()}>
-                  <CarbonIcons.Add size={16} /> 新建对话
-                </Button>
-              </Column>
-            </Grid>
-            <p>历史对话</p>
-            {loading && <InlineLoading description="正在加载对话…" />}
-            {conversations.map((item) => (
-              <Button
-                key={item.id}
-                kind={conversationId === item.id ? 'primary' : 'ghost'}
-                size="sm"
-                className="tp-agent__conversation"
-                onClick={() => setConversationId(item.id)}
-              >
-                {item.title || '新聊天'}
+    <main className="tp-agent">
+      <header className="tp-agent__page-header">
+        <div>
+          <h1 className="tp-agent__page-title">小雅</h1>
+          <p className="tp-agent__page-description">TradePilot 智能业务助理</p>
+        </div>
+        <Tag type="blue">智能混合对话</Tag>
+      </header>
+
+      {error && <InlineNotification className="tp-agent__notification" kind="error" title="操作失败" subtitle={error} onCloseButtonClick={() => setError('')} />}
+      {notice && <InlineNotification className="tp-agent__notification" kind="success" title="任务已创建" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
+
+      <Grid fullWidth className="tp-agent__workspace">
+        <Column sm={4} md={2} lg={4} className="tp-agent__history-column">
+          <section className="tp-agent__history" aria-label="历史对话">
+            <div className="tp-agent__history-header">
+              <h2>历史对话</h2>
+              <Button kind="primary" size="sm" renderIcon={CarbonIcons.Add} onClick={() => void createConversation()}>
+                新建对话
               </Button>
-            ))}
-            <Button kind="ghost" size="sm" onClick={() => navigate('/recent-tasks')}>
+            </div>
+            {loading && <InlineLoading description="正在加载对话…" />}
+            <nav className="tp-agent__conversation-list" aria-label="选择历史对话">
+              {conversations.map((item) => (
+                <Button
+                  key={item.id}
+                  kind={conversationId === item.id ? 'tertiary' : 'ghost'}
+                  size="sm"
+                  className="tp-agent__conversation"
+                  onClick={() => setConversationId(item.id)}
+                >
+                  <span>{item.title || '新聊天'}</span>
+                </Button>
+              ))}
+            </nav>
+            <Button kind="ghost" size="sm" className="tp-agent__tasks-link" renderIcon={CarbonIcons.Task} onClick={() => navigate('/recent-tasks')}>
               查看任务执行中心
             </Button>
-          </Tile>
+          </section>
         </Column>
-        <Column sm={4} md={4} lg={12}>
-          <Tile>
-            <h1>与小雅对话</h1>
-            <p>直接描述业务目标。小雅会理解上下文、分析需求，并在需要执行任务时生成可确认的任务方案。</p>
-            <Tag type="blue">智能混合对话</Tag>
-            {error && <InlineNotification kind="error" title="操作失败" subtitle={error} onCloseButtonClick={() => setError('')} />}
-            {notice && <InlineNotification kind="success" title="任务已创建" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
-            <div aria-live="polite">
-              {messages.map((item) => (
-                <Tile key={item.id}>
-                  <p><strong>{item.role === 'user' ? '你' : '小雅'}</strong></p>
-                  <p>{item.content}</p>
-                  {item.metadata?.model && <Tag type="cool-gray">模型：{item.metadata.model}</Tag>}
-                  {item.metadata?.task && (
-                    <Tile>
-                      <h3>任务方案</h3>
-                      <p>{item.metadata.task.goal}</p>
-                      <p>执行角色：{item.metadata.task.agentKey} · 目标国家：{item.metadata.task.country}</p>
-                      <Button
-                        kind="primary"
-                        size="sm"
-                        disabled={Boolean(startingTask)}
-                        onClick={() => void startTask(item.id, item.metadata!.task!)}
-                      >
-                        {startingTask === item.id ? '正在创建任务…' : '创建并执行任务'}
-                      </Button>
-                    </Tile>
-                  )}
-                </Tile>
-              ))}
-              {sending && <InlineLoading description="小雅正在思考…" />}
+
+        <Column sm={4} md={6} lg={12} className="tp-agent__chat-column">
+          <section className="tp-agent__chat" aria-label="小雅聊天窗口">
+            <div className="tp-agent__chat-header">
+              <div>
+                <h2>与小雅对话</h2>
+                <p>描述你的业务目标，小雅会结合上下文分析并协助执行。</p>
+              </div>
+            </div>
+
+            <div className="tp-agent__messages" aria-live="polite">
               {!messages.length && !loading && (
-                <Tile>
+                <div className="tp-agent__welcome">
                   <h3>你好，我是小雅。</h3>
                   <p>你可以让我分析客户、产品、销售订单、发运和收款数据，也可以让我研究全球市场或准备业务任务。</p>
-                </Tile>
+                  <p className="tp-agent__welcome-hint">直接输入目标开始对话。需要执行任务时，我会先向你展示任务方案。</p>
+                </div>
               )}
+              {messages.map((item) => (
+                <article key={item.id} className={`tp-agent__message tp-agent__message--${item.role}`}>
+                  <div className="tp-agent__message-label">{item.role === 'user' ? '你' : '小雅'}</div>
+                  <div className="tp-agent__message-content">
+                    <p>{item.content}</p>
+                    {item.metadata?.model && <Tag type="cool-gray">模型：{item.metadata.model}</Tag>}
+                    {item.metadata?.task && (
+                      <Tile className="tp-agent__task-card">
+                        <div className="tp-agent__task-card-heading">
+                          <CarbonIcons.Task size={20} />
+                          <h3>任务方案</h3>
+                        </div>
+                        <p>{item.metadata.task.goal}</p>
+                        <p className="tp-agent__task-meta">执行角色：{item.metadata.task.agentKey} · 目标国家：{item.metadata.task.country}</p>
+                        <Button
+                          kind="primary"
+                          size="md"
+                          disabled={Boolean(startingTask)}
+                          onClick={() => void startTask(item.id, item.metadata!.task!)}
+                        >
+                          {startingTask === item.id ? '正在创建任务…' : '创建并执行任务'}
+                        </Button>
+                      </Tile>
+                    )}
+                  </div>
+                </article>
+              ))}
+              {sending && <div className="tp-agent__thinking"><InlineLoading description="小雅正在思考…" /></div>}
             </div>
-            <TextArea
-              id="xiaoya-message"
-              labelText="发送给小雅"
-              placeholder="例如：帮我分析最近 30 天的潜在客户，并找出最值得优先跟进的客户。"
-              rows={3}
-              value={draft}
-              onChange={(event) => setDraft(event.currentTarget.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' && !event.shiftKey) {
-                  event.preventDefault();
-                  void sendMessage();
-                }
-              }}
-            />
-            <Button kind="primary" disabled={!draft.trim() || sending || !conversationId} onClick={() => void sendMessage()}>
-              <CarbonIcons.Send size={16} /> 发送
-            </Button>
-          </Tile>
+
+            <div className="tp-agent__composer">
+              <TextArea
+                id="xiaoya-message"
+                labelText="发送给小雅"
+                placeholder="例如：帮我分析最近 30 天的潜在客户，并找出最值得优先跟进的客户。"
+                rows={3}
+                value={draft}
+                onChange={(event) => setDraft(event.currentTarget.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault();
+                    void sendMessage();
+                  }
+                }}
+              />
+              <div className="tp-agent__composer-footer">
+                <span>Enter 发送 · Shift + Enter 换行</span>
+                <Button kind="primary" disabled={!draft.trim() || sending || !conversationId} onClick={() => void sendMessage()}>
+                  <CarbonIcons.Send size={16} /> 发送
+                </Button>
+              </div>
+            </div>
+          </section>
         </Column>
       </Grid>
     </main>
