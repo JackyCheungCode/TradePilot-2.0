@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, Tile, CarbonIcons } from '@/design-system';
+import { Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, CarbonIcons } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/global-shipment-map.scss';
 
