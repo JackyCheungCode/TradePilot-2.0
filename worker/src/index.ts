@@ -11,6 +11,7 @@ import { handleFacebookDiscovery } from "./routes/facebook-discovery";
 import { InstagramDiscoveryWorkflow } from "./workflows/instagram-discovery";
 import { handleInstagramDiscovery } from "./routes/instagram-discovery";
 import { handleAgentCenter } from "./routes/agent-center";
+import { handleTradeTools } from "./routes/trade-tools";
 import { handleTradeDocuments } from "./routes/trade-documents";
 import { handleMasterData } from "./routes/master-data";
 import { handleProspectConsole } from "./routes/prospect-console";
@@ -23,6 +24,11 @@ export interface WorkerEnv {
  SUPABASE_SERVICE_ROLE_KEY: string;
  GOOGLE_MAPS_API_KEY?: string;
  DEEPL_API_KEY?: string;
+ DHL_API_KEY?: string;
+ UPS_CLIENT_ID?: string;
+ UPS_CLIENT_SECRET?: string;
+ FEDEX_CLIENT_ID?: string;
+ FEDEX_CLIENT_SECRET?: string;
  SERPER_API_KEY?: string;
  SERPAPI_API_KEY?: string;
  APIFY_API_TOKEN?: string;
@@ -47,6 +53,7 @@ export default {
   try {
    if (url.pathname === "/api/v1/public-config" && request.method === "GET") return successResponse(request, { supabaseUrl: env.SUPABASE_URL, supabasePublishableKey: env.SUPABASE_ANON_KEY });
    if (url.pathname === "/api/v1/health" && request.method === "GET") return handleHealth(request);
+   if (url.pathname === "/api/v1/trade-tools/track") return await handleTradeTools(request, env);
    if (url.pathname.startsWith("/api/v1/agent/")) return await handleAgentCenter(request, env);
    if (url.pathname.startsWith("/api/v1/trade/")) return await handleTradeDocuments(request, env);
    if (url.pathname.startsWith("/api/v1/master-data/")) return await handleMasterData(request, env);
