@@ -408,8 +408,14 @@ async function executeXiaoyaReadTool(env:Env,ownerId:string,name:string,rawArgs:
  if(status&&tool.table!=="crm_contacts"&&/^[\p{L}\p{N}_ -]{1,40}$/u.test(status))filters.push("status=eq."+encodeURIComponent(status));
  filters.push("select="+encodeURIComponent(tool.select),"order=created_at.desc","limit="+limit);
  try{
-  const rows=await db<Array<Record<string,unknown>>>(env,tool.table+"?"+filters.join("&"));
-  return {tool:name,label:tool.label,ok:true,count:rows?.length??0,limit,query:query||undefined,rows:rows??[]};
+  const response=await fetch(env.SUPABASE_URL+"/rest/v1/"+tool.table+"?"+filters.join("&"),{headers:{apikey:env.SUPABASE_SERVICE_ROLE_KEY,Authorization:"Bearer "+env.SUPABASE_SERVICE_ROLE_KEY,Prefer:"count=exact",Range:"0-"+(limit-1)},signal:AbortSignal.timeout(12000)});
+  const raw=await response.text();
+  if(!response.ok)throw new Error("DATABASE_"+response.status+": "+raw.slice(0,240));
+  const rows=raw?JSON.parse(raw) as Array<Record<string,unknown>>:[];
+  const range=response.headers.get("content-range")??"";
+  const totalText=range.split("/").at(-1)??"";
+  const totalCount=totalText&&totalText!=="*"?Number(totalText):null;
+  return {tool:name,label:tool.label,ok:true,count:Number.isFinite(totalCount)?totalCount:rows.length,returnedCount:rows.length,totalCount:Number.isFinite(totalCount)?totalCount:null,limit,query:query||undefined,rows};
  }catch(error){
   return {tool:name,label:tool.label,ok:false,error:String(error).slice(0,240)};
  }
