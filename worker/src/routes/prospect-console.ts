@@ -51,14 +51,10 @@ function localDay(value: string): string {
   return part("year") + "-" + part("month") + "-" + part("day");
 }
 function platformFor(channel: string, provider: string): { key: string; label: string } {
-  if (channel === "map_local_businesses") {
-    if (provider === "google_maps") return { key: "google_maps", label: "Google Maps" };
-    if (provider === "openstreetmap") return { key: "openstreetmap", label: "OpenStreetMap" };
-    return { key: "map:" + provider, label: "地图平台 · " + provider };
-  }
-  if (channel === "facebook") return { key: "facebook", label: "Facebook" };
+  if (channel === "map_local_businesses") return { key: "google_maps", label: "Google Maps" };
+  if (channel === "facebook") return { key: "facebook", label: "Facebook Pages" };
   if (channel === "instagram") return { key: "instagram", label: "Instagram" };
-  if (channel === "search_engine") return { key: "search:" + provider, label: "搜索引擎 · " + provider };
+  if (channel === "search_engine") return { key: "search_engine", label: "搜索引擎" };
   if (channel === "agent") return { key: "agent", label: "内置 Agent" };
   return { key: channel || provider, label: channel || provider };
 }
