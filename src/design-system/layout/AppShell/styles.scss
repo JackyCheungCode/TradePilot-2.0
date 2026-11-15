@@ -32,15 +32,17 @@
 .tp-header__brand {
   display: inline-flex;
   align-items: center;
-  min-width: 3rem;
-  width: 3rem;
+  justify-content: flex-start;
+  min-width: 8rem;
+  width: 8rem;
   padding-inline: 0;
 }
 
 .tp-header__brand img {
   display: block;
-  width: 2rem;
-  height: 2rem;
+  width: 7.75rem;
+  height: auto;
+  max-height: 1.5rem;
   object-fit: contain;
 }
 
