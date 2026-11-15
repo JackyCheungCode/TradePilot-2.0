@@ -323,7 +323,7 @@ export function TradeToolsPage() {
         </section>
 
         <section className="tp-trade-tools__tool">
-          {errors.contact-time&&<InlineNotification kind="error" title="操作失败" subtitle={errors.contact-time} onCloseButtonClick={()=>clearToolError('contact-time')}/>}
+          {errors['contact-time']&&<InlineNotification kind="error" title="操作失败" subtitle={errors['contact-time']} onCloseButtonClick={()=>clearToolError('contact-time')}/>}
           <div className="tp-trade-tools__tool-title"><CarbonIcons.Time size={24}/><div><h2>客户联系时机</h2><p>当地时间、工作日状态、昼夜和近三天天气</p></div></div>
           <div className="tp-trade-tools__form-grid">
             <Select id="contact-select" labelText="选择客户／联系人（可选）" value={selectedContact} onChange={e=>void chooseContact(e.currentTarget.value)}><SelectItem value="" text="手动选择地点"/>{contacts.map(c=><SelectItem key={c.id} value={c.id} text={c.label+' · '+c.address}/>)}</Select>
@@ -334,7 +334,7 @@ export function TradeToolsPage() {
             <Button kind="primary" disabled={busyTools['contact-time']||(!locationQuery.trim()&&!locationCity.trim()&&!locationRegion.trim())} onClick={()=>void searchLocation()}>搜索地点</Button>
           </div>
           {locations.length>0&&<div className="tp-trade-tools__location-results">{locations.map((p,i)=><Button key={p.timezone+i} kind="ghost" onClick={()=>void loadContactTime(p)}>{p.name}{p.admin1?', '+p.admin1:''} · {p.country} · {p.timezone}</Button>)}</div>}
-          {busyTools.contact-time&&<InlineLoading description="正在解析时区与天气…"/>}
+          {busyTools['contact-time']&&<InlineLoading description="正在解析时区与天气…"/>}
           {location&&timeData&&<div className="tp-trade-tools__contact-result">
             <div className="tp-trade-tools__clock"><div><span>{location.name}{location.admin1?', '+location.admin1:''}, {location.country}</span><strong>{new Date(timeData.datetime).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:location.timezone})}</strong><small>{new Date(timeData.datetime).toLocaleDateString('zh-CN',{year:'numeric',month:'long',day:'numeric',weekday:'long',timeZone:location.timezone})} · {timeData.timezone} ({timeData.utc_offset})</small></div>
               <div className="tp-trade-tools__day-status">{(()=>{const h=Number(new Intl.DateTimeFormat('en',{hour:'2-digit',hourCycle:'h23',timeZone:location.timezone}).format(new Date(timeData.datetime)));const localWeekday=new Intl.DateTimeFormat('en',{weekday:'short',timeZone:location.timezone}).format(new Date(timeData.datetime));const isDay=h>=6&&h<18;const weekend=localWeekday==='Sun'||localWeekday==='Sat';return <><span>{isDay?'☀️':'🌙'}</span><strong>{isDay?'当地白天':'当地夜晚'}</strong><small>{weekend||holidayToday?'🛌 休息日':'💼 工作日'}{holidayToday?' · '+holidayToday.localName:''}</small></>;})()}</div>
