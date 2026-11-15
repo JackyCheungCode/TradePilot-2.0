@@ -15,7 +15,7 @@ import '@/design-system/patterns/prospect-discovery.scss';
 type Category = 'maps' | 'social' | 'ecommerce';
 type CategoryFilter = 'all' | Category;
 type Platform = 'google_maps' | 'facebook' | 'instagram' | 'linkedin' | 'tiktok' | 'amazon' | 'alibaba' | 'aliexpress';
-type Step = 1 | 2 | 3 | 4;
+type Step = 1 | 2 | 3 | 4 | 5;
 const platformGroups: Array<{ id: Category; title: string; description: string; platforms: Array<{id: Platform;name:string;enabled:boolean;hint:string}> }> = [
   { id:'maps', title:'地图平台', description:'按地区发现企业、门店和经销商', platforms:[{id:'google_maps',name:'Google Maps',enabled:true,hint:'Google Places API（官方）'}] },
   { id:'social', title:'社交媒体', description:'发现企业主页、品牌账号和公开商业资料', platforms:[{id:'facebook',name:'Facebook Pages',enabled:true,hint:'Apify · Facebook 搜索 Actor'},{id:'instagram',name:'Instagram',enabled:true,hint:'Apify · Instagram Scraper'},{id:'linkedin',name:'LinkedIn',enabled:false,hint:'Actor 接入待验证'},{id:'tiktok',name:'TikTok',enabled:false,hint:'Actor 接入待验证'}] },
@@ -65,6 +65,8 @@ export function ProspectDiscoveryPage() {
   const [instagramMinFollowers,setInstagramMinFollowers]=useState(100);
   const [activeRun,setActiveRun]=useState<DiscoveryRun|null>(null);
   const [records,setRecords]=useState<DiscoveryRecord[]>([]);
+  const [selectedRecordIds,setSelectedRecordIds]=useState<string[]>([]);
+  const [recordActionBusy,setRecordActionBusy]=useState(false);
   const [runs,setRuns]=useState<DiscoveryRun[]>([]);
   const [polling,setPolling]=useState(false);
   const [lastUpdate,setLastUpdate]=useState<Date|null>(null);
@@ -88,7 +90,7 @@ export function ProspectDiscoveryPage() {
   const refreshRun=useCallback(async(id:string)=>{
     if(!token)return;
     const [nextRun,nextRecords]=await Promise.all([getDiscoveryRun(token,id),getDiscoveryRecords(token,id)]);
-    setActiveRun(nextRun);setRecords(nextRecords);setLastUpdate(new Date());
+    setActiveRun(nextRun);setRecords(nextRecords);setSelectedRecordIds([]);setLastUpdate(new Date());
     return nextRun;
   },[token]);
   useEffect(()=>{
@@ -100,7 +102,7 @@ export function ProspectDiscoveryPage() {
   useEffect(()=>{
     if(!activeRun||!token||isTerminal(activeRun.status))return;
     let alive=true;setPolling(true);
-    const poll=async()=>{try{const next=await getDiscoveryRun(token,activeRun.id);const resultRows=await getDiscoveryRecords(token,activeRun.id);if(!alive)return;const latestLog=next.logs?.[next.logs.length-1];const signature=[next.status,next.progress,next.message,latestLog?.id??''].join('|');if(signature!==activitySignature.current){activitySignature.current=signature;setLastUpdate(new Date());}setActiveRun(next);setRecords(resultRows);if(isTerminal(next.status)){setPolling(false);setRuns(previous=>[next,...previous.filter(r=>r.id!==next.id)]);}}catch(e){if(alive)setError(e instanceof Error?e.message:'读取任务状态失败');}};
+    const poll=async()=>{try{const next=await getDiscoveryRun(token,activeRun.id);const resultRows=await getDiscoveryRecords(token,activeRun.id);if(!alive)return;const latestLog=next.logs?.[next.logs.length-1];const signature=[next.status,next.progress,next.message,latestLog?.id??''].join('|');if(signature!==activitySignature.current){activitySignature.current=signature;setLastUpdate(new Date());}setActiveRun(next);setRecords(resultRows);if(isTerminal(next.status)){setPolling(false);setRuns(previous=>[next,...previous.filter(r=>r.id!==next.id)]);if(next.status==='completed'||next.status==='partial')setStep(5);}}catch(e){if(alive)setError(e instanceof Error?e.message:'读取任务状态失败');}};
     void poll();const timer=window.setInterval(poll,2500);
     return()=>{alive=false;window.clearInterval(timer);setPolling(false);};
   },[activeRun?.id,activeRun?.status,token]);
@@ -118,7 +120,7 @@ export function ProspectDiscoveryPage() {
         channel='instagram';config={keywords:query.split(/[，,\n]/).map(v=>v.trim()).filter(Boolean),countries:[country],languageCodes:[],accountTypes:['business','creator'],minFollowers:instagramMinFollowers,maxFollowers:100000000,recentDays:365,requireContact:true,excludeTerms:[],limit,includeCaptions:false};
       }else{throw new Error('该平台尚未开放。');}
       const created=await createDiscoveryRun(client,token,channel,config);
-      setActiveRun({...created,createdAt:new Date().toISOString(),logs:[]});activitySignature.current='';setLastUpdate(new Date());setRecords([]);setStep(4);
+      setActiveRun({...created,createdAt:new Date().toISOString(),logs:[]});activitySignature.current='';setLastUpdate(new Date());setRecords([]);setSelectedRecordIds([]);setStep(4);
       const current=await getDiscoveryRuns(token);setRuns(current);
     }catch(e){setError(e instanceof Error?e.message:'无法创建发现任务');}finally{setAuthBusy(false);}
   };
@@ -127,6 +129,17 @@ export function ProspectDiscoveryPage() {
   const elapsed=activeRun?Math.max(0,Math.floor((clock-new Date(activeRun.createdAt).getTime())/1000)):0;
   const elapsedLabel=elapsed<60?`${elapsed} 秒`:`${Math.floor(elapsed/60)} 分 ${elapsed%60} 秒`;
   const stale=!!activeRun&&!isTerminal(activeRun.status)&&lastUpdate!==null&&(clock-lastUpdate.getTime()>45000);
+  const runSingleRecordAction=async(id:string,action:'remove'|'discard'|'promote')=>{
+    if(!token||!activeRun)return;setRecordActionBusy(true);setError('');
+    try{const {applyDiscoveryRecordAction}=await import('./api');await applyDiscoveryRecordAction(token,id,action,activeRun.id);setRecords(await getDiscoveryRecords(token,activeRun.id));setSelectedRecordIds(prev=>prev.filter(item=>item!==id));}
+    catch(e){setError(e instanceof Error?e.message:'结果操作失败');}finally{setRecordActionBusy(false);}
+  };
+  const runBulkRecordAction=async(action:'remove'|'discard'|'promote')=>{
+    if(!token||!activeRun||!selectedRecordIds.length)return;setRecordActionBusy(true);setError('');
+    try{const {applyDiscoveryRecordAction}=await import('./api');const ids=[...selectedRecordIds];const outcomes=await Promise.allSettled(ids.map(id=>applyDiscoveryRecordAction(token,id,action,activeRun.id)));const failed=outcomes.filter(item=>item.status==='rejected').length;setRecords(await getDiscoveryRecords(token,activeRun.id));setSelectedRecordIds([]);if(failed)setError(`${failed} 条记录操作失败，其余记录已处理。`);}
+    catch(e){setError(e instanceof Error?e.message:'批量操作失败');}finally{setRecordActionBusy(false);}
+  };
+
 
   if(booting)return <div className="tp-discovery__center"><InlineLoading description="正在连接 TradePilot…" /></div>;
   if(!session)return <main className="tp-discovery">
@@ -146,7 +159,7 @@ export function ProspectDiscoveryPage() {
     <header className="tp-discovery__heading"><div><p className="tp-discovery__eyebrow">TRADEPILOT / PROSPECTING</p><h1>潜客发现</h1><p>选择渠道、配置发现条件，并实时跟踪采集任务。</p></div><div className="tp-discovery__heading-actions"><Tag type="blue">Google Maps / Apify</Tag><Button kind="ghost" size="sm" onClick={()=>client?.auth.signOut()}>退出登录</Button></div></header>
     {error&&<InlineNotification kind="error" title="操作未完成" subtitle={error} onCloseButtonClick={()=>setError('')} />}
     <nav className="tp-discovery__steps" aria-label="发现任务步骤">
-      {([['01','发现途径'],['02','数据引擎'],['03','条件配置'],['04','执行结果']] as const).map(([number,label],index)=><button key={number} className={step===index+1?'is-active':step>index+1?'is-complete':''} onClick={()=>{if(index<3&&index+1<=step)setStep((index+1) as Step);}} disabled={index+1>step}><span>{number}</span>{label}</button>)}
+      {([['01','发现途径'],['02','数据引擎'],['03','条件配置'],['04','执行结果']] as const).map(([number,label],index)=><button key={number} className={step===index+1?'is-active':step>index+1?'is-complete':''} onClick={()=>{if(index<5&&index+1<=step)setStep((index+1) as Step);}} disabled={index+1>step}><span>{number}</span>{label}</button>)}
     </nav>
     {step===1&&<>
       <section className="tp-discovery__panel tp-discovery__category-panel">
@@ -223,23 +236,39 @@ export function ProspectDiscoveryPage() {
       </form>
     </section>}
     {step===4&&<section className="tp-discovery__panel">
-      <div className="tp-discovery__section-head"><div><h2><CarbonIcons.Activity size={20} aria-hidden="true"/>任务执行与发现结果</h2><p>日志每 2.5 秒刷新一次；任务阶段和进度来自后台真实状态，不使用虚假的动画百分比。</p></div>{activeRun&&<Tag type={isTerminal(activeRun.status)?'green':'blue'}>{statusLabels[activeRun.status]??activeRun.status}</Tag>}</div>
+      <div className="tp-discovery__section-head"><div><h2><CarbonIcons.Activity size={20} aria-hidden="true"/>任务执行</h2><p>本步骤只负责任务执行、状态监控和日志展示，不在执行过程中混合展示结果表格。</p></div>{activeRun&&<Tag type={isTerminal(activeRun.status)?activeRun.status==='failed'?'red':'green':'blue'}>{statusLabels[activeRun.status]??activeRun.status}</Tag>}</div>
       {activeRun?<><div className="tp-discovery__run-summary"><div><small>任务编号</small><strong>{activeRun.taskCode}</strong></div><div><small>已运行</small><strong>{elapsedLabel}</strong></div><div><small>发现记录</small><strong>{activeRun.discoveredCount}</strong></div><div><small>潜客入库</small><strong>{activeRun.createdLeadCount}</strong></div></div>
         {activeRun.progress>0?<ProgressBar label="后台执行进度" value={activeRun.progress} max={100} helperText={activeRun.message}/>:<div className="tp-discovery__progress-wait"><InlineLoading description={activeRun.status==='queued'?'等待后台工作流启动…':activeRun.message||'等待后台阶段进度…'}/></div>}
         <div className="tp-discovery__activity"><div className="tp-discovery__activity-head"><h3>动态执行日志</h3><span>{polling?'实时轮询中':isTerminal(activeRun.status)?'执行已结束':'等待更新'} · {lastUpdate?lastUpdate.toLocaleTimeString():'读取中'}</span></div>
-          {stale&&<InlineNotification kind="warning" lowContrast title="正在等待数据源响应" subtitle="后台仍在运行或重试。当前没有收到新日志，页面会继续检查，不代表任务已经卡死。" />}
-          {activeRun.logs.length?<ol className="tp-discovery__log-list">{activeRun.logs.map(log=><li key={log.id} className={`is-${log.level}`}><span className="tp-discovery__log-dot"/><div><p>{log.message}</p><time>{new Date(log.createdAt).toLocaleTimeString()}</time></div></li>)}</ol>:<InlineLoading description="等待后台工作流写入第一条执行日志…" />}
+          {stale&&<InlineNotification kind="warning" lowContrast title="正在等待数据源响应" subtitle="后台仍在运行或重试。当前没有收到新日志，页面会继续检查，不代表任务已经卡死。"/>}
+          {activeRun.logs.length?<ol className="tp-discovery__log-list">{activeRun.logs.map(log=><li key={log.id} className={`is-${log.level}`}><span className="tp-discovery__log-dot"/><div><p>{log.message}</p><time>{new Date(log.createdAt).toLocaleTimeString()}</time></div></li>)}</ol>:<InlineLoading description="等待后台工作流写入第一条执行日志…"/>}
           {!isTerminal(activeRun.status)&&<div className="tp-discovery__heartbeat"><span className="tp-discovery__pulse"/><span>任务仍在执行 · 已运行 {elapsedLabel} · 自动刷新中</span></div>}
         </div>
-        <div className="tp-discovery__results"><div className="tp-discovery__activity-head"><h3><CarbonIcons.Building size={16} aria-hidden="true"/>搜索结果</h3><Tag type="gray">{records.length} 条</Tag></div>
-          <TableContainer><Table size="lg"><TableHead><TableRow><TableHeader>名称</TableHeader><TableHeader>类型 / 地区</TableHeader><TableHeader>地址</TableHeader><TableHeader>联系方式</TableHeader><TableHeader>来源</TableHeader></TableRow></TableHead><TableBody>{records.map(record=><TableRow key={record.id}><TableCell><strong>{record.name}</strong><div className="tp-discovery__muted">{record.website??'暂无官网'}</div></TableCell><TableCell>{record.record_type} · {record.country_code??'—'}</TableCell><TableCell>{record.address??'—'}</TableCell><TableCell>{[record.email,record.phone,...extraContactValues(record)].filter(Boolean).join(' / ')||'待补充'}</TableCell><TableCell>{channelLabels[record.channel]??record.channel}</TableCell></TableRow>)}</TableBody></Table></TableContainer>
-          {records.length===0&&<p className="tp-discovery__empty">任务发现结果将在采集并写入数据库后自动出现。</p>}
-        </div>
-      </>:<InlineNotification kind="info" title="尚未选择任务" subtitle="请先完成发现途径和条件配置。" />}
-      <div className="tp-discovery__actions"><Button kind="secondary" onClick={()=>setStep(1)}>创建新任务</Button><Button kind="ghost" onClick={()=>{if(activeRun)void refreshRun(activeRun.id);}}>刷新状态</Button></div>
+      </>:<InlineNotification kind="info" title="尚未启动任务" subtitle="请先完成发现途径、数据引擎和条件配置。"/>}
+      <div className="tp-discovery__actions"><Button kind="secondary" onClick={()=>setStep(3)}>返回条件配置</Button><Button kind="ghost" onClick={()=>{if(activeRun)void refreshRun(activeRun.id);}}>刷新状态</Button><Button onClick={()=>setStep(5)} disabled={!activeRun||!isTerminal(activeRun.status)||records.length===0}>查看结果</Button></div>
     </section>}
-    <section className="tp-discovery__history"><div className="tp-discovery__activity-head"><h2><CarbonIcons.Time size={20} aria-hidden="true"/>最近任务</h2><Button kind="ghost" size="sm" onClick={()=>getDiscoveryRuns(token).then(setRuns).catch(e=>setError(String(e)))}>刷新列表</Button></div>
-      {runs.length?<div className="tp-discovery__history-list">{runs.slice(0,8).map(run=><button key={run.id} onClick={()=>{void refreshRun(run.id);setStep(4);}}><span><strong>{run.taskCode}</strong><small>{channelLabels[run.channel]??run.channel} · {run.query}</small></span><span><Tag type={isTerminal(run.status)?'green':'blue'}>{statusLabels[run.status]??run.status}</Tag><small>{run.discoveredCount} 条 · {new Date(run.createdAt).toLocaleString()}</small></span></button>)}</div>:<p className="tp-discovery__empty">暂无发现任务。</p>}
-    </section>
+    {step===5&&<section className="tp-discovery__panel tp-discovery__results">
+      <div className="tp-discovery__section-head"><div><h2><CarbonIcons.Building size={20} aria-hidden="true"/>发现结果</h2><p>任务执行结束后查看归档结果。表格采用单行布局，超长内容截断，悬停可查看完整值。</p></div><Tag type="gray">{records.length} 条记录</Tag></div>
+      {activeRun&&<div className="tp-discovery__run-summary"><div><small>任务编号</small><strong>{activeRun.taskCode}</strong></div><div><small>任务状态</small><strong>{statusLabels[activeRun.status]??activeRun.status}</strong></div><div><small>发现记录</small><strong>{activeRun.discoveredCount}</strong></div><div><small>潜客入库</small><strong>{activeRun.createdLeadCount}</strong></div></div>}
+      <div className="tp-discovery__table-toolbar">
+        <span>{selectedRecordIds.length? `已选择 ${selectedRecordIds.length} 条`:'选择记录后可批量操作'}</span>
+        <div><Button kind="secondary" size="sm" disabled={!selectedRecordIds.length||recordActionBusy} onClick={()=>void runBulkRecordAction('promote')}>转为潜客</Button><Button kind="ghost" size="sm" disabled={!selectedRecordIds.length||recordActionBusy} onClick={()=>void runBulkRecordAction('discard')}>排除</Button><Button kind="danger--ghost" size="sm" disabled={!selectedRecordIds.length||recordActionBusy} onClick={()=>void runBulkRecordAction('remove')}>删除</Button></div>
+      </div>
+      <div className="tp-discovery__table-scroll"><TableContainer><Table size="lg" useZebraStyles={false}><TableHead><TableRow>
+        <TableHeader className="tp-discovery__select-cell"><Checkbox id="select-all-discovery-records" labelText="全选" hideLabel checked={records.length>0&&selectedRecordIds.length===records.length} indeterminate={selectedRecordIds.length>0&&selectedRecordIds.length<records.length} onChange={(_,data)=>setSelectedRecordIds(data.checked?records.map(r=>r.id):[])}/></TableHeader>
+        <TableHeader>名称</TableHeader><TableHeader>类型</TableHeader><TableHeader>地区</TableHeader><TableHeader>网站</TableHeader><TableHeader>地址</TableHeader><TableHeader>电话</TableHeader><TableHeader>邮箱</TableHeader><TableHeader>来源</TableHeader><TableHeader>操作</TableHeader>
+      </TableRow></TableHead><TableBody>{records.map(record=>{
+        const contacts=extraContactValues(record);
+        const source=record.discovery_record_occurrences?.[0]?.provider??channelLabels[record.channel]??record.channel;
+        const cells=[record.name,record.record_type,record.country_code??'—',record.website??'—',record.address??'—',record.phone??'—',record.email??'—',source];
+        return <TableRow key={record.id}>
+          <TableCell className="tp-discovery__select-cell"><Checkbox id={`select-record-${record.id}`} labelText={`选择 ${record.name}`} hideLabel checked={selectedRecordIds.includes(record.id)} onChange={(_,data)=>setSelectedRecordIds(prev=>data.checked?[...prev,record.id]:prev.filter(id=>id!==record.id))}/></TableCell>
+          {cells.map((value,index)=><TableCell key={index} className="tp-discovery__nowrap-cell"><span title={String(value)}>{String(value)}</span>{index===0&&contacts.length>0&&<span className="tp-discovery__cell-subline" title={contacts.join(' · ')}>{contacts.join(' · ')}</span>}</TableCell>)}
+          <TableCell className="tp-discovery__row-actions"><Button kind="ghost" size="sm" disabled={recordActionBusy} onClick={()=>void runSingleRecordAction(record.id,'promote')}>转潜客</Button><Button kind="ghost" size="sm" disabled={recordActionBusy} onClick={()=>void runSingleRecordAction(record.id,'discard')}>排除</Button><Button kind="danger--ghost" size="sm" disabled={recordActionBusy} onClick={()=>void runSingleRecordAction(record.id,'remove')}>删除</Button></TableCell>
+        </TableRow>;
+      })}</TableBody></Table></TableContainer></div>
+      {records.length===0&&<p className="tp-discovery__empty">当前任务没有可显示的发现记录。</p>}
+      <div className="tp-discovery__actions"><Button kind="secondary" onClick={()=>setStep(4)}>查看执行日志</Button><Button onClick={()=>{setStep(1);setActiveRun(null);setRecords([]);setSelectedRecordIds([]);}}>创建新任务</Button></div>
+    </section>}
   </main>;
 }
