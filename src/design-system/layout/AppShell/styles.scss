@@ -29,26 +29,63 @@
   }
 }
 
-/* Carbon SideNav remains the navigation implementation; these rules size only the brand asset slot. */
-.tp-sidenav__brand {
-  display: flex;
+.tp-header__brand {
+  display: inline-flex;
   align-items: center;
-  min-height: 3.25rem;
-  padding: var(--tp-space-04) var(--tp-space-05);
-  border-bottom: 1px solid var(--cds-border-subtle);
+  min-width: 3rem;
+  width: 3rem;
+  padding-inline: 0;
 }
 
-.tp-sidenav__brand img {
+.tp-header__brand img {
   display: block;
-  width: 100%;
-  max-width: 8.5rem;
-  max-height: 1.625rem;
-  height: auto;
+  width: 2rem;
+  height: 2rem;
   object-fit: contain;
 }
 
-/* In rail mode, keep the compact navigation focused on its Carbon menu icons. */
-.tp-sidenav--rail .tp-sidenav__brand {
+.tp-account-menu .cds--overflow-menu {
+  margin-inline: 0.25rem;
+}
+
+.tp-sidenav__footer {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--tp-space-02);
+  margin-top: auto;
+  padding: var(--tp-space-04) var(--tp-space-05);
+  background: var(--cds-layer);
+  color: var(--cds-text-secondary);
+  text-align: right;
+}
+
+.tp-sidenav__contact {
+  max-width: 100%;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.tp-sidenav__copyright {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--tp-space-02);
+  font-size: 0.6875rem;
+  line-height: 1.2;
+}
+
+.tp-sidenav__copyright img {
+  display: block;
+  width: 1rem;
+  height: 1rem;
+  object-fit: contain;
+}
+
+.tp-sidenav--rail .tp-sidenav__footer {
   display: none;
 }
 
