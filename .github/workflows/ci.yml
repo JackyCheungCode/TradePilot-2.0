@@ -22,9 +22,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
 
       - name: Install dependencies
         run: npm install
+
+      - name: Verify Carbon import boundary
+        run: npm run check:carbon-imports
 
       - name: Typecheck and build
         run: npm run build
