@@ -1,2 +1,2 @@
-/** Local Carbon-native entry point. Import from this module, not directly from @carbon/react. */
-export { Tag } from '@carbon/react';
+/** Local Carbon-native entry point. */
+export { Tag, SelectableTag, OperationalTag, DismissibleTag } from '@carbon/react';
