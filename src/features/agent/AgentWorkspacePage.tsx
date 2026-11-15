@@ -197,7 +197,7 @@ export function AgentWorkspacePage() {
         const runId = item.metadata?.runId;
         if (!runId) return;
         try {
-          const detail = await agentRequest<{ run: { status: string; result?: Record<string, unknown>; error_message?: string }; discoveryRun?: { progress?: number; message?: string }; records?: Array<Record<string, unknown>> }>('/api/v1/agent/runs/' + runId);
+          const detail = await agentRequest<{ run: { status: string; result?: Record<string, unknown>; error_message?: string }; discoveryRun?: { progress?: number; message?: string; discovered_count?: number }; records?: Array<Record<string, unknown>> }>('/api/v1/agent/runs/' + runId);
           const status = detail.run.status;
           const progress = Number(detail.discoveryRun?.progress || 0);
           setMessages(rows => rows.map(row => row.id === item.id ? { ...row, metadata: { ...row.metadata, runStatus: status, runProgress: progress } } : row));
@@ -206,8 +206,17 @@ export function AgentWorkspacePage() {
             try {
               await agentRequest('/api/v1/agent/conversations/' + conversationId + '/messages/' + item.id, { method:'PATCH', body:JSON.stringify({ metadata:{ ...item.metadata, runStatus:status, runProgress:progress } }) });
             } catch { /* local state still reflects the terminal status */ }
+            const runResult = detail.run.result || {};
+            const specialistSummary = Array.isArray(runResult.specialists)
+              ? runResult.specialists.map(value => {
+                  const specialist = value as Record<string, unknown>;
+                  return String(specialist.label || specialist.agentKey || '专业 Agent') + '\n' + String(specialist.output || '');
+                }).join('\n\n').slice(0, 3200)
+              : '';
+            const toolSummary = runResult.data ? JSON.stringify(runResult.data).slice(0, 2400) : '';
+            const resultSummary = specialistSummary || toolSummary;
             const content = status === 'succeeded'
-              ? '任务已完成。\n\n' + (detail.discoveryRun?.message || '执行工作流已完成。') + '\n发现记录：' + (detail.records?.length || 0) + ' 条。\n\n任务编号：' + runId
+              ? ('任务已完成。\n\n' + (detail.discoveryRun?.message || '执行工作流已完成。') + '\n发现记录：' + (detail.discoveryRun?.discovered_count ?? detail.records?.length ?? 0) + ' 条。\n\n' + resultSummary + '\n\n任务编号：' + runId).slice(0, 4700)
               : '任务' + (status === 'cancelled' ? '已取消' : '执行失败') + '。\n\n' + (detail.run.error_message || detail.discoveryRun?.message || '请前往任务执行中心查看详情。');
             try {
               const saved = await agentRequest<ChatMessage>('/api/v1/agent/conversations/' + conversationId + '/messages', { method:'POST', body:JSON.stringify({ role:'assistant', content, metadata:{ runId, runStatus:status, runResult:detail.run.result || null } }) });
