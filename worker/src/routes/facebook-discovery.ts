@@ -1,4 +1,5 @@
 import { errorResponse, successResponse } from "../lib/http";
+import { readIntegrationSecret } from "../lib/integrations";
 type ObjectType = "page" | "person" | "post" | "group" | "video" | "event";
 export interface FacebookInput { country:string; state?:string; city?:string; query:string; objectTypes:ObjectType[]; limitPerType:number; enrichPages?:boolean; enrichGroups?:boolean; enrichPosts?:boolean; dateFrom?:string; dateTo?:string; }
 interface Env { SUPABASE_URL:string; SUPABASE_ANON_KEY:string; SUPABASE_SERVICE_ROLE_KEY:string; APIFY_API_TOKEN?:string; FACEBOOK_DISCOVERY_WORKFLOW:{create(options:{id:string;params:{runId:string;ownerId:string;input:FacebookInput}}):Promise<{id:string}>}; }
@@ -8,7 +9,7 @@ async function db<T>(env:Env,path:string,init:RequestInit={}):Promise<T>{const r
 export async function handleFacebookDiscovery(request:Request,env:Env):Promise<Response>{
  if(request.method!=="POST")return errorResponse(request,"METHOD_NOT_ALLOWED","只支持 POST 请求。",405);
  const ownerId=await authenticate(request,env);if(!ownerId)return errorResponse(request,"UNAUTHORIZED","请先登录 TradePilot。",401);
- if(!env.APIFY_API_TOKEN)return errorResponse(request,"PROVIDER_NOT_CONFIGURED","请先在「AI 与 API 集成 → API 集成」配置 Apify API Key。",400);
+ const apifyToken=await readIntegrationSecret(env,"tradepilot_api_apify","APIFY_API_TOKEN");if(!apifyToken)return errorResponse(request,"PROVIDER_NOT_CONFIGURED","请先在「设置中心 → 集成与 API → API 集成」配置 Apify API Token。",400);
  let body:FacebookInput;try{body=await request.json() as FacebookInput;}catch{return errorResponse(request,"INVALID_JSON","请求内容不是有效 JSON。",400);}
  const country=String(body.country??"").toUpperCase(),query=String(body.query??"").trim(),objectTypes=[...new Set((Array.isArray(body.objectTypes)?body.objectTypes:[]).filter((value):value is ObjectType=>allowed.has(value)))],limit=Math.floor(Number(body.limitPerType));
  if(!/^[A-Z]{2}$/.test(country)||!query||query.length>300||!objectTypes.length||objectTypes.length>6||!Number.isInteger(limit)||limit<1||limit>500)return errorResponse(request,"VALIDATION_ERROR","请检查国家、关键词、检索对象和每类结果数量（1–500）。",400);
