@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import type { Session, SupabaseClient } from '@supabase/supabase-js';
 import {
   Button, Checkbox, InlineLoading, InlineNotification, NumberInput, ProgressBar,
@@ -55,6 +55,7 @@ export function ProspectDiscoveryPage() {
   const [polling,setPolling]=useState(false);
   const [lastUpdate,setLastUpdate]=useState<Date|null>(null);
   const [clock,setClock]=useState(Date.now());
+  const activitySignature=useRef('');
 
   useEffect(()=>{let alive=true;let subscription: {unsubscribe:()=>void}|undefined;
     getSupabaseClient().then(async supabase=>{
@@ -85,7 +86,7 @@ export function ProspectDiscoveryPage() {
   useEffect(()=>{
     if(!activeRun||!token||isTerminal(activeRun.status))return;
     let alive=true;setPolling(true);
-    const poll=async()=>{try{const next=await getDiscoveryRun(token,activeRun.id);const resultRows=await getDiscoveryRecords(token,activeRun.id);if(!alive)return;setActiveRun(next);setRecords(resultRows);setLastUpdate(new Date());if(isTerminal(next.status)){setPolling(false);setRuns(previous=>[next,...previous.filter(r=>r.id!==next.id)]);}}catch(e){if(alive)setError(e instanceof Error?e.message:'读取任务状态失败');}};
+    const poll=async()=>{try{const next=await getDiscoveryRun(token,activeRun.id);const resultRows=await getDiscoveryRecords(token,activeRun.id);if(!alive)return;const latestLog=next.logs?.[next.logs.length-1];const signature=[next.status,next.progress,next.message,latestLog?.id??''].join('|');if(signature!==activitySignature.current){activitySignature.current=signature;setLastUpdate(new Date());}setActiveRun(next);setRecords(resultRows);if(isTerminal(next.status)){setPolling(false);setRuns(previous=>[next,...previous.filter(r=>r.id!==next.id)]);}}catch(e){if(alive)setError(e instanceof Error?e.message:'读取任务状态失败');}};
     void poll();const timer=window.setInterval(poll,2500);
     return()=>{alive=false;window.clearInterval(timer);setPolling(false);};
   },[activeRun?.id,activeRun?.status,token]);
@@ -103,7 +104,7 @@ export function ProspectDiscoveryPage() {
         channel='instagram';config={keywords:query.split(/[，,\n]/).map(v=>v.trim()).filter(Boolean),countries:[country],languageCodes:[],accountTypes:['business','creator'],minFollowers:instagramMinFollowers,maxFollowers:100000000,recentDays:365,requireContact:true,excludeTerms:[],limit,includeCaptions:false};
       }else{throw new Error('该平台尚未开放。');}
       const created=await createDiscoveryRun(client,token,channel,config);
-      setActiveRun({...created,createdAt:new Date().toISOString(),logs:[]});setRecords([]);setStep(4);
+      setActiveRun({...created,createdAt:new Date().toISOString(),logs:[]});activitySignature.current='';setLastUpdate(new Date());setRecords([]);setStep(4);
       const current=await getDiscoveryRuns(token);setRuns(current);
     }catch(e){setError(e instanceof Error?e.message:'无法创建发现任务');}finally{setAuthBusy(false);}
   };
@@ -140,7 +141,7 @@ export function ProspectDiscoveryPage() {
     </section>}
     {step===2&&<section className="tp-discovery__panel">
       <div className="tp-discovery__section-head"><div><h2>数据引擎</h2><p>系统根据平台自动匹配 API 或 Actor，不需要手动选择。</p></div><Tag type="green">自动匹配</Tag></div>
-      <div className="tp-discovery__engine-card"><div><small>发现平台</small><strong>{currentPlatform?.name}</strong></div><div><small>执行服务</small><strong>{platform==='google_maps'?'Google Places API（官方）':'Apify Actor'}</strong></div><div><small>采集引擎</small><strong>{platform==='google_maps'?'Places API · Text Search / Nearby Search':platform==='facebook'?'coregent/facebook-search-scraper':'Instagram Actor（集成配置）'}</strong></div><div><small>配置状态</small><Tag type="blue">运行时校验凭证</Tag></div></div>
+      <div className="tp-discovery__engine-card"><div><small>发现平台</small><strong>{currentPlatform?.name}</strong></div><div><small>执行服务</small><strong>{platform==='google_maps'?'Google Places API（官方）':'Apify Actor'}</strong></div><div><small>采集引擎</small><strong>{platform==='google_maps'?'Places API · Text Search / Nearby Search':platform==='facebook'?'coregent/facebook-search-scraper（主页详情按需补充）':'apify/instagram-search-scraper（公开账号资料补充）'}</strong></div><div><small>配置状态</small><Tag type="blue">运行时校验凭证</Tag></div></div>
       <InlineNotification kind="info" title="自动路由" subtitle="API Key 仅从 Worker 安全环境读取。任务页面不会展示或保存密钥；如果服务未配置，启动时会明确提示，不会假装任务已执行。" />
       <div className="tp-discovery__actions"><Button kind="secondary" onClick={()=>setStep(1)}>上一步</Button><Button onClick={()=>setStep(3)}>配置搜索条件</Button></div>
     </section>}
