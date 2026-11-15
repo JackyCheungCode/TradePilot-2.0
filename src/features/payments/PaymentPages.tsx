@@ -41,19 +41,22 @@ export function PaymentConsolePage() {
   const [query,setQuery]=useState('');
   const [status,setStatus]=useState('all');
   const [currency,setCurrency]=useState('USD');
+  const [baseCurrency,setBaseCurrency]=useState('USD');
   const [view,setView]=useState<'payments'|'receivables'>('payments');
 
   const load=useCallback(async()=>{
     setLoading(true);setError('');
     try {
       const db=await getSupabaseClient();
-      const [p,a,o,al]=await Promise.all([
+      const [p,a,o,al,ep]=await Promise.all([
         db.from('trade_payments').select('*').order('created_at',{ascending:false}).range(0,2999),
         db.from('crm_accounts').select('id,account_name').eq('is_archived',false).order('account_name'),
         db.from('trade_orders').select('*').eq('order_type','sales').order('created_at',{ascending:false}).range(0,2999),
         db.from('trade_payment_allocations').select('*').range(0,9999),
+        db.from('enterprise_profiles').select('default_currency').eq('is_default',true).eq('is_archived',false).maybeSingle(),
       ]);
-      if(p.error)throw p.error;if(a.error)throw a.error;if(o.error)throw o.error;if(al.error)throw al.error;
+      if(p.error)throw p.error;if(a.error)throw a.error;if(o.error)throw o.error;if(al.error)throw al.error;if(ep.error)throw ep.error;
+      const base=ep.data?.default_currency||'USD';setBaseCurrency(base);setCurrency(base);
       setRows(p.data||[]);setAccounts(a.data||[]);setOrders(o.data||[]);setAllocations(al.data||[]);
     } catch(e) { setError(e instanceof Error?e.message:'读取收款数据失败'); }
     finally { setLoading(false); }
@@ -133,7 +136,7 @@ export function PaymentConsolePage() {
 }
 
 export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
-  const nav=useNavigate();const {id}=useParams();const editing=Boolean(id);const [accounts,setAccounts]=useState<AnyRow[]>([]);const [contacts,setContacts]=useState<AnyRow[]>([]);const [orders,setOrders]=useState<AnyRow[]>([]);const [banks,setBanks]=useState<AnyRow[]>([]);const [payments,setPayments]=useState<AnyRow[]>([]);
+  const nav=useNavigate();const {id}=useParams();const editing=Boolean(id);const [accounts,setAccounts]=useState<AnyRow[]>([]);const [contacts,setContacts]=useState<AnyRow[]>([]);const [orders,setOrders]=useState<AnyRow[]>([]);const [banks,setBanks]=useState<AnyRow[]>([]);const [payments,setPayments]=useState<AnyRow[]>([]);const [baseCurrency,setBaseCurrency]=useState('USD');
   const [payment,setPayment]=useState<AnyRow>({payment_type:'receipt',status:'draft',payment_date:dateToday(),received_date:dateToday(),owner_name:'',account_id:'',contact_id:'',payer_name:'',is_third_party:false,currency:'USD',amount:'',bank_fee:'0',intermediary_fee:'0',net_received:'',fee_bearer:'SHA',payment_method:'T/T',bank_account_id:'',bank_reference:'',uetr:'',remittance_info:'',exchange_rate:'',rate_date:'',payer_relation:'',payer_country:'',payer_bank:'',payer_swift:'',lc_no:'',lc_issuing_bank:'',lc_advising_bank:'',lc_amount:'',lc_type:'即期',usance_days:'',presentation_date:'',acceptance_date:'',maturity_date:'',discrepancy:'',discrepancy_status:'无',diff_amount:'0',diff_type:'无',diff_reason:'',diff_handling:'',diff_note:'',original_payment_id:'',refund_reason:'',refund_amount:'',refund_date:'',refund_bank_ref:'',bank_reconciled:false,statement_date:'',statement_ref:'',void_reason:'',remarks_internal:'',bank_slip:'',receipt_sent:false,tags_text:'',source:'manual'});
   const [allocations,setAllocations]=useState<AnyRow[]>([]);
   const [activeTab,setActiveTab]=useState(0);const [loading,setLoading]=useState(true);const [saving,setSaving]=useState(false);const [error,setError]=useState('');const [paymentNo,setPaymentNo]=useState('新建收款');
@@ -155,15 +158,18 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
   useEffect(()=>{(async()=>{
     try {
       const db=await getSupabaseClient();
-      const [a,c,o,b,payRows]=await Promise.all([
+      const [a,c,o,b,payRows,ep]=await Promise.all([
         db.from('crm_accounts').select('id,account_name,legal_name,country_code,currency_code').eq('is_archived',false).order('account_name'),
         db.from('crm_contacts').select('id,account_id,first_name,last_name,full_name').eq('is_archived',false).order('first_name'),
         db.from('trade_orders').select('*').eq('order_type','sales').order('created_at',{ascending:false}).range(0,2999),
         db.from('enterprise_bank_accounts').select('*').eq('is_archived',false).order('bank_name'),
         db.from('trade_payments').select('id,payment_no,payment_type,account_id,status,net_received,currency,original_payment_id,refund_amount').order('created_at',{ascending:false}).range(0,1999),
+        db.from('enterprise_profiles').select('default_currency').eq('is_default',true).eq('is_archived',false).maybeSingle(),
       ]);
-      if(a.error)throw a.error;if(c.error)throw c.error;if(o.error)throw o.error;if(b.error)throw b.error;if(payRows.error)throw payRows.error;
+      if(a.error)throw a.error;if(c.error)throw c.error;if(o.error)throw o.error;if(b.error)throw b.error;if(payRows.error)throw payRows.error;if(ep.error)throw ep.error;
+      const base=ep.data?.default_currency||'USD';setBaseCurrency(base);
       setAccounts(a.data||[]);setContacts(c.data||[]);setOrders(o.data||[]);setBanks(b.data||[]);setPayments(payRows.data||[]);
+      if(!editing)setPayment((prev:AnyRow)=>({...prev,currency:base,exchange_rate:'1'}));
       if(editing&&id){
         const [p,al]=await Promise.all([db.from('trade_payments').select('*').eq('id',id).single(),db.from('trade_payment_allocations').select('*').eq('payment_id',id).order('created_at')]);
         if(p.error)throw p.error;if(al.error)throw al.error;
@@ -189,6 +195,7 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
     if(!(Number(payment.amount)>0))return '汇款金额必须大于 0。';
     if(Number(payment.net_received||suggestedNet)<=0||Number(payment.net_received||suggestedNet)>Number(payment.amount))return '实际入账金额必须大于 0，且不得超过汇款金额。';
     if(!payment.bank_account_id||!payment.payment_method||!payment.currency)return '收款币种、收款方式和我方收款账户为必填。';
+    if(payment.currency!==baseCurrency&&(!(Number(payment.exchange_rate)>0)))return '收款币种不同于本位币 '+baseCurrency+'，必须填写大于 0 的汇率。';
     if(payment.is_third_party&&(!payment.payer_relation||!payment.bank_slip))return '第三方付款必须填写付款关系并提供银行水单。';
     if(payment.payer_swift&&!/^[A-Za-z0-9]{8}([A-Za-z0-9]{3})?$/.test(payment.payer_swift))return '付款行 SWIFT 必须为 8 或 11 位。';
     if(payment.uetr&&payment.uetr.length!==36)return 'UETR 必须为 36 位。';
@@ -299,15 +306,15 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
             <Field id="pay-remittance" label="汇款附言" value={payment.remittance_info} onChange={v=>set('remittance_info',v)} disabled={locked}/>
           </div>
           <h2>金额与币种</h2><div className="tp-payments__form-grid">
-            <Pick id="pay-currency" label="收款币种" value={payment.currency} onChange={v=>set('currency',v)} options={CURRENCIES} disabled={locked}/>
+            <Pick id="pay-currency" label="收款币种" value={payment.currency} onChange={v=>{set('currency',v);set('exchange_rate',v===baseCurrency?'1':'')}} options={CURRENCIES} disabled={locked}/>
             <Field id="pay-amount" label="汇款金额" type="number" value={payment.amount} onChange={v=>{set('amount',v);set('net_received',String(Math.max(0,Number(v)-grossFees)))}} disabled={locked}/>
             <Field id="pay-bank-fee" label="银行手续费" type="number" value={payment.bank_fee} onChange={v=>{set('bank_fee',v);set('net_received',String(Math.max(0,Number(payment.amount)-Number(v)-Number(payment.intermediary_fee||0))))}} disabled={locked}/>
             <Field id="pay-intermediary-fee" label="中间行费用" type="number" value={payment.intermediary_fee} onChange={v=>{set('intermediary_fee',v);set('net_received',String(Math.max(0,Number(payment.amount)-Number(v)-Number(payment.bank_fee||0))))}} disabled={locked}/>
             <Field id="pay-net" label="实际入账金额" type="number" value={payment.net_received||suggestedNet} onChange={v=>set('net_received',v)} disabled={locked}/>
             <Pick id="pay-fee-bearer" label="费用承担" value={payment.fee_bearer} onChange={v=>set('fee_bearer',v)} options={['OUR','SHA','BEN']} disabled={locked}/>
-            <Field id="pay-exchange" label="汇率（收款币种 → 本位币）" type="number" value={payment.exchange_rate} onChange={v=>set('exchange_rate',v)} disabled={locked}/>
+            <Field id="pay-exchange" label={'汇率（收款币种 → 本位币 '+baseCurrency+'）'} type="number" value={payment.exchange_rate} onChange={v=>set('exchange_rate',v)} disabled={locked}/>
             <Field id="pay-rate-date" label="汇率日期" type="date" value={payment.rate_date} onChange={v=>set('rate_date',v)} disabled={locked}/>
-            <Field id="pay-amount-base" label="本位币入账金额（自动计算）" value={payment.exchange_rate?Number(Number(payment.net_received||suggestedNet)*Number(payment.exchange_rate)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}):'—'} onChange={()=>{}} disabled/>
+            <Field id="pay-amount-base" label={'本位币入账金额（'+baseCurrency+'，自动计算）'} value={payment.exchange_rate?Number(Number(payment.net_received||suggestedNet)*Number(payment.exchange_rate)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}):'—'} onChange={()=>{}} disabled/>
             <Field id="pay-fx-gain-loss" label="汇兑损益（只读）" value={payment.fx_gain_loss??'确认核销后计算'} onChange={()=>{}} disabled/>
             <Field id="pay-order-currency" label="订单币种" value={[...new Set(accountOrders.map(o=>o.currency_code))].join(', ')||'分配订单后确定'} onChange={()=>{}} disabled/>
           </div>
