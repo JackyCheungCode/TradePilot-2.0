@@ -1,17 +1,9 @@
 name: Deploy TradePilot Worker
 
 on:
+  # Deployment is deliberately manual. Pushes to develop must never publish
+  # a Worker without an explicit, separately approved deployment action.
   workflow_dispatch:
-  push:
-    branches:
-      - develop
-    paths:
-      - 'src/**'
-      - 'worker/**'
-      - 'wrangler.jsonc'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'index.html'
 
 permissions:
   contents: read
@@ -41,7 +33,6 @@ jobs:
         run: |
           if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
             echo "::warning::Deployment skipped: repository secret CLOUDFLARE_API_TOKEN is not configured."
-            echo "Add it in GitHub repository Settings > Secrets and variables > Actions, then rerun this workflow."
             exit 0
           fi
           npm run worker:deploy
