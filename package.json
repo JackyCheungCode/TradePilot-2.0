@@ -5,11 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run check:design-system && tsc -b && vite build",
+    "build": "npm run check:design-system && npm run check:worker-secrets && tsc -b && tsc -p tsconfig.worker.json --noEmit && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -b --pretty",
+    "typecheck": "tsc -b --pretty && tsc -p tsconfig.worker.json --noEmit",
     "check:carbon-imports": "npm run check:design-system",
-    "check:design-system": "node scripts/check-design-system.mjs"
+    "check:design-system": "node scripts/check-design-system.mjs",
+    "check:worker-secrets": "node scripts/check-worker-secrets.mjs"
   },
   "dependencies": {
     "@carbon/icons-react": "^11.55.0",
@@ -26,6 +27,7 @@
     "sass": "^1.83.4",
     "typescript": "~5.7.2",
     "vite": "^6.0.7",
-    "@types/node": "^22.13.10"
+    "@types/node": "^22.13.10",
+    "@cloudflare/workers-types": "5.20261114.1"
   }
 }
