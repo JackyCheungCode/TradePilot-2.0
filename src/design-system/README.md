@@ -5,11 +5,11 @@ The local design system is the only approved source for visual foundations and U
 ## Foundations
 
 - `themes/`: approved Carbon theme definitions; Carbon White is the only active theme.
-- `tokens/`: semantic color, spacing, typography, motion, breakpoint, layer, elevation, z-index, and focus aliases.
+- `tokens/`: semantic color, borders, spacing, typography, motion, breakpoint, layer, elevation, z-index, focus, and interaction-state aliases.
 - `typography/`: IBM Plex Sans font loading and type-scale aliases.
 - `icons/`: Carbon icon entry point.
 - `grid/`: responsive grid and breakpoint guidance.
-- `motion/`, `elevation/`, `accessibility/`: cross-cutting interaction and visual rules.
+- `motion/`, `elevation/`, `borders/`, `states/`, `density/`, `accessibility/`: cross-cutting interaction and visual rules.
 - `assets/`, `content/`, `data-visualization/`: brand assets, shared content/localization, and chart foundations.
 
 ## Implementation layers
