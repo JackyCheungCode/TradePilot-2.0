@@ -38,7 +38,6 @@ const productSections: Section[] = [
   { id: 'data-rules', label: '产品数据规则', group: '数据规则', description: '维护 SKU 编码、查重、审批及导入导出规则。', implemented: true },
 ];
 
-const groups = [...new Set(productSections.map((item) => item.group))];
 const displayTypes = [{ value: 'select', label: '下拉选择' }, { value: 'radio', label: '单选按钮' }, { value: 'color', label: '颜色选择' }, { value: 'multi', label: '多选' }];
 const variantModes = [{ value: 'never', label: '不生成变体' }, { value: 'dynamic', label: '按需生成' }, { value: 'always', label: '始终生成' }];
 
@@ -65,7 +64,7 @@ export function SettingsCenterPage() {
   const [displayType, setDisplayType] = useState('select');
   const [variantMode, setVariantMode] = useState('never');
 
-  const activeSections = domain === 'opportunities' ? opportunitySettingSections : productSections;
+  const activeSections: Section[] = domain === 'opportunities' ? opportunitySettingSections : productSections;
   const activeSection = activeSections.find((item) => item.id === section) ?? activeSections[0];
   const load = useCallback(async () => {
     setLoading(true);
