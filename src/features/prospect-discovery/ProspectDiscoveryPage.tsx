@@ -15,7 +15,8 @@ import {
 } from './api';
 import '@/design-system/patterns/prospect-discovery.scss';
 
-import { platformGroups, type Category, type CategoryFilter, type Platform } from './platform-catalog';
+import { platformGroups, type CategoryFilter, type Platform } from './platform-catalog';
+type Step = 1 | 2 | 3 | 4 | 5;
 const countryItems=[['US','美国'],['GB','英国'],['DE','德国'],['FR','法国'],['JP','日本'],['TW','中国台湾'],['KR','韩国'],['SG','新加坡'],['AU','澳大利亚'],['CA','加拿大'],['AE','阿联酋'],['NL','荷兰'],['IT','意大利'],['ES','西班牙'],['IN','印度'],['BR','巴西']] as const;
 const businessOptions=[['distributor','经销商 / 分销商'],['manufacturer','制造商'],['electrical_equipment','电子设备供应商'],['electronics','电子产品零售商'],['computer_network','电脑与网络设备商'],['mobile_communications','手机与通信设备商'],['industrial_supplies','工业用品供应商'],['corporate_office','企业办公室']];
 const terminalStatuses=new Set(['completed','partial','failed','cancelled']);
