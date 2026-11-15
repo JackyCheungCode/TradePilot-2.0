@@ -131,7 +131,7 @@ export function GlobalShipmentMap() {
     </div>
     <div className="tp-shipment-map__toolbar">
       <div className="tp-shipment-map__legend"><span><i className="is-origin"/>深圳发货地</span><span><i className="is-route"/>订单路线</span><span><i className="is-particle"/>流动数据</span></div>
-      <Select id="shipment-map-status" labelText="运输状态" labelText="运输状态" size="sm" value={statusFilter} onChange={event => setStatusFilter(event.currentTarget.value)}>
+      <Select id="shipment-map-status" labelText="运输状态" size="sm" value={statusFilter} onChange={event => setStatusFilter(event.currentTarget.value)}>
         <SelectItem value="all" text="全部状态"/>
         {Object.entries(STATUS_LABEL).filter(([key]) => key !== 'draft' && key !== 'cancelled').map(([key, label]) => <SelectItem key={key} value={key} text={label}/>)}
       </Select>
