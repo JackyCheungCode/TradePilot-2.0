@@ -1,6 +1,7 @@
 import { errorResponse, successResponse } from "../lib/http";
 import { buildLeadDedupeKey, normalizeBusinessName } from "../lib/deduplication";
 import { discoveryRunQuery } from "../lib/owner-scoped-query";
+import { readIntegrationSecret } from "../lib/integrations";
 
 export interface DiscoveryEnv {
   SUPABASE_URL: string;
@@ -151,7 +152,8 @@ async function searchGoogle(
   code: string, query: string, limit: number, env: DiscoveryEnv, state?: string, city?: string,
   businessTypes: string[] = [], filters: DiscoveryRunInput["filters"] = {},
 ): Promise<GooglePlace[]> {
-  if (!env.GOOGLE_MAPS_API_KEY) throw new Error("GOOGLE_MAPS_API_KEY_NOT_CONFIGURED");
+  const googleMapsApiKey = await readIntegrationSecret(env, "tradepilot_api_google_maps", "GOOGLE_MAPS_API_KEY");
+  if (!googleMapsApiKey) throw new Error("GOOGLE_MAPS_API_KEY_NOT_CONFIGURED");
   const location = [city, state, countryName(code)].filter(Boolean).join(", ");
   const requestedTypes = [...new Set(businessTypes.flatMap((id) => BUSINESS_TYPE_FILTERS[id]?.googleTypes ?? []))];
   const typeQueries: Array<string | undefined> = requestedTypes.length ? requestedTypes : [undefined];
@@ -174,7 +176,7 @@ async function searchGoogle(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Goog-Api-Key": env.GOOGLE_MAPS_API_KEY,
+          "X-Goog-Api-Key": googleMapsApiKey,
           "X-Goog-FieldMask": "places.id,places.displayName,places.location,places.formattedAddress,places.nationalPhoneNumber,places.internationalPhoneNumber,places.websiteUri,places.types,places.rating,places.userRatingCount,places.businessStatus,nextPageToken",
         },
         body: JSON.stringify(body),
