@@ -86,20 +86,20 @@ export function AppShell() {
             线索（Lead）
           </SideNavLink>
           <SideNavLink
+            href="/opportunities"
+            isActive={location.pathname.startsWith('/opportunities')}
+            title="商机（Opportunity）"
+            renderIcon={CarbonIcons.Briefcase}
+          >
+            商机（Opportunity）
+          </SideNavLink>
+          <SideNavLink
             href="/accounts"
             isActive={location.pathname.startsWith('/accounts')}
             title="客户（Account）"
             renderIcon={CarbonIcons.Building}
           >
             客户（Account）
-          </SideNavLink>
-          <SideNavLink
-            href="/accounts/new"
-            isActive={location.pathname === '/accounts/new'}
-            title="新建客户"
-            renderIcon={CarbonIcons.Add}
-          >
-            新建客户
           </SideNavLink>
           <SideNavLink
             href="/contacts"
