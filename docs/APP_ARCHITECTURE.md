@@ -8,7 +8,7 @@ Use React Router for client-side routing. Each route must resolve to a page modu
 
 ## Module boundaries
 
-Organize the application by business feature. Each feature owns its page components, feature-specific components, hooks, schemas, and API adapters. Shared design-system components and application shell live outside feature modules.
+Organize the application by business feature. Each feature owns its page components, feature-specific components, hooks, schemas, and API adapters. Shared design-system components and application shell live outside feature modules. The Cloudflare Worker backend is isolated under `worker/src/`; frontend feature modules must not import server-side code.
 
 Suggested structure:
 
@@ -107,6 +107,6 @@ Each feature page must:
 6. Provide loading, empty, error, and success states.
 7. Have route-level tests for rendering and direct navigation.
 
-## Design-system constraint
+## Backend boundary\n\nThe recovered Cloudflare Worker source lives in `worker/src/`. API routes and Workflow classes stay server-side. Frontend modules call typed API adapters; they must not import Worker route or Workflow implementation files. The Worker source baseline and deployment safety requirements are documented in `docs/WORKER_INTEGRATION.md`. No Worker deployment configuration is committed yet because the repository must first complete binding reconciliation and safe build validation.\n\n## Design-system constraint
 
 All modules must follow `docs/DESIGN_SYSTEM.md`: IBM Carbon React v11 and the Carbon White theme are mandatory. Feature modules may compose Carbon components but may not introduce another foundational component library or a parallel visual system.
