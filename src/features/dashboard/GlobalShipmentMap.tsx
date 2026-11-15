@@ -22,7 +22,9 @@ type Tile = { key: string; url: string; left: number; top: number };
 const STATUS_LABEL: Record<string, string> = {
   draft: '草稿', pending_booking: '待订舱', booked: '已订舱', loaded: '已装运',
   customs_cleared: '已清关', departed: '已离港', in_transit: '运输中',
-  arrived: '已到港', import_cleared: '进口清关', delivered: '已签收', cancelled: '已取消',
+  arrived: '已到港', import_cleared: '进口清关', delivered: '已签收',
+  exception: '异常', delayed: '运输延误', failed: '运输失败', damaged: '货物受损',
+  lost: '货物丢失', returned: '退回', cancelled: '已取消',
 };
 const STATUS_TONE: Record<string, 'blue' | 'green' | 'gray' | 'red' | 'teal' | 'purple'> = {
   draft: 'gray', pending_booking: 'gray', booked: 'gray',
