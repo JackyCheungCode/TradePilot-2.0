@@ -1,2 +1,1 @@
-/** Shared application shell entry point. */
-export { AppShell } from '../../../shell/AppShell';
+export { AppShell } from './AppShell';
