@@ -236,7 +236,7 @@ export function ProspectConsolePage() {
       const {data}=await client.auth.getSession();
       const token=data.session?.access_token;
       if(!token)throw new Error('登录状态已失效，请重新登录。');
-      const targets=action==='promote'?row.recordIds.slice(0,1):row.recordIds;
+      const targets=row.recordIds;
       const results=await Promise.allSettled(targets.map(id=>applyDiscoveryRecordAction(token,id,action)));
       const failed=results.filter(result=>result.status==='rejected').length;
       await load(period);
