@@ -24,6 +24,8 @@ const catalog:Catalog[]=[
 ];
 const apiCards=[
 {id:'apify',name:'Apify',logo:'apify',initial:'A',description:'网页采集、社交平台与数据发现。',fields:[{key:'apify',label:'API Token'}],test:'apify'},
+{id:'serper',name:'Serper',logo:'',initial:'S',description:'Google 搜索引擎数据 API。',fields:[{key:'serper',label:'API Key'}],test:'serper'},
+{id:'serpapi',name:'SerpApi',logo:'',initial:'S',description:'多类型搜索结果 API。',fields:[{key:'serpapi',label:'API Key'}],test:'serpapi'},
 {id:'deepl',name:'DeepL',logo:'deepl',initial:'D',description:'外贸工具在线翻译。',fields:[{key:'deepl',label:'API Key'}],test:'deepl'},
 {id:'googleMaps',name:'Google Maps Platform',logo:'googlemaps',initial:'G',description:'地理编码与时区识别；需启用 Geocoding API 和 Time Zone API。',fields:[{key:'googleMaps',label:'API Key'}],test:'googleMaps'},
 {id:'dhl',name:'DHL',logo:'dhl',initial:'DHL',description:'DHL Shipment Tracking 官方接口。',fields:[{key:'dhl',label:'API Subscription Key'}],test:'dhl'},
