@@ -23,7 +23,8 @@ function calculate(lines: QuoteLine[], charges: Array<{name:string;amount:string
   const productSubtotal = lines.filter(x=>x.line_type==='product'&&!x.optional).reduce((sum,x)=>sum+Math.max(0,Number(x.quantity)||0)*Math.max(0,Number(x.unit_price)||0)*(1-Math.max(0,Math.min(100,Number(x.discount_rate)||0))/100),0);
   const orderDiscount = Math.max(0,Math.min(productSubtotal,Number(discount)||0));
   const chargeSubtotal = charges.reduce((sum,x)=>sum+Math.max(0,Number(x.amount)||0),0);
-  const lineTax = lines.filter(x=>x.line_type==='product'&&!x.optional).reduce((sum,x)=>sum+Math.max(0,Number(x.quantity)||0)*Math.max(0,Number(x.unit_price)||0)*(1-Math.max(0,Math.min(100,Number(x.discount_rate)||0))/100)*Math.max(0,Number(x.tax_rate)||0)/100,0);
+  const discountFactor = productSubtotal > 0 ? (productSubtotal - orderDiscount) / productSubtotal : 1;
+  const lineTax = lines.filter(x=>x.line_type==='product'&&!x.optional).reduce((sum,x)=>sum+Math.max(0,Number(x.quantity)||0)*Math.max(0,Number(x.unit_price)||0)*(1-Math.max(0,Math.min(100,Number(x.discount_rate)||0))/100)*Math.max(0,Number(x.tax_rate)||0)/100*discountFactor,0);
   const chargeTax = charges.reduce((sum,x)=>sum+(x.taxable?Math.max(0,Number(x.amount)||0)*Math.max(0,Number(x.taxRate)||0)/100:0),0);
   return { product_subtotal:productSubtotal, order_discount:orderDiscount, charge_subtotal:chargeSubtotal, tax_total:lineTax+chargeTax, grand_total:productSubtotal-orderDiscount+chargeSubtotal+lineTax+chargeTax };
 }
