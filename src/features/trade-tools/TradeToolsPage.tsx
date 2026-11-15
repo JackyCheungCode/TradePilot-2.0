@@ -148,7 +148,7 @@ export function TradeToolsPage() {
     setBusy(true);setError('');setTranslated('');
     try {
       const token=await getToken();
-      const response=await fetch('/api/v1/discovery/translate',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({text:translationText,targetLanguage})});
+      const response=await fetch('/api/v1/discovery/translate',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({text:translationText,targetLanguage,sourceLanguage})});
       const body=await response.json() as {data?:{translatedText?:string};error?:{message?:string}};
       if(!response.ok) throw new Error(body.error?.message||'翻译失败');
       setTranslated(body.data?.translatedText||'');
@@ -295,10 +295,10 @@ export function TradeToolsPage() {
           {busy&&active==='contact-time'&&<InlineLoading description="正在解析时区与天气…"/>}
           {location&&timeData&&<div className="tp-trade-tools__contact-result">
             <div className="tp-trade-tools__clock"><div><span>{location.name}{location.admin1?', '+location.admin1:''}, {location.country}</span><strong>{new Date(timeData.datetime).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:location.timezone})}</strong><small>{new Date(timeData.datetime).toLocaleDateString('zh-CN',{year:'numeric',month:'long',day:'numeric',weekday:'long',timeZone:location.timezone})} · {timeData.timezone} ({timeData.utc_offset})</small></div>
-              <div className="tp-trade-tools__day-status">{(()=>{const h=Number(new Intl.DateTimeFormat('en',{hour:'2-digit',hourCycle:'h23',timeZone:location.timezone}).format(new Date(timeData.datetime)));const day=Number(new Intl.DateTimeFormat('en',{weekday:'short',timeZone:location.timezone}).format(new Date(timeData.datetime))==='Sun'?0:1);const isDay=h>=6&&h<18;const weekend=new Date(timeData.datetime).getUTCDay()===0||new Date(timeData.datetime).getUTCDay()===6;return <><span>{isDay?'☀️':'🌙'}</span><strong>{isDay?'当地白天':'当地夜晚'}</strong><small>{weekend?'休息日':holidayToday?'公共假期':'工作日'}</small></>;})()}</div>
+              <div className="tp-trade-tools__day-status">{(()=>{const h=Number(new Intl.DateTimeFormat('en',{hour:'2-digit',hourCycle:'h23',timeZone:location.timezone}).format(new Date(timeData.datetime)));const localWeekday=new Intl.DateTimeFormat('en',{weekday:'short',timeZone:location.timezone}).format(new Date(timeData.datetime));const isDay=h>=6&&h<18;const weekend=localWeekday==='Sun'||localWeekday==='Sat';return <><span>{isDay?'☀️':'🌙'}</span><strong>{isDay?'当地白天':'当地夜晚'}</strong><small>{weekend?'休息日':holidayToday?'公共假期':'工作日'}</small></>;})()}</div>
             </div>
             <div className="tp-trade-tools__weather">{weather.map((w,i)=><div key={w.date}><span>{i===0?'昨天':i===1?'今天':'明天'}</span><strong>{weatherIcon(w.code)}</strong><small>{w.high.toFixed(0)}° / {w.low.toFixed(0)}°C</small><small>降雨概率 {w.rain}%</small></div>)}</div>
-            <p className="tp-trade-tools__footnote">工作日按当地周末与 Nager.Date 公共假期数据判断；昼夜按当地 06:00–18:00 粗略划分。天气来自 Open-Meteo。</p>
+            <p className="tp-trade-tools__footnote">工作日按当地周末与 Nager.Date 公共假期数据判断；昼夜按当地 06:00–18:00 粗略划分。天气来自 Open-Meteo。时间数据由 <a href="https://time.now" target="_blank" rel="noreferrer">Time.Now</a> 提供。</p>
           </div>}
         </section>}
 
