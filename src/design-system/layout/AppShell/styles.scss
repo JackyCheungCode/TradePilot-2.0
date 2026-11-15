@@ -28,3 +28,21 @@
     padding-inline: 6px;
   }
 }
+
+
+/* Carbon SideNav remains the navigation implementation; this styles only the brand asset slot. */
+.tp-sidenav__brand {
+  display: flex;
+  align-items: center;
+  min-height: 4rem;
+  padding: var(--tp-space-05) var(--tp-space-05);
+  border-bottom: 1px solid var(--cds-border-subtle);
+}
+
+.tp-sidenav__brand img {
+  display: block;
+  width: 100%;
+  max-width: 11.25rem;
+  height: auto;
+  object-fit: contain;
+}
