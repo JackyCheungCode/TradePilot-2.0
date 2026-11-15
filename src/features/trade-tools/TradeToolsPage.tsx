@@ -76,6 +76,9 @@ export function TradeToolsPage() {
   const [translated,setTranslated] = useState('');
 
   const [locationQuery,setLocationQuery] = useState('');
+  const [locationCountry,setLocationCountry] = useState('DE');
+  const [locationRegion,setLocationRegion] = useState('');
+  const [locationCity,setLocationCity] = useState('');
   const [location,setLocation] = useState<LocationResult | null>(null);
   const [locations,setLocations] = useState<LocationResult[]>([]);
   const [timeData,setTimeData] = useState<{datetime:string;timezone:string;utc_offset:string;day_of_week:number}|null>(null);
@@ -287,9 +290,12 @@ export function TradeToolsPage() {
         {active==='contact-time'&&<section className="tp-trade-tools__tool">
           <div className="tp-trade-tools__tool-title"><CarbonIcons.Time size={24}/><div><h2>客户联系时机</h2><p>当地时间、工作日状态、昼夜和近三天天气</p></div></div>
           <div className="tp-trade-tools__form-grid">
-            <Select id="contact-select" labelText="选择客户／联系人（可选）" value={selectedContact} onChange={e=>void chooseContact(e.currentTarget.value)}><SelectItem value="" text="手动输入地点"/>{contacts.map(c=><SelectItem key={c.id} value={c.id} text={c.label+' · '+c.address}/>)}</Select>
-            <TextInput id="contact-location" labelText="国家／省州／城市或地址" value={locationQuery} onChange={e=>setLocationQuery(e.currentTarget.value)} placeholder="例如 Berlin, Germany"/>
-            <Button kind="primary" disabled={busy||!locationQuery.trim()} onClick={()=>void searchLocation()}>搜索地点</Button>
+            <Select id="contact-select" labelText="选择客户／联系人（可选）" value={selectedContact} onChange={e=>void chooseContact(e.currentTarget.value)}><SelectItem value="" text="手动选择地点"/>{contacts.map(c=><SelectItem key={c.id} value={c.id} text={c.label+' · '+c.address}/>)}</Select>
+            <Select id="contact-country" labelText="国家或地区" value={locationCountry} onChange={e=>setLocationCountry(e.currentTarget.value)}>{holidayCountries.map(c=><SelectItem key={c.countryCode} value={c.countryCode} text={(flags[c.countryCode]||'🌐')+' '+(countryNames[c.countryCode]||c.name)}/>)}</Select>
+            <TextInput id="contact-region" labelText="省／州／地区（可选）" value={locationRegion} onChange={e=>setLocationRegion(e.currentTarget.value)} placeholder="例如 California / Bayern"/>
+            <TextInput id="contact-city" labelText="城市（可选）" value={locationCity} onChange={e=>setLocationCity(e.currentTarget.value)} placeholder="例如 Los Angeles / Berlin"/>
+            <TextInput id="contact-location" labelText="客户地址（可选）" value={locationQuery} onChange={e=>setLocationQuery(e.currentTarget.value)} placeholder="可输入完整地址覆盖上方地区"/>
+            <Button kind="primary" disabled={busy||(!locationQuery.trim()&&!locationCity.trim()&&!locationRegion.trim())} onClick={()=>void searchLocation()}>搜索地点</Button>
           </div>
           {locations.length>0&&<div className="tp-trade-tools__location-results">{locations.map((p,i)=><Button key={p.timezone+i} kind="ghost" onClick={()=>void loadContactTime(p)}>{p.name}{p.admin1?', '+p.admin1:''} · {p.country} · {p.timezone}</Button>)}</div>}
           {busy&&active==='contact-time'&&<InlineLoading description="正在解析时区与天气…"/>}
