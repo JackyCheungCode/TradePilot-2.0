@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, CarbonIcons } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/global-shipment-map.scss';
@@ -16,7 +16,9 @@ type Shipment = {
   header: Record<string, unknown>;
   remarks_external: string | null;
 };
-type RoutePoint = { x: number; y: number };
+type GeoPoint = { lat: number; lon: number };
+type MapSize = { width: number; height: number };
+type Tile = { key: string; url: string; left: number; top: number };
 const STATUS_LABEL: Record<string, string> = {
   draft: '草稿', pending_booking: '待订舱', booked: '已订舱', loaded: '已装运',
   customs_cleared: '已清关', departed: '已离港', in_transit: '运输中',
@@ -26,48 +28,82 @@ const STATUS_TONE: Record<string, 'blue' | 'green' | 'gray' | 'red' | 'teal'> = 
   in_transit: 'blue', departed: 'teal', arrived: 'green', delivered: 'green',
   customs_cleared: 'teal', import_cleared: 'teal', booked: 'gray', cancelled: 'red',
 };
-const SHENZHEN: RoutePoint = { x: 22.5431, y: 114.0579 };
-const CONTINENTS: Array<Array<[number, number]>> = [
-  [[-168,70],[-145,60],[-130,52],[-124,40],[-116,30],[-105,22],[-97,17],[-84,9],[-78,8],[-82,24],[-90,30],[-80,40],[-60,50],[-55,58],[-78,70],[-110,74],[-140,72]],
-  [[-81,12],[-70,8],[-60,-4],[-52,-12],[-48,-25],[-55,-42],[-68,-55],[-76,-35],[-80,-10]],
-  [[-10,72],[20,72],[42,60],[60,55],[80,55],[105,48],[130,50],[150,60],[170,58],[178,48],[160,38],[145,30],[130,20],[115,5],[100,0],[82,8],[70,20],[55,25],[42,35],[30,40],[20,48],[5,55],[-10,55]],
-  [[-18,35],[5,38],[30,32],[42,12],[48,-12],[35,-34],[18,-35],[5,-25],[-5,-5],[-15,12]],
-  [[112,-11],[130,-10],[145,-18],[154,-28],[146,-40],[128,-43],[114,-32]],
-  [[-52,82],[-25,78],[-18,65],[-42,58],[-58,68]],
-];
-function project(lat: number, lon: number): RoutePoint {
-  const wrapped = ((lon - 120 + 360) % 360 + 360) % 360;
-  return { x: wrapped / 360 * 1000, y: (90 - lat) / 180 * 500 };
+const SHENZHEN: GeoPoint = { lat: 22.5431, lon: 114.0579 };
+const TILE_SIZE = 256;
+const MIN_ZOOM = 2;
+const MAX_ZOOM = 7;
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value));
 }
-function pathFrom(points: Array<[number, number]>) {
-  return points.map(([lon, lat], index) => {
-    const p = project(lat, lon);
-    return (index ? 'L' : 'M') + p.x.toFixed(1) + ',' + p.y.toFixed(1);
-  }).join(' ') + ' Z';
+function worldSize(zoom: number) {
+  return TILE_SIZE * 2 ** zoom;
 }
-function routePath(destination: RoutePoint, index: number, originPoint: RoutePoint = SHENZHEN) {
-  const origin = project(originPoint.x, originPoint.y);
-  const end = project(destination.x, destination.y);
-  let dx = end.x - origin.x;
-  if (dx > 500) dx -= 1000;
-  if (dx < -500) dx += 1000;
-  const adjustedEnd = { x: origin.x + dx, y: end.y };
-  const midX = origin.x + dx / 2;
-  const distance = Math.hypot(dx, end.y - origin.y);
-  const controlY = Math.max(18, Math.min(origin.y, end.y) - Math.min(170, distance * 0.22) - (index % 4) * 7);
-  return { d: 'M' + origin.x.toFixed(1) + ',' + origin.y.toFixed(1) + ' Q' + midX.toFixed(1) + ',' + controlY.toFixed(1) + ' ' + adjustedEnd.x.toFixed(1) + ',' + adjustedEnd.y.toFixed(1), origin, end: adjustedEnd };
+function toWorld(point: GeoPoint, zoom: number) {
+  const size = worldSize(zoom);
+  const lat = clamp(point.lat, -85.05112878, 85.05112878) * Math.PI / 180;
+  return {
+    x: ((point.lon + 180) / 360) * size,
+    y: (1 - Math.asinh(Math.tan(lat)) / Math.PI) / 2 * size,
+  };
 }
-function destinationOf(shipment: Shipment) {
+function fromWorld(x: number, y: number, zoom: number): GeoPoint {
+  const size = worldSize(zoom);
+  const wrappedX = ((x % size) + size) % size;
+  const lat = Math.atan(Math.sinh(Math.PI * (1 - 2 * clamp(y, 0, size) / size))) * 180 / Math.PI;
+  return { lat, lon: wrappedX / size * 360 - 180 };
+}
+function destinationOf(shipment: Shipment): (GeoPoint & { city: string; country: string }) | null {
   const address = shipment.ship_to_address || {};
   const header = shipment.header || {};
   const lat = Number(address.latitude ?? address.lat ?? header.destination_latitude);
   const lon = Number(address.longitude ?? address.lng ?? header.destination_longitude);
-  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-  return { lat, lon, city: String(address.city || address.locality || ''), country: String(address.country || ''), recipient: String(address.recipient_name || address.name || '') };
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
+  return { lat, lon, city: String(address.city || address.locality || ''), country: String(address.country || '') };
 }
-function originOf(shipment: Shipment): RoutePoint {
+function originOf(shipment: Shipment): GeoPoint {
   const header = shipment.header || {};
-  return { x: Number(header.origin_latitude ?? SHENZHEN.x), y: Number(header.origin_longitude ?? SHENZHEN.y) };
+  const lat = Number(header.origin_latitude);
+  const lon = Number(header.origin_longitude);
+  return Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : SHENZHEN;
+}
+function makeTiles(center: GeoPoint, zoom: number, size: MapSize): { tiles: Tile[]; left: number; top: number } {
+  const centerWorld = toWorld(center, zoom);
+  const left = centerWorld.x - size.width / 2;
+  const top = centerWorld.y - size.height / 2;
+  const count = 2 ** zoom;
+  const minX = Math.floor(left / TILE_SIZE) - 1;
+  const maxX = Math.ceil((left + size.width) / TILE_SIZE) + 1;
+  const minY = Math.max(0, Math.floor(top / TILE_SIZE) - 1);
+  const maxY = Math.min(count - 1, Math.ceil((top + size.height) / TILE_SIZE) + 1);
+  const tiles: Tile[] = [];
+  for (let x = minX; x <= maxX; x += 1) {
+    for (let y = minY; y <= maxY; y += 1) {
+      const wrappedX = ((x % count) + count) % count;
+      tiles.push({
+        key: zoom + ':' + x + ':' + y,
+        url: 'https://tile.openstreetmap.org/' + zoom + '/' + wrappedX + '/' + y + '.png',
+        left: x * TILE_SIZE - left,
+        top: y * TILE_SIZE - top,
+      });
+    }
+  }
+  return { tiles, left, top };
+}
+function routeGeometry(origin: GeoPoint, destination: GeoPoint, index: number, zoom: number, left: number, top: number) {
+  const size = worldSize(zoom);
+  const start = toWorld(origin, zoom);
+  const finish = toWorld(destination, zoom);
+  let dx = finish.x - start.x;
+  if (dx > size / 2) dx -= size;
+  if (dx < -size / 2) dx += size;
+  const x1 = start.x - left;
+  const y1 = start.y - top;
+  const x2 = start.x + dx - left;
+  const y2 = finish.y - top;
+  const distance = Math.hypot(dx, finish.y - start.y);
+  const controlX = (x1 + x2) / 2;
+  const controlY = (y1 + y2) / 2 - Math.min(100, distance * 0.16) - (index % 3) * 5;
+  return { path: 'M' + x1.toFixed(1) + ',' + y1.toFixed(1) + ' Q' + controlX.toFixed(1) + ',' + controlY.toFixed(1) + ' ' + x2.toFixed(1) + ',' + y2.toFixed(1), x1, y1, x2, y2 };
 }
 export function GlobalShipmentMap() {
   const [shipments, setShipments] = useState<Shipment[]>([]);
@@ -76,6 +112,11 @@ export function GlobalShipmentMap() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [refresh, setRefresh] = useState(0);
+  const [zoom, setZoom] = useState(2);
+  const [center, setCenter] = useState<GeoPoint>({ lat: 24, lon: 35 });
+  const [mapSize, setMapSize] = useState<MapSize>({ width: 960, height: 480 });
+  const mapRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{ pointerId: number; x: number; y: number; worldX: number; worldY: number } | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -100,6 +141,17 @@ export function GlobalShipmentMap() {
     return () => { active = false; };
   }, [refresh]);
 
+  useEffect(() => {
+    const element = mapRef.current;
+    if (!element) return;
+    const observer = new ResizeObserver(entries => {
+      const rect = entries[0]?.contentRect;
+      if (rect && rect.width > 0 && rect.height > 0) setMapSize({ width: rect.width, height: rect.height });
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
   const visible = useMemo(() => shipments.filter(item => statusFilter === 'all' || item.status === statusFilter), [shipments, statusFilter]);
   const activeShipment = shipments.find(item => item.id === selected) || null;
   const summary = useMemo(() => ({
@@ -108,17 +160,45 @@ export function GlobalShipmentMap() {
     arrived: shipments.filter(item => ['arrived', 'delivered'].includes(item.status)).length,
     packages: shipments.reduce((sum, item) => sum + Number(item.total_packages || 0), 0),
   }), [shipments]);
+  const map = useMemo(() => makeTiles(center, zoom, mapSize), [center, zoom, mapSize]);
+  const originMarker = toWorld(SHENZHEN, zoom);
+  const originX = originMarker.x - map.left;
+  const originY = originMarker.y - map.top;
+
+  const changeZoom = (nextZoom: number) => {
+    const next = clamp(nextZoom, MIN_ZOOM, MAX_ZOOM);
+    if (next === zoom) return;
+    setZoom(next);
+  };
+  const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if ((event.target as HTMLElement).closest('button, a, select')) return;
+    const world = toWorld(center, zoom);
+    dragRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, worldX: world.x, worldY: world.y };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+  const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    setCenter(fromWorld(drag.worldX - (event.clientX - drag.x), drag.worldY - (event.clientY - drag.y), zoom));
+  };
+  const onPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (dragRef.current?.pointerId === event.pointerId) dragRef.current = null;
+  };
+  const onWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    changeZoom(zoom + (event.deltaY < 0 ? 1 : -1));
+  };
 
   return <section className="tp-shipment-map" aria-labelledby="tp-shipment-map-title">
     <div className="tp-shipment-map__heading">
       <div>
-        <p className="tp-shipment-map__eyebrow">GLOBAL LOGISTICS / LIVE OVERVIEW</p>
+        <p className="tp-shipment-map__eyebrow">GLOBAL LOGISTICS / OPENSTREETMAP</p>
         <h2 id="tp-shipment-map-title">全球发运态势</h2>
-        <p>从深圳发往全球的订单路线 · 演示数据与真实业务分开展示</p>
+        <p>基于 OpenStreetMap 真实地理底图 · 深圳发往全球的订单路线</p>
       </div>
       <div className="tp-shipment-map__actions">
         <Tag type="blue" size="sm">演示数据</Tag>
-        <Button kind="ghost" size="sm" renderIcon={CarbonIcons.Renew} onClick={() => setRefresh(value => value + 1)} disabled={loading}>刷新地图</Button>
+        <Button kind="ghost" size="sm" renderIcon={CarbonIcons.Renew} onClick={() => setRefresh(value => value + 1)} disabled={loading}>刷新数据</Button>
       </div>
     </div>
     <div className="tp-shipment-map__metrics">
@@ -128,42 +208,54 @@ export function GlobalShipmentMap() {
       <div><span>包裹总数</span><strong>{summary.packages.toLocaleString()}</strong></div>
     </div>
     <div className="tp-shipment-map__toolbar">
-      <div className="tp-shipment-map__legend"><span><i className="is-origin"/>深圳发货地</span><span><i className="is-route"/>订单路线</span><span><i className="is-particle"/>流动数据</span></div>
+      <div className="tp-shipment-map__legend"><span><i className="is-origin"/>深圳发货地</span><span><i className="is-route"/>订单路线</span><span><i className="is-particle"/>动态轨迹</span></div>
       <Select id="shipment-map-status" labelText="运输状态" size="sm" value={statusFilter} onChange={event => setStatusFilter(event.currentTarget.value)}>
         <SelectItem value="all" text="全部状态"/>
         {Object.entries(STATUS_LABEL).filter(([key]) => key !== 'draft' && key !== 'cancelled').map(([key, label]) => <SelectItem key={key} value={key} text={label}/>)}
       </Select>
     </div>
     {error && <InlineNotification kind="error" lowContrast title="全球发运数据读取失败" subtitle={error}/>}
-    <div className="tp-shipment-map__canvas">
+    <div
+      className="tp-shipment-map__canvas"
+      ref={mapRef}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
+      onWheel={onWheel}
+      role="application"
+      aria-label="可拖动和缩放的 OpenStreetMap 全球发运地图"
+    >
       {loading ? <div className="tp-shipment-map__loading"><InlineLoading description="正在加载全球发运路线…"/></div> : <>
-        <svg className="tp-shipment-map__svg" viewBox="0 0 1000 500" role="img" aria-label="从深圳连接全球目的地的发运路线地图">
-          <defs>
-            <pattern id="tp-map-grid" width="50" height="50" patternUnits="userSpaceOnUse"><path d="M50 0H0V50" fill="none" stroke="currentColor" strokeOpacity=".08" strokeWidth="1"/></pattern>
-            <radialGradient id="tp-map-glow"><stop offset="0" stopColor="#78A9FF" stopOpacity=".3"/><stop offset="1" stopColor="#78A9FF" stopOpacity="0"/></radialGradient>
-          </defs>
-          <rect width="1000" height="500" fill="url(#tp-map-grid)"/>
-          {CONTINENTS.map((continent, index) => <path key={index} d={pathFrom(continent)} className="tp-shipment-map__land"/>)}
+        <div className="tp-shipment-map__tiles" aria-hidden="true">
+          {map.tiles.map(tile => <img key={tile.key} src={tile.url} alt="" draggable={false} loading="lazy" referrerPolicy="strict-origin-when-cross-origin" style={{ left: tile.left, top: tile.top }}/>)}
+        </div>
+        <svg className="tp-shipment-map__overlay" width={mapSize.width} height={mapSize.height} viewBox={'0 0 ' + mapSize.width + ' ' + mapSize.height} aria-label="发运路线与目的地">
           {visible.map((shipment, index) => {
             const destination = destinationOf(shipment);
             if (!destination) return null;
-            const route = routePath({ x: destination.lat, y: destination.lon }, index, originOf(shipment));
+            const geometry = routeGeometry(originOf(shipment), destination, index, zoom, map.left, map.top);
             const isSelected = selected === shipment.id;
             return <g key={shipment.id} className={isSelected ? 'is-selected' : ''} onClick={() => setSelected(shipment.id)} role="button" tabIndex={0} aria-label={'查看发运单 ' + shipment.shipment_no} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') setSelected(shipment.id); }}>
-              <path d={route.d} className="tp-shipment-map__route-glow"/>
-              <path d={route.d} className="tp-shipment-map__route"/>
-              <path d={route.d} className="tp-shipment-map__route-flow"/>
-              <circle r="3.2" className="tp-shipment-map__particle"><animateMotion dur={(5 + index % 5) + 's'} repeatCount="indefinite" path={route.d}/></circle>
-              <circle cx={route.origin.x} cy={route.origin.y} r="2.5" className="tp-shipment-map__origin-point"/>
-              <circle cx={route.end.x} cy={route.end.y} r={isSelected ? 8 : 5.5} className="tp-shipment-map__destination"/>
-              <circle cx={route.end.x} cy={route.end.y} r="12" className="tp-shipment-map__destination-halo"/>
+              <path d={geometry.path} className="tp-shipment-map__route-glow"/>
+              <path d={geometry.path} className="tp-shipment-map__route"/>
+              <path d={geometry.path} className="tp-shipment-map__route-flow"/>
+              <circle r="3.2" className="tp-shipment-map__particle"><animateMotion dur={(5 + index % 5) + 's'} repeatCount="indefinite" path={geometry.path}/></circle>
+              <circle cx={geometry.x2} cy={geometry.y2} r={isSelected ? 8 : 5.5} className="tp-shipment-map__destination"/>
+              <circle cx={geometry.x2} cy={geometry.y2} r="12" className="tp-shipment-map__destination-halo"/>
             </g>;
           })}
-          <circle cx={project(SHENZHEN.x, SHENZHEN.y).x} cy={project(SHENZHEN.x, SHENZHEN.y).y} r="26" fill="url(#tp-map-glow)"/>
-          <circle cx={project(SHENZHEN.x, SHENZHEN.y).x} cy={project(SHENZHEN.x, SHENZHEN.y).y} r="6" className="tp-shipment-map__origin"/>
-          <text x={project(SHENZHEN.x, SHENZHEN.y).x + 13} y={project(SHENZHEN.x, SHENZHEN.y).y - 12} className="tp-shipment-map__origin-label">SHENZHEN</text>
+          <circle cx={originX} cy={originY} r="18" className="tp-shipment-map__origin-halo"/>
+          <circle cx={originX} cy={originY} r="6" className="tp-shipment-map__origin"/>
+          <text x={originX + 12} y={originY - 12} className="tp-shipment-map__origin-label">SHENZHEN</text>
         </svg>
-        <div className="tp-shipment-map__map-caption"><span>SHENZHEN · CHINA</span><span>{visible.length} 条路线</span></div>
+        <div className="tp-shipment-map__controls">
+          <Button kind="tertiary" size="sm" hasIconOnly renderIcon={CarbonIcons.Add} iconDescription="放大地图" onClick={() => changeZoom(zoom + 1)} disabled={zoom >= MAX_ZOOM}/>
+          <Button kind="tertiary" size="sm" hasIconOnly renderIcon={CarbonIcons.Subtract} iconDescription="缩小地图" onClick={() => changeZoom(zoom - 1)} disabled={zoom <= MIN_ZOOM}/>
+          <Button kind="tertiary" size="sm" onClick={() => { setCenter({ lat: 24, lon: 35 }); setZoom(2); }}>重置视图</Button>
+        </div>
+        <div className="tp-shipment-map__attribution">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a></div>
+        <div className="tp-shipment-map__map-caption"><span>OPENSTREETMAP · ZOOM {zoom}</span><span>{visible.length} 条路线</span></div>
       </>}
     </div>
     <div className="tp-shipment-map__details">
@@ -174,8 +266,8 @@ export function GlobalShipmentMap() {
         <div><span>目的地</span><strong>{[activeShipment.ship_to_address.city, activeShipment.ship_to_address.country].filter(Boolean).join(', ') || '—'}</strong></div>
         <div><span>承运商 / 运单</span><strong>{String(activeShipment.header.carrier || '—')} · {String(activeShipment.header.tracking_number || '—')}</strong></div>
         <div><span>计划发运</span><strong>{activeShipment.planned_ship_date || '—'}</strong></div>
-      </div> : <p className="tp-shipment-map__hint">选择地图上的任意路线或目的地标记，查看对应订单的发运信息。</p>}
+      </div> : <p className="tp-shipment-map__hint">拖动地图浏览全球，使用滚轮或右上角控件缩放；点击路线或目的地查看发运信息。</p>}
     </div>
-    <div className="tp-shipment-map__footnote">演示路线仅表示发货地与收货地之间的连接关系；光点为视觉数据流动效果，不代表实时物流定位。</div>
+    <div className="tp-shipment-map__footnote">地图底图 © OpenStreetMap contributors；路线连接发货地与收货地，动态光点仅用于展示路线方向，不代表实时 GPS 物流定位。</div>
   </section>;
 }
