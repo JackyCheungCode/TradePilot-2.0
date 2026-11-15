@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextArea } from '@/design-system';
+import { Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextArea, TextInput } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 
 type Provider = { id: string; name: string; model: string; protocol: string; configured?: boolean; baseUrl?: string };
 type Profile = { agent_key: string; enabled: boolean; config: { systemPrompt?: string; description?: string } };
-type Appearance = { shape: string; color: string; styleId: string; variant: string; face: string };
+type Appearance = { shape: string; color: string; styleId: string; variant: string; face: string; eyeColor: string; eyeScale: number };
 const agentLabels: Record<string,string> = {
   buyer_development: '全球买家开发 Agent', market_research: '市场研究 Agent',
   company_research: '企业调查 Agent', lead_scoring: '潜客评估 Agent',
@@ -23,7 +23,7 @@ export function AgentSettings({ section }: { section: string }) {
   const [providers,setProviders] = useState<Provider[]>([]);
   const [selectedModel,setSelectedModel] = useState('');
   const [profiles,setProfiles] = useState<Profile[]>([]);
-  const [appearance,setAppearance] = useState<Appearance>({shape:'blob',color:'ivory',styleId:'vector',variant:'soft',face:'cute'});
+  const [appearance,setAppearance] = useState<Appearance>({shape:'blob',color:'ivory',styleId:'vector',variant:'soft',face:'cute',eyeColor:'#1A1A1A',eyeScale:1});
   const [loading,setLoading] = useState(true);
   const [saving,setSaving] = useState(false);
   const [error,setError] = useState('');
@@ -125,19 +125,14 @@ export function AgentSettings({ section }: { section: string }) {
       <p>管理默认头像形状、配色和表情风格。</p>
       <div className="tp-settings__editor-grid">
         <Select id="agent-avatar-shape" labelText="头像形状" value={appearance.shape} onChange={event => setAppearance(item => ({...item,shape:event.currentTarget.value}))}>
-          {['blob','wedge','gem','mochi','circle'].map(value => <SelectItem key={value} value={value} text={value} />)}
+          {['blob','wedge','gem'].map(value => <SelectItem key={value} value={value} text={value} />)}
         </Select>
-        <Select id="agent-avatar-color" labelText="头像配色" value={appearance.color} onChange={event => setAppearance(item => ({...item,color:event.currentTarget.value}))}>
+        <Select id="agent-avatar-color" labelText="头像主色" value={appearance.color} onChange={event => setAppearance(item => ({...item,color:event.currentTarget.value}))}>
           {['ivory','black','brown','red','orange','yellow','green','cyan','blue','violet','magenta','pink','gray','sage','clay','navy','mauve','night','cocoa','sky','blush','lilac','butter','meadow'].map(value => <SelectItem key={value} value={value} text={value} />)}
         </Select>
-        <Select id="agent-avatar-style" labelText="视觉风格" value={appearance.styleId} onChange={event => { const styleId = event.currentTarget.value; setAppearance(item => ({...item,styleId,variant:styleId === 'pixel' ? 'crisp' : styleId === 'kaomoji' ? 'plain' : 'soft'})); }}>
-          {['vector','pixel','kaomoji'].map(value => <SelectItem key={value} value={value} text={value} />)}
-        </Select>
-        <Select id="agent-avatar-variant" labelText="表面效果" value={appearance.variant} onChange={event => setAppearance(item => ({...item,variant:event.currentTarget.value}))}>
-          {(appearance.styleId === 'pixel' ? ['crisp','dot','block'] : appearance.styleId === 'kaomoji' ? ['plain','bubble'] : ['solid','outline','glass','sticker','paper','soft','riso','pencil','marker','crayon','watercolor','neon','chalk','origami','relief','gothic']).map(value => <SelectItem key={value} value={value} text={value} />)}
-        </Select>
-        <Select id="agent-avatar-face" labelText="面部样式" value={appearance.face} onChange={event => setAppearance(item => ({...item,face:event.currentTarget.value}))}>
-          {['cute','eyes','line','symbol','button','capsule','brow','glossy','sparkle','shades','droopy','bigmouth','pie','screen','teardrop','specs'].map(value => <SelectItem key={value} value={value} text={value} />)}
+        <TextInput id="agent-avatar-eye-color" labelText="眼睛颜色（HEX）" value={appearance.eyeColor} onChange={event => setAppearance(item => ({...item,eyeColor:event.currentTarget.value}))} />
+        <Select id="agent-avatar-eye-scale" labelText="眼睛比例" value={String(appearance.eyeScale)} onChange={event => setAppearance(item => ({...item,eyeScale:Number(event.currentTarget.value)}))}>
+          {['0.8','0.9','1','1.1','1.2','1.3','1.4'].map(value => <SelectItem key={value} value={value} text={value} />)}
         </Select>
         <Button kind="primary" disabled={saving} onClick={() => void saveAppearance()}>保存头像设置</Button>
       </div>
