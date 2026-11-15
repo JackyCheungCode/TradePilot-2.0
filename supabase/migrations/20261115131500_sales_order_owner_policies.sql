@@ -29,3 +29,11 @@ grant select on public.trade_documents to authenticated;
 revoke all on public.trade_orders from anon;
 revoke all on public.trade_order_items from anon;
 revoke all on public.trade_documents from anon;
+
+alter table public.trade_document_events enable row level security;
+drop policy if exists trade_document_events_select_own on public.trade_document_events;
+create policy trade_document_events_select_own on public.trade_document_events for select to authenticated using ((select auth.uid()) = owner_id);
+drop policy if exists trade_document_events_insert_own on public.trade_document_events;
+create policy trade_document_events_insert_own on public.trade_document_events for insert to authenticated with check ((select auth.uid()) = owner_id);
+grant select, insert on public.trade_document_events to authenticated;
+revoke all on public.trade_document_events from anon;
