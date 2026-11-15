@@ -19,6 +19,7 @@ const money = (v:number,c:string) => c+' '+Number(v||0).toLocaleString(undefined
 const dateToday = () => new Date().toISOString().slice(0,10);
 const emptyAllocation = () => ({order_id:'',schedule_node_id:'',allocation_type:'定金',allocated_amount:'',allocated_amount_in_payment:'',allocation_date:dateToday()});
 const scheduleOf = (o:AnyRow) => Array.isArray(o?.metadata?.sales_order?.payment_schedule) ? o.metadata.sales_order.payment_schedule : [];
+const isAllocatableOrder = (o:AnyRow) => Boolean(o&&(o.status==='active'||o.status==='completed'||['confirmed','preparing','partially_shipped','shipped','completed'].includes(o.metadata?.sales_order?.order_status)));
 
 function Metric({label,value,detail,icon:Icon}:{label:string;value:string;detail:string;icon:React.ElementType}) {
   return <Tile className="tp-payments__metric"><div className="tp-payments__metric-head"><span>{label}</span><Icon size={20}/></div><strong>{value}</strong><small>{detail}</small></Tile>;
@@ -77,6 +78,7 @@ export function PaymentConsolePage() {
     const out:AnyRow[]=[];
     const paidAllocations=allocations.filter(a=>confirmed.some(p=>p.id===a.payment_id));
     for(const order of orders){
+      if(!isAllocatableOrder(order))continue;
       const so=order.metadata?.sales_order||{};
       const customer=accountMap.get(order.crm_account_id)||so.account_snapshot?.account_name||'—';
       for(const node of scheduleOf(order)){
@@ -142,7 +144,7 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
   const [activeTab,setActiveTab]=useState(0);const [loading,setLoading]=useState(true);const [saving,setSaving]=useState(false);const [error,setError]=useState('');const [paymentNo,setPaymentNo]=useState('新建收款');
   const locked=readOnly||['confirmed','partially_reconciled','reconciled','returned','voided'].includes(payment.status);
   const set=(key:string,value:any)=>setPayment((p:AnyRow)=>({...p,[key]:value}));
-  const accountOrders=orders.filter(o=>o.crm_account_id===payment.account_id&&['active','completed'].includes(o.status));
+  const accountOrders=orders.filter(o=>o.crm_account_id===payment.account_id&&isAllocatableOrder(o));
   const bankOptions=banks.filter(b=>b.is_active!==false&&!b.is_archived);
   const grossFees=Number(payment.bank_fee||0)+Number(payment.intermediary_fee||0);
   const suggestedNet=Math.max(0,Number(payment.amount||0)-grossFees);
@@ -346,7 +348,7 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
           {allocations.map((a,i)=><div className="tp-payments__allocation" key={i}>
             <div className="tp-payments__allocation-head"><strong>分配 {i+1}</strong><Button kind="ghost" size="sm" disabled={locked} onClick={()=>removeAllocation(i)}>移除</Button></div>
             <div className="tp-payments__form-grid">
-              <Pick id={'alloc-order-'+i} label="订单" value={a.order_id} onChange={v=>setAllocation(i,'order_id',v)} options={accountOrders.filter(o=>o.status==='active'||o.status==='completed').map(o=>({value:o.id,label:o.order_number+' · '+o.title}))} disabled={locked}/>
+              <Pick id={'alloc-order-'+i} label="订单" value={a.order_id} onChange={v=>setAllocation(i,'order_id',v)} options={accountOrders.map(o=>({value:o.id,label:o.order_number+' · '+o.title}))} disabled={locked}/>
               <Pick id={'alloc-node-'+i} label="收款节点" value={a.schedule_node_id} onChange={v=>setAllocation(i,'schedule_node_id',v)} options={nodesFor(a.order_id).map(n=>({value:String(n.id),label:(n.milestone||'收款节点')+' · '+money(Number(n.amount||0),orders.find(o=>o.id===a.order_id)?.currency_code||'USD')}))} disabled={locked}/>
               <Pick id={'alloc-type-'+i} label="分配类型" value={a.allocation_type} onChange={v=>setAllocation(i,'allocation_type',v)} options={ALLOCATION_TYPES} disabled={locked}/>
               <Field id={'alloc-amount-'+i} label="分配金额（订单币种）" type="number" value={a.allocated_amount} onChange={v=>setAllocation(i,'allocated_amount',v)} disabled={locked}/>
