@@ -13,7 +13,7 @@
 .tp-discovery__heading p:not(.tp-discovery__eyebrow) { margin: var(--cds-spacing-03) 0 0; color: var(--cds-text-secondary); }
 .tp-discovery__eyebrow { margin: 0 0 var(--cds-spacing-03); color: var(--cds-text-secondary); font-size: .75rem; letter-spacing: .08em; }
 .tp-discovery__heading-actions { display: flex; align-items: center; gap: var(--cds-spacing-03); }
-.tp-discovery__steps { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); border-bottom: 1px solid var(--cds-border-subtle); }
+.tp-discovery__steps { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); border-bottom: 1px solid var(--cds-border-subtle); }
 .tp-discovery__steps button { display:flex; align-items:center; gap:var(--cds-spacing-03); min-height:3.5rem; padding:var(--cds-spacing-03) var(--cds-spacing-04); border:0; border-bottom:3px solid transparent; background:transparent; color:var(--cds-text-secondary); text-align:left; cursor:pointer; }
 .tp-discovery__steps button span { font-size:.75rem; font-weight:600; }
 .tp-discovery__steps button.is-active { color:var(--cds-text-primary); border-bottom-color:var(--cds-interactive); }
@@ -101,4 +101,87 @@
  .tp-discovery__platform-group { padding-inline:6px; }
  .tp-discovery__engine-card>div, .tp-discovery__run-summary>div, .tp-discovery__fieldset, .tp-discovery__log-list li, .tp-discovery__history-list button { padding-inline:6px; }
  .tp-discovery__history-list button { align-items:flex-start; }
+}
+
+
+/* Result and recent-task tables keep Carbon's native table semantics while
+   enforcing the requested single-line, clipped cell treatment. */
+.tp-discovery__table-scroll {
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+.tp-discovery__table-scroll .cds--data-table-container,
+.tp-discovery__table-scroll .cds--data-table-content {
+  width: 100%;
+  min-width: 0;
+}
+.tp-discovery__table-scroll .cds--data-table {
+  table-layout: fixed;
+  width: max(100%, 68rem);
+}
+.tp-discovery__table-scroll .cds--table-header-label,
+.tp-discovery__table-scroll .cds--table-header-label span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tp-discovery__table-scroll .cds--data-table th {
+  white-space: nowrap;
+}
+.tp-discovery__nowrap-cell {
+  max-width: 14rem;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.tp-discovery__nowrap-cell > span {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.tp-discovery__cell-subline {
+  color: var(--cds-text-secondary);
+  font-size: .75rem;
+}
+.tp-discovery__select-cell {
+  width: 3rem;
+}
+.tp-discovery__row-actions {
+  white-space: nowrap;
+}
+.tp-discovery__row-actions > * {
+  display: inline-flex;
+}
+.tp-discovery__table-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--cds-spacing-04);
+  color: var(--cds-text-secondary);
+  font-size: .875rem;
+}
+.tp-discovery__table-toolbar > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--cds-spacing-02);
+}
+.tp-recent-tasks .tp-discovery__table-scroll .cds--data-table {
+  width: max(100%, 76rem);
+}
+@media(max-width:768px) {
+  .tp-discovery__steps {
+    grid-template-columns: repeat(5,minmax(0,1fr));
+  }
+  .tp-discovery__table-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .tp-discovery__table-toolbar > div {
+    justify-content: flex-start;
+  }
 }
