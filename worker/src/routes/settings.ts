@@ -159,13 +159,21 @@ async function testOneService(service: ServiceKey, env: SettingsEnv) {
   }
   if (!env.GOOGLE_MAPS_API_KEY) return { ok: false, message: "尚未配置" };
   try {
-    const response = await fetch("https://places.googleapis.com/v1/places:searchText", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Goog-Api-Key": env.GOOGLE_MAPS_API_KEY, "X-Goog-FieldMask": "places.id" },
-      body: JSON.stringify({ textQuery: "electronics store", maxResultCount: 1 }),
-    });
-    return { ok: response.ok, message: response.ok ? "Google Places API 可用" : "Google Places API 请求失败，请检查 API 启用状态、账单和密钥限制" };
-  } catch { return { ok: false, message: "无法连接 Google Places API" }; }
+    const geocodeUrl = new URL("https://maps.googleapis.com/maps/api/geocode/json");
+    geocodeUrl.searchParams.set("address", "Berlin, Germany");
+    geocodeUrl.searchParams.set("key", env.GOOGLE_MAPS_API_KEY);
+    const geocodeResponse = await fetch(geocodeUrl);
+    const geocode = await geocodeResponse.json() as { status?: string; results?: Array<{ geometry?: { location?: { lat: number; lng: number } } }> };
+    if (!geocodeResponse.ok || geocode.status !== "OK" || !geocode.results?.[0]?.geometry?.location) return { ok: false, message: "Google Geocoding API 不可用，请检查密钥与 API 启用状态" };
+    const point = geocode.results[0].geometry.location;
+    const timezoneUrl = new URL("https://maps.googleapis.com/maps/api/timezone/json");
+    timezoneUrl.searchParams.set("location", point.lat + "," + point.lng);
+    timezoneUrl.searchParams.set("timestamp", String(Math.floor(Date.now() / 1000)));
+    timezoneUrl.searchParams.set("key", env.GOOGLE_MAPS_API_KEY);
+    const timezoneResponse = await fetch(timezoneUrl);
+    const timezone = await timezoneResponse.json() as { status?: string; timeZoneId?: string };
+    return { ok: timezoneResponse.ok && timezone.status === "OK" && Boolean(timezone.timeZoneId), message: timezoneResponse.ok && timezone.status === "OK" ? "Google Geocoding 与 Time Zone API 可用" : "Google Time Zone API 不可用，请确认已启用该 API" };
+  } catch { return { ok: false, message: "无法连接 Google Maps API" }; }
 }
 
 
