@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput, TextArea } from '@/design-system';
+import { useEffect, useState } from 'react';
+import { Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextArea } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 
 type Provider = { id: string; name: string; model: string; protocol: string; configured?: boolean; baseUrl?: string };
@@ -46,7 +46,8 @@ export function AgentSettings() {
       setProviders(available);
       const current = config.taskModels?.agent_chat || config.defaultModel || available[0]?.model || '';
       setSelectedModel(current);
-      setProfiles(profileRows || []);
+      const knownAgents = Object.keys(agentLabels).map(agent_key => ({ agent_key, enabled:true, config:{} as Profile['config'] }));
+      setProfiles(knownAgents.map(base => profileRows?.find(item => item.agent_key === base.agent_key) || base));
       if (avatar.default) setAppearance(avatar.default);
     } catch (cause) { setError(cause instanceof Error ? cause.message : '读取 Agent 设置失败。'); }
     finally { setLoading(false); }
@@ -112,7 +113,6 @@ export function AgentSettings() {
         <Button kind="primary" disabled={saving || !activeProfile} onClick={() => activeProfile && void saveProfile(activeProfile)}>保存 Agent 设置</Button>
       </div>
       {activeProfile ? <>
-        <label className="cds--label" htmlFor="agent-profile-enabled">启用状态</label>
         <Select id="agent-profile-enabled" labelText="启用状态" hideLabel value={activeProfile.enabled ? 'enabled' : 'disabled'} onChange={event => setProfiles(rows => rows.map(item => item.agent_key === activeAgent ? {...item,enabled:event.currentTarget.value === 'enabled'} : item))}>
           <SelectItem value="enabled" text="启用" /><SelectItem value="disabled" text="停用" />
         </Select>
@@ -128,16 +128,16 @@ export function AgentSettings() {
           {['blob','wedge','gem','mochi','circle'].map(value => <SelectItem key={value} value={value} text={value} />)}
         </Select>
         <Select id="agent-avatar-color" labelText="头像配色" value={appearance.color} onChange={event => setAppearance(item => ({...item,color:event.currentTarget.value}))}>
-          {['cream','blue','mint','pink','purple','dark'].map(value => <SelectItem key={value} value={value} text={value} />)}
+          {['ivory','black','brown','red','orange','yellow','green','cyan','blue','violet','magenta','pink','gray','sage','clay','navy','mauve','night','cocoa','sky','blush','lilac','butter','meadow'].map(value => <SelectItem key={value} value={value} text={value} />)}
         </Select>
         <Select id="agent-avatar-style" labelText="视觉风格" value={appearance.styleId} onChange={event => setAppearance(item => ({...item,styleId:event.currentTarget.value}))}>
-          {['vector','3d','pixel','minimal'].map(value => <SelectItem key={value} value={value} text={value} />)}
+          {['vector','pixel','kaomoji'].map(value => <SelectItem key={value} value={value} text={value} />)}
         </Select>
         <Select id="agent-avatar-variant" labelText="表面效果" value={appearance.variant} onChange={event => setAppearance(item => ({...item,variant:event.currentTarget.value}))}>
-          {['soft','glossy','flat','gradient'].map(value => <SelectItem key={value} value={value} text={value} />)}
+          {['solid','outline','glass','sticker','paper','soft','riso','pencil','marker','crayon','watercolor','neon','chalk','origami','relief','gothic'].map(value => <SelectItem key={value} value={value} text={value} />)}
         </Select>
         <Select id="agent-avatar-face" labelText="面部样式" value={appearance.face} onChange={event => setAppearance(item => ({...item,face:event.currentTarget.value}))}>
-          {['cute','classic','minimal','robot','screen','specs'].map(value => <SelectItem key={value} value={value} text={value} />)}
+          {['cute','eyes','line','symbol','button','capsule','brow','glossy','sparkle','shades','droopy','bigmouth','pie','screen','teardrop','specs'].map(value => <SelectItem key={value} value={value} text={value} />)}
         </Select>
         <Button kind="primary" disabled={saving} onClick={() => void saveAppearance()}>保存头像设置</Button>
       </div>
