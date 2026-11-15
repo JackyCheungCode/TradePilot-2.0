@@ -245,7 +245,7 @@ function parsePlannerJson(raw:string):Record<string,unknown>{
  if(start<0||end<=start)throw new Error("AGENT_PLANNER_INVALID_JSON");
  return JSON.parse(cleaned.slice(start,end+1)) as Record<string,unknown>;
 }
-async function generateAgentPlan(env:Env,ownerId:string,goal:string,country:string,searchEngine:"serper"|"serpapi",connections:ConnectionRow[]):Promise<PlannerResult>{
+async function generateAgentPlan(env:Env,_ownerId:string,goal:string,country:string,searchEngine:"serper"|"serpapi",connections:ConnectionRow[]):Promise<PlannerResult>{
  const settings=await db<Array<{config:Record<string,unknown>}>>(env,"ai_provider_settings?id=eq.true&select=config&limit=1");
  const config=asRecord(settings?.[0]?.config);
  const taskModels=asRecord(config.taskModels);
