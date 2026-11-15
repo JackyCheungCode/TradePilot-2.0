@@ -724,7 +724,7 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
       await db(env,"agent_chat_messages",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({owner_id:ownerId,conversation_id:conversationId,role:"user",content:message})});
       try{
         const workspaceContext=await loadXiaoyaWorkspaceContext(env,ownerId);
-        const generated=await callAgentChatModel(env,turns,buildXiaoyaSystemPrompt(workspaceContext),true,1800);
+        const generated=await callAgentChatModel(env,turns,buildXiaoyaSystemPrompt(workspaceContext),"agent_chat",true,1800);
         const parsed=parsePlannerJson(generated.text);
         const reply=String(parsed.reply??"我已理解你的意思，请再补充一点目标信息。").slice(0,3000);
         const taskRaw=parsed.task===null?null:asRecord(parsed.task);
