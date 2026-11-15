@@ -19,7 +19,8 @@
     ]
   },
   "include": [
-    "worker/src",
+    "worker/src/**/*.ts",
+    "worker/src/**/*.d.ts",
     "worker/worker-configuration.d.ts"
   ]
 }
