@@ -1,46 +1,51 @@
-# TradePilot 2.0 — Design System
+# TradePilot Design System Standard
 
-## Theme decision
+## Single source of truth
 
-The application-wide theme is **IBM Carbon White**.
+All UI primitives, visual foundations, and shared interaction rules are owned by `src/design-system/`. Product features may compose these resources but must not create parallel design systems or page-specific visual primitives.
 
-- Use the official Carbon Design System v11 `white` theme as the default theme.
-- Do not use Carbon `g10`, `g90`, or `g100` as the default application theme.
-- Do not create a visually similar custom theme or override Carbon color tokens without an approved design-system decision.
-- All application routes, shared components, forms, data tables, overlays, navigation, and empty/loading/error states must use the same White theme.
+## Foundations
 
-## Required UI foundation
+- Themes: IBM Carbon White is the only approved theme.
+- Tokens: semantic color, spacing, typography, motion, breakpoints, layers, elevation, z-index, and focus.
+- Typography: IBM Plex Sans only; font files are loaded through the design-system typography entry.
+- Icons: Carbon icon library only, through the local icon entry.
+- Grid: Carbon Grid and centralized responsive breakpoints.
+- Accessibility: Carbon semantics, keyboard operation, visible focus, screen-reader support, and reduced-motion behavior.
+- Assets and content: approved brand assets, canonical terminology, and localization resources.
+- Data visualization: semantic chart tokens and Carbon visualization guidance; no chart library is approved yet.
 
-- React + TypeScript.
-- `@carbon/react` is the only foundational UI component library.
-- `@carbon/icons-react` for Carbon icons.
-- Use official Carbon components and design tokens for controls, typography, color, spacing, layering, and interaction states.
-- IBM Plex Sans typography.
-- Use Carbon Grid and Carbon layout primitives for responsive page structure.
+## Implementation layers
 
-## Visual principles
+- `components/`: one local entry directory per Carbon control or component family.
+- `layout/`: Header, SideNav, Content, AppShell, and shared structural elements.
+- `patterns/`: approved compositions of Carbon-native components.
+- `providers/`: global design-system and localization providers.
+- `hooks/` and `utilities/`: generic shared behavior only.
+- `styles/`: the single global stylesheet entry.
 
-1. Organize information through Carbon background layers and spacing; use borders sparingly and only when they communicate structure.
-2. Establish one shared AppShell: consistent header, side navigation, content width, page gutters, and responsive behavior.
-3. Use Carbon spacing and typography tokens. Avoid arbitrary per-page values and one-off visual exceptions.
-4. Prefer Carbon-native components over custom controls. Custom business components may compose Carbon components but must not imitate or replace them.
-5. Keep control shapes, sizes, focus states, validation states, and interaction behavior consistent across the application.
+## Required imports
 
-## Prohibited foundations
+Use:
 
-- No shadcn/ui or Radix UI as the application component foundation.
-- No browser-native select/dropdown as a substitute for Carbon Dropdown, ComboBox, or MultiSelect.
-- No CSS-built replicas of Carbon controls.
-- No page-specific theme palettes or independent component styling systems.
+```ts
+import { Button, TextInput, Dropdown, Header } from '@/design-system';
+import { Search, Add } from '@/design-system/icons';
+```
 
-## Acceptance gate for every page
+Never import Carbon, icon packages, or font packages directly from product features. Only `src/design-system/**` may import those packages.
 
-A page is ready for review only after checking:
-- Carbon React components are used for all applicable controls.
-- White theme is applied consistently, including overlays and nested content.
-- Layout widths, alignment, gutters, and spacing match the shared AppShell.
-- Typography, colors, and interaction states use Carbon tokens.
-- Responsive behavior and keyboard/focus accessibility are verified.
-- No prohibited component library or imitation control has been introduced.
+## Styling policy
 
-This document is the design-system baseline for all new TradePilot 2.0 implementation on the `develop` branch.
+Feature modules must not define their own CSS/SCSS declarations, inline style objects, font stacks, colors, spacing scales, shadows, radii, breakpoints, or z-index values. Compose Carbon components and Grid primitives, and consume the centralized token system through the design-system layer.
+
+## Quality gate
+
+Every change must pass:
+1. Carbon import boundary check.
+2. Design-system styling boundary check.
+3. TypeScript and Vite production build.
+4. Carbon component/API compatibility review.
+5. Accessibility and responsive-layout review before a page is accepted.
+
+The local entries are thin wrappers/re-exports, not copied Carbon source. Carbon remains the component implementation and accessibility source of truth.
