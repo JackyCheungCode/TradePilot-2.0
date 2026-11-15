@@ -409,8 +409,13 @@ export async function handleSettings(request: Request, env: SettingsEnv): Promis
     if(service==="googleMaps"){
       const key=secret("googleMaps");if(!key)return successResponse(request,{ok:false,message:"尚未配置"});
       const u=new URL("https://maps.googleapis.com/maps/api/geocode/json");u.searchParams.set("address","Berlin, Germany");u.searchParams.set("key",key);
-      const r=await fetch(u);const data=await r.json() as {status?:string};
-      return successResponse(request,{ok:r.ok&&data.status==="OK",message:r.ok&&data.status==="OK"?"Google Geocoding API 可用":"Google Maps 返回 "+String(data.status||r.status)});
+      const r=await fetch(u);const data=await r.json() as {status?:string;results?:unknown[]};
+      if(!r.ok||data.status!=="OK"||!data.results?.length)return successResponse(request,{ok:false,message:"Google Geocoding API 返回 "+String(data.status||r.status)});
+      const point=(data.results[0] as {geometry?:{location?:{lat:number;lng:number}}}).geometry?.location;
+      if(!point)return successResponse(request,{ok:false,message:"Google Geocoding API 未返回坐标"});
+      const tz=new URL("https://maps.googleapis.com/maps/api/timezone/json");tz.searchParams.set("location",point.lat+","+point.lng);tz.searchParams.set("timestamp",String(Math.floor(Date.now()/1000)));tz.searchParams.set("key",key);
+      const tr=await fetch(tz);const td=await tr.json() as {status?:string;timeZoneId?:string};
+      return successResponse(request,{ok:tr.ok&&td.status==="OK"&&Boolean(td.timeZoneId),message:tr.ok&&td.status==="OK"?"Google Geocoding 与 Time Zone API 均可用":"Google Time Zone API 返回 "+String(td.status||tr.status)});
     }
     if(service==="dhl"){
       const key=secret("dhl");if(!key)return successResponse(request,{ok:false,message:"尚未配置"});
