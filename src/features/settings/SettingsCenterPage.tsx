@@ -222,9 +222,9 @@ export function SettingsCenterPage() {
         <section className="tp-settings__workspace">
           <div className="tp-settings__workspace-heading">
             <div>
-              <p className="tp-settings__eyebrow">PRODUCT SETTINGS</p>
-              <h2>产品设置</h2>
-              <p>维护产品主数据字典、模板、包装贸易规则和数据校验策略。</p>
+              <p className="tp-settings__eyebrow">{domain === 'opportunities' ? 'OPPORTUNITY SETTINGS' : 'PRODUCT SETTINGS'}</p>
+              <h2>{domain === 'opportunities' ? '商机设置' : '产品设置'}</h2>
+              <p>{domain === 'opportunities' ? '维护销售流程、商机分类、销售组织、活动与预测规则。' : '维护产品主数据字典、模板、包装贸易规则和数据校验策略。'}</p>
             </div>
             <Tag type="green">已接入 {activeSections.length} 项</Tag>
           </div>
