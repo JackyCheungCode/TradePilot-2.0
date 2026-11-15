@@ -3,7 +3,7 @@ import type { Session, SupabaseClient } from '@supabase/supabase-js';
 import {
   Button, Checkbox, InlineLoading, InlineNotification, NumberInput, ProgressBar,
   Select, SelectItem, Table, TableBody, TableCell, TableContainer, TableHead,
-  TableHeader, TableRow, Tag, TextInput, RadioButton, RadioButtonGroup, RadioTile, TileGroup, CarbonIcons,
+  TableHeader, TableRow, Tag, TextInput, RadioButton, RadioButtonGroup, Tabs, TabList, Tab, CarbonIcons,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import {
@@ -151,26 +151,18 @@ export function ProspectDiscoveryPage() {
     {step===1&&<>
       <section className="tp-discovery__panel tp-discovery__category-panel">
         <div className="tp-discovery__section-head"><div><h2><CarbonIcons.Search size={20} aria-hidden="true"/>选择发现平台大类</h2><p>先选择发现渠道类别。默认显示全部平台，便于快速浏览。</p></div><Tag type="gray">第 1 层 · 平台类别</Tag></div>
-        <TileGroup
-          legend="发现平台大类"
-          name="discovery-category"
-          valueSelected={category}
-          onChange={(value)=>selectCategory(value as CategoryFilter)}
-          className="tp-discovery__category-tiles"
+        <Tabs
+          selectedIndex={(['all','maps','social','ecommerce'] as CategoryFilter[]).indexOf(category)}
+          onChange={({selectedIndex})=>selectCategory((['all','maps','social','ecommerce'] as CategoryFilter[])[selectedIndex]??'all')}
+          className="tp-discovery__category-tabs"
         >
-          <RadioTile id="category-all" value="all">
-            <div className="tp-discovery__category-tile-content"><CarbonIcons.Apps size={24} aria-hidden="true"/><div><strong>全部平台</strong><small>显示所有已接入和待接入渠道</small></div></div>
-          </RadioTile>
-          <RadioTile id="category-maps" value="maps">
-            <div className="tp-discovery__category-tile-content"><CarbonIcons.Map size={24} aria-hidden="true"/><div><strong>地图平台</strong><small>地图商家与本地企业</small></div></div>
-          </RadioTile>
-          <RadioTile id="category-social" value="social">
-            <div className="tp-discovery__category-tile-content"><CarbonIcons.Share size={24} aria-hidden="true"/><div><strong>社交媒体</strong><small>企业主页与商业账号</small></div></div>
-          </RadioTile>
-          <RadioTile id="category-ecommerce" value="ecommerce">
-            <div className="tp-discovery__category-tile-content"><CarbonIcons.ShoppingCart size={24} aria-hidden="true"/><div><strong>电商平台</strong><small>商品、店铺与供应商</small></div></div>
-          </RadioTile>
-        </TileGroup>
+          <TabList aria-label="发现平台大类" contained>
+            <Tab><span className="tp-discovery__category-tab"><CarbonIcons.Apps size={20} aria-hidden="true"/>全部平台</span></Tab>
+            <Tab><span className="tp-discovery__category-tab"><CarbonIcons.Map size={20} aria-hidden="true"/>地图平台</span></Tab>
+            <Tab><span className="tp-discovery__category-tab"><CarbonIcons.Share size={20} aria-hidden="true"/>社交媒体</span></Tab>
+            <Tab><span className="tp-discovery__category-tab"><CarbonIcons.ShoppingCart size={20} aria-hidden="true"/>电商平台</span></Tab>
+          </TabList>
+        </Tabs>
       </section>
       <section className="tp-discovery__panel tp-discovery__platform-panel">
         <div className="tp-discovery__section-head"><div><h2><CarbonIcons.Search size={20} aria-hidden="true"/>选择具体发现平台</h2><p>{category==='all'?'当前展示全部平台；选择上方类别后，这里会同步筛选对应平台。':('当前展示'+(platformGroups.find(group=>group.id===category)?.title??'所选类别')+'下的平台。')}</p></div><Tag type="gray">第 2 层 · 具体平台 · 单选</Tag></div>
