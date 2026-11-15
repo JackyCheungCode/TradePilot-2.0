@@ -321,7 +321,7 @@ begin
       metadata = jsonb_set(
         coalesce(metadata, '{}'::jsonb),
         '{sales_order}',
-        coalesce(metadata->'sales_order', '{}'::jsonb) || jsonb_build_object(
+        (case when jsonb_typeof(metadata->'sales_order') = 'object' then metadata->'sales_order' else '{}'::jsonb end) || jsonb_build_object(
           'order_status', 'confirmed',
           'price_locked', true,
           'confirmed_at', coalesce(confirmed_at, now()),
