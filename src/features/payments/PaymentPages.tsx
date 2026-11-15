@@ -288,7 +288,7 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
   if(loading)return <main className="tp-payments"><InlineLoading description="正在加载收款资料…"/></main>;
   const statusText=statusLabel(payment.status);
   return <main className="tp-payments">
-    <header className="tp-payments__header"><div><p className="tp-payments__eyebrow">TRADEPILOT / FINANCE / PAYMENT</p><h1>{editing?paymentNo:'创建收款（Payment）'}</h1><p>{editing?'维护收款资料、分配与核销记录。':'录入真实到账，可分配多个订单节点，也可保留为预收款。'}</p></div><div className="tp-payments__actions"><Button kind="tertiary" onClick={()=>nav('/payments')}>返回收款列表</Button>{readOnly&&payment.status==='draft'&&<Button kind="tertiary" onClick={()=>nav('/payments/'+id+'/edit')}>编辑草稿</Button>}{readOnly&&['confirmed','partially_reconciled','reconciled'].includes(payment.status)&&!payment.bank_reconciled&&<Button kind="tertiary" onClick={()=>nav('/payments/'+id+'/edit')}>登记银行对账</Button>}{editing&&!readOnly&&['confirmed','partially_reconciled','reconciled'].includes(payment.status)&&<Button kind="primary" disabled={saving} onClick={()=>void saveReconciliation()}>保存对账信息</Button>}{editing&&!readOnly&&payment.status==='draft'&&<Button kind="danger--tertiary" disabled={saving} onClick={()=>void voidPayment()}>作废</Button>}{editing&&!readOnly&&payment.status==='draft'&&<Button kind="primary" disabled={saving} onClick={()=>void confirm()}>{payment.payment_type==='refund'?'确认退款 / 红冲':'确认收款并核销'}</Button>}</div></header>
+    <header className="tp-payments__header"><div><p className="tp-payments__eyebrow">TRADEPILOT / FINANCE / PAYMENT</p><h1>{editing?paymentNo:'创建收款（Payment）'}</h1><p>{editing?'维护收款资料、分配与核销记录。':'录入真实到账，可分配多个订单节点，也可保留为预收款。'}</p></div><div className="tp-payments__actions"><Button kind="tertiary" onClick={()=>nav('/payments')}>返回收款列表</Button>{readOnly&&payment.status==='draft'&&<Button kind="tertiary" onClick={()=>nav('/payments/'+id+'/edit')}>编辑草稿</Button>}{readOnly&&['confirmed','partially_reconciled','reconciled'].includes(payment.status)&&!payment.bank_reconciled&&<Button kind="tertiary" onClick={()=>nav('/payments/'+id+'/edit')}>登记银行对账</Button>}{readOnly&&['confirmed','partially_reconciled'].includes(payment.status)&&Number(payment.unallocated_amount)>0.005&&<Button kind="primary" onClick={()=>nav('/payments/'+id+'/allocate')}>分配预收余额</Button>}{editing&&!readOnly&&['confirmed','partially_reconciled','reconciled'].includes(payment.status)&&<Button kind="primary" disabled={saving} onClick={()=>void saveReconciliation()}>保存对账信息</Button>}{editing&&!readOnly&&payment.status==='draft'&&<Button kind="danger--tertiary" disabled={saving} onClick={()=>void voidPayment()}>作废</Button>}{editing&&!readOnly&&payment.status==='draft'&&<Button kind="primary" disabled={saving} onClick={()=>void confirm()}>{payment.payment_type==='refund'?'确认退款 / 红冲':'确认收款并核销'}</Button>}</div></header>
     {error&&<InlineNotification kind="error" title="收款操作未完成" subtitle={error}/>}
     <section className="tp-payments__basic">
       <div className="tp-payments__basic-head"><div><Tag type={payment.status==='reconciled'?'green':payment.status==='voided'?'red':'blue'}>{statusText}</Tag><span>{paymentNo}</span></div><Tag type="cool-gray">{payment.payment_type==='refund'?'退款':'收款'}</Tag></div>
@@ -400,6 +400,66 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
         </div></TabPanel>
       </TabPanels></Tabs>
       <div className="tp-payments__footer"><span>草稿可修改；确认后金额、币种、账户与日期锁定。已对账记录不可直接作废。</span><div><Button kind="ghost" onClick={()=>setActiveTab(Math.max(0,activeTab-1))} disabled={activeTab===0}>上一步</Button><Button kind="tertiary" onClick={()=>setActiveTab(Math.min(3,activeTab+1))} disabled={activeTab===3}>下一步</Button>{!readOnly&&!locked&&<Button kind="primary" onClick={()=>void save()} disabled={saving}>{saving?'保存中…':'保存草稿'}</Button>}</div></div>
+    </section>
+  </main>;
+}
+
+
+export function PaymentAllocationPage() {
+  const nav=useNavigate();const {id}=useParams();
+  const [payment,setPayment]=useState<AnyRow|null>(null);const [orders,setOrders]=useState<AnyRow[]>([]);
+  const [allocations,setAllocations]=useState<AnyRow[]>([emptyAllocation()]);
+  const [loading,setLoading]=useState(true);const [saving,setSaving]=useState(false);const [error,setError]=useState('');
+  useEffect(()=>{(async()=>{try{const db=await getSupabaseClient();const [p,o]=await Promise.all([
+    db.from('trade_payments').select('*').eq('id',id).single(),
+    db.from('trade_orders').select('*').eq('order_type','sales').order('created_at',{ascending:false}).range(0,2999)
+  ]);if(p.error)throw p.error;if(o.error)throw o.error;setPayment(p.data);setOrders(o.data||[]);}catch(e){setError(e instanceof Error?e.message:'加载预收款失败');}finally{setLoading(false);}})()},[id]);
+  const eligibleOrders=orders.filter(o=>o.crm_account_id===payment?.account_id&&isAllocatableOrder(o));
+  const equivalent=(a:AnyRow)=>{const order=orders.find(o=>o.id===a.order_id);const orderRate=Number(order?.metadata?.sales_order?.form?.exchange_rate||1);const paymentRate=Number(payment?.exchange_rate||1);return paymentRate>0?Number(a.allocated_amount||0)*orderRate/paymentRate:0;};
+  const total=allocations.reduce((sum,a)=>sum+equivalent(a),0);
+  const setRow=(index:number,key:string,value:string)=>setAllocations(prev=>prev.map((a,i)=>i===index?{...a,[key]:value,...(key==='order_id'?{schedule_node_id:''}:{})}:a));
+  const addRow=()=>setAllocations(prev=>[...prev,emptyAllocation()]);
+  const removeRow=(index:number)=>setAllocations(prev=>prev.filter((_,i)=>i!==index));
+  const nodesFor=(orderId:string):AnyRow[]=>scheduleOf(orders.find(o=>o.id===orderId));
+  const save=async()=>{
+    setError('');
+    if(!payment||!id)return;
+    if(!allocations.length){setError('至少添加一条分配记录。');return;}
+    const seen=new Set<string>();
+    for(const a of allocations){
+      if(!a.order_id||!a.schedule_node_id||!(Number(a.allocated_amount)>0)||!(equivalent(a)>0)){setError('每条分配必须选择订单、收款节点并填写有效金额。');return;}
+      const order=orders.find(o=>o.id===a.order_id);const node=nodesFor(a.order_id).find((n:AnyRow)=>String(n.id)===String(a.schedule_node_id));
+      if(!order||!isAllocatableOrder(order)){setError('只能分配给已确认及之后状态的订单。');return;}
+      const outstanding=Math.max(0,Number(node?.amount||0)-Number(node?.paid_amount||0)-Number(node?.writeoff_amount||0));
+      if(Number(a.allocated_amount)>outstanding+0.000001){setError('分配金额超过该收款节点未收余额。');return;}
+      const key=a.order_id+'|'+a.schedule_node_id;if(seen.has(key)){setError('同一收款节点不能重复分配。');return;}seen.add(key);
+    }
+    if(total>Number(payment.unallocated_amount||0)+0.000001){setError('分配总额超过当前未分配余额。');return;}
+    setSaving(true);
+    try{
+      const db=await getSupabaseClient();
+      const payload=allocations.map(a=>({order_id:a.order_id,schedule_node_id:a.schedule_node_id,allocation_type:a.allocation_type,allocated_amount:Number(a.allocated_amount),allocated_amount_in_payment:equivalent(a),allocation_date:a.allocation_date||dateToday()}));
+      const {error:e}=await db.rpc('allocate_confirmed_trade_payment',{p_payment_id:id,p_allocations:payload});
+      if(e)throw e;nav('/payments/'+id,{replace:true});
+    }catch(e){setError(e instanceof Error?e.message:'分配预收款失败');}
+    finally{setSaving(false);}
+  };
+  if(loading)return <main className="tp-payments"><InlineLoading description="正在加载预收余额…"/></main>;
+  if(!payment)return <main className="tp-payments"><InlineNotification kind="error" title="收款记录不存在" subtitle={error||'无法读取该收款记录。'}/></main>;
+  return <main className="tp-payments">
+    <header className="tp-payments__header"><div><p className="tp-payments__eyebrow">TRADEPILOT / FINANCE / PREPAYMENT ALLOCATION</p><h1>分配预收余额</h1><p>{payment.payment_no} · {payment.currency} · {payment.status==='confirmed'?'已确认':'部分核销'}</p></div><div className="tp-payments__actions"><Button kind="tertiary" onClick={()=>nav('/payments/'+id)}>返回收款记录</Button><Button kind="primary" onClick={()=>void save()} disabled={saving||total<=0||total>Number(payment.unallocated_amount||0)}>确认分配</Button></div></header>
+    {error&&<InlineNotification kind="error" title="分配未完成" subtitle={error}/>}
+    <section className="tp-payments__amount-strip"><div><span>客户</span><strong>{payment.payer_name}</strong></div><div><span>未分配余额</span><strong>{money(Number(payment.unallocated_amount||0),payment.currency)}</strong></div><div><span>本次分配</span><strong>{money(total,payment.currency)}</strong></div><div><span>分配后余额</span><strong>{money(Math.max(0,Number(payment.unallocated_amount||0)-total),payment.currency)}</strong></div></section>
+    <section className="tp-payments__panel"><div className="tp-payments__panel-head"><div><h2>订单与收款节点</h2><p>仅可选择同一客户已确认及之后状态的订单；金额折算使用订单汇率与本次收款汇率。</p></div><Button kind="tertiary" onClick={addRow}><CarbonIcons.Add/>添加分配</Button></div>
+      {allocations.map((a,i)=><div className="tp-payments__allocation" key={i}><div className="tp-payments__allocation-head"><strong>分配 {i+1}</strong><Button kind="ghost" size="sm" onClick={()=>removeRow(i)}>移除</Button></div><div className="tp-payments__form-grid">
+        <Pick id={'prepay-order-'+i} label="订单" value={a.order_id} onChange={v=>setRow(i,'order_id',v)} options={eligibleOrders.map(o=>({value:o.id,label:o.order_number+' · '+o.title}))}/>
+        <Pick id={'prepay-node-'+i} label="收款节点" value={a.schedule_node_id} onChange={v=>setRow(i,'schedule_node_id',v)} options={nodesFor(a.order_id).map((n:AnyRow)=>({value:String(n.id),label:(n.milestone||'收款节点')+' · '+money(Math.max(0,Number(n.amount||0)-Number(n.paid_amount||0)-Number(n.writeoff_amount||0)),orders.find(o=>o.id===a.order_id)?.currency_code||'USD')+' 待收'}))}/>
+        <Pick id={'prepay-type-'+i} label="分配类型" value={a.allocation_type} onChange={v=>setRow(i,'allocation_type',v)} options={ALLOCATION_TYPES}/>
+        <Field id={'prepay-amount-'+i} label="分配金额（订单币种）" type="number" value={a.allocated_amount} onChange={v=>setRow(i,'allocated_amount',v)}/>
+        <Field id={'prepay-equivalent-'+i} label="折合收款币种金额（自动计算）" value={equivalent(a).toFixed(2)} onChange={()=>{}} disabled/>
+        <Field id={'prepay-date-'+i} label="分配日期" type="date" value={a.allocation_date||dateToday()} onChange={v=>setRow(i,'allocation_date',v)}/>
+      </div></div>)}
+      <div className="tp-payments__footer"><span>确认后会回写订单收款计划；定金节点收齐时自动解除发货冻结。</span><div><Button kind="ghost" onClick={()=>nav('/payments/'+id)}>取消</Button><Button kind="primary" onClick={()=>void save()} disabled={saving||total<=0||total>Number(payment.unallocated_amount||0)}>{saving?'处理中…':'确认分配'}</Button></div></div>
     </section>
   </main>;
 }
