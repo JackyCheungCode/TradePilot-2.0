@@ -1,5 +1,7 @@
 import { errorResponse, successResponse } from "../lib/http";
 import type { DiscoveryRunInput } from "./discovery";
+import type { FacebookInput } from "./facebook-discovery";
+import type { InstagramInput } from "./instagram-discovery";
 
 type Protocol = "rest_api" | "mcp" | "webhook";
 type AuthMode = "none" | "bearer" | "header" | "oauth2" | "webhook_secret";
@@ -10,6 +12,9 @@ export interface Env {
   AGENT_ENCRYPTION_KEY?: string;
   SERPER_API_KEY?: string;
   SERPAPI_API_KEY?: string;
+  APIFY_API_TOKEN?: string;
+  FACEBOOK_DISCOVERY_WORKFLOW?: { create(options:{id:string;params:{runId:string;ownerId:string;input:FacebookInput}}):Promise<{id:string}> };
+  INSTAGRAM_DISCOVERY_WORKFLOW?: { create(options:{id:string;params:{runId:string;ownerId:string;input:InstagramInput}}):Promise<{id:string}> };
   GOOGLE_MAPS_API_KEY?: string;
   OVERPASS_API_URL?: string;
   AI?: {run(model:string,input:Record<string,unknown>):Promise<unknown>};
@@ -360,7 +365,7 @@ function buildXiaoyaSystemPrompt(workspaceContext:string):string{
   "TradePilot 功能包括：全网情报搜索与社交平台发现；潜客、CRM 客户企业和联系人；商机、报价、销售订单；发运、收付款和贸易单据；产品资料；AI 模型与 API 集成；Agent 配置和任务执行中心。",
   "你是总协调 Agent；可建议全球买家开发、市场研究、企业调查、潜客评分、贸易合规等专业 Agent，但不要假装它们已经运行。",
   "只在用户意图明确需要执行时生成 task；普通讨论、解释和方案分析时 task 必须为 null。",
-  "task schema 为 goal、agentKey、country、mode。agentKey 只能使用 auto、buyer_development、market_research、company_research、lead_scoring、multilingual_sales、follow_up、trade_compliance。",
+  "task schema 为 goal、agentKey、country、mode、channel、objectTypes。agentKey 只能使用 auto、buyer_development、market_research、company_research、lead_scoring、multilingual_sales、follow_up、trade_compliance。channel 可为 search_engine、facebook、instagram；用户明确要求 Facebook 页面/群组/帖子等公开内容时选择 facebook，明确要求 Instagram 账号/创作者/商业账号发现时选择 instagram，其余选择 search_engine。Facebook objectTypes 可从 page、person、post、group、video、event 选择，默认 page、group、post。",
   "country 必须是 ISO 3166-1 alpha-2。若任务确实需要国家而上下文仍没有国家，task=null，并只询问国家；不能猜默认国家。",
   "mode 默认 planner。除非用户明确指定，不要选择 internal 或 external。",
   "不要建议未经人工确认就发送邮件、批量导入 CRM、删除数据或执行其他不可逆外部操作。",
@@ -734,7 +739,7 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
         db<Array<Record<string,unknown>>>(env,"discovery_records?owner_id=eq."+ownerId+"&select=id,name,country_code,address,phone,email,website,business_type,confidence_score,channel,record_type,raw_data,status,discovery_record_occurrences!inner(id,run_id,provider,keyword,source_url,raw_data,captured_at)&discovery_record_occurrences.run_id=eq."+runId+"&discovery_record_occurrences.is_removed=eq.false&order=created_at.desc&limit=100")
       ]);
       const detailedRecords=(records??[]).map(record=>({...record,sources:Array.isArray(record.discovery_record_occurrences)?record.discovery_record_occurrences:[]}));
-      return successResponse(request,{run,discoveryRun:discovery?.[0]??null,events:events??[],logs:logs??[],records:detailedRecords});
+      const discoveryStatus=String(discovery?.[0]?.status??run.status);\n      const synchronizedStatus=discoveryStatus==="completed"?"succeeded":discoveryStatus;\n      return successResponse(request,{run:{...run,status:synchronizedStatus},discoveryRun:discovery?.[0]??null,events:events??[],logs:logs??[],records:detailedRecords});
     }
 
     if(path==="/api/v1/agent/conversations"&&request.method==="GET"){
@@ -818,7 +823,7 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
           const country=String(taskRaw.country??"").toUpperCase();
           const mode=["planner","internal","external"].includes(String(taskRaw.mode))?String(taskRaw.mode):"planner";
           if(!/^[A-Z]{2}$/.test(country))task=null;
-          else task={goal:String(taskRaw.goal).slice(0,10000),agentKey,country,mode};
+          else {\n            const channel=["search_engine","facebook","instagram"].includes(String(taskRaw.channel))?String(taskRaw.channel):"search_engine";\n            const allowedObjects=new Set(["page","person","post","group","video","event"]);\n            const objectTypes=Array.isArray(taskRaw.objectTypes)?[...new Set(taskRaw.objectTypes.filter((value):value is string=>typeof value==="string"&&allowedObjects.has(value)))] as string[]:["page","group","post"];\n            task={goal:String(taskRaw.goal).slice(0,10000),agentKey,country,mode,channel,objectTypes:objectTypes.slice(0,6)};\n          }
         }
         const assistantRows=await db<Array<{id:string}>>(env,"agent_chat_messages",{method:"POST",headers:{Prefer:"return=representation"},body:JSON.stringify({owner_id:ownerId,conversation_id:conversationId,role:"assistant",content:reply,metadata:{task,model:generated.model,toolsUsed:toolResults.filter(item=>item.ok===true).map(item=>({name:item.tool,label:item.label,count:item.count}))}})});
         await db(env,"agent_conversations?id=eq."+conversationId+"&owner_id=eq."+ownerId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({last_message_at:new Date().toISOString()})});
@@ -840,6 +845,40 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
       if(goal.length<2||goal.length>10000)return errorResponse(request,"VALIDATION_ERROR","任务目标长度必须为 2–10000 个字符。",400);
       const execution=asRecord(body.execution);
       const requestedAgentKey=typeof execution.agentKey==="string"&&["buyer_development","market_research","company_research","lead_scoring","multilingual_sales","follow_up","trade_compliance"].includes(execution.agentKey)?execution.agentKey:"";
+      const executionChannel=String(execution.channel??"search_engine");
+      if(executionChannel==="facebook"||executionChannel==="instagram"){
+        const country=typeof execution.country==="string"?execution.country.trim().toUpperCase():"";
+        if(!/^[A-Z]{2}$/.test(country))return errorResponse(request,"VALIDATION_ERROR","请提供有效的目标国家代码。",400);
+        if(!env.APIFY_API_TOKEN)return errorResponse(request,"PROVIDER_NOT_CONFIGURED","Apify API Key 尚未配置，请先前往 AI 与 API 集成配置。",400);
+        if(executionChannel==="facebook"&&!env.FACEBOOK_DISCOVERY_WORKFLOW)return errorResponse(request,"WORKFLOW_NOT_CONFIGURED","Facebook Apify 工作流尚未部署。",503);
+        if(executionChannel==="instagram"&&!env.INSTAGRAM_DISCOVERY_WORKFLOW)return errorResponse(request,"WORKFLOW_NOT_CONFIGURED","Instagram Apify 工作流尚未部署。",503);
+        const runId=crypto.randomUUID();
+        const taskCode=(executionChannel==="facebook"?"FB-":"IG-")+country+"-"+new Date().toISOString().slice(0,10).replace(/-/g,"")+"-"+runId.replace(/-/g,"").slice(0,6).toUpperCase();
+        const limit=Math.max(1,Math.min(500,Number(execution.limitPerCountry)||50));
+        const query=goal;
+        const objectTypes=Array.isArray(execution.objectTypes)?[...new Set(execution.objectTypes.filter((value):value is string=>["page","person","post","group","video","event"].includes(String(value))))].slice(0,6):["page","group","post"];
+        const plan={planner:{summary:executionChannel==="facebook"?"通过 Apify 搜索 Facebook 公开页面、群组与内容。":"通过 Apify 发现 Instagram 公开商业账号。",steps:["提交平台检索任务","由 Apify Actor 执行公开内容采集","将结果写入全网发现记录并回传聊天"],model:"native-workflow"},execution_state:"queued",action:{type:executionChannel+"_discovery",country,query},execution_steps:[{agentKey:executionChannel+"_discovery",title:executionChannel==="facebook"?"Facebook 公开内容发现":"Instagram 商业账号发现",status:"queued"}],policy:{public_data_only:true,external_writes:"approval_required"}};
+        const created=await db<Array<{id:string}>>(env,"agent_runs",{method:"POST",headers:{Prefer:"return=representation"},body:JSON.stringify({id:runId,owner_id:ownerId,agent_key:executionChannel==="facebook"?"buyer_development":"market_research",goal,status:"queued",plan})});
+        if(!created?.length)return errorResponse(request,"RUN_CREATE_FAILED","无法创建平台发现任务。",500);
+        try{
+          if(executionChannel==="facebook"){
+            const input:FacebookInput={country,query,objectTypes:objectTypes.length?objectTypes:["page","group","post"],limitPerType:limit,enrichPages:true,enrichGroups:true,enrichPosts:true};
+            await db(env,"discovery_runs",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({id:runId,owner_id:ownerId,query,countries:[country],limit_per_country:limit,providers:["apify"],channel:"facebook",search_config:{objectTypes:input.objectTypes,limitPerType:limit,enrichPages:true,enrichGroups:true,enrichPosts:true},status:"queued",progress:0,discovered_count:0,created_lead_count:0,message:"Facebook Apify 发现任务已排队",task_code:taskCode})});
+            await env.FACEBOOK_DISCOVERY_WORKFLOW!.create({id:runId,params:{runId,ownerId,input}});
+          }else{
+            const input:InstagramInput={keywords:[goal.slice(0,200)],countries:[country],languageCodes:[],accountTypes:["business","creator"],minFollowers:100,maxFollowers:10000000,recentDays:365,requireContact:true,excludeTerms:[],limit:Math.min(limit,1000),includeCaptions:true};
+            await db(env,"discovery_runs",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({id:runId,owner_id:ownerId,query,countries:[country],limit_per_country:input.limit,providers:["apify"],channel:"instagram",search_config:{keywords:input.keywords,countries:input.countries,accountTypes:input.accountTypes,minFollowers:input.minFollowers,maxFollowers:input.maxFollowers,recentDays:input.recentDays,requireContact:true,limit:input.limit,includeCaptions:true},status:"queued",progress:0,discovered_count:0,created_lead_count:0,message:"Instagram Apify 发现任务已排队",task_code:taskCode})});
+            await env.INSTAGRAM_DISCOVERY_WORKFLOW!.create({id:runId,params:{runId,ownerId,input}});
+          }
+          await writeRunLog(env,ownerId,runId,"info","小雅已启动 "+executionChannel+" 平台发现工作流。",{taskCode,country,query});
+        }catch(error){
+          const message="平台发现工作流启动失败："+String(error).slice(0,200);
+          await db(env,"agent_runs?id=eq."+runId+"&owner_id=eq."+ownerId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({status:"failed",error_message:message,completed_at:new Date().toISOString()})});
+          await db(env,"discovery_runs?id=eq."+runId+"&owner_id=eq."+ownerId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({status:"failed",progress:100,message})});
+          return errorResponse(request,"WORKFLOW_START_FAILED",message,503);
+        }
+        return successResponse(request,{id:runId,taskCode,agentKey:executionChannel,status:"queued",message:"Apify 平台发现任务已进入执行中心。"},202);
+      }
       const plannerMode=execution.mode==="planner";
       const explicitInternal=execution.mode==="internal_discovery";
       const engine:"serper"|"serpapi"=execution.searchEngine==="serpapi"?"serpapi":"serper";
