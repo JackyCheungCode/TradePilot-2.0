@@ -141,7 +141,7 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
   const bankOptions=banks.filter(b=>b.is_active!==false&&!b.is_archived);
   const grossFees=Number(payment.bank_fee||0)+Number(payment.intermediary_fee||0);
   const suggestedNet=Math.max(0,Number(payment.amount||0)-grossFees);
-  const allocatedSum=allocations.reduce((s,a)=>s+Number(a.allocated_amount_in_payment||0),0);
+  const allocatedSum=allocations.reduce((sum,a)=>{const order=orders.find(o=>o.id===a.order_id);const node=scheduleOf(order).find(n=>String(n.id)===String(a.schedule_node_id));const outstanding=Math.max(0,Number(node?.amount||0)-Number(node?.paid_amount||0));const requested=Number(a.allocated_amount||0);const ratio=requested>0?Math.min(1,outstanding/requested):0;return sum+Number(a.allocated_amount_in_payment||0)*ratio},0);
   const remaining=Math.max(0,Number(payment.net_received||suggestedNet)-allocatedSum);
   const selectedAccount=accounts.find(a=>a.id===payment.account_id);
   const originalPayment=payments.find(p=>p.id===payment.original_payment_id);
@@ -214,7 +214,7 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
     try {
       const db=await getSupabaseClient();const {data:s}=await db.auth.getSession();const user=s.session?.user;if(!user)throw new Error('登录状态已失效');
       const net=Number(payment.net_received||suggestedNet);
-      const payload={...payment,owner_id:user.id,account_id:payment.account_id,contact_id:payment.contact_id||null,payment_date:payment.payment_date,received_date:payment.received_date||null,currency:payment.currency,amount:Number(payment.amount),bank_fee:Number(payment.bank_fee||0),intermediary_fee:Number(payment.intermediary_fee||0),net_received:net,exchange_rate:payment.exchange_rate?Number(payment.exchange_rate):null,amount_base:payment.exchange_rate?net*Number(payment.exchange_rate):null,lc_amount:payment.lc_amount?Number(payment.lc_amount):null,usance_days:payment.usance_days?Number(payment.usance_days):null,allocated_total:allocatedSum,unallocated_amount:Math.max(0,net-allocatedSum),diff_amount:Number(payment.diff_amount||0),refund_amount:payment.refund_amount?Number(payment.refund_amount):null,original_payment_id:payment.original_payment_id||null,tags:String(payment.tags_text||'').split(',').map((x:string)=>x.trim()).filter(Boolean),created_by:user.id,updated_by:user.id};
+      const payload={...payment,owner_id:user.id,account_id:payment.account_id,contact_id:payment.contact_id||null,payment_date:payment.payment_date,received_date:payment.received_date||null,currency:payment.currency,amount:Number(payment.amount),bank_fee:Number(payment.bank_fee||0),intermediary_fee:Number(payment.intermediary_fee||0),net_received:net,exchange_rate:payment.exchange_rate?Number(payment.exchange_rate):null,amount_base:payment.exchange_rate?net*Number(payment.exchange_rate):null,lc_amount:payment.lc_amount?Number(payment.lc_amount):null,usance_days:payment.usance_days?Number(payment.usance_days):null,allocated_total:allocatedSum,unallocated_amount:Math.max(0,net-allocatedSum),diff_amount:Math.abs(computedDiff),diff_type:computedDiffType,refund_amount:payment.refund_amount?Number(payment.refund_amount):null,original_payment_id:payment.original_payment_id||null,tags:String(payment.tags_text||'').split(',').map((x:string)=>x.trim()).filter(Boolean),created_by:user.id,updated_by:user.id};
       delete payload.tags_text;
       let paymentId=id;
       if(editing&&id){const {error:e}=await db.from('trade_payments').update({...payload,updated_at:new Date().toISOString()}).eq('id',id).eq('owner_id',user.id);if(e)throw e;}
@@ -298,7 +298,7 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
           </div>
           <h2>金额与币种</h2><div className="tp-payments__form-grid">
             <Pick id="pay-currency" label="收款币种" value={payment.currency} onChange={v=>set('currency',v)} options={CURRENCIES} disabled={locked}/>
-            <Field id="pay-amount" label="汇款金额" type="number" value={payment.amount} onChange={v=>{set('amount',v);if(!payment.net_received)set('net_received',String(Math.max(0,Number(v)-grossFees)))}} disabled={locked}/>
+            <Field id="pay-amount" label="汇款金额" type="number" value={payment.amount} onChange={v=>{set('amount',v);set('net_received',String(Math.max(0,Number(v)-grossFees)))}} disabled={locked}/>
             <Field id="pay-bank-fee" label="银行手续费" type="number" value={payment.bank_fee} onChange={v=>{set('bank_fee',v);set('net_received',String(Math.max(0,Number(payment.amount)-Number(v)-Number(payment.intermediary_fee||0))))}} disabled={locked}/>
             <Field id="pay-intermediary-fee" label="中间行费用" type="number" value={payment.intermediary_fee} onChange={v=>{set('intermediary_fee',v);set('net_received',String(Math.max(0,Number(payment.amount)-Number(v)-Number(payment.bank_fee||0))))}} disabled={locked}/>
             <Field id="pay-net" label="实际入账金额" type="number" value={payment.net_received||suggestedNet} onChange={v=>set('net_received',v)} disabled={locked}/>
