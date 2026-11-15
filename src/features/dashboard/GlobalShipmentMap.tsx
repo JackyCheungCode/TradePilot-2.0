@@ -45,8 +45,8 @@ function pathFrom(points: Array<[number, number]>) {
     return (index ? 'L' : 'M') + p.x.toFixed(1) + ',' + p.y.toFixed(1);
   }).join(' ') + ' Z';
 }
-function routePath(destination: RoutePoint, index: number) {
-  const origin = project(SHENZHEN.x, SHENZHEN.y);
+function routePath(destination: RoutePoint, index: number, originPoint: RoutePoint = SHENZHEN) {
+  const origin = project(originPoint.x, originPoint.y);
   const end = project(destination.x, destination.y);
   let dx = end.x - origin.x;
   if (dx > 500) dx -= 1000;
@@ -65,11 +65,9 @@ function destinationOf(shipment: Shipment) {
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
   return { lat, lon, city: String(address.city || address.locality || ''), country: String(address.country || ''), recipient: String(address.recipient_name || address.name || '') };
 }
-function originOf(shipment: Shipment) {
+function originOf(shipment: Shipment): RoutePoint {
   const header = shipment.header || {};
-  const lat = Number(header.origin_latitude ?? SHENZHEN.x);
-  const lon = Number(header.origin_longitude ?? SHENZHEN.y);
-  return { lat, lon };
+  return { x: Number(header.origin_latitude ?? SHENZHEN.x), y: Number(header.origin_longitude ?? SHENZHEN.y) };
 }
 export function GlobalShipmentMap() {
   const [shipments, setShipments] = useState<Shipment[]>([]);
@@ -149,13 +147,14 @@ export function GlobalShipmentMap() {
           {visible.map((shipment, index) => {
             const destination = destinationOf(shipment);
             if (!destination) return null;
-            const route = routePath({ x: destination.lat, y: destination.lon }, index);
+            const route = routePath({ x: destination.lat, y: destination.lon }, index, originOf(shipment));
             const isSelected = selected === shipment.id;
             return <g key={shipment.id} className={isSelected ? 'is-selected' : ''} onClick={() => setSelected(shipment.id)} role="button" tabIndex={0} aria-label={'查看发运单 ' + shipment.shipment_no} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') setSelected(shipment.id); }}>
               <path d={route.d} className="tp-shipment-map__route-glow"/>
               <path d={route.d} className="tp-shipment-map__route"/>
               <path d={route.d} className="tp-shipment-map__route-flow"/>
               <circle r="3.2" className="tp-shipment-map__particle"><animateMotion dur={(5 + index % 5) + 's'} repeatCount="indefinite" path={route.d}/></circle>
+              <circle cx={route.origin.x} cy={route.origin.y} r="2.5" className="tp-shipment-map__origin-point"/>
               <circle cx={route.end.x} cy={route.end.y} r={isSelected ? 8 : 5.5} className="tp-shipment-map__destination"/>
               <circle cx={route.end.x} cy={route.end.y} r="12" className="tp-shipment-map__destination-halo"/>
             </g>;
