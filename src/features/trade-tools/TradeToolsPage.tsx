@@ -91,6 +91,7 @@ export function TradeToolsPage() {
   const [freight,setFreight] = useState('5');
   const [duty,setDuty] = useState('0');
   const [other,setOther] = useState('2');
+  const [profitCurrency,setProfitCurrency] = useState('USD');
   const [margin,setMargin] = useState('25');
   const [saleQty,setSaleQty] = useState('1');
 
@@ -292,7 +293,7 @@ export function TradeToolsPage() {
           <div className="tp-trade-tools__tool-title"><CarbonIcons.Time size={24}/><div><h2>客户联系时机</h2><p>当地时间、工作日状态、昼夜和近三天天气</p></div></div>
           <div className="tp-trade-tools__form-grid">
             <Select id="contact-select" labelText="选择客户／联系人（可选）" value={selectedContact} onChange={e=>void chooseContact(e.currentTarget.value)}><SelectItem value="" text="手动选择地点"/>{contacts.map(c=><SelectItem key={c.id} value={c.id} text={c.label+' · '+c.address}/>)}</Select>
-            <Select id="contact-country" labelText="国家或地区" value={locationCountry} onChange={e=>setLocationCountry(e.currentTarget.value)}>{holidayCountries.map(c=><SelectItem key={c.countryCode} value={c.countryCode} text={(flags[c.countryCode]||'🌐')+' '+(countryNames[c.countryCode]||c.name)}/>)}</Select>
+            <Select id="contact-country" labelText="国家或地区" value={locationCountry} onChange={e=>setLocationCountry(e.currentTarget.value)}>{holidayCountries.filter(c=>!['HK','MO','TW'].includes(c.countryCode)).map(c=><SelectItem key={c.countryCode} value={c.countryCode} text={(flags[c.countryCode]||'🌐')+' '+(countryNames[c.countryCode]||c.name)}/>)}<SelectItem value="HK" text="🇭🇰 中国·香港"/><SelectItem value="MO" text="🇲🇴 中国·澳门"/><SelectItem value="TW" text="🇹🇼 中国·台湾"/></Select>
             <TextInput id="contact-region" labelText="省／州／地区（可选）" value={locationRegion} onChange={e=>setLocationRegion(e.currentTarget.value)} placeholder="例如 California / Bayern"/>
             <TextInput id="contact-city" labelText="城市（可选）" value={locationCity} onChange={e=>setLocationCity(e.currentTarget.value)} placeholder="例如 Los Angeles / Berlin"/>
             <TextInput id="contact-location" labelText="客户地址（可选）" value={locationQuery} onChange={e=>setLocationQuery(e.currentTarget.value)} placeholder="可输入完整地址覆盖上方地区"/>
@@ -318,8 +319,9 @@ export function TradeToolsPage() {
             <TextInput id="profit-other" labelText="其他费用（单件）" type="number" value={other} onChange={e=>setOther(e.currentTarget.value)}/>
             <TextInput id="profit-margin" labelText="目标毛利率（%）" type="number" value={margin} onChange={e=>setMargin(e.currentTarget.value)}/>
             <TextInput id="profit-qty" labelText="报价数量" type="number" value={saleQty} onChange={e=>setSaleQty(e.currentTarget.value)}/>
+            <Select id="profit-currency" labelText="报价币种" value={profitCurrency} onChange={e=>setProfitCurrency(e.currentTarget.value)}>{currencies.map(code=><SelectItem key={code} value={code} text={code}/>)}</Select>
           </div>
-          <div className="tp-trade-tools__profit-result"><div><span>单件总成本</span><strong>{profit.totalCost.toFixed(2)}</strong></div><div><span>建议单价</span><strong>{profit.price.toFixed(2)}</strong></div><div><span>单件利润</span><strong>{profit.profit.toFixed(2)}</strong></div><div><span>订单总利润</span><strong>{(profit.profit*profit.qty).toFixed(2)}</strong></div><div><span>目标毛利率</span><strong>{profit.margin.toFixed(2)}%</strong></div></div>
+          <div className="tp-trade-tools__profit-result"><div><span>单件总成本</span><strong>{profitCurrency} {profit.totalCost.toFixed(2)}</strong></div><div><span>建议单价</span><strong>{profitCurrency} {profit.price.toFixed(2)}</strong></div><div><span>单件利润</span><strong>{profitCurrency} {profit.profit.toFixed(2)}</strong></div><div><span>订单总利润</span><strong>{profitCurrency} {(profit.profit*profit.qty).toFixed(2)}</strong></div><div><span>目标毛利率</span><strong>{profit.margin.toFixed(2)}%</strong></div></div>
           <p className="tp-trade-tools__footnote">当前按不含税销售额计算毛利率，报价币种由你录入成本时自行统一；尚未纳入汇率、佣金和阶梯价格。</p>
         </section>}
       </section>
