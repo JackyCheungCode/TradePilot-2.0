@@ -34,3 +34,13 @@ jobs:
 
       - name: Validate Cloudflare Worker bundle (dry run only)
         run: npm run worker:validate
+
+      - name: Package Worker deployment bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: tradepilot-worker-bundle-${{ github.sha }}
+          path: |
+            .wrangler/dry-run/
+            dist/client/
+          if-no-files-found: error
+          retention-days: 1
