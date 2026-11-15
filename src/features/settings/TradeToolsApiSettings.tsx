@@ -46,15 +46,15 @@ export function TradeToolsApiSettings(){
   <p>密钥通过已配置的 Cloudflare API Token 保存为 TradePilot Worker Secrets。页面不会读取或回显已保存的密钥。</p>
   {error&&<InlineNotification kind="error" title="配置失败" subtitle={error} onCloseButtonClick={()=>setError('')}/>}
   {notice&&<InlineNotification kind="success" title="保存成功" subtitle={notice} onCloseButtonClick={()=>setNotice('')}/>}
-  {credentials.map(item=><div key={item.id} className="tp-settings__editor" style={{marginTop:'1rem'}}>
-   <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'1rem'}}><strong>{item.label}</strong><Tag type={status[item.statusKey]?'green':'cool-gray'}>{status[item.statusKey]?'已配置':'未配置'}</Tag></div>
+  {credentials.map(item=><div key={item.id} className="tp-settings-trade-api__credential">
+   <div className="tp-settings-trade-api__credential-heading"><strong>{item.label}</strong><Tag type={status[item.statusKey]?'green':'cool-gray'}>{status[item.statusKey]?'已配置':'未配置'}</Tag></div>
    <p>{item.hint}</p>
-   <div className="tp-settings__editor-grid">
+   <div className="tp-settings-trade-api__credential-form">
     <TextInput id={'trade-api-'+item.id} labelText={item.label} type="password" autoComplete="new-password" placeholder={item.placeholder} value={values[item.id]||''} onChange={e=>setValues(v=>({...v,[item.id]:e.currentTarget.value}))}/>
     <Button kind="primary" disabled={Boolean(saving)||!values[item.id]?.trim()} onClick={()=>void save(item)}>{saving===item.id?'正在保存…':'保存凭证'}</Button>
    </div>
   </div>)}
-  <div style={{display:'flex',flexWrap:'wrap',gap:'.5rem',marginTop:'1.5rem'}}>
+  <div className="tp-settings-trade-api__actions">
    <Button kind="secondary" disabled={Boolean(testing)} onClick={()=>void test('dhl')}>{testing==='dhl'?'正在测试…':'测试 DHL'}</Button>
    <Button kind="secondary" disabled={Boolean(testing)} onClick={()=>void test('upsClientId')}>{testing==='upsClientId'?'正在测试…':'测试 UPS'}</Button>
    <Button kind="secondary" disabled={Boolean(testing)} onClick={()=>void test('fedexClientId')}>{testing==='fedexClientId'?'正在测试…':'测试 FedEx'}</Button>
