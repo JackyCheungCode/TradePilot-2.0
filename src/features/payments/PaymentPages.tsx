@@ -18,7 +18,7 @@ const statusLabel = (v:string) => PAYMENT_STATES.find(x=>x[0]===v)?.[1] || v || 
 const money = (v:number,c:string) => c+' '+Number(v||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
 const dateToday = () => new Date().toISOString().slice(0,10);
 const emptyAllocation = () => ({order_id:'',schedule_node_id:'',allocation_type:'定金',allocated_amount:'',allocated_amount_in_payment:'',allocation_date:dateToday()});
-const scheduleOf = (o:AnyRow) => Array.isArray(o?.metadata?.sales_order?.payment_schedule) ? o.metadata.sales_order.payment_schedule : [];
+const scheduleOf = (o?:AnyRow):AnyRow[] => Array.isArray(o?.metadata?.sales_order?.payment_schedule) ? o.metadata.sales_order.payment_schedule as AnyRow[] : [];
 const isAllocatableOrder = (o:AnyRow) => Boolean(o&&(o.status==='active'||o.status==='completed'||['confirmed','preparing','partially_shipped','shipped','completed'].includes(o.metadata?.sales_order?.order_status)));
 
 function Metric({label,value,detail,icon:Icon}:{label:string;value:string;detail:string;icon:React.ElementType}) {
@@ -149,7 +149,7 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
   const grossFees=Number(payment.bank_fee||0)+Number(payment.intermediary_fee||0);
   const suggestedNet=Math.max(0,Number(payment.amount||0)-grossFees);
   const paymentEquivalent=(a:AnyRow)=>{const order=orders.find(o=>o.id===a.order_id);const orderRate=Number(order?.metadata?.sales_order?.form?.exchange_rate||1);const paymentRate=Number(payment.exchange_rate||1);return paymentRate>0?Number(a.allocated_amount||0)*orderRate/paymentRate:0};
-  const allocatedSum=allocations.reduce((sum,a)=>{const order=orders.find(o=>o.id===a.order_id);const node=scheduleOf(order).find(n=>String(n.id)===String(a.schedule_node_id));const outstanding=Math.max(0,Number(node?.amount||0)-Number(node?.paid_amount||0));const requested=Number(a.allocated_amount||0);const ratio=requested>0?Math.min(1,outstanding/requested):0;return sum+paymentEquivalent(a)*ratio},0);
+  const allocatedSum=allocations.reduce((sum,a)=>{const order=orders.find(o=>o.id===a.order_id);const node=scheduleOf(order).find((n:AnyRow)=>String(n.id)===String(a.schedule_node_id));const outstanding=Math.max(0,Number(node?.amount||0)-Number(node?.paid_amount||0));const requested=Number(a.allocated_amount||0);const ratio=requested>0?Math.min(1,outstanding/requested):0;return sum+paymentEquivalent(a)*ratio},0);
   const remaining=Math.max(0,Number(payment.net_received||suggestedNet)-allocatedSum);
   const selectedAccount=accounts.find(a=>a.id===payment.account_id);
   const originalPayment=payments.find(p=>p.id===payment.original_payment_id);
@@ -191,7 +191,7 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
   const setAllocation=(index:number,key:string,value:string)=>setAllocations(prev=>prev.map((a,i)=>i===index?{...a,[key]:value,...(key==='order_id'?{schedule_node_id:''}:{})}:a));
   const addAllocation=()=>setAllocations(p=>[...p,emptyAllocation()]);
   const removeAllocation=(i:number)=>setAllocations(p=>p.filter((_,n)=>n!==i));
-  const nodesFor=(orderId:string)=>scheduleOf(orders.find(o=>o.id===orderId));
+  const nodesFor=(orderId:string):AnyRow[]=>scheduleOf(orders.find(o=>o.id===orderId));
   const validate=()=>{
     if(!payment.account_id||!payment.payer_name?.trim()||!payment.owner_name?.trim())return '客户、实际付款人和负责人为必填。';
     if(!payment.payment_date||!payment.received_date)return '付款日期和到账日期为必填。';
@@ -229,14 +229,14 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
     try {
       const db=await getSupabaseClient();const {data:s}=await db.auth.getSession();const user=s.session?.user;if(!user)throw new Error('登录状态已失效');
       const net=Number(payment.net_received||suggestedNet);
-      const payload={...payment,owner_id:user.id,account_id:payment.account_id,contact_id:payment.contact_id||null,payment_date:payment.payment_date,received_date:payment.received_date||null,currency:payment.currency,amount:Number(payment.amount),bank_fee:Number(payment.bank_fee||0),intermediary_fee:Number(payment.intermediary_fee||0),net_received:net,exchange_rate:payment.exchange_rate?Number(payment.exchange_rate):null,amount_base:payment.exchange_rate?net*Number(payment.exchange_rate):null,lc_amount:payment.lc_amount?Number(payment.lc_amount):null,usance_days:payment.usance_days?Number(payment.usance_days):null,allocated_total:allocatedSum,unallocated_amount:Math.max(0,net-allocatedSum),diff_amount:Math.abs(computedDiff),diff_type:computedDiffType,refund_amount:payment.refund_amount?Number(payment.refund_amount):null,original_payment_id:payment.original_payment_id||null,tags:String(payment.tags_text||'').split(',').map((x:string)=>x.trim()).filter(Boolean),created_by:user.id,updated_by:user.id};
-      delete payload.tags_text;
+      const {tags_text,...paymentFields}=payment;
+      const payload={...paymentFields,owner_id:user.id,account_id:payment.account_id,contact_id:payment.contact_id||null,payment_date:payment.payment_date,received_date:payment.received_date||null,currency:payment.currency,amount:Number(payment.amount),bank_fee:Number(payment.bank_fee||0),intermediary_fee:Number(payment.intermediary_fee||0),net_received:net,exchange_rate:payment.exchange_rate?Number(payment.exchange_rate):null,amount_base:payment.exchange_rate?net*Number(payment.exchange_rate):null,lc_amount:payment.lc_amount?Number(payment.lc_amount):null,usance_days:payment.usance_days?Number(payment.usance_days):null,allocated_total:allocatedSum,unallocated_amount:Math.max(0,net-allocatedSum),diff_amount:Math.abs(computedDiff),diff_type:computedDiffType,refund_amount:payment.refund_amount?Number(payment.refund_amount):null,original_payment_id:payment.original_payment_id||null,tags:String(tags_text||'').split(',').map((x:string)=>x.trim()).filter(Boolean),created_by:user.id,updated_by:user.id};
       let paymentId=id;
       if(editing&&id){const {error:e}=await db.from('trade_payments').update({...payload,updated_at:new Date().toISOString()}).eq('id',id).eq('owner_id',user.id);if(e)throw e;}
       else {const {data,error:e}=await db.from('trade_payments').insert(payload).select('id,payment_no').single();if(e)throw e;paymentId=data.id;setPaymentNo(data.payment_no);}
       if(!paymentId)throw new Error('收款记录编号未返回。');
       const {error:delError}=await db.from('trade_payment_allocations').delete().eq('payment_id',paymentId);if(delError)throw delError;
-      const allocationRows=allocations.map(a=>{const orderRow=orders.find(o=>o.id===a.order_id);const node=scheduleOf(orderRow).find(n=>String(n.id)===String(a.schedule_node_id));const outstanding=Math.max(0,Number(node?.amount||0)-Number(node?.paid_amount||0));const requested=Number(a.allocated_amount||0);const effective=Math.min(requested,outstanding);const ratio=requested>0?effective/requested:0;return {owner_id:user.id,payment_id:paymentId,order_id:a.order_id,schedule_node_id:a.schedule_node_id,allocation_type:a.allocation_type,allocated_amount:effective,allocated_amount_in_payment:paymentEquivalent(a)*ratio,allocation_date:a.allocation_date||dateToday()};}).filter(a=>a.allocated_amount>0&&a.allocated_amount_in_payment>0);
+      const allocationRows=allocations.map(a=>{const orderRow=orders.find(o=>o.id===a.order_id);const node=scheduleOf(orderRow).find((n:AnyRow)=>String(n.id)===String(a.schedule_node_id));const outstanding=Math.max(0,Number(node?.amount||0)-Number(node?.paid_amount||0));const requested=Number(a.allocated_amount||0);const effective=Math.min(requested,outstanding);const ratio=requested>0?effective/requested:0;return {owner_id:user.id,payment_id:paymentId,order_id:a.order_id,schedule_node_id:a.schedule_node_id,allocation_type:a.allocation_type,allocated_amount:effective,allocated_amount_in_payment:paymentEquivalent(a)*ratio,allocation_date:a.allocation_date||dateToday()};}).filter(a=>a.allocated_amount>0&&a.allocated_amount_in_payment>0);
       if(allocationRows.length){const {error:e}=await db.from('trade_payment_allocations').insert(allocationRows);if(e)throw e;}
       nav('/payments/'+paymentId,{replace:true});
     } catch(e) { setError(e instanceof Error?e.message:'保存收款失败'); }
