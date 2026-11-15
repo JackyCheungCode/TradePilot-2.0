@@ -1,4 +1,4 @@
-declare module "cloudflare:workers" {
+declare namespace CloudflareWorkersModule {
   export interface WorkflowEvent<T> {
     payload: Readonly<T>;
     timestamp: Date;
@@ -21,4 +21,7 @@ declare module "cloudflare:workers" {
     constructor(ctx: unknown, env: Env);
     abstract run(event: WorkflowEvent<Params>, step: WorkflowStep): Promise<unknown>;
   }
+}
+declare module "cloudflare:workers" {
+  export = CloudflareWorkersModule;
 }
