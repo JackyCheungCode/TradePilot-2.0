@@ -139,7 +139,7 @@ export function TradeOperationsSettings({ scope }: { scope: Scope }) {
         <h4>共享基础字典</h4>
         <p className="tp-settings__hint">维护币种和贸易术语。停用只影响新建业务，历史单据保留原值。</p>
         <div className="tp-settings__editor-grid">
-          <Select id="trade-shared-item-type" labelText="字典类型" value={itemType} onChange={v=>setItemType(v as 'currency'|'incoterm')}>
+          <Select id="trade-shared-item-type" labelText="字典类型" value={itemType} onChange={e=>setItemType(e.currentTarget.value as 'currency'|'incoterm')}>
             <SelectItem value="currency" text="币种"/>
             <SelectItem value="incoterm" text="贸易术语"/>
           </Select>
