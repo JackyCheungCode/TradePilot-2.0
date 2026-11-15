@@ -1,6 +1,25 @@
 # TradePilot Design System
 
-All application UI must be sourced from this local design-system layer.
+The local design system is the only approved source for visual foundations and UI primitives. Feature pages compose these resources; they do not redefine them.
+
+## Foundations
+
+- `themes/`: approved Carbon theme definitions; Carbon White is the only active theme.
+- `tokens/`: semantic color, spacing, typography, motion, breakpoint, layer, elevation, z-index, and focus aliases.
+- `typography/`: IBM Plex Sans font loading and type-scale aliases.
+- `icons/`: Carbon icon entry point.
+- `grid/`: responsive grid and breakpoint guidance.
+- `motion/`, `elevation/`, `accessibility/`: cross-cutting interaction and visual rules.
+- `assets/`, `content/`, `data-visualization/`: brand assets, shared content/localization, and chart foundations.
+
+## Implementation layers
+
+- `components/<Component>/`: local entry points for Carbon React primitives.
+- `layout/<Element>/`: Header, SideNav, Content, AppShell and other structural elements.
+- `patterns/`: approved reusable interaction compositions.
+- `providers/`: application-level design-system and localization providers.
+- `hooks/`, `utilities/`: generic shared behavior and helpers.
+- `styles/`: global Carbon stylesheet entry and application-wide styles.
 
 ## Import policy
 
@@ -11,36 +30,19 @@ import { Button, TextInput, Dropdown, Header } from '@/design-system';
 import { Search, Add } from '@/design-system/icons';
 ```
 
-Also permitted when a component-specific import is clearer:
+Component-specific imports are also allowed:
 
 ```ts
 import { Button } from '@/design-system/components/Button';
 import { Header } from '@/design-system/layout/Header';
 ```
 
-Forbidden in feature and page code:
+Forbidden outside `src/design-system/**`:
 
-```ts
-import { Button } from '@carbon/react';
-```
+- Direct imports from `@carbon/react`, `@carbon/icons-react`, or other icon libraries.
+- Direct imports from `@fontsource/*`.
+- New font families, colors, spacing scales, shadows, radii, breakpoints, or z-index values.
+- Inline visual styles and feature-owned stylesheets.
+- Page-specific copies of shared components or design tokens.
 
-Only files inside `src/design-system/**` may import from `@carbon/react` or `@carbon/icons-react`.
-
-## Component ownership
-
-- `components/<Component>/index.ts`: local entry point for an official Carbon React component.
-- `layout/<Element>/index.ts`: local entry point for structural elements such as Header, SideNav, and Content.
-- `icons/index.ts`: central Carbon icon entry.
-- `tokens/`: shared Carbon White theme.
-- `typography/`: typography policies and shared type treatments.
-
-These are thin local entry points, not copied or forked Carbon source code. Carbon remains the implementation and accessibility source of truth.
-
-## Usage rules
-
-- Feature pages import from this local design-system layer only.
-- Do not recreate Carbon controls with HTML/CSS.
-- Do not add one-off theme overrides in feature modules.
-- A local wrapper may add approved application-wide defaults, but must preserve Carbon props, keyboard behavior, focus behavior, and accessibility.
-- Components not yet represented locally must be added here before feature code can use them.
-- Carbon components are not automatically approved for every product interaction. Product information architecture and interaction choices remain subject to approval.
+These are local entry points and wrappers, not copied or forked Carbon source. Carbon remains the implementation and accessibility source of truth.
