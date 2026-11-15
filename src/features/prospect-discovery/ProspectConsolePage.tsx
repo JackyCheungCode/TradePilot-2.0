@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Button, Checkbox, InlineLoading, InlineNotification, Select, SelectItem, Tag, CarbonIcons,
   Tabs, TabList, Tab, TextInput, Table, TableHead, TableRow, TableHeader, TableBody, TableCell, TableContainer,
@@ -143,6 +144,7 @@ function ProspectMap({ rows, onSelect }: { rows: ProspectRow[]; onSelect: (row: 
   </div>;
 }
 export function ProspectConsolePage() {
+  const navigate = useNavigate();
   const [stats,setStats] = useState<ConsoleStats|null>(null);
   const [period,setPeriod] = useState('all');
   const [customFrom,setCustomFrom] = useState('');
@@ -223,6 +225,10 @@ export function ProspectConsolePage() {
   useEffect(()=>{setPage(1);},[platformKey,status,country,sort,search,period,customFrom,customTo]);
   useEffect(()=>{if(page>totalPages)setPage(totalPages);},[page,totalPages]);
   const runAction=async(row:ProspectRow,action:'promote'|'discard'|'remove')=>{
+    if(action==='promote'){
+      navigate('/leads/new?discoveryRecordId='+encodeURIComponent(row.recordIds[0]??''));
+      return;
+    }
     if(!stats||actionBusyId)return;
     setActionBusyId(row.id);setError('');
     try{
