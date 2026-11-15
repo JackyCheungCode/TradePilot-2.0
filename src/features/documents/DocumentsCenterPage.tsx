@@ -168,6 +168,7 @@ export function DocumentsCenterPage() {
         <div><Select id="tp-doc-locale" labelText="单据语言" value={locale} onChange={e => setLocale(e.currentTarget.value)}><SelectItem value="en" text="English" /><SelectItem value="zh-CN" text="简体中文" /><SelectItem value="zh-TW" text="繁體中文" /><SelectItem value="es" text="Español" /><SelectItem value="fr" text="Français" /><SelectItem value="de" text="Deutsch" /></Select></div>
         <div className="tp-documents__currency-summary"><span>订单成交币种</span><strong>{selectedOrder?.currency_code || currency}</strong><small>沿用已确认订单币种，避免金额与成交币种不一致</small></div></div>
         <div className="tp-documents__review"><strong>生成内容</strong><span>{typeLabel(documentType)}</span><span>{selectedOrder?.order_number || selectedOrder?.title}</span>{selectedShipment && <span>{selectedShipment.shipment_no}</span>}<span>{locale} · {currency}</span></div>
+        {documentType === 'commercial_invoice' && <InlineNotification kind="warning" lowContrast title="部分发运金额需要复核" subtitle="系统按本次发运数量分摊产品折扣和税额；订单级运费、保险及其他费用不会自动计入本次发票总额，请在正式签发前核对。" />}
         <div className="tp-documents__wizard-actions"><Button kind="tertiary" onClick={() => setStep(3)}>上一步</Button><Button kind="primary" disabled={saving || !orderId || !currency.trim()} onClick={() => void createDocument()}>{saving ? '正在创建…' : '生成单据草稿'}</Button></div>
         {saving && <InlineLoading description="正在读取业务数据并创建版本快照…" />}
       </div>}
