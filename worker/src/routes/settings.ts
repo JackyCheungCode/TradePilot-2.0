@@ -134,7 +134,7 @@ async function listAIModels(providerKey:string,protocol:AIProtocol,baseUrl:strin
   response=await fetch(endpoint,{headers,redirect:"manual"});
  }
  const raw=await response.text();let body:Record<string,unknown>={};try{body=raw?JSON.parse(raw) as Record<string,unknown>:{};}catch{/* response checked below */}
- if(!response.ok)return (()=>{throw new Error("获取模型失败（HTTP "+response.status+"）："+raw.slice(0,180));})();
+ if(!response.ok)throw new Error("获取模型失败（HTTP "+response.status+"），请检查 API Key、模型目录权限和 Base URL");
  let items:unknown[]=[];
  if(providerKey==="cloudflare-workers-ai")items=Array.isArray(body.result)?body.result:[];
  else if(protocol==="gemini")items=Array.isArray(body.models)?body.models:[];
@@ -166,7 +166,7 @@ async function testAIProvider(providerKey:string,protocol:AIProtocol,baseUrl:str
   else if(protocol==="gemini")r=await fetch(base+"/models/"+encodeURIComponent(model)+":generateContent?key="+encodeURIComponent(key),{method:"POST",redirect:"manual",headers:{"content-type":"application/json"},body:JSON.stringify({contents:[{parts:[{text:"Reply with OK"}]}],generationConfig:{maxOutputTokens:12}})});
   else r=await fetch(base+"/chat/completions",{method:"POST",redirect:"manual",headers:{Authorization:"Bearer "+key,"content-type":"application/json",...(providerKey==="openrouter"?{"HTTP-Referer":"https://tradepilot.xg-y.workers.dev","X-Title":"TradePilot"}:{})},body:JSON.stringify({model,messages:[{role:"user",content:"Reply with OK"}],max_tokens:12})});
   if(r.status>=300&&r.status<400)return {ok:false,message:"模型服务返回 HTTP "+r.status+" 重定向，请检查 Base URL"};
-  if(!r.ok){const detail=(await r.text()).slice(0,180);return {ok:false,message:"模型接口返回 HTTP "+r.status+"："+detail};}
+  if(!r.ok){return {ok:false,message:"模型接口返回 HTTP "+r.status+"，请检查模型权限、额度和请求格式。"};}
   return {ok:true,message:"模型服务连接成功，已收到测试响应"};
  }catch(error){return {ok:false,message:"模型连接异常："+(error instanceof Error?error.message:String(error)).slice(0,180)};}
 }
