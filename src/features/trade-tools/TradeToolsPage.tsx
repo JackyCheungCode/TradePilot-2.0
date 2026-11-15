@@ -16,14 +16,7 @@ type CarrierResult = Record<string, unknown>;
 
 const currencies = ['USD','CNY','EUR','GBP','JPY','HKD','TWD','AUD','CAD','SGD','CHF','KRW','INR','THB','MYR','IDR','VND','AED','SAR','BRL','MXN','PLN','SEK','NOK','DKK','NZD','ZAR'];
 const countryNames: Record<string,string> = { DE:'德国',US:'美国',GB:'英国',FR:'法国',IT:'意大利',ES:'西班牙',NL:'荷兰',BE:'比利时',CH:'瑞士',AT:'奥地利',PL:'波兰',CZ:'捷克',JP:'日本',KR:'韩国',CN:'中国',HK:'中国·香港',MO:'中国·澳门',TW:'中国·台湾',SG:'新加坡',AU:'澳大利亚',CA:'加拿大',IN:'印度',BR:'巴西',MX:'墨西哥',TH:'泰国',MY:'马来西亚',ID:'印度尼西亚',VN:'越南',AE:'阿联酋',SA:'沙特阿拉伯',ZA:'南非' };
-const tools: Array<{id:ToolId;label:string;description:string;icon:React.ReactNode}> = [
-  {id:'currency',label:'汇率换算',description:'参考汇率、币种换算与半年走势',icon:<CarbonIcons.Currency size={20}/>},
-  {id:'holidays',label:'全球公共假期',description:'国家与州／省级公共假期查询',icon:<CarbonIcons.Calendar size={20}/>},
-  {id:'shipping',label:'国际物流追踪',description:'DHL、UPS、FedEx 官方轨迹查询',icon:<CarbonIcons.Delivery size={20}/>},
-  {id:'translation',label:'DeepL 在线翻译',description:'面向外贸沟通的多语言翻译',icon:<CarbonIcons.Translate size={20}/>},
-  {id:'contact-time',label:'客户联系时机',description:'当地时间、工作日、昼夜与天气',icon:<CarbonIcons.Time size={20}/>},
-  {id:'profit',label:'报价利润计算器',description:'成本、费用、报价与利润率测算',icon:<CarbonIcons.Calculator size={20}/>},
-];
+
 
 async function getToken() {
   const db = await getSupabaseClient();
@@ -129,7 +122,7 @@ export function TradeToolsPage() {
 
   useEffect(()=>{void readJson('https://date.nager.at/api/v3/AvailableCountries').then(data=>setHolidayCountries(data as Array<{countryCode:string;name:string}>)).catch(()=>setHolidayCountries([]));},[]);
   const loadHolidays = useCallback(async () => {
-    setBusyTool('currency');setErrorTool('currency');setErrorTool('holidays');setError('');
+    setBusyTool('holidays');setErrorTool('holidays');setError('');
     try {
       const data = await readJson('https://date.nager.at/api/v3/PublicHolidays/'+holidayYear+'/'+holidayCountry) as Holiday[];
       setHolidays(data);
@@ -143,7 +136,7 @@ export function TradeToolsPage() {
   const filteredHolidays = useMemo(()=>holidays.filter(item=>holidayRegion==='all'||item.global||item.counties?.includes(holidayRegion)),[holidays,holidayRegion]);
 
   const trackShipment = async () => {
-    setBusyTool('currency');setErrorTool('currency');setErrorTool('holidays');setErrorTool('shipping');setError('');setTracking(null);
+    setBusyTool('shipping');setErrorTool('shipping');setError('');setTracking(null);
     try {
       const token=await getToken();
       const response=await fetch('/api/v1/trade-tools/track',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({carrier,trackingNumber:trackingNumber.trim()})});
@@ -270,15 +263,16 @@ export function TradeToolsPage() {
       <Tag type="blue">6 项工具</Tag>
     </header>
     <div className="tp-trade-tools__layout">
+
       <section className="tp-trade-tools__workspace">
         <section className="tp-trade-tools__tool">
-          <div className="tp-trade-tools__tool-title"><CarbonIcons.Currency size={24}/><div><h2>汇率换算</h2><p>Frankfurter 官方参考汇率 · 半年历史走势</p></div>
-          {errorTool==='currency'&&error&&<InlineNotification kind="error" title="操作失败" subtitle={error} onCloseButtonClick={()=>setError('')}/>}\n</div>
+          {errorTool==='currency'&&error&&<InlineNotification kind="error" title="操作失败" subtitle={error} onCloseButtonClick={()=>setError('')}/ >}
+          <div className="tp-trade-tools__tool-title"><CarbonIcons.Currency size={24}/><div><h2>汇率换算</h2><p>Frankfurter 官方参考汇率 · 半年历史走势</p></div></div>
           <div className="tp-trade-tools__form-grid">
             <Select id="fx-base" labelText="原币种" value={base} onChange={e=>setBase(e.currentTarget.value)}>{currencies.map(c=><SelectItem key={c} value={c} text={c}/>)}</Select>
             <Select id="fx-quote" labelText="目标币种" value={quote} onChange={e=>setQuote(e.currentTarget.value)}>{currencies.map(c=><SelectItem key={c} value={c} text={c}/>)}</Select>
             <TextInput id="fx-amount" labelText="换算金额" type="number" value={amount} onChange={e=>setAmount(e.currentTarget.value)}/>
-            <Button kind="primary" onClick={()=>void loadCurrency()} disabled={busy}>查询汇率</Button>
+            <Button kind="primary" onClick={()=>void loadCurrency()} disabled={busyTool!==null}>查询汇率</Button>
           </div>
           {busyTool==='currency'?<InlineLoading description="正在读取参考汇率…"/>:rate!==null&&<div className="tp-trade-tools__result">
             <div><span>{amount||'0'} {base}</span><strong>{conversion?.toLocaleString(undefined,{maximumFractionDigits:4})} {quote}</strong><small>1 {base} = {rate.toFixed(6)} {quote} · 汇率日期 {rateDate}</small></div>
@@ -290,24 +284,24 @@ export function TradeToolsPage() {
         </section>}
 
         <section className="tp-trade-tools__tool">
-          <div className="tp-trade-tools__tool-title"><CarbonIcons.Calendar size={24}/><div><h2>全球公共假期</h2><p>Nager.Date · 支持国家及一级行政区假期</p></div>
-          {errorTool==='holidays'&&error&&<InlineNotification kind="error" title="操作失败" subtitle={error} onCloseButtonClick={()=>setError('')}/>}\n</div>
+          {errorTool==='holidays'&&error&&<InlineNotification kind="error" title="操作失败" subtitle={error} onCloseButtonClick={()=>setError('')}/ >}
+          <div className="tp-trade-tools__tool-title"><CarbonIcons.Calendar size={24}/><div><h2>全球公共假期</h2><p>Nager.Date · 支持国家及一级行政区假期</p></div></div>
           <div className="tp-trade-tools__form-grid">
             <Dropdown id="holiday-country" titleText="国家或地区" label="选择国家或地区" items={countryOptions} selectedItem={countryOptions.find(item=>item.countryCode===holidayCountry)} itemToString={countryLabel} itemToElement={renderCountryOption} renderSelectedItem={renderCountryOption} onChange={({selectedItem})=>{if(selectedItem){setHolidayCountry(selectedItem.countryCode);setHolidayRegion('all');}}}/>
             <Select id="holiday-year" labelText="年份" value={holidayYear} onChange={e=>setHolidayYear(e.currentTarget.value)}>{[2025,2026,2027,2028].map(y=><SelectItem key={y} value={String(y)} text={String(y)}/>)}</Select>
             <Select id="holiday-region" labelText="州／省／地区" value={holidayRegion} onChange={e=>setHolidayRegion(e.currentTarget.value)}><SelectItem value="all" text="全部地区"/>{holidayRegions.map(r=><SelectItem key={r} value={r} text={r}/>)}</Select>
-            <Button kind="primary" onClick={()=>void loadHolidays()} disabled={busy}>查询假期</Button>
+            <Button kind="primary" onClick={()=>void loadHolidays()} disabled={busyTool!==null}>查询假期</Button>
           </div>
           {busyTool==='holidays'?<InlineLoading description="正在读取公共假期…"/>:<div className="tp-trade-tools__holiday-list">{filteredHolidays.map(h=><div className="tp-trade-tools__holiday-row" key={h.date+h.name}><div className="tp-trade-tools__holiday-date">{h.date}</div><div><strong>{h.localName||h.name}</strong><small>{h.name} · {(h.types||[]).join(' / ')||'公共假期'}</small></div><Tag type={h.global?'green':'cool-gray'}>{h.global?'全国':'地区性'}</Tag></div>)}{!filteredHolidays.length&&<p className="tp-trade-tools__empty">该条件下没有返回假期记录；请确认国家、年份或地区支持情况。</p>}</div>}
         </section>}
 
         <section className="tp-trade-tools__tool">
-          <div className="tp-trade-tools__tool-title"><CarbonIcons.Delivery size={24}/><div><h2>国际物流追踪</h2><p>通过承运商官方 API 查询运输状态与轨迹</p></div>
-          {errorTool==='shipping'&&error&&<InlineNotification kind="error" title="操作失败" subtitle={error} onCloseButtonClick={()=>setError('')}/>}\n</div>
+          {errorTool==='shipping'&&error&&<InlineNotification kind="error" title="操作失败" subtitle={error} onCloseButtonClick={()=>setError('')}/ >}
+          <div className="tp-trade-tools__tool-title"><CarbonIcons.Delivery size={24}/><div><h2>国际物流追踪</h2><p>通过承运商官方 API 查询运输状态与轨迹</p></div></div>
           <div className="tp-trade-tools__form-grid">
             <Select id="carrier" labelText="物流服务商" value={carrier} onChange={e=>setCarrier(e.currentTarget.value)}><SelectItem value="dhl" text="DHL Express / Shipment Tracking"/><SelectItem value="ups" text="UPS"/><SelectItem value="fedex" text="FedEx"/></Select>
             <TextInput id="tracking-number" labelText="运单号" placeholder="输入物流追踪号码" value={trackingNumber} onChange={e=>setTrackingNumber(e.currentTarget.value)}/>
-            <Button kind="primary" disabled={busy||!trackingNumber.trim()} onClick={()=>void trackShipment()}>查询物流</Button>
+            <Button kind="primary" disabled={busyTool!==null||!trackingNumber.trim()} onClick={()=>void trackShipment()}>查询物流</Button>
           </div>
           {busyTool==='shipping'&&<InlineLoading description="正在请求承运商官方接口…"/>}
           {tracking&&<div className="tp-trade-tools__tracking"><h3>物流查询结果</h3><pre>{JSON.stringify(tracking,null,2)}</pre></div>}
@@ -315,27 +309,27 @@ export function TradeToolsPage() {
         </section>}
 
         <section className="tp-trade-tools__tool">
-          <div className="tp-trade-tools__tool-title"><CarbonIcons.Translate size={24}/><div><h2>DeepL 在线翻译</h2><p>使用已配置的 DeepL API，密钥仅在 Worker 服务端保存</p></div>
-          {errorTool==='translation'&&error&&<InlineNotification kind="error" title="操作失败" subtitle={error} onCloseButtonClick={()=>setError('')}/>}\n</div>
+          {errorTool==='translation'&&error&&<InlineNotification kind="error" title="操作失败" subtitle={error} onCloseButtonClick={()=>setError('')}/ >}
+          <div className="tp-trade-tools__tool-title"><CarbonIcons.Translate size={24}/><div><h2>DeepL 在线翻译</h2><p>使用已配置的 DeepL API，密钥仅在 Worker 服务端保存</p></div></div>
           <div className="tp-trade-tools__form-grid">
             <Select id="translate-source" labelText="源语言" value={sourceLanguage} onChange={e=>setSourceLanguage(e.currentTarget.value)}><SelectItem value="auto" text="自动识别"/>{[['EN','英语'],['DE','德语'],['FR','法语'],['ES','西班牙语'],['JA','日语'],['KO','韩语'],['ZH','中文'],['ZH-HANT','繁体中文'],['PT-BR','葡萄牙语'],['IT','意大利语']].map(([v,l])=><SelectItem key={v} value={v} text={l}/>)}</Select>
             <Select id="translate-target" labelText="目标语言" value={targetLanguage} onChange={e=>setTargetLanguage(e.currentTarget.value)}>{[['ZH','中文'],['ZH-HANT','繁体中文'],['EN-US','英语（美国）'],['EN-GB','英语（英国）'],['DE','德语'],['FR','法语'],['ES','西班牙语'],['JA','日语'],['KO','韩语'],['PT-BR','葡萄牙语（巴西）'],['IT','意大利语']].map(([v,l])=><SelectItem key={v} value={v} text={l}/>)}</Select>
           </div>
           <TextArea id="translate-text" labelText="待翻译内容" rows={5} value={translationText} onChange={e=>setTranslationText(e.currentTarget.value)} placeholder="输入邮件、询盘、产品说明或商务沟通内容…"/>
-          <Button kind="primary" disabled={busy||!translationText.trim()} onClick={()=>void translate()}>开始翻译</Button>
+          <Button kind="primary" disabled={busyTool!==null||!translationText.trim()} onClick={()=>void translate()}>开始翻译</Button>
           {translated&&<div className="tp-trade-tools__translation-result"><h3>翻译结果</h3><p>{translated}</p><Button kind="ghost" size="sm" onClick={()=>void navigator.clipboard?.writeText(translated)}>复制译文</Button></div>}
         </section>}
 
         <section className="tp-trade-tools__tool">
-          <div className="tp-trade-tools__tool-title"><CarbonIcons.Time size={24}/><div><h2>客户联系时机</h2><p>当地时间、工作日状态、昼夜和近三天天气</p></div>
-          {errorTool==='contact-time'&&error&&<InlineNotification kind="error" title="操作失败" subtitle={error} onCloseButtonClick={()=>setError('')}/>}\n</div>
+          {errorTool==='contact-time'&&error&&<InlineNotification kind="error" title="操作失败" subtitle={error} onCloseButtonClick={()=>setError('')}/ >}
+          <div className="tp-trade-tools__tool-title"><CarbonIcons.Time size={24}/><div><h2>客户联系时机</h2><p>当地时间、工作日状态、昼夜和近三天天气</p></div></div>
           <div className="tp-trade-tools__form-grid">
             <Select id="contact-select" labelText="选择客户／联系人（可选）" value={selectedContact} onChange={e=>void chooseContact(e.currentTarget.value)}><SelectItem value="" text="手动选择地点"/>{contacts.map(c=><SelectItem key={c.id} value={c.id} text={c.label+' · '+c.address}/>)}</Select>
             <Dropdown id="contact-country" titleText="国家或地区" label="选择国家或地区" items={countryOptions} selectedItem={countryOptions.find(item=>item.countryCode===locationCountry)} itemToString={countryLabel} itemToElement={renderCountryOption} renderSelectedItem={renderCountryOption} onChange={({selectedItem})=>{if(selectedItem)setLocationCountry(selectedItem.countryCode);}}/>
             <TextInput id="contact-region" labelText="省／州／地区（可选）" value={locationRegion} onChange={e=>setLocationRegion(e.currentTarget.value)} placeholder="例如 California / Bayern"/>
             <TextInput id="contact-city" labelText="城市（可选）" value={locationCity} onChange={e=>setLocationCity(e.currentTarget.value)} placeholder="例如 Los Angeles / Berlin"/>
             <TextInput id="contact-location" labelText="客户地址（可选）" value={locationQuery} onChange={e=>setLocationQuery(e.currentTarget.value)} placeholder="可输入完整地址覆盖上方地区"/>
-            <Button kind="primary" disabled={busy||(!locationQuery.trim()&&!locationCity.trim()&&!locationRegion.trim())} onClick={()=>void searchLocation()}>搜索地点</Button>
+            <Button kind="primary" disabled={busyTool!==null||(!locationQuery.trim()&&!locationCity.trim()&&!locationRegion.trim())} onClick={()=>void searchLocation()}>搜索地点</Button>
           </div>
           {locations.length>0&&<div className="tp-trade-tools__location-results">{locations.map((p,i)=><Button key={p.timezone+i} kind="ghost" onClick={()=>void loadContactTime(p)}>{p.name}{p.admin1?', '+p.admin1:''} · {p.country} · {p.timezone}</Button>)}</div>}
           {busyTool==='contact-time'&&<InlineLoading description="正在解析时区与天气…"/>}
@@ -349,8 +343,7 @@ export function TradeToolsPage() {
         </section>}
 
         <section className="tp-trade-tools__tool">
-          <div className="tp-trade-tools__tool-title"><CarbonIcons.Calculator size={24}/><div><h2>报价利润计算器</h2><p>按目标毛利率反推报价，估算单件与订单利润</p></div>
-          {errorTool==='profit'&&error&&<InlineNotification kind="error" title="操作失败" subtitle={error} onCloseButtonClick={()=>setError('')}/>}\n</div>
+          <div className="tp-trade-tools__tool-title"><CarbonIcons.Calculator size={24}/><div><h2>报价利润计算器</h2><p>按目标毛利率反推报价，估算单件与订单利润</p></div></div>
           <div className="tp-trade-tools__form-grid tp-trade-tools__form-grid--profit">
             <TextInput id="profit-cost" labelText="产品成本（单件）" type="number" value={cost} onChange={e=>setCost(e.currentTarget.value)}/>
             <TextInput id="profit-freight" labelText="物流费用（单件）" type="number" value={freight} onChange={e=>setFreight(e.currentTarget.value)}/>
