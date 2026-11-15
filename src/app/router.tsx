@@ -9,6 +9,7 @@ import { ContactConsolePage, ContactDetailPage, ContactFormPage } from '../featu
 import { AccountConsolePage, AccountDetailPage, AccountFormPage } from '../features/accounts/AccountPages';
 import { OpportunityConsolePage, OpportunityDetailPage, OpportunityFormPage } from '../features/opportunities/OpportunityPages';
 import { QuoteConsolePage, QuoteDetailPage, QuoteFormPage } from '../features/quotes/QuotePages';
+import { SalesOrderConsolePage, SalesOrderDetailPage, SalesOrderFormPage } from '../features/sales-orders/SalesOrderPages';
 import { ProductConsolePage, ProductDetailPage, ProductFormPage } from '../features/products/ProductPages';
 import { SettingsCenterPage } from '../features/settings/SettingsCenterPage';
 
@@ -34,6 +35,10 @@ export const router = createBrowserRouter([
           { path: 'quotes/new', element: <QuoteFormPage /> },
           { path: 'quotes/:id/edit', element: <QuoteFormPage /> },
           { path: 'quotes/:id', element: <QuoteDetailPage /> },
+          { path: 'sales-orders', element: <SalesOrderConsolePage /> },
+          { path: 'sales-orders/new', element: <SalesOrderFormPage /> },
+          { path: 'sales-orders/:id/edit', element: <SalesOrderFormPage /> },
+          { path: 'sales-orders/:id', element: <SalesOrderDetailPage /> },
           { path: 'products', element: <ProductConsolePage /> },
           { path: 'products/new', element: <ProductFormPage /> },
           { path: 'products/:id/edit', element: <ProductFormPage /> },
