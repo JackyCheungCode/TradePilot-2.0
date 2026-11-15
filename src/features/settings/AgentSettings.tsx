@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextArea, TextInput } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 
-type Provider = { id: string; name: string; model: string; protocol: string; configured?: boolean; baseUrl?: string };
+type Provider = { id: string; name: string; model: string; protocol: string; configured?: boolean | string; baseUrl?: string };
 type Profile = { agent_key: string; enabled: boolean; config: { systemPrompt?: string; description?: string } };
 type Appearance = { shape: string; color: string; styleId: string; variant: string; face: string; eyeColor: string; eyeScale: number };
 const agentLabels: Record<string,string> = {
@@ -43,7 +43,7 @@ export function AgentSettings({ section }: { section: string }) {
       ]);
       if (settings.error) throw settings.error;
       const config = (settings.data?.config || {}) as { providers?: Provider[]; taskModels?: Record<string,string>; defaultModel?: string };
-      const available = (config.providers || []).filter(item => item.configured !== false);
+      const available = (config.providers || []).filter(item => item.configured !== false && item.configured !== 'false');
       setProviders(available);
       const current = config.taskModels?.agent_chat || config.defaultModel || available[0]?.model || '';
       setSelectedModel(current);
