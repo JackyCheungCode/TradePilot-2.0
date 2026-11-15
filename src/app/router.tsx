@@ -5,6 +5,7 @@ import { LoginPage } from '../features/auth/LoginPage';
 import { ProspectDiscoveryPage, ProspectConsolePage, RecentTasksPage } from '../features/prospect-discovery';
 import { LeadCreatePage } from '../features/leads/LeadCreatePage';
 import { LeadConsolePage } from '../features/leads/LeadConsolePage';
+import { ContactConsolePage, ContactDetailPage, ContactFormPage } from '../features/contacts/ContactPages';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -20,6 +21,10 @@ export const router = createBrowserRouter([
           { path: 'prospect-console', element: <ProspectConsolePage /> },
           { path: 'leads', element: <LeadConsolePage /> },
           { path: 'leads/new', element: <LeadCreatePage /> },
+          { path: 'contacts', element: <ContactConsolePage /> },
+          { path: 'contacts/new', element: <ContactFormPage /> },
+          { path: 'contacts/:id/edit', element: <ContactFormPage /> },
+          { path: 'contacts/:id', element: <ContactDetailPage /> },
           { path: 'recent-tasks', element: <RecentTasksPage /> },
         ],
       },
