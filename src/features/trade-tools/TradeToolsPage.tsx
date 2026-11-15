@@ -41,9 +41,11 @@ function weatherIcon(code:number) {
 }
 
 export function TradeToolsPage() {
-  const [error,setError] = useState('');
-  const [errorTool,setErrorTool] = useState<ToolId|null>(null);
-  const [busyTool,setBusyTool] = useState<ToolId|null>(null);
+  const [errors,setErrors] = useState<Partial<Record<ToolId,string>>>({});
+  const [busyTools,setBusyTools] = useState<Partial<Record<ToolId,boolean>>>({});
+  const setToolError = (tool:ToolId,message:string) => setErrors(current=>({...current,[tool]:message}));
+  const clearToolError = (tool:ToolId) => setErrors(current=>({...current,[tool]:''}));
+  const setToolBusy = (tool:ToolId,busy:boolean) => setBusyTools(current=>({...current,[tool]:busy}));
 
   const [base,setBase] = useState('USD');
   const [quote,setQuote] = useState('CNY');
@@ -103,7 +105,7 @@ export function TradeToolsPage() {
   },[cost,freight,duty,other,margin,saleQty]);
 
   const loadCurrency = useCallback(async () => {
-    setBusyTool('currency');setErrorTool('currency');setError('');
+    setToolBusy('currency',true);clearToolError('currency');
     try {
       const today = new Date();
       const from = new Date(today.getFullYear(),today.getMonth()-6,today.getDate()).toISOString().slice(0,10);
@@ -115,48 +117,48 @@ export function TradeToolsPage() {
       const history = await readJson('https://api.frankfurter.dev/v2/rates?from='+from+'&to='+to+'&base='+base+'&quotes='+quote+'&group=month');
       const rows = (Array.isArray(history)?history:[]).map((item:any)=>({date:String(item.date),rate:Number(item.rate)})).filter((item:any)=>Number.isFinite(item.rate));
       setSeries(rows);
-    } catch(e) {setError(e instanceof Error?e.message:'汇率数据读取失败。');}
-    finally {setBusyTool(null);}
+    } catch(e) {setToolError('currency',e instanceof Error?e.message:'汇率数据读取失败。');}
+    finally {setToolBusy('currency',false);}
   },[base,quote]);
   useEffect(()=>{void loadCurrency();},[loadCurrency]);
 
   useEffect(()=>{void readJson('https://date.nager.at/api/v3/AvailableCountries').then(data=>setHolidayCountries(data as Array<{countryCode:string;name:string}>)).catch(()=>setHolidayCountries([]));},[]);
   const loadHolidays = useCallback(async () => {
-    setBusyTool('holidays');setErrorTool('holidays');setError('');
+    setToolBusy('holidays',true);clearToolError('holidays');
     try {
       const data = await readJson('https://date.nager.at/api/v3/PublicHolidays/'+holidayYear+'/'+holidayCountry) as Holiday[];
       setHolidays(data);
       const regions = Array.from(new Set(data.flatMap(item=>item.counties||[]))).sort();
       if(holidayRegion!=='all'&&!regions.includes(holidayRegion)) setHolidayRegion('all');
-    } catch(e) {setError(e instanceof Error?e.message:'公共假期读取失败。');}
-    finally {setBusyTool(null);}
+    } catch(e) {setToolError('holidays',e instanceof Error?e.message:'公共假期读取失败。');}
+    finally {setToolBusy('holidays',false);}
   },[holidayCountry,holidayYear]);
   useEffect(()=>{void loadHolidays();},[loadHolidays]);
   const holidayRegions = useMemo(()=>Array.from(new Set(holidays.flatMap(item=>item.counties||[]))).sort(),[holidays]);
   const filteredHolidays = useMemo(()=>holidays.filter(item=>holidayRegion==='all'||item.global||item.counties?.includes(holidayRegion)),[holidays,holidayRegion]);
 
   const trackShipment = async () => {
-    setBusyTool('shipping');setErrorTool('shipping');setError('');setTracking(null);
+    setToolBusy('shipping',true);clearToolError('shipping');setTracking(null);
     try {
       const token=await getToken();
       const response=await fetch('/api/v1/trade-tools/track',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({carrier,trackingNumber:trackingNumber.trim()})});
       const body=await response.json() as {data?:CarrierResult;error?:{message?:string}};
       if(!response.ok) throw new Error(body.error?.message||'物流查询失败（HTTP '+response.status+'）');
       setTracking(body.data||body as CarrierResult);
-    } catch(e) {setError(e instanceof Error?e.message:'物流查询失败。');}
-    finally {setBusyTool(null);}
+    } catch(e) {setToolError('shipping',e instanceof Error?e.message:'物流查询失败。');}
+    finally {setToolBusy('shipping',false);}
   };
 
   const translate = async () => {
-    setBusyTool('translation');setErrorTool('translation');setError('');setTranslated('');
+    setToolBusy('translation',true);clearToolError('translation');setTranslated('');
     try {
       const token=await getToken();
       const response=await fetch('/api/v1/trade-tools/translate',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({text:translationText,targetLanguage,sourceLanguage})});
       const body=await response.json() as {data?:{translatedText?:string};error?:{message?:string}};
       if(!response.ok) throw new Error(body.error?.message||'翻译失败');
       setTranslated(body.data?.translatedText||'');
-    } catch(e) {setError(e instanceof Error?e.message:'翻译失败。');}
-    finally {setBusyTool(null);}
+    } catch(e) {setToolError('translation',e instanceof Error?e.message:'翻译失败。');}
+    finally {setToolBusy('translation',false);}
   };
 
   const loadContacts = async () => {
@@ -195,7 +197,7 @@ export function TradeToolsPage() {
   const searchLocation = async () => {
     const searchTerm=locationQuery.trim()||[locationCity,locationRegion,countryNames[locationCountry]||locationCountry].filter(Boolean).join(', ');
     if(!searchTerm) return;
-    setBusyTool('contact-time');setErrorTool('contact-time');setError('');
+    setToolBusy('contact-time',true);clearToolError('contact-time');
     try {
       if(locationQuery.trim()){
         try{
@@ -207,11 +209,11 @@ export function TradeToolsPage() {
       }
       const data=await readJson('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(searchTerm)+'&count=8&language=zh');
       setLocations((data.results||[]) as LocationResult[]);
-    } catch(e) {setError(e instanceof Error?e.message:'地点搜索失败。');}
-    finally {setBusyTool(null);}
+    } catch(e) {setToolError('contact-time',e instanceof Error?e.message:'地点搜索失败。');}
+    finally {setToolBusy('contact-time',false);}
   };
   const loadContactTime = async (place:LocationResult) => {
-    setLocation(place);setLocations([]);setBusyTool('contact-time');setErrorTool('contact-time');setError('');setTimeData(null);setWeather([]);
+    setLocation(place);setLocations([]);setToolBusy('contact-time',true);clearToolError('contact-time');setTimeData(null);setWeather([]);
     try {
       const [time,forecast,holidayList]=await Promise.all([
         readJson('https://time.now/developer/api/time?timezone='+encodeURIComponent(place.timezone)),
@@ -223,15 +225,15 @@ export function TradeToolsPage() {
       setWeather((d.time||[]).map((date:string,i:number)=>({date,code:Number(d.weather_code?.[i]??0),high:Number(d.temperature_2m_max?.[i]??0),low:Number(d.temperature_2m_min?.[i]??0),rain:Number(d.precipitation_probability_max?.[i]??0)})));
       const localDate=String(time.datetime||'').slice(0,10);
       setHolidayToday((holidayList as Holiday[]).find(h=>h.date===localDate&&h.global)||null);
-    } catch(e) {setError(e instanceof Error?e.message:'时间或天气读取失败。');}
-    finally {setBusyTool(null);}
+    } catch(e) {setToolError('contact-time',e instanceof Error?e.message:'时间或天气读取失败。');}
+    finally {setToolBusy('contact-time',false);}
   };
   const chooseContact = async (id:string) => {
     setSelectedContact(id);
     const found=contacts.find(x=>x.id===id);
     if(!found) return;
     setLocationQuery(found.address);
-    setBusyTool('contact-time');
+    setToolBusy('contact-time',true);
     try {
       let place:LocationResult|undefined;
       try{
@@ -246,7 +248,7 @@ export function TradeToolsPage() {
       }
       if(!place) throw new Error('无法从该客户地址解析出城市和时区，请手动搜索城市。');
       await loadContactTime(place);
-    } catch(e) {setError(e instanceof Error?e.message:'客户地址解析失败。');setBusyTool(null);}
+    } catch(e) {setToolError('contact-time',e instanceof Error?e.message:'客户地址解析失败。');setToolBusy('contact-time',false);}
   };
 
   const visibleSeries = series.length ? series : [];
@@ -266,15 +268,15 @@ export function TradeToolsPage() {
 
       <section className="tp-trade-tools__workspace">
         <section className="tp-trade-tools__tool">
-          {errorTool==='currency'&&error&&<InlineNotification kind="error" title="操作失败" subtitle={error} onCloseButtonClick={()=>setError('')}/>}
+          {errors.currency&&<InlineNotification kind="error" title="操作失败" subtitle={errors.currency} onCloseButtonClick={()=>clearToolError('currency')}/>}
           <div className="tp-trade-tools__tool-title"><CarbonIcons.Currency size={24}/><div><h2>汇率换算</h2><p>Frankfurter 官方参考汇率 · 半年历史走势</p></div></div>
           <div className="tp-trade-tools__form-grid">
             <Select id="fx-base" labelText="原币种" value={base} onChange={e=>setBase(e.currentTarget.value)}>{currencies.map(c=><SelectItem key={c} value={c} text={c}/>)}</Select>
             <Select id="fx-quote" labelText="目标币种" value={quote} onChange={e=>setQuote(e.currentTarget.value)}>{currencies.map(c=><SelectItem key={c} value={c} text={c}/>)}</Select>
             <TextInput id="fx-amount" labelText="换算金额" type="number" value={amount} onChange={e=>setAmount(e.currentTarget.value)}/>
-            <Button kind="primary" onClick={()=>void loadCurrency()} disabled={busyTool!==null}>查询汇率</Button>
+            <Button kind="primary" onClick={()=>void loadCurrency()} disabled={busyTools.currency}>查询汇率</Button>
           </div>
-          {busyTool==='currency'?<InlineLoading description="正在读取参考汇率…"/>:rate!==null&&<div className="tp-trade-tools__result">
+          {busyTools.currency?<InlineLoading description="正在读取参考汇率…"/>:rate!==null&&<div className="tp-trade-tools__result">
             <div><span>{amount||'0'} {base}</span><strong>{conversion?.toLocaleString(undefined,{maximumFractionDigits:4})} {quote}</strong><small>1 {base} = {rate.toFixed(6)} {quote} · 汇率日期 {rateDate}</small></div>
             <div className="tp-trade-tools__chart"><div className="tp-trade-tools__chart-heading"><strong>过去六个月</strong><span>{base}/{quote}</span></div>
               {visibleSeries.length>1?<svg viewBox="0 0 600 150" role="img" aria-label="半年汇率走势折线图"><line x1="28" y1="126" x2="572" y2="126"/><polyline points={chartPoints}/>{visibleSeries.map((p,i)=><text key={p.date} x={28+(i/Math.max(1,visibleSeries.length-1))*544} y="145">{p.date.slice(5,7)}月</text>)}</svg>:<p>暂无足够的历史数据。</p>}
@@ -284,44 +286,44 @@ export function TradeToolsPage() {
         </section>
 
         <section className="tp-trade-tools__tool">
-          {errorTool==='holidays'&&error&&<InlineNotification kind="error" title="操作失败" subtitle={error} onCloseButtonClick={()=>setError('')}/>}
+          {errors.holidays&&<InlineNotification kind="error" title="操作失败" subtitle={errors.holidays} onCloseButtonClick={()=>clearToolError('holidays')}/>}
           <div className="tp-trade-tools__tool-title"><CarbonIcons.Calendar size={24}/><div><h2>全球公共假期</h2><p>Nager.Date · 支持国家及一级行政区假期</p></div></div>
           <div className="tp-trade-tools__form-grid">
             <Dropdown id="holiday-country" titleText="国家或地区" label="选择国家或地区" items={countryOptions} selectedItem={countryOptions.find(item=>item.countryCode===holidayCountry)} itemToString={countryLabel} itemToElement={renderCountryOption} renderSelectedItem={renderCountryOption} onChange={({selectedItem})=>{if(selectedItem){setHolidayCountry(selectedItem.countryCode);setHolidayRegion('all');}}}/>
             <Select id="holiday-year" labelText="年份" value={holidayYear} onChange={e=>setHolidayYear(e.currentTarget.value)}>{[2025,2026,2027,2028].map(y=><SelectItem key={y} value={String(y)} text={String(y)}/>)}</Select>
             <Select id="holiday-region" labelText="州／省／地区" value={holidayRegion} onChange={e=>setHolidayRegion(e.currentTarget.value)}><SelectItem value="all" text="全部地区"/>{holidayRegions.map(r=><SelectItem key={r} value={r} text={r}/>)}</Select>
-            <Button kind="primary" onClick={()=>void loadHolidays()} disabled={busyTool!==null}>查询假期</Button>
+            <Button kind="primary" onClick={()=>void loadHolidays()} disabled={busyTools.currency}>查询假期</Button>
           </div>
-          {busyTool==='holidays'?<InlineLoading description="正在读取公共假期…"/>:<div className="tp-trade-tools__holiday-list">{filteredHolidays.map(h=><div className="tp-trade-tools__holiday-row" key={h.date+h.name}><div className="tp-trade-tools__holiday-date">{h.date}</div><div><strong>{h.localName||h.name}</strong><small>{h.name} · {(h.types||[]).join(' / ')||'公共假期'}</small></div><Tag type={h.global?'green':'cool-gray'}>{h.global?'全国':'地区性'}</Tag></div>)}{!filteredHolidays.length&&<p className="tp-trade-tools__empty">该条件下没有返回假期记录；请确认国家、年份或地区支持情况。</p>}</div>}
+          {busyTools.holidays?<InlineLoading description="正在读取公共假期…"/>:<div className="tp-trade-tools__holiday-list">{filteredHolidays.map(h=><div className="tp-trade-tools__holiday-row" key={h.date+h.name}><div className="tp-trade-tools__holiday-date">{h.date}</div><div><strong>{h.localName||h.name}</strong><small>{h.name} · {(h.types||[]).join(' / ')||'公共假期'}</small></div><Tag type={h.global?'green':'cool-gray'}>{h.global?'全国':'地区性'}</Tag></div>)}{!filteredHolidays.length&&<p className="tp-trade-tools__empty">该条件下没有返回假期记录；请确认国家、年份或地区支持情况。</p>}</div>}
         </section>
 
         <section className="tp-trade-tools__tool">
-          {errorTool==='shipping'&&error&&<InlineNotification kind="error" title="操作失败" subtitle={error} onCloseButtonClick={()=>setError('')}/>}
+          {errors.shipping&&<InlineNotification kind="error" title="操作失败" subtitle={errors.shipping} onCloseButtonClick={()=>clearToolError('shipping')}/>}
           <div className="tp-trade-tools__tool-title"><CarbonIcons.Delivery size={24}/><div><h2>国际物流追踪</h2><p>通过承运商官方 API 查询运输状态与轨迹</p></div></div>
           <div className="tp-trade-tools__form-grid">
             <Select id="carrier" labelText="物流服务商" value={carrier} onChange={e=>setCarrier(e.currentTarget.value)}><SelectItem value="dhl" text="DHL Express / Shipment Tracking"/><SelectItem value="ups" text="UPS"/><SelectItem value="fedex" text="FedEx"/></Select>
             <TextInput id="tracking-number" labelText="运单号" placeholder="输入物流追踪号码" value={trackingNumber} onChange={e=>setTrackingNumber(e.currentTarget.value)}/>
-            <Button kind="primary" disabled={busyTool!==null||!trackingNumber.trim()} onClick={()=>void trackShipment()}>查询物流</Button>
+            <Button kind="primary" disabled={busyTools.shipping||!trackingNumber.trim()} onClick={()=>void trackShipment()}>查询物流</Button>
           </div>
-          {busyTool==='shipping'&&<InlineLoading description="正在请求承运商官方接口…"/>}
+          {busyTools.shipping&&<InlineLoading description="正在请求承运商官方接口…"/>}
           {tracking&&<div className="tp-trade-tools__tracking"><h3>物流查询结果</h3><pre>{JSON.stringify(tracking,null,2)}</pre></div>}
           <p className="tp-trade-tools__footnote">需先在「设置中心 → 外贸工具 API」配置对应承运商凭证。DHL 追踪 API 的可用服务范围以官方账户授权为准。</p>
         </section>
 
         <section className="tp-trade-tools__tool">
-          {errorTool==='translation'&&error&&<InlineNotification kind="error" title="操作失败" subtitle={error} onCloseButtonClick={()=>setError('')}/>}
+          {errors.translation&&<InlineNotification kind="error" title="操作失败" subtitle={errors.translation} onCloseButtonClick={()=>clearToolError('translation')}/>}
           <div className="tp-trade-tools__tool-title"><CarbonIcons.Translate size={24}/><div><h2>DeepL 在线翻译</h2><p>使用已配置的 DeepL API，密钥仅在 Worker 服务端保存</p></div></div>
           <div className="tp-trade-tools__form-grid">
             <Select id="translate-source" labelText="源语言" value={sourceLanguage} onChange={e=>setSourceLanguage(e.currentTarget.value)}><SelectItem value="auto" text="自动识别"/>{[['EN','英语'],['DE','德语'],['FR','法语'],['ES','西班牙语'],['JA','日语'],['KO','韩语'],['ZH','中文'],['ZH-HANT','繁体中文'],['PT-BR','葡萄牙语'],['IT','意大利语']].map(([v,l])=><SelectItem key={v} value={v} text={l}/>)}</Select>
             <Select id="translate-target" labelText="目标语言" value={targetLanguage} onChange={e=>setTargetLanguage(e.currentTarget.value)}>{[['ZH','中文'],['ZH-HANT','繁体中文'],['EN-US','英语（美国）'],['EN-GB','英语（英国）'],['DE','德语'],['FR','法语'],['ES','西班牙语'],['JA','日语'],['KO','韩语'],['PT-BR','葡萄牙语（巴西）'],['IT','意大利语']].map(([v,l])=><SelectItem key={v} value={v} text={l}/>)}</Select>
           </div>
           <TextArea id="translate-text" labelText="待翻译内容" rows={5} value={translationText} onChange={e=>setTranslationText(e.currentTarget.value)} placeholder="输入邮件、询盘、产品说明或商务沟通内容…"/>
-          <Button kind="primary" disabled={busyTool!==null||!translationText.trim()} onClick={()=>void translate()}>开始翻译</Button>
+          <Button kind="primary" disabled={busyTools.translation||!translationText.trim()} onClick={()=>void translate()}>开始翻译</Button>
           {translated&&<div className="tp-trade-tools__translation-result"><h3>翻译结果</h3><p>{translated}</p><Button kind="ghost" size="sm" onClick={()=>void navigator.clipboard?.writeText(translated)}>复制译文</Button></div>}
         </section>
 
         <section className="tp-trade-tools__tool">
-          {errorTool==='contact-time'&&error&&<InlineNotification kind="error" title="操作失败" subtitle={error} onCloseButtonClick={()=>setError('')}/>}
+          {errors.contact-time&&<InlineNotification kind="error" title="操作失败" subtitle={errors.contact-time} onCloseButtonClick={()=>clearToolError('contact-time')}/>}
           <div className="tp-trade-tools__tool-title"><CarbonIcons.Time size={24}/><div><h2>客户联系时机</h2><p>当地时间、工作日状态、昼夜和近三天天气</p></div></div>
           <div className="tp-trade-tools__form-grid">
             <Select id="contact-select" labelText="选择客户／联系人（可选）" value={selectedContact} onChange={e=>void chooseContact(e.currentTarget.value)}><SelectItem value="" text="手动选择地点"/>{contacts.map(c=><SelectItem key={c.id} value={c.id} text={c.label+' · '+c.address}/>)}</Select>
@@ -329,10 +331,10 @@ export function TradeToolsPage() {
             <TextInput id="contact-region" labelText="省／州／地区（可选）" value={locationRegion} onChange={e=>setLocationRegion(e.currentTarget.value)} placeholder="例如 California / Bayern"/>
             <TextInput id="contact-city" labelText="城市（可选）" value={locationCity} onChange={e=>setLocationCity(e.currentTarget.value)} placeholder="例如 Los Angeles / Berlin"/>
             <TextInput id="contact-location" labelText="客户地址（可选）" value={locationQuery} onChange={e=>setLocationQuery(e.currentTarget.value)} placeholder="可输入完整地址覆盖上方地区"/>
-            <Button kind="primary" disabled={busyTool!==null||(!locationQuery.trim()&&!locationCity.trim()&&!locationRegion.trim())} onClick={()=>void searchLocation()}>搜索地点</Button>
+            <Button kind="primary" disabled={busyTools['contact-time']||(!locationQuery.trim()&&!locationCity.trim()&&!locationRegion.trim())} onClick={()=>void searchLocation()}>搜索地点</Button>
           </div>
           {locations.length>0&&<div className="tp-trade-tools__location-results">{locations.map((p,i)=><Button key={p.timezone+i} kind="ghost" onClick={()=>void loadContactTime(p)}>{p.name}{p.admin1?', '+p.admin1:''} · {p.country} · {p.timezone}</Button>)}</div>}
-          {busyTool==='contact-time'&&<InlineLoading description="正在解析时区与天气…"/>}
+          {busyTools.contact-time&&<InlineLoading description="正在解析时区与天气…"/>}
           {location&&timeData&&<div className="tp-trade-tools__contact-result">
             <div className="tp-trade-tools__clock"><div><span>{location.name}{location.admin1?', '+location.admin1:''}, {location.country}</span><strong>{new Date(timeData.datetime).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:location.timezone})}</strong><small>{new Date(timeData.datetime).toLocaleDateString('zh-CN',{year:'numeric',month:'long',day:'numeric',weekday:'long',timeZone:location.timezone})} · {timeData.timezone} ({timeData.utc_offset})</small></div>
               <div className="tp-trade-tools__day-status">{(()=>{const h=Number(new Intl.DateTimeFormat('en',{hour:'2-digit',hourCycle:'h23',timeZone:location.timezone}).format(new Date(timeData.datetime)));const localWeekday=new Intl.DateTimeFormat('en',{weekday:'short',timeZone:location.timezone}).format(new Date(timeData.datetime));const isDay=h>=6&&h<18;const weekend=localWeekday==='Sun'||localWeekday==='Sat';return <><span>{isDay?'☀️':'🌙'}</span><strong>{isDay?'当地白天':'当地夜晚'}</strong><small>{weekend||holidayToday?'🛌 休息日':'💼 工作日'}{holidayToday?' · '+holidayToday.localName:''}</small></>;})()}</div>
