@@ -18,6 +18,7 @@ import { TradeToolsHubPage } from '../features/trade-tools/TradeToolsHubPage';
 import { ShipmentConsolePage, ShipmentDetailPage, ShipmentFormPage } from '../features/shipments/ShipmentPages';
 import { PaymentAllocationPage, PaymentConsolePage, PaymentDetailPage, PaymentFormPage } from '../features/payments/PaymentPages';
 import { DashboardPage } from '../features/dashboard/DashboardPage';
+import { DocumentsCenterPage } from '../features/documents/DocumentsCenterPage';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -47,6 +48,7 @@ export const router = createBrowserRouter([
           { path: 'sales-orders/new', element: <SalesOrderFormPage /> },
           { path: 'sales-orders/:id/edit', element: <SalesOrderFormPage /> },
           { path: 'sales-orders/:id', element: <SalesOrderDetailPage /> },
+          { path: 'documents', element: <DocumentsCenterPage /> },
           { path: 'shipments', element: <ShipmentConsolePage /> },
           { path: 'shipments/new', element: <ShipmentFormPage /> },
           { path: 'shipments/:id/edit', element: <ShipmentFormPage /> },
