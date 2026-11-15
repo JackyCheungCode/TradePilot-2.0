@@ -219,7 +219,7 @@ export function SettingsCenterPage() {
       <header className="tp-settings__header">
         <div>
           <p className="tp-settings__eyebrow">TRADEPILOT / CONFIGURATION</p>
-          <h1>设置中心</h1>
+          <h1>设置（Setting）</h1>
           <p>统一维护全站业务基础数据与规则；业务页面直接读取并使用这些配置。</p>
         </div>
       </header>
