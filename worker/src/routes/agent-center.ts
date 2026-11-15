@@ -2,6 +2,7 @@ import { errorResponse, successResponse } from "../lib/http";
 import type { DiscoveryRunInput } from "./discovery";
 import type { FacebookInput } from "./facebook-discovery";
 import type { InstagramInput } from "./instagram-discovery";
+import { readIntegrationSecrets } from "../lib/integrations";
 
 type Protocol = "rest_api" | "mcp" | "webhook";
 type AuthMode = "none" | "bearer" | "header" | "oauth2" | "webhook_secret";
@@ -441,21 +442,44 @@ type ChatTurn={role:"user"|"assistant";content:string};
 export async function callAgentChatModel(env:Env,messages:ChatTurn[],systemOverride?:string,taskKey="agent_chat",jsonResponse=true,maxTokens=900):Promise<{text:string;model:string}>{
  const settings=await db<Array<{config:Record<string,unknown>}>>(env,"ai_provider_settings?id=eq.true&select=config&limit=1");
  const config=asRecord(settings?.[0]?.config),taskModels=asRecord(config.taskModels);
- const selectedModel=String(taskModels[taskKey]??taskModels.agent_planning??config.defaultModel??"@cf/google/gemma-4-26b-a4b-it");
+ const selectedRef=String(taskModels[taskKey]??taskModels.agent_planning??config.defaultModel??"@cf/google/gemma-4-26b-a4b-it");
+ const separator=selectedRef.indexOf("::");
+ const selectedProviderId=separator>0?selectedRef.slice(0,separator):"";
+ const selectedModel=separator>0?selectedRef.slice(separator+2):selectedRef;
  const providers=Array.isArray(config.providers)?config.providers.map(asRecord):[];
- const provider=providers.find(item=>item.model===selectedModel)??(selectedModel.startsWith("@cf/")?{id:"workers-ai",protocol:"workers-ai",model:selectedModel}:null);
- if(!provider)throw new Error("尚未配置小雅对话模型，请在「AI 与 API 集成」设置 Agent 对话模型。");
+ const provider=providers.find(item=>selectedProviderId&&item.id===selectedProviderId)
+  ??providers.find(item=>String(item.model??"")===selectedModel)
+  ??(selectedModel.startsWith("@cf/")?{id:"workers-ai",providerKey:"cloudflare-workers-ai",protocol:"workers-ai",model:selectedModel}:null);
+ if(!provider)throw new Error("尚未配置小雅对话模型，请在「设置中心 → 集成与 API → AI 模型集成」添加并选择模型。");
  const defaultSystem="你是 TradePilot 的总协调 AI Agent「小雅」。";
  const system=systemOverride??defaultSystem;
+ const protocol=String(provider.protocol??"openai"),providerKey=String(provider.providerKey??provider.id??"");
  let raw="";
- if(String(provider.protocol)==="workers-ai"&&env.AI){
+ if(protocol==="workers-ai"){
   const model=selectedModel.startsWith("@cf/")?selectedModel:String(provider.model??selectedModel);
-  raw=extractModelText(await Promise.race([env.AI.run(model,{messages:[{role:"system",content:system},...messages],...(jsonResponse?{response_format:{type:"json_object"}}:{}),max_tokens:maxTokens}),new Promise<never>((_,reject)=>setTimeout(()=>reject(new Error("小雅模型响应超时（35 秒）。请检查 Workers AI 模型可用性或切换 Agent 对话模型。")),35000))]));
+  if(env.AI){
+   raw=extractModelText(await Promise.race([env.AI.run(model,{messages:[{role:"system",content:system},...messages],...(jsonResponse?{response_format:{type:"json_object"}}:{}),max_tokens:maxTokens}),new Promise<never>((_,reject)=>setTimeout(()=>reject(new Error("小雅模型响应超时（35 秒）。请检查 Workers AI 模型可用性或切换 Agent 对话模型。")),35000))]));
+  }else{
+   const names=["tradepilot_api_cloudflare_token","tradepilot_api_cloudflare_account_id"];
+   const secrets=await readIntegrationSecrets(env,names);
+   const token=secrets[names[0]]||"",account=secrets[names[1]]||"";
+   if(!token||!account)throw new Error("Cloudflare Workers AI 尚未配置有效的 API Token 和 Account ID。");
+   const response=await fetch("https://api.cloudflare.com/client/v4/accounts/"+encodeURIComponent(account)+"/ai/run/"+encodeURIComponent(model),{method:"POST",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({messages:[{role:"system",content:system},...messages],max_tokens:maxTokens}),signal:AbortSignal.timeout(45000)});
+   if(!response.ok)throw new Error("Cloudflare Workers AI 请求失败（HTTP "+response.status+"）。");
+   raw=extractModelText(await response.json());
+  }
  }else{
-  const id=String(provider.id??""),secrets:Record<string,string>={openai:"AI_PROVIDER_OPENAI_API_KEY",anthropic:"AI_PROVIDER_ANTHROPIC_API_KEY",gemini:"AI_PROVIDER_GEMINI_API_KEY",deepseek:"AI_PROVIDER_DEEPSEEK_API_KEY",qwen:"AI_PROVIDER_QWEN_API_KEY",zhipu:"AI_PROVIDER_ZHIPU_API_KEY",kimi:"AI_PROVIDER_KIMI_API_KEY",minimax:"AI_PROVIDER_MINIMAX_API_KEY",openrouter:"AI_PROVIDER_OPENROUTER_API_KEY",siliconflow:"AI_PROVIDER_SILICONFLOW_API_KEY",custom:"AI_PROVIDER_CUSTOM_API_KEY"};
-  const key=(env as unknown as Record<string,unknown>)[secrets[id]??""];if(typeof key!=="string"||!key)throw new Error("小雅对话模型 API Key 未配置，请在「AI 与 API 集成」保存对应密钥。");
-  const protocol=String(provider.protocol??"openai"),model=String(provider.model??selectedModel);
-  const fallback=protocol==="anthropic"?"https://api.anthropic.com/v1":protocol==="gemini"?"https://generativelanguage.googleapis.com/v1beta":id==="openrouter"?"https://openrouter.ai/api/v1":"https://api.openai.com/v1";
+  const secretName=typeof provider.secretName==="string"?provider.secretName:"";
+  let key="";
+  if(secretName){const values=await readIntegrationSecrets(env,[secretName]);key=values[secretName]||"";}
+  if(!key){
+   const legacy:Record<string,string>={openai:"AI_PROVIDER_OPENAI_API_KEY",anthropic:"AI_PROVIDER_ANTHROPIC_API_KEY",gemini:"AI_PROVIDER_GEMINI_API_KEY",deepseek:"AI_PROVIDER_DEEPSEEK_API_KEY",qwen:"AI_PROVIDER_QWEN_API_KEY",zhipu:"AI_PROVIDER_ZHIPU_API_KEY",kimi:"AI_PROVIDER_KIMI_API_KEY",minimax:"AI_PROVIDER_MINIMAX_API_KEY",openrouter:"AI_PROVIDER_OPENROUTER_API_KEY",siliconflow:"AI_PROVIDER_SILICONFLOW_API_KEY",custom:"AI_PROVIDER_CUSTOM_API_KEY"};
+   const legacyName=legacy[providerKey]??legacy[String(provider.id??"")];
+   if(legacyName){const value=(env as unknown as Record<string,unknown>)[legacyName];if(typeof value==="string")key=value;}
+  }
+  if(!key)throw new Error("小雅模型 API Key 未配置，请在「设置中心 → 集成与 API → AI 模型集成」保存对应凭证。");
+  const model=String(provider.model??selectedModel);
+  const fallback=providerKey==="openrouter"?"https://openrouter.ai/api/v1":providerKey==="deepseek"?"https://api.deepseek.com/v1":providerKey==="qwen"?"https://dashscope.aliyuncs.com/compatible-mode/v1":providerKey==="zhipu"?"https://open.bigmodel.cn/api/paas/v4":providerKey==="kimi"?"https://api.moonshot.cn/v1":providerKey==="minimax"?"https://api.minimax.chat/v1":providerKey==="siliconflow"?"https://api.siliconflow.cn/v1":protocol==="anthropic"?"https://api.anthropic.com/v1":protocol==="gemini"?"https://generativelanguage.googleapis.com/v1beta":"https://api.openai.com/v1";
   const base=String(provider.baseUrl||fallback).replace(/\/$/,"");
   if(!isPublicHttpsEndpoint(base))throw new Error("小雅模型 Base URL 必须是 HTTPS 公网地址。");
   let response:Response;
@@ -469,7 +493,7 @@ export async function callAgentChatModel(env:Env,messages:ChatTurn[],systemOverr
    if(!response.ok)throw new Error("小雅模型请求失败（HTTP "+response.status+"）。");
    raw=extractModelText(await response.json());
   }else{
-   response=await fetch(base+"/chat/completions",{method:"POST",redirect:"manual",headers:{Authorization:"Bearer "+key,"Content-Type":"application/json"},body:JSON.stringify({model,messages:[{role:"system",content:system},...messages],...(jsonResponse?{response_format:{type:"json_object"}}:{}),max_tokens:maxTokens}),signal:AbortSignal.timeout(45000)});
+   response=await fetch(base+"/chat/completions",{method:"POST",redirect:"manual",headers:{Authorization:"Bearer "+key,"Content-Type":"application/json",...(providerKey==="openrouter"?{"HTTP-Referer":"https://tradepilot.xg-y.workers.dev","X-Title":"TradePilot"}:{})},body:JSON.stringify({model,messages:[{role:"system",content:system},...messages],...(jsonResponse?{response_format:{type:"json_object"}}:{}),max_tokens:maxTokens}),signal:AbortSignal.timeout(45000)});
    if(!response.ok)throw new Error("小雅模型请求失败（HTTP "+response.status+"）。");
    raw=extractModelText(await response.json());
   }
