@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button, InlineLoading, InlineNotification, Select, SelectItem, TextInput, Tile, CarbonIcons } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/dashboard.scss';
+import { GlobalShipmentMap } from './GlobalShipmentMap';
 
 type Row = { id: string; created_at: string; status?: string };
 type Metric = { key: string; label: string; value: number; previous: number; daily: number[]; href: string; icon: string; polarity: 'positive' | 'negative'; unit?: string };
@@ -241,6 +242,7 @@ export function DashboardPage() {
         </Tile>;
       })}
     </section>}
+    <GlobalShipmentMap />
     <section className="tp-dashboard__lower-grid">
       <Tile className="tp-dashboard__panel tp-dashboard__intelligence">
         <div className="tp-dashboard__panel-head"><div><h2>全球情报与潜客发现</h2><p>Google、Facebook、Instagram 与搜索渠道统一去重后的发现趋势</p></div><Button kind="ghost" size="sm" onClick={() => navigate('/prospect-console')}>查看全球情报 <CarbonIcons.ArrowRight size={16}/></Button></div>
