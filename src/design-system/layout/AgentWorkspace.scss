@@ -1,5 +1,9 @@
 .tp-agent {
+  display: flex;
+  flex-direction: column;
   width: 100%;
+  height: calc(100dvh - 7rem);
+  min-height: 32rem;
   min-width: 0;
   color: var(--cds-text-primary);
 }
@@ -30,6 +34,8 @@
 
 .tp-agent__workspace {
   display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
   flex-direction: column;
   width: 100%;
   min-width: 0;
@@ -67,10 +73,12 @@
 
 .tp-agent__chat {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   width: 100%;
   min-width: 0;
-  min-height: 38rem;
+  min-height: 0;
+  overflow: hidden;
   background: var(--cds-layer);
 }
 
@@ -101,10 +109,27 @@
   gap: var(--tp-space-05);
   width: 100%;
   min-width: 0;
-  min-height: 22rem;
-  max-height: min(62vh, 48rem);
+  min-height: 0;
+  max-height: none;
+  overflow-x: hidden;
   overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-gutter: stable;
   padding: var(--tp-space-06);
+  scrollbar-width: thin;
+  scrollbar-color: var(--cds-border-strong-01) var(--cds-layer-01);
+}
+
+.tp-agent__messages::-webkit-scrollbar {
+  width: 0.5rem;
+}
+
+.tp-agent__messages::-webkit-scrollbar-track {
+  background: var(--cds-layer-01);
+}
+
+.tp-agent__messages::-webkit-scrollbar-thumb {
+  background: var(--cds-border-strong-01);
 }
 
 .tp-agent__welcome {
@@ -246,6 +271,11 @@
 }
 
 @media (max-width: 671px) {
+  .tp-agent {
+    height: calc(100dvh - 5rem);
+    min-height: 28rem;
+  }
+
   .tp-agent__page-header {
     align-items: flex-start;
   }
@@ -265,11 +295,11 @@
   }
 
   .tp-agent__chat {
-    min-height: calc(100dvh - 15rem);
+    min-height: 0;
   }
 
   .tp-agent__messages {
-    min-height: 16rem;
+    min-height: 0;
     max-height: none;
     padding: var(--tp-space-04);
   }
