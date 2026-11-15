@@ -266,7 +266,7 @@ export function TradeToolsPage() {
 
       <section className="tp-trade-tools__workspace">
         <section className="tp-trade-tools__tool">
-          {errorTool==='currency'&&error&&<InlineNotification kind="error" title="操作失败" subtitle={error} onCloseButtonClick={()=>setError('')}/ >}
+          {errorTool==='currency'&&error&&<InlineNotification kind="error" title="操作失败" subtitle={error} onCloseButtonClick={()=>setError('')}/>}
           <div className="tp-trade-tools__tool-title"><CarbonIcons.Currency size={24}/><div><h2>汇率换算</h2><p>Frankfurter 官方参考汇率 · 半年历史走势</p></div></div>
           <div className="tp-trade-tools__form-grid">
             <Select id="fx-base" labelText="原币种" value={base} onChange={e=>setBase(e.currentTarget.value)}>{currencies.map(c=><SelectItem key={c} value={c} text={c}/>)}</Select>
@@ -281,10 +281,10 @@ export function TradeToolsPage() {
             </div>
           </div>}
           <p className="tp-trade-tools__footnote">汇率为公开参考数据，非银行实时交易报价；Frankfurter 按工作日更新。</p>
-        </section>}
+        </section>
 
         <section className="tp-trade-tools__tool">
-          {errorTool==='holidays'&&error&&<InlineNotification kind="error" title="操作失败" subtitle={error} onCloseButtonClick={()=>setError('')}/ >}
+          {errorTool==='holidays'&&error&&<InlineNotification kind="error" title="操作失败" subtitle={error} onCloseButtonClick={()=>setError('')}/>}
           <div className="tp-trade-tools__tool-title"><CarbonIcons.Calendar size={24}/><div><h2>全球公共假期</h2><p>Nager.Date · 支持国家及一级行政区假期</p></div></div>
           <div className="tp-trade-tools__form-grid">
             <Dropdown id="holiday-country" titleText="国家或地区" label="选择国家或地区" items={countryOptions} selectedItem={countryOptions.find(item=>item.countryCode===holidayCountry)} itemToString={countryLabel} itemToElement={renderCountryOption} renderSelectedItem={renderCountryOption} onChange={({selectedItem})=>{if(selectedItem){setHolidayCountry(selectedItem.countryCode);setHolidayRegion('all');}}}/>
@@ -293,10 +293,10 @@ export function TradeToolsPage() {
             <Button kind="primary" onClick={()=>void loadHolidays()} disabled={busyTool!==null}>查询假期</Button>
           </div>
           {busyTool==='holidays'?<InlineLoading description="正在读取公共假期…"/>:<div className="tp-trade-tools__holiday-list">{filteredHolidays.map(h=><div className="tp-trade-tools__holiday-row" key={h.date+h.name}><div className="tp-trade-tools__holiday-date">{h.date}</div><div><strong>{h.localName||h.name}</strong><small>{h.name} · {(h.types||[]).join(' / ')||'公共假期'}</small></div><Tag type={h.global?'green':'cool-gray'}>{h.global?'全国':'地区性'}</Tag></div>)}{!filteredHolidays.length&&<p className="tp-trade-tools__empty">该条件下没有返回假期记录；请确认国家、年份或地区支持情况。</p>}</div>}
-        </section>}
+        </section>
 
         <section className="tp-trade-tools__tool">
-          {errorTool==='shipping'&&error&&<InlineNotification kind="error" title="操作失败" subtitle={error} onCloseButtonClick={()=>setError('')}/ >}
+          {errorTool==='shipping'&&error&&<InlineNotification kind="error" title="操作失败" subtitle={error} onCloseButtonClick={()=>setError('')}/>}
           <div className="tp-trade-tools__tool-title"><CarbonIcons.Delivery size={24}/><div><h2>国际物流追踪</h2><p>通过承运商官方 API 查询运输状态与轨迹</p></div></div>
           <div className="tp-trade-tools__form-grid">
             <Select id="carrier" labelText="物流服务商" value={carrier} onChange={e=>setCarrier(e.currentTarget.value)}><SelectItem value="dhl" text="DHL Express / Shipment Tracking"/><SelectItem value="ups" text="UPS"/><SelectItem value="fedex" text="FedEx"/></Select>
@@ -306,10 +306,10 @@ export function TradeToolsPage() {
           {busyTool==='shipping'&&<InlineLoading description="正在请求承运商官方接口…"/>}
           {tracking&&<div className="tp-trade-tools__tracking"><h3>物流查询结果</h3><pre>{JSON.stringify(tracking,null,2)}</pre></div>}
           <p className="tp-trade-tools__footnote">需先在「设置中心 → 外贸工具 API」配置对应承运商凭证。DHL 追踪 API 的可用服务范围以官方账户授权为准。</p>
-        </section>}
+        </section>
 
         <section className="tp-trade-tools__tool">
-          {errorTool==='translation'&&error&&<InlineNotification kind="error" title="操作失败" subtitle={error} onCloseButtonClick={()=>setError('')}/ >}
+          {errorTool==='translation'&&error&&<InlineNotification kind="error" title="操作失败" subtitle={error} onCloseButtonClick={()=>setError('')}/>}
           <div className="tp-trade-tools__tool-title"><CarbonIcons.Translate size={24}/><div><h2>DeepL 在线翻译</h2><p>使用已配置的 DeepL API，密钥仅在 Worker 服务端保存</p></div></div>
           <div className="tp-trade-tools__form-grid">
             <Select id="translate-source" labelText="源语言" value={sourceLanguage} onChange={e=>setSourceLanguage(e.currentTarget.value)}><SelectItem value="auto" text="自动识别"/>{[['EN','英语'],['DE','德语'],['FR','法语'],['ES','西班牙语'],['JA','日语'],['KO','韩语'],['ZH','中文'],['ZH-HANT','繁体中文'],['PT-BR','葡萄牙语'],['IT','意大利语']].map(([v,l])=><SelectItem key={v} value={v} text={l}/>)}</Select>
@@ -318,10 +318,10 @@ export function TradeToolsPage() {
           <TextArea id="translate-text" labelText="待翻译内容" rows={5} value={translationText} onChange={e=>setTranslationText(e.currentTarget.value)} placeholder="输入邮件、询盘、产品说明或商务沟通内容…"/>
           <Button kind="primary" disabled={busyTool!==null||!translationText.trim()} onClick={()=>void translate()}>开始翻译</Button>
           {translated&&<div className="tp-trade-tools__translation-result"><h3>翻译结果</h3><p>{translated}</p><Button kind="ghost" size="sm" onClick={()=>void navigator.clipboard?.writeText(translated)}>复制译文</Button></div>}
-        </section>}
+        </section>
 
         <section className="tp-trade-tools__tool">
-          {errorTool==='contact-time'&&error&&<InlineNotification kind="error" title="操作失败" subtitle={error} onCloseButtonClick={()=>setError('')}/ >}
+          {errorTool==='contact-time'&&error&&<InlineNotification kind="error" title="操作失败" subtitle={error} onCloseButtonClick={()=>setError('')}/>}
           <div className="tp-trade-tools__tool-title"><CarbonIcons.Time size={24}/><div><h2>客户联系时机</h2><p>当地时间、工作日状态、昼夜和近三天天气</p></div></div>
           <div className="tp-trade-tools__form-grid">
             <Select id="contact-select" labelText="选择客户／联系人（可选）" value={selectedContact} onChange={e=>void chooseContact(e.currentTarget.value)}><SelectItem value="" text="手动选择地点"/>{contacts.map(c=><SelectItem key={c.id} value={c.id} text={c.label+' · '+c.address}/>)}</Select>
@@ -340,7 +340,7 @@ export function TradeToolsPage() {
             <div className="tp-trade-tools__weather">{weather.map((w,i)=><div key={w.date}><span>{i===0?'昨天':i===1?'今天':'明天'}</span><strong>{weatherIcon(w.code)}</strong><small>{w.high.toFixed(0)}° / {w.low.toFixed(0)}°C</small><small>降雨概率 {w.rain}%</small></div>)}</div>
             <p className="tp-trade-tools__footnote">工作日按当地周末与 Nager.Date 公共假期数据判断；昼夜按当地 06:00–18:00 粗略划分。天气来自 Open-Meteo。时间数据由 <a href="https://time.now" target="_blank" rel="noreferrer">Time.Now</a> 提供。</p>
           </div>}
-        </section>}
+        </section>
 
         <section className="tp-trade-tools__tool">
           <div className="tp-trade-tools__tool-title"><CarbonIcons.Calculator size={24}/><div><h2>报价利润计算器</h2><p>按目标毛利率反推报价，估算单件与订单利润</p></div></div>
@@ -355,7 +355,7 @@ export function TradeToolsPage() {
           </div>
           <div className="tp-trade-tools__profit-result"><div><span>单件总成本</span><strong>{profitCurrency} {profit.totalCost.toFixed(2)}</strong></div><div><span>建议单价</span><strong>{profitCurrency} {profit.price.toFixed(2)}</strong></div><div><span>单件利润</span><strong>{profitCurrency} {profit.profit.toFixed(2)}</strong></div><div><span>订单总利润</span><strong>{profitCurrency} {(profit.profit*profit.qty).toFixed(2)}</strong></div><div><span>目标毛利率</span><strong>{profit.margin.toFixed(2)}%</strong></div></div>
           <p className="tp-trade-tools__footnote">当前按不含税销售额计算毛利率，报价币种由你录入成本时自行统一；尚未纳入汇率、佣金和阶梯价格。</p>
-        </section>}
+        </section>
       </section>
     </div>
   </main>;
