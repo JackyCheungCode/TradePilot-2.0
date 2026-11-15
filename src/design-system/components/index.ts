@@ -52,6 +52,7 @@ export * from './Breadcrumb';
 export * from './Progress';
 export * from './Tile';
 export * from './LineChart';
+export * from './SimpleBarChart';
 export * from './TileGroup';
 export * from './Tooltip';
 export * from './OverflowMenu';
