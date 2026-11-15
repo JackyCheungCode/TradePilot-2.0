@@ -15,6 +15,7 @@ interface ProspectRow {
   status: 'converted' | 'pending'; leadId: string | null; discoveredAt: string;
   platforms: Array<{ key: string; label: string }>;
   recordIds: string[];
+  sourceDetails?: Array<{ platform: string; fields: Array<{ label: string; value: string }> }>;
 }
 interface ConsoleStats {
   metrics: { platformCount: number; prospectCount: number; convertedCount: number; pendingCount: number };
@@ -252,7 +253,9 @@ export function ProspectConsolePage() {
         </Table></TableContainer></div>
         {!filtered.length&&<p className="tp-console__empty">没有符合当前筛选条件的潜客。</p>}
       </section>
-      {selected&&<section className="tp-console__detail" aria-live="polite"><div className="tp-console__detail-head"><h3>{selected.name}</h3><Button kind="ghost" size="sm" onClick={()=>setSelected(null)}>关闭详情</Button></div><div className="tp-console__detail-grid"><div><span>国家 / 地区</span><strong>{countryLabel(selected.country)}</strong></div><div><span>主要地址</span><strong>{selected.address}</strong></div><div><span>电话</span><strong>{selected.phone||'—'}</strong></div><div><span>邮箱</span><strong>{selected.email||'—'}</strong></div><div><span>网站</span><strong>{selected.website||'—'}</strong></div><div><span>发现渠道</span><strong>{selected.platforms.map(item=>item.label).join('、')}</strong></div></div></section>}
+      {selected&&<section className="tp-console__detail" aria-live="polite"><div className="tp-console__detail-head"><h3>{selected.name}</h3><Button kind="ghost" size="sm" onClick={()=>setSelected(null)}>关闭详情</Button></div><div className="tp-console__detail-grid"><div><span>国家 / 地区</span><strong>{countryLabel(selected.country)}</strong></div><div><span>主要地址</span><strong>{selected.address}</strong></div><div><span>电话</span><strong>{selected.phone||'—'}</strong></div><div><span>邮箱</span><strong>{selected.email||'—'}</strong></div><div><span>网站</span><strong>{selected.website||'—'}</strong></div><div><span>发现渠道</span><strong>{selected.platforms.map(item=>item.label).join('、')}</strong></div></div>
+        {selected.sourceDetails?.map(detail=><section className="tp-console__source-detail" key={detail.platform}><h4>{detail.platform==='map_local_businesses'?'Google Maps':detail.platform==='facebook'?'Facebook Pages':detail.platform==='instagram'?'Instagram':detail.platform==='search_engine'?'搜索引擎':'内置 Agent'} 平台数据</h4><dl>{detail.fields.map(field=><div key={field.label}><dt>{field.label}</dt><dd>{field.value}</dd></div>)}</dl></section>)}
+      </section>}
     </>}
   </main>;
 }
