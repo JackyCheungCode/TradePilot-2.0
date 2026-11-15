@@ -12,14 +12,6 @@ const omniboxTools: ToolMeta[] = [
   { id: 'screen', name: '贸易实体制裁筛查', description: '检查企业或个人是否命中受限名单', icon: <CarbonIcons.Security size={20}/>, category: '贸易合规' },
   { id: 'rulings', name: '美国 CBP 海关裁决检索', description: '语义检索美国海关历史裁决', icon: <CarbonIcons.Document size={20}/>, category: '贸易合规' },
 ];
-const legacyTools = [
-  { name: '汇率换算', description: '公开参考汇率与历史走势' },
-  { name: '全球公共假期', description: '国家及地区公共假期查询' },
-  { name: '国际物流追踪', description: 'DHL、UPS、FedEx 运单查询' },
-  { name: 'DeepL 在线翻译', description: '商务邮件与产品内容翻译' },
-  { name: '客户联系时机', description: '当地时间、天气与工作日' },
-  { name: '报价利润计算器', description: '按目标毛利率反推报价' },
-];
 async function authToken() {
   const db = await getSupabaseClient();
   const { data } = await db.auth.getSession();
