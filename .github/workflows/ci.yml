@@ -27,8 +27,8 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Verify Carbon import boundary
-        run: npm run check:carbon-imports
+      - name: Verify design-system boundary
+        run: npm run check:design-system
 
       - name: Typecheck and build
         run: npm run build
