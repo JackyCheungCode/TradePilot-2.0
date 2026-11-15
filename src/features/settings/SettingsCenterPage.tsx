@@ -30,7 +30,7 @@ const domains: Domain[] = [
 const tradeOperationsSections: Section[] = [
   { id: 'shared', label: '共享基础设置', group: '共享基础设置', description: '统一维护币种与贸易术语，发运和收款模块共用。', implemented: true },
   { id: 'shipment', label: '发运设置', group: '业务模块设置', description: '默认运输规则、运输方式、箱型、包装、费用、跟踪节点与异常字典。', implemented: true },
-  { id: 'payment', label: '收款设置', group: '业务模块设置', description: '收款方式、汇率、手续费、应收计划、催款与对账。', integration: 'pending' },
+  { id: 'payment', label: '收款设置', group: '业务模块设置', description: '收款基础规则、账户与方式、汇率手续费、应收账龄、信用证、退款核销和对账。', implemented: true, integration: 'config-only' },
 ];
 
 const tradeDocumentSections: Section[] = [
@@ -242,7 +242,7 @@ export function SettingsCenterPage() {
               <h2>{domain === 'trade-operations' ? '发运与收款设置' : domain === 'trade-documents' ? '销售单据设置' : domain === 'opportunities' ? '商机设置' : domain === 'contacts' ? '联系人设置' : domain === 'accounts' ? '客户设置' : domain === 'leads' ? '线索设置' : '产品设置'}</h2>
               <p>{domain === 'trade-operations' ? '集中管理共享基础数据，并分别配置发运与收款业务规则。' : domain === 'trade-documents' ? '统一维护销售单据共性规则，并分别配置报价单与销售订单的专属流程。' : domain === 'opportunities' ? '维护销售流程、商机分类、销售组织、活动与预测规则。' : domain === 'contacts' ? '维护联系人身份、组织、联系方式、沟通偏好、合规与数据规则。' : domain === 'accounts' ? '维护客户主数据、客户分级、地址、交易财务、销售归属与风险规则。' : domain === 'leads' ? '维护线索分类、来源画像、资格评估、分配跟进、查重与转换规则。' : '维护产品主数据字典、模板、包装贸易规则和数据校验策略。'}</p>
             </div>
-            {domain === 'trade-operations' ? <div className="tp-settings__workspace-status"><Tag type="green">共享设置已接入 1/3</Tag><Tag type="cool-gray">发运与收款配置分阶段接入</Tag></div> : domain === "contacts" || domain === "accounts" || domain === "leads" ? <div className="tp-settings__workspace-status"><Tag type="green">字典已接入 {connectedCount}/{activeSections.length}</Tag><Tag type="cool-gray">规则待接入 {configOnlyCount}</Tag></div> : <Tag type="green">已接入 {activeSections.length} 项</Tag>}
+            {domain === 'trade-operations' ? <div className="tp-settings__workspace-status"><Tag type="green">设置配置已接入 3/3</Tag><Tag type="cool-gray">业务流程联动分阶段接入</Tag></div> : domain === "contacts" || domain === "accounts" || domain === "leads" ? <div className="tp-settings__workspace-status"><Tag type="green">字典已接入 {connectedCount}/{activeSections.length}</Tag><Tag type="cool-gray">规则待接入 {configOnlyCount}</Tag></div> : <Tag type="green">已接入 {activeSections.length} 项</Tag>}
           </div>
 
           <div className="tp-settings__section-layout">
