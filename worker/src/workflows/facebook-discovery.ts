@@ -3,6 +3,7 @@ import { WorkflowEntrypoint } from "cloudflare:workers";
 import type { WorkflowEvent, WorkflowStep } from "cloudflare:workers";
 import type { FacebookInput } from "../routes/facebook-discovery";
 import { discoveryRunQuery } from "../lib/owner-scoped-query";
+import { readIntegrationSecret } from "../lib/integrations";
 interface Env { SUPABASE_URL:string; SUPABASE_SERVICE_ROLE_KEY:string; APIFY_API_TOKEN?:string; }
 interface Params { runId:string; ownerId:string; input:FacebookInput; }
 interface ActorRun { id:string; status:string; defaultDatasetId?:string; }
