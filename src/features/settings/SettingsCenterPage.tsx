@@ -6,19 +6,19 @@ import {
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/settings.scss';
 
-type Domain = { id: string; label: string; description: string; icon: React.ReactNode; available: boolean };
+type Domain = { id: string; label: string; icon: React.ReactNode; available: boolean };
 type Section = { id: string; label: string; group: string; description: string; implemented?: boolean };
 type Category = { id: string; name: string; parent_id: string | null; code: string | null; description?: string | null; sequence: number; is_active: boolean };
 type Attribute = { id: string; name: string; display_type: string; create_variant: string; sequence: number; is_active: boolean };
 
 const domains: Domain[] = [
-  { id: 'products', label: '产品', description: '产品主数据、规格、贸易与包装规则', icon: <CarbonIcons.Product size={20} />, available: true },
-  { id: 'opportunities', label: '商机', description: '销售阶段、赢率、优先级与输单原因', icon: <CarbonIcons.UserMultiple size={20} />, available: false },
-  { id: 'contacts', label: '联系人', description: '联系人角色、称谓、部门与沟通偏好', icon: <CarbonIcons.User size={20} />, available: false },
-  { id: 'accounts', label: '客户', description: '客户类型、等级、行业、规模与地址', icon: <CarbonIcons.Building size={20} />, available: false },
-  { id: 'leads', label: '线索', description: '来源、状态、评级与分配规则', icon: <CarbonIcons.UserMultiple size={20} />, available: false },
-  { id: 'quotes', label: '报价', description: '报价类型、有效期、贸易术语与审批', icon: <CarbonIcons.Document size={20} />, available: false },
-  { id: 'orders', label: '订单', description: '订单状态、交付方式与付款规则', icon: <CarbonIcons.Product size={20} />, available: false },
+  { id: 'products', label: '产品', icon: <CarbonIcons.Product size={20} />, available: true },
+  { id: 'opportunities', label: '商机', icon: <CarbonIcons.UserMultiple size={20} />, available: false },
+  { id: 'contacts', label: '联系人', icon: <CarbonIcons.User size={20} />, available: false },
+  { id: 'accounts', label: '客户', icon: <CarbonIcons.Building size={20} />, available: false },
+  { id: 'leads', label: '线索', icon: <CarbonIcons.UserMultiple size={20} />, available: false },
+  { id: 'quotes', label: '报价', icon: <CarbonIcons.Document size={20} />, available: false },
+  { id: 'orders', label: '订单', icon: <CarbonIcons.Product size={20} />, available: false },
 ];
 
 const productSections: Section[] = [
@@ -167,7 +167,7 @@ export function SettingsCenterPage() {
               aria-pressed={domain === item.id}
             >
               <span className="tp-settings__domain-icon">{item.icon}</span>
-              <span className="tp-settings__domain-copy"><strong>{item.label}</strong><small>{item.description}</small></span>
+              <span className="tp-settings__domain-copy"><strong>{item.label}</strong></span>
               {!item.available && <Tag type="cool-gray">规划中</Tag>}
             </Button>
           ))}
