@@ -62,7 +62,7 @@ export function AccountFormPage(){
  const accountGrades=useCrmSettingOptions('accounts','grades',[{id:'A',text:'A 级'},{id:'B',text:'B 级'},{id:'C',text:'C 级'}]);
  const businessTypesOptions=useCrmSettingOptions('accounts','business-types',['分销商','批发商','零售商','制造商','贸易商','品牌商','其他'].map(x=>({id:x,text:x})));
  const industryOptions=useCrmSettingOptions('accounts','industries',['消费电子','电脑及手机周边','智能硬件','智能家居','游戏设备及配件','网络及通信设备','音频设备','其他'].map(x=>({id:x,text:x})));
- const companySizeOptions=useCrmSettingOptions('accounts','company-sizes',['1–10 人','11–50 人','51–200 人','201–1,000 人','1,001 人以上'].map(x=>({id:x,text:x})));
+ const companySizeOptions=useCrmSettingOptions('accounts','company-sizes',['1-10 人','11-50 人','51-200 人','201-1,000 人','1,001-5,000 人','5,000 人以上'].map(x=>({id:x,text:x})));
  const currencies=useCrmSettingOptions('accounts','currencies',['USD','EUR','CNY','TWD','JPY','GBP'].map(x=>({id:x,text:x})));
  const incoterms=useCrmSettingOptions('accounts','incoterms',['EXW','FCA','FOB','CFR','CIF','CPT','CIP','DAP','DPU','DDP'].map(x=>({id:x,text:x})));
  const paymentTerms=useCrmSettingOptions('accounts','payment-terms',['全额预付','定金 + 尾款','Net 30','Net 60','自定义付款节点'].map(x=>({id:x,text:x})));
