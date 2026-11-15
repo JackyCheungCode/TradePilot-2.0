@@ -20,6 +20,12 @@ const catalog:Catalog[]=[
 {id:'minimax',name:'MiniMax',protocol:'openai',baseUrl:'https://api.minimax.chat/v1',logo:'minimax',initial:'M'},
 {id:'mistral',name:'Mistral AI',protocol:'openai',baseUrl:'https://api.mistral.ai/v1',logo:'mistral',initial:'M'},
 {id:'siliconflow',name:'硅基流动 SiliconFlow',protocol:'openai',baseUrl:'https://api.siliconflow.cn/v1',logo:'siliconcloud',initial:'S'},
+{id:'xai',name:'xAI Grok',protocol:'openai',baseUrl:'https://api.x.ai/v1',logo:'x',initial:'X'},
+{id:'groq',name:'Groq',protocol:'openai',baseUrl:'https://api.groq.com/openai/v1',logo:'groq',initial:'G'},
+{id:'baidu-qianfan',name:'百度千帆',protocol:'openai',baseUrl:'https://qianfan.baidubce.com/v2',logo:'baidu',initial:'B'},
+{id:'tencent-hunyuan',name:'腾讯混元',protocol:'openai',baseUrl:'https://api.hunyuan.cloud.tencent.com/v1',logo:'tencent',initial:'T'},
+{id:'volcengine-ark',name:'火山引擎方舟',protocol:'openai',baseUrl:'https://ark.cn-beijing.volces.com/api/v3',logo:'bytedance',initial:'火'},
+{id:'together',name:'Together AI',protocol:'openai',baseUrl:'https://api.together.xyz/v1',logo:'together',initial:'T'},
 {id:'custom',name:'自定义 OpenAI 兼容接口',protocol:'openai',baseUrl:'',logo:'',initial:'API'}
 ];
 const apiCards=[
