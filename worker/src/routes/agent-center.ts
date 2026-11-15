@@ -378,7 +378,8 @@ export async function callAgentChatModel(env:Env,messages:ChatTurn[],systemOverr
  const providers=Array.isArray(config.providers)?config.providers.map(asRecord):[];
  const provider=providers.find(item=>item.model===selectedModel)??(selectedModel.startsWith("@cf/")?{id:"workers-ai",protocol:"workers-ai",model:selectedModel}:null);
  if(!provider)throw new Error("尚未配置小雅对话模型，请在「AI 与 API 集成」设置 Agent 对话模型。");
- const defaultSystem="你是 TradePilot 的总协调 AI Agent「小雅」。";\n const system=systemOverride??defaultSystem;
+ const defaultSystem="你是 TradePilot 的总协调 AI Agent「小雅」。";
+ const system=systemOverride??defaultSystem;
  let raw="";
  if(String(provider.protocol)==="workers-ai"&&env.AI){
   const model=selectedModel.startsWith("@cf/")?selectedModel:String(provider.model??selectedModel);
@@ -722,7 +723,8 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
       const turns:ChatTurn[]=[...(history??[]).reverse(),{role:"user",content:message}];
       await db(env,"agent_chat_messages",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({owner_id:ownerId,conversation_id:conversationId,role:"user",content:message})});
       try{
-        const workspaceContext=await loadXiaoyaWorkspaceContext(env,ownerId);\n        const generated=await callAgentChatModel(env,turns,buildXiaoyaSystemPrompt(workspaceContext),true,1800);
+        const workspaceContext=await loadXiaoyaWorkspaceContext(env,ownerId);
+        const generated=await callAgentChatModel(env,turns,buildXiaoyaSystemPrompt(workspaceContext),true,1800);
         const parsed=parsePlannerJson(generated.text);
         const reply=String(parsed.reply??"我已理解你的意思，请再补充一点目标信息。").slice(0,3000);
         const taskRaw=parsed.task===null?null:asRecord(parsed.task);
