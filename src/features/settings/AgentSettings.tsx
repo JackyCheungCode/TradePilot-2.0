@@ -1,0 +1,146 @@
+import { useEffect, useMemo, useState } from 'react';
+import { Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput, TextArea } from '@/design-system';
+import { getSupabaseClient } from '@/lib/supabase';
+
+type Provider = { id: string; name: string; model: string; protocol: string; configured?: boolean; baseUrl?: string };
+type Profile = { agent_key: string; enabled: boolean; config: { systemPrompt?: string; description?: string } };
+type Appearance = { shape: string; color: string; styleId: string; variant: string; face: string };
+const agentLabels: Record<string,string> = {
+  buyer_development: '全球买家开发 Agent', market_research: '市场研究 Agent',
+  company_research: '企业调查 Agent', lead_scoring: '潜客评估 Agent',
+  multilingual_sales: '多语言销售 Agent', follow_up: '客户跟进 Agent', trade_compliance: '贸易合规 Agent',
+};
+async function agentApi<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const client = await getSupabaseClient();
+  const { data } = await client.auth.getSession();
+  if (!data.session?.access_token) throw new Error('登录状态已失效，请重新登录。');
+  const response = await fetch(path, { ...init, headers: { Authorization: 'Bearer ' + data.session.access_token, ...(init.body ? { 'Content-Type': 'application/json' } : {}), ...init.headers } });
+  const payload = await response.json() as { data?: T; error?: { message?: string } };
+  if (!response.ok || !('data' in payload)) throw new Error(payload.error?.message || 'Agent 设置读取失败。');
+  return payload.data as T;
+}
+export function AgentSettings() {
+  const [providers,setProviders] = useState<Provider[]>([]);
+  const [selectedModel,setSelectedModel] = useState('');
+  const [profiles,setProfiles] = useState<Profile[]>([]);
+  const [appearance,setAppearance] = useState<Appearance>({shape:'blob',color:'cream',styleId:'vector',variant:'soft',face:'cute'});
+  const [loading,setLoading] = useState(true);
+  const [saving,setSaving] = useState(false);
+  const [error,setError] = useState('');
+  const [notice,setNotice] = useState('');
+  const [activeAgent,setActiveAgent] = useState('buyer_development');
+  const activeProfile = profiles.find(item => item.agent_key === activeAgent);
+  const selectedProvider = providers.find(item => item.model === selectedModel) || providers[0];
+  const load = async () => {
+    setLoading(true); setError('');
+    try {
+      const client = await getSupabaseClient();
+      const [settings, profileRows, avatar] = await Promise.all([
+        client.from('ai_provider_settings').select('config').eq('id',true).maybeSingle(),
+        agentApi<Profile[]>('/api/v1/agent/profiles'),
+        agentApi<{default?:Appearance;agents?:Record<string,Appearance>}>('/api/v1/agent/appearance'),
+      ]);
+      if (settings.error) throw settings.error;
+      const config = (settings.data?.config || {}) as { providers?: Provider[]; taskModels?: Record<string,string>; defaultModel?: string };
+      const available = (config.providers || []).filter(item => item.configured !== false);
+      setProviders(available);
+      const current = config.taskModels?.agent_chat || config.defaultModel || available[0]?.model || '';
+      setSelectedModel(current);
+      setProfiles(profileRows || []);
+      if (avatar.default) setAppearance(avatar.default);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : '读取 Agent 设置失败。'); }
+    finally { setLoading(false); }
+  };
+  useEffect(() => { void load(); }, []);
+  const saveModel = async () => {
+    if (!selectedModel) return;
+    setSaving(true); setError(''); setNotice('');
+    try {
+      const client = await getSupabaseClient();
+      const { data, error: readError } = await client.from('ai_provider_settings').select('config').eq('id',true).single();
+      if (readError) throw readError;
+      const config = (data?.config || {}) as Record<string,unknown>;
+      const taskModels = { ...((config.taskModels || {}) as Record<string,string>), agent_chat:selectedModel, agent_planning:selectedModel };
+      const result = await client.from('ai_provider_settings').upsert({ id:true, config:{...config,taskModels,defaultModel:selectedModel}, updated_at:new Date().toISOString() }, { onConflict:'id' });
+      if (result.error) throw result.error;
+      setNotice('小雅对话与任务规划模型已保存。');
+    } catch (cause) { setError(cause instanceof Error ? cause.message : '模型设置保存失败。'); }
+    finally { setSaving(false); }
+  };
+  const saveProfile = async (profile: Profile) => {
+    setSaving(true); setError(''); setNotice('');
+    try {
+      const saved = await agentApi<Profile>('/api/v1/agent/profiles/' + profile.agent_key, { method:'PUT', body:JSON.stringify({enabled:profile.enabled,config:profile.config}) });
+      setProfiles(rows => [...rows.filter(item => item.agent_key !== profile.agent_key),saved]);
+      setNotice(agentLabels[profile.agent_key] + ' 设置已保存。');
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Agent 设置保存失败。'); }
+    finally { setSaving(false); }
+  };
+  const saveAppearance = async () => {
+    setSaving(true); setError(''); setNotice('');
+    try {
+      await agentApi('/api/v1/agent/appearance', { method:'PUT', body:JSON.stringify({config:{default:appearance,agents:{}}}) });
+      setNotice('小雅默认头像形象设置已保存。');
+    } catch (cause) { setError(cause instanceof Error ? cause.message : '头像设置保存失败。'); }
+    finally { setSaving(false); }
+  };
+  if (loading) return <InlineLoading description="正在读取 Agent 设置…" />;
+  return <div className="tp-settings-agent">
+    {error && <InlineNotification kind="error" title="设置失败" subtitle={error} onCloseButtonClick={() => setError('')} />}
+    {notice && <InlineNotification kind="success" title="保存成功" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
+    <section className="tp-settings__editor">
+      <h4>小雅模型配置</h4>
+      <p>从已在「AI 与 API 集成」中配置的供应商和模型中选择，不在此处重复保存 API Key。</p>
+      <div className="tp-settings__editor-grid">
+        <Select id="agent-model-provider" labelText="模型供应商" value={selectedProvider?.id || ''} onChange={event => { const provider = providers.find(item => item.id === event.currentTarget.value); if (provider) setSelectedModel(provider.model); }}>
+          {providers.map(item => <SelectItem key={item.id} value={item.id} text={item.name} />)}
+        </Select>
+        <Select id="agent-model-choice" labelText="模型选择" value={selectedModel} onChange={event => setSelectedModel(event.currentTarget.value)}>
+          {providers.map(item => <SelectItem key={item.model} value={item.model} text={item.model} />)}
+        </Select>
+        <Button kind="primary" disabled={saving || !selectedModel} onClick={() => void saveModel()}>保存模型配置</Button>
+      </div>
+      {!providers.length && <Tag type="red">尚无已配置的模型，请先在 AI 与 API 集成中配置供应商和 API Key。</Tag>}
+    </section>
+    <section className="tp-settings__editor">
+      <h4>内置 Agent 管理</h4>
+      <p>启用或停用专业 Agent，并维护其专属指令。</p>
+      <div className="tp-settings__editor-grid">
+        <Select id="agent-profile-select" labelText="选择 Agent" value={activeAgent} onChange={event => setActiveAgent(event.currentTarget.value)}>
+          {Object.entries(agentLabels).map(([key,label]) => <SelectItem key={key} value={key} text={label} />)}
+        </Select>
+        <Button kind="primary" disabled={saving || !activeProfile} onClick={() => activeProfile && void saveProfile(activeProfile)}>保存 Agent 设置</Button>
+      </div>
+      {activeProfile ? <>
+        <label className="cds--label" htmlFor="agent-profile-enabled">启用状态</label>
+        <Select id="agent-profile-enabled" labelText="启用状态" hideLabel value={activeProfile.enabled ? 'enabled' : 'disabled'} onChange={event => setProfiles(rows => rows.map(item => item.agent_key === activeAgent ? {...item,enabled:event.currentTarget.value === 'enabled'} : item))}>
+          <SelectItem value="enabled" text="启用" /><SelectItem value="disabled" text="停用" />
+        </Select>
+        <TextArea id="agent-profile-description" labelText="Agent 描述" rows={2} value={activeProfile.config.description || ''} onChange={event => setProfiles(rows => rows.map(item => item.agent_key === activeAgent ? {...item,config:{...item.config,description:event.currentTarget.value}} : item))} />
+        <TextArea id="agent-profile-prompt" labelText="系统指令" rows={6} value={activeProfile.config.systemPrompt || ''} onChange={event => setProfiles(rows => rows.map(item => item.agent_key === activeAgent ? {...item,config:{...item.config,systemPrompt:event.currentTarget.value}} : item))} />
+      </> : <p>尚未保存该 Agent 的自定义配置；首次保存后即可管理启用状态和指令。</p>}
+    </section>
+    <section className="tp-settings__editor">
+      <h4>小雅头像与形象</h4>
+      <p>管理默认头像形状、配色和表情风格。</p>
+      <div className="tp-settings__editor-grid">
+        <Select id="agent-avatar-shape" labelText="头像形状" value={appearance.shape} onChange={event => setAppearance(item => ({...item,shape:event.currentTarget.value}))}>
+          {['blob','wedge','gem','mochi','circle'].map(value => <SelectItem key={value} value={value} text={value} />)}
+        </Select>
+        <Select id="agent-avatar-color" labelText="头像配色" value={appearance.color} onChange={event => setAppearance(item => ({...item,color:event.currentTarget.value}))}>
+          {['cream','blue','mint','pink','purple','dark'].map(value => <SelectItem key={value} value={value} text={value} />)}
+        </Select>
+        <Select id="agent-avatar-style" labelText="视觉风格" value={appearance.styleId} onChange={event => setAppearance(item => ({...item,styleId:event.currentTarget.value}))}>
+          {['vector','3d','pixel','minimal'].map(value => <SelectItem key={value} value={value} text={value} />)}
+        </Select>
+        <Select id="agent-avatar-variant" labelText="表面效果" value={appearance.variant} onChange={event => setAppearance(item => ({...item,variant:event.currentTarget.value}))}>
+          {['soft','glossy','flat','gradient'].map(value => <SelectItem key={value} value={value} text={value} />)}
+        </Select>
+        <Select id="agent-avatar-face" labelText="面部样式" value={appearance.face} onChange={event => setAppearance(item => ({...item,face:event.currentTarget.value}))}>
+          {['cute','classic','minimal','robot','screen','specs'].map(value => <SelectItem key={value} value={value} text={value} />)}
+        </Select>
+        <Button kind="primary" disabled={saving} onClick={() => void saveAppearance()}>保存头像设置</Button>
+      </div>
+    </section>
+  </div>;
+}
