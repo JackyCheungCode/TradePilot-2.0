@@ -83,14 +83,14 @@ export function DashboardPage() {
       const previousEndIso = range.previousEnd.toISOString();
       const dateFieldFor = (source: typeof metricSources[number]) => 'dateField' in source ? source.dateField : 'created_at';
       const results = await Promise.all(metricSources.map(async source => {
-        let query = db.from(source.table).select('id,' + dateFieldFor(source));
+        let query: any = db.from(source.table).select('id,' + dateFieldFor(source), { count: 'exact' });
         if ('filter' in source && source.filter) query = query.eq(source.filter[0], source.filter[1]);
         if ('statusFilter' in source && source.statusFilter) query = query.eq('status', source.statusFilter);
         const dateField = dateFieldFor(source);
         const [current, previous] = await Promise.all([
           query.gte(dateField, range.start.toISOString()).lte(dateField, endIso).range(0, 9999),
           (async () => {
-            let q = db.from(source.table).select('id,' + dateField);
+            let q: any = db.from(source.table).select('id', { count: 'exact', head: true });
             if ('filter' in source && source.filter) q = q.eq(source.filter[0], source.filter[1]);
             if ('statusFilter' in source && source.statusFilter) q = q.eq('status', source.statusFilter);
             return q.gte(dateField, startIso).lt(dateField, range.start.toISOString()).lte(dateField, previousEndIso).range(0, 9999);
@@ -98,12 +98,12 @@ export function DashboardPage() {
         ]);
         if (current.error) throw new Error(source.label + '数据读取失败：' + current.error.message);
         if (previous.error) throw new Error(source.label + '对比数据读取失败：' + previous.error.message);
-        return { source, rows: (current.data || []) as unknown as Row[], previous: previous.data?.length || 0 };
+        return { source, rows: (current.data || []) as unknown as Row[], value: current.count ?? current.data?.length ?? 0, previous: previous.count ?? previous.data?.length ?? 0 };
       }));
       const labels = Array.from({ length: range.days }, (_, index) => {
         const d = new Date(range.start); d.setDate(d.getDate() + index); return dateKey(d);
       });
-      const metrics = results.map(({ source, rows, previous }) => {
+      const metrics = results.map(({ source, rows, value, previous }) => {
         const counts = new Map(labels.map(label => [label, 0]));
         rows.forEach(row => {
           const raw = (row as unknown as Record<string, string>)[dateFieldFor(source)];
@@ -112,7 +112,7 @@ export function DashboardPage() {
           if (counts.has(key)) counts.set(key, (counts.get(key) || 0) + 1);
         });
         return {
-          key: source.key, label: source.label, value: rows.length, previous,
+          key: source.key, label: source.label, value, previous,
           daily: labels.map(label => counts.get(label) || 0), href: source.href,
           icon: source.icon as keyof typeof CarbonIcons, polarity: source.polarity,
         } as Metric;
@@ -124,13 +124,19 @@ export function DashboardPage() {
       const token = sessionData.session?.access_token;
       if (token) {
         const params = new URLSearchParams({ from: dateKey(range.start), to: dateKey(range.end) });
-        const response = await fetch('/api/v1/prospect-console?' + params.toString(), { headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' } });
+        const previousParams = new URLSearchParams({ from: dateKey(range.previousStart), to: dateKey(range.previousEnd) });
+        const [response, previousResponse] = await Promise.all([
+          fetch('/api/v1/prospect-console?' + params.toString(), { headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' } }),
+          fetch('/api/v1/prospect-console?' + previousParams.toString(), { headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' } }),
+        ]);
         if (response.ok) {
           const payload = await response.json() as { data?: { metrics?: { prospectCount?: number }; daily?: Array<{ date: string; count: number }> } };
+          const previousPayload = previousResponse.ok ? await previousResponse.json() as { data?: { metrics?: { prospectCount?: number } } } : null;
           if (payload.data) {
             const discovery = metrics.find(item => item.key === 'discoveries');
             if (discovery) {
               discovery.value = payload.data.metrics?.prospectCount ?? discovery.value;
+              discovery.previous = previousPayload?.data?.metrics?.prospectCount ?? discovery.previous;
               const map = new Map((payload.data.daily || []).map(item => [item.date, item.count]));
               discovery.daily = labels.map(label => map.get(label) || 0);
             }
