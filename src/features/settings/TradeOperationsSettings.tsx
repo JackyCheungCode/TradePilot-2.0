@@ -35,12 +35,14 @@ export function TradeOperationsSettings({ scope }: { scope: Scope }) {
       const userId = session.session?.user.id;
       if(!userId) throw new Error('登录状态已失效，请重新登录。');
       setOwnerId(userId);
-      const [settingsResult,itemsResult] = await Promise.all([
+      const [settingsResult,itemsResult,profileResult] = await Promise.all([
         db.from('trade_business_settings').select('config').eq('owner_id',userId).eq('scope_key','shared').maybeSingle(),
         db.from('trade_business_setting_items').select('id,setting_type,code,name,config,sequence,is_active').eq('owner_id',userId).eq('scope_key','shared').order('sequence').order('code'),
+        db.from('enterprise_profiles').select('default_currency').eq('is_default',true).eq('is_archived',false).maybeSingle(),
       ]);
       if(settingsResult.error) throw settingsResult.error;
       if(itemsResult.error) throw itemsResult.error;
+      if(profileResult.error) throw profileResult.error;
       let rows = (itemsResult.data || []) as SettingItem[];
       if(!rows.some(x=>x.setting_type==='currency')) {
         const seed = currencies.map(([code,name,decimal_places],i)=>({owner_id:userId,scope_key:'shared',setting_type:'currency',code:String(code),name:String(name),config:{decimal_places:Number(decimal_places)},sequence:(i+1)*10,is_active:true}));
@@ -59,7 +61,7 @@ export function TradeOperationsSettings({ scope }: { scope: Scope }) {
       }
       setItems(rows);
       const config = (settingsResult.data?.config || {}) as Record<string,string>;
-      setBaseCurrency(config.base_currency || 'USD');
+      setBaseCurrency(profileResult.data?.default_currency || 'USD');
       setIncotermVersion(config.incoterm_version || '2020');
     } catch(e) { setError(e instanceof Error?e.message:'读取共享设置失败'); }
     finally { setLoading(false); }
@@ -71,10 +73,10 @@ export function TradeOperationsSettings({ scope }: { scope: Scope }) {
     setSaving(true); setError(''); setNotice('');
     try {
       if(!ownerId) throw new Error('登录状态已失效，请重新登录。');
-      if(!items.some(x=>x.setting_type==='currency'&&x.code===baseCurrency&&x.is_active)) throw new Error('本位币必须是已启用的币种。');
+      if(!items.some(x=>x.setting_type==='currency'&&x.code===baseCurrency&&x.is_active)) throw new Error('企业档案中的本位币未在共享币种字典中启用，请先维护币种字典。');
       const db = await getSupabaseClient();
       const {error:saveError} = await db.from('trade_business_settings').upsert(
-        {owner_id:ownerId,scope_key:'shared',config:{base_currency:baseCurrency,incoterm_version:incotermVersion}},
+        {owner_id:ownerId,scope_key:'shared',config:{incoterm_version:incotermVersion}},
         {onConflict:'owner_id,scope_key'}
       );
       if(saveError) throw saveError;
@@ -125,7 +127,7 @@ export function TradeOperationsSettings({ scope }: { scope: Scope }) {
         <h4>共享默认规则</h4>
         <p className="tp-settings__hint">币种和贸易术语由共享字典统一维护，发运与收款模块引用同一份数据。</p>
         <div className="tp-settings__editor-grid">
-          <Select id="trade-shared-base-currency" labelText="本位币" value={baseCurrency} onChange={e=>setBaseCurrency(e.currentTarget.value)}>
+          <Select id="trade-shared-base-currency" labelText="本位币（由企业档案维护）" value={baseCurrency} disabled>
             {items.filter(x=>x.setting_type==='currency'&&x.is_active).map(x=><SelectItem key={x.code} value={x.code} text={x.code+' · '+x.name}/>)}
           </Select>
           <Select id="trade-shared-incoterm-version" labelText="贸易术语版本" value={incotermVersion} onChange={e=>setIncotermVersion(e.currentTarget.value)}>
