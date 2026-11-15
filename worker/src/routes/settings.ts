@@ -237,9 +237,11 @@ export async function handleSettings(request: Request, env: SettingsEnv): Promis
     const secret=(key:string)=>secrets[apiSecretNames[key]]||envSecret(env,legacyApiEnv[key]||"");
     if(service==="omnibox"){
       const key=secret("omnibox");if(!key)return successResponse(request,{ok:false,message:"尚未配置 Omnibox API Key"});
-      const r=await fetch("https://omnibox.app/api/v1/compliance/classify",{method:"POST",redirect:"manual",headers:{"Content-Type":"application/json","X-API-Key":key,Authorization:"Bearer "+key},body:JSON.stringify({productDescription:"Bluetooth wireless headphones",originCountry:"CN",value:100})});
+      const r=await fetch("https://omnibox.app/api/v1/compliance/classify",{method:"POST",redirect:"manual",headers:{"Content-Type":"application/json","Accept":"application/json","X-API-Key":key,Authorization:"Bearer "+key},body:JSON.stringify({productDescription:"Bluetooth wireless headphones",originCountry:"CN",value:100})});
       if(r.status>=300&&r.status<400)return successResponse(request,{ok:false,message:"Omnibox 返回重定向（HTTP "+r.status+"）"});
-      return successResponse(request,{ok:r.ok,message:r.ok?"Omnibox API 连接成功":"Omnibox API 返回 HTTP "+r.status+"，请检查 API Key 与账户权限"});
+      const raw=await r.text();let detail:unknown=raw;try{detail=raw?JSON.parse(raw):{};}catch{}
+      const message=detail&&typeof detail==="object"?((detail as Record<string,unknown>).message??(detail as Record<string,unknown>).error??(detail as Record<string,unknown>).detail??detail):detail;
+      return successResponse(request,{ok:r.ok,message:r.ok?"Omnibox API 连接成功":"Omnibox API 返回 HTTP "+r.status+"："+(typeof message==="string"?message:JSON.stringify(message)).slice(0,800)});
     }
     if(service==="serper"){
       const key=secret("serper");if(!key)return successResponse(request,{ok:false,message:"尚未配置"});
