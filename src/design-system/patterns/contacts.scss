@@ -87,3 +87,89 @@
 .tp-contacts__country-chart-bar{display:block;width:100%;height:.5rem;background:var(--cds-layer-03)}
 .tp-contacts__country-chart-track{fill:var(--cds-layer-03)}
 .tp-contacts__country-chart-fill{fill:var(--cds-interactive)}
+
+
+/* Contact page refinements: distinct Carbon layers and responsive analytics */
+.tp-contacts__stats{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:1rem;
+  margin:0 0 1.5rem;
+  padding:0;
+  background:transparent;
+}
+.tp-contacts__stats .tp-contacts__stat-tile{
+  min-width:0;
+  min-height:7.5rem;
+  padding:1rem 1.25rem;
+  background:var(--cds-layer-01);
+  border:0;
+  border-radius:0;
+  box-shadow:none;
+}
+.tp-contacts__country-panel,
+.tp-contacts__daily-panel,
+.tp-contacts__list-panel{
+  width:100%;
+  min-width:0;
+  padding:1.5rem;
+  margin:0 0 1.5rem;
+  background:var(--cds-layer-01);
+}
+.tp-contacts__country-panel .tp-contacts__section-head,
+.tp-contacts__daily-panel .tp-contacts__section-head{
+  margin-bottom:1rem;
+}
+.tp-contacts__daily-panel .cds--cc--chart-wrapper{
+  width:100%;
+  min-height:17.5rem;
+}
+.tp-contacts__avatar-field{
+  grid-column:1/-1;
+  min-height:12rem;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:1rem;
+  padding:1.5rem;
+  text-align:center;
+  background:var(--cds-layer-01);
+}
+.tp-contacts__avatar-preview{
+  width:5rem;
+  height:5rem;
+  flex:0 0 5rem;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+  border-radius:50%;
+  background:var(--cds-layer-02);
+  color:var(--cds-icon-secondary);
+}
+.tp-contacts__avatar-preview img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  border-radius:50%;
+}
+.tp-contacts__avatar-uploader{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:1rem;
+  flex-wrap:wrap;
+}
+@media(max-width:1056px){
+  .tp-contacts__stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:672px){
+  .tp-contacts__stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:.5rem}
+  .tp-contacts__stats .tp-contacts__stat-tile{min-height:6.5rem;padding:.875rem}
+  .tp-contacts__country-panel,
+  .tp-contacts__daily-panel,
+  .tp-contacts__list-panel{padding:1rem;margin-bottom:1rem}
+  .tp-contacts__avatar-field{min-height:10rem;padding:1rem}
+  .tp-contacts__avatar-uploader{align-items:center;flex-direction:column}
+}
