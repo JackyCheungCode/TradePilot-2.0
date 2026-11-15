@@ -76,49 +76,38 @@ export function AppShell() {
         <div className="tp-sidenav__brand">
           <img src="/tradepilot-logo.svg" alt="TradePilot" />
         </div>
-        <SideNavItems>
-          <SideNavLink
-            href="/prospect-console"
-            isActive={location.pathname === '/prospect-console' || location.pathname === '/prospect-discovery' || location.pathname === '/recent-tasks'}
-            title="全网情报"
-            renderIcon={CarbonIcons.Globe}
-          >
-            全网情报
-          </SideNavLink>
-          <SideNavLink href="/leads" isActive={location.pathname.startsWith('/leads')} title="线索（Lead）" renderIcon={CarbonIcons.UserFollow}>
-            线索（Lead）
-          </SideNavLink>
-          <SideNavLink href="/contacts" isActive={location.pathname.startsWith('/contacts')} title="联系人（Contact）" renderIcon={CarbonIcons.User}>
-            联系人（Contact）
-          </SideNavLink>
-          <SideNavLink href="/accounts" isActive={location.pathname.startsWith('/accounts')} title="客户（Account）" renderIcon={CarbonIcons.Building}>
-            客户（Account）
-          </SideNavLink>
-          <SideNavLink href="/opportunities" isActive={location.pathname.startsWith('/opportunities')} title="商机（Opportunity）" renderIcon={CarbonIcons.ChartLine}>
-            商机（Opportunity）
-          </SideNavLink>
-          <SideNavLink href="/quotes" isActive={location.pathname.startsWith('/quotes')} title="报价单（Quote）" renderIcon={CarbonIcons.Document}>
-            报价单（Quote）
-          </SideNavLink>
-          <SideNavLink href="/sales-orders" isActive={location.pathname.startsWith('/sales-orders')} title="销售订单（Sales Order）" renderIcon={CarbonIcons.Document}>
-            销售订单（Sales Order）
-          </SideNavLink>
-          <SideNavLink href="/shipments" isActive={location.pathname.startsWith('/shipments')} title="发运（Shipment）" renderIcon={CarbonIcons.Delivery}>
-            发运（Shipment）
-          </SideNavLink>
-          <SideNavLink href="/payments" isActive={location.pathname.startsWith('/payments')} title="收款（Payment）" renderIcon={CarbonIcons.Currency}>
-            收款（Payment）
-          </SideNavLink>
-          <SideNavLink href="/products" isActive={location.pathname.startsWith('/products')} title="产品（Product）" renderIcon={CarbonIcons.Product}>
-            产品（Product）
-          </SideNavLink>
-          <SideNavLink href="/trade-tools" isActive={location.pathname.startsWith('/trade-tools')} title="Trade Tools" renderIcon={CarbonIcons.Calculator}>
-            Trade Tools
-          </SideNavLink>
-          <SideNavLink href="/settings" isActive={location.pathname.startsWith('/settings')} title="设置中心" renderIcon={CarbonIcons.Settings}>
-            设置中心
-          </SideNavLink>
-        </SideNavItems>
+        <div className="tp-sidenav__group">
+          <div className="tp-sidenav__group-label">情报与线索</div>
+          <SideNavItems>
+            <SideNavLink href="/prospect-console" isActive={location.pathname === '/prospect-console' || location.pathname === '/prospect-discovery' || location.pathname === '/recent-tasks'} title="全网情报" renderIcon={CarbonIcons.Globe}>全网情报</SideNavLink>
+            <SideNavLink href="/leads" isActive={location.pathname.startsWith('/leads')} title="线索（Lead）" renderIcon={CarbonIcons.UserFollow}>线索（Lead）</SideNavLink>
+          </SideNavItems>
+        </div>
+        <div className="tp-sidenav__group">
+          <div className="tp-sidenav__group-label">客户管理</div>
+          <SideNavItems>
+            <SideNavLink href="/contacts" isActive={location.pathname.startsWith('/contacts')} title="联系人（Contact）" renderIcon={CarbonIcons.User}>联系人（Contact）</SideNavLink>
+            <SideNavLink href="/accounts" isActive={location.pathname.startsWith('/accounts')} title="客户（Account）" renderIcon={CarbonIcons.Building}>客户（Account）</SideNavLink>
+            <SideNavLink href="/opportunities" isActive={location.pathname.startsWith('/opportunities')} title="商机（Opportunity）" renderIcon={CarbonIcons.ChartLine}>商机（Opportunity）</SideNavLink>
+          </SideNavItems>
+        </div>
+        <div className="tp-sidenav__group">
+          <div className="tp-sidenav__group-label">贸易业务</div>
+          <SideNavItems>
+            <SideNavLink href="/quotes" isActive={location.pathname.startsWith('/quotes')} title="报价单（Quote）" renderIcon={CarbonIcons.Document}>报价单（Quote）</SideNavLink>
+            <SideNavLink href="/sales-orders" isActive={location.pathname.startsWith('/sales-orders')} title="销售订单（Sales Order）" renderIcon={CarbonIcons.Document}>销售订单（Sales Order）</SideNavLink>
+            <SideNavLink href="/shipments" isActive={location.pathname.startsWith('/shipments')} title="发运（Shipment）" renderIcon={CarbonIcons.Delivery}>发运（Shipment）</SideNavLink>
+            <SideNavLink href="/payments" isActive={location.pathname.startsWith('/payments')} title="收款（Payment）" renderIcon={CarbonIcons.Currency}>收款（Payment）</SideNavLink>
+            <SideNavLink href="/products" isActive={location.pathname.startsWith('/products')} title="产品（Product）" renderIcon={CarbonIcons.Product}>产品（Product）</SideNavLink>
+          </SideNavItems>
+        </div>
+        <div className="tp-sidenav__group">
+          <div className="tp-sidenav__group-label">工具与系统</div>
+          <SideNavItems>
+            <SideNavLink href="/trade-tools" isActive={location.pathname.startsWith('/trade-tools')} title="外贸工具（Trade tools）" renderIcon={CarbonIcons.Calculator}>外贸工具（Trade tools）</SideNavLink>
+            <SideNavLink href="/settings" isActive={location.pathname.startsWith('/settings')} title="设置中心" renderIcon={CarbonIcons.Settings}>设置中心</SideNavLink>
+          </SideNavItems>
+        </div>
       </SideNav>
       <Content className="tp-content">
         <div className="tp-content__main">
