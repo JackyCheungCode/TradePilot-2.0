@@ -7,6 +7,7 @@ async function db<T>(env:Env,path:string,init:RequestInit={}):Promise<T>{const r
 export async function handleInstagramDiscovery(request:Request,env:Env):Promise<Response>{
  if(request.method!=="POST")return errorResponse(request,"METHOD_NOT_ALLOWED","只支持 POST 请求。",405);
  const ownerId=await auth(request,env);if(!ownerId)return errorResponse(request,"UNAUTHORIZED","请先登录 TradePilot。",401);
+ const apifyToken=await readIntegrationSecret(env,"tradepilot_api_apify","APIFY_API_TOKEN");if(!apifyToken)return errorResponse(request,"PROVIDER_NOT_CONFIGURED","请先在「设置中心 → 集成与 API → API 集成」配置 Apify API Token。",400);
  let body:InstagramInput;try{body=await request.json() as InstagramInput;}catch{return errorResponse(request,"INVALID_JSON","请求内容不是有效 JSON。",400);}
  const keywords=[...new Set((Array.isArray(body.keywords)?body.keywords:[]).map(x=>String(x).trim()).filter(Boolean))].slice(0,30);
  const countries=[...new Set((Array.isArray(body.countries)?body.countries:[]).map(x=>String(x).toUpperCase()).filter(x=>/^[A-Z]{2}$/.test(x)))].slice(0,20);
