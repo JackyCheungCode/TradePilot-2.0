@@ -1,4 +1,7 @@
-/** Shared shell layout. Use only centralized Carbon and TradePilot tokens. */
+/** Shared shell layout. Use centralized Carbon and TradePilot tokens. */
+@use 'sass:map';
+@use '../../tokens/breakpoints' as breakpoints;
+
 .tp-content {
   min-height: 100vh;
 }
@@ -10,7 +13,7 @@
   padding-inline: var(--tp-space-06);
 }
 
-@media (max-width: 42rem) {
+@media (max-width: map.get(breakpoints.$tp-breakpoints, sm)) {
   .tp-content__main {
     padding-block: var(--tp-space-05);
     padding-inline: var(--tp-space-05);
