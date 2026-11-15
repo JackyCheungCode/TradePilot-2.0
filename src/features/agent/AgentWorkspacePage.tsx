@@ -18,7 +18,7 @@ type ChatMessage = {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  metadata?: { task?: AgentTask | null; model?: string; error?: boolean; toolsUsed?: Array<{ name: string; label: string; count: number }> };
+  metadata?: { task?: AgentTask | null; model?: string; error?: boolean; toolsUsed?: Array<{ name: string; label: string; count: number }>; runId?: string; runStatus?: string; runProgress?: number };
 };
 type ApiEnvelope<T> = { data: T } | { error?: { message?: string } };
 
@@ -55,6 +55,7 @@ export function AgentWorkspacePage() {
   const [notice, setNotice] = useState('');
   const messagesViewportRef = useRef<HTMLDivElement>(null);
   const shouldStickToBottomRef = useRef(true);
+  const reportedRunIdsRef = useRef<Set<string>>(new Set());
 
   const handleMessagesScroll = useCallback(() => {
     const viewport = messagesViewportRef.current;
@@ -178,13 +179,45 @@ export function AgentWorkspacePage() {
           }),
         },
       );
-      setNotice(`任务已创建：${result.taskCode || result.id}。可在任务执行中心查看执行状态。`);
+      setMessages(items => items.map(item => item.id === messageId ? { ...item, metadata: { ...item.metadata, runId: result.id, runStatus: result.status, runProgress: 0 } } : item));
+      await agentRequest('/api/v1/agent/conversations/' + conversationId + '/messages/' + messageId, { method: 'PATCH', body: JSON.stringify({ metadata: { runId: result.id, runStatus: result.status, runProgress: 0, task } }) });
+      setNotice(`任务已启动：${result.taskCode || result.id}。小雅正在跟踪执行进度。`);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : '启动任务失败');
     } finally {
       setStartingTask('');
     }
   };
+
+  useEffect(() => {
+    const activeRuns = messages.filter(item => item.role === 'assistant' && item.metadata?.runId && !['succeeded','failed','cancelled'].includes(item.metadata.runStatus || ''));
+    if (!activeRuns.length || !conversationId) return;
+    const timer = window.setInterval(() => {
+      void Promise.all(activeRuns.map(async item => {
+        const runId = item.metadata?.runId;
+        if (!runId) return;
+        try {
+          const detail = await agentRequest<{ run: { status: string; result?: Record<string, unknown>; error_message?: string }; discoveryRun?: { progress?: number; message?: string }; records?: Array<Record<string, unknown>> }>('/api/v1/agent/runs/' + runId);
+          const status = detail.run.status;
+          const progress = Number(detail.discoveryRun?.progress || 0);
+          setMessages(rows => rows.map(row => row.id === item.id ? { ...row, metadata: { ...row.metadata, runStatus: status, runProgress: progress } } : row));
+          if (['succeeded','failed','cancelled'].includes(status) && !reportedRunIdsRef.current.has(runId)) {
+            reportedRunIdsRef.current.add(runId);
+            const content = status === 'succeeded'
+              ? '任务已完成。\n\n' + (detail.discoveryRun?.message || '执行工作流已完成。') + '\n发现记录：' + (detail.records?.length || 0) + ' 条。\n\n任务编号：' + runId
+              : '任务' + (status === 'cancelled' ? '已取消' : '执行失败') + '。\n\n' + (detail.run.error_message || detail.discoveryRun?.message || '请前往任务执行中心查看详情。');
+            try {
+              const saved = await agentRequest<ChatMessage>('/api/v1/agent/conversations/' + conversationId + '/messages', { method:'POST', body:JSON.stringify({ role:'assistant', content, metadata:{ runId, runStatus:status, runResult:detail.run.result || null } }) });
+              setMessages(rows => [...rows, saved]);
+            } catch {
+              setMessages(rows => [...rows, { id:'run-result-' + runId, role:'assistant', content }]);
+            }
+          }
+        } catch { /* transient polling failure */ }
+      }));
+    }, 4000);
+    return () => window.clearInterval(timer);
+  }, [messages, conversationId]);
 
   return (
     <main className="tp-agent">
@@ -232,7 +265,6 @@ export function AgentWorkspacePage() {
             <XiaoyaAvatar emotion="idle" size={40} />
             <div>
               <h2>与小雅对话</h2>
-              <p>描述你的业务目标，小雅会结合上下文分析并协助执行。</p>
             </div>
           </div>
 
@@ -266,14 +298,15 @@ export function AgentWorkspacePage() {
                           <h3>任务方案</h3>
                         </div>
                         <p>{item.metadata.task.goal}</p>
+                        {item.metadata.runId && <Tag type={item.metadata.runStatus === 'succeeded' ? 'green' : item.metadata.runStatus === 'failed' ? 'red' : 'blue'}>{item.metadata.runStatus === 'succeeded' ? '执行完成' : item.metadata.runStatus === 'failed' ? '执行失败' : item.metadata.runStatus === 'running' ? '正在执行' : '任务已排队'} · {item.metadata.runProgress || 0}%</Tag>}
                         <p className="tp-agent__task-meta">执行角色：{item.metadata.task.agentKey} · 目标国家：{item.metadata.task.country}</p>
                         <Button
                           kind="primary"
                           size="md"
                           disabled={Boolean(startingTask)}
-                          onClick={() => void startTask(item.id, item.metadata!.task!)}
+                          onClick={() => item.metadata?.runId ? navigate('/recent-tasks') : void startTask(item.id, item.metadata!.task!)}
                         >
-                          {startingTask === item.id ? '正在创建任务…' : '创建并执行任务'}
+                          {item.metadata.runId ? '已启动，查看任务中心' : startingTask === item.id ? '正在创建任务…' : '确认并执行'}
                         </Button>
                       </Tile>
                     )}
