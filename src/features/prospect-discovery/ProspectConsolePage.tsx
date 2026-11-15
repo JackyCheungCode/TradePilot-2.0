@@ -23,12 +23,16 @@ interface ConsoleStats {
   timezone: string;
 }
 const periods = [
-  { value: 'all', label: '全部历史数据' }, { value: '7', label: '最近 7 天' },
-  { value: '30', label: '最近 30 天' }, { value: '90', label: '最近 90 天' },
-  { value: '365', label: '最近 365 天' },
+  { value: 'all', label: '全部历史数据' }, { value: 'today', label: '今天' },
+  { value: '7', label: '最近 7 天' }, { value: '30', label: '最近 30 天' },
+  { value: '90', label: '最近 90 天' }, { value: 'custom', label: '自定义范围' },
 ];
 function dateKey(date: Date) {
-  return [date.getFullYear(), String(date.getMonth()+1).padStart(2,'0'), String(date.getDate()).padStart(2,'0')].join('-');
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(date);
+  const part = (type: string) => parts.find(item => item.type === type)?.value ?? '';
+  return part('year') + '-' + part('month') + '-' + part('day');
 }
 function Metric({ label, value, icon }: { label: string; value: number; icon: React.ReactNode }) {
   return <section className="tp-console__metric"><div className="tp-console__metric-head"><span>{label}</span>{icon}</div><strong>{value.toLocaleString()}</strong></section>;
@@ -98,16 +102,20 @@ function ProspectMap({ rows, onSelect }: { rows: ProspectRow[]; onSelect: (row: 
 export function ProspectConsolePage() {
   const [stats,setStats] = useState<ConsoleStats|null>(null);
   const [period,setPeriod] = useState('all');
+  const [customFrom,setCustomFrom] = useState('');
+  const [customTo,setCustomTo] = useState('');
   const [platformKey,setPlatformKey] = useState('all');
   const [search,setSearch] = useState('');
   const [status,setStatus] = useState('all');
+  const [country,setCountry] = useState('all');
+  const [sort,setSort] = useState('newest');
   const [loading,setLoading] = useState(true);
   const [error,setError] = useState('');
   const [refreshing,setRefreshing] = useState(false);
   const [selected,setSelected] = useState<ProspectRow|null>(null);
   const [actionBusyId,setActionBusyId] = useState('');
   const [confirmRemoveId,setConfirmRemoveId] = useState('');
-  const load = useCallback(async(nextPeriod:string)=>{
+  const load = useCallback(async(nextPeriod:string,fromDate?:string,toDate?:string)=>{
     setError('');
     try{
       const client=await getSupabaseClient();
@@ -115,7 +123,11 @@ export function ProspectConsolePage() {
       const token=data.session?.access_token;
       if(!token)throw new Error('登录状态已失效，请重新登录。');
       let query='';
-      if(nextPeriod!=='all'){
+      if(nextPeriod==='today'){
+        const today=dateKey(new Date());query='?from='+today+'&to='+today;
+      } else if(nextPeriod==='custom'&&fromDate&&toDate){
+        query='?from='+fromDate+'&to='+toDate;
+      } else if(nextPeriod!=='all'&&nextPeriod!=='custom'){
         const end=new Date(),start=new Date(end);
         start.setDate(start.getDate()-Number(nextPeriod)+1);
         query='?from='+dateKey(start)+'&to='+dateKey(end);
@@ -127,15 +139,16 @@ export function ProspectConsolePage() {
     }catch(cause){setError(cause instanceof Error?cause.message:'读取潜客数据失败。');}
     finally{setLoading(false);setRefreshing(false);}
   },[]);
-  useEffect(()=>{void load(period);},[load,period]);
+  useEffect(()=>{if(period==='custom'&&(!customFrom||!customTo))return;void load(period,customFrom,customTo);},[load,period,customFrom,customTo]);
   const filtered=useMemo(()=>{
     const q=search.trim().toLocaleLowerCase();
     return (stats?.prospects??[]).filter(row=>
       (platformKey==='all'||row.platforms.some(item=>item.key===platformKey)) &&
       (status==='all'||row.status===status) &&
+      (country==='all'||row.country===country) &&
       (!q||[row.name,row.country,row.address,row.website,row.phone,row.email].join(' ').toLocaleLowerCase().includes(q))
-    );
-  },[stats,platformKey,status,search]);
+    ).sort((a,b)=>sort==='newest'?b.discoveredAt.localeCompare(a.discoveredAt):a.discoveredAt.localeCompare(b.discoveredAt));
+  },[stats,platformKey,status,country,sort,search]);
   const runAction=async(row:ProspectRow,action:'promote'|'discard'|'remove')=>{
     if(!stats||actionBusyId)return;
     setActionBusyId(row.id);setError('');
@@ -153,14 +166,16 @@ export function ProspectConsolePage() {
     }catch(cause){setError(cause instanceof Error?cause.message:'潜客操作失败。');}
     finally{setActionBusyId('');}
   };
+  const countries=[...new Set((stats?.prospects??[]).map(row=>row.country).filter(value=>value&&value!=='—'))].sort();
   const maxDaily=Math.max(0,...(stats?.daily??[]).map(item=>item.count));
   const tabs=[{key:'all',label:'全部平台',count:stats?.metrics.prospectCount??0},...(stats?.platforms??[]).map(item=>({key:item.key,label:item.label,count:item.count}))];
   return <main className="tp-console">
     <ProspectDiscoveryHeader title="潜客控制台" description="汇总各发现渠道的潜客资产，查看全球分布、平台贡献与每日发现趋势。" showRecentTasks={false}/>
     {error&&<InlineNotification kind="error" title="数据读取失败" subtitle={error} onCloseButtonClick={()=>setError('')}/>}
     <div className="tp-console__toolbar">
-      <div><span className="tp-console__toolbar-label">统计时间范围</span><Select id="prospect-console-period" labelText="统计时间范围" hideLabel value={period} onChange={event=>setPeriod(event.currentTarget.value)}>{periods.map(item=><SelectItem key={item.value} value={item.value} text={item.label}/>)}</Select></div>
-      <Button kind="tertiary" size="md" onClick={()=>{setRefreshing(true);void load(period);}} disabled={loading||refreshing}><CarbonIcons.Renew size={16} aria-hidden="true"/>刷新数据</Button>
+      <div><span className="tp-console__toolbar-label">统计时间范围</span><Select id="prospect-console-period" labelText="统计时间范围" hideLabel value={period} onChange={event=>setPeriod(event.currentTarget.value)}>{periods.map(item=><SelectItem key={item.value} value={item.value} text={item.label}/>)}</Select>
+      {period==='custom'&&<div className="tp-console__date-range"><TextInput id="prospect-console-from" type="date" labelText="开始日期" value={customFrom} onChange={event=>setCustomFrom(event.currentTarget.value)}/><TextInput id="prospect-console-to" type="date" labelText="结束日期" value={customTo} onChange={event=>setCustomTo(event.currentTarget.value)}/></div>}</div>
+      <Button kind="tertiary" size="md" onClick={()=>{setRefreshing(true);void load(period,customFrom,customTo);}} disabled={loading||refreshing||(period==='custom'&&(!customFrom||!customTo))}><CarbonIcons.Renew size={16} aria-hidden="true"/>刷新数据</Button>
     </div>
     {loading?<div className="tp-console__loading"><InlineLoading description="正在汇总潜客数据…"/></div>:stats&&<>
       <div className="tp-console__metrics">
@@ -183,6 +198,8 @@ export function ProspectConsolePage() {
         <div className="tp-console__filters">
           <TextInput id="prospect-console-search" labelText="搜索潜客" placeholder="企业名称、国家、地址、网站或联系方式" value={search} onChange={event=>setSearch(event.currentTarget.value)} />
           <Select id="prospect-console-status" labelText="线索状态" value={status} onChange={event=>setStatus(event.currentTarget.value)}><SelectItem value="all" text="全部状态"/><SelectItem value="pending" text="待处理"/><SelectItem value="converted" text="已转化"/></Select>
+          <Select id="prospect-console-country" labelText="国家 / 地区" value={country} onChange={event=>setCountry(event.currentTarget.value)}><SelectItem value="all" text="全部国家 / 地区"/>{countries.map(value=><SelectItem key={value} value={value} text={value}/>)}</Select>
+          <Select id="prospect-console-sort" labelText="发现时间排序" value={sort} onChange={event=>setSort(event.currentTarget.value)}><SelectItem value="newest" text="最近发现优先"/><SelectItem value="oldest" text="最早发现优先"/></Select>
         </div>
         <div className="tp-console__table-scroll"><TableContainer><Table size="lg"><TableHead><TableRow><TableHeader>企业 / 客户</TableHeader><TableHeader>国家 / 地区</TableHeader><TableHeader>网站</TableHeader><TableHeader>联系方式</TableHeader><TableHeader>发现来源</TableHeader><TableHeader>最近发现</TableHeader><TableHeader>状态</TableHeader><TableHeader>操作</TableHeader></TableRow></TableHead>
           <TableBody>{filtered.map(row=><TableRow key={row.id}><TableCell><strong>{row.name}</strong><span className="tp-console__cell-secondary">{row.type}</span></TableCell><TableCell>{row.country}<span className="tp-console__cell-secondary">{row.address}</span></TableCell><TableCell>{row.website?<a href={row.website} target="_blank" rel="noreferrer">{row.website}</a>:'—'}</TableCell><TableCell>{[row.phone,row.email].filter(Boolean).join(' · ')||'—'}</TableCell><TableCell><div className="tp-console__source-tags">{row.platforms.map(item=><Tag key={item.key} type="cool-gray">{item.label}</Tag>)}</div></TableCell><TableCell>{new Date(row.discoveredAt).toLocaleDateString('zh-TW')}</TableCell><TableCell><Tag type={row.status==='converted'?'green':'blue'}>{row.status==='converted'?'已转化':'待处理'}</Tag></TableCell><TableCell><div className="tp-console__row-actions"><Button kind="ghost" size="sm" onClick={()=>setSelected(row)}>详情</Button>{row.status==='pending'&&<Button kind="ghost" size="sm" disabled={!!actionBusyId} onClick={()=>void runAction(row,'promote')}>转为线索</Button>}<Button kind="danger--ghost" size="sm" disabled={!!actionBusyId} onClick={()=>void runAction(row,'discard')}>排除</Button><Button kind="danger--ghost" size="sm" disabled={!!actionBusyId} onClick={()=>{if(confirmRemoveId===row.id)void runAction(row,'remove');else setConfirmRemoveId(row.id);}}>{confirmRemoveId===row.id?'再次点击确认删除':'删除'}</Button></div></TableCell></TableRow>)}</TableBody>
