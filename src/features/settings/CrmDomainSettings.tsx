@@ -262,6 +262,6 @@ export function CrmDomainSettings({domain,section}:{domain:CrmSettingsDomain;sec
    {loading&&<InlineLoading description="正在读取 CRM 设置…"/>}
    {!loading&&!values.length&&<p className="tp-settings__empty">暂无配置记录。</p>}
   </div>
-  <p className="tp-settings__hint">系统预置项可自定义覆盖；停用只影响后续选择，不删除历史数据。配置值保留在业务记录中，历史商机、联系人、客户和线索不会因配置调整而被重写。</p>
+  <p className="tp-settings__hint">系统预置项可自定义覆盖；已接入的表单字段读取启用项。停用只影响后续选择，不删除历史数据；自动分配、跟进 SLA、查重及转换策略等高级规则将在对应业务流程接入后执行。历史记录不会因配置调整而被重写。</p>
  </div>;
 }
