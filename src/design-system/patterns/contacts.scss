@@ -83,3 +83,7 @@
 .tp-contacts__field>label{cursor:pointer}
 @media(max-width:1056px){.tp-contacts__stats{grid-template-columns:repeat(3,minmax(0,1fr))}.tp-contacts__filters{grid-template-columns:repeat(2,minmax(0,1fr))}.tp-contacts__country-chart{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:672px){.tp-contacts__stats{grid-template-columns:repeat(2,minmax(0,1fr))}.tp-contacts__country-panel{padding:1rem}.tp-contacts__filters{grid-template-columns:minmax(0,1fr)}.tp-contacts__group-toolbar,.tp-contacts__pagination{align-items:flex-start;flex-direction:column}.tp-contacts__pagination>div{width:100%;justify-content:space-between}.tp-contacts__avatar-field{align-items:flex-start;flex-direction:column}.tp-contacts__avatar-uploader{align-items:flex-start;flex-direction:column}}
+
+.tp-contacts__country-chart-bar{display:block;width:100%;height:.5rem;background:var(--cds-layer-03)}
+.tp-contacts__country-chart-track{fill:var(--cds-layer-03)}
+.tp-contacts__country-chart-fill{fill:var(--cds-interactive)}
