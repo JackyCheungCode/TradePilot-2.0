@@ -1,0 +1,13 @@
+/** IBM Carbon grid breakpoints, centralized for layout decisions. */
+$tp-breakpoints: (
+  sm: 42rem,
+  md: 66rem,
+  lg: 82rem,
+  xlg: 99rem
+);
+:root {
+  --tp-breakpoint-sm: 42rem;
+  --tp-breakpoint-md: 66rem;
+  --tp-breakpoint-lg: 82rem;
+  --tp-breakpoint-xlg: 99rem;
+}
