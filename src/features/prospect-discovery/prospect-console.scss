@@ -58,3 +58,6 @@
 .tp-console__detail-grid strong{font-size:.875rem;font-weight:400;overflow-wrap:anywhere}
 @media(max-width:1000px){.tp-console__analytics-grid{grid-template-columns:1fr}}
 @media(max-width:672px){.tp-console__filters{grid-template-columns:1fr}.tp-console__detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.tp-console__map svg{min-height:11rem}.tp-console__map-legend{flex-wrap:wrap}}
+
+.tp-console__landmasses path{fill:var(--cds-layer-accent-01);stroke:var(--cds-border-subtle);stroke-width:1;opacity:.9}
+.tp-console__cluster-count{fill:var(--cds-text-inverse);font-size:8px;font-weight:600;pointer-events:none}
