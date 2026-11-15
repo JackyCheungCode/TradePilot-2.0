@@ -7,10 +7,12 @@ All UI primitives, visual foundations, and shared interaction rules are owned by
 ## Foundations
 
 - Themes: IBM Carbon White is the only approved theme.
-- Tokens: semantic color, spacing, typography, motion, breakpoints, layers, elevation, z-index, and focus.
+- Tokens: semantic color, borders, spacing, typography, motion, breakpoints, layers, elevation, z-index, focus, and interaction states.
 - Typography: IBM Plex Sans only; font files are loaded through the design-system typography entry.
 - Icons: Carbon icon library only, through the local icon entry.
 - Grid: Carbon Grid and centralized responsive breakpoints.
+- Density: use Carbon component size props; do not create custom control heights or padding.
+- Borders and states: keep borders minimal and use Carbon semantic interaction-state tokens.
 - Accessibility: Carbon semantics, keyboard operation, visible focus, screen-reader support, and reduced-motion behavior.
 - Assets and content: approved brand assets, canonical terminology, and localization resources.
 - Data visualization: semantic chart tokens and Carbon visualization guidance; no chart library is approved yet.
