@@ -5,6 +5,7 @@ import {
   SideNav, SideNavItems, SideNavLink, Content, CarbonIcons, InlineNotification,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
+import { XiaoyaAvatar } from '@/features/agent/XiaoyaAvatar';
 
 /**
  * Shared Carbon application frame.
@@ -52,7 +53,7 @@ export function AppShell() {
             isActive={location.pathname.startsWith('/agent')}
             onClick={() => navigate('/agent')}
           >
-            <CarbonIcons.UserAvatar size={20} aria-hidden="true" />
+            <XiaoyaAvatar emotion="idle" size={30} />
           </HeaderGlobalAction>
           <HeaderGlobalAction
             aria-label={signingOut ? '正在退出登录' : '退出登录'}
