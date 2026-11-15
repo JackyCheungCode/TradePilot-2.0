@@ -29,7 +29,7 @@ const domains: Domain[] = [
 
 const tradeOperationsSections: Section[] = [
   { id: 'shared', label: '共享基础设置', group: '共享基础设置', description: '统一维护币种与贸易术语，发运和收款模块共用。', implemented: true },
-  { id: 'shipment', label: '发运设置', group: '业务模块设置', description: '运输方式、箱型、单据、费用、跟踪与发运校验。', integration: 'pending' },
+  { id: 'shipment', label: '发运设置', group: '业务模块设置', description: '默认运输规则、运输方式、箱型、包装、费用、跟踪节点与异常字典。', implemented: true },
   { id: 'payment', label: '收款设置', group: '业务模块设置', description: '收款方式、汇率、手续费、应收计划、催款与对账。', integration: 'pending' },
 ];
 
