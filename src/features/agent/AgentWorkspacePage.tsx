@@ -218,7 +218,8 @@ export function AgentWorkspacePage() {
                 }).join('\n\n').slice(0, 3200)
               : '';
             const toolSummary = runResult.data ? JSON.stringify(runResult.data).slice(0, 2400) : '';
-            const resultSummary = specialistSummary || toolSummary;
+            const recordSummary = (detail.records || []).slice(0, 10).map(record => [String(record.name || '未命名企业'), String(record.country_code || ''), String(record.website || '')].filter(Boolean).join(' · ')).join('\n');
+            const resultSummary = specialistSummary || toolSummary || recordSummary;
             const content = status === 'succeeded'
               ? ('任务已完成。\n\n' + (detail.discoveryRun?.message || '执行工作流已完成。') + '\n发现记录：' + (detail.discoveryRun?.discovered_count ?? detail.records?.length ?? 0) + ' 条。\n\n' + resultSummary + '\n\n任务编号：' + runId).slice(0, 4700)
               : '任务' + (status === 'cancelled' ? '已取消' : '执行失败') + '。\n\n' + (detail.run.error_message || detail.discoveryRun?.message || '请前往任务执行中心查看详情。');
@@ -314,7 +315,8 @@ export function AgentWorkspacePage() {
                           <h3>任务方案</h3>
                         </div>
                         <p>{item.metadata.task.goal}</p>
-                        {item.metadata.runId && <Tag type={item.metadata.runStatus === 'succeeded' ? 'green' : item.metadata.runStatus === 'failed' ? 'red' : 'blue'}>{item.metadata.runStatus === 'succeeded' ? '执行完成' : item.metadata.runStatus === 'failed' ? '执行失败' : item.metadata.runStatus === 'running' ? '正在执行' : '任务已排队'} · {item.metadata.runProgress || 0}%</Tag>}
+                        {item.metadata.task.channel && item.metadata.task.channel !== 'search_engine' && <Tag type="purple">Apify · {item.metadata.task.channel === 'facebook' ? 'Facebook' : 'Instagram'}</Tag>}
+                        {item.metadata.runId && <Tag type={item.metadata.runStatus === 'succeeded' ? 'green' : item.metadata.runStatus === 'failed' ? 'red' : 'blue'}>{item.metadata.runStatus === 'succeeded' ? '执行完成' : item.metadata.runStatus === 'failed' ? '执行失败' : item.metadata.runStatus === 'running' ? '正在执行' : item.metadata.runStatus === 'awaiting_approval' ? '等待人工审批' : '任务已排队'} · {item.metadata.runProgress || 0}%</Tag>}
                         <p className="tp-agent__task-meta">执行角色：{item.metadata.task.agentKey} · 目标国家：{item.metadata.task.country}</p>
                         <Button
                           kind="primary"
