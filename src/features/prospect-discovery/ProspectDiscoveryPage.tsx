@@ -103,7 +103,7 @@ export function ProspectDiscoveryPage() {
         channel='instagram';config={keywords:query.split(/[，,\n]/).map(v=>v.trim()).filter(Boolean),countries:[country],languageCodes:[],accountTypes:['business','creator'],minFollowers:instagramMinFollowers,maxFollowers:100000000,recentDays:365,requireContact:true,excludeTerms:[],limit,includeCaptions:false};
       }else{throw new Error('该平台尚未开放。');}
       const created=await createDiscoveryRun(client,token,channel,config);
-      setActiveRun({...created,logs:[]});setRecords([]);setStep(4);
+      setActiveRun({...created,createdAt:new Date().toISOString(),logs:[]});setRecords([]);setStep(4);
       const current=await getDiscoveryRuns(token);setRuns(current);
     }catch(e){setError(e instanceof Error?e.message:'无法创建发现任务');}finally{setAuthBusy(false);}
   };
