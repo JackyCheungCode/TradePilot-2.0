@@ -3,9 +3,10 @@ import { Button, InlineLoading, InlineNotification, Tag, TextInput } from '@/des
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/trade-tools.scss';
 
-type Status = { deepl?:boolean; dhl?:boolean; upsClientId?:boolean; upsClientSecret?:boolean; fedexClientId?:boolean; fedexClientSecret?:boolean };
+type Status = { googleMaps?:boolean; deepl?:boolean; dhl?:boolean; upsClientId?:boolean; upsClientSecret?:boolean; fedexClientId?:boolean; fedexClientSecret?:boolean };
 type Credential = { id:string; label:string; hint:string; field:string; statusKey:keyof Status; placeholder:string };
 const credentials:Credential[]=[
+ {id:'googleMaps',label:'Google Maps API Key',hint:'用于解析客户详细地址和对应时区；需启用 Geocoding API 与 Time Zone API',field:'googleMapsApiKey',statusKey:'googleMaps',placeholder:'输入 Google Maps API Key'},
  {id:'deepl',label:'DeepL API Key',hint:'DeepL API Free / Pro Authentication Key',field:'deeplApiKey',statusKey:'deepl',placeholder:'输入 DeepL API Key'},
  {id:'dhl',label:'DHL Shipment Tracking',hint:'DHL-API-Key（Shipment Tracking Unified API）',field:'dhlApiKey',statusKey:'dhl',placeholder:'输入 DHL API Subscription Key'},
  {id:'upsClientId',label:'UPS Client ID',hint:'UPS Developer Portal 应用 OAuth Client ID',field:'upsClientId',statusKey:'upsClientId',placeholder:'输入 UPS Client ID'},
@@ -57,12 +58,13 @@ export function TradeToolsApiSettings(){
    </div>
   </div>)}
   <div className="tp-settings-trade-api__actions">
+   <Button kind="secondary" disabled={Boolean(testing)} onClick={()=>void test('googleMaps')}>测试 Google Maps</Button>
    <Button kind="secondary" disabled={Boolean(testing)} onClick={()=>void test('deepl')}>测试 DeepL</Button>
    <Button kind="secondary" disabled={Boolean(testing)} onClick={()=>void test('dhl')}>{testing==='dhl'?'正在测试…':'测试 DHL'}</Button>
    <Button kind="secondary" disabled={Boolean(testing)} onClick={()=>void test('upsClientId')}>{testing==='upsClientId'?'正在测试…':'测试 UPS'}</Button>
    <Button kind="secondary" disabled={Boolean(testing)} onClick={()=>void test('fedexClientId')}>{testing==='fedexClientId'?'正在测试…':'测试 FedEx'}</Button>
   </div>
-  {Object.entries(testResult).map(([key,result])=><InlineNotification key={key} kind={result.ok?'success':'error'} title={key==='dhl'?'DHL':key.startsWith('ups')?'UPS':'FedEx'} subtitle={result.message}/>)}
+  {Object.entries(testResult).map(([key,result])=><InlineNotification key={key} kind={result.ok?'success':'error'} title={key==='googleMaps'?'Google Maps':key==='deepl'?'DeepL':key==='dhl'?'DHL':key.startsWith('ups')?'UPS':'FedEx'} subtitle={result.message}/>)}
   <p className="tp-settings__footnote">注意：DHL 使用 Shipment Tracking Unified API；UPS 与 FedEx 使用 OAuth 2.0。凭证必须来自各承运商官方开发者门户，且需已为应用开通 Tracking API 权限。</p>
  </div>;
 }
