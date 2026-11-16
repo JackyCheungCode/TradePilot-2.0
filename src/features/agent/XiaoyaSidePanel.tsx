@@ -78,6 +78,7 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
   const [hasMounted, setHasMounted] = useState(false);
   const [welcomeVisible, setWelcomeVisible] = useState(true);
   const [avatarEmotion, setAvatarEmotion] = useState<'idle' | 'thinking' | 'success' | 'error'>('idle');
+  const [welcomePhase, setWelcomePhase] = useState<'greeting' | 'loading' | 'ready' | 'error'>('greeting');
   const [chatStatusVisible, setChatStatusVisible] = useState(false);
   const conversationIdRef = useRef('');
   const historyLoadPromiseRef = useRef<Promise<void> | null>(null);
@@ -121,6 +122,8 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
     // Return an empty initial history immediately. Fetch and insert persisted history
     // in the background so Carbon's full-screen hydration spinner never splits the panel.
     historyLoadPromiseRef.current = (async () => {
+      setWelcomePhase('loading');
+      setAvatarEmotion('thinking');
       const conversationId = await ensureConversation();
       const rows = await agentRequest<AgentMessage[]>(`/api/v1/agent/conversations/${conversationId}/messages`);
       if (rows.length) {
@@ -128,9 +131,12 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
         await instance.messaging.insertHistory(toHistoryItems(rows));
       } else {
         setWelcomeVisible(true);
+        setWelcomePhase('ready');
+        setAvatarEmotion('success');
       }
     })().catch((error) => {
       console.error('[Xiaoya] Conversation history could not be loaded', error);
+      setWelcomePhase('error');
       setAvatarEmotion('error');
     });
     return [];
@@ -230,14 +236,14 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
               <div className={`tp-xiaoya-welcome__avatar tp-xiaoya-welcome__avatar--${avatarEmotion}`}>
                 <XiaoyaAvatar emotion={avatarEmotion} size={192} />
               </div>
-              <Heading className="tp-xiaoya-welcome__title">你好，我是小雅。</Heading>
-              <p className="tp-xiaoya-welcome__description cds--type-label-01">我可以结合当前页面上下文，帮你分析业务数据、查找信息、梳理问题并完成日常工作。</p>
+              <Heading className="tp-xiaoya-welcome__title">{welcomePhase === 'greeting' ? '你好，我是小雅！' : welcomePhase === 'loading' ? '稍等，正在加载。' : welcomePhase === 'error' ? '暂时无法加载，请稍后重试。' : '有什么可以帮你？'}</Heading>
+              {welcomePhase === 'greeting' && <p className="tp-xiaoya-welcome__description cds--type-label-01">我可以结合当前页面上下文，帮你分析业务数据、查找信息、梳理问题并完成日常工作。</p>}
             </section>
           )}
           {chatStatusVisible && !welcomeVisible && (
             <div className="tp-xiaoya-chat-status" role="status" aria-live="polite">
               <XiaoyaAvatar emotion={avatarEmotion} size={48} />
-              <span>{avatarEmotion === 'thinking' ? '小雅正在思考…' : avatarEmotion === 'success' ? '小雅已完成' : '小雅遇到了一点问题'}</span>
+              <span>{avatarEmotion === 'thinking' ? '稍等，正在加载。' : avatarEmotion === 'success' ? '有什么可以帮你？' : '小雅遇到了一点问题'}</span>
             </div>
           )}
         </div>
