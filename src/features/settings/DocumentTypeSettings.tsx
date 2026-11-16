@@ -45,7 +45,7 @@ const defaultsFor = (id: string, sources: Source[]): DocumentPolicy => ({
   allowedSources: [...sources],
   allowBlankCreation: true,
   requireOrderOnConfirmation: false,
-  requireLockedOrderWhenOrderLinked: !['quotation','request_for_quotation'].includes(id),
+  requireLockedOrderWhenOrderLinked: !['quotation','request_for_quotation','purchase_order','purchase_confirmation'].includes(id),
   requireShipmentWhenOrderLinked: ['commercial_invoice','packing_list','shipping_instructions','shipper_letter_instruction','vgm_declaration','packing_declaration'].includes(id),
   allowStandaloneConfirmation: true,
   requireReview: false,
