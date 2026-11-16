@@ -16,6 +16,10 @@ const channels = [
   { id: 'email', label: 'Email' },
 ];
 const channelLabel = (id?: string | null) => channels.find(channel => channel.id === id)?.label ?? '未知渠道';
+const messageStatusLabel = (status?: string) => ({
+  queued: '排队中', sending: '发送中', sent: '已发送',
+  delivered: '已送达', read: '已读', received: '已接收', failed: '发送失败',
+}[status ?? ''] ?? status ?? '');
 const formatTime = (value?: string | null) => value
   ? new Intl.DateTimeFormat('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(value))
   : '';
@@ -539,7 +543,7 @@ export function InboxPage() {
                                 {item.timeline_type === 'internal_note' ? '内部备注' : channelLabel(item.channel_type)}
                               </Tag>
                               <span>{formatTime(item.created_at)}</span>
-                              {item.status && <span>{item.status}</span>}
+                              {item.status && <span>{messageStatusLabel(item.status)}</span>}
                             </Stack>
                             {item.email_subject && <strong>{item.email_subject}</strong>}
                             <p>{item.content}</p>
