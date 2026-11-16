@@ -1,0 +1,51 @@
+.tp-agent-history {
+  gap: var(--tp-space-05);
+}
+
+.tp-agent-history__heading,
+.tp-agent-history__actions,
+.tp-agent-history__selection {
+  display: flex;
+  align-items: center;
+}
+
+.tp-agent-history__heading {
+  justify-content: space-between;
+  gap: var(--tp-space-05);
+}
+
+.tp-agent-history__heading h4,
+.tp-agent-history__heading p {
+  margin-block: 0;
+}
+
+.tp-agent-history__heading p {
+  max-width: 48rem;
+  margin-block-start: var(--tp-space-02);
+  color: var(--cds-text-secondary);
+}
+
+.tp-agent-history__actions {
+  justify-content: space-between;
+  gap: var(--tp-space-04);
+}
+
+.tp-agent-history__selection {
+  flex-wrap: wrap;
+  gap: var(--tp-space-03);
+  color: var(--cds-text-secondary);
+  font-size: 0.875rem;
+}
+
+@media (max-width: 767px) {
+  .tp-agent-history__heading,
+  .tp-agent-history__actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .tp-agent-history__heading > .cds--btn,
+  .tp-agent-history__actions > .cds--btn {
+    align-self: flex-start;
+  }
+}
