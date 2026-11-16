@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput, TextArea,
   Tabs, TabList, Tab, TabPanels, TabPanel, Table, TableHead, TableRow, TableHeader, TableBody, TableCell,
-  ComposedModal, ModalHeader, ModalBody, ModalFooter, Checkbox, ProgressIndicator, ProgressStep,
+  ComposedModal, ModalHeader, ModalBody, ModalFooter, Checkbox, ProgressIndicator, ProgressStep, RadioButtonGroup, RadioButton,
   CarbonIcons,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
@@ -154,6 +154,7 @@ export function OpportunityDetailPage() {
  const [relations,setRelations]=useState<Array<{id:string;source_record_type:string;source_record_id:string;target_record_type:string;target_record_id:string;relation_type:string;created_at:string}>>([]);
  const [error,setError]=useState(''); const [loading,setLoading]=useState(true);
  const [lifecycleOpen,setLifecycleOpen]=useState(false); const [nextStage,setNextStage]=useState(''); const [transitionNote,setTransitionNote]=useState('');
+ const [quoteModalOpen,setQuoteModalOpen]=useState(false); const [quoteMode,setQuoteMode]=useState('single'); const [quoteConfirmed,setQuoteConfirmed]=useState(false);
  const [confirmed,setConfirmed]=useState(false); const [saving,setSaving]=useState(false); const [transitionError,setTransitionError]=useState('');
  const load=useCallback(async()=>{
    setLoading(true);setError('');
@@ -217,6 +218,27 @@ export function OpportunityDetailPage() {
      {relations.length?<div className="tp-opportunities__relations">{relations.map(rel=><div className="tp-opportunities__relation" key={rel.id}><div><strong>{rel.source_record_type==='opportunity'?'本商机':rel.source_record_type} → {rel.target_record_type==='opportunity'?'本商机':rel.target_record_type}</strong><small>{rel.relation_type} · {new Date(rel.created_at).toLocaleString()}</small></div><code>{rel.source_record_id===row.id?rel.target_record_id:rel.source_record_id}</code></div>)}</div>:<p className="tp-opportunities__empty">暂无已登记的业务关联。后续转换成功后会自动显示来源与目标记录。</p>}
    </section>
    <section className="tp-opportunities__panel"><h2>销售阶段历史</h2>{history.length?<Table><TableHead><TableRow><TableHeader>原阶段</TableHeader><TableHeader>新阶段</TableHeader><TableHeader>变更时间</TableHeader><TableHeader>备注</TableHeader></TableRow></TableHead><TableBody>{history.map(h=><TableRow key={h.id}><TableCell>{h.from_stage?stageLabel(h.from_stage):'创建'}</TableCell><TableCell>{stageLabel(h.to_stage)}</TableCell><TableCell>{new Date(h.changed_at).toLocaleString()}</TableCell><TableCell>{h.note||'—'}</TableCell></TableRow>)}</TableBody></Table>:<p className="tp-opportunities__empty">暂无阶段变更记录。</p>}</section>
+   <ComposedModal open={quoteModalOpen} onClose={()=>setQuoteModalOpen(false)}>
+     <ModalHeader title="从商机创建报价" label={row.opportunity_number}/>
+     <ModalBody hasForm>
+       <p className="tp-opportunities__modal-intro">选择报价生成方式。客户、联系人、产品和商机信息将在下一步自动带入报价表单；价格、数量分配、有效期及商务条款仍需补全或确认。</p>
+       <RadioButtonGroup legendText="报价生成方式" name="opportunity-quote-mode" value={quoteMode} onChange={value=>setQuoteMode(String(value))}>
+         <RadioButton id="opportunity-quote-single" value="single" labelText="一个综合报价"/>
+         <RadioButton id="opportunity-quote-split" value="split" labelText="拆分为多个报价方案"/>
+       </RadioButtonGroup>
+       <div className="tp-opportunities__conversion-inherit">
+         <strong>将从当前商机继承</strong>
+         <span>客户：{account}</span><span>联系人：{contact}</span>
+         <span>预计金额：{row.currency_code} {Number(row.amount||0).toLocaleString()}</span>
+         <span>产品明细：{Array.isArray(row.product_items)?row.product_items.length:0} 项</span>
+       </div>
+       <Checkbox id="opportunity-quote-confirm" labelText="我已确认来源商机及报价生成方式，继续补全报价资料。" checked={quoteConfirmed} onChange={(_,data)=>setQuoteConfirmed(Boolean(data.checked))}/>
+     </ModalBody>
+     <ModalFooter>
+       <Button kind="secondary" onClick={()=>setQuoteModalOpen(false)}>取消</Button>
+       <Button kind="primary" disabled={!quoteConfirmed} onClick={()=>nav('/quotes/new?opportunity='+row.id+'&conversion='+quoteMode)}>继续补全报价</Button>
+     </ModalFooter>
+   </ComposedModal>
    <ComposedModal open={lifecycleOpen} onClose={()=>{if(!saving)setLifecycleOpen(false)}}>
      <ModalHeader title="确认商机生命周期变更" label={row.opportunity_number}/>
      <ModalBody hasForm>
