@@ -79,7 +79,7 @@ export function SalesConversionFunnel({ startDate, endDate }: { startDate: strin
     {error && <InlineNotification kind="warning" title="漏斗数据暂不可用" subtitle={error} lowContrast/>}
     {loading ? <InlineLoading description="正在计算销售转化路径…"/> : <div className="tp-dashboard__funnel-visual" role="group" aria-label="销售转化漏斗各阶段，选择阶段可打开对应业务列表">
       {stages.map((stage,index) => {
-        const width = 42 + (stage.count / max) * 58;
+        const widthLevel = Math.max(0, Math.min(5, Math.round((stage.count / max) * 5)));
         const conversion = index > 0 && stages[index - 1]?.count
           ? ((stage.count / stages[index - 1].count) * 100).toFixed(1) + '% 转化'
           : index === 0 ? '起始阶段' : '—';
@@ -87,8 +87,7 @@ export function SalesConversionFunnel({ startDate, endDate }: { startDate: strin
           kind="ghost"
           key={stage.key}
           onClick={() => navigate(stage.href)}
-          className="tp-dashboard__funnel-stage"
-          style={{ width: width + '%' }}
+          className={"tp-dashboard__funnel-stage tp-dashboard__funnel-stage--width-" + widthLevel}
           aria-label={stage.label + '，' + stage.count.toLocaleString() + ' 条，' + conversion + '，打开对应列表'}
           title={stage.label + ' · ' + stage.count.toLocaleString()}
         >
