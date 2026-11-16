@@ -180,7 +180,7 @@ export async function handleTradeDocuments(request:Request,env:Env):Promise<Resp
     const order=orderRows[0];if(!order)return errorResponse(request,"NOT_FOUND","关联业务订单不存在。",404);
     if((purchaseTypes&&order.order_type!=="purchase")||(!purchaseTypes&&order.order_type!=="sales"))return errorResponse(request,"INVALID_DOCUMENT_ORDER_TYPE","单据类型与关联订单的销售/采购类型不匹配。",409);
     const snapshot=obj(order.commercial_snapshot);
-    const mustLock=policy.requireLockedOrderWhenOrderLinked!==false;
+    const mustLock=typeof policy.requireLockedOrderWhenOrderLinked==="boolean"?policy.requireLockedOrderWhenOrderLinked:!purchaseTypes;
     if(mustLock&&(!order.locked_at||!Object.keys(snapshot).length||!Array.isArray(snapshot.items)||!(snapshot.items as unknown[]).length))return errorResponse(request,"ORDER_NOT_LOCKED","该单据配置要求关联已确认并锁定成交快照的订单。",409);
     if(shipmentTypes&&policy.requireShipmentWhenOrderLinked!==false&&!shipmentId)return errorResponse(request,"SHIPMENT_REQUIRED","该单据配置要求关联实际发运批次后才能正式确认。",409);
    }
