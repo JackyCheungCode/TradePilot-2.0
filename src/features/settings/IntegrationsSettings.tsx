@@ -43,7 +43,7 @@ const apiCards=[
 {id:'zoominfo',name:'ZoomInfo',logo:'zoominfo',initial:'Z',description:'联系人搜索、组织架构与企业决策人数据；补全操作可能消耗账户额度。',fields:[{key:'zoominfoClientId',label:'OAuth Client ID'},{key:'zoominfoClientSecret',label:'OAuth Client Secret'}],test:'zoominfo'},
 {id:'abstractEmailValidation',name:'Abstract · 邮箱验证',logo:'',initial:'@',description:'验证邮箱格式、域名与邮件服务器可投递性；全平台同一邮箱仅验证一次。',fields:[{key:'abstractEmailValidation',label:'Abstract Email Validation API Key'}],test:'abstractEmailValidation'},
 {id:'abstractPhoneValidation',name:'Abstract · 电话验证',logo:'',initial:'☎',description:'验证国际电话号码有效性、国家、线路类型与运营商。',fields:[{key:'abstractPhoneValidation',label:'Abstract Phone Validation API Key'}],test:'abstractPhoneValidation'},
-{id:'whatsappCheck',name:'WhatsApp 注册检测',logo:'',initial:'WA',description:'独立第三方注册检测服务。请填写符合 TradePilot JSON 接口约定的 HTTPS 地址和 API Key。',fields:[{key:'whatsappCheckUrl',label:'检测 API HTTPS 地址'},{key:'whatsappCheckKey',label:'检测 API Key'}],test:'whatsappCheck'},
+{id:'whatsappCheck',name:'WhatsApp 注册检测',logo:'',initial:'WA',description:'WA Lookup 独立 WhatsApp 注册检测 API；每次成功检测约 USD 0.001，未能确认的结果不会标记为未注册。',fields:[{key:'whatsappCheckKey',label:'WA Lookup API Key'}],test:'whatsappCheck'},
 {id:'jinaReader',name:'Jina Reader',logo:'',initial:'J',description:'读取客户官网内容，用于公开联系方式提取与 AI 企业背调。',fields:[{key:'jinaReader',label:'Jina Reader API Key'}],test:'jinaReader'}
 ] as const;
 async function request<T>(path:string,init:RequestInit={}):Promise<T>{
