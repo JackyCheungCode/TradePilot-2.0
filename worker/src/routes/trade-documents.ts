@@ -149,6 +149,19 @@ export async function handleTradeDocuments(request:Request,env:Env):Promise<Resp
    const docs=await db<Json[]>(env,"trade_documents?id=eq."+encodeURIComponent(path[1])+"&owner_id=eq."+ownerId+"&limit=1");
    const doc=docs[0];if(!doc)return errorResponse(request,"NOT_FOUND","单据不存在。",404);
    if(["quotation","request_for_quotation"].includes(String(doc.document_type))&&doc.order_id){
+    const reviewSettings=await db<Json[]>(env,"trade_document_settings?select=config&owner_id=eq."+ownerId+"&scope_key=eq.shared&limit=1");
+    const savedQuotePolicy=obj(obj(obj(doc.content)._system).document_policy_snapshot);
+    const currentQuotePolicy=obj(obj(obj(reviewSettings[0]?.config).documentTypes)[String(doc.document_type)]);
+    const quotePolicy=Object.keys(savedQuotePolicy).length?savedQuotePolicy:currentQuotePolicy;
+    if(quotePolicy.requireReview===true&&String(doc.status)!=="approved"){
+     if(String(doc.status)==="draft"){
+      const pending=await db<Json[]>(env,"trade_documents?id=eq."+encodeURIComponent(path[1])+"&owner_id=eq."+ownerId+"&status=eq.draft",{method:"PATCH",headers:{Prefer:"return=representation"},body:JSON.stringify({status:"review",updated_at:new Date().toISOString()})});
+      if(!pending.length)return errorResponse(request,"DOCUMENT_STATE_CONFLICT","单据状态已变化，请刷新后重试。",409);
+      await db(env,"trade_document_events",{method:"POST",body:JSON.stringify({owner_id:ownerId,document_id:path[1],order_id:doc.order_id,event_type:"document.review_requested",payload:{document_type:doc.document_type}})});
+      return successResponse(request,pending[0]);
+     }
+     return errorResponse(request,"DOCUMENT_REVIEW_REQUIRED","单据已提交审核，审核通过后再次执行正式确认。",409);
+    }
     try{
      const rows=await db<Json[]>(env,"rpc/confirm_trade_quotation",{method:"POST",body:JSON.stringify({p_owner_id:ownerId,p_document_id:path[1]})});
      if(!rows.length)return errorResponse(request,"CONFIRMATION_FAILED","报价单确认未返回结果。",409);
