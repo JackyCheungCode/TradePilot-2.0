@@ -26,9 +26,9 @@ function ChannelMark({ channel }: { channel: ChannelType }) {
 function avatarFallback(contactName: string) {
   const name = contactName.trim();
   if (!name) return '?';
-  const firstToken = name.split(/\\s+/)[0];
-  if (/[\\u3400-\\u9fff\\u3040-\\u30ff\\uac00-\\ud7af]/.test(name)) return Array.from(firstToken)[0];
-  const parts = name.split(/\\s+/).filter(Boolean);
+  const firstToken = name.split(/\s+/)[0];
+  if (/[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]/.test(name)) return Array.from(firstToken)[0];
+  const parts = name.split(/\s+/).filter(Boolean);
   return (parts.length > 1 ? parts[parts.length - 1] : parts[0]).charAt(0).toUpperCase();
 }
 function Avatar({ customer, small = false }: { customer: Customer; small?: boolean }) {
