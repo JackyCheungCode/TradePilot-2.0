@@ -453,7 +453,7 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
       }
       const translatedResponse = await handleTranslation(translateRequest, {
         ...env,
-        SUPABASE_SERVICE_ROLE_KEY: translationServiceRoleKey,
+        SUPABASE_SERVICE_ROLE_KEY: translationServiceRoleKey!,
       });
       const translatedPayload = await translatedResponse.json().catch(() => ({})) as {
         data?: { translatedText?: string; detectedSourceLanguage?: string };
