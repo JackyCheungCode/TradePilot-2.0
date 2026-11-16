@@ -243,7 +243,7 @@ async function scanWithClamAV(env: MediaWorkerEnv, bytes: Uint8Array): Promise<"
         "X-Scan-Signature": signature,
       },
       body: new Blob([bytes]),
-      signal: AbortSignal.timeout(120000),
+      signal: AbortSignal.timeout(90000),
     });
   } catch {
     throw new Error("MEDIA_SCANNER_UNAVAILABLE");
@@ -355,7 +355,7 @@ export async function processInboxMediaJobs(env: MediaWorkerEnv): Promise<void> 
   const secrets = await readIntegrationSecrets(SECRET_KEYS, env);
   const jobs = await db<MediaJob[]>(env, "rpc/inbox_claim_media_jobs", {
     method: "POST",
-    body: JSON.stringify({ p_limit: 5 }),
+    body: JSON.stringify({ p_limit: 1 }),
   });
   for (const job of jobs) await processJob(env, job, secrets);
 }
