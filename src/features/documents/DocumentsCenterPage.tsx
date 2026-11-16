@@ -74,6 +74,7 @@ export function DocumentsCenterPage() {
     return { enabled: true, allowedSources: purchase ? ['blank', 'purchase_order'] : shipmentOnly ? ['sales_order', 'shipment'] : shipping ? ['blank', 'sales_order', 'shipment'] : ['blank', 'sales_order'], allowBlankCreation: !shipmentOnly, requireShipmentWhenOrderLinked: shipping, ...configured };
   }, [documentPolicies, documentType]);
   const requiresShipmentSelection = (selectedPolicy.allowedSources ?? []).includes('shipment') || selectedPolicy.requireShipmentWhenOrderLinked === true;
+  const mustSelectShipment = selectedPolicy.requireShipmentWhenOrderLinked === true || ((selectedPolicy.allowedSources ?? []).includes('shipment') && !(selectedPolicy.allowedSources ?? []).includes(orderSourceKey));
   const activeDocumentGroups = useMemo(() => documentGroups.map(group => ({ ...group, items: group.items.filter(item => documentPolicies[item.id]?.enabled !== false) })).filter(group => group.items.length > 0), [documentPolicies]);
   const orderSourceKey = category === 'purchase' ? 'purchase_order' : 'sales_order';
   const canUseOrderSource = (selectedPolicy.allowedSources ?? []).includes(orderSourceKey) || (selectedPolicy.allowedSources ?? []).includes('shipment');
@@ -160,7 +161,7 @@ export function DocumentsCenterPage() {
 
   const createDocument = async () => {
     if ((sourceMode === 'order' && (!orderId || !canUseOrderSource)) || (sourceMode === 'blank' && !canUseBlankSource) || !selectedType || selectedPolicy.enabled === false) return;
-    if (sourceMode === 'order' && selectedPolicy.requireShipmentWhenOrderLinked === true && !shipmentId) { setError('该单据配置要求订单来源必须关联本次实际发运批次。'); return; }
+    if (sourceMode === 'order' && mustSelectShipment && !shipmentId) { setError('该单据配置要求订单来源必须关联本次实际发运批次。'); return; }
     setSaving(true); setError(''); setNotice('');
     try {
       const content = sourceMode === 'blank' ? { ...blankFields, items: [], charges: [], payment_schedule: [], bank_accounts: [] } : undefined;
@@ -228,7 +229,7 @@ export function DocumentsCenterPage() {
           </div>
         </section>}
         {sourceMode === 'order' && requiresShipmentSelection && orderId && shipments.length === 0 && <InlineNotification kind="warning" lowContrast title="暂无发运批次" subtitle="请先在发运管理中创建该订单的实际发运批次，再生成商业发票或装箱单。" />}
-        <div className="tp-documents__wizard-actions"><Button kind="tertiary" onClick={() => setStep(2)}>上一步</Button><Button kind="primary" disabled={sourceMode === 'order' && (!orderId || (Boolean(selectedPolicy.requireShipmentWhenOrderLinked) && !shipmentId))} onClick={() => setStep(4)}>下一步</Button></div>
+        <div className="tp-documents__wizard-actions"><Button kind="tertiary" onClick={() => setStep(2)}>上一步</Button><Button kind="primary" disabled={sourceMode === 'order' && (!orderId || (mustSelectShipment && !shipmentId))} onClick={() => setStep(4)}>下一步</Button></div>
       </div>}
       {step === 4 && <div className="tp-documents__step-content"><h2>模板与生成</h2><p>模板负责版式，业务字段由订单和发运数据自动填充。草稿创建后仍可继续校对。</p>
         <div className="tp-documents__form-grid"><div><Select id="tp-doc-template" labelText="单据模板" value={templateId} onChange={e => setTemplateId(e.currentTarget.value)}><SelectItem value="" text="使用系统默认版式" />{activeTemplates.map(t => <SelectItem key={t.id} value={t.id} text={t.name + (t.is_default ? ' · 默认' : '') + ' · ' + t.locale} />)}</Select></div>
