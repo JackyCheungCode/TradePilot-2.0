@@ -161,6 +161,7 @@ export async function handleProspectConsole(request: Request, env: ConsoleEnv): 
     const entities = new Set<string>();
     const converted = new Set<string>();
     const pending = new Set<string>();
+    const lifecycleStagesByEntity = new Map<string,string[]>();
     const platformEntities = new Map<string, { label: string; entities: Set<string> }>();
     const dailyEntities = new Map<string, Set<string>>();
     const prospects = new Map<string, {
@@ -178,9 +179,14 @@ export async function handleProspectConsole(request: Request, env: ConsoleEnv): 
       const entityId = canonicalEntityKey(record);
       const day = localDay(row.captured_at);
       entities.add(entityId);
-      if (record.status === "promoted" || record.lead_id) converted.add(entityId);
-      else pending.add(entityId);
-      const lifecycleStage = record.status === "promoted" || record.lead_id ? "converted" : String(record.raw_data?.lifecycle_stage ?? (hasContactEnrichmentData(record.raw_data) || record.email || record.phone ? "collected" : "discovered"));
+      const isConverted = record.status === "promoted" || Boolean(record.lead_id);
+      const isTerminal = record.status === "discarded" || record.status === "removed";
+      if (isConverted) converted.add(entityId);
+      else if (!isTerminal) pending.add(entityId);
+      const lifecycleStage = isConverted ? "converted" : isTerminal ? record.status : String(record.raw_data?.lifecycle_stage ?? (hasContactEnrichmentData(record.raw_data) || record.email || record.phone ? "collected" : "discovered"));
+      const entityStages = lifecycleStagesByEntity.get(entityId) ?? [];
+      entityStages.push(lifecycleStage);
+      lifecycleStagesByEntity.set(entityId,entityStages);
       const channel = row.run?.channel ?? "";
       const platform = platformFor(channel, row.provider);
       const validCoordinates = typeof record.latitude === "number" && Number.isFinite(record.latitude) && record.latitude >= -90 && record.latitude <= 90 && typeof record.longitude === "number" && Number.isFinite(record.longitude) && record.longitude >= -180 && record.longitude <= 180;
@@ -228,6 +234,21 @@ export async function handleProspectConsole(request: Request, env: ConsoleEnv): 
     const daily = [...dailyEntities.entries()]
       .map(([date, values]) => ({ date, count: values.size }))
       .sort((a, b) => a.date.localeCompare(b.date));
+    for (const prospect of prospects.values()) {
+      const stages = lifecycleStagesByEntity.get(prospect.id) ?? [];
+      const activeStages = stages.filter(stage => ["discovered","reviewed","collected"].includes(stage));
+      if (activeStages.length) {
+        const order = ["discovered","reviewed","collected"];
+        prospect.lifecycleStage = activeStages.sort((a,b)=>order.indexOf(b)-order.indexOf(a))[0];
+        prospect.status = "pending";
+      } else if (stages.includes("converted")) {
+        prospect.lifecycleStage = "converted";
+        prospect.status = "converted";
+      } else if (stages.length) {
+        prospect.lifecycleStage = stages[stages.length-1];
+        prospect.status = prospect.lifecycleStage;
+      }
+    }
     const prospectRows = [...prospects.values()].sort((a, b) => b.discoveredAt.localeCompare(a.discoveredAt));
     for(const prospect of prospectRows){const events=prospect.recordIds.flatMap(recordId=>eventsByRecord.get(recordId)??[]).sort((a,b)=>b.created_at.localeCompare(a.created_at));prospect.lifecycleEvents=events.slice(0,20).map(({id,event_type,from_status,to_status,note,actor_id,created_at})=>({id,event_type,from_status,to_status,note,actor_id,created_at}));}
     return successResponse(request, {
