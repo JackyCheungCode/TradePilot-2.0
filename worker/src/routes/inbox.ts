@@ -157,7 +157,7 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
     if (translateMatch && request.method === "POST") {
       const messageId = translateMatch[1];
       const rows = await db<Row[]>(env,
-        "inbox_messages?select=id,conversation_id,channel_type,direction,content& id=eq." + messageId + "&owner_id=eq." + ownerId + "&limit=1");
+        "inbox_messages?select=id,conversation_id,channel_type,direction,content&id=eq." + messageId + "&owner_id=eq." + ownerId + "&limit=1");
       const message = rows[0];
       if (!message) return errorResponse(request, "MESSAGE_NOT_FOUND", "消息不存在或无权访问。", 404);
       if (message.direction !== "inbound") return errorResponse(request, "TRANSLATION_NOT_REQUIRED", "当前仅支持翻译客户发来的消息。", 400);
