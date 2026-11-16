@@ -5,7 +5,7 @@ create or replace function public.confirm_customer_status_transition(
   p_note text
 ) returns uuid
 language plpgsql
-security invoker
+security definer
 set search_path = public
 as $$
 declare
@@ -64,7 +64,7 @@ create or replace function public.confirm_contact_active_transition(
   p_note text
 ) returns uuid
 language plpgsql
-security invoker
+security definer
 set search_path = public
 as $$
 declare
