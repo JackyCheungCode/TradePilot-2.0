@@ -145,17 +145,67 @@ export async function handleTradeDocuments(request:Request,env:Env):Promise<Resp
     await db(env,"trade_document_events",{method:"POST",body:JSON.stringify({owner_id:ownerId,document_id:doc.id,order_id:orderId,event_type:"document.created",payload:{document_number:number,document_type:type}})});return successResponse(request,doc,201);}
   }
   if(path.length===3&&path[0]==="documents"&&path[2]==="confirm"&&method==="POST"){
-   try{
-    const rows=await db<Json[]>(env,"rpc/confirm_trade_quotation",{method:"POST",body:JSON.stringify({p_owner_id:ownerId,p_document_id:path[1]})});
-    if(!rows.length)return errorResponse(request,"CONFIRMATION_FAILED","报价单确认未返回结果。",409);
-    return successResponse(request,rows[0]);
-   }catch(error){
-    const reason=String(error);
-    if(reason.includes("ORDER_HAS_NO_LINES"))return errorResponse(request,"ORDER_HAS_NO_LINES","报价单至少需要一条产品明细才能确认。",400);
-    if(reason.includes("NOT_FOUND"))return errorResponse(request,"NOT_FOUND","报价单或关联订单不存在。",404);
-    if(reason.includes("STATUS_NOT_CONFIRMABLE")||reason.includes("TYPE_MISMATCH")||reason.includes("NOT_A_QUOTATION"))return errorResponse(request,"INVALID_QUOTATION_STATE","报价单或关联订单当前状态不允许确认。",409);
-    throw error;
+   const docs=await db<Json[]>(env,"trade_documents?id=eq."+encodeURIComponent(path[1])+"&owner_id=eq."+ownerId+"&limit=1");
+   const doc=docs[0];if(!doc)return errorResponse(request,"NOT_FOUND","单据不存在。",404);
+   if(["quotation","request_for_quotation"].includes(String(doc.document_type))){
+    try{
+     const rows=await db<Json[]>(env,"rpc/confirm_trade_quotation",{method:"POST",body:JSON.stringify({p_owner_id:ownerId,p_document_id:path[1]})});
+     if(!rows.length)return errorResponse(request,"CONFIRMATION_FAILED","报价单确认未返回结果。",409);
+     return successResponse(request,rows[0]);
+    }catch(error){
+     const reason=String(error);
+     if(reason.includes("ORDER_HAS_NO_LINES"))return errorResponse(request,"ORDER_HAS_NO_LINES","报价单至少需要一条产品明细才能确认。",400);
+     if(reason.includes("NOT_FOUND"))return errorResponse(request,"NOT_FOUND","报价单或关联订单不存在。",404);
+     if(reason.includes("STATUS_NOT_CONFIRMABLE")||reason.includes("TYPE_MISMATCH")||reason.includes("NOT_A_QUOTATION"))return errorResponse(request,"INVALID_QUOTATION_STATE","报价单或关联订单当前状态不允许确认。",409);
+     throw error;
+    }
    }
+   if(String(doc.status)==="issued")return successResponse(request,doc);
+   if(!["draft","review","approved"].includes(String(doc.status)))return errorResponse(request,"INVALID_DOCUMENT_STATE","当前单据状态不允许正式确认。",409);
+   const settingsRows=await db<Json[]>(env,"trade_document_settings?select=config&owner_id=eq."+ownerId+"&scope_key=eq.shared&limit=1");
+   const typeConfigs=obj(obj(settingsRows[0]?.config).documentTypes),policy=obj(typeConfigs[String(doc.document_type)]);
+   const type=String(doc.document_type),orderId=str(doc.order_id,64),shipmentId=str(doc.shipment_id,64);
+   const purchaseTypes=["purchase_order","purchase_confirmation","request_for_quotation"].includes(type);
+   const shipmentTypes=["commercial_invoice","packing_list","shipping_instructions","shipper_letter_instruction","vgm_declaration","packing_declaration"].includes(type);
+   const defaultSources=purchaseTypes?["blank","purchase_order"]:shipmentTypes?["blank","sales_order","shipment"]:["blank","sales_order"];
+   const allowedSources=Array.isArray(policy.allowedSources)?policy.allowedSources.map(String):defaultSources;
+   const sourceKey=shipmentId?"shipment":orderId?(purchaseTypes?"purchase_order":"sales_order"):"blank";
+   if(policy.enabled===false)return errorResponse(request,"DOCUMENT_TYPE_DISABLED","该单据类型已停用，不能正式确认。",409);
+   if(!allowedSources.includes(sourceKey))return errorResponse(request,"DOCUMENT_SOURCE_NOT_ALLOWED","该单据来源不符合当前单据配置。",409);
+   if(!orderId&&policy.requireOrderOnConfirmation===true)return errorResponse(request,"ORDER_REQUIRED_FOR_CONFIRMATION","该单据配置要求正式确认时必须关联业务订单。",409);
+   if(!orderId&&policy.allowStandaloneConfirmation===false)return errorResponse(request,"STANDALONE_CONFIRMATION_NOT_ALLOWED","该单据配置不允许无订单独立正式确认。",409);
+   if(orderId){
+    const orderRows=await db<Json[]>(env,"trade_orders?select=id,order_type,locked_at,commercial_snapshot&id=eq."+encodeURIComponent(orderId)+"&owner_id=eq."+ownerId+"&limit=1");
+    const order=orderRows[0];if(!order)return errorResponse(request,"NOT_FOUND","关联业务订单不存在。",404);
+    if((purchaseTypes&&order.order_type!=="purchase")||(!purchaseTypes&&order.order_type!=="sales"))return errorResponse(request,"INVALID_DOCUMENT_ORDER_TYPE","单据类型与关联订单的销售/采购类型不匹配。",409);
+    const snapshot=obj(order.commercial_snapshot);
+    const mustLock=policy.requireLockedOrderWhenOrderLinked!==false;
+    if(mustLock&&(!order.locked_at||!Object.keys(snapshot).length||!Array.isArray(snapshot.items)||!(snapshot.items as unknown[]).length))return errorResponse(request,"ORDER_NOT_LOCKED","该单据配置要求关联已确认并锁定成交快照的订单。",409);
+    if(shipmentTypes&&policy.requireShipmentWhenOrderLinked!==false&&!shipmentId)return errorResponse(request,"SHIPMENT_REQUIRED","该单据配置要求关联实际发运批次后才能正式确认。",409);
+   }
+   const content=obj(doc.content);
+   const requiredFields=Array.isArray(policy.requiredFields)?policy.requiredFields.map(String):[];
+   const missing=requiredFields.filter(key=>{const value=key.split(".").reduce<unknown>((current,part)=>obj(current)[part],content);return value===undefined||value===null||value===""||(Array.isArray(value)&&value.length===0)||(typeof value==="object"&&!Array.isArray(value)&&Object.keys(obj(value)).length===0);});
+   if(missing.length)return errorResponse(request,"DOCUMENT_REQUIRED_FIELDS_MISSING","正式确认缺少必填字段："+missing.join("、"),400);
+   if(policy.requireReview===true&&String(doc.status)!=="approved"){
+    if(String(doc.status)!=="review"){
+     const updated=await db<Json[]>(env,"trade_documents?id=eq."+encodeURIComponent(path[1])+"&owner_id=eq."+ownerId+"&status=eq.draft",{method:"PATCH",headers:{Prefer:"return=representation"},body:JSON.stringify({status:"review",updated_at:new Date().toISOString()})});
+     if(!updated.length)return errorResponse(request,"DOCUMENT_STATE_CONFLICT","单据状态已变化，请刷新后重试。",409);
+     await db(env,"trade_document_events",{method:"POST",body:JSON.stringify({owner_id:ownerId,document_id:path[1],order_id:doc.order_id,event_type:"document.review_requested",payload:{document_type:type}})});
+     return successResponse(request,updated[0]);
+    }
+    return errorResponse(request,"DOCUMENT_REVIEW_REQUIRED","单据已提交审核，审核通过后再次执行正式确认。",409);
+   }
+   const issued=await db<Json[]>(env,"trade_documents?id=eq."+encodeURIComponent(path[1])+"&owner_id=eq."+ownerId+"&status=in.(draft,review,approved)",{method:"PATCH",headers:{Prefer:"return=representation"},body:JSON.stringify({status:"issued",issued_at:new Date().toISOString(),updated_at:new Date().toISOString()})});
+   if(!issued.length)return errorResponse(request,"DOCUMENT_STATE_CONFLICT","单据状态已变化，请刷新后重试。",409);
+   await db(env,"trade_document_events",{method:"POST",body:JSON.stringify({owner_id:ownerId,document_id:path[1],order_id:doc.order_id,event_type:"document.confirmed",payload:{document_type:type,source:sourceKey}})});
+   return successResponse(request,issued[0]);
+  }
+  if(path.length===3&&path[0]==="documents"&&path[2]==="approve"&&method==="POST"){
+   const rows=await db<Json[]>(env,"trade_documents?id=eq."+encodeURIComponent(path[1])+"&owner_id=eq."+ownerId+"&status=eq.review",{method:"PATCH",headers:{Prefer:"return=representation"},body:JSON.stringify({status:"approved",updated_at:new Date().toISOString()})});
+   if(!rows.length)return errorResponse(request,"INVALID_DOCUMENT_STATE","只有待审核单据可以审批。",409);
+   await db(env,"trade_document_events",{method:"POST",body:JSON.stringify({owner_id:ownerId,document_id:path[1],event_type:"document.approved",payload:{}})});
+   return successResponse(request,rows[0]);
   }
   if(path.length===2&&path[0]==="documents"){
    const id=path[1];
