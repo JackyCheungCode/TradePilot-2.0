@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { InlineLoading, InlineNotification, Tile } from '@/design-system';
+import { Button, InlineLoading, InlineNotification, Tile } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 
 type Stage = { key: string; label: string; count: number; href: string };
@@ -78,12 +78,12 @@ export function SalesConversionFunnel({ startDate, endDate }: { startDate: strin
     <div className="tp-dashboard__section-heading"><div><h2>销售转化漏斗</h2><p>按所选期间新增线索建立 cohort，追踪这些线索后续达到的业务阶段</p></div></div>
     {error && <InlineNotification kind="warning" title="漏斗数据暂不可用" subtitle={error} lowContrast/>}
     {loading ? <InlineLoading description="正在计算销售转化路径…"/> : <div className="tp-dashboard__funnel-stages">
-      {stages.map((stage,index) => <button type="button" key={stage.key} onClick={()=>navigate(stage.href)} className="tp-dashboard__funnel-stage">
+      {stages.map((stage,index) => <Button kind="ghost" key={stage.key} onClick={()=>navigate(stage.href)} className="tp-dashboard__funnel-stage">
         <span className="tp-dashboard__funnel-stage-label">{stage.label}</span>
         <span className="tp-dashboard__funnel-track"><svg viewBox="0 0 100 8" preserveAspectRatio="none" aria-hidden="true"><rect x="0" y="0" width={stage.count?Math.max(12,stage.count/max*100):0} height="8"/></svg></span>
         <strong>{stage.count.toLocaleString()}</strong>
         {index>0 && <small>{stages[index-1]?.count ? ((stage.count/stages[index-1].count)*100).toFixed(1)+'% 转化' : '—'}</small>}
-      </button>)}
+      </Button>)}
     </div>}
   </Tile>;
 }
