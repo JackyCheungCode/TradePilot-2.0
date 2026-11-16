@@ -121,3 +121,45 @@ $$;
 
 revoke all on function public.confirm_sales_order_status_transition(uuid,text,text,text) from public, anon;
 grant execute on function public.confirm_sales_order_status_transition(uuid,text,text,text) to authenticated;
+
+create or replace function public.capture_automatic_sales_order_completion_event()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_from text := coalesce(old.metadata #>> '{sales_order,order_status}',old.status);
+  v_to text := coalesce(new.metadata #>> '{sales_order,order_status}',new.status);
+begin
+  if v_from is not distinct from v_to then return new; end if;
+  if v_to <> 'completed' and v_from <> 'completed' then return new; end if;
+
+  insert into public.business_transition_events(
+    owner_id,record_type,record_id,event_type,from_status,to_status,
+    gatekeeper_required,gatekeeper_status,actor_id,note,payload
+  ) values (
+    new.owner_id,'sales_order',new.id,'sales_order_status_changed',v_from,v_to,
+    false,'not_required',coalesce(auth.uid(),new.owner_id),
+    case when v_to='completed' then '订单收款、发运与开票条件已满足，系统自动完成'
+      else '退款或履约条件变化，订单已从完成状态恢复' end,
+    jsonb_build_object(
+      'source','automatic_completion',
+      'payment_status',new.metadata #>> '{sales_order,payment_status}',
+      'fulfillment_status',new.metadata #>> '{sales_order,fulfillment_status}',
+      'invoice_status',new.metadata #>> '{sales_order,invoice_status}',
+      'atomic',true
+    )
+  );
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_sales_order_completion_lifecycle_event on public.trade_orders;
+create trigger trg_sales_order_completion_lifecycle_event
+after update on public.trade_orders
+for each row when (
+  old.metadata #>> '{sales_order,order_status}' is distinct from
+  new.metadata #>> '{sales_order,order_status}'
+)
+execute function public.capture_automatic_sales_order_completion_event();
