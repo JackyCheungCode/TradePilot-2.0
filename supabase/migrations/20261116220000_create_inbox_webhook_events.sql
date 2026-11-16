@@ -201,7 +201,7 @@ begin
 
   if not found then
     update public.inbox_webhook_events set status = 'failed',
-      error_code = 'OUTBOUND_MESSAGE_NOT_FOUND', payload = '{}'::jsonb, processed_at = now()
+      error_code = 'OUTBOUND_MESSAGE_NOT_FOUND', processed_at = now()
     where id = p_event_id and owner_id = p_owner_id;
     return jsonb_build_object('updated', false, 'reason', 'OUTBOUND_MESSAGE_NOT_FOUND');
   end if;
