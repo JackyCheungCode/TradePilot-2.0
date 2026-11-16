@@ -147,7 +147,7 @@ export async function handleTradeDocuments(request:Request,env:Env):Promise<Resp
   }
   if(path.length===3&&path[0]==="documents"&&path[2]==="confirm"&&method==="POST"){
    const docs=await db<Json[]>(env,"trade_documents?id=eq."+encodeURIComponent(path[1])+"&owner_id=eq."+ownerId+"&limit=1");
-   const doc=docs[0];if(!doc)return errorResponse(request,"NOT_FOUND","单据不存在。",404);
+   const doc=docs[0];if(!doc)return errorResponse(request,"NOT_FOUND","单据不存在。",404);if(["issued","sent","voided"].includes(String(doc.status)))return successResponse(request,doc);
    if(["quotation","request_for_quotation"].includes(String(doc.document_type))&&doc.order_id){
     const reviewSettings=await db<Json[]>(env,"trade_document_settings?select=config&owner_id=eq."+ownerId+"&scope_key=eq.shared&limit=1");
     const savedQuotePolicy=obj(obj(obj(doc.content)._system).document_policy_snapshot);
