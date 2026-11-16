@@ -58,8 +58,7 @@ begin
       raise exception 'Payment schedule must total 100 percent and equal the order total';
     end if;
     select count(*) into v_item_count from public.trade_order_items
-      where order_id=p_order_id and owner_id=v_owner and coalesce(line_type,'product')='product'
-        and coalesce(line_status,'')<>'cancelled';
+      where order_id=p_order_id and owner_id=v_owner;
     if v_item_count<1 then raise exception 'At least one active product line is required'; end if;
     if coalesce(v_so->'form'->>'incoterm_place','')='' or
        coalesce(v_so->'form'->>'transport_mode','')='' or
