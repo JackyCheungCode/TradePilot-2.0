@@ -202,10 +202,10 @@ async function assertPublicWebsite(url: URL): Promise<void> {
   let current=new URL(url.toString());
   for(let hop=0;hop<5;hop++){
     if(!["http:","https:"].includes(current.protocol)||current.username||current.password)throw new Error("仅支持公开 HTTP/HTTPS 网站地址。");
-    const host=current.hostname.toLowerCase().replace(/^\\[|\\]$/g,"");
+    const host=current.hostname.toLowerCase().replace(/^\[|\]$/g,"");
     if(!host||host==="localhost"||host.endsWith(".localhost")||host.endsWith(".local")||host.endsWith(".internal")||host==="metadata.google.internal")throw new Error("不允许抓取本地或内部网络地址。");
     if(isPrivateIpv4(host)||isPrivateIpv6(host))throw new Error("不允许抓取私有或保留 IP 地址。");
-    if(!/^\\d{1,3}(?:\\.\\d{1,3}){3}$/.test(host)){
+    if(!/^\d{1,3}(?:\.\d{1,3}){3}$/.test(host)){
       const [aResponse,aaaaResponse]=await Promise.all([
         fetch("https://cloudflare-dns.com/dns-query?name="+encodeURIComponent(host)+"&type=A",{headers:{Accept:"application/dns-json"},signal:AbortSignal.timeout(5000)}),
         fetch("https://cloudflare-dns.com/dns-query?name="+encodeURIComponent(host)+"&type=AAAA",{headers:{Accept:"application/dns-json"},signal:AbortSignal.timeout(5000)}),
@@ -238,14 +238,14 @@ async function jinaRead(url: URL, apiKey: string): Promise<{url:string;content:s
   const rawLinks=data.links;
   const links=Array.isArray(rawLinks)?rawLinks.map(item=>typeof item==="string"?item:String((item as Record<string,unknown>)?.url??"")).filter(Boolean)
     :rawLinks&&typeof rawLinks==="object"?Object.values(rawLinks as Record<string,unknown>).map(item=>typeof item==="string"?item:String((item as Record<string,unknown>)?.url??"")).filter(Boolean):[];
-  const markdownLinks=[...content.matchAll(/\\[[^\\]]{1,100}\\]\\((https?:\\/\\/[^)]+)\\)/g)].map(match=>match[1]);
+  const markdownLinks=[...content.matchAll(/\[[^\]]{1,100}\]\((https?:\/\/[^)]+)\)/g)].map(match=>match[1]);
   return {url:url.toString(),content,links:[...new Set([...links,...markdownLinks])].slice(0,100)};
 }
 function extractPublicContacts(text: string) {
-  const emails=[...new Set((text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}/gi)||[]).map(value=>value.toLowerCase()).filter(value=>!(/\\.(png|jpe?g|webp|svg|gif|css|js)$/i.test(value))))].slice(0,100);
-  const phones=[...new Set((text.match(/\\+?\\d[\\d\\s().-]{6,}\\d/g)||[]).map(value=>value.replace(/\\s+/g," ").trim()).filter(value=>value.replace(/\\D/g,"").length>=7&&value.replace(/\\D/g,"").length<=15))].slice(0,100);
-  const social=[...new Set(text.match(/https?:\\/\\/(?:www\\.)?(?:linkedin\\.com|facebook\\.com|instagram\\.com|youtube\\.com|x\\.com|twitter\\.com|tiktok\\.com)\\/[^\\s)\\]]+/gi)||[])].slice(0,100);
-  const whatsapp=[...new Set(text.match(/https?:\\/\\/(?:wa\\.me|api\\.whatsapp\\.com)\\/[^\\s)\\]]+/gi)||[])].slice(0,50);
+  const emails=[...new Set((text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi)||[]).map(value=>value.toLowerCase()).filter(value=>!(/\.(png|jpe?g|webp|svg|gif|css|js)$/i.test(value))))].slice(0,100);
+  const phones=[...new Set((text.match(/\+?\d[\d\s().-]{6,}\d/g)||[]).map(value=>value.replace(/\s+/g," ").trim()).filter(value=>value.replace(/\D/g,"").length>=7&&value.replace(/\D/g,"").length<=15))].slice(0,100);
+  const social=[...new Set(text.match(/https?:\/\/(?:www\.)?(?:linkedin\.com|facebook\.com|instagram\.com|youtube\.com|x\.com|twitter\.com|tiktok\.com)\/[^\s)\]]+/gi)||[])].slice(0,100);
+  const whatsapp=[...new Set(text.match(/https?:\/\/(?:wa\.me|api\.whatsapp\.com)\/[^\s)\]]+/gi)||[])].slice(0,50);
   return {emails,phones,social,whatsapp};
 }
 async function websiteIntelligence(request: Request, env: TradeToolsEnv, apiKey: string): Promise<Response> {
@@ -264,14 +264,14 @@ async function websiteIntelligence(request: Request, env: TradeToolsEnv, apiKey:
       .filter((value,index,array)=>array.findIndex(item=>item.toString()===value.toString())===index).slice(0,maxPages-1);
     const subpages=await Promise.all(relevant.map(url=>jinaRead(url,apiKey).catch(error=>({url:url.toString(),content:"",links:[],error:error instanceof Error?error.message:"抓取失败"}))));
     const pages=[homepage,...subpages].filter(page=>page.content);
-    const combined=pages.map(page=>"SOURCE: "+page.url+"\\n"+page.content).join("\\n\\n").slice(0,120000);
+    const combined=pages.map(page=>"SOURCE: "+page.url+"\n"+page.content).join("\n\n").slice(0,120000);
     const contacts=extractPublicContacts(combined);
     let aiReport:unknown=null;
     if(mode==="contacts"||mode==="diligence"||mode==="all"){
       const task=mode==="contacts"?"请仅提取网站公开联系方式。":"请对该企业进行公开信息背景调查。";
-      const prompt=task+"\\n仅使用下方网页内容作为证据，不得猜测或补齐缺失事实。输出 JSON，字段包括 company_overview、products_services、industry、markets、business_model、public_contacts（emails, phones, whatsapp, social_accounts, addresses）、trust_signals、risk_signals、evidence（每项包含 claim、source_url、quote）、inferences、unknowns。明确区分网页事实与推断。无证据的字段用空数组或 null。\\n\\n网页内容：\\n"+combined.slice(0,36000);
+      const prompt=task+"\n仅使用下方网页内容作为证据，不得猜测或补齐缺失事实。输出 JSON，字段包括 company_overview、products_services、industry、markets、business_model、public_contacts（emails, phones, whatsapp, social_accounts, addresses）、trust_signals、risk_signals、evidence（每项包含 claim、source_url、quote）、inferences、unknowns。明确区分网页事实与推断。无证据的字段用空数组或 null。\n\n网页内容：\n"+combined.slice(0,36000);
       const answer=await runConfiguredAI("website_due_diligence",prompt,env);
-      try{const clean=answer.replace(/^\\s*\\x60{3}(?:json)?/i,"").replace(/\\x60{3}\\s*$/,"").trim();aiReport=JSON.parse(clean);}catch{aiReport={raw:answer};}
+      try{const clean=answer.replace(/^\s*\x60{3}(?:json)?/i,"").replace(/\x60{3}\s*$/,"").trim();aiReport=JSON.parse(clean);}catch{aiReport={raw:answer};}
     }
     return successResponse(request,{url:root.toString(),mode,pages:pages.map(page=>({url:page.url,characters:page.content.length})),contacts,aiReport,scrapedContent:mode==="scrape"||mode==="all"?combined.slice(0,50000):undefined,extractedAt:new Date().toISOString()});
   }catch(error){return errorResponse(request,"WEBSITE_INTELLIGENCE_FAILED",error instanceof Error?error.message:"网站情报分析失败。",502);}
