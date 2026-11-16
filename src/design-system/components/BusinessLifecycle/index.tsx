@@ -21,7 +21,7 @@ export function BusinessLifecycle({title,steps,current,description,terminal=fals
     payment_created:'创建收款记录',payment_status_changed:'收款状态变更',shipment_created:'创建发运单',shipment_status_changed:'发运状态变更'
   } as Record<string,string>)[value]||value;
   const statusLabel=(value:string)=>steps.find(step=>step.value===value)?.label||({
-    active:'活跃',inactive:'停用',dormant:'休眠',lost:'流失',blacklist:'黑名单',do_not_contact:'拒绝联系',contact_allowed:'允许联系',departed:'已离职',unknown:'未设置',archived:'已归档',unarchived:'未归档',
+    active:'活跃',inactive:'停用',dormant:'休眠',lost:'流失',blacklist:'黑名单',do_not_contact:'拒绝联系',contact_allowed:'允许联系',departed:'已离职',unknown:'未设置',archived:'已归档',unarchived:'未归档',discarded:'已排除',removed:'已移除',
     verified:'已验证',unverified:'未验证',pending_verification:'待核实',valid:'有效',invalid:'无效',
     draft:'草稿',sent:'已发送',viewed:'已查看',accepted:'已接受',rejected:'已拒绝',expired:'已过期',cancelled:'已取消',
     confirmed:'已确认',preparing:'备货中',partially_shipped:'部分发货',shipped:'已发货',completed:'已完成',
