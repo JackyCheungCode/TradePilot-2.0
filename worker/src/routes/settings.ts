@@ -35,8 +35,8 @@ type AIProviderConfig = {id:string;providerKey:string;name:string;protocol:AIPro
 type AIConfig = {defaultModel:string;taskModels:Record<string,string>;providers:AIProviderConfig[]};
 const defaultAIConfig:AIConfig={defaultModel:"@cf/google/gemma-4-26b-a4b-it",taskModels:{},providers:[{id:"workers-ai",providerKey:"cloudflare-workers-ai",name:"Cloudflare Workers AI",protocol:"workers-ai",baseUrl:"",model:"@cf/google/gemma-4-26b-a4b-it",configured:true}]};
 const legacyAISecrets:Record<string,string>={openai:"AI_PROVIDER_OPENAI_API_KEY",anthropic:"AI_PROVIDER_ANTHROPIC_API_KEY",gemini:"AI_PROVIDER_GEMINI_API_KEY",deepseek:"AI_PROVIDER_DEEPSEEK_API_KEY",qwen:"AI_PROVIDER_QWEN_API_KEY",zhipu:"AI_PROVIDER_ZHIPU_API_KEY",kimi:"AI_PROVIDER_KIMI_API_KEY",minimax:"AI_PROVIDER_MINIMAX_API_KEY",openrouter:"AI_PROVIDER_OPENROUTER_API_KEY",siliconflow:"AI_PROVIDER_SILICONFLOW_API_KEY",custom:"AI_PROVIDER_CUSTOM_API_KEY"};
-const apiSecretNames:Record<string,string>={apify:"tradepilot_api_apify",deepl:"tradepilot_api_deepl",googleMaps:"tradepilot_api_google_maps",dhl:"tradepilot_api_dhl",upsClientId:"tradepilot_api_ups_client_id",upsClientSecret:"tradepilot_api_ups_"+"client_secret",fedexClientId:"tradepilot_api_fedex_client_id",fedexClientSecret:"tradepilot_api_fedex_"+"client_secret",cloudflareApiToken:"tradepilot_api_cloudflare_token",cloudflareAccountId:"tradepilot_api_cloudflare_account_id",serper:"tradepilot_api_serper",serpapi:"tradepilot_api_serpapi",omnibox:"tradepilot_api_omnibox"};
-const legacyApiEnv:Record<string,string>={apify:"APIFY_API_TOKEN",deepl:"DEEPL_API_KEY",googleMaps:"GOOGLE_MAPS_API_KEY",dhl:"DHL_API_KEY",upsClientId:"UPS_CLIENT_ID",upsClientSecret:"UPS_CLIENT_SECRET",fedexClientId:"FEDEX_CLIENT_ID",fedexClientSecret:"FEDEX_CLIENT_SECRET",cloudflareApiToken:"CLOUDFLARE_API_TOKEN",cloudflareAccountId:"CLOUDFLARE_ACCOUNT_ID",serper:"SERPER_API_KEY",serpapi:"SERPAPI_API_KEY",omnibox:"OMNIBOX_API_KEY"};
+const apiSecretNames:Record<string,string>={apify:"tradepilot_api_apify",deepl:"tradepilot_api_deepl",googleMaps:"tradepilot_api_google_maps",dhl:"tradepilot_api_dhl",upsClientId:"tradepilot_api_ups_client_id",upsClientSecret:"tradepilot_api_ups_"+"client_secret",fedexClientId:"tradepilot_api_fedex_client_id",fedexClientSecret:"tradepilot_api_fedex_"+"client_secret",cloudflareApiToken:"tradepilot_api_cloudflare_token",cloudflareAccountId:"tradepilot_api_cloudflare_account_id",serper:"tradepilot_api_serper",serpapi:"tradepilot_api_serpapi",omnibox:"tradepilot_api_omnibox",apollo:"tradepilot_api_apollo",zoominfoClientId:"tradepilot_api_zoominfo_client_id",zoominfoClientSecret:"tradepilot_api_zoominfo_client_secret"};
+const legacyApiEnv:Record<string,string>={apify:"APIFY_API_TOKEN",deepl:"DEEPL_API_KEY",googleMaps:"GOOGLE_MAPS_API_KEY",dhl:"DHL_API_KEY",upsClientId:"UPS_CLIENT_ID",upsClientSecret:"UPS_CLIENT_SECRET",fedexClientId:"FEDEX_CLIENT_ID",fedexClientSecret:"FEDEX_CLIENT_SECRET",cloudflareApiToken:"CLOUDFLARE_API_TOKEN",cloudflareAccountId:"CLOUDFLARE_ACCOUNT_ID",serper:"SERPER_API_KEY",serpapi:"SERPAPI_API_KEY",omnibox:"OMNIBOX_API_KEY",apollo:"APOLLO_API_KEY",zoominfoClientId:"ZOOMINFO_CLIENT_ID",zoominfoClientSecret:"ZOOMINFO_CLIENT_SECRET"};
 async function vaultRpc<T>(name:string,args:Record<string,unknown>,env:SettingsEnv):Promise<T>{
  const key=env.SUPABASE_SERVICE_ROLE_KEY??"";
  if(!key)throw new Error("服务端凭证存储未配置");
@@ -235,6 +235,19 @@ export async function handleSettings(request: Request, env: SettingsEnv): Promis
     const names=Object.values(apiSecretNames);
     const secrets=await readVaultSecrets(names,env);
     const secret=(key:string)=>secrets[apiSecretNames[key]]||envSecret(env,legacyApiEnv[key]||"");
+    if(service==="apollo"){
+      const key=secret("apollo");if(!key)return successResponse(request,{ok:false,message:"尚未配置 Apollo API Key"});
+      const r=await fetch("https://api.apollo.io/api/v1/auth/health",{headers:{"x-api-key":key,Accept:"application/json"}});
+      return successResponse(request,{ok:r.ok,message:r.ok?"Apollo API 认证成功":"Apollo API 返回 HTTP "+r.status+"；请检查 API Key 与账户权限"});
+    }
+    if(service==="zoominfo"){
+      const id=secret("zoominfoClientId"),clientSecret=secret("zoominfoClientSecret");
+      if(!id||!clientSecret)return successResponse(request,{ok:false,message:"请同时填写 ZoomInfo Client ID 和 Client Secret"});
+      const r=await fetch("https://api.zoominfo.com/gtm/oauth/v1/token",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded",Accept:"application/json","User-Agent":"TradePilot/1.0"},body:new URLSearchParams({grant_type:"client_credentials",client_id:id,client_secret:clientSecret})});
+      if(!r.ok)return successResponse(request,{ok:false,message:"ZoomInfo OAuth 认证失败（HTTP "+r.status+"）；请检查应用权限与凭证"});
+      const token=await r.json() as {access_token?:string};
+      return successResponse(request,{ok:Boolean(token.access_token),message:token.access_token?"ZoomInfo OAuth 认证成功":"ZoomInfo 未返回访问令牌"});
+    }
     if(service==="omnibox"){
       const key=secret("omnibox");if(!key)return successResponse(request,{ok:false,message:"尚未配置 Omnibox API Key"});
       const r=await fetch("https://omnibox.app/api/v1/compliance/classify",{method:"POST",redirect:"manual",headers:{"Content-Type":"application/json","Accept":"application/json",Authorization:"Bearer "+key},body:JSON.stringify({productDescription:"Bluetooth wireless headphones",originCountry:"CN",value:100})});
@@ -303,7 +316,7 @@ export async function handleSettings(request: Request, env: SettingsEnv): Promis
    }catch(error){return errorResponse(request,"INTEGRATION_TEST_FAILED",error instanceof Error?error.message:"API 连接测试失败",502);}
   }
   if(request.method==="DELETE"&&url.pathname.startsWith("/api/v1/settings/integrations/")){
-   try{const service=decodeURIComponent(url.pathname.split("/").pop()||"");const groups:Record<string,string[]>={apify:["apify"],deepl:["deepl"],googleMaps:["googleMaps"],dhl:["dhl"],ups:["upsClientId","upsClientSecret"],fedex:["fedexClientId","fedexClientSecret"],cloudflare:["cloudflareApiToken","cloudflareAccountId"],serper:["serper"],serpapi:["serpapi"]};const fields=groups[service];if(!fields)return errorResponse(request,"INVALID_SERVICE","未知的 API 服务商",400);for(const field of fields)await deleteVaultSecret(apiSecretNames[field],env);return successResponse(request,{deleted:true});}catch(error){return errorResponse(request,"INTEGRATION_DELETE_FAILED",error instanceof Error?error.message:"删除 API 配置失败",502);}
+   try{const service=decodeURIComponent(url.pathname.split("/").pop()||"");const groups:Record<string,string[]>={apify:["apify"],deepl:["deepl"],googleMaps:["googleMaps"],dhl:["dhl"],ups:["upsClientId","upsClientSecret"],fedex:["fedexClientId","fedexClientSecret"],cloudflare:["cloudflareApiToken","cloudflareAccountId"],serper:["serper"],serpapi:["serpapi"],apollo:["apollo"],zoominfo:["zoominfoClientId","zoominfoClientSecret"]};const fields=groups[service];if(!fields)return errorResponse(request,"INVALID_SERVICE","未知的 API 服务商",400);for(const field of fields)await deleteVaultSecret(apiSecretNames[field],env);return successResponse(request,{deleted:true});}catch(error){return errorResponse(request,"INTEGRATION_DELETE_FAILED",error instanceof Error?error.message:"删除 API 配置失败",502);}
   }
   return errorResponse(request, "NOT_FOUND", "设置接口不存在。", 404);
 }
