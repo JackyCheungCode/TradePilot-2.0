@@ -1,6 +1,8 @@
 import { createServer } from "node:http";
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import net from "node:net";
+import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 
 const PORT = Number(process.env.PORT || 8787);
 const CLAMD_HOST = process.env.CLAMD_HOST || "clamav";
@@ -58,6 +60,7 @@ function scanWithClamd(bytes) {
     };
     socket.setTimeout(120_000, () => finish(new Error("CLAMD_TIMEOUT")));
     socket.on("error", () => finish(new Error("CLAMD_UNAVAILABLE")));
+    socket.on("end", () => finish(new Error("CLAMD_EMPTY_RESPONSE")));
     socket.on("data", chunk => {
       response = Buffer.concat([response, chunk]);
       const terminator = response.indexOf(0);
@@ -102,8 +105,10 @@ const server = createServer(async (request, response) => {
   }
 });
 
-server.listen(PORT, "0.0.0.0", () => {
-  process.stdout.write("inbox-scanner listening on " + PORT + "\n");
-});
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  server.listen(PORT, "0.0.0.0", () => {
+    process.stdout.write("inbox-scanner listening on " + PORT + "\\n");
+  });
+}
 
 export { verifyRequest, scanWithClamd };
