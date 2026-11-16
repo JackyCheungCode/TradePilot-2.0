@@ -14,6 +14,14 @@ interface Connection {
   external_account_id: string | null;
   connection_status: string;
 }
+interface NormalizedAttachment {
+  mediaId: string;
+  mimeType?: string | null;
+  fileName?: string | null;
+  sizeBytes?: number | null;
+  providerUrl?: string | null;
+  providerMetadata?: Record<string, unknown>;
+}
 interface NormalizedEvent {
   eventId: string;
   messageId: string;
@@ -27,6 +35,7 @@ interface NormalizedEvent {
   receiptStatus?: "sent" | "delivered" | "read" | "failed";
   errorCode?: string | null;
   metadata: Record<string, unknown>;
+  attachments?: NormalizedAttachment[];
 }
 
 const secretNames = [
@@ -163,12 +172,22 @@ function parseWhatsApp(payload: Row, connection: Connection): NormalizedEvent[] 
         const contentObj = (message[type] && typeof message[type] === "object" ? message[type] : {}) as Row;
         const textObj = (message.text && typeof message.text === "object" ? message.text : {}) as Row;
         const body = typeof textObj.body === "string" ? textObj.body : "[" + type + "]";
+        const mediaId = typeof contentObj.id === "string" ? contentObj.id : null;
+        const attachment: NormalizedAttachment[] = mediaId && ["image","video","audio","document","sticker"].includes(type)
+          ? [{
+              mediaId,
+              mimeType: typeof contentObj.mime_type === "string" ? contentObj.mime_type : null,
+              fileName: typeof contentObj.filename === "string" ? contentObj.filename : null,
+              providerMetadata: { provider: "whatsapp", media_type: type },
+            }]
+          : [];
         result.push({
           eventId: message.id, messageId: message.id, externalUserId: message.from,
           displayName: names.get(message.from) ?? null, username: null,
           content: body.slice(0, 20000), contentType: contentType(type),
           occurredAt: timestamp(message.timestamp), eventType: "message",
-          metadata: { provider: "whatsapp", message_type: type, media_id: typeof contentObj.id === "string" ? contentObj.id : null,
+          attachments: attachment,
+          metadata: { provider: "whatsapp", message_type: type, media_id: mediaId,
             mime_type: typeof contentObj.mime_type === "string" ? contentObj.mime_type : null },
         });
       }
@@ -207,12 +226,33 @@ function parseMessenger(payload: Row, connection: Connection): NormalizedEvent[]
       const type = String(firstAttachment.type ?? "text");
       const content = typeof message.text === "string" ? message.text :
         attachments.length ? "[" + type + "]" : "";
-      if (!content) continue;
+      if (!content && !attachments.length) continue;
+      const normalizedAttachments: NormalizedAttachment[] = attachments.slice(0, 10).map((item, index) => {
+        const payload = item.payload && typeof item.payload === "object" ? item.payload as Row : {};
+        const rawUrl = typeof payload.url === "string" ? payload.url : typeof item.url === "string" ? item.url : "";
+        let providerUrl: string | null = null;
+        try {
+          const parsed = new URL(rawUrl);
+          const host = parsed.hostname.toLowerCase();
+          const allowedHost = host === "fbcdn.net" || host.endsWith(".fbcdn.net") ||
+            host === "fbsbx.com" || host.endsWith(".fbsbx.com");
+          if (parsed.protocol === "https:" && allowedHost && !parsed.username && !parsed.password) providerUrl = parsed.toString();
+        } catch { /* invalid provider URL is not queued */ }
+        if (!providerUrl) return null;
+        return {
+          mediaId: message.mid + ":" + index,
+          providerUrl,
+          mimeType: typeof payload.mime_type === "string" ? payload.mime_type : null,
+          fileName: typeof payload.name === "string" ? payload.name : typeof payload.title === "string" ? payload.title : null,
+          sizeBytes: typeof payload.size === "number" && Number.isSafeInteger(payload.size) ? payload.size : null,
+          providerMetadata: { provider: "messenger", attachment_type: String(item.type ?? "file") },
+        };
+      }).filter((item): item is NormalizedAttachment => item !== null);
       result.push({
         eventId: message.mid, messageId: message.mid, externalUserId: sender.id,
         displayName: null, username: null, content: content.slice(0, 20000),
         contentType: contentType(type), occurredAt: timestamp(event.timestamp),
-        eventType: "message",
+        eventType: "message", attachments: normalizedAttachments,
         metadata: { provider: "messenger", attachment_type: attachments.length ? type : null },
       });
     }
@@ -232,11 +272,19 @@ function parseLine(payload: Row, connection: Connection): NormalizedEvent[] {
     if (typeof message.id !== "string" || typeof externalUserId !== "string") continue;
     const type = String(message.type ?? "text");
     const text = typeof message.text === "string" ? message.text : "[" + type + "]";
+    const normalizedAttachments: NormalizedAttachment[] = ["image","video","audio","file"].includes(type)
+      ? [{
+          mediaId: message.id,
+          fileName: typeof message.fileName === "string" ? message.fileName : null,
+          sizeBytes: typeof message.fileSize === "number" && Number.isSafeInteger(message.fileSize) ? message.fileSize : null,
+          providerMetadata: { provider: "line", message_type: type },
+        }]
+      : [];
     result.push({
       eventId: message.id, messageId: message.id, externalUserId,
       displayName: null, username: null, content: text.slice(0, 20000),
       contentType: contentType(type), occurredAt: timestamp(event.timestamp),
-      eventType: "message",
+      eventType: "message", attachments: normalizedAttachments,
       metadata: { provider: "line", message_type: type, source_type: source.type ?? null,
         reply_token_available: typeof event.replyToken === "string" },
     });
@@ -257,12 +305,27 @@ function parseTelegram(payload: Row): NormalizedEvent[] {
   const text = typeof message.text === "string" ? message.text :
     typeof message.caption === "string" ? message.caption : "[" + type + "]";
   const displayName = [from.first_name, from.last_name].filter(value => typeof value === "string").join(" ") || null;
+  const mediaObject = (message.document || message.video || message.voice || message.audio ||
+    (Array.isArray(message.photo) ? (message.photo as Row[]).slice(-1)[0] : null) || {}) as Row;
+  const fileId = typeof mediaObject.file_id === "string" ? mediaObject.file_id : null;
+  const normalizedAttachments: NormalizedAttachment[] = fileId ? [{
+    mediaId: fileId,
+    mimeType: typeof mediaObject.mime_type === "string" ? mediaObject.mime_type : null,
+    fileName: typeof mediaObject.file_name === "string" ? mediaObject.file_name : null,
+    sizeBytes: typeof mediaObject.file_size === "number" && Number.isSafeInteger(mediaObject.file_size) ? mediaObject.file_size : null,
+    providerMetadata: {
+      provider: "telegram",
+      file_unique_id: typeof mediaObject.file_unique_id === "string" ? mediaObject.file_unique_id : null,
+      media_type: type,
+    },
+  }] : [];
   return [{
     eventId: String(updateId), messageId: String(chat.id) + ":" + String(message.message_id),
     externalUserId: String(chat.id), displayName,
     username: typeof from.username === "string" ? from.username : null,
     content: text.slice(0, 20000), contentType: contentType(type),
     occurredAt: timestamp(message.date), eventType: "message",
+    attachments: normalizedAttachments,
     metadata: { provider: "telegram", chat_type: chat.type ?? null, sender_user_id: from.id ?? null,
       message_id: message.message_id },
   }];
