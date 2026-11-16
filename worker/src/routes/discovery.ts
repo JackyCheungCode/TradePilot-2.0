@@ -429,6 +429,9 @@ export async function handleDiscovery(request: Request, env: DiscoveryEnv): Prom
     if(!["business","website","page"].includes(String(record.record_type??"business")))return errorResponse(request,"RECORD_NOT_PROMOTABLE","该对象不是企业主体，不能转换为 CRM 客户联系人。",409);
     const rawData=record.raw_data&&typeof record.raw_data==="object"?record.raw_data as Record<string,unknown>:{};
     const intel=rawData.contact_intelligence&&typeof rawData.contact_intelligence==="object"?rawData.contact_intelligence as Record<string,unknown>:{};
+    if(record.status!=="new"||rawData.lifecycle_stage!=="collected")return errorResponse(request,"PROSPECT_NOT_READY","潜客必须先审核通过并完成联系人采集，才能转换为客户与联系人。",409);
+    const reviewEvents=await db<Array<{id:string}>>(env,"business_transition_events?owner_id=eq."+userId+"&record_type=eq.prospect&record_id=eq."+recordId+"&event_type=eq.prospect_reviewed&select=id&limit=1");
+    if(!reviewEvents?.length)return errorResponse(request,"PROSPECT_REVIEW_REQUIRED","该潜客尚未完成审核批准。",409);
     const candidates=Array.isArray(intel.candidates)?intel.candidates as Array<Record<string,unknown>>:[];
     const keyOf=(candidate:Record<string,unknown>)=>String(candidate.provider??"")+"："+String(candidate.provider_person_id??candidate.email??candidate.linkedin_url??candidate.full_name??"");
     const chosen=candidates.filter(candidate=>candidateKeys.includes(keyOf(candidate)));
@@ -488,8 +491,11 @@ export async function handleDiscovery(request: Request, env: DiscoveryEnv): Prom
       (candidate as Record<string,unknown>).review_status="confirmed";
       (candidate as Record<string,unknown>).confirmed_at=confirmedAt;
     }
-    await db(env,"discovery_records?id=eq."+recordId+"&owner_id=eq."+userId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({lead_id:leadId,status:"promoted",raw_data:{...rawData,lifecycle_stage:"converted",lifecycle_updated_at:confirmedAt,contact_intelligence:{...intel,candidates,review_status:"confirmed",confirmed_at:confirmedAt,crm_account_id:account.id}},updated_at:confirmedAt})});
-    await db(env,"business_transition_events",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({owner_id:userId,record_type:"prospect",record_id:recordId,event_type:"prospect_converted",from_status:String(rawData.lifecycle_stage??"collected"),to_status:"converted",actor_id:userId,note:"潜客已转化为 CRM 客户与联系人",gatekeeper_required:false,gatekeeper_status:"not_required",payload:{lead_id:leadId,account_id:account.id,created_contacts:createdCount,linked_contacts:linkedCount}})});
+    const convertedRawData={...rawData,lifecycle_stage:"converted",lifecycle_updated_at:confirmedAt,contact_intelligence:{...intel,candidates,review_status:"confirmed",confirmed_at:confirmedAt,crm_account_id:account.id}};
+    await db(env,"rpc/finalize_prospect_contact_conversion",{
+      method:"POST",headers:{Prefer:"return=representation"},
+      body:JSON.stringify({p_owner_id:userId,p_record_id:recordId,p_lead_id:leadId,p_account_id:account.id,p_raw_data:convertedRawData,p_event_payload:{created_contacts:createdCount,linked_contacts:linkedCount,total_candidates:chosen.length}})
+    });
     return successResponse(request,{leadId,accountId:account.id,accountName:account.account_name,createdContacts:createdCount,linkedContacts:linkedCount,total:chosen.length});
   }
 
