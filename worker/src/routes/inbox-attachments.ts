@@ -38,7 +38,7 @@ export async function handleInboxAttachment(request: Request, env: AttachmentEnv
 
   try {
     const rows = await db<Row[]>(env,
-      "inbox_attachments?select=id,owner_id,storage_bucket,storage_path,scan_status,content_type,file_size_bytes& id=eq." +
+      "inbox_attachments?select=id,owner_id,storage_bucket,storage_path,scan_status,content_type,file_size_bytes&id=eq." +
       match[1] + "&owner_id=eq." + ownerId + "&limit=1");
     const attachment = rows[0];
     if (!attachment) return Response.json({ error: "ATTACHMENT_NOT_FOUND" }, { status: 404 });
