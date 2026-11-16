@@ -185,6 +185,21 @@ function parseMessenger(payload: Row, connection: Connection): NormalizedEvent[]
     const messaging = Array.isArray(entry.messaging) ? entry.messaging as Row[] : [];
     for (const event of messaging) {
       const sender = (event.sender && typeof event.sender === "object" ? event.sender : {}) as Row;
+      const delivery = (event.delivery && typeof event.delivery === "object" ? event.delivery : {}) as Row;
+      const mids = Array.isArray(delivery.mids) ? delivery.mids : [];
+      if (typeof sender.id === "string") {
+        for (const mid of mids) {
+          if (typeof mid !== "string") continue;
+          const occurredAt = timestamp(event.timestamp ?? delivery.watermark);
+          result.push({
+            eventId: "delivery:" + mid + ":" + occurredAt,
+            messageId: mid, externalUserId: sender.id,
+            displayName: null, username: null, content: "", contentType: "text",
+            occurredAt, eventType: "status", receiptStatus: "delivered",
+            metadata: { provider: "messenger", status: "delivered" },
+          });
+        }
+      }
       const message = (event.message && typeof event.message === "object" ? event.message : {}) as Row;
       if (message.is_echo === true || typeof sender.id !== "string" || typeof message.mid !== "string") continue;
       const attachments = Array.isArray(message.attachments) ? message.attachments as Row[] : [];
