@@ -109,7 +109,7 @@
 .tp-dashboard__funnel-stage-label{font-size:.875rem;font-weight:600}
 .tp-dashboard__funnel-stage strong{font-size:1.25rem;font-weight:600;font-variant-numeric:tabular-nums}
 .tp-dashboard__funnel-track{grid-column:1/-1;height:8px;background:var(--cds-layer-03);overflow:hidden}
-.tp-dashboard__funnel-track>span{display:block;height:100%;background:var(--cds-interactive);transition:width .35s ease}
+.tp-dashboard__funnel-track>svg{display:block;width:100%;height:8px}.tp-dashboard__funnel-track>svg rect{fill:var(--cds-interactive);transition:width .35s ease}
 .tp-dashboard__funnel-stage small{grid-column:1/-1;color:var(--cds-text-secondary);font-size:.75rem}
 @media(max-width:1056px){.tp-dashboard__funnel-stages{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:672px){.tp-dashboard__funnel-stages{grid-template-columns:repeat(2,minmax(0,1fr))}.tp-dashboard__funnel{padding:1rem}}
