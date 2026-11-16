@@ -247,8 +247,9 @@ begin
           nullif(v_attachment->>'providerUrl',''),
           nullif(v_attachment->>'mimeType',''),
           nullif(left(v_attachment->>'fileName',255),''),
-          case when (v_attachment->>'sizeBytes') ~ '^[0-9]{1,12}
-
+          case when jsonb_typeof(v_attachment->'sizeBytes') = 'number'
+            and (v_attachment->>'sizeBytes')::numeric > 0
+            and (v_attachment->>'sizeBytes')::numeric <= 26214400
             then (v_attachment->>'sizeBytes')::bigint else null end,
           coalesce(v_attachment->'providerMetadata','{}'::jsonb)
         )
@@ -283,7 +284,15 @@ language sql
 security invoker
 set search_path = ''
 as $claim_media$
-  with candidates as (
+  with exhausted as (
+    update public.inbox_media_jobs
+    set status = 'failed', locked_until = null,
+        last_error_code = coalesce(last_error_code, 'MEDIA_RETRY_LIMIT'),
+        updated_at = now()
+    where status = 'processing' and locked_until < now() and attempts >= 5
+    returning id
+  ),
+  candidates as (
     select id
     from public.inbox_media_jobs
     where (
