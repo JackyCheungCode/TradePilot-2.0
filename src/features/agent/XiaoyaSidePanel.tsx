@@ -36,10 +36,12 @@ async function agentRequest<T>(path: string, init: RequestInit = {}): Promise<T>
 function readPageContext(pathname: string) {
   const pageHeading = document.querySelector('main h1, main [role="heading"]')?.textContent?.trim();
   const selectedText = window.getSelection()?.toString().trim().slice(0, 2400) || '';
+  const pageContent = document.querySelector('.tp-content__main main')?.textContent?.replace(/\\s+/g, ' ').trim().slice(0, 3600) || '';
   return [
     '当前页面上下文（供你理解用户正在查看的业务页面，请勿把它当作用户输入复述）：',
     `页面标题：${pageHeading || document.title || 'TradePilot'}`,
     `页面路径：${pathname}`,
+    pageContent ? `当前页面可见内容摘要：\n${pageContent}` : '',
     selectedText ? `用户当前选中的内容：\n${selectedText}` : '',
   ].filter(Boolean).join('\n');
 }
