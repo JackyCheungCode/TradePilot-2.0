@@ -68,17 +68,22 @@ begin
       raise exception 'Trade terms, transport, destination, payment method and bank account are required';
     end if;
   else
-    if v_status<>'confirmed' then raise exception 'Only confirmed orders can be cancelled'; end if;
-    if coalesce(v_so->'settings_snapshot'->'order'->>'allowCancelAfterConfirm','false')<>'true' then
-      raise exception 'Settings prohibit cancellation after confirmation';
+    if v_status='draft' then
+      if coalesce(trim(p_reason),'')='' then raise exception 'Cancellation reason is required'; end if;
+    elsif v_status='confirmed' then
+      if coalesce(v_so->'settings_snapshot'->'order'->>'allowCancelAfterConfirm','false')<>'true' then
+        raise exception 'Settings prohibit cancellation after confirmation';
+      end if;
+      if coalesce(v_so->>'fulfillment_status','') in ('shipped','partially_shipped') then
+        raise exception 'Orders with shipment records cannot be cancelled as a whole';
+      end if;
+      if coalesce((v_so->'totals'->>'paid_amount')::numeric,0)>0 then
+        raise exception 'Refund recorded payments before cancelling the order';
+      end if;
+      if coalesce(trim(p_reason),'')='' then raise exception 'Cancellation reason is required'; end if;
+    else
+      raise exception 'Only draft or confirmed orders can be cancelled';
     end if;
-    if coalesce(v_so->>'fulfillment_status','') in ('shipped','partially_shipped') then
-      raise exception 'Orders with shipment records cannot be cancelled as a whole';
-    end if;
-    if coalesce((v_so->'totals'->>'paid_amount')::numeric,0)>0 then
-      raise exception 'Refund recorded payments before cancelling the order';
-    end if;
-    if coalesce(trim(p_reason),'')='' then raise exception 'Cancellation reason is required'; end if;
   end if;
 
   v_next_so := v_so || jsonb_build_object(
