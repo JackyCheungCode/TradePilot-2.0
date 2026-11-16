@@ -5,7 +5,7 @@ import {
   Grid, Column, Stack, ClickableTile, LineChart, ScaleTypes,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
-import { getInboxConversations, getInboxMessages, getInboxBusinessMetrics, getInboxChannelReadiness, createInboxNote, type InboxConversation, type InboxTimelineItem, type InboxBusinessMetrics, type InboxChannelReadiness } from './api';
+import { getInboxConversations, getInboxMessages, getInboxBusinessMetrics, getInboxChannelReadiness, translateInboxMessage, createInboxNote, type InboxConversation, type InboxTimelineItem, type InboxBusinessMetrics, type InboxChannelReadiness } from './api';
 
 const channels = [
   { id: 'whatsapp', label: 'WhatsApp' },
@@ -34,6 +34,7 @@ export function InboxPage() {
   const [error, setError] = useState('');
   const [composerMode, setComposerMode] = useState<'reply' | 'note'>('reply');
   const [savingNote, setSavingNote] = useState(false);
+  const [translatingMessageId, setTranslatingMessageId] = useState('');
   const [businessMetrics, setBusinessMetrics] = useState<InboxBusinessMetrics | null>(null);
   const [metricsLoading, setMetricsLoading] = useState(false);
 
@@ -202,6 +203,25 @@ export function InboxPage() {
     return () => { active = false; };
   }, [selected?.contact_id]);
 
+
+  const translateMessage = async (messageId: string) => {
+    if (translatingMessageId) return;
+    setTranslatingMessageId(messageId);
+    setError('');
+    try {
+      const client = await getSupabaseClient();
+      const { data: { session } } = await client.auth.getSession();
+      if (!session?.access_token) throw new Error('登录状态已失效，请重新登录。');
+      await translateInboxMessage(session.access_token, messageId);
+      const rows = selected ? await getInboxMessages(session.access_token, selected.id) : [];
+      setMessages(rows);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'DeepL 翻译失败。');
+    } finally {
+      setTranslatingMessageId('');
+    }
+  };
+
   const visibleConversations = useMemo(() => conversations.filter(row => {
     const matchesChannel = channelFilter === 'all' || row.last_channel_type === channelFilter;
     const haystack = [
@@ -315,7 +335,9 @@ export function InboxPage() {
                             </Stack>
                             {item.email_subject && <strong>{item.email_subject}</strong>}
                             <p>{item.content}</p>
-                            {item.translated_content && <Tile><Tag type="cool-gray">DeepL</Tag><p>{item.translated_content}</p></Tile>}
+                            {item.translated_content
+                              ? <Tile><Tag type="cool-gray">DeepL · {item.target_language || '已翻译'}</Tag><p>{item.translated_content}</p></Tile>
+                              : item.timeline_type === 'message' && item.direction === 'inbound' && <Button kind="ghost" size="sm" disabled={Boolean(translatingMessageId)} onClick={() => void translateMessage(item.id)}>{translatingMessageId === item.id ? '正在翻译…' : '翻译消息'}</Button>}
                           </Stack>
                         </Tile>
                       </Stack>
