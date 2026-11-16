@@ -51,9 +51,9 @@ function verifyRequest(headers, body, secret, nowSeconds = Math.floor(Date.now()
   return actualHash === claimedHash;
 }
 
-function scanWithClamd(bytes) {
+function scanWithClamd(bytes, host = CLAMD_HOST, port = CLAMD_PORT) {
   return new Promise((resolve, reject) => {
-    const socket = net.createConnection({ host: CLAMD_HOST, port: CLAMD_PORT });
+    const socket = net.createConnection({ host, port });
     let response = Buffer.alloc(0);
     let settled = false;
     const finish = (error, value) => {
