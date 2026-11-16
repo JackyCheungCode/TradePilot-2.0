@@ -65,15 +65,6 @@ begin
     raise exception 'INBOX_WEBHOOK_EVENT_NOT_PROCESSABLE';
   end if;
 
-  select * into v_identity
-  from public.inbox_customer_identities
-  where id = p_identity_id and owner_id = p_owner_id
-    and contact_id = p_contact_id and channel_type = v_event.channel_type;
-
-  if not found then
-    raise exception 'INBOX_WEBHOOK_IDENTITY_MISMATCH';
-  end if;
-
   select c.account_id into v_account_id
   from public.crm_contacts c
   where c.id = p_contact_id and c.owner_id = p_owner_id;
@@ -83,6 +74,21 @@ begin
   end if;
 
   v_payload := coalesce(v_event.payload, '{}'::jsonb);
+  if nullif(v_payload->>'externalUserId', '') is null or nullif(v_payload->>'messageId', '') is null then
+    raise exception 'INBOX_WEBHOOK_PAYLOAD_INVALID';
+  end if;
+
+  select * into v_identity
+  from public.inbox_customer_identities
+  where id = p_identity_id and owner_id = p_owner_id
+    and contact_id = p_contact_id and channel_type = v_event.channel_type
+    and external_user_id = v_payload->>'externalUserId'
+    and (channel_connection_id is null or channel_connection_id = v_event.channel_connection_id);
+
+  if not found then
+    raise exception 'INBOX_WEBHOOK_IDENTITY_MISMATCH';
+  end if;
+
   v_content := coalesce(v_payload->>'content', '');
   v_created_at := coalesce(nullif(v_payload->>'occurredAt', '')::timestamptz, v_event.received_at);
 
