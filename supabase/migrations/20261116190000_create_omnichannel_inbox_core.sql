@@ -286,3 +286,8 @@ alter table public.inbox_message_events replica identity full;
 alter publication supabase_realtime
   add table public.inbox_conversations, public.inbox_messages,
              public.inbox_internal_notes, public.inbox_message_events;
+
+-- Connection status and provider credentials are managed only by trusted server workflows.
+drop policy if exists inbox_channel_connections_owner_insert on public.inbox_channel_connections;
+drop policy if exists inbox_channel_connections_owner_update on public.inbox_channel_connections;
+drop policy if exists inbox_channel_connections_owner_delete on public.inbox_channel_connections;
