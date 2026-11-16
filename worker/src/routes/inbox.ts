@@ -447,10 +447,14 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
       });
       // Translation secrets are read through the service-role-only integration RPC.
       // Keep this privileged operation unavailable in preview environments without the service-role key.
-      if (!env.SUPABASE_SERVICE_ROLE_KEY) {
+      const translationServiceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY;
+      if (!translationServiceRoleKey) {
         return errorResponse(request, "TRANSLATION_NOT_CONFIGURED", "当前预览环境未配置安全的服务端翻译凭证。", 503);
       }
-      const translatedResponse = await handleTranslation(translateRequest, env);
+      const translatedResponse = await handleTranslation(translateRequest, {
+        ...env,
+        SUPABASE_SERVICE_ROLE_KEY: translationServiceRoleKey,
+      });
       const translatedPayload = await translatedResponse.json().catch(() => ({})) as {
         data?: { translatedText?: string; detectedSourceLanguage?: string };
         error?: { code?: string; message?: string };
