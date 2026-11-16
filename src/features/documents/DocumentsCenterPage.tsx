@@ -187,7 +187,8 @@ export function DocumentsCenterPage() {
             <TextInput id="tp-blank-contact" labelText="联系人" value={blankFields.contact_name} onChange={e => setBlankFields(v => ({...v,contact_name:e.currentTarget.value}))} />
             <TextInput id="tp-blank-email" labelText="联系人邮箱" value={blankFields.contact_email} onChange={e => setBlankFields(v => ({...v,contact_email:e.currentTarget.value}))} />
             <TextInput id="tp-blank-phone" labelText="联系人电话" value={blankFields.contact_phone} onChange={e => setBlankFields(v => ({...v,contact_phone:e.currentTarget.value}))} />
-            <TextInput id="tp-blank-order-number" labelText="单据 / 订单编号" value={blankFields.order_number} onChange={e => setBlankFields(v => ({...v,order_number:e.currentTarget.value}))} />\n            <TextInput id="tp-blank-reference" labelText="客户参考号" value={blankFields.customer_reference} onChange={e => setBlankFields(v => ({...v,customer_reference:e.currentTarget.value}))} />
+            <TextInput id="tp-blank-order-number" labelText="单据 / 订单编号" value={blankFields.order_number} onChange={e => setBlankFields(v => ({...v,order_number:e.currentTarget.value}))} />
+            <TextInput id="tp-blank-reference" labelText="客户参考号" value={blankFields.customer_reference} onChange={e => setBlankFields(v => ({...v,customer_reference:e.currentTarget.value}))} />
             <TextInput id="tp-blank-payment" labelText="付款条件" value={blankFields.payment_terms} onChange={e => setBlankFields(v => ({...v,payment_terms:e.currentTarget.value}))} />
             <TextInput id="tp-blank-incoterms" labelText="Incoterms" value={blankFields.incoterms_code} onChange={e => setBlankFields(v => ({...v,incoterms_code:e.currentTarget.value}))} />
             <TextInput id="tp-blank-place" labelText="贸易术语地点" value={blankFields.named_place} onChange={e => setBlankFields(v => ({...v,named_place:e.currentTarget.value}))} />
