@@ -125,6 +125,18 @@ begin
       updated_at=v_now
   where id=p_record_id and owner_id=p_owner_id;
 
+  insert into public.business_record_relations(
+    owner_id,source_record_type,source_record_id,target_record_type,target_record_id,
+    relation_type,created_by,metadata
+  )
+  select p_owner_id,'prospect',p_record_id,'lead',v_lead_id,'converted_to',v_uid,
+    jsonb_build_object('conversion_method','prospect_console','atomic',true)
+  where not exists(
+    select 1 from public.business_record_relations
+    where owner_id=p_owner_id and source_record_type='prospect' and source_record_id=p_record_id
+      and target_record_type='lead' and target_record_id=v_lead_id and relation_type='converted_to'
+  );
+
   return jsonb_build_object('id',p_record_id,'status','promoted','lifecycleStage','converted','leadId',v_lead_id);
 end;
 $$;
