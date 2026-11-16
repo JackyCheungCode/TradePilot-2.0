@@ -241,6 +241,13 @@ async function getConnection(env: WebhookEnv, id: string, channel: Channel): Pro
   return rows[0] ?? null;
 }
 
+async function markConnectionVerified(env: WebhookEnv, connection: Connection): Promise<void> {
+  await db<Row[]>(env, "inbox_channel_connections?id=eq." + connection.id + "&owner_id=eq." + connection.owner_id, {
+    method: "PATCH", headers: { Prefer: "return=minimal" },
+    body: JSON.stringify({ connection_status: "connected", last_verified_at: new Date().toISOString(), last_error: null }),
+  });
+}
+
 async function handleVerification(request: Request, channel: Channel, secrets: Record<string, string>): Promise<Response> {
   const url = new URL(request.url);
   if (channel !== "whatsapp" && channel !== "messenger") return new Response("Method Not Allowed", { status: 405 });
@@ -367,12 +374,17 @@ export async function handleInboxWebhook(request: Request, env: WebhookEnv): Pro
       return new Response("Webhook connection not found", { status: 404 });
     }
     const secrets = await readIntegrationSecrets(secretNames, env);
-    if (request.method === "GET") return await handleVerification(request, channel, secrets);
+    if (request.method === "GET") {
+      const verification = await handleVerification(request, channel, secrets);
+      if (verification.status === 200) await markConnectionVerified(env, connection);
+      return verification;
+    }
     if (request.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
     const raw = await readLimitedBody(request);
     if (!raw) return new Response("Payload Too Large", { status: 413 });
     if (!await verifySignature(channel, request, raw, secrets)) return new Response("Unauthorized", { status: 401 });
     if (channel === "telegram" && !await verifyTelegramBot(connection, secrets)) return new Response("Webhook bot mismatch", { status: 403 });
+    await markConnectionVerified(env, connection);
     let payload: Row;
     try {
       payload = JSON.parse(new TextDecoder().decode(raw)) as Row;
