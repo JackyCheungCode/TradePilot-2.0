@@ -43,7 +43,7 @@ begin
   if not exists(select 1 from public.leads where id=p_lead_id and owner_id=p_owner_id and discovery_record_id=p_record_id) then
     raise exception 'Converted CRM lead is missing or does not belong to this prospect';
   end if;
-  if not exists(select 1 from public.crm_accounts where id=p_account_id and owner_id=p_owner_id and source_lead_id=p_lead_id) then
+  if not exists(select 1 from public.crm_accounts where id=p_account_id and owner_id=p_owner_id) then
     raise exception 'Converted CRM customer is missing or does not belong to this lead';
   end if;
 
