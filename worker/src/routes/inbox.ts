@@ -1,9 +1,11 @@
 import { errorResponse, successResponse } from "../lib/http";
+import { handleTranslation } from "./translation";
 
 interface InboxEnv {
   SUPABASE_URL: string;
   SUPABASE_ANON_KEY: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
+  DEEPL_API_KEY?: string;
 }
 type Row = Record<string, unknown>;
 
@@ -149,6 +151,52 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
           amount_by_currency: [...bucket.totals.entries()].map(([currency, amount]) => ({ currency, amount })),
         })),
       });
+    }
+
+    const translateMatch = url.pathname.match(/^\/api\/v1\/inbox\/messages\/([0-9a-f-]{36})\/translate$/i);
+    if (translateMatch && request.method === "POST") {
+      const messageId = translateMatch[1];
+      const rows = await db<Row[]>(env,
+        "inbox_messages?select=id,conversation_id,channel_type,direction,content& id=eq." + messageId + "&owner_id=eq." + ownerId + "&limit=1");
+      const message = rows[0];
+      if (!message) return errorResponse(request, "MESSAGE_NOT_FOUND", "消息不存在或无权访问。", 404);
+      if (message.direction !== "inbound") return errorResponse(request, "TRANSLATION_NOT_REQUIRED", "当前仅支持翻译客户发来的消息。", 400);
+      const content = typeof message.content === "string" ? message.content.trim() : "";
+      if (!content || content.length > 20000) return errorResponse(request, "INVALID_MESSAGE_CONTENT", "消息内容为空或超过翻译长度限制。", 400);
+      const conversations = await db<Row[]>(env,
+        "inbox_conversations?select=id,contact_id&id=eq." + String(message.conversation_id) + "&owner_id=eq." + ownerId + "&limit=1");
+      if (!conversations.length) return errorResponse(request, "CONVERSATION_NOT_FOUND", "会话不存在。", 404);
+      const contacts = await db<Row[]>(env,
+        "crm_contacts?select=preferred_language&id=eq." + String(conversations[0].contact_id) + "&owner_id=eq." + ownerId + "&limit=1");
+      const language = String(contacts[0]?.preferred_language ?? "zh-HANT").toLowerCase();
+      const targetLanguage = language.startsWith("zh") ? (language.includes("cn") || language.includes("hans") ? "ZH-HANS" : "ZH-HANT")
+        : language.startsWith("en") ? "EN-US" : language.split("-")[0].toUpperCase();
+      const translateRequest = new Request(new URL("/api/v1/inbox/translate", request.url), {
+        method: "POST",
+        headers: request.headers,
+        body: JSON.stringify({ text: content, targetLanguage }),
+      });
+      const translatedResponse = await handleTranslation(translateRequest, env);
+      const translatedPayload = await translatedResponse.json().catch(() => ({})) as {
+        data?: { translatedText?: string; detectedSourceLanguage?: string };
+        error?: { code?: string; message?: string };
+      };
+      if (!translatedResponse.ok || !translatedPayload.data?.translatedText) {
+        return errorResponse(request, translatedPayload.error?.code ?? "TRANSLATION_FAILED",
+          translatedPayload.error?.message ?? "DeepL 翻译失败。", translatedResponse.status);
+      }
+      const updated = await db<Row[]>(env,
+        "inbox_messages?id=eq." + messageId + "&owner_id=eq." + ownerId,
+        {
+          method: "PATCH",
+          headers: { Prefer: "return=representation" },
+          body: JSON.stringify({
+            translated_content: translatedPayload.data.translatedText,
+            source_language: translatedPayload.data.detectedSourceLanguage ?? null,
+            target_language: targetLanguage,
+          }),
+        });
+      return successResponse(request, { message: updated[0] ?? null, translated_content: translatedPayload.data.translatedText, target_language: targetLanguage });
     }
 
     const noteMatch = url.pathname.match(/^\/api\/v1\/inbox\/conversations\/([0-9a-f-]{36})\/notes$/i);
