@@ -256,6 +256,40 @@ export async function handleTradeDocuments(request:Request,env:Env):Promise<Resp
    await db(env,"trade_document_events",{method:"POST",body:JSON.stringify({owner_id:ownerId,document_id:path[1],order_id:doc.order_id,event_type:"document.confirmed",payload:{document_type:type,source:sourceKey}})});
    return successResponse(request,issued[0]);
   }
+  if(path.length===3&&path[0]==="documents"&&path[2]==="pdf"){
+   const id=path[1];
+   const docs=await db<Json[]>(env,"trade_documents?select=id,owner_id,document_number,title,document_type,status,locale,currency_code,created_at,current_version&owner_id=eq."+ownerId+"&id=eq."+encodeURIComponent(id)+"&limit=1");
+   const document=docs[0];if(!document)return errorResponse(request,"NOT_FOUND","单据不存在。",404);
+   const versionNumber=Math.max(1,Number(document.current_version)||1);
+   const versions=await db<Json[]>(env,"trade_document_versions?select=id,version_number,content_snapshot,totals_snapshot,template_snapshot,pdf_storage_path,pdf_file_name,pdf_content_type,pdf_file_size,pdf_sha256,pdf_generated_at&owner_id=eq."+ownerId+"&document_id=eq."+encodeURIComponent(id)+"&version_number=eq."+versionNumber+"&limit=1");
+   const version=versions[0];if(!version)return errorResponse(request,"DOCUMENT_VERSION_NOT_FOUND","当前单据版本记录不存在。",404);
+   if(method==="GET"){
+    const storagePath=str(version.pdf_storage_path,1000);if(!storagePath)return errorResponse(request,"PDF_NOT_GENERATED","当前版本尚未生成 PDF。",404);
+    const file=await fetch(env.SUPABASE_URL+"/storage/v1/object/trade-document-files/"+encodeStoragePath(storagePath),{headers:{apikey:env.SUPABASE_SERVICE_ROLE_KEY,Authorization:"Bearer "+env.SUPABASE_SERVICE_ROLE_KEY},signal:AbortSignal.timeout(30000)});
+    if(!file.ok)return errorResponse(request,"PDF_FILE_MISSING","归档 PDF 文件不存在，请重新生成。",404);
+    const fileName=str(version.pdf_file_name,240)||"trade-document-v"+versionNumber+".pdf",asciiName=fileName.replace(/[^\x20-\x7E]/g,"_").replace(/["\\]/g,"_");
+    return new Response(file.body,{status:200,headers:{"Content-Type":"application/pdf","Content-Disposition":'attachment; filename="'+asciiName+'"; filename*=UTF-8\'\''+encodeURIComponent(fileName),"Cache-Control":"private, no-store","X-Document-Version":String(versionNumber),"X-Content-Type-Options":"nosniff"}});
+   }
+   if(method==="POST"){
+    const body=jsonBody(await request.json().catch(()=>({})));
+    if(version.pdf_storage_path&&body.force!==true)return successResponse(request,{document_id:id,version_number:versionNumber,file_name:version.pdf_file_name,file_size:version.pdf_file_size,sha256:version.pdf_sha256,generated_at:version.pdf_generated_at,generated:false,exists:true});
+    const rendered=renderTradeDocumentHtml(document,version);
+    const pdf=await env.BROWSER.quickAction("pdf",{html:rendered.html,pdfOptions:rendered.pdfOptions});
+    if(!pdf.ok){const reason=await pdf.text().catch(()=>"");throw new Error("BROWSER_PDF_"+pdf.status+": "+reason.slice(0,300));}
+    const bytes=new Uint8Array(await pdf.arrayBuffer());
+    if(bytes.length<8||new TextDecoder().decode(bytes.slice(0,5))!=="%PDF-")throw new Error("BROWSER_PDF_INVALID_RESPONSE");
+    const digest=await crypto.subtle.digest("SHA-256",bytes),sha256=Array.from(new Uint8Array(digest)).map(value=>value.toString(16).padStart(2,"0")).join("");
+    const storagePath=ownerId+"/"+id+"/v"+versionNumber+".pdf";
+    const upload=await fetch(env.SUPABASE_URL+"/storage/v1/object/trade-document-files/"+encodeStoragePath(storagePath),{method:"POST",headers:{apikey:env.SUPABASE_SERVICE_ROLE_KEY,Authorization:"Bearer "+env.SUPABASE_SERVICE_ROLE_KEY,"Content-Type":"application/pdf","Cache-Control":"private, max-age=0","x-upsert":"true"},body:bytes,signal:AbortSignal.timeout(60000)});
+    if(!upload.ok){const reason=await upload.text().catch(()=>"");throw new Error("PDF_STORAGE_"+upload.status+": "+reason.slice(0,300));}
+    const generatedAt=new Date().toISOString();
+    const saved=await db<Json[]>(env,"trade_document_versions?id=eq."+encodeURIComponent(String(version.id))+"&owner_id=eq."+ownerId,{method:"PATCH",headers:{Prefer:"return=representation"},body:JSON.stringify({pdf_storage_path:storagePath,pdf_file_name:rendered.fileName,pdf_content_type:"application/pdf",pdf_file_size:bytes.byteLength,pdf_sha256:sha256,pdf_generated_at:generatedAt})});
+    if(!saved.length)throw new Error("PDF_VERSION_METADATA_SAVE_FAILED");
+    await db(env,"trade_document_events",{method:"POST",body:JSON.stringify({owner_id:ownerId,document_id:id,order_id:null,event_type:"document.pdf_generated",payload:{version_number:versionNumber,file_name:rendered.fileName,file_size:bytes.byteLength,sha256}})});
+    return successResponse(request,{document_id:id,version_number:versionNumber,file_name:rendered.fileName,file_size:bytes.byteLength,sha256,generated_at:generatedAt,generated:true,exists:true});
+   }
+   return errorResponse(request,"METHOD_NOT_ALLOWED","不支持的 PDF 操作。",405);
+  }
   if(path.length===3&&path[0]==="documents"&&path[2]==="approve"&&method==="POST"){
    const rows=await db<Json[]>(env,"trade_documents?id=eq."+encodeURIComponent(path[1])+"&owner_id=eq."+ownerId+"&status=eq.review",{method:"PATCH",headers:{Prefer:"return=representation"},body:JSON.stringify({status:"approved",updated_at:new Date().toISOString()})});
    if(!rows.length)return errorResponse(request,"INVALID_DOCUMENT_STATE","只有待审核单据可以审批。",409);
