@@ -15,11 +15,7 @@ const fmtSize = (bytes: number) => bytes > 1_000_000 ? (bytes / 1_000_000).toFix
 const channelOptions = Object.keys(channelLabels).map((id) => ({ id, text: channelLabels[id as ChannelType] }));
 
 function ChannelMark({ channel }: { channel: ChannelType }) {
-  const icons: Record<ChannelType, React.ComponentType<{ size?: number }>> = {
-    email: CarbonIcons.Email, whatsapp: CarbonIcons.Chat, line: CarbonIcons.Chat,
-    messenger: CarbonIcons.Chat, telegram: CarbonIcons.Chat, wecom: CarbonIcons.Chat,
-  };
-  const ChannelIcon = icons[channel];
+  const ChannelIcon = channel === 'email' ? CarbonIcons.Email : CarbonIcons.Chat;
   return <Tag type="cool-gray"><ChannelIcon size={16} /> {channelLabels[channel]}</Tag>;
 }
 function avatarFallback(contactName: string) {
