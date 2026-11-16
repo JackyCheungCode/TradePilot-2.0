@@ -363,7 +363,7 @@ export function ProspectConsolePage() {
     <div className="tp-console__toolbar">
       <div><span className="tp-console__toolbar-label">统计时间范围</span><Select id="prospect-console-period" labelText="统计时间范围" hideLabel value={period} onChange={event=>setPeriod(event.currentTarget.value)}>{periods.map(item=><SelectItem key={item.value} value={item.value} text={item.label}/>)}</Select>
       {period==='custom'&&<div className="tp-console__date-range"><TextInput id="prospect-console-from" type="date" labelText="开始日期" value={customFrom} onChange={event=>setCustomFrom(event.currentTarget.value)}/><TextInput id="prospect-console-to" type="date" labelText="结束日期" value={customTo} onChange={event=>setCustomTo(event.currentTarget.value)}/></div>}</div>
-      <Button kind="tertiary" size="md" onClick={()=>{setRefreshing(true);void load(period,customFrom,customTo);}} disabled={loading||refreshing||(period==='custom'&&(!customFrom||!customTo))}><CarbonIcons.Renew size={16} aria-hidden="true"/>刷新数据</Button>
+      <Button kind="tertiary" size="md" onClick={()=>{validationRequested.current.clear();setValidationStates({});setRefreshing(true);void load(period,customFrom,customTo);}} disabled={loading||refreshing||(period==='custom'&&(!customFrom||!customTo))}><CarbonIcons.Renew size={16} aria-hidden="true"/>刷新数据</Button>
     </div>
     {loading?<div className="tp-console__loading"><InlineLoading description="正在汇总潜客数据…"/></div>:stats&&<>
       <div className="tp-console__metrics">
