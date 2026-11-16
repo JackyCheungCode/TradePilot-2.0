@@ -1,7 +1,8 @@
 create or replace function public.confirm_quote_status_transition(
   p_quote_id uuid,
   p_expected_status text,
-  p_target_status text
+  p_target_status text,
+  p_reason text
 ) returns uuid
 language plpgsql
 security definer
@@ -19,6 +20,9 @@ begin
   if v_owner is null then raise exception 'Authentication required'; end if;
   if p_target_status not in ('accepted','rejected') then
     raise exception 'Unsupported quote transition';
+  end if;
+  if nullif(trim(coalesce(p_reason,'')),'') is null then
+    raise exception 'A reason is required to accept or reject a quote';
   end if;
 
   select status,coalesce(content,'{}'::jsonb),current_version
@@ -48,7 +52,7 @@ begin
   where id=p_quote_id and owner_id=v_owner;
 
   insert into public.trade_document_events(owner_id,document_id,event_type,payload)
-  values(v_owner,p_quote_id,p_target_status,jsonb_build_object('version',v_version,'atomic',true));
+  values(v_owner,p_quote_id,p_target_status,jsonb_build_object('version',v_version,'reason',trim(p_reason),'atomic',true));
 
   insert into public.business_transition_events(
     owner_id,record_type,record_id,event_type,from_status,to_status,
@@ -56,13 +60,13 @@ begin
   ) values (
     v_owner,'quote',p_quote_id,'quote_status_changed',v_current,p_target_status,
     false,'not_required',v_owner,
-    case when p_target_status='accepted' then '人工记录客户接受报价' else '人工记录客户拒绝报价' end,
-    jsonb_build_object('version',v_version,'atomic',true)
+    trim(p_reason),
+    jsonb_build_object('version',v_version,'reason',trim(p_reason),'atomic',true)
   );
 
   return p_quote_id;
 end;
 $$;
 
-revoke all on function public.confirm_quote_status_transition(uuid,text,text) from public, anon;
-grant execute on function public.confirm_quote_status_transition(uuid,text,text) to authenticated;
+revoke all on function public.confirm_quote_status_transition(uuid,text,text,text) from public, anon;
+grant execute on function public.confirm_quote_status_transition(uuid,text,text,text) to authenticated;
