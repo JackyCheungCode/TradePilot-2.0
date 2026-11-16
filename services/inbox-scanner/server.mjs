@@ -1,0 +1,109 @@
+import { createServer } from "node:http";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
+import net from "node:net";
+
+const PORT = Number(process.env.PORT || 8787);
+const CLAMD_HOST = process.env.CLAMD_HOST || "clamav";
+const CLAMD_PORT = Number(process.env.CLAMD_PORT || 3310);
+const MAX_BYTES = 25 * 1024 * 1024;
+const MAX_CLOCK_SKEW_SECONDS = 60;
+
+function json(response, status, body) {
+  response.writeHead(status, {
+    "content-type": "application/json; charset=utf-8",
+    "cache-control": "no-store",
+    "x-content-type-options": "nosniff",
+  });
+  response.end(JSON.stringify(body));
+}
+
+async function readLimitedBody(request) {
+  const chunks = [];
+  let total = 0;
+  for await (const chunk of request) {
+    const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    total += bytes.length;
+    if (total > MAX_BYTES) throw Object.assign(new Error("BODY_TOO_LARGE"), { statusCode: 413 });
+    chunks.push(bytes);
+  }
+  if (total === 0) throw Object.assign(new Error("BODY_EMPTY"), { statusCode: 400 });
+  return Buffer.concat(chunks, total);
+}
+
+function verifyRequest(headers, body, secret, nowSeconds = Math.floor(Date.now() / 1000)) {
+  if (!secret) return false;
+  const timestamp = String(headers["x-scan-timestamp"] || "");
+  const claimedHash = String(headers["x-scan-sha256"] || "").toLowerCase();
+  const signature = String(headers["x-scan-signature"] || "").toLowerCase();
+  if (!/^\d{10}$/.test(timestamp) || !/^[a-f0-9]{64}$/.test(claimedHash) || !/^[a-f0-9]{64}$/.test(signature)) return false;
+  if (Math.abs(nowSeconds - Number(timestamp)) > MAX_CLOCK_SKEW_SECONDS) return false;
+  const actualHash = createHash("sha256").update(body).digest("hex");
+  if (actualHash !== claimedHash) return false;
+  const expected = createHmac("sha256", secret).update(timestamp + "." + actualHash).digest();
+  const supplied = Buffer.from(signature, "hex");
+  return supplied.length === expected.length && timingSafeEqual(supplied, expected);
+}
+
+function scanWithClamd(bytes) {
+  return new Promise((resolve, reject) => {
+    const socket = net.createConnection({ host: CLAMD_HOST, port: CLAMD_PORT });
+    let response = Buffer.alloc(0);
+    let settled = false;
+    const finish = (error, value) => {
+      if (settled) return;
+      settled = true;
+      socket.destroy();
+      if (error) reject(error);
+      else resolve(value);
+    };
+    socket.setTimeout(120_000, () => finish(new Error("CLAMD_TIMEOUT")));
+    socket.on("error", () => finish(new Error("CLAMD_UNAVAILABLE")));
+    socket.on("data", chunk => {
+      response = Buffer.concat([response, chunk]);
+      const terminator = response.indexOf(0);
+      if (terminator < 0) return;
+      const result = response.subarray(0, terminator).toString("utf8");
+      if (result.endsWith(": OK")) finish(null, "clean");
+      else if (result.includes(" FOUND")) finish(null, "infected");
+      else finish(new Error("CLAMD_SCAN_FAILED"));
+    });
+    socket.on("connect", () => {
+      socket.write(Buffer.from("zINSTREAM\0", "binary"));
+      const chunkSize = 64 * 1024;
+      for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+        const chunk = bytes.subarray(offset, Math.min(offset + chunkSize, bytes.length));
+        const header = Buffer.alloc(4);
+        header.writeUInt32BE(chunk.length, 0);
+        socket.write(header);
+        socket.write(chunk);
+      }
+      socket.end(Buffer.alloc(4));
+    });
+  });
+}
+
+const server = createServer(async (request, response) => {
+  if (request.method === "GET" && request.url === "/healthz") return json(response, 200, { ok: true });
+  if (request.method !== "POST" || request.url !== "/scan") return json(response, 404, { error: "NOT_FOUND" });
+  if (request.headers["content-type"] !== "application/octet-stream") return json(response, 415, { error: "UNSUPPORTED_MEDIA_TYPE" });
+
+  try {
+    const body = await readLimitedBody(request);
+    if (!verifyRequest(request.headers, body, process.env.SCANNER_HMAC_SECRET || "")) {
+      return json(response, 401, { error: "UNAUTHORIZED" });
+    }
+    const status = await scanWithClamd(body);
+    return json(response, 200, { status });
+  } catch (error) {
+    const statusCode = Number(error?.statusCode) || 503;
+    const code = error?.message === "BODY_TOO_LARGE" ? "BODY_TOO_LARGE" :
+      error?.message === "BODY_EMPTY" ? "BODY_EMPTY" : "SCANNER_UNAVAILABLE";
+    return json(response, statusCode, { error: code });
+  }
+});
+
+server.listen(PORT, "0.0.0.0", () => {
+  process.stdout.write("inbox-scanner listening on " + PORT + "\n");
+});
+
+export { verifyRequest, scanWithClamd };
