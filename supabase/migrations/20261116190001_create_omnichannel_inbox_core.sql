@@ -107,7 +107,7 @@ create table if not exists public.inbox_messages (
     references public.inbox_customer_identities(id, owner_id) on delete set null (customer_identity_id),
   constraint inbox_messages_connection_owner_fk
     foreign key (channel_connection_id, owner_id)
-    references public.inbox_channel_connections(id, owner_id) on delete set null
+    references public.inbox_channel_connections(id, owner_id) on delete set null (channel_connection_id)
 );
 
 create unique index if not exists inbox_messages_external_id_uidx
