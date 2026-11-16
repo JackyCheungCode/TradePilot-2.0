@@ -162,7 +162,7 @@ begin
   );
   return new;
 end;
-$;
+$$;
 
 drop trigger if exists trg_contact_created_lifecycle_event on public.crm_contacts;
 create trigger trg_contact_created_lifecycle_event
