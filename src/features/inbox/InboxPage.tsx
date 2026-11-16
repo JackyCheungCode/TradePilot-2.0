@@ -290,6 +290,73 @@ export function InboxPage() {
     }
   };
 
+  const createChannelConnection = async () => {
+    if (!connectionName.trim() || !externalAccountId.trim() || connectionSaving) return;
+    setConnectionSaving(true);
+    setError('');
+    try {
+      const client = await getSupabaseClient();
+      const { data: { session } } = await client.auth.getSession();
+      if (!session?.access_token) throw new Error('登录状态已失效，请重新登录。');
+      const result = await createInboxConnection(session.access_token, {
+        channelType: connectionChannel,
+        displayName: connectionName.trim(),
+        externalAccountId: externalAccountId.trim(),
+      });
+      setWebhookUrl(result.webhook_url);
+      setConnectionModalOpen(false);
+      setConnectionName('');
+      setExternalAccountId('');
+      setConnections(await getInboxConnections(session.access_token));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '创建渠道连接失败。');
+    } finally {
+      setConnectionSaving(false);
+    }
+  };
+
+  const searchContacts = async () => {
+    if (contactSearch.trim().length < 2 || contactSearchLoading) return;
+    setContactSearchLoading(true);
+    try {
+      const client = await getSupabaseClient();
+      const { data: { session } } = await client.auth.getSession();
+      if (!session?.access_token) throw new Error('登录状态已失效，请重新登录。');
+      setContactOptions(await searchInboxCRMContacts(session.access_token, contactSearch.trim()));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '搜索 CRM 联系人失败。');
+    } finally {
+      setContactSearchLoading(false);
+    }
+  };
+
+  const assignUnmatchedEvent = async () => {
+    if (!matchingEvent || !selectedContactId || eventAssigning) return;
+    setEventAssigning(true);
+    setError('');
+    try {
+      const client = await getSupabaseClient();
+      const { data: { session } } = await client.auth.getSession();
+      if (!session?.access_token) throw new Error('登录状态已失效，请重新登录。');
+      await assignInboxUnmatchedEvent(session.access_token, matchingEvent.id, selectedContactId);
+      const [events, rows] = await Promise.all([
+        getInboxUnmatchedEvents(session.access_token),
+        getInboxConversations(session.access_token),
+      ]);
+      setUnmatchedEvents(events);
+      setConversations(rows);
+      setSelected(current => current ? rows.find(row => row.id === current.id) ?? current : null);
+      setMatchingEvent(null);
+      setContactSearch('');
+      setContactOptions([]);
+      setSelectedContactId('');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '关联客户失败。');
+    } finally {
+      setEventAssigning(false);
+    }
+  };
+
   const visibleConversations = useMemo(() => conversations.filter(row => {
     const matchesChannel = channelFilter === 'all' || row.last_channel_type === channelFilter;
     const haystack = [
