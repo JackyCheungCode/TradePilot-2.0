@@ -143,9 +143,9 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
       const notes = await db<Row[]>(env,
         "inbox_internal_notes?select=id,conversation_id,author_id,content,mentioned_user_ids,created_at&owner_id=eq." +
         ownerId + "&conversation_id=eq." + conversationId + "&order=created_at.desc&limit=" + limit);
-      const timeline = [
-        ...messages.map(row => ({ ...row, timeline_type: "message" })),
-        ...notes.map(row => ({ ...row, timeline_type: "internal_note", direction: "internal" })),
+      const timeline: Row[] = [
+        ...messages.map((row): Row => ({ ...row, timeline_type: "message" })),
+        ...notes.map((row): Row => ({ ...row, timeline_type: "internal_note", direction: "internal" })),
       ].sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
       return successResponse(request, { items: timeline, has_more: messages.length === limit });
     }
