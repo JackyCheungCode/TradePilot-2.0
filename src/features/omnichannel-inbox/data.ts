@@ -1,6 +1,6 @@
 export type ChannelType = 'whatsapp' | 'line' | 'messenger' | 'telegram' | 'wecom' | 'email';
 export type ConversationStatus = 'open' | 'pending' | 'resolved';
-export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
+export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'failed' | 'local';
 export type ContentType = 'text' | 'image' | 'file' | 'template' | 'email_card';
 
 export interface Customer {
