@@ -124,9 +124,19 @@ export function DocumentPreviewPage() {
     '审核：' + (policySnapshot.requireReview === true ? '需要' : '不需要'),
   ].join(' · ');
   const bank = content.default_bank_account ?? {};
+  const currentTemplateSnapshot = versions.find(version => version.version_number === doc?.current_version)?.template_snapshot ?? {};
+  const templateConfig = (currentTemplateSnapshot.template_config ?? {}) as Json;
+  const showLogo = templateConfig.showLogo !== false;
+  const showBankDetails = templateConfig.showBankDetails !== false;
+  const showHsCode = templateConfig.showHsCode !== false;
+  const showOrigin = templateConfig.showOrigin !== false;
+  const showNotes = templateConfig.showNotes !== false;
+  const pageOrientation = String(templateConfig.orientation ?? 'portrait');
+  const configuredEditableFields = Array.isArray(policySnapshot.editableFields) ? policySnapshot.editableFields.map(String) : ['seller_name','seller_address','buyer_name','buyer_address','buyer_shipping_address','contact_name','contact_email','contact_phone','notes','customer_reference','items'];
+  const canEditField = (key: string) => configuredEditableFields.includes(key) && (key !== 'items' || !doc?.order_id);
   const totals = doc?.totals ?? {};
   const isPackingList = doc?.document_type === 'packing_list';
-  const showPricing = ['commercial_invoice', 'proforma_invoice', 'sales_contract', 'sales_confirmation'].includes(doc?.document_type || '');
+  const showPricing = templateConfig.showPrices !== false && ['commercial_invoice', 'proforma_invoice', 'sales_contract', 'sales_confirmation'].includes(doc?.document_type || '');
 
   if (loading) return <main className="tp-document-preview"><div className="tp-document-preview__loading"><InlineLoading description="正在读取单据与版本快照…" /></div></main>;
   if (!doc) return <main className="tp-document-preview"><InlineNotification kind="error" title="无法打开单据" subtitle={error || '单据不存在。'} /><Button kind="tertiary" onClick={() => navigate('/documents')}>返回单据中心</Button></main>;
@@ -140,20 +150,20 @@ export function DocumentPreviewPage() {
     {Object.keys(sourceSnapshot).length > 0 && <section className="tp-document-preview__policy-snapshot"><div><h2>来源与规则快照</h2><p>本单据创建时保存的配置，不会随设置中心后续修改而变化。</p></div><dl><div><dt>数据来源</dt><dd>{sourceSummary}</dd></div><div><dt>关联订单</dt><dd>{sourceSnapshot.order_id ? '已关联' : '未关联'}</dd></div><div><dt>发运批次</dt><dd>{sourceSnapshot.shipment_id ? '已关联' : '未关联'}</dd></div><div><dt>设置更新时间</dt><dd>{systemSnapshot.document_settings_updated_at ? new Date(String(systemSnapshot.document_settings_updated_at)).toLocaleString() : '系统默认规则'}</dd></div></dl><p>{policySummary}</p></section>}
     {error && <InlineNotification kind="error" lowContrast title="操作未完成" subtitle={error} onCloseButtonClick={() => setError('')} />}
     {editing && draftContent && <section className="tp-document-preview__editor"><div><h2>编辑单据草稿</h2><p>{doc.order_id ? '可校对主体名称、地址、联系人和单据备注；订单商品与成交条款仍以订单数据为准。' : '这是独立空白单据，可填写主体资料、条款和货物明细。草稿允许不完整，后续可继续补充。'}</p></div><div className="tp-document-preview__editor-grid">
-      <TextInput id="doc-edit-seller" labelText="卖方名称" value={String(draftContent.seller_name || '')} onChange={e => setDraftField('seller_name', e.currentTarget.value)} />
-      <TextInput id="doc-edit-buyer" labelText="买方名称" value={String(draftContent.buyer_name || '')} onChange={e => setDraftField('buyer_name', e.currentTarget.value)} />
-      <TextArea id="doc-edit-seller-address" labelText="卖方地址" rows={3} value={typeof draftContent.seller_address === 'string' ? draftContent.seller_address : address(draftContent.seller_address) === '—' ? '' : address(draftContent.seller_address)} onChange={e => setDraftField('seller_address', e.currentTarget.value)} />
-      <TextArea id="doc-edit-buyer-address" labelText="买方开票地址" rows={3} value={typeof draftContent.buyer_address === 'string' ? draftContent.buyer_address : address(draftContent.buyer_address) === '—' ? '' : address(draftContent.buyer_address)} onChange={e => setDraftField('buyer_address', e.currentTarget.value)} />
-      <TextArea id="doc-edit-shipping-address" labelText="收货地址" rows={3} value={typeof draftContent.buyer_shipping_address === 'string' ? draftContent.buyer_shipping_address : address(draftContent.buyer_shipping_address) === '—' ? '' : address(draftContent.buyer_shipping_address)} onChange={e => setDraftField('buyer_shipping_address', e.currentTarget.value)} />
-      <TextInput id="doc-edit-contact" labelText="联系人" value={String(draftContent.contact_name || '')} onChange={e => setDraftField('contact_name', e.currentTarget.value)} />
-      <TextInput id="doc-edit-contact-email" labelText="联系人邮箱" value={String(draftContent.contact_email || '')} onChange={e => setDraftField('contact_email', e.currentTarget.value)} />
-      <TextInput id="doc-edit-contact-phone" labelText="联系人电话" value={String(draftContent.contact_phone || '')} onChange={e => setDraftField('contact_phone', e.currentTarget.value)} />
-      <TextArea id="doc-edit-notes" labelText="单据备注" rows={3} value={String(draftContent.notes || '')} onChange={e => setDraftField('notes', e.currentTarget.value)} />\n      {!doc.order_id && <TextArea id="doc-edit-items" labelText="货物明细（每行：品名 | SKU | 数量 | 单位 | 单价 | HS Code）" helperText="例如：Wireless Mouse | WM-01 | 100 | pcs | 8.5 | 847160" rows={6} value={draftItemsText} onChange={e => setDraftItemsText(e.currentTarget.value)} />}
+      {canEditField('seller_name') && (<TextInput id="doc-edit-seller" labelText="卖方名称" value={String(draftContent.seller_name || '')} onChange={e => setDraftField('seller_name', e.currentTarget.value)} />)}
+      {canEditField('buyer_name') && (<TextInput id="doc-edit-buyer" labelText="买方名称" value={String(draftContent.buyer_name || '')} onChange={e => setDraftField('buyer_name', e.currentTarget.value)} />)}
+      {canEditField('seller_address') && (<TextArea id="doc-edit-seller-address" labelText="卖方地址" rows={3} value={typeof draftContent.seller_address === 'string' ? draftContent.seller_address : address(draftContent.seller_address) === '—' ? '' : address(draftContent.seller_address)} onChange={e => setDraftField('seller_address', e.currentTarget.value)} />)}
+      {canEditField('buyer_address') && (<TextArea id="doc-edit-buyer-address" labelText="买方开票地址" rows={3} value={typeof draftContent.buyer_address === 'string' ? draftContent.buyer_address : address(draftContent.buyer_address) === '—' ? '' : address(draftContent.buyer_address)} onChange={e => setDraftField('buyer_address', e.currentTarget.value)} />)}
+      {canEditField('buyer_shipping_address') && (<TextArea id="doc-edit-shipping-address" labelText="收货地址" rows={3} value={typeof draftContent.buyer_shipping_address === 'string' ? draftContent.buyer_shipping_address : address(draftContent.buyer_shipping_address) === '—' ? '' : address(draftContent.buyer_shipping_address)} onChange={e => setDraftField('buyer_shipping_address', e.currentTarget.value)} />)}
+      {canEditField('contact_name') && (<TextInput id="doc-edit-contact" labelText="联系人" value={String(draftContent.contact_name || '')} onChange={e => setDraftField('contact_name', e.currentTarget.value)} />)}
+      {canEditField('contact_email') && (<TextInput id="doc-edit-contact-email" labelText="联系人邮箱" value={String(draftContent.contact_email || '')} onChange={e => setDraftField('contact_email', e.currentTarget.value)} />)}
+      {canEditField('contact_phone') && (<TextInput id="doc-edit-contact-phone" labelText="联系人电话" value={String(draftContent.contact_phone || '')} onChange={e => setDraftField('contact_phone', e.currentTarget.value)} />)}
+      {canEditField('notes') && (<TextArea id="doc-edit-notes" labelText="单据备注" rows={3} value={String(draftContent.notes || '')} onChange={e => setDraftField('notes', e.currentTarget.value)} />)}\n      {canEditField('items') && !doc.order_id && <TextArea id="doc-edit-items" labelText="货物明细（每行：品名 | SKU | 数量 | 单位 | 单价 | HS Code）" helperText="例如：Wireless Mouse | WM-01 | 100 | pcs | 8.5 | 847160" rows={6} value={draftItemsText} onChange={e => setDraftItemsText(e.currentTarget.value)} />}
     </div><div className="tp-document-preview__editor-actions"><Button kind="tertiary" disabled={saving} onClick={() => { setEditing(false); setDraftContent(null); }}>取消</Button><Button kind="primary" disabled={saving} onClick={() => void saveDraft()}>{saving ? '保存中…' : '保存并创建新版本'}</Button></div></section>}
-    <article className="tp-document-preview__sheet">
+    <article className={"tp-document-preview__sheet tp-document-preview__sheet--" + pageOrientation}>
       <header className="tp-document-preview__paper-header">
         <div className="tp-document-preview__brand">
-          {(content.seller_logo_url || content.company_logo_url) && <img src={content.seller_logo_url || content.company_logo_url} alt="Seller logo" />}
+          {showLogo && (content.seller_logo_url || content.company_logo_url) && <img src={content.seller_logo_url || content.company_logo_url} alt="Seller logo" />}
           <div><strong>{text(content.seller_name)}</strong><span>{text(content.seller_website)}</span></div>
         </div>
         <div className="tp-document-preview__paper-title"><h2>{labels[doc.document_type] || doc.title}</h2><strong>{doc.document_number}</strong><span>{text(content.order_date || dateOnly(doc.created_at))}</span></div>
