@@ -107,7 +107,7 @@ export function TradeToolsHubPage() {
     <div className="tp-tool-center__search"><TextInput id="trade-tool-search" labelText="搜索工具" placeholder="输入工具名称或功能关键词" value={query} onChange={e => setQuery(e.currentTarget.value)}/></div>
     <div className="tp-tool-center__layout">
       <section className="tp-tool-center__catalog">
-        <div className="tp-tool-center__section-heading"><h2>智能关务与贸易合规</h2><Tag type="cool-gray">Omnibox · 4 项能力</Tag></div>
+        <div className="tp-tool-center__section-heading"><h2>外贸智能工具目录</h2><Tag type="cool-gray">Omnibox · 4 项能力 + Jina Reader</Tag></div>
         <Accordion align="start">{categories.map(category => <AccordionItem key={category.name} title={category.name} open>{category.tools.length ? category.tools.map(renderToolRow) : <p className="tp-tool-center__empty">没有匹配的工具。</p>}</AccordionItem>)}</Accordion>
         <div className="tp-tool-center__section-heading tp-tool-center__section-heading--legacy"><h2>其他外贸工具</h2><Tag type="cool-gray">6 项</Tag></div>
         <div className="tp-tool-center__legacy">{(!query || ('汇率换算 全球公共假期 国际物流追踪 DeepL 在线翻译 客户联系时机 报价利润计算器'.toLowerCase().includes(query.trim().toLowerCase()))) ? <Button kind="ghost" className="tp-tool-center__legacy-row" onClick={() => navigate('/trade-tools/legacy')}><span><strong>打开现有外贸工具</strong><small>汇率换算、公共假期、物流追踪、DeepL 翻译、客户联系时机、报价利润计算器</small></span><Tag type="cool-gray">6 项</Tag><CarbonIcons.ChevronRight size={16}/></Button> : <p className="tp-tool-center__empty">没有匹配的工具。</p>}</div>
