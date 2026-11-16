@@ -7,6 +7,7 @@ export type BusinessLifecycleEvent = {
   from_status: string | null;
   to_status: string | null;
   note: string | null;
+  actor_id?: string | null;
   created_at: string;
 };
 
@@ -19,7 +20,7 @@ export function useBusinessTransitionEvents(recordType: string, recordId?: strin
       try{
         const db=await getSupabaseClient();
         const {data,error}=await db.from('business_transition_events')
-          .select('id,event_type,from_status,to_status,note,created_at')
+          .select('id,event_type,from_status,to_status,note,actor_id,created_at')
           .eq('record_type',recordType).eq('record_id',recordId)
           .order('created_at',{ascending:false}).limit(30);
         if(error)throw error;
