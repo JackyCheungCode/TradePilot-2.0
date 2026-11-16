@@ -8,7 +8,7 @@ interface ValidationEnv {
 }
 type CacheRow = { kind: string; value_hash: string; status: string; result: Record<string, unknown>; verified_at: string | null; expires_at: string | null };
 async function authenticate(request: Request, env: ValidationEnv): Promise<boolean> {
-  const token = request.headers.get("Authorization")?.replace(/^Bearer\\s+/i, "");
+  const token = request.headers.get("Authorization")?.replace(/^Bearer\s+/i, "");
   if (!token) return false;
   const response = await fetch(env.SUPABASE_URL + "/auth/v1/user", { headers: { apikey: env.SUPABASE_ANON_KEY, Authorization: "Bearer " + token } });
   return response.ok;
@@ -72,7 +72,7 @@ async function validateEmail(request: Request, env: ValidationEnv, email: string
   } catch (error) { return errorResponse(request, "EMAIL_VALIDATION_FAILED", error instanceof Error ? error.message : "邮箱验证失败。", 502); }
 }
 async function validatePhone(request: Request, env: ValidationEnv, phone: string, kind: "phone" | "whatsapp", secrets: Record<string, string>, country?: string): Promise<Response> {
-  const normalized = phone.replace(/[\\s().-]/g, "");
+  const normalized = phone.replace(/[\s().-]/g, "");
   const hash = await hashValue(normalized);
   const cached = await readCache(env, kind, hash);
   if (cached) return responsePayload(request, kind, normalized, cached);
@@ -119,12 +119,12 @@ export async function handleContactValidation(request: Request, env: ValidationE
   const secrets = await readIntegrationSecrets(env, ["tradepilot_api_abstract_email_validation", "tradepilot_api_abstract_phone_validation", "tradepilot_api_whatsapp_check_url", "tradepilot_api_whatsapp_check_key"]);
   if (kind === "email") {
     const email = value.toLowerCase();
-    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) return errorResponse(request, "INVALID_EMAIL", "邮箱格式无效。", 400);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return errorResponse(request, "INVALID_EMAIL", "邮箱格式无效。", 400);
     return validateEmail(request, env, email, secrets);
   }
   if (kind === "phone" || kind === "whatsapp") {
-    const phone = value.replace(/[\\s().-]/g, "");
-    if (!/^\\+?[0-9]{7,15}$/.test(phone)) return errorResponse(request, "INVALID_PHONE", "电话号码格式无效；请使用国际区号格式，例如 +14155552671。", 400);
+    const phone = value.replace(/[\s().-]/g, "");
+    if (!/^\+?[0-9]{7,15}$/.test(phone)) return errorResponse(request, "INVALID_PHONE", "电话号码格式无效；请使用国际区号格式，例如 +14155552671。", 400);
     return validatePhone(request, env, phone, kind, secrets, String(body.country || "").toUpperCase());
   }
   return errorResponse(request, "INVALID_VALIDATION_KIND", "不支持的验证类型。", 400);
