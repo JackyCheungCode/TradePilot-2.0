@@ -49,7 +49,30 @@ export interface InboxConnection {
   id: string;
   channel_type: string;
   display_name: string;
+  external_account_id?: string | null;
   connection_status: string;
+  webhook_url?: string | null;
+}
+export interface InboxUnmatchedEvent {
+  id: string;
+  channel_type: string;
+  external_event_id: string;
+  status: string;
+  payload: {
+    externalUserId?: string;
+    displayName?: string | null;
+    username?: string | null;
+    content?: string;
+    occurredAt?: string;
+  };
+  received_at: string;
+}
+export interface InboxCRMContact {
+  id: string;
+  display_name: string;
+  email?: string | null;
+  phone?: string | null;
+  mobile?: string | null;
 }
 
 async function request<T>(path: string, token: string): Promise<T> {
@@ -79,6 +102,45 @@ export async function getInboxMessages(token: string, conversationId: string): P
 export async function getInboxConnections(token: string): Promise<InboxConnection[]> {
   const result = await request<{ connections: InboxConnection[] }>('/api/v1/inbox/channel-connections', token);
   return result.connections ?? [];
+}
+
+export async function createInboxConnection(
+  token: string,
+  input: { channelType: string; displayName: string; externalAccountId: string },
+): Promise<{ connection: InboxConnection; webhook_url: string }> {
+  const response = await fetch('/api/v1/inbox/channel-connections', {
+    method: 'POST',
+    headers: { Accept: 'application/json', Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  const payload = await response.json().catch(() => ({})) as {
+    data?: { connection: InboxConnection; webhook_url: string };
+    error?: { message?: string };
+  };
+  if (!response.ok || !payload.data) throw new Error(payload.error?.message ?? '创建渠道连接失败。');
+  return payload.data;
+}
+
+export async function getInboxUnmatchedEvents(token: string): Promise<InboxUnmatchedEvent[]> {
+  const result = await request<{ events: InboxUnmatchedEvent[] }>('/api/v1/inbox/unmatched-events', token);
+  return result.events ?? [];
+}
+
+export async function searchInboxCRMContacts(token: string, query: string): Promise<InboxCRMContact[]> {
+  const result = await request<{ contacts: InboxCRMContact[] }>(
+    '/api/v1/inbox/crm-contacts?query=' + encodeURIComponent(query), token,
+  );
+  return result.contacts ?? [];
+}
+
+export async function assignInboxUnmatchedEvent(token: string, eventId: string, contactId: string): Promise<void> {
+  const response = await fetch('/api/v1/inbox/unmatched-events/' + encodeURIComponent(eventId) + '/assign', {
+    method: 'POST',
+    headers: { Accept: 'application/json', Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ contactId }),
+  });
+  const payload = await response.json().catch(() => ({})) as { error?: { message?: string } };
+  if (!response.ok) throw new Error(payload.error?.message ?? '关联 CRM 联系人失败。');
 }
 
 export async function createInboxNote(token: string, conversationId: string, content: string): Promise<unknown> {
