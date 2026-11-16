@@ -181,6 +181,7 @@
   background: var(--cds-background);
 }
 .cc-message {
+  position: relative;
   display: flex;
   flex: 0 0 auto;
   flex-direction: column;
@@ -191,7 +192,10 @@
 }
 .cc-message--outbound { align-self: flex-end; }
 .cc-message--system { align-self: center; width: auto; max-width: 90%; }
-.cc-message-meta { justify-content: flex-start; color: var(--cds-text-secondary); font-size: 0.6875rem; }
+.cc-message-meta { justify-content: flex-start; color: var(--cds-text-secondary); font-size: 0.6875rem; padding-inline-end: 1.75rem; }
+.cc-message-source { position: absolute; inset-block-start: 0; inset-inline-end: 0; display: inline-flex; align-items: center; justify-content: center; }
+.cc-message-source .cc-channel-logo { width: 1.25rem; height: 1.25rem; }
+.cc-message-source .cc-channel-logo svg { width: 68%; height: 68%; }
 .cc-message-meta time { font-variant-numeric: tabular-nums; }
 .cc-message-body,
 .cc-email-message,
@@ -248,6 +252,7 @@
 .cc-identity-row > span:last-child { min-width: 0; color: var(--cds-text-secondary); font-size: 0.75rem; overflow-wrap: anywhere; }
 .cc-customer-tags { display: flex; flex-wrap: wrap; gap: var(--tp-space-02); }
 .cc-mobile-back { display: none; }
+.cc-chat-contact > .cc-customer-initial { flex: 0 0 2.5rem; }
 
 @media (max-width: 1100px) and (min-width: 768px) {
   .cc-workspace { grid-template-columns: 18rem minmax(0, 1fr); }
@@ -264,8 +269,8 @@
   .cc-workspace--profile-collapsed {
     position: relative;
     display: block;
-    height: min(72vh, 48rem);
-    min-height: 34rem;
+    height: max(78dvh, 36rem);
+    min-height: 36rem;
   }
   .cc-list-panel,
   .cc-chat-panel {
@@ -278,10 +283,25 @@
   .cc-chat-panel { visibility: hidden; opacity: 0; }
   .cc-workspace--mobile-chat .cc-list-panel { visibility: hidden; opacity: 0; pointer-events: none; }
   .cc-workspace--mobile-chat .cc-chat-panel { visibility: visible; opacity: 1; }
-  .cc-chat-header { align-items: flex-start; flex-direction: column; }
-  .cc-chat-actions { width: 100%; justify-content: space-between; }
-  .cc-mobile-back { display: inline-flex; }
-  .cc-message { width: 90%; }
+  .cc-chat-header {
+    align-items: center;
+    flex-direction: row;
+    gap: var(--tp-space-02);
+    min-height: 4rem;
+    padding: var(--tp-space-03);
+  }
+  .cc-chat-contact { flex: 1 1 auto; min-width: 0; gap: var(--tp-space-02); }
+  .cc-chat-contact > .cc-customer-initial { flex-basis: 2rem; width: 2rem; height: 2rem; }
+  .cc-chat-contact > div { min-width: 0; }
+  .cc-chat-contact p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.6875rem; }
+  .cc-chat-actions { flex: 0 0 auto; width: auto; justify-content: flex-end; gap: var(--tp-space-02); }
+  .cc-chat-actions .cc-mobile-back { display: inline-flex; min-width: 2rem; width: 2rem; padding: 0; }
+  .cc-chat-actions > .cds--tag { display: none; }
+  .cc-chat-actions > :last-child { min-width: 0; }
+  .cc-timeline { flex: 1 1 0; min-height: 0; padding: var(--tp-space-03); gap: var(--tp-space-04); }
+  .cc-composer { padding: var(--tp-space-03); gap: var(--tp-space-02); }
+  .cc-composer-channel { width: min(14rem, 100%); }
+  .cc-message { width: 92%; }
   .cc-profile-panel {
     position: absolute;
     z-index: 5;
@@ -341,7 +361,6 @@
 .cc-channel-logo--telegram { background: #229ED9; }
 .cc-conversation-meta .cc-channel-logo { margin-top: 0.125rem; }
 .cc-message-meta .cc-channel-logo { margin-inline-end: 0.125rem; }
-.cc-chat-actions .cc-channel-logo { margin-inline-end: 0.25rem; }
 .cc-identity-row .cc-channel-logo { margin-inline-end: 0.125rem; }
 
 @media (max-width: 767px) {
