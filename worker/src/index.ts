@@ -19,6 +19,7 @@ import { handleContactValidation } from "./routes/contact-validation";
 import { handleInbox } from "./routes/inbox";
 import { handleInboxWebhook } from "./routes/inbox-webhooks";
 import { handleInboxAttachment } from "./routes/inbox-attachments";
+import { processInboxMediaJobs } from "./routes/inbox-media-worker";
 import { AgentOrchestrationWorkflow } from "./workflows/agent-orchestration";
 
 export interface WorkerEnv {
@@ -53,6 +54,11 @@ export interface WorkerEnv {
 export { LeadDiscoveryWorkflow, ContactEnrichmentWorkflow, FacebookDiscoveryWorkflow, InstagramDiscoveryWorkflow, AgentOrchestrationWorkflow };
 
 export default {
+ async scheduled(_controller: { scheduledTime: number; cron: string }, env: WorkerEnv, ctx: { waitUntil(promise: Promise<unknown>): void }): Promise<void> {
+  ctx.waitUntil(processInboxMediaJobs(env).catch(error => {
+   console.error("INBOX_MEDIA_QUEUE_RUN_FAILED", { code: error instanceof Error && /^[A-Z0-9_]+$/.test(error.message) ? error.message : "MEDIA_QUEUE_FAILED" });
+  }));
+ },
  async fetch(request: Request, env: WorkerEnv): Promise<Response> {
   const url = new URL(request.url);
   try {
