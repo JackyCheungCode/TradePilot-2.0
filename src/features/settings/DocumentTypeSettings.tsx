@@ -35,7 +35,6 @@ const definitions = [
   { id: 'bill_of_exchange', label: '汇票', sources: ['blank','sales_order'] as Source[] },
 ] as const;
 
-const sourceLabels: Record<Source, string> = { blank: '空白创建', sales_order: '销售订单', purchase_order: '采购订单', shipment: '发运记录' };
 const boolOptions = [{ value: 'true', text: '启用' }, { value: 'false', text: '停用' }];
 const defaultsFor = (id: string, sources: Source[]): DocumentPolicy => ({
   enabled: true,
