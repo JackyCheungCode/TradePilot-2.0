@@ -13,8 +13,9 @@ async function authenticate(request: Request, env: ValidationEnv): Promise<boole
   const response = await fetch(env.SUPABASE_URL + "/auth/v1/user", { headers: { apikey: env.SUPABASE_ANON_KEY, Authorization: "Bearer " + token } });
   return response.ok;
 }
-async function hashValue(value: string): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+async function hashValue(value: string, env: ValidationEnv): Promise<string> {
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(env.SUPABASE_SERVICE_ROLE_KEY), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const digest = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(value));
   return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, "0")).join("");
 }
 async function cacheRequest<T>(env: ValidationEnv, path: string, init?: RequestInit): Promise<T> {
@@ -52,7 +53,7 @@ function responsePayload(request: Request, kind: string, value: string, row: Cac
   return successResponse(request, { kind, value, status: row?.status ?? "unknown", result: row?.result ?? {}, verifiedAt: row?.verified_at ?? null, cached: Boolean(row) });
 }
 async function validateEmail(request: Request, env: ValidationEnv, email: string, secrets: Record<string, string>): Promise<Response> {
-  const hash = await hashValue(email);
+  const hash = await hashValue(email, env);
   const cached = await readCache(env, "email", hash);
   if (cached) return responsePayload(request, "email", email, cached);
   const key = secrets.tradepilot_api_abstract_email_validation;
@@ -79,7 +80,7 @@ async function validateEmail(request: Request, env: ValidationEnv, email: string
 }
 async function validatePhone(request: Request, env: ValidationEnv, phone: string, kind: "phone" | "whatsapp", secrets: Record<string, string>, country?: string): Promise<Response> {
   const normalized = phone.replace(/[\s().-]/g, "");
-  const hash = await hashValue(normalized);
+  const hash = await hashValue(normalized, env);
   const cached = await readCache(env, kind, hash);
   if (cached) return responsePayload(request, kind, normalized, cached);
   if (kind === "phone") {
