@@ -129,3 +129,11 @@ export async function translateInboxMessage(token: string, messageId: string): P
     token,
   );
 }
+
+export async function generateInboxSummary(token: string, conversationId: string): Promise<string> {
+  const result = await request<{ ai_summary: string }>(
+    '/api/v1/inbox/conversations/' + encodeURIComponent(conversationId) + '/summary',
+    token,
+  );
+  return result.ai_summary;
+}
