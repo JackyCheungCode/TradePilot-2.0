@@ -35,7 +35,7 @@ async function readCache(env: ValidationEnv, kind: string, hash: string): Promis
   }
   return row;
 }
-async function writeCache(env: ValidationEnv, kind: string, hash: string, status: string, result: Record<string, unknown>, ttlDays?: number): Promise<void> {
+async function claimCache(env: ValidationEnv, kind: string, hash: string): Promise<boolean> {\n  const expires = new Date(Date.now() + 120000).toISOString();\n  const rows = await cacheRequest<CacheRow[]>(env, "?on_conflict=kind,value_hash", { method: "POST", headers: { Prefer: "resolution=ignore-duplicates,return=representation" }, body: JSON.stringify({ kind, value_hash: hash, status: "pending", result: {}, expires_at: expires, updated_at: new Date().toISOString() }) });\n  return rows.length > 0;\n}\nasync function writeCache(env: ValidationEnv, kind: string, hash: string, status: string, result: Record<string, unknown>, ttlDays?: number): Promise<void> {
   const now = new Date().toISOString();
   const expires = ttlDays ? new Date(Date.now() + ttlDays * 86400000).toISOString() : null;
   await cacheRequest(env, "?on_conflict=kind,value_hash", {
@@ -51,7 +51,7 @@ async function validateEmail(request: Request, env: ValidationEnv, email: string
   const cached = await readCache(env, "email", hash);
   if (cached) return responsePayload(request, "email", email, cached);
   const key = secrets.tradepilot_api_abstract_email_validation;
-  if (!key) return errorResponse(request, "EMAIL_VALIDATION_NOT_CONFIGURED", "请先在设置中心配置 Abstract Email Validation API Key。", 503);
+  if (!key) return errorResponse(request, "EMAIL_VALIDATION_NOT_CONFIGURED", "请先在设置中心配置 Abstract Email Validation API Key。", 503);\n  if (!(await claimCache(env, "email", hash))) return responsePayload(request, "email", email, await readCache(env, "email", hash));
   try {
     const url = new URL("https://emailvalidation.abstractapi.com/v1/");
     url.searchParams.set("api_key", key); url.searchParams.set("email", email);
@@ -78,7 +78,7 @@ async function validatePhone(request: Request, env: ValidationEnv, phone: string
   if (cached) return responsePayload(request, kind, normalized, cached);
   if (kind === "phone") {
     const key = secrets.tradepilot_api_abstract_phone_validation;
-    if (!key) return errorResponse(request, "PHONE_VALIDATION_NOT_CONFIGURED", "请先在设置中心配置 Abstract Phone Validation API Key。", 503);
+    if (!key) return errorResponse(request, "PHONE_VALIDATION_NOT_CONFIGURED", "请先在设置中心配置 Abstract Phone Validation API Key。", 503);\n    if (!(await claimCache(env, "phone", hash))) return responsePayload(request, "phone", normalized, await readCache(env, "phone", hash));
     try {
       const url = new URL("https://phonevalidation.abstractapi.com/v1/");
       url.searchParams.set("api_key", key); url.searchParams.set("phone", normalized);
@@ -94,7 +94,7 @@ async function validatePhone(request: Request, env: ValidationEnv, phone: string
   }
   const endpoint = secrets.tradepilot_api_whatsapp_check_url;
   const apiKey = secrets.tradepilot_api_whatsapp_check_key;
-  if (!endpoint || !apiKey) return errorResponse(request, "WHATSAPP_CHECK_NOT_CONFIGURED", "请先在设置中心配置 WhatsApp 注册检测 API 地址和密钥。", 503);
+  if (!endpoint || !apiKey) return errorResponse(request, "WHATSAPP_CHECK_NOT_CONFIGURED", "请先在设置中心配置 WhatsApp 注册检测 API 地址和密钥。", 503);\n  if (!(await claimCache(env, "whatsapp", hash))) return responsePayload(request, "whatsapp", normalized, await readCache(env, "whatsapp", hash));
   try {
     const target = new URL(endpoint);
     if (target.protocol !== "https:") return errorResponse(request, "INVALID_WHATSAPP_PROVIDER_URL", "WhatsApp 检测服务必须使用 HTTPS 地址。", 400);
