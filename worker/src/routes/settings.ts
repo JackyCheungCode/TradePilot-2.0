@@ -297,7 +297,7 @@ export async function handleSettings(request: Request, env: SettingsEnv): Promis
     }
     if(service==="telegram"){
       const token=secret("telegramBotToken");if(!token)return successResponse(request,{ok:false,message:"请配置 Telegram Bot Token"});
-      const r=await fetch("https://api.telegram.org/bot"+encodeURIComponent(token)+"/getMe");
+      const r=await fetch("https://api.telegram.org/bot"+token+"/getMe");
       const data=await r.json().catch(()=>({})) as {ok?:boolean;result?:{username?:string}};
       return successResponse(request,{ok:r.ok&&data.ok===true,message:data.ok?"Telegram Bot 已连接"+(data.result?.username?" · @"+data.result.username:""):"Telegram Bot Token 验证失败（HTTP "+r.status+"）"});
     }
