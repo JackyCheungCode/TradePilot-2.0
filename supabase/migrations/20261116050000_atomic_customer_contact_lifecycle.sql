@@ -230,3 +230,41 @@ for each row when (
   coalesce(new.custom_fields->>'status','unknown')
 )
 execute function public.capture_contact_employment_status_event();
+
+create or replace function public.capture_contact_method_verification_event()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_from text;
+  v_to text;
+begin
+  if tg_op = 'INSERT' then
+    if not new.is_verified then return new; end if;
+    v_from := 'unverified';
+    v_to := 'verified';
+  else
+    if new.is_verified is not distinct from old.is_verified then return new; end if;
+    v_from := case when old.is_verified then 'verified' else 'unverified' end;
+    v_to := case when new.is_verified then 'verified' else 'unverified' end;
+  end if;
+
+  insert into public.business_transition_events(
+    owner_id,record_type,record_id,event_type,from_status,to_status,
+    gatekeeper_required,gatekeeper_status,actor_id,note,payload
+  ) values (
+    new.owner_id,'contact',new.contact_id,'contact_method_verification_changed',
+    v_from,v_to,false,'not_required',coalesce(auth.uid(),new.owner_id),
+    case when new.is_verified then '联系方式验证通过' else '联系方式验证状态已撤销' end,
+    jsonb_build_object('dimension','contact_method_verification','method_type',new.method_type,'platform',new.platform,'atomic',true)
+  );
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_contact_method_verification_event on public.crm_contact_methods;
+create trigger trg_contact_method_verification_event
+after insert or update on public.crm_contact_methods
+for each row execute function public.capture_contact_method_verification_event();
