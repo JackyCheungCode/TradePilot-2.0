@@ -111,7 +111,7 @@ export function OmnichannelInboxPage() {
           <Avatar customer={person} />
           <span className="oi-conversation-copy"><strong>{person.company_name || person.contact_name}</strong><span>{person.contact_name} · {person.role}</span><small>{last?.content_type === 'file' ? '文件：' + last.file_meta?.filename : last?.content_type === 'email_card' ? '邮件：' + last.email_subject : last?.content}</small></span>
           <span className="oi-conversation-meta"><time>{fmtTime(conversation.last_message_at)}</time><ChannelMark channel={conversation.last_channel_type} />{conversation.unread_count > 0 && <b>{conversation.unread_count}</b>}</span>
-        </button>;
+        </Button>;
       })}{filteredConversations.length === 0 && <div className="oi-empty">没有符合条件的会话</div>}</div>
     </aside>
 
