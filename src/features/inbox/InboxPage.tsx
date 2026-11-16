@@ -5,7 +5,7 @@ import {
   Grid, Column, Stack, ClickableTile, LineChart, ScaleTypes,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
-import { getInboxConversations, getInboxMessages, getInboxBusinessMetrics, getInboxChannelReadiness, translateInboxMessage, generateInboxSummary, createInboxNote, type InboxConversation, type InboxTimelineItem, type InboxBusinessMetrics, type InboxChannelReadiness } from './api';
+import { getInboxConversations, getInboxMessages, getInboxBusinessMetrics, getInboxChannelReadiness, translateInboxMessage, generateInboxSummary, createInboxNote, sendInboxMessage, type InboxConversation, type InboxTimelineItem, type InboxBusinessMetrics, type InboxChannelReadiness } from './api';
 
 const channels = [
   { id: 'whatsapp', label: 'WhatsApp' },
@@ -33,7 +33,7 @@ export function InboxPage() {
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [error, setError] = useState('');
   const [composerMode, setComposerMode] = useState<'reply' | 'note'>('reply');
-  const [savingNote, setSavingNote] = useState(false);
+  const [savingNote, setSavingNote] = useState(false);\n  const [sendingMessage, setSendingMessage] = useState(false);
   const [translatingMessageId, setTranslatingMessageId] = useState('');
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [businessMetrics, setBusinessMetrics] = useState<InboxBusinessMetrics | null>(null);
@@ -120,6 +120,28 @@ export function InboxPage() {
       if (channel) void getSupabaseClient().then(client => client.removeChannel(channel!));
     };
   }, []);
+
+  const sendMessage = async () => {
+    if (!selected || !draft.trim() || sendingMessage) return;
+    setSendingMessage(true);
+    setError('');
+    try {
+      const client = await getSupabaseClient();
+      const { data: { session } } = await client.auth.getSession();
+      if (!session?.access_token) throw new Error('登录状态已失效，请重新登录。');
+      await sendInboxMessage(session.access_token, selected.id, draft.trim());
+      const rows = await getInboxMessages(session.access_token, selected.id);
+      setMessages(rows);
+      const conversations = await getInboxConversations(session.access_token);
+      setConversations(conversations);
+      setSelected(conversations.find(row => row.id === selected.id) ?? selected);
+      setDraft('');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '发送消息失败。');
+    } finally {
+      setSendingMessage(false);
+    }
+  };
 
   const addInternalNote = async () => {
     if (!selected || !draft.trim() || savingNote) return;
@@ -389,13 +411,17 @@ export function InboxPage() {
                   ? <Tag type="cool-gray">回复渠道：{selected?.last_channel_type ? channelLabel(selected.last_channel_type) : '等待选择会话'}</Tag>
                   : <Tag type="warm-gray">仅团队内部可见，不会发送给客户</Tag>}
                 <TextArea id="inbox-message-draft" labelText={composerMode === 'note' ? '内部备注' : '撰写消息'}
-                  placeholder={composerMode === 'note' ? '记录内部跟进信息…' : '外部消息发送功能尚未启用。'}
+                  placeholder={composerMode === 'note' ? '记录内部跟进信息…' : '输入要发送给客户的消息…'}
                   value={draft} onChange={(event: React.ChangeEvent<HTMLTextAreaElement>) => setDraft(event.target.value)}
-                  rows={3} disabled={!selected || composerMode === 'reply'} />
+                  rows={3} disabled={!selected || (composerMode === 'reply' && !['whatsapp', 'line', 'messenger', 'telegram'].includes(selected.last_channel_type || ''))} />
                 {composerMode === 'note'
                   ? <Button size="md" renderIcon={CarbonIcons.Add} onClick={() => void addInternalNote()} disabled={!selected || !draft.trim() || savingNote}>{savingNote ? '正在保存…' : '添加内部备注'}</Button>
-                  : <Button size="md" renderIcon={CarbonIcons.Send} disabled>发送消息</Button>}
-                {composerMode === 'reply' && <p>外部消息发送将在渠道授权及合规校验完成后启用。</p>}
+                  : <Button size="md" renderIcon={CarbonIcons.Send} onClick={() => void sendMessage()} disabled={!selected || !draft.trim() || sendingMessage || !['whatsapp', 'line', 'messenger', 'telegram'].includes(selected.last_channel_type || '')}>{sendingMessage ? '正在发送…' : '发送消息'}</Button>}
+                {composerMode === 'reply' && <p>{selected?.last_channel_type === 'whatsapp' || selected?.last_channel_type === 'messenger'
+                  ? 'WhatsApp / Messenger 将在服务窗口内发送；超出 24 小时窗口时，系统会拦截普通文本回复。'
+                  : selected?.last_channel_type === 'line' || selected?.last_channel_type === 'telegram'
+                    ? '发送前会检查客户渠道身份与凭证；企业微信和 Email 暂未开放发送。'
+                    : '当前渠道暂不支持真实发送，请切换到已接入的 WhatsApp、LINE、Messenger 或 Telegram 会话。'}</p>}
               </Stack>
             </Tile>
           </Stack>
