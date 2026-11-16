@@ -1,0 +1,439 @@
+import { readIntegrationSecrets } from "./settings";
+
+type Channel = "whatsapp" | "line" | "messenger" | "telegram";
+type Row = Record<string, unknown>;
+interface WebhookEnv {
+  SUPABASE_URL: string;
+  SUPABASE_SERVICE_ROLE_KEY: string;
+}
+interface Connection {
+  id: string;
+  owner_id: string;
+  channel_type: Channel;
+  external_account_id: string | null;
+  connection_status: string;
+}
+interface NormalizedEvent {
+  eventId: string;
+  messageId: string;
+  externalUserId: string;
+  displayName: string | null;
+  username: string | null;
+  content: string;
+  contentType: "text" | "image" | "file" | "audio" | "video";
+  occurredAt: string;
+  eventType: string;
+  metadata: Record<string, unknown>;
+}
+
+const secretNames = [
+  "tradepilot_channel_whatsapp_app_secret",
+  "tradepilot_channel_whatsapp_verify_token",
+  "tradepilot_channel_messenger_app_secret",
+  "tradepilot_channel_messenger_verify_token",
+  "tradepilot_channel_line_secret",
+  "tradepilot_channel_telegram_webhook_secret",
+];
+
+async function db<T>(env: WebhookEnv, path: string, init: RequestInit = {}): Promise<T> {
+  const response = await fetch(env.SUPABASE_URL + "/rest/v1/" + path, {
+    ...init,
+    headers: {
+      apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: "Bearer " + env.SUPABASE_SERVICE_ROLE_KEY,
+      "Content-Type": "application/json",
+      ...init.headers,
+    },
+    signal: init.signal ?? AbortSignal.timeout(12000),
+  });
+  const raw = await response.text();
+  if (!response.ok) throw new Error("INBOX_WEBHOOK_DB_" + response.status);
+  return (raw ? JSON.parse(raw) : []) as T;
+}
+
+function equalConstantTime(left: string, right: string): boolean {
+  if (left.length !== right.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < left.length; i += 1) mismatch |= left.charCodeAt(i) ^ right.charCodeAt(i);
+  return mismatch === 0;
+}
+
+async function hmac(secret: string, body: Uint8Array): Promise<Uint8Array> {
+  const key = await crypto.subtle.importKey(
+    "raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"],
+  );
+  return new Uint8Array(await crypto.subtle.sign("HMAC", key, body));
+}
+
+function toHex(bytes: Uint8Array): string {
+  return Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function toBase64(bytes: Uint8Array): string {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
+
+async function readLimitedBody(request: Request, maxBytes = 1024 * 1024): Promise<Uint8Array | null> {
+  const length = Number(request.headers.get("Content-Length") ?? "0");
+  if (length > maxBytes) return null;
+  if (!request.body) return new Uint8Array();
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const part = await reader.read();
+      if (part.done) break;
+      total += part.value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel();
+        return null;
+      }
+      chunks.push(part.value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const result = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    result.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return result;
+}
+
+function timestamp(value: unknown): string {
+  const numeric = typeof value === "number" ? value : Number(value);
+  if (Number.isFinite(numeric) && numeric > 0) return new Date(numeric < 1e12 ? numeric * 1000 : numeric).toISOString();
+  return new Date().toISOString();
+}
+
+function contentType(value: unknown): NormalizedEvent["contentType"] {
+  const type = String(value ?? "").toLowerCase();
+  if (["image", "photo", "sticker"].includes(type)) return "image";
+  if (["audio", "voice", "ptt"].includes(type)) return "audio";
+  if (["video", "animation"].includes(type)) return "video";
+  if (["document", "file"].includes(type)) return "file";
+  return "text";
+}
+
+function parseWhatsApp(payload: Row, connection: Connection): NormalizedEvent[] {
+  const result: NormalizedEvent[] = [];
+  const entries = Array.isArray(payload.entry) ? payload.entry as Row[] : [];
+  for (const entry of entries) {
+    const changes = Array.isArray(entry.changes) ? entry.changes as Row[] : [];
+    for (const change of changes) {
+      const value = (change.value && typeof change.value === "object" ? change.value : {}) as Row;
+      const metadata = (value.metadata && typeof value.metadata === "object" ? value.metadata : {}) as Row;
+      if (String(metadata.phone_number_id ?? "") !== String(connection.external_account_id ?? "")) continue;
+      const contacts = Array.isArray(value.contacts) ? value.contacts as Row[] : [];
+      const names = new Map<string, string>();
+      for (const contact of contacts) {
+        const profile = (contact.profile && typeof contact.profile === "object" ? contact.profile : {}) as Row;
+        if (typeof contact.wa_id === "string" && typeof profile.name === "string") names.set(contact.wa_id, profile.name);
+      }
+      const messages = Array.isArray(value.messages) ? value.messages as Row[] : [];
+      for (const message of messages) {
+        if (typeof message.id !== "string" || typeof message.from !== "string") continue;
+        const type = String(message.type ?? "text");
+        const contentObj = (message[type] && typeof message[type] === "object" ? message[type] : {}) as Row;
+        const textObj = (message.text && typeof message.text === "object" ? message.text : {}) as Row;
+        const body = typeof textObj.body === "string" ? textObj.body : "[" + type + "]";
+        result.push({
+          eventId: message.id, messageId: message.id, externalUserId: message.from,
+          displayName: names.get(message.from) ?? null, username: null,
+          content: body.slice(0, 20000), contentType: contentType(type),
+          occurredAt: timestamp(message.timestamp), eventType: "message",
+          metadata: { provider: "whatsapp", message_type: type, media_id: typeof contentObj.id === "string" ? contentObj.id : null,
+            mime_type: typeof contentObj.mime_type === "string" ? contentObj.mime_type : null },
+        });
+      }
+    }
+  }
+  return result;
+}
+
+function parseMessenger(payload: Row, connection: Connection): NormalizedEvent[] {
+  const result: NormalizedEvent[] = [];
+  const entries = Array.isArray(payload.entry) ? payload.entry as Row[] : [];
+  for (const entry of entries) {
+    if (String(entry.id ?? "") !== String(connection.external_account_id ?? "")) continue;
+    const messaging = Array.isArray(entry.messaging) ? entry.messaging as Row[] : [];
+    for (const event of messaging) {
+      const sender = (event.sender && typeof event.sender === "object" ? event.sender : {}) as Row;
+      const message = (event.message && typeof event.message === "object" ? event.message : {}) as Row;
+      if (message.is_echo === true || typeof sender.id !== "string" || typeof message.mid !== "string") continue;
+      const attachments = Array.isArray(message.attachments) ? message.attachments as Row[] : [];
+      const firstAttachment = attachments[0] ?? {};
+      const type = String(firstAttachment.type ?? "text");
+      const content = typeof message.text === "string" ? message.text :
+        attachments.length ? "[" + type + "]" : "";
+      if (!content) continue;
+      result.push({
+        eventId: message.mid, messageId: message.mid, externalUserId: sender.id,
+        displayName: null, username: null, content: content.slice(0, 20000),
+        contentType: contentType(type), occurredAt: timestamp(event.timestamp),
+        eventType: "message",
+        metadata: { provider: "messenger", attachment_type: attachments.length ? type : null },
+      });
+    }
+  }
+  return result;
+}
+
+function parseLine(payload: Row, connection: Connection): NormalizedEvent[] {
+  if (String(payload.destination ?? "") !== String(connection.external_account_id ?? "")) return [];
+  const events = Array.isArray(payload.events) ? payload.events as Row[] : [];
+  const result: NormalizedEvent[] = [];
+  for (const event of events) {
+    if (event.type !== "message") continue;
+    const message = (event.message && typeof event.message === "object" ? event.message : {}) as Row;
+    const source = (event.source && typeof event.source === "object" ? event.source : {}) as Row;
+    const externalUserId = source.userId ?? source.groupId ?? source.roomId;
+    if (typeof message.id !== "string" || typeof externalUserId !== "string") continue;
+    const type = String(message.type ?? "text");
+    const text = typeof message.text === "string" ? message.text : "[" + type + "]";
+    result.push({
+      eventId: message.id, messageId: message.id, externalUserId,
+      displayName: null, username: null, content: text.slice(0, 20000),
+      contentType: contentType(type), occurredAt: timestamp(event.timestamp),
+      eventType: "message",
+      metadata: { provider: "line", message_type: type, source_type: source.type ?? null,
+        reply_token_available: typeof event.replyToken === "string" },
+    });
+  }
+  return result;
+}
+
+function parseTelegram(payload: Row): NormalizedEvent[] {
+  const updateId = payload.update_id;
+  if (updateId === undefined || updateId === null) return [];
+  const message = (payload.message && typeof payload.message === "object" ? payload.message :
+    payload.edited_message && typeof payload.edited_message === "object" ? payload.edited_message : {}) as Row;
+  const chat = (message.chat && typeof message.chat === "object" ? message.chat : {}) as Row;
+  const from = (message.from && typeof message.from === "object" ? message.from : {}) as Row;
+  if (chat.id === undefined || message.message_id === undefined || from.is_bot === true) return [];
+  const type = message.photo ? "photo" : message.video ? "video" :
+    message.voice || message.audio ? "audio" : message.document ? "document" : "text";
+  const text = typeof message.text === "string" ? message.text :
+    typeof message.caption === "string" ? message.caption : "[" + type + "]";
+  const displayName = [from.first_name, from.last_name].filter(value => typeof value === "string").join(" ") || null;
+  return [{
+    eventId: String(updateId), messageId: String(chat.id) + ":" + String(message.message_id),
+    externalUserId: String(chat.id), displayName,
+    username: typeof from.username === "string" ? from.username : null,
+    content: text.slice(0, 20000), contentType: contentType(type),
+    occurredAt: timestamp(message.date), eventType: "message",
+    metadata: { provider: "telegram", chat_type: chat.type ?? null, sender_user_id: from.id ?? null,
+      message_id: message.message_id },
+  }];
+}
+
+async function getConnection(env: WebhookEnv, id: string, channel: Channel): Promise<Connection | null> {
+  const rows = await db<Connection[]>(env,
+    "inbox_channel_connections?select=id,owner_id,channel_type,external_account_id,connection_status&id=eq." +
+    id + "&channel_type=eq." + channel + "&limit=1");
+  return rows[0] ?? null;
+}
+
+async function handleVerification(request: Request, channel: Channel, secrets: Record<string, string>): Promise<Response> {
+  const url = new URL(request.url);
+  if (channel !== "whatsapp" && channel !== "messenger") return new Response("Method Not Allowed", { status: 405 });
+  const mode = url.searchParams.get("hub.mode") ?? url.searchParams.get("hub_mode");
+  const token = url.searchParams.get("hub.verify_token") ?? url.searchParams.get("hub_verify_token");
+  const challenge = url.searchParams.get("hub.challenge") ?? url.searchParams.get("hub_challenge");
+  const expected = channel === "whatsapp" ? secrets.tradepilot_channel_whatsapp_verify_token :
+    secrets.tradepilot_channel_messenger_verify_token;
+  if (mode !== "subscribe" || !expected || !token || !equalConstantTime(token, expected) || !challenge) {
+    return new Response("Forbidden", { status: 403 });
+  }
+  return new Response(challenge, { status: 200, headers: { "Content-Type": "text/plain; charset=utf-8" } });
+}
+
+async function verifySignature(channel: Channel, request: Request, raw: Uint8Array, secrets: Record<string, string>): Promise<boolean> {
+  if (channel === "whatsapp" || channel === "messenger") {
+    const secret = channel === "whatsapp" ? secrets.tradepilot_channel_whatsapp_app_secret :
+      secrets.tradepilot_channel_messenger_app_secret;
+    const received = request.headers.get("X-Hub-Signature-256") ?? "";
+    if (!secret || !/^sha256=[a-f0-9]{64}$/i.test(received)) return false;
+    return equalConstantTime("sha256=" + toHex(await hmac(secret, raw)), received.toLowerCase());
+  }
+  if (channel === "line") {
+    const secret = secrets.tradepilot_channel_line_secret;
+    const received = request.headers.get("X-Line-Signature") ?? "";
+    if (!secret || !received) return false;
+    return equalConstantTime(toBase64(await hmac(secret, raw)), received);
+  }
+  const secret = secrets.tradepilot_channel_telegram_webhook_secret;
+  const received = request.headers.get("X-Telegram-Bot-Api-Secret-Token") ?? "";
+  return Boolean(secret && received && equalConstantTime(secret, received));
+}
+
+async function claimEvent(env: WebhookEnv, connection: Connection, event: NormalizedEvent): Promise<boolean> {
+  const inserted = await db<Row[]>(env,
+    "inbox_webhook_events?on_conflict=channel_connection_id,external_event_id",
+    {
+      method: "POST",
+      headers: { Prefer: "resolution=ignore-duplicates,return=representation" },
+      body: JSON.stringify({
+        owner_id: connection.owner_id, channel_connection_id: connection.id,
+        channel_type: connection.channel_type, external_event_id: event.eventId,
+        event_type: event.eventType, status: "processing",
+        payload: event,
+      }),
+    });
+  if (inserted.length) return true;
+  const existing = await db<Row[]>(env,
+    "inbox_webhook_events?select=id,status&id=eq." + encodeURIComponent(String(connection.id)) +
+    "&channel_connection_id=eq." + connection.id + "&external_event_id=eq." + encodeURIComponent(event.eventId) + "&limit=1");
+  const row = existing[0];
+  if (!row || row.status !== "failed") return false;
+  const reclaimed = await db<Row[]>(env,
+    "inbox_webhook_events?id=eq." + String(row.id) + "&status=eq.failed",
+    {
+      method: "PATCH", headers: { Prefer: "return=representation" },
+      body: JSON.stringify({ status: "processing", payload: event, error_code: null }),
+    });
+  return reclaimed.length > 0;
+}
+
+async function patchEvent(env: WebhookEnv, connection: Connection, eventId: string, patch: Row): Promise<void> {
+  await db<Row[]>(env,
+    "inbox_webhook_events?channel_connection_id=eq." + connection.id +
+    "&external_event_id=eq." + encodeURIComponent(eventId),
+    { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify(patch) });
+}
+
+async function processEvent(env: WebhookEnv, connection: Connection, event: NormalizedEvent): Promise<void> {
+  if (!event.eventId || !event.externalUserId) return;
+  const claimed = await claimEvent(env, connection, event);
+  if (!claimed) return;
+
+  try {
+    const identities = await db<Row[]>(env,
+      "inbox_customer_identities?select=id,contact_id,external_user_id&owner_id=eq." + connection.owner_id +
+      "&channel_type=eq." + connection.channel_type + "&external_user_id=eq." +
+      encodeURIComponent(event.externalUserId) + "&limit=1");
+    const identity = identities[0];
+    if (!identity) {
+      await patchEvent(env, connection, event.eventId, {
+        status: "unmatched", payload: event, error_code: "CUSTOMER_IDENTITY_NOT_LINKED",
+      });
+      return;
+    }
+
+    const contacts = await db<Row[]>(env,
+      "crm_contacts?select=id,account_id&id=eq." + String(identity.contact_id) +
+      "&owner_id=eq." + connection.owner_id + "&limit=1");
+    const contact = contacts[0];
+    if (!contact) throw new Error("CRM_CONTACT_NOT_FOUND");
+
+    const existingMessages = await db<Row[]>(env,
+      "inbox_messages?select=id,conversation_id&id=not.is.null&channel_connection_id=eq." +
+      connection.id + "&external_message_id=eq." + encodeURIComponent(event.messageId) + "&limit=1");
+    if (existingMessages.length) {
+      await patchEvent(env, connection, event.eventId, { status: "processed", payload: {}, processed_at: new Date().toISOString(), error_code: null });
+      return;
+    }
+
+    let conversations = await db<Row[]>(env,
+      "inbox_conversations?select=id&owner_id=eq." + connection.owner_id +
+      "&contact_id=eq." + String(identity.contact_id) + "&status=in.(open,pending)&order=updated_at.desc&limit=1");
+    let conversation = conversations[0];
+    if (!conversation) {
+      try {
+        const created = await db<Row[]>(env, "inbox_conversations?select=id", {
+          method: "POST", headers: { Prefer: "return=representation" },
+          body: JSON.stringify({
+            owner_id: connection.owner_id, contact_id: identity.contact_id,
+            account_id: contact.account_id ?? null, status: "open", unread_count: 0,
+            last_channel_type: connection.channel_type,
+          }),
+        });
+        conversation = created[0];
+      } catch {
+        conversations = await db<Row[]>(env,
+          "inbox_conversations?select=id&owner_id=eq." + connection.owner_id +
+          "&contact_id=eq." + String(identity.contact_id) + "&status=in.(open,pending)&limit=1");
+        conversation = conversations[0];
+      }
+    }
+    if (!conversation?.id) throw new Error("INBOX_CONVERSATION_CREATE_FAILED");
+
+    await db<Row[]>(env, "inbox_messages?select=id", {
+      method: "POST", headers: { Prefer: "return=representation" },
+      body: JSON.stringify({
+        owner_id: connection.owner_id, conversation_id: conversation.id,
+        customer_identity_id: identity.id, channel_connection_id: connection.id,
+        channel_type: connection.channel_type, direction: "inbound",
+        content_type: event.contentType, content: event.content,
+        external_message_id: event.messageId, status: "received",
+        created_at: event.occurredAt, metadata: event.metadata,
+      }),
+    });
+    await db<Row[]>(env, "inbox_conversations?id=eq." + String(conversation.id) +
+      "&owner_id=eq." + connection.owner_id, {
+      method: "PATCH", headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({
+        last_message_at: event.occurredAt, last_channel_type: connection.channel_type,
+        last_message_preview: event.content.slice(0, 500), unread_count: Number(0) + 1,
+      }),
+    });
+    await db<Row[]>(env, "inbox_customer_identities?id=eq." + String(identity.id) +
+      "&owner_id=eq." + connection.owner_id, {
+      method: "PATCH", headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({
+        external_display_name: event.displayName ?? undefined,
+        external_username: event.username ?? undefined,
+        last_seen_at: event.occurredAt,
+      }),
+    });
+    await patchEvent(env, connection, event.eventId, {
+      status: "processed", payload: {}, processed_at: new Date().toISOString(), error_code: null,
+    });
+  } catch (error) {
+    const code = error instanceof Error && /^[A-Z0-9_]+$/.test(error.message) ? error.message : "INBOX_WEBHOOK_PROCESS_FAILED";
+    await patchEvent(env, connection, event.eventId, { status: "failed", error_code: code });
+    throw error;
+  }
+}
+
+export async function handleInboxWebhook(request: Request, env: WebhookEnv): Promise<Response> {
+  const url = new URL(request.url);
+  const match = url.pathname.match(/^\/api\/v1\/inbox\/webhooks\/(whatsapp|line|messenger|telegram)\/([0-9a-f-]{36})$/i);
+  if (!match) return new Response("Not Found", { status: 404 });
+  const channel = match[1].toLowerCase() as Channel;
+  const connectionId = match[2];
+  try {
+    const connection = await getConnection(env, connectionId, channel);
+    if (!connection || !["pending", "connected"].includes(connection.connection_status)) {
+      return new Response("Webhook connection not found", { status: 404 });
+    }
+    const secrets = await readIntegrationSecrets(secretNames, env);
+    if (request.method === "GET") return await handleVerification(request, channel, secrets);
+    if (request.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
+    const raw = await readLimitedBody(request);
+    if (!raw) return new Response("Payload Too Large", { status: 413 });
+    if (!await verifySignature(channel, request, raw, secrets)) return new Response("Unauthorized", { status: 401 });
+    let payload: Row;
+    try {
+      payload = JSON.parse(new TextDecoder().decode(raw)) as Row;
+    } catch {
+      return new Response("Invalid JSON", { status: 400 });
+    }
+    let events: NormalizedEvent[] = [];
+    if (channel === "whatsapp") events = parseWhatsApp(payload, connection);
+    if (channel === "messenger") events = parseMessenger(payload, connection);
+    if (channel === "line") events = parseLine(payload, connection);
+    if (channel === "telegram") events = parseTelegram(payload);
+    for (const event of events) await processEvent(env, connection, event);
+    return new Response(JSON.stringify({ received: true, processed: events.length }), {
+      status: 200, headers: { "Content-Type": "application/json; charset=utf-8" },
+    });
+  } catch {
+    return new Response("Webhook processing failed", { status: 500 });
+  }
+}
