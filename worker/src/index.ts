@@ -18,6 +18,7 @@ import { handleProspectConsole } from "./routes/prospect-console";
 import { handleContactValidation } from "./routes/contact-validation";
 import { handleInbox } from "./routes/inbox";
 import { handleInboxWebhook } from "./routes/inbox-webhooks";
+import { handleInboxAttachment } from "./routes/inbox-attachments";
 import { AgentOrchestrationWorkflow } from "./workflows/agent-orchestration";
 
 export interface WorkerEnv {
@@ -64,6 +65,7 @@ export default {
    if (url.pathname === "/api/v1/prospect-console" && request.method === "GET") return await handleProspectConsole(request, env);
    if (url.pathname === "/api/v1/contact-validation") return await handleContactValidation(request, env);
    if (url.pathname.startsWith("/api/v1/inbox/webhooks/")) return await handleInboxWebhook(request, env);
+   if (url.pathname.startsWith("/api/v1/inbox/attachments/")) return await handleInboxAttachment(request, env);
    if (url.pathname.startsWith("/api/v1/inbox/")) return await handleInbox(request, env);
    if (url.pathname === "/api/v1/settings/search-exclusions") return await handleSearchExclusions(request, env);
    if (url.pathname.startsWith("/api/v1/settings/")) return await handleSettings(request, env);
