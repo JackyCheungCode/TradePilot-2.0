@@ -103,11 +103,11 @@ export function OmnichannelInboxPage() {
     <aside className="oi-conversation-panel">
       <div className="oi-list-header"><div><h1>混合聊天</h1><p>全渠道客户沟通</p></div><span className="oi-total">{conversations.length} 个会话</span></div>
       <div className="oi-search"><Search size="lg" labelText="搜索会话" placeholder="搜索公司、联系人或标签" value={query} onChange={(event: React.ChangeEvent<HTMLInputElement>) => setQuery(event.currentTarget.value)} /></div>
-      <div className="oi-filter-row" role="tablist" aria-label="会话状态筛选">{tabs.map((tab) => <button type="button" role="tab" aria-selected={filter === tab.id} className={filter === tab.id ? 'is-active' : ''} key={tab.id} onClick={() => setFilter(tab.id)}>{tab.label}{tab.id === 'unread' && <span>{conversations.filter((item) => item.unread_count > 0).length}</span>}</button>)}</div>
+      <div className="oi-filter-row" role="tablist" aria-label="会话状态筛选">{tabs.map((tab) => <Button type="button" kind="ghost" size="sm" role="tab" aria-selected={filter === tab.id} className={filter === tab.id ? 'is-active' : ''} key={tab.id} onClick={() => setFilter(tab.id)}>{tab.label}{tab.id === 'unread' && <span>{conversations.filter((item) => item.unread_count > 0).length}</span>}</Button>)}</div>
       <div className="oi-conversation-scroll">{filteredConversations.map((conversation) => {
         const person = customers.find((item) => item.id === conversation.customer_id)!;
         const last = messages.filter((item) => item.conversation_id === conversation.id).sort((a, b) => b.created_at - a.created_at)[0];
-        return <button type="button" className={'oi-conversation' + (activeId === conversation.id ? ' is-selected' : '')} key={conversation.id} onClick={() => chooseConversation(conversation)}>
+        return <Button type="button" kind="ghost" size="lg" className={'oi-conversation' + (activeId === conversation.id ? ' is-selected' : '')} key={conversation.id} onClick={() => chooseConversation(conversation)}>
           <Avatar customer={person} />
           <span className="oi-conversation-copy"><strong>{person.company_name || person.contact_name}</strong><span>{person.contact_name} · {person.role}</span><small>{last?.content_type === 'file' ? '文件：' + last.file_meta?.filename : last?.content_type === 'email_card' ? '邮件：' + last.email_subject : last?.content}</small></span>
           <span className="oi-conversation-meta"><time>{fmtTime(conversation.last_message_at)}</time><ChannelMark channel={conversation.last_channel_type} />{conversation.unread_count > 0 && <b>{conversation.unread_count}</b>}</span>
@@ -118,7 +118,7 @@ export function OmnichannelInboxPage() {
     <section className="oi-chat-panel">
       <header className="oi-chat-header">
         <div className="oi-chat-heading">
-          <button className="oi-mobile-back" type="button" aria-label="返回会话列表" onClick={() => setMobileChat(false)}><CarbonIcons.ArrowLeft /></button>
+          <Button className="oi-mobile-back" kind="ghost" size="sm" hasIconOnly renderIcon={CarbonIcons.ArrowLeft} iconDescription="返回会话列表" onClick={() => setMobileChat(false)} />
           <Avatar customer={customer} small />
           <div><strong>{customer.company_name || customer.contact_name}</strong><span>{customer.contact_name} · {customer.role}</span></div>
         </div>
@@ -130,13 +130,13 @@ export function OmnichannelInboxPage() {
       </header>
       <div className="oi-timeline" aria-label="统一消息时间线">{timeline.map((message) => <article key={message.id} className={'oi-message oi-message--' + message.direction}>
         <div className="oi-message-meta"><ChannelMark channel={message.channel_type} /><time>{fmtTime(message.created_at)}</time></div>
-        {message.content_type === 'email_card' ? <div className="oi-email-card"><div className="oi-email-title"><CarbonIcons.Email size={18} /><strong>{message.email_subject}</strong><button type="button" onClick={() => setExpandedEmail((current) => current.includes(message.id) ? current.filter((id) => id !== message.id) : [...current, message.id])}>{expandedEmail.includes(message.id) ? '收起' : '展开'} <CarbonIcons.ChevronDown size={14} /></button></div><div className="oi-email-from">发件人：{customer.email}</div>{expandedEmail.includes(message.id) && <p>{message.content}</p>}</div>
-          : message.content_type === 'file' ? <div className="oi-file-card"><CarbonIcons.DocumentPdf size={28} /><div><strong>{message.file_meta?.filename}</strong><span>{fmtSize(message.file_meta?.size ?? 0)} · PDF 文档</span></div><button type="button" aria-label="下载文件"><CarbonIcons.Attachment size={18} /></button></div>
+        {message.content_type === 'email_card' ? <div className="oi-email-card"><div className="oi-email-title"><CarbonIcons.Email size={18} /><strong>{message.email_subject}</strong><Button type="button" kind="ghost" size="sm" onClick={() => setExpandedEmail((current) => current.includes(message.id) ? current.filter((id) => id !== message.id) : [...current, message.id])}>{expandedEmail.includes(message.id) ? '收起' : '展开'} <CarbonIcons.ChevronDown size={14} /></Button></div><div className="oi-email-from">发件人：{customer.email}</div>{expandedEmail.includes(message.id) && <p>{message.content}</p>}</div>
+          : message.content_type === 'file' ? <div className="oi-file-card"><CarbonIcons.DocumentPdf size={28} /><div><strong>{message.file_meta?.filename}</strong><span>{fmtSize(message.file_meta?.size ?? 0)} · PDF 文档</span></div><Button type="button" kind="ghost" size="sm" hasIconOnly renderIcon={CarbonIcons.Attachment} iconDescription="下载文件" /></div>
           : <div className="oi-bubble">{message.content}</div>}
         {message.direction === 'outbound' && <div className="oi-message-foot"><StatusText status={message.status} />{message.status === 'failed' && <Button kind="ghost" size="sm" onClick={() => retryMessage(message)}>点击重试</Button>}</div>}
       </article>)}</div>
       <div className="oi-composer">
-        <div className="oi-channel-picker"><span>发送渠道</span>{customerIdentities.map((identity) => <button type="button" key={identity.id} className={channel === identity.channel_type ? 'is-active' : ''} onClick={() => setChannel(identity.channel_type)}><ChannelMark channel={identity.channel_type} /></button>)}</div>
+        <div className="oi-channel-picker"><span>发送渠道</span>{customerIdentities.map((identity) => <Button type="button" kind="ghost" size="sm" key={identity.id} className={channel === identity.channel_type ? 'is-active' : ''} onClick={() => setChannel(identity.channel_type)}><ChannelMark channel={identity.channel_type} /></Button>)}</div>
         {whatsappClosed && <><InlineNotification kind="warning" lowContrast hideCloseButton title="WhatsApp 24 小时自由回复窗口已关闭" subtitle="请使用官方审核模板触达客户。" /><Button size="sm" kind="tertiary" onClick={() => setTemplateOpen(true)}>选择模板消息</Button></>}
         {channel === 'email' && <div className="oi-subject"><TextInput id="oi-subject" labelText="邮件主题（Subject）" placeholder="输入邮件主题" value={subject} onChange={(event: React.ChangeEvent<HTMLInputElement>) => setSubject(event.currentTarget.value)} /></div>}
         <div className="oi-compose-row"><TextArea id="oi-message" labelText="消息内容" hideLabel placeholder={whatsappClosed ? '自由文本已禁用，请选择模板消息' : '输入消息…（Enter 发送，Shift + Enter 换行）'} rows={2} value={draft} disabled={whatsappClosed} onChange={(event: React.ChangeEvent<HTMLTextAreaElement>) => setDraft(event.currentTarget.value)} onKeyDown={(event: React.KeyboardEvent<HTMLTextAreaElement>) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(); } }} /><Button hasIconOnly renderIcon={CarbonIcons.Send} iconDescription="发送消息" disabled={!draft.trim() || whatsappClosed} onClick={sendMessage} /></div>
