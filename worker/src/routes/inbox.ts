@@ -133,7 +133,7 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
       }
       const [shipments, payments] = await Promise.all([
         db<Row[]>(env, "trade_shipments?select=id,status&owner_id=eq." + ownerId +
-          "&account_id=eq." + accountId + "&status=in.(pending_booking,booked,loaded,customs_cleared,departed,in_transit,arrived,import_cleared)&limit=1000"),
+          "&account_id=eq." + accountId + "&status=not.eq.cancelled&limit=1000"),
         db<Row[]>(env, "trade_payments?select=id&owner_id=eq." + ownerId +
           "&account_id=eq." + accountId + "&payment_type=eq.receipt&status=not.eq.voided&limit=1000"),
       ]);
