@@ -8,6 +8,7 @@ import {
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/opportunities.scss';
+import '@/design-system/patterns/responsive-actions.scss';
 
 type AccountOption = { id: string; account_name: string };
 type ContactOption = { id: string; account_id: string; full_name: string | null; first_name: string; last_name: string | null };
@@ -202,7 +203,7 @@ export function OpportunityDetailPage() {
  if(error||!row)return <main className="tp-opportunities"><InlineNotification kind="error" title="无法打开商机" subtitle={error||'商机不存在'}/><Button kind="tertiary" onClick={()=>nav('/opportunities')}>返回列表</Button></main>;
  return <main className="tp-opportunities">
    <header className="tp-opportunities__header"><div><p className="tp-opportunities__eyebrow">TRADEPILOT / CRM / OPPORTUNITY</p><h1>{row.name}</h1><p>{row.opportunity_number} · {account} · {stageLabel(row.stage)}</p></div>
-     <div className="tp-opportunities__actions"><Button className="tp-opportunities__primary-action" kind="primary" onClick={()=>nav('/opportunities/'+row.id+'/edit')}><CarbonIcons.Edit size={16}/>编辑商机</Button><div className="tp-opportunities__secondary-actions"><Button kind="tertiary" onClick={()=>nav('/opportunities')}>返回列表</Button><Button kind="tertiary" onClick={()=>nav('/quotes/new?opportunity='+row.id)}><CarbonIcons.Document size={16}/>创建报价单</Button><Button kind="secondary" disabled={terminal} onClick={openLifecycle}>管理生命周期</Button></div></div>
+     <div className="tp-opportunities__actions tp-responsive-header-actions"><Button className="tp-opportunities__primary-action tp-responsive-header-actions__primary" kind="primary" onClick={()=>nav('/opportunities/'+row.id+'/edit')}><CarbonIcons.Edit size={16}/>编辑商机</Button><div className="tp-opportunities__secondary-actions tp-responsive-header-actions__secondary"><Button kind="tertiary" onClick={()=>nav('/opportunities')}>返回列表</Button><Button kind="tertiary" onClick={()=>nav('/quotes/new?opportunity='+row.id)}><CarbonIcons.Document size={16}/>创建报价单</Button><Button kind="secondary" disabled={terminal} onClick={openLifecycle}>管理生命周期</Button></div></div>
    </header>
    <BusinessLifecycle title="商机生命周期" steps={lifecycleStages.map(([value,label])=>({value,label}))} current={row.stage} terminal={terminal} terminalKind={row.stage==='won'?'success':'warning'} terminalTitle={row.stage==='won'?'商机已赢单':'商机已输单'} description={terminal?'商机已进入终止阶段':`当前阶段：${stageLabel(row.stage)}`}>
      <div className="tp-opportunities__lifecycle-foot"><span>阶段变更需要人工确认；报价、订单等下游记录的生成不会仅凭阶段按钮自动发生。</span>{!terminal&&<Button kind="tertiary" size="sm" onClick={openLifecycle}>确认下一阶段</Button>}</div>
