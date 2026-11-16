@@ -33,7 +33,7 @@ async function readLimitedBody(request) {
 }
 
 function verifyRequest(headers, body, secret, nowSeconds = Math.floor(Date.now() / 1000)) {
-  if (!secret) return false;
+  if (!secret || secret.length < 32) return false;
   const timestamp = String(headers["x-scan-timestamp"] || "");
   const claimedHash = String(headers["x-scan-sha256"] || "").toLowerCase();
   const signature = String(headers["x-scan-signature"] || "").toLowerCase();
@@ -107,7 +107,7 @@ const server = createServer(async (request, response) => {
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   server.listen(PORT, "0.0.0.0", () => {
-    process.stdout.write("inbox-scanner listening on " + PORT + "\\n");
+    process.stdout.write("inbox-scanner listening on " + PORT + "\n");
   });
 }
 
