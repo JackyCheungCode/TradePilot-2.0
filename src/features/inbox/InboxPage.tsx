@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Button, Search, Tag, Tile, TextArea, CarbonIcons, InlineLoading,
-  Grid, Column, Stack, ClickableTile,
+  Grid, Column, Stack, ClickableTile, LineChart, ScaleTypes,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import { getInboxConversations, getInboxMessages, getInboxBusinessMetrics, createInboxNote, type InboxConversation, type InboxTimelineItem, type InboxBusinessMetrics } from './api';
@@ -369,6 +369,21 @@ export function InboxPage() {
                   <Tag type="cool-gray">发运单 {businessMetrics?.shipment_count ?? 0}</Tag>
                   <Tag type="cool-gray">收款单 {businessMetrics?.payment_count ?? 0}</Tag>
                 </Stack>
+                {businessMetrics?.monthly_trend.length
+                  ? <LineChart
+                      data={businessMetrics.monthly_trend.map(item => ({ group: '订单数', period: item.period, value: item.order_count }))}
+                      options={{
+                        title: '订单趋势',
+                        axes: {
+                          bottom: { title: '月份', mapsTo: 'period', scaleType: ScaleTypes.LABELS },
+                          left: { title: '订单数', mapsTo: 'value', scaleType: ScaleTypes.LINEAR },
+                        },
+                        height: '220px',
+                        legend: { enabled: false },
+                        points: { enabled: true },
+                      }}
+                    />
+                  : <p>暂无可用的订单趋势数据。</p>}
                 <p>统计基于现有 ERP 客户、销售订单、发运和收款记录；不同币种分别汇总。</p>
               </Stack>
             </Tile>
