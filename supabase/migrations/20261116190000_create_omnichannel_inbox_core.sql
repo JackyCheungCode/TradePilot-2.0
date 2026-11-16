@@ -250,7 +250,26 @@ begin
     execute format('grant all on public.%I to service_role', table_name);
   end loop;
 end;
-$$;
+$;
+
+-- Messages and delivery events are written only by the authenticated Worker using service_role.
+drop policy if exists inbox_messages_owner_insert on public.inbox_messages;
+drop policy if exists inbox_messages_owner_update on public.inbox_messages;
+drop policy if exists inbox_messages_owner_delete on public.inbox_messages;
+drop policy if exists inbox_message_events_owner_insert on public.inbox_message_events;
+drop policy if exists inbox_message_events_owner_update on public.inbox_message_events;
+drop policy if exists inbox_message_events_owner_delete on public.inbox_message_events;
+
+-- Internal notes are authored by the signed-in operator and cannot be edited after posting.
+drop policy if exists inbox_internal_notes_owner_insert on public.inbox_internal_notes;
+create policy inbox_internal_notes_author_insert on public.inbox_internal_notes
+  for insert to authenticated
+  with check (owner_id = (select auth.uid()) and author_id = (select auth.uid()));
+drop policy if exists inbox_internal_notes_owner_update on public.inbox_internal_notes;
+drop policy if exists inbox_internal_notes_owner_delete on public.inbox_internal_notes;
+create policy inbox_internal_notes_author_delete on public.inbox_internal_notes
+  for delete to authenticated
+  using (owner_id = (select auth.uid()) and author_id = (select auth.uid()));
 
 revoke all on function public.inbox_assert_contact_owner() from public, anon, authenticated;
 grant execute on function public.inbox_assert_contact_owner() to service_role;
