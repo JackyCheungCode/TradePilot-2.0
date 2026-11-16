@@ -1,3 +1,5 @@
+drop function if exists public.confirm_quote_status_transition(uuid,text,text);
+
 create or replace function public.confirm_quote_status_transition(
   p_quote_id uuid,
   p_expected_status text,
