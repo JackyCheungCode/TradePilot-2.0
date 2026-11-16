@@ -276,7 +276,11 @@ export async function handleSettings(request: Request, env: SettingsEnv): Promis
     const names=Object.values(apiSecretNames);
     const secrets=await readVaultSecrets(names,env);
     const secret=(key:string)=>secrets[apiSecretNames[key]]||envSecret(env,legacyApiEnv[key]||"");
-    if(service==="abstractEmailValidation"){const key=secret("abstractEmailValidation");return successResponse(request,{ok:Boolean(key),message:key?"Abstract 邮箱验证凭证已保存；实际验证将在联系人验证时执行，不会为连接测试额外消耗额度。":"尚未配置 Abstract Email Validation API Key"});}\n    if(service==="abstractPhoneValidation"){const key=secret("abstractPhoneValidation");return successResponse(request,{ok:Boolean(key),message:key?"Abstract 电话验证凭证已保存；实际验证将在联系人验证时执行，不会为连接测试额外消耗额度。":"尚未配置 Abstract Phone Validation API Key"});}\n    if(service==="whatsappCheck"){const key=secret("whatsappCheckKey");return successResponse(request,{ok:Boolean(key),message:key?"WA Lookup API Key 已保存；WhatsApp 注册状态将在联系人验证时查询。":"尚未配置 WA Lookup API Key"});}\n    if(service==="jinaReader"){const key=secret("jinaReader");return successResponse(request,{ok:Boolean(key),message:key?"Jina Reader API Key 已保存；实际抓取将在网站情报工具运行时验证。":"尚未配置 Jina Reader API Key"});}\n    if(service==="apollo"){
+    if(service==="abstractEmailValidation"){const key=secret("abstractEmailValidation");return successResponse(request,{ok:Boolean(key),message:key?"Abstract 邮箱验证凭证已保存；实际验证将在联系人验证时执行，不会为连接测试额外消耗额度。":"尚未配置 Abstract Email Validation API Key"});}
+    if(service==="abstractPhoneValidation"){const key=secret("abstractPhoneValidation");return successResponse(request,{ok:Boolean(key),message:key?"Abstract 电话验证凭证已保存；实际验证将在联系人验证时执行，不会为连接测试额外消耗额度。":"尚未配置 Abstract Phone Validation API Key"});}
+    if(service==="whatsappCheck"){const key=secret("whatsappCheckKey");return successResponse(request,{ok:Boolean(key),message:key?"WA Lookup API Key 已保存；WhatsApp 注册状态将在联系人验证时查询。":"尚未配置 WA Lookup API Key"});}
+    if(service==="jinaReader"){const key=secret("jinaReader");return successResponse(request,{ok:Boolean(key),message:key?"Jina Reader API Key 已保存；实际抓取将在网站情报工具运行时验证。":"尚未配置 Jina Reader API Key"});}
+    if(service==="apollo"){
       const key=secret("apollo");if(!key)return successResponse(request,{ok:false,message:"尚未配置 Apollo API Key"});
       const r=await fetch("https://api.apollo.io/api/v1/auth/health",{headers:{"x-api-key":key,Accept:"application/json"}});
       return successResponse(request,{ok:r.ok,message:r.ok?"Apollo API 认证成功":"Apollo API 返回 HTTP "+r.status+"；请检查 API Key 与账户权限"});
