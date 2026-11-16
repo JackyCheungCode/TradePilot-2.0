@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Button, Checkbox, InlineLoading, InlineNotification, Modal, Select, SelectItem, Tag, CarbonIcons,
@@ -172,6 +172,7 @@ export function ProspectConsolePage() {
   const [refreshing,setRefreshing] = useState(false);
   const [selected,setSelected] = useState<ProspectRow|null>(null);
   const [validationStates,setValidationStates] = useState<Record<string,ValidationItem>>({});
+  const validationRequested = useRef(new Set<string>());
   const [actionBusyId,setActionBusyId] = useState('');
   const [contactBusyId,setContactBusyId] = useState('');
   const [contactJobMessage,setContactJobMessage] = useState('');
@@ -241,20 +242,20 @@ export function ProspectConsolePage() {
   const currentPage=Math.min(page,totalPages);
   const paginatedRows=useMemo(()=>filtered.slice((currentPage-1)*pageSize,currentPage*pageSize),[filtered,currentPage,pageSize]);
   useEffect(()=>{
-    let cancelled=false;
     const targets=new Map<string,{kind:'email'|'phone'|'whatsapp';value:string;country:string}>();
     for(const row of paginatedRows){
       if(row.email){const value=row.email.trim().toLowerCase();targets.set('email:'+value,{kind:'email',value,country:row.country});}
       if(row.phone){const value=row.phone.trim();targets.set('phone:'+value,{kind:'phone',value,country:row.country});targets.set('whatsapp:'+value,{kind:'whatsapp',value,country:row.country});}
     }
-    const queue=[...targets.entries()].filter(([key])=>!validationStates[key]);
+    const queue=[...targets.entries()].filter(([key])=>!validationRequested.current.has(key));
+    queue.forEach(([key])=>validationRequested.current.add(key));
     const run=async()=>{
       const client=await getSupabaseClient();const {data}=await client.auth.getSession();const token=data.session?.access_token;if(!token)return;
-      let cursor=0;const worker=async()=>{while(cursor<queue.length&&!cancelled){const [key,target]=queue[cursor++];setValidationStates(previous=>({...previous,[key]:{status:'pending'}}));try{const response=await fetch('/api/v1/contact-validation',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify(target)});const payload=await response.json() as {data?:{status?:ValidationStatus;verifiedAt?:string|null};error?:{message?:string}};if(!response.ok||!payload.data)throw new Error(payload.error?.message||'验证失败');if(!cancelled)setValidationStates(previous=>({...previous,[key]:{status:payload.data?.status??'unknown',verifiedAt:payload.data?.verifiedAt}}));}catch{if(!cancelled)setValidationStates(previous=>({...previous,[key]:{status:'unknown'}}));}}};
+      let cursor=0;const worker=async()=>{while(cursor<queue.length){const [key,target]=queue[cursor++];setValidationStates(previous=>({...previous,[key]:{status:'pending'}}));try{const response=await fetch('/api/v1/contact-validation',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify(target)});const payload=await response.json() as {data?:{status?:ValidationStatus;verifiedAt?:string|null};error?:{message?:string}};if(!response.ok||!payload.data)throw new Error(payload.error?.message||'验证失败');setValidationStates(previous=>({...previous,[key]:{status:payload.data?.status??'unknown',verifiedAt:payload.data?.verifiedAt}}));}catch{if(!cancelled)setValidationStates(previous=>({...previous,[key]:{status:'unknown'}}));}}};
       await Promise.all(Array.from({length:Math.min(3,queue.length)},()=>worker()));
     };
-    void run();return()=>{cancelled=true;};
-  },[paginatedRows,validationStates]);
+    void run();
+  },[paginatedRows]);
   const allVisibleSelected=paginatedRows.length>0&&paginatedRows.every(row=>selectedIds.includes(row.id));
   useEffect(()=>{setPage(1);},[platformKey,status,country,sort,search,period,customFrom,customTo]);
   useEffect(()=>{if(page>totalPages)setPage(totalPages);},[page,totalPages]);
