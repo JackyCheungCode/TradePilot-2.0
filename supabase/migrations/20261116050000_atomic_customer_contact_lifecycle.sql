@@ -168,3 +168,32 @@ drop trigger if exists trg_contact_created_lifecycle_event on public.crm_contact
 create trigger trg_contact_created_lifecycle_event
 after insert on public.crm_contacts
 for each row execute function public.capture_contact_created_event();
+
+create or replace function public.capture_contact_preference_change_event()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.do_not_contact is not distinct from old.do_not_contact then return new; end if;
+  insert into public.business_transition_events(
+    owner_id,record_type,record_id,event_type,from_status,to_status,
+    gatekeeper_required,gatekeeper_status,actor_id,note,payload
+  ) values (
+    new.owner_id,'contact',new.id,'contact_contact_preference_changed',
+    case when old.do_not_contact then 'do_not_contact' else 'contact_allowed' end,
+    case when new.do_not_contact then 'do_not_contact' else 'contact_allowed' end,
+    false,'not_required',coalesce(auth.uid(),new.owner_id),
+    case when new.do_not_contact then '已设置拒绝联系' else '已恢复允许联系' end,
+    jsonb_build_object('dimension','contact_permission','atomic',true)
+  );
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_contact_preference_lifecycle_event on public.crm_contacts;
+create trigger trg_contact_preference_lifecycle_event
+after update of do_not_contact on public.crm_contacts
+for each row when (old.do_not_contact is distinct from new.do_not_contact)
+execute function public.capture_contact_preference_change_event();
