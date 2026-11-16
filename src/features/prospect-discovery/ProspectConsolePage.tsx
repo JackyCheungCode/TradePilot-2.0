@@ -369,7 +369,7 @@ export function ProspectConsolePage() {
       </section>}
     </>}
     <Modal open={Boolean(pendingContactJob)} modalHeading="确认联系人补全数据源" primaryButtonText="确认并开始" secondaryButtonText="取消" onRequestClose={()=>setPendingContactJob(null)} onRequestSubmit={confirmContactEnrichment}>
-      <p>先检查企业官网公开信息，再按所选服务查询联系人。每家企业最多补全 5 位联系人；批量任务最多 50 家企业。API 凭证需先在「AI 与 API 集成」的 API 集成中配置。</p>
+      <p>先检查企业官网公开信息，再按所选服务查询联系人。每家企业最多补全 5 位联系人；批量任务最多 50 家企业。API 凭证需先在「AI 与 API 集成」的 API 集成中配置。</p>{pendingContactJob&&<p>本次涉及 {pendingContactJob.recordIds.length} 家企业，按每家最多 5 位联系人估算：Apollo 上限约 {contactProviderSelection.includes("apollo")?45*pendingContactJob.recordIds.length:0} credits；ZoomInfo 上限约 {contactProviderSelection.includes("zoominfo")?5*pendingContactJob.recordIds.length:0} credits。实际消耗取决于匹配数量、套餐及已管理记录。</p>}
       <div className="tp-console__contact-provider-options">
         <Checkbox id="contact-provider-website" labelText="官网公开联系方式（不消耗 Apollo / ZoomInfo 联系人额度）" checked={contactProviderSelection.includes("website")} onChange={(_,data)=>setContactProviderSelection(previous=>data.checked?[...new Set([...previous,"website"])]:previous.filter(value=>value!=="website"))}/>
         <Checkbox id="contact-provider-apollo" labelText="Apollo.io（优先联系人发现；补全匹配联系人可能消耗 1–9 credits / 人）" checked={contactProviderSelection.includes("apollo")} onChange={(_,data)=>setContactProviderSelection(previous=>data.checked?[...new Set([...previous,"apollo"])]:previous.filter(value=>value!=="apollo"))}/>
