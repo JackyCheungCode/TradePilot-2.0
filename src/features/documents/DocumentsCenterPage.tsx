@@ -86,7 +86,7 @@ export function DocumentsCenterPage() {
     try {
       const client = await getSupabaseClient();
       const [orderResult, templateResult] = await Promise.all([
-        client.from('trade_orders').select('id,order_number,title,order_type,status,currency_code,locked_at,confirmed_at,crm_account:crm_accounts(account_name)') .in('order_type', ['sales', 'purchase']).order('updated_at', { ascending: false }).limit(100),
+        client.from('trade_orders').select('id,order_number,title,order_type,status,currency_code,locked_at,confirmed_at,crm_account:crm_accounts(account_name)') .in('order_type', ['sales', 'purchase']).or('and(order_type.eq.sales,locked_at.not.is.null),order_type.eq.purchase').order('updated_at', { ascending: false }).limit(200),
         request('templates'),
       ]);
       if (orderResult.error) throw orderResult.error;
