@@ -385,11 +385,11 @@ export function InboxPage() {
 
       {error && <Tile><Tag type="red">操作失败</Tag><p>{error}</p></Tile>}
 
-      <Grid fullWidth>
-        <Column className={selected ? "tp-inbox-conversation-column is-hidden-mobile" : "tp-inbox-conversation-column"} sm={4} md={3} lg={5}>
-          <Stack gap={4}>
+      <Grid fullWidth className="tp-inbox-layout">
+        <Column className={selected ? "tp-inbox-conversation-column is-hidden-mobile" : "tp-inbox-conversation-column"} sm={4} md={4} lg={4}>
+          <Stack gap={3} className="tp-inbox-list-panel">
             <Stack orientation="horizontal">
-              <h2>会话 <span>Conversations</span></h2>
+              <h2>公司与联系人 <span>Companies & Contacts</span></h2>
               <Tag type="cool-gray">{conversations.length}</Tag>
             </Stack>
             <Search size="lg" labelText="搜索会话" placeholder="搜索公司、联系人、电话或邮箱" value={query}
@@ -405,11 +405,12 @@ export function InboxPage() {
               <ClickableTile key={row.id} className={selected?.id === row.id ? 'tp-inbox__selected' : ''} onClick={() => { setSelected(row); setError(''); }}>
                 <Stack gap={2}>
                   <Stack orientation="horizontal">
-                    <strong>{row.display_name}</strong>
+                    <strong>{row.account?.account_name || row.display_name}</strong>
                     <span>{formatTime(row.last_message_at)}</span>
                   </Stack>
-                  <span>{row.contact_display_name}{row.contact?.job_title ? ' · ' + row.contact.job_title : ''}</span>
-                  <span>{row.last_message_preview || '暂无消息内容'}</span>
+                  <span className="tp-inbox-contact-name">{row.contact?.full_name || row.contact_display_name}{row.contact?.job_title ? ' · ' + row.contact.job_title : ''}</span>
+                  <span className="tp-inbox-company-name">{row.account?.legal_name || row.display_name}</span>
+                  <span className="tp-inbox-list-preview">{row.last_message_preview || '暂无消息内容'}</span>
                   <Stack orientation="horizontal" gap={2}>
                     {row.last_channel_type && <Tag type="blue">{channelLabel(row.last_channel_type)}</Tag>}
                     {row.unread_count > 0 && <Tag type="red">{row.unread_count}</Tag>}
@@ -429,8 +430,8 @@ export function InboxPage() {
           </Stack>
         </Column>
 
-        <Column className={selected ? "tp-inbox-message-column" : "tp-inbox-message-column is-hidden-mobile"} sm={4} md={5} lg={7}>
-          <Stack gap={4}>
+        <Column className={selected ? "tp-inbox-message-column" : "tp-inbox-message-column is-hidden-mobile"} sm={4} md={8} lg={8}>
+          <Stack gap={3} className="tp-inbox-chat-panel">
             {selected ? (
               <>
                 <Stack orientation="horizontal" className="tp-inbox-conversation-heading">
@@ -445,13 +446,13 @@ export function InboxPage() {
                   </Stack>
                 </Stack>
                 {messagesLoading && <InlineLoading description="正在加载消息…" />}
-                <Stack gap={3}>
+                <Stack gap={3} className="tp-inbox-message-list">
                   {!messagesLoading && messages.length === 0 && <Tile><p>该客户暂时没有已归档的跨渠道消息。</p></Tile>}
                   {messages.map((item, index) => {
                     const previous = messages[index - 1];
                     const channelChanged = item.timeline_type === 'message' && previous?.timeline_type === 'message' && previous.channel_type !== item.channel_type;
                     return (
-                      <Stack key={item.id} gap={2}>
+                      <Stack key={item.id} gap={2} className={item.timeline_type === 'internal_note' ? 'tp-inbox-message-row is-note' : item.direction === 'outbound' ? 'tp-inbox-message-row is-outbound' : 'tp-inbox-message-row is-inbound'}>
                         {channelChanged && <p>──────── 切换至 {channelLabel(item.channel_type)} · {formatTime(item.created_at)} ────────</p>}
                         <Tile>
                           <Stack gap={2}>
@@ -501,7 +502,7 @@ export function InboxPage() {
                 </Stack>
               </Tile>
             )}
-            <Tile>
+            <Tile className="tp-inbox-composer">
               <Stack gap={3}>
                 <Stack orientation="horizontal" gap={2}>
                   <Button size="sm" kind={composerMode === 'reply' ? 'primary' : 'tertiary'} onClick={() => setComposerMode('reply')}>回复客户</Button>
@@ -527,9 +528,9 @@ export function InboxPage() {
           </Stack>
         </Column>
 
-        <Column className="tp-inbox-assist-column" sm={4} md={8} lg={4}>
+        <Column className="tp-inbox-assist-column" sm={4} md={4} lg={4}>
           <Stack gap={4}>
-            <Tile>
+            <Tile className="tp-inbox-ai-panel">
               <Stack gap={3}>
                 <Stack orientation="horizontal">
                   <h2>AI 助手 <span>AI Assist</span></h2>
@@ -540,7 +541,7 @@ export function InboxPage() {
                 <p>{selected?.ai_summary || '选择会话后生成客户摘要、待确认事项和建议回复。'}</p>
               </Stack>
             </Tile>
-            <Tile>
+            <Tile className="tp-inbox-business-panel">
               <Stack gap={3}>
                 <h2>业务概览 <span>Business Overview</span></h2>
                 <Grid>
