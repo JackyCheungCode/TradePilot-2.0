@@ -14,7 +14,7 @@ import '@/design-system/patterns/responsive-actions.scss';
 interface ProspectRow {
   id: string; name: string; type: string; country: string; address: string;
   phone: string; email: string; website: string; latitude: number | null; longitude: number | null;
-  status: 'converted' | 'pending'; lifecycleStage: 'discovered' | 'reviewed' | 'collected' | 'converted'; leadId: string | null; discoveredAt: string;
+  status: 'converted' | 'pending' | 'discarded' | 'removed'; lifecycleStage: 'discovered' | 'reviewed' | 'collected' | 'converted' | 'discarded' | 'removed'; leadId: string | null; discoveredAt: string;
   platforms: Array<{ key: string; label: string }>;
   recordIds: string[];
   sourceDetails?: Array<{ platform: string; fields: Array<{ label: string; value: string }> }>;
