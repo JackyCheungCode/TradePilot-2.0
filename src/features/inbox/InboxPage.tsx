@@ -359,7 +359,7 @@ export function InboxPage() {
   }, [visibleConversations]);
 
   return (
-    <div className="tp-inbox-page">
+    <div className={`tp-inbox-page ${selected ? "has-selection" : "has-no-selection"}`}>
     <Stack gap={5}>
       <Stack orientation="horizontal" gap={4}>
         <Stack gap={2}>
@@ -404,7 +404,7 @@ export function InboxPage() {
         <Column className={selected ? "tp-inbox-conversation-column is-hidden-mobile" : "tp-inbox-conversation-column"} sm={4} md={4} lg={4}>
           <Stack gap={3} className="tp-inbox-list-panel">
             <Stack orientation="horizontal">
-              <h2>公司与联系人 <span>Companies & Contacts</span></h2>
+              <h2 className="tp-inbox-section-title">公司与联系人</h2>
               <Tag type="cool-gray">{conversations.length}</Tag>
             </Stack>
             <Search size="lg" labelText="搜索会话" placeholder="搜索公司、联系人、电话或邮箱" value={query}
