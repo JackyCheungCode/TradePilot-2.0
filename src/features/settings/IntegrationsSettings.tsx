@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { Button, Dropdown, InlineLoading, InlineNotification, Modal, Tag, TextInput, Tile } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/settings.scss';
-import { MessagingChannelsSettings } from './MessagingChannelsSettings';
 
 type Protocol='openai'|'anthropic'|'gemini'|'workers-ai';
 type Provider={id:string;providerKey:string;name:string;protocol:Protocol;baseUrl:string;model:string;secretName?:string;configured?:boolean;enabled?:boolean};
@@ -97,7 +96,7 @@ export function IntegrationsSettings({section}:{section:string}){
  <div className="tp-integrations-settings__fields">{card.fields.map(f=><TextInput key={f.key} id={'integration-'+f.key} labelText={f.label} type={integrationFieldType(f.key)} autoComplete={integrationFieldType(f.key) === "password" ? "new-password" : "off"} placeholder={statuses[f.key]?'已保存 · 输入新值可更新':'填写 '+f.label} value={values[f.key]||''} onChange={e=>setValues(v=>({...v,[f.key]:e.currentTarget.value}))}/>)}</div>
  {tests[card.id]&&<InlineNotification kind={tests[card.id].ok?'success':'error'} title={tests[card.id].ok?'测试成功':'测试失败'} subtitle={tests[card.id].message}/>}
  <div className="tp-integrations-settings__actions"><Button kind="primary" disabled={Boolean(apiSaving)||!card.fields.some(f=>Boolean(values[f.key]?.trim()))} onClick={()=>void saveAPI(card)}>{apiSaving===card.id?'正在保存…':'保存配置'}</Button><Button kind="secondary" disabled={card.id === 'emailChannel' || Boolean(apiTesting) || !card.fields.every(f=>statuses[f.key])} onClick={()=>void testAPI(card)}>{apiTesting===card.id?'正在测试…':'测试连接'}</Button>{card.fields.some(f=>statuses[f.key])&&<Button kind="ghost" disabled={Boolean(apiSaving)} onClick={()=>setPendingDelete({type:'api',card})}>删除</Button>}</div>
- </Tile>)}</div>}<MessagingChannelsSettings /></>}
+ </Tile>)}</div>}</>}
  {section==='ai'&&<><div className="tp-integrations-settings__intro"><h3>AI 模型集成</h3><p>支持添加多个供应商及多个模型配置。每个实例独立保存；先填写凭证、获取模型、测试连接，再保存。</p></div>
  {aiError&&<InlineNotification kind="error" title="AI 配置失败" subtitle={aiError} onCloseButtonClick={()=>setAiError('')}/>}
  {aiNotice&&<InlineNotification kind="success" title="操作完成" subtitle={aiNotice} onCloseButtonClick={()=>setAiNotice('')}/>}
