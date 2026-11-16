@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import './inbox-page.scss';
+import '@/design-system/patterns/inbox.scss';
 import {
   Button, Search, Tag, Tile, TextArea, CarbonIcons, InlineLoading, Modal, ModalBody, Select, SelectItem, TextInput,
   Grid, Column, Stack, ClickableTile, LineChart, ScaleTypes,
