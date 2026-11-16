@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Button, IconButton, Search, TextArea, Dropdown, Tag, InlineNotification, Heading, Modal, CarbonIcons,
+  Button, IconButton, Search, TextInput, TextArea, Dropdown, Tag, InlineNotification, Heading, Modal, CarbonIcons,
 } from '@/design-system';
 import {
   communicationChannelLabels,
@@ -14,7 +14,7 @@ import {
 } from './data';
 import {
   getInboxSessionToken, getInboxConversations, getInboxConnections, getInboxMessages,
-  sendInboxMessage, updateInboxConversation, searchInboxCrmContacts, createInboxConversation,
+  sendInboxMessage, updateInboxConversation, searchInboxCrmContacts, createInboxConversation, createInboxChannelConnection,
   type InboxChannel, type InboxConversation, type InboxMessage, type InboxCrmContact,
 } from './api';
 import '@/design-system/styles/customer-communications.scss';
@@ -167,6 +167,12 @@ export function CustomerCommunicationsPage() {
   const [selectedContact, setSelectedContact] = useState<InboxCrmContact | null>(null);
   const [contactLoading, setContactLoading] = useState(false);
   const [creatingConversation, setCreatingConversation] = useState(false);
+  const [channelModalOpen, setChannelModalOpen] = useState(false);
+  const [newChannelType, setNewChannelType] = useState<Exclude<InboxChannel, 'email' | 'wecom'>>('whatsapp');
+  const [newChannelName, setNewChannelName] = useState('');
+  const [newChannelAccountId, setNewChannelAccountId] = useState('');
+  const [creatingChannel, setCreatingChannel] = useState(false);
+  const [newWebhookUrl, setNewWebhookUrl] = useState('');
 
   useEffect(() => {
     setStorageReady(true);
@@ -332,6 +338,24 @@ export function CustomerCommunicationsPage() {
     if (backendMode !== 'connected') setNotice('');
   };
 
+  const createChannelConnection = async () => {
+    if (!sessionToken || !newChannelName.trim() || !newChannelAccountId.trim() || creatingChannel) return;
+    setCreatingChannel(true);
+    try {
+      const result = await createInboxChannelConnection(
+        sessionToken, newChannelType, newChannelName.trim(), newChannelAccountId.trim(),
+      );
+      const channelConnections = await getInboxConnections(sessionToken);
+      setConnections(channelConnections);
+      setNewWebhookUrl(result.webhook_url);
+      setNotice('渠道连接记录已创建。请将 Webhook 地址配置到对应平台，并确认 API 凭证已在「AI与API集成」中设置。');
+    } catch (error) {
+      setNotice(error instanceof Error ? '创建渠道连接失败：' + error.message : '创建渠道连接失败。');
+    } finally {
+      setCreatingChannel(false);
+    }
+  };
+
   const createConversation = async () => {
     if (!sessionToken || !selectedContact || creatingConversation) return;
     setCreatingConversation(true);
@@ -433,8 +457,82 @@ export function CustomerCommunicationsPage() {
           <Heading>客户沟通工作台</Heading>
           <p>统一处理跨渠道客户消息与跟进</p>
         </div>
-        <Button kind="primary" size="sm" disabled={backendMode !== 'connected'} onClick={() => setNewConversationOpen(true)}>新建会话</Button>
+        <div className="cc-page-header-actions">
+          <Button kind="secondary" size="sm" disabled={backendMode !== 'connected'} onClick={() => setChannelModalOpen(true)}>渠道接入</Button>
+          <Button kind="primary" size="sm" disabled={backendMode !== 'connected'} onClick={() => setNewConversationOpen(true)}>新建会话</Button>
+        </div>
       </header>
+
+      <Modal
+        open={channelModalOpen}
+        modalHeading="渠道连接"
+        primaryButtonText={creatingChannel ? '保存中…' : '创建连接'}
+        secondaryButtonText="关闭"
+        primaryButtonDisabled={!newChannelName.trim() || !newChannelAccountId.trim() || creatingChannel}
+        onRequestClose={() => setChannelModalOpen(false)}
+        onRequestSubmit={createChannelConnection}
+      >
+        <p>先在「AI与API集成」中配置渠道凭证，再登记渠道账号。创建后将 Webhook 地址填入对应平台的开发者后台。</p>
+        <div className="cc-channel-connection-list">
+          {connections.map((connection) => (
+            <div className="cc-channel-connection-row" key={connection.id}>
+              <ChannelLogo channel={connection.channel_type as CommunicationChannel} size="sm" />
+              <span><strong>{connection.display_name}</strong><small>{communicationChannelLabels[connection.channel_type as CommunicationChannel]} · {connection.external_account_id || '未设置账号 ID'}</small></span>
+              <Tag type={connection.connection_status === 'connected' ? 'green' : connection.connection_status === 'error' ? 'red' : 'warm-gray'}>
+                {connection.connection_status === 'connected' ? '已连接' : connection.connection_status === 'error' ? '异常' : connection.connection_status === 'disabled' ? '已停用' : '待验证'}
+              </Tag>
+            </div>
+          ))}
+          {connections.length === 0 && <p className="cc-empty-state">尚未登记渠道连接</p>}
+        </div>
+        <div className="cc-channel-connection-form">
+          <Dropdown
+            id="cc-new-channel-type"
+            titleText="渠道平台"
+            label="选择渠道"
+            size="md"
+            items={[
+              { id: 'whatsapp', text: 'WhatsApp' },
+              { id: 'messenger', text: 'Facebook Messenger' },
+              { id: 'telegram', text: 'Telegram' },
+              { id: 'line', text: 'LINE' },
+            ]}
+            itemToString={(item: { id: string; text: string } | null) => item?.text ?? ''}
+            selectedItem={[
+              { id: 'whatsapp', text: 'WhatsApp' },
+              { id: 'messenger', text: 'Facebook Messenger' },
+              { id: 'telegram', text: 'Telegram' },
+              { id: 'line', text: 'LINE' },
+            ].find((item) => item.id === newChannelType) ?? null}
+            onChange={({ selectedItem }: { selectedItem?: { id: string; text: string } | null }) => {
+              if (selectedItem) setNewChannelType(selectedItem.id as Exclude<InboxChannel, 'email' | 'wecom'>);
+            }}
+          />
+          <TextInput
+            id="cc-new-channel-name"
+            labelText="连接名称"
+            placeholder="例如：TradePilot WhatsApp Business"
+            value={newChannelName}
+            onChange={(event: React.ChangeEvent<HTMLInputElement>) => setNewChannelName(event.currentTarget.value)}
+          />
+          <TextInput
+            id="cc-new-channel-account"
+            labelText="渠道账号 ID"
+            placeholder="WhatsApp Phone Number ID / Facebook Page ID / Bot ID"
+            value={newChannelAccountId}
+            onChange={(event: React.ChangeEvent<HTMLInputElement>) => setNewChannelAccountId(event.currentTarget.value)}
+          />
+        </div>
+        {newWebhookUrl && (
+          <div className="cc-webhook-url">
+            <strong>Webhook URL</strong>
+            <code>{newWebhookUrl}</code>
+            <Button kind="ghost" size="sm" onClick={() => {
+              void navigator.clipboard.writeText(newWebhookUrl).then(() => setNotice('Webhook URL 已复制。')).catch(() => setNotice('复制失败，请手动复制 Webhook URL。'));
+            }}>复制地址</Button>
+          </div>
+        )}
+      </Modal>
 
       <Modal
         open={newConversationOpen}
