@@ -52,7 +52,7 @@ const fieldOptions = [
   { id: 'totals.grand_total', label: '单据总金额' }, { id: 'payment_terms', label: '付款条件' },
   { id: 'incoterms_code', label: '贸易术语' }, { id: 'named_place', label: '贸易术语指定地点' },
   { id: 'delivery_date', label: '交付日期' }, { id: 'shipment.total_packages', label: '发运总箱数' },
-  { id: 'shipment.total_gross_weight', label: '发运毛重' },
+  { id: 'shipment.total_gross_weight', label: '发运毛重' }, { id: 'shipment.total_net_weight', label: '发运净重' },
 ];
 const editableFieldOptions = [
   { id: 'seller_name', label: '卖方名称' }, { id: 'seller_address', label: '卖方地址' },
@@ -79,10 +79,12 @@ const defaultsFor = (id: string, sources: Source[]): DocumentPolicy => ({
   requiredOnDraftFields: [],
   requiredFields: ['vgm_declaration'].includes(id) ? ['seller_name','buyer_name','shipment.total_gross_weight'] :
     ['packing_declaration'].includes(id) ? ['seller_name','buyer_name','shipment.total_packages','shipment.total_gross_weight'] :
+    ['packing_list'].includes(id) ? ['seller_name','seller_address','buyer_name','buyer_shipping_address','items','shipment.total_packages','shipment.total_gross_weight','shipment.total_net_weight'] :
     ['shipping_instructions','shipper_letter_instruction'].includes(id) ? ['seller_name','buyer_name','buyer_shipping_address'] :
     ['bill_of_exchange'].includes(id) ? ['seller_name','buyer_name','currency_code','totals.grand_total'] :
-    ['tax_invoice','credit_note','debit_note'].includes(id) ? ['seller_name','seller_address','buyer_name','buyer_address','currency_code','items','totals.grand_total'] :
-    ['proforma_invoice','sales_contract','sales_confirmation','purchase_order','purchase_confirmation','commercial_invoice','packing_list','quotation','request_for_quotation','origin_declaration','origin_certificate_application','non_asbestos_declaration'].includes(id) ? ['seller_name','seller_address','buyer_name','buyer_address','currency_code','items'] : [],
+    ['tax_invoice','credit_note','debit_note','commercial_invoice'].includes(id) ? ['seller_name','seller_address','buyer_name','buyer_address','currency_code','items','totals.grand_total'] :
+    ['proforma_invoice','sales_contract','sales_confirmation','purchase_order','purchase_confirmation','quotation','request_for_quotation'].includes(id) ? ['seller_name','seller_address','buyer_name','buyer_address','currency_code','items','totals.grand_total'] :
+    ['origin_declaration','origin_certificate_application','non_asbestos_declaration'].includes(id) ? ['seller_name','seller_address','buyer_name','buyer_address','items'] : [],
 });
 const normalize = (id: string, sources: Source[], value?: Partial<DocumentPolicy>): DocumentPolicy => {
   const base = defaultsFor(id, sources);
