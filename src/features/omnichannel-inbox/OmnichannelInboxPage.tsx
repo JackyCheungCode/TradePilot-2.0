@@ -137,8 +137,7 @@ export function OmnichannelInboxPage() {
       </article>)}</div>
       <div className="oi-composer">
         <div className="oi-channel-picker"><span>发送渠道</span>{customerIdentities.map((identity) => <button type="button" key={identity.id} className={channel === identity.channel_type ? 'is-active' : ''} onClick={() => setChannel(identity.channel_type)}><ChannelMark channel={identity.channel_type} /></button>)}</div>
-        {whatsappClosed && <InlineNotification kind="warning" lowContrast hideCloseButton title="WhatsApp 24 小时自由回复窗口已关闭" subtitle="请使用官方审核模板触达客户。" />
-          <Button size="sm" kind="tertiary" onClick={() => setTemplateOpen(true)}>选择模板消息</Button>}
+        {whatsappClosed && <><InlineNotification kind="warning" lowContrast hideCloseButton title="WhatsApp 24 小时自由回复窗口已关闭" subtitle="请使用官方审核模板触达客户。" /><Button size="sm" kind="tertiary" onClick={() => setTemplateOpen(true)}>选择模板消息</Button></>}
         {channel === 'email' && <div className="oi-subject"><TextInput id="oi-subject" labelText="邮件主题（Subject）" placeholder="输入邮件主题" value={subject} onChange={(event: React.ChangeEvent<HTMLInputElement>) => setSubject(event.currentTarget.value)} /></div>}
         <div className="oi-compose-row"><TextArea id="oi-message" labelText="消息内容" hideLabel placeholder={whatsappClosed ? '自由文本已禁用，请选择模板消息' : '输入消息…（Enter 发送，Shift + Enter 换行）'} rows={2} value={draft} disabled={whatsappClosed} onChange={(event: React.ChangeEvent<HTMLTextAreaElement>) => setDraft(event.currentTarget.value)} onKeyDown={(event: React.KeyboardEvent<HTMLTextAreaElement>) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(); } }} /><Button hasIconOnly renderIcon={CarbonIcons.Send} iconDescription="发送消息" disabled={!draft.trim() || whatsappClosed} onClick={sendMessage} /></div>
       </div>
