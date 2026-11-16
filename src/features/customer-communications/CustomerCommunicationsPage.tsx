@@ -221,16 +221,47 @@ export function CustomerCommunicationsPage() {
   useEffect(() => {
     if (backendMode !== 'connected' || !sessionToken || !activeId) return;
     let cancelled = false;
-    void getInboxMessages(sessionToken, activeId).then((rows) => {
-      if (cancelled) return;
-      const mapped = rows.map(mapInboxMessage);
-      setMessages((current) => [...current.filter((message) => message.conversationId !== activeId), ...mapped]);
-      setConversations((current) => current.map((item) => item.id === activeId ? { ...item, unread: 0 } : item));
-      void updateInboxConversation(sessionToken, activeId, { markRead: true }).catch(() => undefined);
-    }).catch((error) => {
-      if (!cancelled) setNotice(error instanceof Error ? '读取消息失败：' + error.message : '读取消息失败，请稍后重试。');
-    });
-    return () => { cancelled = true; };
+    let firstLoad = true;
+    const refreshMessages = async () => {
+      try {
+        const rows = await getInboxMessages(sessionToken, activeId);
+        if (cancelled) return;
+        const mapped = rows.map(mapInboxMessage);
+        setMessages((current) => [...current.filter((message) => message.conversationId !== activeId), ...mapped]);
+        if (firstLoad) {
+          firstLoad = false;
+          setConversations((current) => current.map((item) => item.id === activeId ? { ...item, unread: 0 } : item));
+          void updateInboxConversation(sessionToken, activeId, { markRead: true }).catch(() => undefined);
+        }
+      } catch (error) {
+        if (!cancelled) setNotice(error instanceof Error ? '读取消息失败：' + error.message : '读取消息失败，请稍后重试。');
+      }
+    };
+    void refreshMessages();
+    const poll = window.setInterval(() => { void refreshMessages(); }, 5000);
+    return () => { cancelled = true; window.clearInterval(poll); };
+  }, [backendMode, sessionToken, activeId]);
+
+  useEffect(() => {
+    if (backendMode !== 'connected' || !sessionToken) return;
+    let cancelled = false;
+    const refreshConversations = async () => {
+      try {
+        const rows = await getInboxConversations(sessionToken);
+        if (cancelled) return;
+        const mapped = rows.map(mapInboxConversation);
+        const customerById = new Map(mapped.map((item) => [item.customer.id, item.customer]));
+        setCustomers([...customerById.values()]);
+        setConversations((current) => mapped.map((item) => {
+          const previous = current.find((candidate) => candidate.id === item.conversation.id);
+          return previous ? { ...item.conversation, unread: item.conversation.id === activeId ? 0 : item.conversation.unread } : item.conversation;
+        }));
+      } catch {
+        // Keep the last successfully loaded inbox snapshot during transient network failures.
+      }
+    };
+    const poll = window.setInterval(() => { void refreshConversations(); }, 15000);
+    return () => { cancelled = true; window.clearInterval(poll); };
   }, [backendMode, sessionToken, activeId]);
 
   useEffect(() => {
