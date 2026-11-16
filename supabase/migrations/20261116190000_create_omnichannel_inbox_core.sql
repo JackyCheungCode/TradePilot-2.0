@@ -276,3 +276,13 @@ create policy inbox_internal_notes_author_delete on public.inbox_internal_notes
 
 revoke all on function public.inbox_assert_contact_owner() from public, anon, authenticated;
 grant execute on function public.inbox_assert_contact_owner() to service_role;
+
+-- Enable Supabase Realtime for the shared inbox timeline and conversation list.
+alter table public.inbox_conversations replica identity full;
+alter table public.inbox_messages replica identity full;
+alter table public.inbox_internal_notes replica identity full;
+alter table public.inbox_message_events replica identity full;
+
+alter publication supabase_realtime
+  add table public.inbox_conversations, public.inbox_messages,
+             public.inbox_internal_notes, public.inbox_message_events;
