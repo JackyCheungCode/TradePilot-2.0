@@ -49,7 +49,12 @@ const defaultsFor = (id: string, sources: Source[]): DocumentPolicy => ({
   requireShipmentWhenOrderLinked: ['commercial_invoice','packing_list','shipping_instructions','shipper_letter_instruction','vgm_declaration','packing_declaration'].includes(id),
   allowStandaloneConfirmation: true,
   requireReview: false,
-  requiredFields: [],
+  requiredFields: ['vgm_declaration'].includes(id) ? ['seller_name','buyer_name','shipment.total_gross_weight'] :
+    ['packing_declaration'].includes(id) ? ['seller_name','buyer_name','shipment.total_packages','shipment.total_gross_weight'] :
+    ['shipping_instructions','shipper_letter_instruction'].includes(id) ? ['seller_name','buyer_name','buyer_shipping_address'] :
+    ['bill_of_exchange'].includes(id) ? ['seller_name','buyer_name','currency_code','totals.grand_total'] :
+    ['tax_invoice','credit_note','debit_note'].includes(id) ? ['seller_name','seller_address','buyer_name','buyer_address','currency_code','items','totals.grand_total'] :
+    ['proforma_invoice','sales_contract','sales_confirmation','purchase_order','purchase_confirmation','commercial_invoice','packing_list','quotation','request_for_quotation','origin_declaration','origin_certificate_application','non_asbestos_declaration'].includes(id) ? ['seller_name','seller_address','buyer_name','buyer_address','currency_code','items'] : [],
 });
 const normalize = (id: string, sources: Source[], value?: Partial<DocumentPolicy>): DocumentPolicy => {
   const base = defaultsFor(id, sources);
