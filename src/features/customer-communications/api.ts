@@ -125,3 +125,23 @@ export function updateInboxConversation(token: string, conversationId: string, p
     { method: 'PATCH', body: JSON.stringify(patch) },
   );
 }
+
+export interface InboxCrmContact {
+  id: string;
+  display_name: string;
+  email?: string | null;
+  phone?: string | null;
+  account_id?: string | null;
+}
+export async function searchInboxCrmContacts(token: string, query: string): Promise<InboxCrmContact[]> {
+  const result = await request<{ contacts: InboxCrmContact[] }>(
+    `/api/v1/inbox/crm-contacts?query=${encodeURIComponent(query)}`, token,
+  );
+  return result.contacts ?? [];
+}
+export async function createInboxConversation(token: string, contactId: string): Promise<void> {
+  await request<{ conversation: InboxConversation }>(
+    '/api/v1/inbox/conversations', token,
+    { method: 'POST', body: JSON.stringify({ contactId }) },
+  );
+}
