@@ -6,7 +6,8 @@ import { sendInboxProviderMessage, type InboxProviderSecrets } from "./inbox-pro
 interface InboxEnv {
   SUPABASE_URL: string;
   SUPABASE_ANON_KEY: string;
-  SUPABASE_SERVICE_ROLE_KEY: string;
+  SUPABASE_SERVICE_ROLE_KEY?: string;
+  SUPABASE_ACCESS_TOKEN?: string;
   DEEPL_API_KEY?: string;
   AI?: { run(model: string, input: Record<string, unknown>): Promise<unknown> };
 }
@@ -25,11 +26,15 @@ async function ownerFromRequest(request: Request, env: InboxEnv): Promise<string
 }
 
 async function db<T>(env: InboxEnv, path: string, init: RequestInit = {}): Promise<T> {
+  const privilegedKey = env.SUPABASE_SERVICE_ROLE_KEY;
+  const apiKey = privilegedKey || env.SUPABASE_ANON_KEY;
+  const bearerToken = privilegedKey || env.SUPABASE_ACCESS_TOKEN;
+  if (!apiKey || !bearerToken) throw new Error("INBOX_DATABASE_AUTH_NOT_CONFIGURED");
   const response = await fetch(env.SUPABASE_URL + "/rest/v1/" + path, {
     ...init,
     headers: {
-      apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-      Authorization: "Bearer " + env.SUPABASE_SERVICE_ROLE_KEY,
+      apikey: apiKey,
+      Authorization: "Bearer " + bearerToken,
       "Content-Type": "application/json",
       ...init.headers,
     },
@@ -68,6 +73,9 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
   try { ownerId = await ownerFromRequest(request, env); }
   catch { return errorResponse(request, "AUTH_UNAVAILABLE", "暂时无法验证登录状态，请稍后重试。", 503); }
   if (!ownerId) return errorResponse(request, "UNAUTHORIZED", "请先登录后访问消息工作台。", 401);
+  // Preview omits the project-wide service-role key; use the caller JWT so RLS remains the authorization boundary.
+  const accessToken = request.headers.get("Authorization")?.match(/^Bearer\s+(\S+)$/i)?.[1];
+  const dbEnv: InboxEnv = { ...env, SUPABASE_ACCESS_TOKEN: accessToken };
   if (request.method !== "GET" && request.method !== "POST") return errorResponse(request, "METHOD_NOT_ALLOWED", "当前消息接口暂不支持此操作。", 405);
 
   try {
@@ -77,12 +85,12 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
       catch { return errorResponse(request, "INVALID_JSON", "联系人信息格式不正确。", 400); }
       const contactId = typeof body.contactId === "string" ? body.contactId : "";
       if (!/^[0-9a-f-]{36}$/i.test(contactId)) return errorResponse(request, "VALIDATION_ERROR", "请选择有效的 CRM 联系人。", 400);
-      const contacts = await db<Row[]>(env, "crm_contacts?select=id,account_id&id=eq." + contactId + "&owner_id=eq." + ownerId + "&is_archived=eq.false&limit=1");
+      const contacts = await db<Row[]>(dbEnv, "crm_contacts?select=id,account_id&id=eq." + contactId + "&owner_id=eq." + ownerId + "&is_archived=eq.false&limit=1");
       const contact = contacts[0];
       if (!contact) return errorResponse(request, "CUSTOMER_NOT_FOUND", "联系人不存在或无权访问。", 404);
-      const existing = await db<Row[]>(env, "inbox_conversations?select=id,owner_id,contact_id,account_id,assignee_id,status,unread_count,last_message_at,last_channel_type,last_message_preview,ai_summary,created_at,updated_at&owner_id=eq." + ownerId + "&contact_id=eq." + contactId + "&status=in.(open,pending)&limit=1");
+      const existing = await db<Row[]>(dbEnv, "inbox_conversations?select=id,owner_id,contact_id,account_id,assignee_id,status,unread_count,last_message_at,last_channel_type,last_message_preview,ai_summary,created_at,updated_at&owner_id=eq." + ownerId + "&contact_id=eq." + contactId + "&status=in.(open,pending)&limit=1");
       if (existing[0]) return successResponse(request, { conversation: existing[0] });
-      const created = await db<Row[]>(env, "inbox_conversations?select=id,owner_id,contact_id,account_id,assignee_id,status,unread_count,last_message_at,last_channel_type,last_message_preview,ai_summary,created_at,updated_at", {
+      const created = await db<Row[]>(dbEnv, "inbox_conversations?select=id,owner_id,contact_id,account_id,assignee_id,status,unread_count,last_message_at,last_channel_type,last_message_preview,ai_summary,created_at,updated_at", {
         method: "POST", headers: { Prefer: "return=representation" },
         body: JSON.stringify({ owner_id: ownerId, contact_id: contactId, account_id: contact.account_id ?? null, status: "open" }),
       });
@@ -100,15 +108,15 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
         "limit=100",
       ];
       if (status && allowedStatuses.has(status)) filters.push("status=eq." + status);
-      const conversations = await db<Row[]>(env, "inbox_conversations?" + filters.join("&"));
+      const conversations = await db<Row[]>(dbEnv, "inbox_conversations?" + filters.join("&"));
       const contactIds = unique(conversations.map(row => row.contact_id));
       const accountIds = unique(conversations.map(row => row.account_id));
       const [contacts, accounts] = await Promise.all([
         contactIds.length
-          ? db<Row[]>(env, "crm_contacts?select=id,account_id,first_name,last_name,full_name,job_title,department,email,phone,mobile,preferred_language,preferred_channel&id=in.(" + contactIds.join(",") + ")&owner_id=eq." + ownerId)
+          ? db<Row[]>(dbEnv, "crm_contacts?select=id,account_id,first_name,last_name,full_name,job_title,department,email,phone,mobile,preferred_language,preferred_channel&id=in.(" + contactIds.join(",") + ")&owner_id=eq." + ownerId)
           : Promise.resolve([]),
         accountIds.length
-          ? db<Row[]>(env, "crm_accounts?select=id,account_name,legal_name,logo_url&id=in.(" + accountIds.join(",") + ")&owner_id=eq." + ownerId)
+          ? db<Row[]>(dbEnv, "crm_accounts?select=id,account_name,legal_name,logo_url&id=in.(" + accountIds.join(",") + ")&owner_id=eq." + ownerId)
           : Promise.resolve([]),
       ]);
       const contactById = new Map(contacts.map(row => [String(row.id), row]));
@@ -131,7 +139,7 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
     }
 
     if (url.pathname === "/api/v1/inbox/channel-connections" && request.method === "GET") {
-      const connections = await db<Row[]>(env,
+      const connections = await db<Row[]>(dbEnv,
         "inbox_channel_connections?select=id,channel_type,display_name,external_account_id,connection_status,last_verified_at,created_at,updated_at&owner_id=eq." +
         ownerId + "&order=channel_type.asc");
       const data = connections.map(connection => ({
@@ -155,12 +163,12 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
           !externalAccountId || externalAccountId.length > 255) {
         return errorResponse(request, "VALIDATION_ERROR", "请选择受支持的渠道，并填写连接名称与渠道账号 ID。", 400);
       }
-      const existing = await db<Row[]>(env,
+      const existing = await db<Row[]>(dbEnv,
         "inbox_channel_connections?select=id,channel_type,display_name,external_account_id,connection_status&owner_id=eq." +
         ownerId + "&channel_type=eq." + channel + "&external_account_id=eq." + encodeURIComponent(externalAccountId) + "&limit=1");
       let connection = existing[0];
       if (!connection) {
-        const created = await db<Row[]>(env, "inbox_channel_connections?select=id,channel_type,display_name,external_account_id,connection_status", {
+        const created = await db<Row[]>(dbEnv, "inbox_channel_connections?select=id,channel_type,display_name,external_account_id,connection_status", {
           method: "POST", headers: { Prefer: "return=representation" },
           body: JSON.stringify({
             owner_id: ownerId, channel_type: channel, display_name: displayName,
@@ -184,7 +192,7 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
       const orFilter = "(full_name.ilike." + pattern + ",first_name.ilike." + pattern +
         ",last_name.ilike." + pattern + ",email.ilike." + pattern +
         ",phone.ilike." + pattern + ",mobile.ilike." + pattern + ")";
-      const contacts = await db<Row[]>(env,
+      const contacts = await db<Row[]>(dbEnv,
         "crm_contacts?select=id,full_name,first_name,last_name,email,phone,mobile,account_id&owner_id=eq." +
         ownerId + "&or=" + encodeURIComponent(orFilter) + "&order=full_name.asc&limit=30");
       return successResponse(request, {
@@ -196,7 +204,7 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
     }
 
     if (url.pathname === "/api/v1/inbox/unmatched-events" && request.method === "GET") {
-      const events = await db<Row[]>(env,
+      const events = await db<Row[]>(dbEnv,
         "inbox_webhook_events?select=id,channel_type,channel_connection_id,external_event_id,event_type,status,payload,received_at,error_code&owner_id=eq." +
         ownerId + "&status=eq.unmatched&order=received_at.desc&limit=100");
       return successResponse(request, { events, total: events.length });
@@ -210,7 +218,7 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
       catch { return errorResponse(request, "INVALID_JSON", "客户匹配信息格式不正确。", 400); }
       const contactId = typeof body.contactId === "string" ? body.contactId : "";
       if (!/^[0-9a-f-]{36}$/i.test(contactId)) return errorResponse(request, "VALIDATION_ERROR", "请选择有效的 CRM 联系人。", 400);
-      const claimed = await db<Row[]>(env,
+      const claimed = await db<Row[]>(dbEnv,
         "inbox_webhook_events?id=eq." + eventId + "&owner_id=eq." + ownerId + "&status=eq.unmatched",
         { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify({ status: "processing" }) });
       const webhookEvent = claimed[0];
@@ -222,28 +230,28 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
         const externalMessageId = typeof payload.messageId === "string" ? payload.messageId : "";
         const allowedChannels = new Set(["whatsapp", "line", "messenger", "telegram"]);
         if (!allowedChannels.has(channel) || !externalUserId || !externalMessageId) throw new Error("INVALID_UNMATCHED_EVENT");
-        const contacts = await db<Row[]>(env,
+        const contacts = await db<Row[]>(dbEnv,
           "crm_contacts?select=id,account_id&id=eq." + contactId + "&owner_id=eq." + ownerId + "&limit=1");
         const contact = contacts[0];
         if (!contact) {
-          await db<Row[]>(env, "inbox_webhook_events?id=eq." + eventId + "&owner_id=eq." + ownerId,
+          await db<Row[]>(dbEnv, "inbox_webhook_events?id=eq." + eventId + "&owner_id=eq." + ownerId,
             { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ status: "unmatched" }) });
           return errorResponse(request, "CUSTOMER_NOT_FOUND", "找不到该 CRM 联系人。", 404);
         }
         const connectionId = String(webhookEvent.channel_connection_id);
-        let identities = await db<Row[]>(env,
+        let identities = await db<Row[]>(dbEnv,
           "inbox_customer_identities?select=id,contact_id,external_user_id&owner_id=eq." + ownerId +
           "&channel_type=eq." + channel + "&external_user_id=eq." + encodeURIComponent(externalUserId) +
           "&or=" + encodeURIComponent("(channel_connection_id.eq." + connectionId + ",channel_connection_id.is.null)") + "&limit=1");
         let identity = identities[0];
         if (identity && (String(identity.contact_id) !== contactId || (identity.channel_connection_id && String(identity.channel_connection_id) !== connectionId))) {
-          await db<Row[]>(env, "inbox_webhook_events?id=eq." + eventId + "&owner_id=eq." + ownerId,
+          await db<Row[]>(dbEnv, "inbox_webhook_events?id=eq." + eventId + "&owner_id=eq." + ownerId,
             { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ status: "unmatched" }) });
           return errorResponse(request, "IDENTITY_ALREADY_LINKED", "该渠道身份已关联到其他联系人或渠道账号，请先检查现有客户绑定。", 409);
         }
         if (!identity) {
           try {
-            const created = await db<Row[]>(env, "inbox_customer_identities?select=id,contact_id,external_user_id", {
+            const created = await db<Row[]>(dbEnv, "inbox_customer_identities?select=id,contact_id,external_user_id", {
               method: "POST", headers: { Prefer: "return=representation" },
               body: JSON.stringify({
                 owner_id: ownerId, contact_id: contactId, channel_connection_id: connectionId,
@@ -256,7 +264,7 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
             });
             identity = created[0];
           } catch {
-            identities = await db<Row[]>(env,
+            identities = await db<Row[]>(dbEnv,
               "inbox_customer_identities?select=id,contact_id,external_user_id&owner_id=eq." + ownerId +
               "&channel_type=eq." + channel + "&external_user_id=eq." + encodeURIComponent(externalUserId) +
               "&or=" + encodeURIComponent("(channel_connection_id.eq." + connectionId + ",channel_connection_id.is.null)") + "&limit=1");
@@ -264,7 +272,7 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
           }
         }
         if (!identity?.id || String(identity.contact_id) !== contactId) throw new Error("CUSTOMER_IDENTITY_LINK_FAILED");
-        const processed = await db<{ conversation_id?: string }>(env, "rpc/inbox_process_webhook_event", {
+        const processed = await db<{ conversation_id?: string }>(dbEnv, "rpc/inbox_process_webhook_event", {
           method: "POST",
           body: JSON.stringify({
             p_event_id: eventId, p_owner_id: ownerId,
@@ -273,7 +281,7 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
         });
         return successResponse(request, { assigned: true, conversation_id: processed.conversation_id ?? null });
       } catch (error) {
-        await db<Row[]>(env, "inbox_webhook_events?id=eq." + eventId + "&owner_id=eq." + ownerId + "&status=eq.processing", {
+        await db<Row[]>(dbEnv, "inbox_webhook_events?id=eq." + eventId + "&owner_id=eq." + ownerId + "&status=eq.processing", {
           method: "PATCH", headers: { Prefer: "return=minimal" },
           body: JSON.stringify({ status: "unmatched", error_code: error instanceof Error ? error.message.slice(0, 100) : "ASSIGN_FAILED" }),
         });
@@ -284,7 +292,7 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
     const metricsMatch = url.pathname.match(/^\/api\/v1\/inbox\/customers\/([0-9a-f-]{36})\/business-metrics$/i);
     if (metricsMatch && request.method === "GET") {
       const contactId = metricsMatch[1];
-      const contacts = await db<Row[]>(env,
+      const contacts = await db<Row[]>(dbEnv,
         "crm_contacts?select=id,account_id&id=eq." + contactId + "&owner_id=eq." + ownerId + "&limit=1");
       if (!contacts.length || typeof contacts[0].account_id !== "string") {
         return errorResponse(request, "CUSTOMER_NOT_FOUND", "客户联系人不存在或尚未关联客户档案。", 404);
@@ -293,11 +301,11 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
       const orderFilter = "owner_id=eq." + ownerId +
         "&order_type=eq.sales&status=in.(active,completed)&or=(crm_account_id.eq." + accountId +
         ",crm_contact_id.eq." + contactId + ")";
-      const orders = await db<Row[]>(env,
+      const orders = await db<Row[]>(dbEnv,
         "trade_orders?select=id,order_number,title,status,currency_code,trade_date,created_at,metadata&" + orderFilter + "&order=trade_date.asc&limit=1000");
       const orderIds = unique(orders.map(row => row.id));
       const items = orderIds.length
-        ? await db<Row[]>(env, "trade_order_items?select=order_id,amount&owner_id=eq." + ownerId +
+        ? await db<Row[]>(dbEnv, "trade_order_items?select=order_id,amount&owner_id=eq." + ownerId +
             "&order_id=in.(" + orderIds.join(",") + ")&limit=5000")
         : [];
       const orderAmounts = new Map<string, number>();
@@ -319,9 +327,9 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
         monthly.set(period, bucket);
       }
       const [shipments, payments] = await Promise.all([
-        db<Row[]>(env, "trade_shipments?select=id,status&owner_id=eq." + ownerId +
+        db<Row[]>(dbEnv, "trade_shipments?select=id,status&owner_id=eq." + ownerId +
           "&account_id=eq." + accountId + "&status=not.eq.cancelled&limit=1000"),
-        db<Row[]>(env, "trade_payments?select=id&owner_id=eq." + ownerId +
+        db<Row[]>(dbEnv, "trade_payments?select=id&owner_id=eq." + ownerId +
           "&account_id=eq." + accountId + "&payment_type=eq.receipt&status=not.eq.voided&limit=1000"),
       ]);
       return successResponse(request, {
@@ -355,19 +363,19 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
     const summaryMatch = url.pathname.match(/^\/api\/v1\/inbox\/conversations\/([0-9a-f-]{36})\/summary$/i);
     if (summaryMatch && request.method === "POST") {
       const conversationId = summaryMatch[1];
-      const conversations = await db<Row[]>(env,
+      const conversations = await db<Row[]>(dbEnv,
         "inbox_conversations?select=id,contact_id,account_id&id=eq." + conversationId + "&owner_id=eq." + ownerId + "&limit=1");
       if (!conversations.length) return errorResponse(request, "CONVERSATION_NOT_FOUND", "会话不存在或无权访问。", 404);
       const conversation = conversations[0];
       const [messages, notes, contacts, accounts] = await Promise.all([
-        db<Row[]>(env, "inbox_messages?select=channel_type,direction,content,created_at,email_subject&owner_id=eq." + ownerId +
+        db<Row[]>(dbEnv, "inbox_messages?select=channel_type,direction,content,created_at,email_subject&owner_id=eq." + ownerId +
           "&conversation_id=eq." + conversationId + "&order=created_at.desc&limit=30"),
-        db<Row[]>(env, "inbox_internal_notes?select=content,created_at&owner_id=eq." + ownerId +
+        db<Row[]>(dbEnv, "inbox_internal_notes?select=content,created_at&owner_id=eq." + ownerId +
           "&conversation_id=eq." + conversationId + "&order=created_at.desc&limit=10"),
-        db<Row[]>(env, "crm_contacts?select=full_name,first_name,last_name,job_title,preferred_language&id=eq." +
+        db<Row[]>(dbEnv, "crm_contacts?select=full_name,first_name,last_name,job_title,preferred_language&id=eq." +
           String(conversation.contact_id) + "&owner_id=eq." + ownerId + "&limit=1"),
         conversation.account_id
-          ? db<Row[]>(env, "crm_accounts?select=account_name,industry,website&id=eq." + String(conversation.account_id) +
+          ? db<Row[]>(dbEnv, "crm_accounts?select=account_name,industry,website&id=eq." + String(conversation.account_id) +
               "&owner_id=eq." + ownerId + "&limit=1")
           : Promise.resolve([]),
       ]);
@@ -401,7 +409,7 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
       ].join("\n");
       const summary = (await runConfiguredAI("inbox_summary", prompt, env)).trim().slice(0, 12000);
       if (!summary) return errorResponse(request, "EMPTY_AI_SUMMARY", "AI 未返回有效摘要。", 502);
-      await db<Row[]>(env, "inbox_conversations?id=eq." + conversationId + "&owner_id=eq." + ownerId, {
+      await db<Row[]>(dbEnv, "inbox_conversations?id=eq." + conversationId + "&owner_id=eq." + ownerId, {
         method: "PATCH",
         headers: { Prefer: "return=minimal" },
         body: JSON.stringify({ ai_summary: summary, ai_summary_updated_at: new Date().toISOString() }),
@@ -412,17 +420,17 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
     const translateMatch = url.pathname.match(/^\/api\/v1\/inbox\/messages\/([0-9a-f-]{36})\/translate$/i);
     if (translateMatch && request.method === "POST") {
       const messageId = translateMatch[1];
-      const rows = await db<Row[]>(env,
+      const rows = await db<Row[]>(dbEnv,
         "inbox_messages?select=id,conversation_id,channel_type,direction,content&id=eq." + messageId + "&owner_id=eq." + ownerId + "&limit=1");
       const message = rows[0];
       if (!message) return errorResponse(request, "MESSAGE_NOT_FOUND", "消息不存在或无权访问。", 404);
       if (message.direction !== "inbound") return errorResponse(request, "TRANSLATION_NOT_REQUIRED", "当前仅支持翻译客户发来的消息。", 400);
       const content = typeof message.content === "string" ? message.content.trim() : "";
       if (!content || content.length > 20000) return errorResponse(request, "INVALID_MESSAGE_CONTENT", "消息内容为空或超过翻译长度限制。", 400);
-      const conversations = await db<Row[]>(env,
+      const conversations = await db<Row[]>(dbEnv,
         "inbox_conversations?select=id,contact_id&id=eq." + String(message.conversation_id) + "&owner_id=eq." + ownerId + "&limit=1");
       if (!conversations.length) return errorResponse(request, "CONVERSATION_NOT_FOUND", "会话不存在。", 404);
-      const contacts = await db<Row[]>(env,
+      const contacts = await db<Row[]>(dbEnv,
         "crm_contacts?select=preferred_language&id=eq." + String(conversations[0].contact_id) + "&owner_id=eq." + ownerId + "&limit=1");
       const language = String(contacts[0]?.preferred_language ?? "zh-HANT").replace("_", "-").toLowerCase();
       const languageBase = language.split("-")[0];
@@ -446,7 +454,7 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
         return errorResponse(request, translatedPayload.error?.code ?? "TRANSLATION_FAILED",
           translatedPayload.error?.message ?? "DeepL 翻译失败。", translatedResponse.status);
       }
-      const updated = await db<Row[]>(env,
+      const updated = await db<Row[]>(dbEnv,
         "inbox_messages?id=eq." + messageId + "&owner_id=eq." + ownerId,
         {
           method: "PATCH",
@@ -469,25 +477,25 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
       const content = typeof body.content === "string" ? body.content.trim() : "";
       if (!content || content.length > 4000) return errorResponse(request, "VALIDATION_ERROR", "消息不能为空，且不能超过 4000 个字符。", 400);
 
-      const conversations = await db<Row[]>(env, "inbox_conversations?select=id,contact_id,last_channel_type&id=eq." + conversationId + "&owner_id=eq." + ownerId + "&limit=1");
+      const conversations = await db<Row[]>(dbEnv, "inbox_conversations?select=id,contact_id,last_channel_type&id=eq." + conversationId + "&owner_id=eq." + ownerId + "&limit=1");
       const conversation = conversations[0];
       if (!conversation) return errorResponse(request, "CONVERSATION_NOT_FOUND", "会话不存在或无权访问。", 404);
       const channel = String(conversation.last_channel_type ?? "");
       if (!["whatsapp", "line", "messenger", "telegram"].includes(channel)) return errorResponse(request, "CHANNEL_NOT_READY", "当前渠道尚未开放真实文本发送。", 409);
 
-      const identities = await db<Row[]>(env, "inbox_customer_identities?select=id,external_user_id,channel_connection_id,is_primary&owner_id=eq." + ownerId + "&contact_id=eq." + String(conversation.contact_id) + "&channel_type=eq." + channel + "&order=is_primary.desc,last_seen_at.desc.nullslast&limit=1");
+      const identities = await db<Row[]>(dbEnv, "inbox_customer_identities?select=id,external_user_id,channel_connection_id,is_primary&owner_id=eq." + ownerId + "&contact_id=eq." + String(conversation.contact_id) + "&channel_type=eq." + channel + "&order=is_primary.desc,last_seen_at.desc.nullslast&limit=1");
       const identity = identities[0];
       if (!identity || typeof identity.external_user_id !== "string" || !identity.external_user_id) return errorResponse(request, "CHANNEL_IDENTITY_MISSING", "该联系人尚未绑定此渠道的客户身份，暂时无法发送。", 409);
 
       if (channel === "whatsapp" || channel === "messenger") {
-        const recentInbound = await db<Row[]>(env, "inbox_messages?select=id,created_at&owner_id=eq." + ownerId + "&conversation_id=eq." + conversationId + "&channel_type=eq." + channel + "&direction=eq.inbound&order=created_at.desc&limit=1");
+        const recentInbound = await db<Row[]>(dbEnv, "inbox_messages?select=id,created_at&owner_id=eq." + ownerId + "&conversation_id=eq." + conversationId + "&channel_type=eq." + channel + "&direction=eq.inbound&order=created_at.desc&limit=1");
         const lastInboundAt = recentInbound[0]?.created_at;
         const elapsed = typeof lastInboundAt === "string" ? Date.now() - Date.parse(lastInboundAt) : Number.POSITIVE_INFINITY;
         if (!(elapsed >= 0 && elapsed < 24 * 60 * 60 * 1000)) return errorResponse(request, "CHANNEL_REPLY_WINDOW_EXPIRED",
           channel === "whatsapp" ? "WhatsApp 24 小时客户服务窗口已过期，普通文本消息已拦截；请使用获批模板消息。" : "Messenger 24 小时回复窗口已过期，当前不能发送普通回复。", 409);
       }
 
-      const pending = await db<Row[]>(env, "inbox_messages?select=id,conversation_id,channel_type,direction,content,status,created_at", {
+      const pending = await db<Row[]>(dbEnv, "inbox_messages?select=id,conversation_id,channel_type,direction,content,status,created_at", {
         method: "POST", headers: { Prefer: "return=representation" },
         body: JSON.stringify({ owner_id: ownerId, conversation_id: conversationId, customer_identity_id: identity.id,
           channel_connection_id: identity.channel_connection_id ?? null, channel_type: channel, direction: "outbound",
@@ -499,18 +507,18 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
       try {
         const result = await sendInboxProviderMessage(channel as "whatsapp" | "line" | "messenger" | "telegram",
           String(identity.external_user_id), content, await readInboxChannelSecrets(env));
-        const updated = await db<Row[]>(env, "inbox_messages?id=eq." + String(pendingMessage.id) + "&owner_id=eq." + ownerId, {
+        const updated = await db<Row[]>(dbEnv, "inbox_messages?id=eq." + String(pendingMessage.id) + "&owner_id=eq." + ownerId, {
           method: "PATCH", headers: { Prefer: "return=representation" },
           body: JSON.stringify({ status: "sent", external_message_id: result.externalMessageId, sent_at: new Date().toISOString(), error_code: null, error_message: null }),
         });
-        await db<Row[]>(env, "inbox_conversations?id=eq." + conversationId + "&owner_id=eq." + ownerId, {
+        await db<Row[]>(dbEnv, "inbox_conversations?id=eq." + conversationId + "&owner_id=eq." + ownerId, {
           method: "PATCH", headers: { Prefer: "return=minimal" },
           body: JSON.stringify({ last_message_at: new Date().toISOString(), last_channel_type: channel, last_message_preview: content.slice(0, 500) }),
         });
         return successResponse(request, { message: updated[0] ?? pendingMessage }, 201);
       } catch (sendError) {
         const code = sendError instanceof Error && /^[A-Z0-9_]+$/.test(sendError.message) ? sendError.message : "CHANNEL_SEND_FAILED";
-        await db<Row[]>(env, "inbox_messages?id=eq." + String(pendingMessage.id) + "&owner_id=eq." + ownerId, {
+        await db<Row[]>(dbEnv, "inbox_messages?id=eq." + String(pendingMessage.id) + "&owner_id=eq." + ownerId, {
           method: "PATCH", headers: { Prefer: "return=minimal" },
           body: JSON.stringify({ status: "failed", error_code: code, error_message: "渠道发送失败，请检查渠道配置或稍后重试。" }),
         });
@@ -521,7 +529,7 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
     const noteMatch = url.pathname.match(/^\/api\/v1\/inbox\/conversations\/([0-9a-f-]{36})\/notes$/i);
     if (noteMatch && request.method === "POST") {
       const conversationId = noteMatch[1];
-      const owned = await db<Row[]>(env,
+      const owned = await db<Row[]>(dbEnv,
         "inbox_conversations?select=id&id=eq." + conversationId + "&owner_id=eq." + ownerId + "&limit=1");
       if (!owned.length) return errorResponse(request, "CONVERSATION_NOT_FOUND", "会话不存在或无权访问。", 404);
       let body: { content?: unknown; mentionedUserIds?: unknown };
@@ -534,7 +542,7 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
       const mentionedUserIds = Array.isArray(body.mentionedUserIds)
         ? body.mentionedUserIds.filter((value): value is string => typeof value === "string" && /^[0-9a-f-]{36}$/i.test(value)).slice(0, 20)
         : [];
-      const created = await db<Row[]>(env, "inbox_internal_notes?select=id,conversation_id,author_id,content,mentioned_user_ids,created_at", {
+      const created = await db<Row[]>(dbEnv, "inbox_internal_notes?select=id,conversation_id,author_id,content,mentioned_user_ids,created_at", {
         method: "POST",
         headers: { Prefer: "return=representation" },
         body: JSON.stringify({
@@ -551,7 +559,7 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
     const messageMatch = url.pathname.match(/^\/api\/v1\/inbox\/conversations\/([0-9a-f-]{36})\/messages$/i);
     if (messageMatch && request.method === "GET") {
       const conversationId = messageMatch[1];
-      const owned = await db<Row[]>(env,
+      const owned = await db<Row[]>(dbEnv,
         "inbox_conversations?select=id&id=eq." + conversationId + "&owner_id=eq." + ownerId + "&limit=1");
       if (!owned.length) return errorResponse(request, "CONVERSATION_NOT_FOUND", "会话不存在或无权访问。", 404);
       const limitValue = Number(url.searchParams.get("limit") ?? "50");
@@ -565,10 +573,10 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
         "limit=" + limit,
       ];
       if (before && !Number.isNaN(Date.parse(before))) params.push("created_at=lt." + encodeURIComponent(before));
-      const messages = await db<Row[]>(env, "inbox_messages?" + params.join("&"));
+      const messages = await db<Row[]>(dbEnv, "inbox_messages?" + params.join("&"));
       const messageIds = unique(messages.map(row => row.id));
       const attachments = messageIds.length
-        ? await db<Row[]>(env,
+        ? await db<Row[]>(dbEnv,
             "inbox_attachments?select=id,message_id,original_file_name,content_type,file_size_bytes,scan_status,created_at&owner_id=eq." +
             ownerId + "&message_id=in.(" + messageIds.join(",") + ")&order=created_at.asc")
         : [];
@@ -579,7 +587,7 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
         current.push(attachment);
         attachmentsByMessage.set(key, current);
       }
-      const notes = await db<Row[]>(env,
+      const notes = await db<Row[]>(dbEnv,
         "inbox_internal_notes?select=id,conversation_id,author_id,content,mentioned_user_ids,created_at&owner_id=eq." +
         ownerId + "&conversation_id=eq." + conversationId + "&order=created_at.desc&limit=" + limit);
       const timeline: Row[] = [
