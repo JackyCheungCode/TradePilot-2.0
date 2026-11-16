@@ -41,7 +41,8 @@ export function DocumentPreviewPage() {
   const [error, setError] = useState('');
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [draftContent, setDraftContent] = useState<Json | null>(null);\n  const [draftItemsText, setDraftItemsText] = useState('');
+  const [draftContent, setDraftContent] = useState<Json | null>(null);
+  const [draftItemsText, setDraftItemsText] = useState('');
   const load = useCallback(async () => {
     if (!id) return;
     setLoading(true); setError('');
