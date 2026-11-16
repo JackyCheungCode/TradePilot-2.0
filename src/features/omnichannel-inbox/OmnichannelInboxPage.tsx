@@ -62,7 +62,6 @@ export function OmnichannelInboxPage() {
     text: channelLabels[identity.channel_type] + ' · ' + identity.external_user_id,
     channel: identity.channel_type,
   }));
-  const activeIdentity = customerIdentities.find((item) => item.channel_type === channel);
   const lastWhatsappInbound = messages
     .filter((item) => item.conversation_id === activeConversation.id && item.channel_type === 'whatsapp' && item.direction === 'inbound')
     .sort((a, b) => b.created_at - a.created_at)[0];
@@ -171,7 +170,7 @@ export function OmnichannelInboxPage() {
       <div className="oi-conversation-scroll">{filteredConversations.map((conversation) => {
         const person = customers.find((item) => item.id === conversation.customer_id)!;
         const last = messages.filter((item) => item.conversation_id === conversation.id).sort((a, b) => b.created_at - a.created_at)[0];
-        return <Button type="button" kind="ghost" size="lg" className={'oi-conversation' + (activeId === conversation.id ? ' is-selected' : '')} key={conversation.id} onClick={() => chooseConversation(conversation)}>
+        return <Button type="button" kind="ghost" size="lg" className={'oi-conversation' + (activeId === conversation.id ? ' is-selected' : '')} key={conversation.id} aria-label={'打开 ' + (person.company_name || person.contact_name) + '，联系人 ' + person.contact_name} aria-current={activeId === conversation.id ? 'true' : undefined} onClick={() => chooseConversation(conversation)}>
           <Avatar customer={person} />
           <span className="oi-conversation-copy"><strong>{person.company_name || person.contact_name}</strong><span>{person.contact_name} · {person.role}</span><small>{last?.content_type === 'file' ? '文件：' + last.file_meta?.filename : last?.content_type === 'email_card' ? '邮件：' + last.email_subject : last?.content}</small></span>
           <span className="oi-conversation-meta"><time>{fmtTime(conversation.last_message_at)}</time><ChannelMark channel={conversation.last_channel_type} />{conversation.unread_count > 0 && <b>{conversation.unread_count}</b>}</span>
@@ -194,7 +193,7 @@ export function OmnichannelInboxPage() {
       <div className="oi-timeline" aria-label="统一消息时间线">{timeline.map((message) => <article key={message.id} className={'oi-message oi-message--' + message.direction}>
         <div className="oi-message-meta"><ChannelMark channel={message.channel_type} /><time>{fmtTime(message.created_at)}</time></div>
         {message.content_type === 'email_card' ? <div className="oi-email-card"><div className="oi-email-title"><CarbonIcons.Email size={18} /><strong>{message.email_subject}</strong><Button type="button" kind="ghost" size="sm" onClick={() => setExpandedEmail((current) => current.includes(message.id) ? current.filter((id) => id !== message.id) : [...current, message.id])}>{expandedEmail.includes(message.id) ? '收起' : '展开'} <CarbonIcons.ChevronDown size={14} /></Button></div><div className="oi-email-from">发件人：{customer.email}</div>{expandedEmail.includes(message.id) && <p>{message.content}</p>}</div>
-          : message.content_type === 'file' ? <div className="oi-file-card"><CarbonIcons.DocumentPdf size={28} /><div><strong>{message.file_meta?.filename}</strong><span>{fmtSize(message.file_meta?.size ?? 0)} · PDF 文档</span></div><Button type="button" kind="ghost" size="sm" hasIconOnly renderIcon={CarbonIcons.Attachment} iconDescription="下载文件" /></div>
+          : message.content_type === 'file' ? <div className="oi-file-card"><CarbonIcons.DocumentPdf size={28} /><div><strong>{message.file_meta?.filename}</strong><span>{fmtSize(message.file_meta?.size ?? 0)} · PDF 文档</span></div><Button type="button" kind="ghost" size="sm" hasIconOnly renderIcon={CarbonIcons.Attachment} iconDescription="演示文件不可下载" disabled /></div>
           : <div className="oi-bubble">{message.content}</div>}
         {message.direction === 'outbound' && <div className="oi-message-foot"><StatusText status={message.status} />{message.status === 'failed' && <Button kind="ghost" size="sm" onClick={() => retryMessage(message)}>点击重试</Button>}</div>}
       </article>)}</div>
@@ -209,7 +208,7 @@ export function OmnichannelInboxPage() {
       </div>
     </section>
 
-    {profileOpen && <aside ref={profilePanelRef} className="oi-profile-panel" role="dialog" aria-modal="true" aria-labelledby="oi-profile-title" tabIndex={-1}>
+    {profileOpen && <aside ref={profilePanelRef} className="oi-profile-panel" role={typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches ? 'dialog' : 'complementary'} aria-modal={typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches ? true : undefined} aria-labelledby="oi-profile-title" tabIndex={-1}>
       <div className="oi-profile-header"><h2 id="oi-profile-title">客户 360 档案</h2><IconButton kind="ghost" label="关闭档案" onClick={() => setProfileOpen(false)}><CarbonIcons.Close /></IconButton></div>
       <div className="oi-profile-scroll">
         <div className="oi-profile-identity"><Avatar customer={customer} /><div><strong>{customer.company_name || customer.contact_name}</strong><span>{customer.contact_name}</span></div></div>
