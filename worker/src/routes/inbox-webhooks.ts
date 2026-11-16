@@ -4,6 +4,7 @@ type Channel = "whatsapp" | "line" | "messenger" | "telegram";
 type Row = Record<string, unknown>;
 interface WebhookEnv {
   SUPABASE_URL: string;
+  SUPABASE_ANON_KEY: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
 }
 interface Connection {
