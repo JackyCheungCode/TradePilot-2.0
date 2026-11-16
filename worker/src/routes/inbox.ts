@@ -89,7 +89,7 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
 
     if (url.pathname === "/api/v1/inbox/channel-connections" && request.method === "GET") {
       const connections = await db<Row[]>(env,
-        "inbox_channel_connections?select=id,channel_type,display_name,external_account_id,connection_status,last_verified_at,last_error,created_at,updated_at&owner_id=eq." +
+        "inbox_channel_connections?select=id,channel_type,display_name,external_account_id,connection_status,last_verified_at,created_at,updated_at&owner_id=eq." +
         ownerId + "&order=channel_type.asc");
       return successResponse(request, { connections });
     }
