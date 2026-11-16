@@ -40,7 +40,11 @@ const apiCards=[
 {id:'cloudflare',name:'Cloudflare Workers AI',logo:'cloudflare',initial:'C',description:'Workers AI 模型目录读取。请使用仅具备 Workers AI Read 权限的 API Token。',fields:[{key:'cloudflareApiToken',label:'Workers AI API Token'},{key:'cloudflareAccountId',label:'Account ID'}],test:'cloudflare'},
 {id:'omnibox',name:'Omnibox 贸易百宝箱',logo:'',initial:'O',description:'HS Code 智能归类、关税预估、贸易实体筛查与美国 CBP 裁决检索。',fields:[{key:'omnibox',label:'Omnibox API Key'}],test:'omnibox'},
 {id:'apollo',name:'Apollo.io',logo:'apollo',initial:'A',description:'企业联系人搜索、职位识别与工作邮箱补全。',fields:[{key:'apollo',label:'API Key'}],test:'apollo'},
-{id:'zoominfo',name:'ZoomInfo',logo:'zoominfo',initial:'Z',description:'联系人搜索、组织架构与企业决策人数据；补全操作可能消耗账户额度。',fields:[{key:'zoominfoClientId',label:'OAuth Client ID'},{key:'zoominfoClientSecret',label:'OAuth Client Secret'}],test:'zoominfo'}
+{id:'zoominfo',name:'ZoomInfo',logo:'zoominfo',initial:'Z',description:'联系人搜索、组织架构与企业决策人数据；补全操作可能消耗账户额度。',fields:[{key:'zoominfoClientId',label:'OAuth Client ID'},{key:'zoominfoClientSecret',label:'OAuth Client Secret'}],test:'zoominfo'},
+{id:'abstractEmailValidation',name:'Abstract · 邮箱验证',logo:'',initial:'@',description:'验证邮箱格式、域名与邮件服务器可投递性；全平台同一邮箱仅验证一次。',fields:[{key:'abstractEmailValidation',label:'Abstract Email Validation API Key'}],test:'abstractEmailValidation'},
+{id:'abstractPhoneValidation',name:'Abstract · 电话验证',logo:'',initial:'☎',description:'验证国际电话号码有效性、国家、线路类型与运营商。',fields:[{key:'abstractPhoneValidation',label:'Abstract Phone Validation API Key'}],test:'abstractPhoneValidation'},
+{id:'whatsappCheck',name:'WhatsApp 注册检测',logo:'',initial:'WA',description:'独立第三方注册检测服务。请填写符合 TradePilot JSON 接口约定的 HTTPS 地址和 API Key。',fields:[{key:'whatsappCheckUrl',label:'检测 API HTTPS 地址'},{key:'whatsappCheckKey',label:'检测 API Key'}],test:'whatsappCheck'},
+{id:'jinaReader',name:'Jina Reader',logo:'',initial:'J',description:'读取客户官网内容，用于公开联系方式提取与 AI 企业背调。',fields:[{key:'jinaReader',label:'Jina Reader API Key'}],test:'jinaReader'}
 ] as const;
 async function request<T>(path:string,init:RequestInit={}):Promise<T>{
  const db=await getSupabaseClient();const {data}=await db.auth.getSession();if(!data.session?.access_token)throw new Error('登录状态已失效，请重新登录。');
