@@ -53,6 +53,9 @@ export function InboxPage() {
   const [openingContactId, setOpeningContactId] = useState('');
   const [businessView, setBusinessView] = useState<'contact' | 'quotes' | 'orders' | 'payments' | 'shipments' | null>(null);
   const [draft, setDraft] = useState('');
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
+  const [messageSearchOpen, setMessageSearchOpen] = useState(false);
+  const [messageSearch, setMessageSearch] = useState('');
   const [channelFilter, setChannelFilter] = useState('all');
   const [conversations, setConversations] = useState<InboxConversation[]>([]);
   const [selected, setSelected] = useState<InboxConversation | null>(null);
@@ -392,6 +395,11 @@ export function InboxPage() {
     }
   };
 
+  const visibleMessages = useMemo(() => {
+    const term = messageSearch.trim().toLocaleLowerCase();
+    return term ? messages.filter(item => [item.content, item.translated_content, item.email_subject].filter(Boolean).join(' ').toLocaleLowerCase().includes(term)) : messages;
+  }, [messages, messageSearch]);
+
   const visibleConversations = useMemo(() => conversations.filter(row => {
     const matchesChannel = channelFilter === 'all' || row.last_channel_type === channelFilter;
     const haystack = [
@@ -527,6 +535,7 @@ export function InboxPage() {
                   </Stack>
                   <Stack orientation="horizontal" gap={2} className="tp-inbox-chat-actions">
                     {selected.last_channel_type && <Tag type="blue">{channelLabel(selected.last_channel_type)}</Tag>}
+                    <Button kind="ghost" size="sm" onClick={() => { setMessageSearchOpen(value => !value); setMessageSearch(''); }} aria-label="搜索聊天记录">⌕</Button>
                     <OverflowMenu ariaLabel="客户业务菜单" iconDescription="客户业务菜单" flipped size="lg">
                       <OverflowMenuItem itemText="客户详细信息" onClick={() => setBusinessView('contact')} />
                       <OverflowMenuItem itemText="报价单" onClick={() => setBusinessView('quotes')} />
@@ -536,10 +545,11 @@ export function InboxPage() {
                     </OverflowMenu>
                   </Stack>
                 </Stack>
+                {messageSearchOpen && <div className="tp-inbox-thread-search"><Search size="lg" labelText="搜索聊天记录" placeholder="搜索当前聊天内容" value={messageSearch} onChange={(event: React.ChangeEvent<HTMLInputElement>) => setMessageSearch(event.target.value)} /></div>}
                 {messagesLoading && <InlineLoading description="正在加载消息…" />}
                 <Stack gap={3} className="tp-inbox-message-list">
-                  {!messagesLoading && messages.length === 0 && <Tile><p>该客户暂时没有已归档的跨渠道消息。</p></Tile>}
-                  {messages.map((item, index) => {
+                  {!messagesLoading && visibleMessages.length === 0 && <Tile><p>{messageSearch ? '没有找到匹配的消息。' : '该客户暂时没有已归档的跨渠道消息。'}</p></Tile>}
+                  {visibleMessages.map((item, index) => {
                     const previous = messages[index - 1];
                     const channelChanged = item.timeline_type === 'message' && previous?.timeline_type === 'message' && previous.channel_type !== item.channel_type;
                     return (
@@ -547,7 +557,7 @@ export function InboxPage() {
                         {channelChanged && <p>──────── 切换至 {channelLabel(item.channel_type)} · {formatTime(item.created_at)} ────────</p>}
                         <Tile className="tp-inbox-message-bubble">
                           <Stack gap={2}>
-                            <Stack orientation="horizontal" gap={2}>
+                            <Stack orientation="horizontal" gap={2} className="tp-inbox-message-meta">
                               <Tag type={item.timeline_type === 'internal_note' ? 'warm-gray' : item.direction === 'outbound' ? 'blue' : 'cool-gray'}>
                                 {item.timeline_type === 'internal_note' ? '内部备注' : channelLabel(item.channel_type)}
                               </Tag>
@@ -555,7 +565,7 @@ export function InboxPage() {
                               {item.status && <span className="tp-inbox-message-status">{messageStatusLabel(item.status)} {item.direction === 'outbound' && (item.status === 'read' ? '✓✓' : '✓')}</span>}
                             </Stack>
                             {item.email_subject && <strong>{item.email_subject}</strong>}
-                            <p>{item.content}</p>
+                            <p className="tp-inbox-message-content">{item.content}</p>
                             {item.attachments?.length ? (
                               <Stack gap={2}>
                                 <strong>附件（{item.attachments.length}）</strong>
@@ -594,7 +604,7 @@ export function InboxPage() {
               </Tile>
             )}
             {selected && <Tile className="tp-inbox-composer">
-              <Stack gap={3}>
+              <Stack gap={2}>
                 <Stack orientation="horizontal" gap={2}>
                   <Button size="sm" kind={composerMode === 'reply' ? 'primary' : 'tertiary'} onClick={() => setComposerMode('reply')}>回复客户</Button>
                   <Button size="sm" kind={composerMode === 'note' ? 'primary' : 'tertiary'} onClick={() => setComposerMode('note')} disabled={!selected}>内部备注</Button>
@@ -602,10 +612,15 @@ export function InboxPage() {
                 {composerMode === 'reply'
                   ? <Tag type="cool-gray">回复渠道：{selected?.last_channel_type ? channelLabel(selected.last_channel_type) : '等待选择会话'}</Tag>
                   : <Tag type="warm-gray">仅团队内部可见，不会发送给客户</Tag>}
-                <TextArea id="inbox-message-draft" labelText={composerMode === 'note' ? '内部备注' : '撰写消息'}
-                  placeholder={composerMode === 'note' ? '记录内部跟进信息…' : '输入要发送给客户的消息…'}
-                  value={draft} onChange={(event: React.ChangeEvent<HTMLTextAreaElement>) => setDraft(event.target.value)}
-                  rows={3} disabled={!selected || (composerMode === 'reply' && !['whatsapp', 'line', 'messenger', 'telegram'].includes(selected.last_channel_type || ''))} />
+                {composerMode === 'reply' && emojiPickerOpen && <div className="tp-inbox-emoji-picker" aria-label="表情选择器">{['😀','😂','😊','😍','👍','🙏','🎉','❤️','🤝','👌','🔥','👏'].map(emoji => <Button key={emoji} kind="ghost" size="sm" onClick={() => setDraft(value => value + emoji)}>{emoji}</Button>)}</div>}
+                <div className="tp-inbox-composer-row">
+                  {composerMode === 'reply' && <Button kind="ghost" size="sm" onClick={() => setEmojiPickerOpen(value => !value)} aria-label="打开表情">☺</Button>}
+                  <TextArea id="inbox-message-draft" labelText={composerMode === 'note' ? '内部备注' : '撰写消息'}
+                    placeholder={composerMode === 'note' ? '记录内部跟进信息…' : '输入消息，按 Enter 发送'}
+                    value={draft} onChange={(event: React.ChangeEvent<HTMLTextAreaElement>) => setDraft(event.target.value)}
+                    onKeyDown={(event: React.KeyboardEvent<HTMLTextAreaElement>) => { if (event.key === 'Enter' && !event.shiftKey && composerMode === 'reply') { event.preventDefault(); void sendMessage(); } }}
+                    rows={1} disabled={!selected || (composerMode === 'reply' && !['whatsapp', 'line', 'messenger', 'telegram'].includes(selected.last_channel_type || ''))} />
+                </div>
                 {composerMode === 'note'
                   ? <Button size="md" renderIcon={CarbonIcons.Add} onClick={() => void addInternalNote()} disabled={!selected || !draft.trim() || savingNote}>{savingNote ? '正在保存…' : '添加内部备注'}</Button>
                   : <Button size="md" renderIcon={CarbonIcons.Send} onClick={() => void sendMessage()} disabled={!selected || !draft.trim() || sendingMessage || !['whatsapp', 'line', 'messenger', 'telegram'].includes(selected.last_channel_type || '')}>{sendingMessage ? '正在发送…' : '发送消息'}</Button>}
