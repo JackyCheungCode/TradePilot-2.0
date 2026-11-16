@@ -343,6 +343,21 @@ export function InboxPage() {
     return matchesChannel && haystack.includes(query.trim().toLocaleLowerCase());
   }), [conversations, channelFilter, query]);
 
+  const companyGroups = useMemo(() => {
+    const groups = new Map<string, { id: string; name: string; conversations: InboxConversation[] }>();
+    visibleConversations.forEach(row => {
+      const id = row.account_id || row.account?.id || row.display_name;
+      const group = groups.get(id) ?? {
+        id,
+        name: row.account?.account_name || row.display_name,
+        conversations: [],
+      };
+      group.conversations.push(row);
+      groups.set(id, group);
+    });
+    return Array.from(groups.values());
+  }, [visibleConversations]);
+
   return (
     <div className="tp-inbox-page">
     <Stack gap={5}>
@@ -401,22 +416,26 @@ export function InboxPage() {
               ))}
             </Stack>
             {loading && <InlineLoading description="正在加载会话…" />}
-            {!loading && visibleConversations.map(row => (
-              <ClickableTile key={row.id} className={selected?.id === row.id ? 'tp-inbox__selected' : ''} onClick={() => { setSelected(row); setError(''); }}>
-                <Stack gap={2}>
-                  <Stack orientation="horizontal">
-                    <strong>{row.account?.account_name || row.display_name}</strong>
-                    <span>{formatTime(row.last_message_at)}</span>
-                  </Stack>
-                  <span className="tp-inbox-contact-name">{row.contact?.full_name || row.contact_display_name}{row.contact?.job_title ? ' · ' + row.contact.job_title : ''}</span>
-                  <span className="tp-inbox-company-name">{row.account?.legal_name || row.display_name}</span>
-                  <span className="tp-inbox-list-preview">{row.last_message_preview || '暂无消息内容'}</span>
-                  <Stack orientation="horizontal" gap={2}>
-                    {row.last_channel_type && <Tag type="blue">{channelLabel(row.last_channel_type)}</Tag>}
-                    {row.unread_count > 0 && <Tag type="red">{row.unread_count}</Tag>}
-                  </Stack>
-                </Stack>
-              </ClickableTile>
+            {!loading && companyGroups.map(group => (
+              <section key={group.id} className="tp-inbox-company-group">
+                <h3 className="tp-inbox-company-heading">{group.name}</h3>
+                {group.conversations.map(row => (
+                  <ClickableTile key={row.id} className={selected?.id === row.id ? 'tp-inbox__selected' : ''} onClick={() => { setSelected(row); setError(''); }}>
+                    <Stack gap={2}>
+                      <Stack orientation="horizontal">
+                        <strong>{row.contact?.full_name || row.contact_display_name}</strong>
+                        <span>{formatTime(row.last_message_at)}</span>
+                      </Stack>
+                      {row.contact?.job_title && <span className="tp-inbox-company-name">{row.contact.job_title}</span>}
+                      <span className="tp-inbox-list-preview">{row.last_message_preview || '暂无消息内容'}</span>
+                      <Stack orientation="horizontal" gap={2}>
+                        {row.last_channel_type && <Tag type="blue">{channelLabel(row.last_channel_type)}</Tag>}
+                        {row.unread_count > 0 && <Tag type="red">{row.unread_count}</Tag>}
+                      </Stack>
+                    </Stack>
+                  </ClickableTile>
+                ))}
+              </section>
             ))}
             {!loading && visibleConversations.length === 0 && (
               <Tile>
