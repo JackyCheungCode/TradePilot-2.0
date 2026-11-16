@@ -97,3 +97,10 @@
   .tp-tool-center__table-wrap--fields .cds--data-table tbody th{display:block;color:var(--cds-text-secondary);font-weight:600;border-bottom:0;padding-bottom:0}
   .tp-tool-center__table-wrap--fields .cds--data-table tbody td{display:block;padding-top:var(--cds-spacing-02)}
 }
+
+.tp-tool-center__website-result{display:grid;gap:1rem;padding:1rem;background:var(--cds-layer-01);color:var(--cds-text-primary)}
+.tp-tool-center__website-result h4{margin:0;font-size:.875rem;font-weight:600}
+.tp-tool-center__website-result p{margin:.25rem 0;color:var(--cds-text-secondary);overflow-wrap:anywhere}
+.tp-tool-center__website-result pre{max-height:28rem;overflow:auto;padding:1rem;background:var(--cds-layer-02);white-space:pre-wrap;overflow-wrap:anywhere;font: .8125rem/1.5 IBM Plex Mono,monospace}
+.tp-tool-center__website-result ul{margin:0;padding-left:1.25rem;overflow-wrap:anywhere}
+.tp-tool-center__website-result a{color:var(--cds-link-primary)}
