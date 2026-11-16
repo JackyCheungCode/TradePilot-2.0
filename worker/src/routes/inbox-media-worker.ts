@@ -4,6 +4,8 @@ interface MediaWorkerEnv {
   SUPABASE_URL: string;
   SUPABASE_ANON_KEY: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
+  INBOX_SCANNER_URL?: string;
+  INBOX_SCANNER_HMAC_SECRET?: string;
 }
 type Row = Record<string, unknown>;
 interface MediaJob extends Row {
@@ -209,6 +211,49 @@ async function providerDownload(job: MediaJob, secrets: Record<string, string>):
   };
 }
 
+
+async function scanWithClamAV(env: MediaWorkerEnv, bytes: Uint8Array): Promise<"clean" | "infected"> {
+  const base = env.INBOX_SCANNER_URL?.trim();
+  const secret = env.INBOX_SCANNER_HMAC_SECRET;
+  if (!base || !secret) throw new Error("MEDIA_SCANNER_NOT_CONFIGURED");
+  let endpoint: URL;
+  try {
+    endpoint = new URL("/scan", base);
+  } catch {
+    throw new Error("MEDIA_SCANNER_CONFIGURATION_INVALID");
+  }
+  if (endpoint.protocol !== "https:" || endpoint.username || endpoint.password || endpoint.search || endpoint.hash) {
+    throw new Error("MEDIA_SCANNER_CONFIGURATION_INVALID");
+  }
+  const timestamp = String(Math.floor(Date.now() / 1000));
+  const digest = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), b => b.toString(16).padStart(2, "0")).join("");
+  const key = await crypto.subtle.importKey(
+    "raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"],
+  );
+  const signatureBytes = new Uint8Array(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(timestamp + "." + digest)));
+  const signature = Array.from(signatureBytes, b => b.toString(16).padStart(2, "0")).join("");
+  let response: Response;
+  try {
+    response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/octet-stream",
+        "X-Scan-Timestamp": timestamp,
+        "X-Scan-SHA256": digest,
+        "X-Scan-Signature": signature,
+      },
+      body: new Blob([bytes]),
+      signal: AbortSignal.timeout(120000),
+    });
+  } catch {
+    throw new Error("MEDIA_SCANNER_UNAVAILABLE");
+  }
+  if (!response.ok) throw new Error("MEDIA_SCANNER_UNAVAILABLE");
+  const result = await response.json().catch(() => null) as { status?: string } | null;
+  if (result?.status === "clean" || result?.status === "infected") return result.status;
+  throw new Error("MEDIA_SCANNER_INVALID_RESPONSE");
+}
+
 async function uploadObject(env: MediaWorkerEnv, path: string, media: DownloadedMedia): Promise<void> {
   const endpoint = new URL("/storage/v1/object/inbox-attachments/" + path.split("/").map(encodeURIComponent).join("/"), env.SUPABASE_URL);
   const response = await fetch(endpoint, {
@@ -244,7 +289,9 @@ async function processJob(env: MediaWorkerEnv, job: MediaJob, secrets: Record<st
     const mimeType = sniffMime(bytes, provider.mimeHint || job.mime_type_hint, fileName);
     if (!mimeType || !ALLOWED_MIME.has(mimeType)) throw new Error("MEDIA_MIME_REJECTED");
     const sha256 = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), b => b.toString(16).padStart(2, "0")).join("");
-    objectPath = job.owner_id + "/" + job.message_id + "/" + job.id + "/" + fileName;
+    const scanStatus = await scanWithClamAV(env, bytes);
+    const quarantined = scanStatus === "infected";
+    objectPath = (quarantined ? "quarantine/" : "") + job.owner_id + "/" + job.message_id + "/" + job.id + "/" + fileName;
     const media: DownloadedMedia = { bytes, mimeType, fileName };
     await uploadObject(env, objectPath, media);
     const inserted = await db<Row[]>(env, "inbox_attachments?on_conflict=storage_bucket,storage_path", {
@@ -260,8 +307,15 @@ async function processJob(env: MediaWorkerEnv, job: MediaJob, secrets: Record<st
         content_type: mimeType,
         file_size_bytes: bytes.byteLength,
         sha256_hex: sha256,
-        scan_status: "pending",
-        metadata: { channel_type: job.channel_type, media_job_id: job.id, scanner: "not_configured" },
+        scan_status: quarantined ? "rejected" : "clean",
+        metadata: {
+          channel_type: job.channel_type,
+          media_job_id: job.id,
+          scanner: "clamav",
+          scanned_at: new Date().toISOString(),
+          scan_result: quarantined ? "infected" : "clean",
+          storage_class: quarantined ? "quarantine" : "approved",
+        },
       }),
     });
     if (!inserted.length) throw new Error("MEDIA_METADATA_SAVE_FAILED");
