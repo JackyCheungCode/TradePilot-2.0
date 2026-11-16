@@ -54,7 +54,7 @@
 @media(max-width:600px){
   .tp-documents__progress-wrap .cds--progress{display:flex;align-items:flex-start;width:max-content;min-width:100%;max-width:none;overflow:visible}
   .tp-documents__progress-wrap .cds--progress-step{flex:0 0 9rem!important;width:9rem;min-width:9rem!important;max-width:9rem;padding-inline:var(--cds-spacing-03)!important;overflow:visible}
-  .tp-documents__progress-wrap .cds--progress-step__description{display:none!important}.tp-documents__progress-wrap .cds--progress-step__label{display:block!important;font-size:.75rem;line-height:1.3;white-space:normal;overflow-wrap:anywhere}
+  .tp-documents__progress-wrap .cds--progress-step__description{display:none!important}.tp-documents__progress-wrap .cds--progress-step__label{display:block!important;max-width:6rem;font-size:.75rem;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .tp-documents__progress-wrap .cds--progress-step__connector{min-width:0;max-width:100%}
   .tp-documents__mobile-step-label{display:block}
 }
