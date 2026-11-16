@@ -226,7 +226,10 @@ export function OpportunityDetailPage() {
        <Checkbox id="opportunity-transition-confirm" labelText="我已核实商机信息，并确认进入所选阶段。" checked={confirmed} onChange={(_,data)=>setConfirmed(Boolean(data.checked))}/>
        {transitionError&&<InlineNotification kind="error" title="无法提交" subtitle={transitionError}/>}
      </ModalBody>
-     <ModalFooter secondaryButtonText="取消" primaryButtonText={saving?'提交中…':'确认并更新'} primaryButtonDisabled={saving||!confirmed||!nextStage||(nextStage==='lost'&&!transitionNote.trim())} onRequestClose={()=>{if(!saving)setLifecycleOpen(false)}} onRequestSubmit={()=>void submitTransition()}/>
+     <ModalFooter>
+       <Button kind="secondary" disabled={saving} onClick={()=>setLifecycleOpen(false)}>取消</Button>
+       <Button kind="primary" disabled={saving||!confirmed||!nextStage||(nextStage==='lost'&&!transitionNote.trim())} onClick={()=>void submitTransition()}>{saving?'提交中…':'确认并更新'}</Button>
+     </ModalFooter>
    </ComposedModal>
  </main>;
 }
