@@ -33,8 +33,25 @@ const statusLabels: Record<ConversationFilter, string> = {
   resolved: '已解决',
 };
 
-function ChannelTag({ channel }: { channel: CommunicationChannel }) {
-  return <Tag type="cool-gray">{communicationChannelLabels[channel]}</Tag>;
+function ChannelLogo({ channel, size = 'md' }: { channel: CommunicationChannel; size?: 'sm' | 'md' | 'lg' }) {
+  const labels: Record<CommunicationChannel, string> = {
+    whatsapp: 'WhatsApp',
+    messenger: 'Facebook Messenger',
+    instagram: 'Instagram',
+    email: '电子邮件',
+    telegram: 'Telegram',
+  };
+  return (
+    <span className={`cc-channel-logo cc-channel-logo--${channel} cc-channel-logo--${size}`} role="img" aria-label={labels[channel]} title={labels[channel]}>
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        {channel === 'whatsapp' && <><path d="M12 2.2a9.4 9.4 0 0 0-8.08 14.2L2.7 21.8l5.55-1.45A9.4 9.4 0 1 0 12 2.2Z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="M8.1 7.7c.25-.55.5-.56.8-.57h.55c.17 0 .4.06.55.42l.78 1.87c.08.2.06.39-.07.57l-.58.72c-.15.18-.2.35-.06.59.48.82 1.17 1.5 2.02 1.96.24.13.42.1.58-.08l.75-.88c.17-.2.36-.24.59-.15l1.8.85c.28.13.43.2.46.35.03.15-.02.86-.48 1.32-.45.46-1.12.67-1.82.53-1.07-.2-2.4-.84-3.7-2.02-1.06-.96-1.8-2.14-2.03-3.05-.24-.9.02-1.83.36-2.43Z" fill="currentColor"/></>}
+        {channel === 'messenger' && <path d="M12 2.5c-5.53 0-10 4.1-10 9.16 0 2.88 1.45 5.45 3.72 7.13v3.2l3.4-1.87c.91.25 1.88.39 2.88.39 5.52 0 10-4.1 10-9.16S17.52 2.5 12 2.5Zm1.02 12.33-2.55-2.72-4.98 2.72 5.48-5.82 2.61 2.72 4.92-2.72-5.48 5.82Z" fill="currentColor"/>}
+        {channel === 'instagram' && <><rect x="3" y="3" width="18" height="18" rx="5" fill="none" stroke="currentColor" strokeWidth="1.8"/><circle cx="12" cy="12" r="4.1" fill="none" stroke="currentColor" strokeWidth="1.8"/><circle cx="17.6" cy="6.6" r="1.1" fill="currentColor"/></>}
+        {channel === 'email' && <><rect x="2.8" y="4.5" width="18.4" height="15" rx="2" fill="none" stroke="currentColor" strokeWidth="1.8"/><path d="m3.8 6 8.2 6.4L20.2 6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></>}
+        {channel === 'telegram' && <path d="m21.2 4.1-3.2 15.1c-.24 1.07-.86 1.34-1.75.83l-4.85-3.57-2.34 2.25c-.26.26-.48.48-.98.48l.35-4.94 8.99-8.12c.39-.35-.09-.55-.6-.2L5.7 12.9l-4.7-1.47c-1.02-.32-1.04-1.02.21-1.52L19.6 2.6c.86-.32 1.61.2 1.6 1.5Z" fill="currentColor"/>}
+      </svg>
+    </span>
+  );
 }
 
 function MessageStatus({ status }: { status?: CommunicationMessage['status'] }) {
@@ -114,10 +131,7 @@ export function CustomerCommunicationsPage() {
           <Heading>客户沟通工作台</Heading>
           <p>统一处理跨渠道客户消息与跟进</p>
         </div>
-        <div className="cc-page-summary">
-          <Tag type="cool-gray">{conversations.length} 个会话</Tag>
-          <Tag type="blue">{conversations.filter((item) => item.unread > 0).length} 个未读</Tag>
-        </div>
+        
       </header>
 
       {notice && (
@@ -133,7 +147,7 @@ export function CustomerCommunicationsPage() {
       <section className={'cc-workspace' + (mobileChat ? ' cc-workspace--mobile-chat' : '') + (!profileOpen ? ' cc-workspace--profile-collapsed' : '')}>
         <aside className="cc-list-panel" aria-label="会话列表">
           <div className="cc-panel-heading">
-            <Heading>会话</Heading>
+            <Heading className="cc-section-title">会话</Heading>
             <span className="cc-result-count">{visibleConversations.length} 条</span>
           </div>
           <div className="cc-list-controls">
@@ -157,17 +171,19 @@ export function CustomerCommunicationsPage() {
               }}
             />
           </div>
-          <div className="cc-status-filters" aria-label="会话状态筛选">
-            {(Object.keys(statusLabels) as ConversationFilter[]).map((key) => (
-              <Button
-                key={key}
-                kind={filter === key ? 'primary' : 'tertiary'}
-                size="sm"
-                onClick={() => setFilter(key)}
-              >
-                {statusLabels[key]}
-              </Button>
-            ))}
+          <div className="cc-status-filter">
+            <Dropdown
+              id="cc-status-filter"
+              titleText="会话状态"
+              label="全部"
+              size="md"
+              items={(Object.keys(statusLabels) as ConversationFilter[]).map((id) => ({ id, text: statusLabels[id] }))}
+              itemToString={(item: { id: string; text: string } | null) => item?.text ?? ''}
+              selectedItem={{ id: filter, text: statusLabels[filter] }}
+              onChange={({ selectedItem }: { selectedItem?: { id: string; text: string } | null }) => {
+                if (selectedItem) setFilter(selectedItem.id as ConversationFilter);
+              }}
+            />
           </div>
           <div className="cc-conversation-list">
             {visibleConversations.map((conversation) => {
@@ -189,7 +205,7 @@ export function CustomerCommunicationsPage() {
                   </span>
                   <span className="cc-conversation-meta">
                     <time>{formatTime(conversation.updatedAt)}</time>
-                    <ChannelTag channel={conversation.channel} />
+                    <ChannelLogo channel={conversation.channel} size="sm" />
                     {conversation.unread > 0 && <span className="cc-unread-count">{conversation.unread}</span>}
                   </span>
                 </Button>
@@ -204,12 +220,12 @@ export function CustomerCommunicationsPage() {
             <div className="cc-chat-contact">
               <Button kind="ghost" size="sm" className="cc-mobile-back" onClick={() => setMobileChat(false)}>返回会话</Button>
               <div>
-                <Heading>{activeCustomer.company}</Heading>
+                <Heading className="cc-chat-company-title">{activeCustomer.company}</Heading>
                 <p>{activeCustomer.contact} · {activeCustomer.role}</p>
               </div>
             </div>
             <div className="cc-chat-actions">
-              <ChannelTag channel={activeConversation.channel} />
+              <ChannelLogo channel={activeConversation.channel} size="md" />
               <Tag type={activeConversation.state === 'resolved' ? 'green' : activeConversation.state === 'pending' ? 'warm-gray' : 'blue'}>
                 {activeConversation.state === 'resolved' ? '已解决' : activeConversation.state === 'pending' ? '待处理' : '处理中'}
               </Tag>
@@ -226,7 +242,7 @@ export function CustomerCommunicationsPage() {
                 className={'cc-message' + (message.direction === 'outbound' ? ' cc-message--outbound' : '') + (message.direction === 'system' ? ' cc-message--system' : '')}
               >
                 <div className="cc-message-meta">
-                  <ChannelTag channel={message.channel} />
+                  <ChannelLogo channel={message.channel} size="sm" />
                   <time>{formatDate(message.time)}</time>
                 </div>
                 {message.kind === 'email' ? (
@@ -289,7 +305,7 @@ export function CustomerCommunicationsPage() {
         {profileOpen && (
           <aside className="cc-profile-panel" aria-label="客户档案">
             <div className="cc-panel-heading">
-              <Heading>客户档案</Heading>
+              <Heading className="cc-profile-title">客户档案</Heading>
               <Button kind="ghost" size="sm" onClick={() => setProfileOpen(false)}>收起</Button>
             </div>
             <div className="cc-profile-scroll">
@@ -298,7 +314,7 @@ export function CustomerCommunicationsPage() {
                 <div><strong>{activeCustomer.contact}</strong><span>{activeCustomer.role}</span><span>{activeCustomer.company}</span></div>
               </div>
               <section className="cc-profile-section">
-                <Heading>基本信息</Heading>
+                <Heading className="cc-profile-section-title">基本信息</Heading>
                 <dl className="cc-details">
                   <dt>地区</dt><dd>{activeCustomer.region}</dd>
                   <dt>电子邮件</dt><dd>{activeCustomer.email}</dd>
@@ -306,20 +322,20 @@ export function CustomerCommunicationsPage() {
                 </dl>
               </section>
               <section className="cc-profile-section">
-                <Heading>渠道身份</Heading>
+                <Heading className="cc-profile-section-title">渠道身份</Heading>
                 {activeCustomer.identities.map((identity) => (
                   <div className="cc-identity-row" key={identity.channel}>
-                    <ChannelTag channel={identity.channel} />
+                    <ChannelLogo channel={identity.channel} size="sm" />
                     <span>{identity.account}</span>
                   </div>
                 ))}
               </section>
               <section className="cc-profile-section">
-                <Heading>客户标签</Heading>
+                <Heading className="cc-profile-section-title">客户标签</Heading>
                 <div className="cc-customer-tags">{activeCustomer.tags.map((tag) => <Tag key={tag} type="cool-gray">{tag}</Tag>)}</div>
               </section>
               <section className="cc-profile-section">
-                <Heading>会话信息</Heading>
+                <Heading className="cc-profile-section-title">会话信息</Heading>
                 <dl className="cc-details">
                   <dt>会话状态</dt><dd>{statusLabels[activeConversation.state === 'open' ? 'all' : activeConversation.state]}</dd>
                   <dt>最近沟通</dt><dd>{formatDate(activeConversation.updatedAt)}</dd>
