@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   Accordion, AccordionItem, Button, Checkbox, ComboBox, InlineLoading, InlineNotification, MultiSelect,
   Select, SelectItem, Tab, TabList, TabPanel, TabPanels, Tabs, Tag, TextArea, TextInput, Tile, FileUploader, LineChart, ScaleTypes,
-  CarbonIcons, Table, TableHead, TableRow, TableHeader, TableBody, TableCell,
+  CarbonIcons, Table, TableHead, TableRow, TableHeader, TableBody, TableCell, BusinessLifecycle,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import { useCrmSettingOptions } from '../settings/CrmDomainSettings';
@@ -349,6 +349,7 @@ export function ContactFormPage() {
         {field('负责人',<TextInput id="contact-owner" labelText="负责人" value={form.owner} onChange={e=>set('owner',e.currentTarget.value)} placeholder="默认继承客户负责人"/>)}
       </div>
     </section>
+    <BusinessLifecycle title="联系人状态" steps={[{value:'active',label:'在职有效'},{value:'inactive',label:'已停用'}]} current={row.is_active?'active':'inactive'} statusOnly terminalKind={row.is_active?'info':'warning'} terminalTitle={row.is_active?'联系人在职':'联系人已停用'} description={cf.status==='departed'?'联系人已离职':cf.status==='invalid'?'联系人资料已标记无效':'状态以联系人主数据为准；联系方式核验状态单独记录。'}/>
     <section className="tp-contacts__tabs"><Tabs selectedIndex={tab} onChange={({selectedIndex})=>setTab(selectedIndex)}><TabList aria-label="联系人其他数据" contained><Tab>联系方式</Tab><Tab>社交账号</Tab><Tab>地址</Tab><Tab>沟通偏好</Tab><Tab>归属与来源</Tab><Tab>合规与同意</Tab><Tab>活动统计</Tab><Tab>备注</Tab><Tab>自定义字段</Tab><Tab>系统信息</Tab></TabList><TabPanels>
       <TabPanel><div className="tp-contacts__tab-content"><h2 className="tp-contacts__heading"><CarbonIcons.Phone size={20} aria-hidden="true"/><span>附加联系方式</span></h2><p className="tp-contacts__muted">主要邮箱、电话和 WhatsApp 已放在主数据区；此处维护其他邮箱、电话及通讯工具。</p><MethodRows title="附加邮箱" items={form.extraEmails} onChange={v=>set('extraEmails',v)} methodType="email"/><MethodRows title="附加电话 / 通讯工具" items={form.extraPhones} onChange={v=>set('extraPhones',v)} methodType="phone"/><div className="tp-contacts__grid tp-contacts__grid--three">{field('邮箱状态',<TextInput id="contact-email-status" labelText="邮箱状态" value={form.email?'已填写，待验证':'未填写'} readOnly/>)}{field('邮箱验证结果',<TextInput id="contact-email-verify" labelText="邮箱验证结果" value="待接入验证服务" readOnly/>)}{field('最近退信时间',<TextInput id="contact-bounce" labelText="最近退信时间" value="—" readOnly/>)}</div></div></TabPanel>
       <TabPanel><div className="tp-contacts__tab-content"><h2 className="tp-contacts__heading"><CarbonIcons.Share size={20} aria-hidden="true"/><span>社交账号</span></h2><p className="tp-contacts__muted">每个平台支持多条记录，可填写账号名称或个人主页链接。</p><SocialRows items={form.social} onChange={v=>set('social',v)} platforms={socialPlatforms.map(x=>x.text)}/></div></TabPanel>

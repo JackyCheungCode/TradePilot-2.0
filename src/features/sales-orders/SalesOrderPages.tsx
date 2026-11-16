@@ -3,7 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput, TextArea,
   Tabs, TabList, Tab, TabPanels, TabPanel, Table, TableHead, TableRow, TableHeader, TableBody, TableCell,
-  CarbonIcons,
+  CarbonIcons, BusinessLifecycle,
 } from '@/design-system';
 import { LineChart, SimpleBarChart } from '@carbon/charts-react';
 import { ScaleTypes } from '@carbon/charts';
@@ -129,7 +129,8 @@ export function SalesOrderFormPage(){
  {error&&<InlineNotification kind="error" title="销售订单操作失败" subtitle={error}/>}
  <section className="tp-sales-orders__form-shell">
   <div className="tp-sales-orders__form-top"><div><Tag type="cool-gray">{orderId?'草稿编辑':'新订单 · 草稿'}</Tag>{sourceQuote&&<Tag type="green">来源报价：{sourceQuote.document_number}</Tag>}</div><div className="tp-sales-orders__amount-strip"><div><span>订单总额</span><strong>{money(totals.grand_total,data.currency_code)}</strong></div><div><span>已收金额</span><strong>{money(paid,data.currency_code)}</strong></div><div><span>未收金额</span><strong>{money(outstanding,data.currency_code)}</strong></div></div></div>
-  <section className="tp-sales-orders__basic"><h2>基本信息</h2><div className="tp-sales-orders__grid">
+  <BusinessLifecycle title="销售订单生命周期" steps={[{value:'draft',label:'草稿'},{value:'confirmed',label:'已确认'},{value:'preparing',label:'备货中'},{value:'partially_shipped',label:'部分发货'},{value:'shipped',label:'已发货'},{value:'completed',label:'已完成'}]} current={s} terminal={s==='cancelled'} terminalKind="warning" terminalTitle="订单已取消" description="订单状态与履约进度分别管理；发运记录决定实际履约进度。"/>
+ <section className="tp-sales-orders__basic"><h2>基本信息</h2><div className="tp-sales-orders__grid">
    <TextInput id="so-title" labelText="订单标题" value={data.title} onChange={e=>set('title',e.currentTarget.value)} placeholder="客户名称 - Sales Order"/>
    <TextInput id="so-date" type="date" labelText="下单日期 *" value={data.order_date} onChange={e=>set('order_date',e.currentTarget.value)}/>
    <TextInput id="so-requested-date" type="date" labelText="客户要求交期" value={data.requested_delivery_date} onChange={e=>set('requested_delivery_date',e.currentTarget.value)}/>

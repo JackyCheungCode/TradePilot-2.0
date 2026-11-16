@@ -89,3 +89,5 @@ export * from './TabContent';
 export * from './InlineCheckbox';
 export * from './AspectRatio';
 export * from './Theme';
+
+export * from './BusinessLifecycle';

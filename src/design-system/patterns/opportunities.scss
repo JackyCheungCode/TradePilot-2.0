@@ -59,3 +59,5 @@
 .tp-opportunities__conversion-inherit{display:grid;gap:var(--cds-spacing-03);margin:var(--cds-spacing-05) 0;padding:var(--cds-spacing-04);background:var(--cds-layer-01);font-size:.8125rem}
 .tp-opportunities__conversion-inherit strong{font-weight:600}
 .tp-opportunities__conversion-inherit span{color:var(--cds-text-secondary)}
+
+@media(max-width:672px){.tp-opportunities__header{width:100%;min-width:0}.tp-opportunities__actions{display:grid;grid-template-columns:minmax(0,1fr);width:100%;min-width:0;gap:var(--cds-spacing-03)}.tp-opportunities__primary-action{width:100%;max-width:100%}.tp-opportunities__secondary-actions{display:flex;flex-wrap:nowrap;gap:var(--cds-spacing-03);width:100%;min-width:0;max-width:100%;overflow-x:auto;overscroll-behavior-x:contain;padding-bottom:var(--cds-spacing-02)}.tp-opportunities__secondary-actions>.cds--btn{flex:0 0 auto;white-space:nowrap}.tp-opportunities__lifecycle-scroll{width:100%;max-width:100%;min-width:0;overflow-x:auto;overscroll-behavior-x:contain;padding-bottom:var(--cds-spacing-02)}.tp-opportunities__lifecycle-track{width:52rem;max-width:none}.tp-opportunities__lifecycle-track .cds--progress{min-width:0}}
