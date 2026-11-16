@@ -188,9 +188,11 @@ export async function createInboxNote(token: string, conversationId: string, con
 export interface InboxBusinessMetrics {
   total_order_count: number;
   active_order_count: number;
+  unshipped_order_count?: number;
   total_amount_by_currency: Array<{ currency: string; amount: number }>;
   shipment_count: number;
   payment_count: number;
+  orders?: Array<{ id: string; order_number?: string; title?: string; status: string; currency_code: string; trade_date?: string | null; created_at: string; grand_total: number; fulfillment_status: string }>;
   monthly_trend: Array<{
     period: string;
     order_count: number;
