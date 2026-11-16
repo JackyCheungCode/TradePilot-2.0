@@ -87,10 +87,10 @@ export function InboxPage() {
           <section className="tp-inbox__panel">
             <div className="tp-inbox__panel-heading">
               <h2>AI 助手 <span>AI Assist</span></h2>
-              <CarbonIcons.Sparkles size={20} />
+              <CarbonIcons.Chat size={20} />
             </div>
             <p className="tp-inbox__muted">结合客户沟通与 ERP 业务记录，辅助整理客户诉求和跟进建议。</p>
-            <Button kind="tertiary" size="sm" renderIcon={CarbonIcons.Summarize} disabled>生成会话总结</Button>
+            <Button kind="tertiary" size="sm" renderIcon={CarbonIcons.Chat} disabled>生成会话总结</Button>
             <div className="tp-inbox__placeholder">选择会话后，将在此显示客户摘要、待确认事项和建议回复。</div>
           </section>
           <section className="tp-inbox__panel">
