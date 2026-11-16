@@ -25,7 +25,7 @@ begin
     owner_id,record_type,record_id,event_type,from_status,to_status,
     gatekeeper_required,gatekeeper_status,actor_id,note,payload
   ) values (
-    new.owner_id,'payment',new.id,'payment_reconciliation_changed',old.reconcile_status,new.reconcile_status,
+    new.owner_id,'payment',new.id,'payment_status_changed',old.status,new.status,
     false,'not_required',coalesce(v_actor,new.updated_by,new.created_by),
     v_note,
     jsonb_build_object(
@@ -88,7 +88,7 @@ begin
     owner_id,record_type,record_id,event_type,from_status,to_status,
     gatekeeper_required,gatekeeper_status,actor_id,note,payload
   ) values (
-    new.owner_id,'payment',new.id,'payment_status_changed',old.status,new.status,
+    new.owner_id,'payment',new.id,'payment_reconciliation_changed',old.reconcile_status,new.reconcile_status,
     false,'not_required',coalesce(auth.uid(),new.updated_by,new.owner_id),
     '核销状态：'||coalesce(old.reconcile_status,'未设置')||' → '||coalesce(new.reconcile_status,'未设置'),
     jsonb_build_object(
