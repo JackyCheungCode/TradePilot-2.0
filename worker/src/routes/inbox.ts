@@ -158,6 +158,24 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
       }, existing.length ? 200 : 201);
     }
 
+    if (url.pathname === "/api/v1/inbox/crm-contacts" && request.method === "GET") {
+      const query = (url.searchParams.get("query") ?? "").replace(/[(),]/g, " ").replace(/\\s+/g, " ").trim().slice(0, 80);
+      if (query.length < 2) return successResponse(request, { contacts: [] });
+      const pattern = "*" + query + "*";
+      const orFilter = "(full_name.ilike." + pattern + ",first_name.ilike." + pattern +
+        ",last_name.ilike." + pattern + ",email.ilike." + pattern +
+        ",phone.ilike." + pattern + ",mobile.ilike." + pattern + ")";
+      const contacts = await db<Row[]>(env,
+        "crm_contacts?select=id,full_name,first_name,last_name,email,phone,mobile,account_id&owner_id=eq." +
+        ownerId + "&or=" + encodeURIComponent(orFilter) + "&order=full_name.asc&limit=30");
+      return successResponse(request, {
+        contacts: contacts.map(contact => ({
+          ...contact,
+          display_name: contact.full_name || [contact.first_name, contact.last_name].filter(Boolean).join(" ") || contact.email || contact.phone || contact.mobile || "未命名联系人",
+        })),
+      });
+    }
+
     if (url.pathname === "/api/v1/inbox/unmatched-events" && request.method === "GET") {
       const events = await db<Row[]>(env,
         "inbox_webhook_events?select=id,channel_type,channel_connection_id,external_event_id,event_type,status,payload,received_at,error_code&owner_id=eq." +
