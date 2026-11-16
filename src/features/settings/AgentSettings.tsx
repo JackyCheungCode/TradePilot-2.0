@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextArea, TextInput } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
+import { AgentHistoryManagement } from './AgentHistoryManagement';
 
 type Provider = { id: string; name: string; model: string; protocol: string; configured?: boolean | string; baseUrl?: string; providerKey?: string; secretName?: string };
 type AIConfig = { providers?: Provider[]; taskModels?: Record<string,string>; defaultModel?: string };
@@ -119,6 +120,7 @@ export function AgentSettings({ section }: { section: string }) {
         <TextArea id="agent-profile-prompt" labelText="系统指令" rows={6} value={activeProfile.config.systemPrompt || ''} onChange={event => setProfiles(rows => rows.map(item => item.agent_key === activeAgent ? {...item,config:{...item.config,systemPrompt:event.currentTarget.value}} : item))} />
       </> : <p>尚未保存该 Agent 的自定义配置；首次保存后即可管理启用状态和指令。</p>}
     </section>}
+    {section === 'history' && <AgentHistoryManagement />}
     {section === 'appearance' && <section className="tp-settings__editor">
       <h4>小雅头像与形象</h4>
       <p>管理默认头像形状、配色和表情风格。</p>
