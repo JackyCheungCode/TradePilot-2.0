@@ -122,25 +122,28 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
     if (!message) return;
     const conversationId = await ensureConversation();
     const context = readPageContext(pathnameRef.current);
-    const result = await agentRequest<{ reply: string; model?: string; task?: { goal?: string } | null }>(
-      '/api/v1/agent/chat',
-      {
-        method: 'POST',
-        signal: requestOptions.signal,
-        body: JSON.stringify({
-          conversationId,
-          message: `${message}\n\n---\n${context}`,
-        }),
-      },
-    );
-    const reply = [result.reply, result.model ? `\n\n模型：${result.model}` : ''].join('');
-    await instance.messaging.addMessage({
-      output: {
-        generic: [{
-          response_type: MessageResponseTypes.TEXT,
-          text: reply,
-        }],
-      },
+    setWelcomeVisible(false);
+    setAvatarEmotion('thinking');
+    try {
+      const result = await agentRequest<{ reply: string; model?: string; task?: { goal?: string } | null }>(
+        '/api/v1/agent/chat',
+        {
+          method: 'POST',
+          signal: requestOptions.signal,
+          body: JSON.stringify({
+            conversationId,
+            message: `${message}\\n\\n---\\n${context}`,
+          }),
+        },
+      );
+      const reply = [result.reply, result.model ? `\\n\\n模型：${result.model}` : ''].join('');
+      await instance.messaging.addMessage({
+        output: {
+          generic: [{
+            response_type: MessageResponseTypes.TEXT,
+            text: reply,
+          }],
+        },
       });
       setAvatarEmotion('success');
       window.setTimeout(() => setAvatarEmotion((current) => current === 'success' ? 'idle' : current), 1800);
