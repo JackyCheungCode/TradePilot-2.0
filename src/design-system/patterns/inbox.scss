@@ -168,3 +168,61 @@
   .tp-inbox-assist-column { flex: 0 0 25%; max-width: 25%; }
   .tp-inbox-message-column { flex: 0 0 50%; max-width: 50%; }
 }
+
+
+/* Inbox responsive workspace refinements */
+.tp-inbox-page .tp-inbox-section-title {
+  margin: 0;
+  color: var(--cds-text-primary);
+  font-size: 1.125rem;
+  line-height: 1.4;
+  font-weight: 600;
+}
+.tp-inbox-page .tp-inbox-list-panel > .cds--stack:first-child {
+  align-items: center;
+}
+.tp-inbox-page .tp-inbox-list-panel > .cds--stack:first-child .cds--tag {
+  flex: 0 0 auto;
+}
+.tp-inbox-page .tp-inbox-assist-column {
+  min-width: 0;
+}
+@media (max-width: 671px) {
+  .tp-inbox-page.has-no-selection .tp-inbox-assist-column {
+    display: none !important;
+  }
+  .tp-inbox-page .tp-inbox-section-title {
+    font-size: 1rem;
+    line-height: 1.375;
+    font-weight: 600;
+  }
+  .tp-inbox-page .tp-inbox-list-panel {
+    max-height: none;
+    height: auto;
+    overflow: visible;
+  }
+  .tp-inbox-page.has-selection .tp-inbox-chat-panel {
+    height: calc(100dvh - 11rem);
+    min-height: 420px;
+    max-height: none;
+  }
+  .tp-inbox-page.has-selection .tp-inbox-message-list {
+    min-height: 0;
+  }
+  .tp-inbox-page.has-selection .tp-inbox-assist-column {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+  }
+  .tp-inbox-page.has-selection .tp-inbox-ai-panel,
+  .tp-inbox-page.has-selection .tp-inbox-business-panel {
+    margin-top: 0.75rem;
+  }
+  .tp-inbox-page .tp-inbox-channel-filters {
+    width: 100%;
+    padding-inline: 0;
+  }
+  .tp-inbox-page .tp-inbox-channel-filters .cds--btn {
+    min-width: max-content;
+  }
+}
