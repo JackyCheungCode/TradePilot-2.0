@@ -38,7 +38,9 @@ async function readCache(env: ValidationEnv, kind: string, hash: string): Promis
 async function claimCache(env: ValidationEnv, kind: string, hash: string): Promise<boolean> {
   const expires = new Date(Date.now() + 120000).toISOString();
   const rows = await cacheRequest<CacheRow[]>(env, "?on_conflict=kind,value_hash", { method: "POST", headers: { Prefer: "resolution=ignore-duplicates,return=representation" }, body: JSON.stringify({ kind, value_hash: hash, status: "pending", result: {}, expires_at: expires, updated_at: new Date().toISOString() }) });
-  return rows.length > 0;\n}\nasync function writeCache(env: ValidationEnv, kind: string, hash: string, status: string, result: Record<string, unknown>, ttlDays?: number): Promise<void> {
+  return rows.length > 0;
+}
+async function writeCache(env: ValidationEnv, kind: string, hash: string, status: string, result: Record<string, unknown>, ttlDays?: number): Promise<void> {
   const now = new Date().toISOString();
   const expires = ttlDays ? new Date(Date.now() + ttlDays * 86400000).toISOString() : null;
   await cacheRequest(env, "?on_conflict=kind,value_hash", {
