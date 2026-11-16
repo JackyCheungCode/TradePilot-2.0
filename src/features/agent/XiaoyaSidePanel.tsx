@@ -122,7 +122,7 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
     if (!message) return;
     const conversationId = await ensureConversation();
     const context = readPageContext(pathnameRef.current);
-    setWelcomeVisible(false);
+    setWelcomeVisible(true);
     setAvatarEmotion('thinking');
     try {
       const result = await agentRequest<{ reply: string; model?: string; task?: { goal?: string } | null }>(
@@ -146,10 +146,16 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
         },
       });
       setAvatarEmotion('success');
-      window.setTimeout(() => setAvatarEmotion((current) => current === 'success' ? 'idle' : current), 1800);
+      window.setTimeout(() => {
+        setAvatarEmotion((current) => current === 'success' ? 'idle' : current);
+        setWelcomeVisible(false);
+      }, 1800);
     } catch (error) {
       setAvatarEmotion('error');
-      window.setTimeout(() => setAvatarEmotion((current) => current === 'error' ? 'idle' : current), 1800);
+      window.setTimeout(() => {
+        setAvatarEmotion((current) => current === 'error' ? 'idle' : current);
+        setWelcomeVisible(false);
+      }, 1800);
       throw error;
     }
   }, [ensureConversation]);
