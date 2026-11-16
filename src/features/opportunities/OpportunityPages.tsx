@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput, TextArea,
   Tabs, TabList, Tab, TabPanels, TabPanel, Table, TableHead, TableRow, TableHeader, TableBody, TableCell,
+  ComposedModal, ModalHeader, ModalBody, ModalFooter, Checkbox, ProgressIndicator, ProgressStep,
   CarbonIcons,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
@@ -147,12 +148,97 @@ export function OpportunityFormPage() {
 }
 
 export function OpportunityDetailPage() {
- const nav=useNavigate(); const {id}=useParams(); const [row,setRow]=useState<Opportunity|null>(null); const [account,setAccount]=useState(''); const [contact,setContact]=useState(''); const [history,setHistory]=useState<Array<{id:string;from_stage:string|null;to_stage:string;changed_at:string;note:string|null}>>([]); const [error,setError]=useState(''); const [loading,setLoading]=useState(true);
- useEffect(()=>{(async()=>{try{const db=await getSupabaseClient();const r=await db.from('crm_opportunities').select('*').eq('id',id).single();if(r.error)throw r.error;const o=r.data as Opportunity;setRow(o);const [a,c,h]=await Promise.all([db.from('crm_accounts').select('account_name').eq('id',o.account_id).maybeSingle(),o.primary_contact_id?db.from('crm_contacts').select('full_name,first_name,last_name').eq('id',o.primary_contact_id).maybeSingle():Promise.resolve({data:null,error:null}),db.from('crm_opportunity_stage_history').select('id,from_stage,to_stage,changed_at,note').eq('opportunity_id',id).order('changed_at',{ascending:false})]);if(a.error)throw a.error;if(c.error)throw c.error;if(h.error)throw h.error;setAccount(a.data?.account_name||'—');setContact(c.data?(c.data.full_name||[c.data.first_name,c.data.last_name].filter(Boolean).join(' ')):'—');setHistory(h.data||[])}catch(e){setError(e instanceof Error?e.message:'读取商机详情失败')}finally{setLoading(false)}})()},[id]);
+ const nav=useNavigate(); const {id}=useParams();
+ const [row,setRow]=useState<Opportunity|null>(null); const [account,setAccount]=useState(''); const [contact,setContact]=useState('');
+ const [history,setHistory]=useState<Array<{id:string;from_stage:string|null;to_stage:string;changed_at:string;note:string|null}>>([]);
+ const [relations,setRelations]=useState<Array<{id:string;source_record_type:string;source_record_id:string;target_record_type:string;target_record_id:string;relation_type:string;created_at:string}>>([]);
+ const [error,setError]=useState(''); const [loading,setLoading]=useState(true);
+ const [lifecycleOpen,setLifecycleOpen]=useState(false); const [nextStage,setNextStage]=useState(''); const [transitionNote,setTransitionNote]=useState('');
+ const [confirmed,setConfirmed]=useState(false); const [saving,setSaving]=useState(false); const [transitionError,setTransitionError]=useState('');
+ const load=useCallback(async()=>{
+   setLoading(true);setError('');
+   try{
+     const db=await getSupabaseClient();
+     const r=await db.from('crm_opportunities').select('*').eq('id',id).single();if(r.error)throw r.error;
+     const o=r.data as Opportunity;setRow(o);
+     const [a,c,h,sourceRelations,targetRelations]=await Promise.all([
+       db.from('crm_accounts').select('account_name').eq('id',o.account_id).maybeSingle(),
+       o.primary_contact_id?db.from('crm_contacts').select('full_name,first_name,last_name').eq('id',o.primary_contact_id).maybeSingle():Promise.resolve({data:null,error:null}),
+       db.from('crm_opportunity_stage_history').select('id,from_stage,to_stage,changed_at,note').eq('opportunity_id',id).order('changed_at',{ascending:false}),
+       db.from('business_record_relations').select('id,source_record_type,source_record_id,target_record_type,target_record_id,relation_type,created_at').eq('source_record_type','opportunity').eq('source_record_id',id).order('created_at',{ascending:false}),
+       db.from('business_record_relations').select('id,source_record_type,source_record_id,target_record_type,target_record_id,relation_type,created_at').eq('target_record_type','opportunity').eq('target_record_id',id).order('created_at',{ascending:false})
+     ]);
+     if(a.error)throw a.error;if(c.error)throw c.error;if(h.error)throw h.error;
+     if(sourceRelations.error)throw sourceRelations.error;if(targetRelations.error)throw targetRelations.error;
+     setAccount(a.data?.account_name||'—');
+     setContact(c.data?(c.data.full_name||[c.data.first_name,c.data.last_name].filter(Boolean).join(' ')):'—');
+     setHistory(h.data||[]);setRelations([...(sourceRelations.data||[]),...(targetRelations.data||[])]);
+   }catch(e){setError(e instanceof Error?e.message:'读取商机详情失败')}
+   finally{setLoading(false)}
+ },[id]);
+ useEffect(()=>{void load()},[load]);
+ const currentIndex=Math.max(0,stages.filter(([key])=>key!=='won'&&key!=='lost').findIndex(([key])=>key===row?.stage));
+ const lifecycleStages=stages.filter(([key])=>key!=='won'&&key!=='lost');
+ const terminal=row?.stage==='won'||row?.stage==='lost';
+ const nextOptions=(()=>{if(!row||terminal)return[];const idx=lifecycleStages.findIndex(([key])=>key===row.stage);const next=idx>=0?lifecycleStages[idx+1]:lifecycleStages[0];return [...(next?[[next[0],next[1]] as [string,string]]:[]),['won','已赢单'],['lost','已输单'] as [string,string]]})();
+ const openLifecycle=()=>{setNextStage(nextOptions[0]?.[0]||'');setTransitionNote('');setConfirmed(false);setTransitionError('');setLifecycleOpen(true)};
+ const submitTransition=async()=>{
+   if(!row||!id||!nextStage)return;
+   if(!confirmed){setTransitionError('请先确认本次阶段变更及业务资料。');return}
+   if(nextStage==='lost'&&!transitionNote.trim()){setTransitionError('输单时必须填写原因或备注。');return}
+   setSaving(true);setTransitionError('');
+   try{
+     const db=await getSupabaseClient();const {data:sessionData}=await db.auth.getSession();const user=sessionData.session?.user;
+     if(!user)throw new Error('登录状态已失效，请重新登录。');
+     const targetStatus=nextStage==='won'?'won':nextStage==='lost'?'lost':'open';
+     const probability=nextStage==='won'?100:nextStage==='lost'?0:Number(row.probability||0);
+     const update=await db.from('crm_opportunities').update({
+       stage:nextStage,status:targetStatus,probability,forecast_probability:probability,
+       forecast_category:targetStatus==='won'?'won':targetStatus==='lost'?'lost':'pipeline',
+       ...(nextStage==='won'?{won_at:new Date().toISOString(),actual_amount:row.actual_amount??row.amount}:{}),
+       ...(nextStage==='won'||nextStage==='lost'?{closed_at:new Date().toISOString()}: {})
+     }).eq('id',row.id).eq('owner_id',user.id).select('id').single();
+     if(update.error)throw update.error;
+     const event=await db.from('business_transition_events').insert({
+       owner_id:user.id,record_type:'opportunity',record_id:row.id,event_type:'gatekeeper_stage_confirmed',
+       from_status:row.stage,to_status:nextStage,gatekeeper_required:true,gatekeeper_status:'approved',
+       actor_id:user.id,note:transitionNote.trim()||'人工确认商机阶段变更',
+       payload:{source:'opportunity_detail',confirmed:true}
+     });
+     if(event.error)throw event.error;
+     setLifecycleOpen(false);await load();
+   }catch(e){setTransitionError(e instanceof Error?e.message:'阶段变更失败')}
+   finally{setSaving(false)}
+ };
  if(loading)return <main className="tp-opportunities"><InlineLoading description="正在读取商机详情…"/></main>;
  if(error||!row)return <main className="tp-opportunities"><InlineNotification kind="error" title="无法打开商机" subtitle={error||'商机不存在'}/><Button kind="tertiary" onClick={()=>nav('/opportunities')}>返回列表</Button></main>;
- return <main className="tp-opportunities"><header className="tp-opportunities__header"><div><p className="tp-opportunities__eyebrow">TRADEPILOT / CRM / OPPORTUNITY</p><h1>{row.name}</h1><p>{row.opportunity_number} · {account} · {stageLabel(row.stage)}</p></div><div className="tp-opportunities__actions"><Button kind="tertiary" onClick={()=>nav('/opportunities')}>返回列表</Button><Button kind="tertiary" onClick={()=>nav('/quotes/new?opportunity='+row.id)}><CarbonIcons.Document size={16}/>创建报价单</Button><Button kind="primary" onClick={()=>nav('/opportunities/'+row.id+'/edit')}><CarbonIcons.Edit size={16}/>编辑商机</Button></div></header>
- <section className="tp-opportunities__primary"><div className="tp-opportunities__detail-grid">{[['所属客户',account],['主要联系人',contact],['销售阶段',stageLabel(row.stage)],['商机状态',row.status],['预计金额',row.currency_code+' '+Number(row.amount||0).toLocaleString()],['赢率',row.probability+'%'],['加权预测金额',row.currency_code+' '+(Number(row.amount||0)*Number(row.probability||0)/100).toLocaleString()],['预计成交日期',row.expected_close_date||'—'],['负责人',row.sales_person||'—'],['销售团队',row.sales_team||'—'],['来源',row.source||'—'],['优先级',row.priority||'普通']].map(([k,v])=><div key={k}><span>{k}</span><strong>{v}</strong></div>)}</div>{row.description&&<p>{row.description}</p>}</section>
- <section className="tp-opportunities__panel"><h2>销售阶段历史</h2>{history.length?<Table><TableHead><TableRow><TableHeader>原阶段</TableHeader><TableHeader>新阶段</TableHeader><TableHeader>变更时间</TableHeader><TableHeader>备注</TableHeader></TableRow></TableHead><TableBody>{history.map(h=><TableRow key={h.id}><TableCell>{h.from_stage?stageLabel(h.from_stage):'创建'}</TableCell><TableCell>{stageLabel(h.to_stage)}</TableCell><TableCell>{new Date(h.changed_at).toLocaleString()}</TableCell><TableCell>{h.note||'—'}</TableCell></TableRow>)}</TableBody></Table>:<p className="tp-opportunities__empty">暂无阶段变更记录。</p>}</section>
+ return <main className="tp-opportunities">
+   <header className="tp-opportunities__header"><div><p className="tp-opportunities__eyebrow">TRADEPILOT / CRM / OPPORTUNITY</p><h1>{row.name}</h1><p>{row.opportunity_number} · {account} · {stageLabel(row.stage)}</p></div>
+     <div className="tp-opportunities__actions"><Button kind="tertiary" onClick={()=>nav('/opportunities')}>返回列表</Button><Button kind="tertiary" onClick={()=>nav('/quotes/new?opportunity='+row.id)}><CarbonIcons.Document size={16}/>创建报价单</Button><Button kind="secondary" disabled={terminal} onClick={openLifecycle}>管理生命周期</Button><Button kind="primary" onClick={()=>nav('/opportunities/'+row.id+'/edit')}><CarbonIcons.Edit size={16}/>编辑商机</Button></div>
+   </header>
+   <section className="tp-opportunities__primary tp-opportunities__lifecycle">
+     <div className="tp-opportunities__lifecycle-head"><div><h2>生命周期</h2><p>{terminal?'商机已进入终止阶段':`当前阶段：${stageLabel(row.stage)}`}</p></div><Tag type={row.stage==='won'?'green':row.stage==='lost'?'red':'blue'}>{stageLabel(row.stage)}</Tag></div>
+     {terminal?<InlineNotification kind={row.stage==='won'?'success':'warning'} title={row.stage==='won'?'商机已赢单':'商机已输单'} subtitle="终止状态不能通过普通阶段管理直接修改；如需纠正，请走受控更正流程。"/>:
+       <ProgressIndicator currentIndex={currentIndex} spaceEqually>
+         {lifecycleStages.map(([key,title],index)=><ProgressStep key={key} label={title} description={index===currentIndex?'当前阶段':index<currentIndex?'已完成':'待处理'}/>)}
+       </ProgressIndicator>}
+     <div className="tp-opportunities__lifecycle-foot"><span>阶段变更需要人工确认；报价、订单等下游记录的生成不会仅凭阶段按钮自动发生。</span>{!terminal&&<Button kind="tertiary" size="sm" onClick={openLifecycle}>确认下一阶段</Button>}</div>
+   </section>
+   <section className="tp-opportunities__primary"><div className="tp-opportunities__detail-grid">{[['所属客户',account],['主要联系人',contact],['销售阶段',stageLabel(row.stage)],['商机状态',row.status],['预计金额',row.currency_code+' '+Number(row.amount||0).toLocaleString()],['赢率',row.probability+'%'],['加权预测金额',row.currency_code+' '+(Number(row.amount||0)*Number(row.probability||0)/100).toLocaleString()],['预计成交日期',row.expected_close_date||'—'],['负责人',row.sales_person||'—'],['销售团队',row.sales_team||'—'],['来源',row.source||'—'],['优先级',row.priority||'普通']].map(([k,v])=><div key={k}><span>{k}</span><strong>{v}</strong></div>)}</div>{row.description&&<p>{row.description}</p>}</section>
+   <section className="tp-opportunities__panel"><div className="tp-opportunities__panel-head"><div><h2>关联业务</h2><p>显示以本商机为来源或目标的业务记录。</p></div><Tag type="blue">{relations.length} 条关联</Tag></div>
+     {relations.length?<div className="tp-opportunities__relations">{relations.map(rel=><div className="tp-opportunities__relation" key={rel.id}><div><strong>{rel.source_record_type==='opportunity'?'本商机':rel.source_record_type} → {rel.target_record_type==='opportunity'?'本商机':rel.target_record_type}</strong><small>{rel.relation_type} · {new Date(rel.created_at).toLocaleString()}</small></div><code>{rel.source_record_id===row.id?rel.target_record_id:rel.source_record_id}</code></div>)}</div>:<p className="tp-opportunities__empty">暂无已登记的业务关联。后续转换成功后会自动显示来源与目标记录。</p>}
+   </section>
+   <section className="tp-opportunities__panel"><h2>销售阶段历史</h2>{history.length?<Table><TableHead><TableRow><TableHeader>原阶段</TableHeader><TableHeader>新阶段</TableHeader><TableHeader>变更时间</TableHeader><TableHeader>备注</TableHeader></TableRow></TableHead><TableBody>{history.map(h=><TableRow key={h.id}><TableCell>{h.from_stage?stageLabel(h.from_stage):'创建'}</TableCell><TableCell>{stageLabel(h.to_stage)}</TableCell><TableCell>{new Date(h.changed_at).toLocaleString()}</TableCell><TableCell>{h.note||'—'}</TableCell></TableRow>)}</TableBody></Table>:<p className="tp-opportunities__empty">暂无阶段变更记录。</p>}</section>
+   <ComposedModal open={lifecycleOpen} onClose={()=>{if(!saving)setLifecycleOpen(false)}}>
+     <ModalHeader title="确认商机生命周期变更" label={row.opportunity_number}/>
+     <ModalBody hasForm>
+       <div className="tp-opportunities__transition-summary"><span>当前阶段</span><strong>{stageLabel(row.stage)}</strong><CarbonIcons.ArrowRight size={16}/><span>目标阶段</span><strong>{stageLabel(nextStage)||'请选择'}</strong></div>
+       <div className="tp-opportunities__field"><Select id="opportunity-next-stage" labelText="目标阶段" value={nextStage} onChange={e=>setNextStage(e.currentTarget.value)}>{nextOptions.map(([value,title])=><SelectItem key={value} value={value} text={title}/>)}</Select></div>
+       <div className="tp-opportunities__field"><TextArea id="opportunity-transition-note" labelText={nextStage==='lost'?'输单原因 / 备注 *':'确认说明'} value={transitionNote} rows={3} onChange={e=>setTransitionNote(e.currentTarget.value)} placeholder="说明本次阶段变更的业务依据"/></div>
+       <Checkbox id="opportunity-transition-confirm" labelText="我已核实商机信息，并确认进入所选阶段。" checked={confirmed} onChange={(_,data)=>setConfirmed(Boolean(data.checked))}/>
+       {transitionError&&<InlineNotification kind="error" title="无法提交" subtitle={transitionError}/>}
+     </ModalBody>
+     <ModalFooter secondaryButtonText="取消" primaryButtonText={saving?'提交中…':'确认并更新'} primaryButtonDisabled={saving||!confirmed||!nextStage||(nextStage==='lost'&&!transitionNote.trim())} onRequestClose={()=>{if(!saving)setLifecycleOpen(false)}} onRequestSubmit={()=>void submitTransition()}/>
+   </ComposedModal>
  </main>;
 }
