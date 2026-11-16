@@ -82,7 +82,7 @@ begin
     owner_id,source_record_type,source_record_id,target_record_type,target_record_id,
     relation_type,created_by,metadata
   )
-  select p_owner_id,'prospect',p_record_id,'contact',c.id,'converted_to',coalesce(v_uid,p_owner_id),
+  select distinct p_owner_id,'prospect',p_record_id,'contact',c.id,'converted_to',coalesce(v_uid,p_owner_id),
     jsonb_build_object('conversion_method','contact_candidate_review','atomic',true)
   from jsonb_array_elements_text(coalesce(p_event_payload->'contact_ids','[]'::jsonb)) ids(contact_id)
   join public.crm_contacts c on c.id=ids.contact_id::uuid and c.owner_id=p_owner_id and c.account_id=p_account_id
@@ -96,7 +96,7 @@ begin
     owner_id,source_record_type,source_record_id,target_record_type,target_record_id,
     relation_type,created_by,metadata
   )
-  select p_owner_id,'customer',p_account_id,'contact',c.id,'has_contact',coalesce(v_uid,p_owner_id),
+  select distinct p_owner_id,'customer',p_account_id,'contact',c.id,'has_contact',coalesce(v_uid,p_owner_id),
     jsonb_build_object('conversion_method','contact_candidate_review','atomic',true)
   from jsonb_array_elements_text(coalesce(p_event_payload->'contact_ids','[]'::jsonb)) ids(contact_id)
   join public.crm_contacts c on c.id=ids.contact_id::uuid and c.owner_id=p_owner_id and c.account_id=p_account_id
