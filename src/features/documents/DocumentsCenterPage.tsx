@@ -25,7 +25,6 @@ const documentGroups: DocumentGroup[] = [
   { id: 'purchase', title: '采购与供应商', description: '从采购订单生成供应商往来文件', items: [
     { id: 'purchase_order', label: '采购订单（PO）', detail: '向供应商发出采购要求和交付条件', shipment: false },
     { id: 'purchase_confirmation', label: '采购订单确认书', detail: '记录供应商确认的采购内容和交期', shipment: false },
-    { id: 'supplier_invoice', label: '供应商发票', detail: '记录供应商提供的发票信息', shipment: false },
   ] },
   { id: 'shipping', title: '发运与出口', description: '根据订单和本次实际发运数量生成', items: [
     { id: 'commercial_invoice', label: '商业发票', detail: '按本次发运批次数量形成发票草稿', shipment: true },
