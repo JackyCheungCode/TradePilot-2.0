@@ -299,7 +299,7 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
   const statusText=statusLabel(payment.status);
   return <main className="tp-payments">
     <header className="tp-payments__header"><div><p className="tp-payments__eyebrow">TRADEPILOT / FINANCE / PAYMENT</p><h1>{editing?paymentNo:'创建收款（Payment）'}</h1><p>{editing?'维护收款资料、分配与核销记录。':'录入真实到账，可分配多个订单节点，也可保留为预收款。'}</p></div><div className="tp-responsive-header-actions">
-      {readOnly&&payment.status==='draft'&&<Button className="tp-responsive-header-actions__primary" kind="primary" disabled={saving} onClick={()=>void confirm()}>{payment.payment_type==='refund'?'确认退款 / 红冲':'确认收款并核销'}</Button>}
+      {readOnly&&['draft','pending_confirmation'].includes(payment.status)&&<Button className="tp-responsive-header-actions__primary" kind="primary" disabled={saving} onClick={()=>void confirm()}>{payment.payment_type==='refund'?'确认退款 / 红冲':'确认收款并核销'}</Button>}
       {readOnly&&['confirmed','partially_reconciled'].includes(payment.status)&&Number(payment.unallocated_amount)>0.005&&<Button className="tp-responsive-header-actions__primary" kind="primary" onClick={()=>nav('/payments/'+id+'/allocate')}>分配预收余额</Button>}
       {editing&&!readOnly&&['confirmed','partially_reconciled','reconciled'].includes(payment.status)&&<Button className="tp-responsive-header-actions__primary" kind="primary" disabled={saving} onClick={()=>void saveReconciliation()}>保存对账信息</Button>}
       <div className="tp-responsive-header-actions__secondary">
