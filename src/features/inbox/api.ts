@@ -97,3 +97,22 @@ export async function createInboxNote(token: string, conversationId: string, con
   if (!response.ok) throw new Error(payload.error?.message ?? '添加内部备注失败。');
   return payload.data?.note ?? null;
 }
+
+export interface InboxBusinessMetrics {
+  total_order_count: number;
+  active_order_count: number;
+  total_amount_by_currency: Array<{ currency: string; amount: number }>;
+  shipment_count: number;
+  payment_count: number;
+  monthly_trend: Array<{
+    period: string;
+    order_count: number;
+    amount_by_currency: Array<{ currency: string; amount: number }>;
+  }>;
+}
+export async function getInboxBusinessMetrics(token: string, contactId: string): Promise<InboxBusinessMetrics> {
+  return request<InboxBusinessMetrics>(
+    '/api/v1/inbox/customers/' + encodeURIComponent(contactId) + '/business-metrics',
+    token,
+  );
+}
