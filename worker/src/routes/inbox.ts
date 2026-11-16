@@ -40,12 +40,14 @@ const unique = (values: unknown[]): string[] =>
 
 export async function handleInbox(request: Request, env: InboxEnv): Promise<Response> {
   const url = new URL(request.url);
-  const ownerId = await ownerFromRequest(request, env);
+  let ownerId: string | null;
+  try { ownerId = await ownerFromRequest(request, env); }
+  catch { return errorResponse(request, "AUTH_UNAVAILABLE", "暂时无法验证登录状态，请稍后重试。", 503); }
   if (!ownerId) return errorResponse(request, "UNAUTHORIZED", "请先登录后访问消息工作台。", 401);
   if (request.method !== "GET" && request.method !== "POST") return errorResponse(request, "METHOD_NOT_ALLOWED", "当前消息接口暂不支持此操作。", 405);
 
   try {
-    if (url.pathname === "/api/v1/inbox/conversations") {
+    if (url.pathname === "/api/v1/inbox/conversations" && request.method === "GET") {
       const status = url.searchParams.get("status");
       const allowedStatuses = new Set(["open", "pending", "resolved", "closed"]);
       const filters = [
@@ -85,7 +87,7 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
       return successResponse(request, { conversations: data, total: data.length });
     }
 
-    if (url.pathname === "/api/v1/inbox/channel-connections") {
+    if (url.pathname === "/api/v1/inbox/channel-connections" && request.method === "GET") {
       const connections = await db<Row[]>(env,
         "inbox_channel_connections?select=id,channel_type,display_name,external_account_id,connection_status,last_verified_at,last_error,created_at,updated_at&owner_id=eq." +
         ownerId + "&order=channel_type.asc");
@@ -123,7 +125,7 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
     }
 
     const messageMatch = url.pathname.match(/^\/api\/v1\/inbox\/conversations\/([0-9a-f-]{36})\/messages$/i);
-    if (messageMatch) {
+    if (messageMatch && request.method === "GET") {
       const conversationId = messageMatch[1];
       const owned = await db<Row[]>(env,
         "inbox_conversations?select=id&id=eq." + conversationId + "&owner_id=eq." + ownerId + "&limit=1");
