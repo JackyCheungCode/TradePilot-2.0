@@ -38,7 +38,9 @@ const apiCards=[
 {id:'ups',name:'UPS',logo:'ups',initial:'UPS',description:'UPS OAuth 2.0 与 Shipment Tracking API。',fields:[{key:'upsClientId',label:'Client ID'},{key:'upsClientSecret',label:'Client Secret'}],test:'ups'},
 {id:'fedex',name:'FedEx',logo:'fedex',initial:'FX',description:'FedEx OAuth 2.0 与 Track API。',fields:[{key:'fedexClientId',label:'API Key / Client ID'},{key:'fedexClientSecret',label:'Secret Key'}],test:'fedex'},
 {id:'cloudflare',name:'Cloudflare Workers AI',logo:'cloudflare',initial:'C',description:'Workers AI 模型目录读取。请使用仅具备 Workers AI Read 权限的 API Token。',fields:[{key:'cloudflareApiToken',label:'Workers AI API Token'},{key:'cloudflareAccountId',label:'Account ID'}],test:'cloudflare'},
-{id:'omnibox',name:'Omnibox 贸易百宝箱',logo:'',initial:'O',description:'HS Code 智能归类、关税预估、贸易实体筛查与美国 CBP 裁决检索。',fields:[{key:'omnibox',label:'Omnibox API Key'}],test:'omnibox'}
+{id:'omnibox',name:'Omnibox 贸易百宝箱',logo:'',initial:'O',description:'HS Code 智能归类、关税预估、贸易实体筛查与美国 CBP 裁决检索。',fields:[{key:'omnibox',label:'Omnibox API Key'}],test:'omnibox'},
+{id:'apollo',name:'Apollo.io',logo:'apollo',initial:'A',description:'企业联系人搜索、职位识别与工作邮箱补全。',fields:[{key:'apollo',label:'API Key'}],test:'apollo'},
+{id:'zoominfo',name:'ZoomInfo',logo:'zoominfo',initial:'Z',description:'联系人搜索、组织架构与企业决策人数据；补全操作可能消耗账户额度。',fields:[{key:'zoominfoClientId',label:'OAuth Client ID'},{key:'zoominfoClientSecret',label:'OAuth Client Secret'}],test:'zoominfo'}
 ] as const;
 async function request<T>(path:string,init:RequestInit={}):Promise<T>{
  const db=await getSupabaseClient();const {data}=await db.auth.getSession();if(!data.session?.access_token)throw new Error('登录状态已失效，请重新登录。');
@@ -70,7 +72,7 @@ export function IntegrationsSettings({section}:{section:string}){
  const setDefault=async(p:Provider)=>{setSavingAI(true);try{const modelRef=p.id+'::'+p.model;const next={...config,defaultModel:modelRef,taskModels:{...config.taskModels,agent_chat:modelRef,agent_planning:modelRef}};await request('/api/v1/settings/ai-config',{method:'PUT',body:JSON.stringify(next)});setConfig(next);setAiNotice('已将 '+p.name+' 设为小雅默认模型。');}catch(e){setAiError(e instanceof Error?e.message:'设置默认模型失败');}finally{setSavingAI(false);}};
  return <>
  <div className="tp-integrations-settings">
- {section==='api'&&<><div className="tp-integrations-settings__intro"><h3>API 集成</h3><p>统一管理业务模块的第三方服务凭证。凭证在服务端加密保存，页面不会读取或回显密钥。</p></div>
+ {section==='api'&&<><div className="tp-integrations-settings__intro"><h3>API 集成</h3><p>统一管理业务模块的第三方服务凭证。凭证在服务端加密保存，页面不会读取或回显密钥。</p></div><InlineNotification kind="info" title="Lusha 接入说明" subtitle="Lusha 当前 API 条款限制将其数据嵌入第三方产品；在取得 Lusha 书面授权前，TradePilot 暂不启用该数据源，避免违反服务条款。"/>
  {apiError&&<InlineNotification kind="error" title="API 配置失败" subtitle={apiError} onCloseButtonClick={()=>setApiError('')}/>}
  {apiNotice&&<InlineNotification kind="success" title="操作完成" subtitle={apiNotice} onCloseButtonClick={()=>setApiNotice('')}/>}
  {apiLoading?<InlineLoading description="正在读取 API 配置…"/>:<div className="tp-integrations-settings__api-grid">{apiCards.map(card=><Tile key={card.id} className="tp-integrations-settings__card">
