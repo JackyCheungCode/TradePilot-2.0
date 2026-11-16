@@ -197,3 +197,36 @@ create trigger trg_contact_preference_lifecycle_event
 after update of do_not_contact on public.crm_contacts
 for each row when (old.do_not_contact is distinct from new.do_not_contact)
 execute function public.capture_contact_preference_change_event();
+
+create or replace function public.capture_contact_employment_status_event()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_old_status text := coalesce(nullif(old.custom_fields->>'status',''),'unknown');
+  v_new_status text := coalesce(nullif(new.custom_fields->>'status',''),'unknown');
+begin
+  if v_old_status is not distinct from v_new_status then return new; end if;
+  insert into public.business_transition_events(
+    owner_id,record_type,record_id,event_type,from_status,to_status,
+    gatekeeper_required,gatekeeper_status,actor_id,note,payload
+  ) values (
+    new.owner_id,'contact',new.id,'contact_employment_status_changed',
+    v_old_status,v_new_status,false,'not_required',coalesce(auth.uid(),new.owner_id),
+    '联系人任职状态已更新',
+    jsonb_build_object('dimension','employment_status','atomic',true)
+  );
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_contact_employment_status_event on public.crm_contacts;
+create trigger trg_contact_employment_status_event
+after update of custom_fields on public.crm_contacts
+for each row when (
+  coalesce(old.custom_fields->>'status','unknown') is distinct from
+  coalesce(new.custom_fields->>'status','unknown')
+)
+execute function public.capture_contact_employment_status_event();
