@@ -139,9 +139,10 @@ export async function searchInboxCrmContacts(token: string, query: string): Prom
   );
   return result.contacts ?? [];
 }
-export async function createInboxConversation(token: string, contactId: string): Promise<void> {
-  await request<{ conversation: InboxConversation }>(
+export async function createInboxConversation(token: string, contactId: string): Promise<string> {
+  const result = await request<{ conversation: { id: string } }>(
     '/api/v1/inbox/conversations', token,
     { method: 'POST', body: JSON.stringify({ contactId }) },
   );
+  return result.conversation.id;
 }
