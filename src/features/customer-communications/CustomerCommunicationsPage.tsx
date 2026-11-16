@@ -54,6 +54,14 @@ function ChannelLogo({ channel, size = 'md' }: { channel: CommunicationChannel; 
   );
 }
 
+function CustomerAvatar({ customer, large = false }: { customer: (typeof communicationCustomers)[number]; large?: boolean }) {
+  return (
+    <span className={'cc-customer-initial' + (large ? ' cc-customer-initial--large' : '')} aria-hidden="true">
+      {customer.contact.slice(0, 1)}
+    </span>
+  );
+}
+
 function MessageStatus({ status }: { status?: CommunicationMessage['status'] }) {
   if (status === 'failed') return <Tag type="red">发送失败</Tag>;
   if (status === 'read') return <Tag type="green">已读</Tag>;
@@ -200,7 +208,7 @@ export function CustomerCommunicationsPage() {
                   aria-current={conversation.id === activeId ? 'true' : undefined}
                   onClick={() => selectConversation(conversation)}
                 >
-                  <span className="cc-customer-initial" aria-hidden="true">{customer.contact.slice(0, 1)}</span>
+                  <CustomerAvatar customer={customer} />
                   <span className="cc-conversation-copy">
                     <strong>{customer.company}</strong>
                     <span>{customer.contact} · {customer.role}</span>
@@ -221,14 +229,14 @@ export function CustomerCommunicationsPage() {
         <section className="cc-chat-panel" aria-label="消息时间线">
           <header className="cc-chat-header">
             <div className="cc-chat-contact">
-              <Button kind="ghost" size="sm" className="cc-mobile-back" onClick={() => setMobileChat(false)}>返回会话</Button>
+              <CustomerAvatar customer={activeCustomer} />
               <div>
                 <Heading className="cc-chat-company-title">{activeCustomer.company}</Heading>
                 <p>{activeCustomer.contact} · {activeCustomer.role}</p>
               </div>
             </div>
             <div className="cc-chat-actions">
-              <ChannelLogo channel={activeConversation.channel} size="md" />
+              <Button kind="ghost" size="sm" className="cc-mobile-back" hasIconOnly renderIcon={CarbonIcons.ArrowLeft} iconDescription="返回会话" onClick={() => setMobileChat(false)} />
               <Tag type={activeConversation.state === 'resolved' ? 'green' : activeConversation.state === 'pending' ? 'warm-gray' : 'blue'}>
                 {activeConversation.state === 'resolved' ? '已解决' : activeConversation.state === 'pending' ? '待处理' : '处理中'}
               </Tag>
@@ -245,9 +253,13 @@ export function CustomerCommunicationsPage() {
                 className={'cc-message' + (message.direction === 'outbound' ? ' cc-message--outbound' : '') + (message.direction === 'system' ? ' cc-message--system' : '')}
               >
                 <div className="cc-message-meta">
-                  <ChannelLogo channel={message.channel} size="sm" />
                   <time>{formatDate(message.time)}</time>
                 </div>
+                {message.direction === 'inbound' && (
+                  <span className="cc-message-source" aria-label={communicationChannelLabels[message.channel]} title={communicationChannelLabels[message.channel]}>
+                    <ChannelLogo channel={message.channel} size="sm" />
+                  </span>
+                )}
                 {message.kind === 'email' ? (
                   <div className="cc-email-message">
                     <strong>{message.subject}</strong>
@@ -316,7 +328,7 @@ export function CustomerCommunicationsPage() {
             </div>
             <div className="cc-profile-scroll">
               <div className="cc-profile-identity">
-                <span className="cc-customer-initial cc-customer-initial--large">{activeCustomer.contact.slice(0, 1)}</span>
+                <CustomerAvatar customer={activeCustomer} large />
                 <div><strong>{activeCustomer.contact}</strong><span>{activeCustomer.role}</span><span>{activeCustomer.company}</span></div>
               </div>
               <section className="cc-profile-section">
