@@ -384,7 +384,6 @@ export async function handleInboxWebhook(request: Request, env: WebhookEnv): Pro
     if (!raw) return new Response("Payload Too Large", { status: 413 });
     if (!await verifySignature(channel, request, raw, secrets)) return new Response("Unauthorized", { status: 401 });
     if (channel === "telegram" && !await verifyTelegramBot(connection, secrets)) return new Response("Webhook bot mismatch", { status: 403 });
-    await markConnectionVerified(env, connection);
     let payload: Row;
     try {
       payload = JSON.parse(new TextDecoder().decode(raw)) as Row;
@@ -410,6 +409,7 @@ export async function handleInboxWebhook(request: Request, env: WebhookEnv): Pro
     if (channel === "line" && String(payload.destination ?? "") !== String(connection.external_account_id ?? "")) {
       return new Response("Webhook account mismatch", { status: 403 });
     }
+    await markConnectionVerified(env, connection);
     let events: NormalizedEvent[] = [];
     if (channel === "whatsapp") events = parseWhatsApp(payload, connection);
     if (channel === "messenger") events = parseMessenger(payload, connection);
