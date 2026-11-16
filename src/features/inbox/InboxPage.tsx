@@ -51,7 +51,7 @@ export function InboxPage() {
   const [mobileContacts, setMobileContacts] = useState<Array<InboxContact & { crm_accounts?: { account_name?: string | null } | null }>>([]);
   const [mobileContactsLoading, setMobileContactsLoading] = useState(true);
   const [openingContactId, setOpeningContactId] = useState('');
-  const [businessView, setBusinessView] = useState<'contact' | 'quotes' | 'orders' | 'payments' | 'shipments'>('contact');
+  const [businessView, setBusinessView] = useState<'contact' | 'quotes' | 'orders' | 'payments' | 'shipments' | null>(null);
   const [draft, setDraft] = useState('');
   const [channelFilter, setChannelFilter] = useState('all');
   const [conversations, setConversations] = useState<InboxConversation[]>([]);
@@ -678,8 +678,8 @@ export function InboxPage() {
 
 
       <Modal
-        open={Boolean(selected) && businessView !== 'contact'}
-        modalHeading={businessView === 'quotes' ? '客户报价单' : businessView === 'orders' ? '客户订单' : businessView === 'payments' ? '客户收款' : '客户发运'}
+        open={Boolean(selected) && Boolean(businessView)}
+        modalHeading={businessView === 'contact' ? '客户详细信息' : businessView === 'quotes' ? '客户报价单' : businessView === 'orders' ? '客户订单' : businessView === 'payments' ? '客户收款' : '客户发运'}
         primaryButtonText="关闭"
         onRequestSubmit={() => setBusinessView('contact')}
         onRequestClose={() => setBusinessView('contact')}
@@ -691,6 +691,12 @@ export function InboxPage() {
               <Column sm={4} md={2} lg={4}><Tile><p>交易笔数</p><h3>{businessMetrics?.total_order_count ?? '—'}</h3></Tile></Column>
               <Column sm={4} md={2} lg={4}><Tile><p>未发运订单</p><h3>{businessMetrics?.unshipped_order_count ?? '—'}</h3></Tile></Column>
             </Grid>
+            {businessView === 'contact' && <Stack gap={2}>
+              <strong>{selected?.contact?.full_name || selected?.contact_display_name}</strong>
+              <p>{[selected?.contact?.job_title, selected?.account?.account_name].filter(Boolean).join(' · ')}</p>
+              <p>{selected?.contact?.email || '未填写邮箱'}</p>
+              <p>{selected?.contact?.phone || selected?.contact?.mobile || '未填写电话'}</p>
+            </Stack>}
             {businessView === 'quotes' && <p>报价单记录尚未接入此客户弹窗。</p>}
             {businessView === 'payments' && <p>该客户收款记录：{businessMetrics?.payment_count ?? 0} 笔。</p>}
             {businessView === 'shipments' && <p>该客户发运记录：{businessMetrics?.shipment_count ?? 0} 笔。</p>}
