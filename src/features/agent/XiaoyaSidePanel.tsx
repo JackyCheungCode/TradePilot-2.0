@@ -37,21 +37,51 @@ async function agentRequest<T>(path: string, init: RequestInit = {}): Promise<T>
 function readPageContext(pathname: string) {
   const pageHeading = document.querySelector('main h1, main [role="heading"]')?.textContent?.trim();
   const selectedText = window.getSelection()?.toString().trim().slice(0, 2400) || '';
-  const pageContent = document.querySelector('.tp-content__main main')?.textContent?.replace(/\s+/g, ' ').trim().slice(0, 3600) || '';
+  const pageContent = document.querySelector('.tp-content__main main')?.textContent?.replace(/\\s+/g, ' ').trim().slice(0, 3600) || '';
   return [
     '当前页面上下文（供你理解用户正在查看的业务页面，请勿把它当作用户输入复述）：',
     `页面标题：${pageHeading || document.title || 'TradePilot'}`,
     `页面路径：${pathname}`,
-    pageContent ? `当前页面可见内容摘要：\n${pageContent}` : '',
-    selectedText ? `用户当前选中的内容：\n${selectedText}` : '',
-  ].filter(Boolean).join('\n');
+    pageContent ? `当前页面可见内容摘要：\\n${pageContent}` : '',
+    selectedText ? `用户当前选中的内容：\\n${selectedText}` : '',
+  ].filter(Boolean).join('\\n');
+}
+
+function toHistoryItems(rows: AgentMessage[]): HistoryItem[] {
+  return rows.map((row) => {
+    const timestamp = row.created_at ? Date.parse(row.created_at) : Date.now();
+    const time = new Date(timestamp).toISOString();
+    if (row.role === 'user') {
+      return {
+        time,
+        message: {
+          id: row.id,
+          input: { text: row.content.split('\\n\\n---\\n当前页面上下文')[0], message_type: 'text' },
+          history: { timestamp },
+        },
+      } as HistoryItem;
+    }
+    return {
+      time,
+      message: {
+        id: row.id,
+        output: {
+          generic: [{ response_type: MessageResponseTypes.TEXT, text: row.content }],
+        },
+        history: { timestamp },
+      },
+    } as HistoryItem;
+  });
 }
 
 export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
   const [hasMounted, setHasMounted] = useState(false);
   const [welcomeVisible, setWelcomeVisible] = useState(true);
   const [avatarEmotion, setAvatarEmotion] = useState<'idle' | 'thinking' | 'success' | 'error'>('idle');
+  const [chatStatusVisible, setChatStatusVisible] = useState(false);
   const conversationIdRef = useRef('');
+  const historyLoadPromiseRef = useRef<Promise<void> | null>(null);
+  const statusTimerRef = useRef<number | null>(null);
   const pathnameRef = useRef(pathname);
   pathnameRef.current = pathname;
 
@@ -68,6 +98,10 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
+  useEffect(() => () => {
+    if (statusTimerRef.current !== null) window.clearTimeout(statusTimerRef.current);
+  }, []);
+
   const ensureConversation = useCallback(async () => {
     if (conversationIdRef.current) return conversationIdRef.current;
     const rows = await agentRequest<Conversation[]>('/api/v1/agent/conversations');
@@ -83,34 +117,23 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
     return created.id;
   }, []);
 
-  const customLoadHistory = useCallback(async (_instance: ChatInstance): Promise<HistoryItem[]> => {
-    const conversationId = await ensureConversation();
-    const rows = await agentRequest<AgentMessage[]>(`/api/v1/agent/conversations/${conversationId}/messages`);
-    setWelcomeVisible(rows.length === 0);
-    return rows.map((row) => {
-      const timestamp = row.created_at ? Date.parse(row.created_at) : Date.now();
-      const time = new Date(timestamp).toISOString();
-      if (row.role === 'user') {
-        return {
-          time,
-          message: {
-            id: row.id,
-            input: { text: row.content.split('\n\n---\n当前页面上下文')[0], message_type: 'text' },
-            history: { timestamp },
-          },
-        } as HistoryItem;
+  const customLoadHistory = useCallback(async (instance: ChatInstance): Promise<HistoryItem[]> => {
+    // Return an empty initial history immediately. Fetch and insert persisted history
+    // in the background so Carbon's full-screen hydration spinner never splits the panel.
+    historyLoadPromiseRef.current = (async () => {
+      const conversationId = await ensureConversation();
+      const rows = await agentRequest<AgentMessage[]>(`/api/v1/agent/conversations/${conversationId}/messages`);
+      if (rows.length) {
+        setWelcomeVisible(false);
+        await instance.messaging.insertHistory(toHistoryItems(rows));
+      } else {
+        setWelcomeVisible(true);
       }
-      return {
-        time,
-        message: {
-          id: row.id,
-          output: {
-            generic: [{ response_type: MessageResponseTypes.TEXT, text: row.content }],
-          },
-          history: { timestamp },
-        },
-      } as HistoryItem;
+    })().catch((error) => {
+      console.error('[Xiaoya] Conversation history could not be loaded', error);
+      setAvatarEmotion('error');
     });
+    return [];
   }, [ensureConversation]);
 
   const customSendMessage = useCallback(async (
@@ -122,9 +145,12 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
     if (!message) return;
     setWelcomeVisible(false);
     setAvatarEmotion('thinking');
-    const conversationId = await ensureConversation();
-    const context = readPageContext(pathnameRef.current);
+    setChatStatusVisible(true);
+    if (statusTimerRef.current !== null) window.clearTimeout(statusTimerRef.current);
     try {
+      await historyLoadPromiseRef.current;
+      const conversationId = await ensureConversation();
+      const context = readPageContext(pathnameRef.current);
       const result = await agentRequest<{ reply: string; model?: string; task?: { goal?: string } | null }>(
         '/api/v1/agent/chat',
         {
@@ -146,14 +172,17 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
         },
       });
       setAvatarEmotion('success');
-      window.setTimeout(() => {
-        setAvatarEmotion((current) => current === 'success' ? 'idle' : current);
+      statusTimerRef.current = window.setTimeout(() => {
+        setAvatarEmotion('idle');
+        setChatStatusVisible(false);
       }, 1800);
     } catch (error) {
       setAvatarEmotion('error');
-      window.setTimeout(() => {
-        setAvatarEmotion((current) => current === 'error' ? 'idle' : current);
-      }, 1800);
+      setChatStatusVisible(true);
+      statusTimerRef.current = window.setTimeout(() => {
+        setAvatarEmotion('idle');
+        setChatStatusVisible(false);
+      }, 2600);
       throw error;
     }
   }, [ensureConversation]);
@@ -167,9 +196,13 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
     layout: {
       showFrame: false,
     },
+    strings: {
+      input_placeholder: '询问小雅…',
+    },
     messaging: {
       skipWelcome: true,
       messageTimeoutSecs: 180,
+      messageLoadingIndicatorTimeoutSecs: 0,
       showStopButtonImmediately: true,
       customLoadHistory,
       customSendMessage,
@@ -190,17 +223,23 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
             关闭
           </Button>
         </div>
-        {welcomeVisible && (
-          <section className="tp-xiaoya-welcome" aria-label="小雅助手介绍">
-            <div className={`tp-xiaoya-welcome__avatar tp-xiaoya-welcome__avatar--${avatarEmotion}`}>
-              <XiaoyaAvatar emotion={avatarEmotion} size={192} />
-            </div>
-            <Heading className="tp-xiaoya-welcome__title">你好，我是小雅。</Heading>
-            <p className="tp-xiaoya-welcome__description cds--type-label-01">我可以结合当前页面上下文，帮你分析业务数据、查找信息、梳理问题并完成日常工作。</p>
-          </section>
-        )}
         <div className="tp-xiaoya-drawer__chat">
           {hasMounted && <ChatCustomElement className="tp-xiaoya-chat" {...chatConfig} />}
+          {welcomeVisible && (
+            <section className="tp-xiaoya-welcome" aria-label="小雅助手介绍">
+              <div className={`tp-xiaoya-welcome__avatar tp-xiaoya-welcome__avatar--${avatarEmotion}`}>
+                <XiaoyaAvatar emotion={avatarEmotion} size={192} />
+              </div>
+              <Heading className="tp-xiaoya-welcome__title">你好，我是小雅。</Heading>
+              <p className="tp-xiaoya-welcome__description cds--type-label-01">我可以结合当前页面上下文，帮你分析业务数据、查找信息、梳理问题并完成日常工作。</p>
+            </section>
+          )}
+          {chatStatusVisible && !welcomeVisible && (
+            <div className="tp-xiaoya-chat-status" role="status" aria-live="polite">
+              <XiaoyaAvatar emotion={avatarEmotion} size={48} />
+              <span>{avatarEmotion === 'thinking' ? '小雅正在思考…' : avatarEmotion === 'success' ? '小雅已完成' : '小雅遇到了一点问题'}</span>
+            </div>
+          )}
         </div>
       </aside>
     </div>
