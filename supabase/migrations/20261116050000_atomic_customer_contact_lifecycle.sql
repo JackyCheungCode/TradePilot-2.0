@@ -158,11 +158,11 @@ begin
     case when new.is_active then 'active' else 'inactive' end,
     false,'not_required',coalesce(auth.uid(),new.owner_id),
     '联系人档案已创建',
-    jsonb_build_object('atomic',true)
+    jsonb_build_object('atomic',true,'employment_status',new.custom_fields->>'status','is_active',new.is_active,'do_not_contact',new.do_not_contact)
   );
   return new;
 end;
-$$;
+$;
 
 drop trigger if exists trg_contact_created_lifecycle_event on public.crm_contacts;
 create trigger trg_contact_created_lifecycle_event
