@@ -149,9 +149,11 @@ async function enrichOne(env:Env,owner:string,id:string,providers:Params["provid
  if(selected.has("apollo")){if(!domain)providerErrors.apollo="企业缺少官网域名，无法按域名搜索 Apollo 联系人";else{try{candidates.push(...await apolloContacts(env,domain));}catch(error){providerErrors.apollo=String(error).slice(0,240);}}}
  if(selected.has("zoominfo")){try{candidates.push(...await zoomInfoContacts(env,row.name));}catch(error){providerErrors.zoominfo=String(error).slice(0,240);}}
  candidates=mergeCandidates(candidates);
+ const apolloMatched=candidates.filter(candidate=>candidate.source_providers.includes("apollo")).length,zoomInfoMatched=candidates.filter(candidate=>candidate.source_providers.includes("zoominfo")).length;
+ const creditEstimate={apollo:{matched_contacts:apolloMatched,min_credits:apolloMatched,max_credits:apolloMatched*9},zoominfo:{matched_contacts:zoomInfoMatched,max_credits:zoomInfoMatched}};
  const emails=[...new Set(found.emails)].slice(0,20),phones=[...new Set(found.phones)].slice(0,20),addresses=[...new Set(found.addresses)].slice(0,10),email=emails[0]??null,phone=phones[0]??null,address=addresses[0]??null;
  const previous=row.raw_data??{},capturedAt=new Date().toISOString();
- const patch:Record<string,unknown>={updated_at:capturedAt,raw_data:{...previous,contact_enrichment:{captured_at:capturedAt,pages_visited:visited,emails,phones,addresses,social:found.social,source_pages:sources,method:"http_rules_structured_data"},contact_intelligence:{captured_at:capturedAt,providers:[...selected],candidate_count:candidates.length,candidates,provider_errors:providerErrors,review_status:"pending_review"}}};
+ const patch:Record<string,unknown>={updated_at:capturedAt,raw_data:{...previous,contact_enrichment:{captured_at:capturedAt,pages_visited:visited,emails,phones,addresses,social:found.social,source_pages:sources,method:"http_rules_structured_data"},contact_intelligence:{captured_at:capturedAt,providers:[...selected],candidate_count:candidates.length,candidates,provider_errors:providerErrors,credit_estimate:creditEstimate,review_status:"pending_review"}}};
  if(!row.email&&email)patch.email=email;if(!row.phone&&phone)patch.phone=phone;if(!row.address&&address)patch.address=address;
  await db(env,"discovery_records?id=eq."+id+"&owner_id=eq."+owner,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify(patch)});
  return {email:email??row.email,phone:phone??row.phone,address:address??row.address,pages:visited,candidates:candidates.length,providerErrors};
