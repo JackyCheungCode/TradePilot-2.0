@@ -64,8 +64,11 @@ export function DocumentPreviewPage() {
   const setDraftField = (key: string, value: string) => setDraftContent(current => current ? { ...current, [key]: value } : current);
   const saveDraft = async () => {
     if (!doc || !draftContent) return;
-    if (!String(draftContent.seller_name || '').trim() || !String(draftContent.buyer_name || '').trim()) { setError('卖方名称和买方名称为必填项。'); return; }
-    if (address(draftContent.seller_address) === '—' || address(draftContent.buyer_address) === '—') { setError('卖方地址和买方开票地址为必填项。'); return; }
+    const manualItems = draftItemsText.split('\\n').map(line => line.trim()).filter(Boolean).map(line => { const [product_name, sku, quantity, unit, unit_price, hs_code] = line.split('|').map(part => part.trim()); return { product_name, sku, quantity: Number(quantity || 0), unit, unit_price: Number(unit_price || 0), hs_code, amount: Number(quantity || 0) * Number(unit_price || 0) }; });
+    if (!doc.order_id && manualItems.some(item => !item.product_name || item.quantity <= 0 || item.unit_price < 0)) { setError('货物明细格式有误：每行按“品名 | SKU | 数量 | 单位 | 单价 | HS Code”填写，数量必须大于 0。'); return; }
+    const nextContent = doc.order_id ? draftContent : { ...draftContent, items: manualItems };
+    const subtotal = manualItems.reduce((sum, item) => sum + item.amount, 0);
+    const nextTotals = doc.order_id ? (doc.totals || {}) : { product_subtotal: subtotal, line_discount_total: 0, order_discount: 0, charge_subtotal: 0, tax_total: 0, grand_total: subtotal };
     setSaving(true); setError('');
     try {
       const client = await getSupabaseClient();
