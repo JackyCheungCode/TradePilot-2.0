@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Button, IconButton, Search, TextArea, Dropdown, Tag, InlineNotification, Heading, CarbonIcons,
 } from '@/design-system';
@@ -26,6 +26,11 @@ const formatTime = (timestamp: number) => new Intl.DateTimeFormat('zh-TW', {
 const formatDate = (timestamp: number) => new Intl.DateTimeFormat('zh-TW', {
   month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false,
 }).format(timestamp);
+const conversationStateLabels: Record<CommunicationConversation['state'], string> = {
+  open: '处理中',
+  pending: '待处理',
+  resolved: '已解决',
+};
 const statusLabels: Record<ConversationFilter, string> = {
   all: '全部',
   unread: '未读',
@@ -82,6 +87,31 @@ export function CustomerCommunicationsPage() {
   const [notice, setNotice] = useState('');
   const [mobileChat, setMobileChat] = useState(false);
   const [profileOpen, setProfileOpen] = useState(() => typeof window === 'undefined' ? true : window.matchMedia('(min-width: 768px)').matches);
+  const [storageReady, setStorageReady] = useState(false);
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem('tradepilot.customer-communications.demo.v1');
+      if (saved) {
+        const parsed = JSON.parse(saved) as { conversations?: CommunicationConversation[]; messages?: CommunicationMessage[] };
+        if (Array.isArray(parsed.conversations)) setConversations(parsed.conversations);
+        if (Array.isArray(parsed.messages)) setMessages(parsed.messages);
+      }
+    } catch {
+      // Ignore invalid or unavailable local demo storage and keep the bundled sample data.
+    } finally {
+      setStorageReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!storageReady) return;
+    try {
+      window.localStorage.setItem('tradepilot.customer-communications.demo.v1', JSON.stringify({ conversations, messages }));
+    } catch {
+      setNotice('浏览器存储不可用；本次会话仍可操作，但刷新后记录可能不会保留。');
+    }
+  }, [conversations, messages, storageReady]);
 
   const activeConversation = conversations.find((item) => item.id === activeId) ?? conversations[0];
   const activeCustomer = communicationCustomers.find((item) => item.id === activeConversation.customerId) ?? communicationCustomers[0];
@@ -110,6 +140,16 @@ export function CustomerCommunicationsPage() {
     setNotice('');
   };
 
+  const updateConversationState = () => {
+    const nextState: CommunicationConversation['state'] = activeConversation.state === 'open'
+      ? 'pending'
+      : activeConversation.state === 'pending' ? 'resolved' : 'open';
+    setConversations((current) => current.map((item) => item.id === activeConversation.id
+      ? { ...item, state: nextState, updatedAt: Date.now() }
+      : item));
+    setNotice(`会话状态已更新为「${conversationStateLabels[nextState]}」。`);
+  };
+
   const sendReply = () => {
     const body = draft.trim();
     if (!body) return;
@@ -129,7 +169,7 @@ export function CustomerCommunicationsPage() {
       ? { ...item, channel: replyChannel, preview: body, updatedAt: time, state: 'open' }
       : item));
     setDraft('');
-    setNotice('演示模式：回复已加入本地消息时间线，尚未连接真实渠道发送服务。');
+    setNotice('本地演示：消息已加入时间线并保存在当前浏览器，尚未发送到外部平台。');
   };
 
   return (
@@ -238,8 +278,11 @@ export function CustomerCommunicationsPage() {
             <div className="cc-chat-actions">
               <IconButton kind="ghost" size="sm" className="cc-mobile-back" label="返回会话" onClick={() => setMobileChat(false)}><CarbonIcons.ArrowLeft /></IconButton>
               <Tag type={activeConversation.state === 'resolved' ? 'green' : activeConversation.state === 'pending' ? 'warm-gray' : 'blue'}>
-                {activeConversation.state === 'resolved' ? '已解决' : activeConversation.state === 'pending' ? '待处理' : '处理中'}
+                {conversationStateLabels[activeConversation.state]}
               </Tag>
+              <Button kind="tertiary" size="sm" onClick={updateConversationState}>
+                {activeConversation.state === 'open' ? '标记待处理' : activeConversation.state === 'pending' ? '解决会话' : '重新打开'}
+              </Button>
               <Button kind="tertiary" size="sm" onClick={() => setProfileOpen((open) => !open)}>
                 {profileOpen ? '收起客户资料' : '客户资料'}
               </Button>
@@ -247,6 +290,9 @@ export function CustomerCommunicationsPage() {
           </header>
 
           <div className="cc-timeline">
+            {activeMessages.length === 0 && (
+              <div className="cc-empty-state" role="status">还没有消息。发送第一条回复以开始沟通。</div>
+            )}
             {activeMessages.map((message) => (
               <article
                 key={message.id}
@@ -355,7 +401,7 @@ export function CustomerCommunicationsPage() {
               <section className="cc-profile-section">
                 <Heading className="cc-profile-section-title">会话信息</Heading>
                 <dl className="cc-details">
-                  <dt>会话状态</dt><dd>{statusLabels[activeConversation.state === 'open' ? 'all' : activeConversation.state]}</dd>
+                  <dt>会话状态</dt><dd>{conversationStateLabels[activeConversation.state]}</dd>
                   <dt>最近沟通</dt><dd>{formatDate(activeConversation.updatedAt)}</dd>
                   <dt>负责人</dt><dd>当前用户</dd>
                 </dl>
