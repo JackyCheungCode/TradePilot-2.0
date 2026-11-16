@@ -6,6 +6,7 @@ import {
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import { XiaoyaAvatar } from '@/features/agent/XiaoyaAvatar';
+import { XiaoyaSidePanel } from '@/features/agent/XiaoyaSidePanel';
 
 /**
  * Shared Carbon application frame.
@@ -13,6 +14,7 @@ import { XiaoyaAvatar } from '@/features/agent/XiaoyaAvatar';
  */
 export function AppShell() {
   const [sideNavExpanded, setSideNavExpanded] = useState(false);
+  const [xiaoyaOpen, setXiaoyaOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState('');
   const navigate = useNavigate();
@@ -48,10 +50,11 @@ export function AppShell() {
         </HeaderName>
         <HeaderGlobalBar>
           <HeaderGlobalAction
-            aria-label="打开小雅 Agent 工作空间"
+            aria-label={xiaoyaOpen ? "关闭小雅 AI 助手" : "打开小雅 AI 助手"}
             tooltipAlignment="end"
-            isActive={location.pathname.startsWith('/agent')}
-            onClick={() => navigate('/agent')}
+            isActive={xiaoyaOpen}
+            aria-expanded={xiaoyaOpen}
+            onClick={() => setXiaoyaOpen((open) => !open)}
           >
             <XiaoyaAvatar emotion="idle" size={30} />
           </HeaderGlobalAction>
@@ -80,11 +83,11 @@ export function AppShell() {
         isRail={!sideNavExpanded}
         onOverlayClick={() => setSideNavExpanded(false)}
       >
-        
         <div className="tp-sidenav__group">
-          <div className="tp-sidenav__group-label">工作区</div>
+          <div className="tp-sidenav__group-label">工作台（Workspace）</div>
           <SideNavItems>
-            <SideNavLink href="/dashboard" isActive={location.pathname === '/dashboard' || location.pathname === '/'} title="工作台（Dashboard）" renderIcon={CarbonIcons.Dashboard}>工作台（Dashboard）</SideNavLink>
+            <SideNavLink href="/dashboard" isActive={location.pathname === '/dashboard' || location.pathname === '/'} title="概览（Overview）" renderIcon={CarbonIcons.Dashboard}>概览（Overview）</SideNavLink>
+            <SideNavLink href="/Omnichannel-inbox" isActive={location.pathname.toLowerCase() === '/omnichannel-inbox'} title="混合聊天（Omnichannel Inbox）" renderIcon={CarbonIcons.Chat}>混合聊天（Omnichannel Inbox）</SideNavLink>
           </SideNavItems>
         </div>
         <div className="tp-sidenav__group">
@@ -134,6 +137,7 @@ export function AppShell() {
           <Outlet />
         </div>
       </Content>
+      <XiaoyaSidePanel isOpen={xiaoyaOpen} onClose={() => setXiaoyaOpen(false)} pathname={location.pathname} />
     </>
   );
 }

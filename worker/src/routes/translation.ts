@@ -19,7 +19,8 @@ async function authenticated(request: Request, env: TranslationEnv) {
 export async function handleTranslation(request: Request, env: TranslationEnv): Promise<Response> {
   const pathname = new URL(request.url).pathname;
   const tradeToolsTranslation = pathname === "/api/v1/trade-tools/translate";
-  if (request.method !== "POST" || (!tradeToolsTranslation && pathname !== "/api/v1/discovery/translate")) {
+  const inboxTranslation = pathname === "/api/v1/inbox/translate";
+  if (request.method !== "POST" || (!tradeToolsTranslation && !inboxTranslation && pathname !== "/api/v1/discovery/translate")) {
     return errorResponse(request, "NOT_FOUND", "翻译接口不存在。", 404);
   }
   if (!(await authenticated(request, env))) return errorResponse(request, "UNAUTHORIZED", "请先登录后使用关键词翻译。", 401);
@@ -30,7 +31,7 @@ export async function handleTranslation(request: Request, env: TranslationEnv): 
   catch { return errorResponse(request, "INVALID_JSON", "请求内容格式不正确。", 400); }
   const text = body.text?.trim() ?? "";
   const targetLanguage = body.targetLanguage?.toUpperCase() ?? "";
-  const maxLength = tradeToolsTranslation ? 20000 : 500;
+  const maxLength = tradeToolsTranslation || inboxTranslation ? 20000 : 500;
   if (!text || text.length > maxLength || !TARGET_LANGUAGES.has(targetLanguage)) {
     return errorResponse(request, "VALIDATION_ERROR", "翻译内容不能为空（最多 " + maxLength + " 字符），并请选择支持的目标语言。", 400);
   }

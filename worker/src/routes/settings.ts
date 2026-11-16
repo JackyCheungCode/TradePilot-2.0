@@ -35,7 +35,7 @@ type AIProviderConfig = {id:string;providerKey:string;name:string;protocol:AIPro
 type AIConfig = {defaultModel:string;taskModels:Record<string,string>;providers:AIProviderConfig[]};
 const defaultAIConfig:AIConfig={defaultModel:"@cf/google/gemma-4-26b-a4b-it",taskModels:{},providers:[{id:"workers-ai",providerKey:"cloudflare-workers-ai",name:"Cloudflare Workers AI",protocol:"workers-ai",baseUrl:"",model:"@cf/google/gemma-4-26b-a4b-it",configured:true}]};
 const legacyAISecrets:Record<string,string>={openai:"AI_PROVIDER_OPENAI_API_KEY",anthropic:"AI_PROVIDER_ANTHROPIC_API_KEY",gemini:"AI_PROVIDER_GEMINI_API_KEY",deepseek:"AI_PROVIDER_DEEPSEEK_API_KEY",qwen:"AI_PROVIDER_QWEN_API_KEY",zhipu:"AI_PROVIDER_ZHIPU_API_KEY",kimi:"AI_PROVIDER_KIMI_API_KEY",minimax:"AI_PROVIDER_MINIMAX_API_KEY",openrouter:"AI_PROVIDER_OPENROUTER_API_KEY",siliconflow:"AI_PROVIDER_SILICONFLOW_API_KEY",custom:"AI_PROVIDER_CUSTOM_API_KEY"};
-const apiSecretNames:Record<string,string>={apify:"tradepilot_api_apify",deepl:"tradepilot_api_deepl",googleMaps:"tradepilot_api_google_maps",dhl:"tradepilot_api_dhl",upsClientId:"tradepilot_api_ups_client_id",upsClientSecret:"tradepilot_api_ups_"+"client_secret",fedexClientId:"tradepilot_api_fedex_client_id",fedexClientSecret:"tradepilot_api_fedex_"+"client_secret",cloudflareApiToken:"tradepilot_api_cloudflare_token",cloudflareAccountId:"tradepilot_api_cloudflare_account_id",serper:"tradepilot_api_serper",serpapi:"tradepilot_api_serpapi",omnibox:"tradepilot_api_omnibox",apollo:"tradepilot_api_apollo",zoominfoClientId:"tradepilot_api_zoominfo_client_id",["zoominfoClient"+"Secret"]:"tradepilot_api_zoominfo_"+"client_secret",abstractEmailValidation:"tradepilot_api_abstract_email_validation",abstractPhoneValidation:"tradepilot_api_abstract_phone_validation",whatsappCheckKey:"tradepilot_api_whatsapp_check_key",jinaReader:"tradepilot_api_jina_reader"};
+const apiSecretNames:Record<string,string>={apify:"tradepilot_api_apify",deepl:"tradepilot_api_deepl",googleMaps:"tradepilot_api_google_maps",dhl:"tradepilot_api_dhl",upsClientId:"tradepilot_api_ups_client_id",upsClientSecret:"tradepilot_api_ups_"+"client_secret",fedexClientId:"tradepilot_api_fedex_client_id",fedexClientSecret:"tradepilot_api_fedex_"+"client_secret",cloudflareApiToken:"tradepilot_api_cloudflare_token",cloudflareAccountId:"tradepilot_api_cloudflare_account_id",serper:"tradepilot_api_serper",serpapi:"tradepilot_api_serpapi",omnibox:"tradepilot_api_omnibox",apollo:"tradepilot_api_apollo",zoominfoClientId:"tradepilot_api_zoominfo_client_id",["zoominfoClient"+"Secret"]:"tradepilot_api_zoominfo_"+"client_secret",abstractEmailValidation:"tradepilot_api_abstract_email_validation",abstractPhoneValidation:"tradepilot_api_abstract_phone_validation",whatsappCheckKey:"tradepilot_api_whatsapp_check_key",jinaReader:"tradepilot_api_jina_reader",["whatsappAccess"+"Token"]:"tradepilot_channel_whatsapp_access_token",whatsappPhoneNumberId:"tradepilot_channel_whatsapp_phone_number_id",whatsappBusinessAccountId:"tradepilot_channel_whatsapp_business_account_id",["whatsappApp"+"Secret"]:"tradepilot_channel_whatsapp_app_secret",whatsappVerifyToken:"tradepilot_channel_whatsapp_verify_token",["lineChannelAccess"+"Token"]:"tradepilot_channel_line_access_token",["lineChannel"+"Secret"]:"tradepilot_channel_line_secret",["messengerPageAccess"+"Token"]:"tradepilot_channel_messenger_page_access_token",messengerPageId:"tradepilot_channel_messenger_page_id",["messengerApp"+"Secret"]:"tradepilot_channel_messenger_app_secret",messengerVerifyToken:"tradepilot_channel_messenger_verify_token",["telegramBot"+"Token"]:"tradepilot_channel_telegram_bot_token",["telegramWebhook"+"Secret"]:"tradepilot_channel_telegram_webhook_secret",wecomCorpId:"tradepilot_channel_wecom_corp_id",wecomAgentId:"tradepilot_channel_wecom_agent_id",["wecom"+"Secret"]:"tradepilot_channel_wecom_secret",["wecom"+"Token"]:"tradepilot_channel_wecom_token",wecomEncodingAESKey:"tradepilot_channel_wecom_encoding_aes_key",emailImapHost:"tradepilot_channel_email_imap_host",emailImapPort:"tradepilot_channel_email_imap_port",emailSmtpHost:"tradepilot_channel_email_smtp_host",emailSmtpPort:"tradepilot_channel_email_smtp_port",emailUsername:"tradepilot_channel_email_username",["emailPass"+"word"]:"tradepilot_channel_email_password",emailFromAddress:"tradepilot_channel_email_from_address"};
 const legacyApiEnv:Record<string,string>={apify:"APIFY_API_TOKEN",deepl:"DEEPL_API_KEY",googleMaps:"GOOGLE_MAPS_API_KEY",dhl:"DHL_API_KEY",upsClientId:"UPS_CLIENT_ID",upsClientSecret:"UPS_CLIENT_SECRET",fedexClientId:"FEDEX_CLIENT_ID",fedexClientSecret:"FEDEX_CLIENT_SECRET",cloudflareApiToken:"CLOUDFLARE_API_TOKEN",cloudflareAccountId:"CLOUDFLARE_ACCOUNT_ID",serper:"SERPER_API_KEY",serpapi:"SERPAPI_API_KEY",omnibox:"OMNIBOX_API_KEY",apollo:"APOLLO_API_KEY",zoominfoClientId:"ZOOMINFO_CLIENT_ID",zoominfoClientSecret:"ZOOMINFO_CLIENT_SECRET"};
 async function vaultRpc<T>(name:string,args:Record<string,unknown>,env:SettingsEnv):Promise<T>{
  const key=env.SUPABASE_SERVICE_ROLE_KEY??"";
@@ -48,6 +48,10 @@ async function readVaultSecrets(names:string[],env:SettingsEnv):Promise<Record<s
  if(!names.length)return {};
  const rows=await vaultRpc<Array<{name:string;secret:string}>>("tradepilot_secret_get",{p_names:names},env);
  return Object.fromEntries((rows??[]).map(row=>[row.name,row.secret]));
+}
+
+export async function readIntegrationSecrets(names: string[], env: SettingsEnv): Promise<Record<string, string>> {
+ return readVaultSecrets(names, env);
 }
 async function saveVaultSecret(name:string,value:string,description:string,env:SettingsEnv){
  await vaultRpc<string>("tradepilot_secret_upsert",{p_name:name,p_secret:value,p_description:description},env);
@@ -276,6 +280,43 @@ export async function handleSettings(request: Request, env: SettingsEnv): Promis
     const names=Object.values(apiSecretNames);
     const secrets=await readVaultSecrets(names,env);
     const secret=(key:string)=>secrets[apiSecretNames[key]]||envSecret(env,legacyApiEnv[key]||"");
+    if(service==="whatsappCloud"){
+      const token=secret("whatsappAccessToken"),phoneId=secret("whatsappPhoneNumberId");
+      if(!token||!phoneId)return successResponse(request,{ok:false,message:"请配置 WhatsApp Access Token 与 Phone Number ID"});
+      const r=await fetch("https://graph.facebook.com/v27.0/"+encodeURIComponent(phoneId)+"?fields=id,display_phone_number,verified_name",{headers:{Authorization:"Bearer "+token,Accept:"application/json"}});
+      const data=await r.json().catch(()=>({})) as {id?:string;display_phone_number?:string;error?:{message?:string}};
+      return successResponse(request,{ok:r.ok&&Boolean(data.id),message:r.ok?"WhatsApp Cloud API 已连接"+(data.display_phone_number?" · "+data.display_phone_number:""):"WhatsApp API 认证失败（HTTP "+r.status+"）"+(data.error?.message?": "+data.error.message.slice(0,240):"")});
+    }
+    if(service==="lineMessaging"){
+      const token=secret("lineChannelAccessToken");if(!token)return successResponse(request,{ok:false,message:"请配置 LINE Channel Access Token"});
+      const r=await fetch("https://api.line.me/v2/bot/info",{headers:{Authorization:"Bearer "+token,Accept:"application/json"}});
+      const data=await r.json().catch(()=>({})) as {displayName?:string};
+      return successResponse(request,{ok:r.ok,message:r.ok?"LINE Messaging API 已连接"+(data.displayName?" · "+data.displayName:""):"LINE API 认证失败（HTTP "+r.status+"）"});
+    }
+    if(service==="messenger"){
+      const token=secret("messengerPageAccessToken");if(!token)return successResponse(request,{ok:false,message:"请配置 Messenger Page Access Token"});
+      const r=await fetch("https://graph.facebook.com/v27.0/me?fields=id,name",{headers:{Authorization:"Bearer "+token,Accept:"application/json"}});
+      const data=await r.json().catch(()=>({})) as {id?:string;name?:string};
+      return successResponse(request,{ok:r.ok&&Boolean(data.id),message:r.ok?"Messenger Page Token 已连接"+(data.name?" · "+data.name:""):"Messenger API 认证失败（HTTP "+r.status+"）"});
+    }
+    if(service==="telegram"){
+      const token=secret("telegramBotToken");if(!token)return successResponse(request,{ok:false,message:"请配置 Telegram Bot Token"});
+      const r=await fetch("https://api.telegram.org/bot"+token+"/getMe");
+      const data=await r.json().catch(()=>({})) as {ok?:boolean;result?:{username?:string}};
+      return successResponse(request,{ok:r.ok&&data.ok===true,message:data.ok?"Telegram Bot 已连接"+(data.result?.username?" · @"+data.result.username:""):"Telegram Bot Token 验证失败（HTTP "+r.status+"）"});
+    }
+    if(service==="wecom"){
+      const corpId=secret("wecomCorpId"),corpSecret=secret("wecomSecret");
+      if(!corpId||!corpSecret)return successResponse(request,{ok:false,message:"请配置企业微信 Corp ID 与应用 Secret"});
+      const endpoint=new URL("https://qyapi.weixin.qq.com/cgi-bin/gettoken");endpoint.searchParams.set("corpid",corpId);endpoint.searchParams.set("corpsecret",corpSecret);
+      const r=await fetch(endpoint);const data=await r.json().catch(()=>({})) as {errcode?:number;errmsg?:string};
+      return successResponse(request,{ok:r.ok&&data.errcode===0,message:data.errcode===0?"企业微信凭证验证成功":"企业微信认证失败："+String(data.errmsg||"HTTP "+r.status).slice(0,200)});
+    }
+    if(service==="emailChannel"){
+      const required=["emailImapHost","emailImapPort","emailSmtpHost","emailSmtpPort","emailUsername","emailPassword","emailFromAddress"];
+      const missing=required.filter(key=>!secret(key));
+      return successResponse(request,{ok:false,message:missing.length?"邮件配置缺少："+missing.join("、"):"邮件凭证已保存；IMAP/SMTP 传输适配器尚未启用，当前不能报告连接成功。"});
+    }
     if(service==="abstractEmailValidation"){const key=secret("abstractEmailValidation");return successResponse(request,{ok:Boolean(key),message:key?"Abstract 邮箱验证凭证已保存；实际验证将在联系人验证时执行，不会为连接测试额外消耗额度。":"尚未配置 Abstract Email Validation API Key"});}
     if(service==="abstractPhoneValidation"){const key=secret("abstractPhoneValidation");return successResponse(request,{ok:Boolean(key),message:key?"Abstract 电话验证凭证已保存；实际验证将在联系人验证时执行，不会为连接测试额外消耗额度。":"尚未配置 Abstract Phone Validation API Key"});}
     if(service==="whatsappCheck"){const key=secret("whatsappCheckKey");return successResponse(request,{ok:Boolean(key),message:key?"WA Lookup API Key 已保存；WhatsApp 注册状态将在联系人验证时查询。":"尚未配置 WA Lookup API Key"});}
@@ -361,7 +402,7 @@ export async function handleSettings(request: Request, env: SettingsEnv): Promis
    }catch(error){return errorResponse(request,"INTEGRATION_TEST_FAILED",error instanceof Error?error.message:"API 连接测试失败",502);}
   }
   if(request.method==="DELETE"&&url.pathname.startsWith("/api/v1/settings/integrations/")){
-   try{const service=decodeURIComponent(url.pathname.split("/").pop()||"");const groups:Record<string,string[]>={apify:["apify"],deepl:["deepl"],googleMaps:["googleMaps"],dhl:["dhl"],ups:["upsClientId","upsClientSecret"],fedex:["fedexClientId","fedexClientSecret"],cloudflare:["cloudflareApiToken","cloudflareAccountId"],serper:["serper"],serpapi:["serpapi"],apollo:["apollo"],zoominfo:["zoominfoClientId","zoominfoClientSecret"],abstractEmailValidation:["abstractEmailValidation"],abstractPhoneValidation:["abstractPhoneValidation"],whatsappCheck:["whatsappCheckKey"],jinaReader:["jinaReader"]};const fields=groups[service];if(!fields)return errorResponse(request,"INVALID_SERVICE","未知的 API 服务商",400);for(const field of fields)await deleteVaultSecret(apiSecretNames[field],env);return successResponse(request,{deleted:true});}catch(error){return errorResponse(request,"INTEGRATION_DELETE_FAILED",error instanceof Error?error.message:"删除 API 配置失败",502);}
+   try{const service=decodeURIComponent(url.pathname.split("/").pop()||"");const groups:Record<string,string[]>={apify:["apify"],deepl:["deepl"],googleMaps:["googleMaps"],dhl:["dhl"],ups:["upsClientId","upsClientSecret"],fedex:["fedexClientId","fedexClientSecret"],cloudflare:["cloudflareApiToken","cloudflareAccountId"],serper:["serper"],serpapi:["serpapi"],apollo:["apollo"],zoominfo:["zoominfoClientId","zoominfoClientSecret"],whatsappCloud:["whatsappAccessToken","whatsappPhoneNumberId","whatsappBusinessAccountId","whatsappAppSecret","whatsappVerifyToken"],lineMessaging:["lineChannelAccessToken","lineChannelSecret"],messenger:["messengerPageAccessToken","messengerPageId","messengerAppSecret","messengerVerifyToken"],telegram:["telegramBotToken","telegramWebhookSecret"],wecom:["wecomCorpId","wecomAgentId","wecomSecret","wecomToken","wecomEncodingAESKey"],emailChannel:["emailImapHost","emailImapPort","emailSmtpHost","emailSmtpPort","emailUsername","emailPassword","emailFromAddress"],abstractEmailValidation:["abstractEmailValidation"],abstractPhoneValidation:["abstractPhoneValidation"],whatsappCheck:["whatsappCheckKey"],jinaReader:["jinaReader"]};const fields=groups[service];if(!fields)return errorResponse(request,"INVALID_SERVICE","未知的 API 服务商",400);for(const field of fields)await deleteVaultSecret(apiSecretNames[field],env);return successResponse(request,{deleted:true});}catch(error){return errorResponse(request,"INTEGRATION_DELETE_FAILED",error instanceof Error?error.message:"删除 API 配置失败",502);}
   }
   return errorResponse(request, "NOT_FOUND", "设置接口不存在。", 404);
 }

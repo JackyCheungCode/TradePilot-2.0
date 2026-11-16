@@ -1,0 +1,222 @@
+/* Carbon owns component appearance. This file only defines the inbox information
+   architecture, responsive columns and independent scrolling regions. */
+.oi-workspace {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  gap: var(--tp-space-05);
+}
+
+.oi-page-header,
+.oi-activity-heading,
+.oi-list-header,
+.oi-chat-header,
+.oi-chat-heading,
+.oi-chat-actions,
+.oi-profile-header,
+.oi-section-heading,
+.oi-message-meta,
+.oi-message-foot,
+.oi-compose-row,
+.oi-edit-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--tp-space-03);
+  min-width: 0;
+}
+
+.oi-page-header { flex: 0 0 auto; }
+.oi-page-title { margin: 0; }
+.oi-page-header p,
+.oi-activity-heading p { margin: var(--tp-space-02) 0 0; }
+
+.oi-metrics-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--tp-space-05);
+  width: 100%;
+  min-width: 0;
+}
+.oi-metric-tile {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--tp-space-05);
+  min-width: 0;
+}
+.oi-metric-copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tp-space-02);
+  min-width: 0;
+}
+.oi-activity-panel,
+.oi-activity-tile,
+.oi-activity-chart { width: 100%; min-width: 0; }
+.oi-activity-tile { display: flex; flex-direction: column; gap: var(--tp-space-03); }
+.oi-activity-chart { height: 10.5rem; }
+
+.oi-workspace-grid {
+  display: grid;
+  flex: 0 0 auto;
+  grid-template-columns: minmax(17rem, 20rem) minmax(0, 1fr) minmax(18rem, 21.25rem);
+  width: 100%;
+  min-width: 0;
+  min-height: 40rem;
+  overflow: hidden;
+  background: var(--cds-layer);
+}
+.oi-workspace--profile-collapsed .oi-workspace-grid {
+  grid-template-columns: minmax(17rem, 20rem) minmax(0, 1fr);
+}
+.oi-conversation-panel,
+.oi-profile-panel,
+.oi-chat-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.oi-conversation-panel,
+.oi-profile-panel { background: var(--cds-layer-01); }
+.oi-conversation-panel { border-inline-end: 1px solid var(--cds-border-subtle-01); }
+.oi-profile-panel { border-inline-start: 1px solid var(--cds-border-subtle-01); }
+.oi-chat-panel { background: var(--cds-layer); }
+.oi-list-header,
+.oi-search,
+.oi-filter-row,
+.oi-chat-header,
+.oi-composer,
+.oi-profile-header { flex: 0 0 auto; }
+.oi-search { padding-inline: var(--tp-space-04); }
+.oi-filter-row { min-width: 0; }
+.oi-filter-row .cds--content-switcher { width: 100%; }
+.oi-filter-row .cds--content-switcher-btn { flex: 1 1 0; min-width: 0; }
+.oi-conversation-scroll,
+.oi-profile-scroll,
+.oi-timeline {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.oi-conversation-scroll { display: flex; flex-direction: column; }
+.oi-conversation {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--tp-space-03);
+  width: 100%;
+  min-width: 0;
+  text-align: start;
+}
+.oi-conversation-copy {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--tp-space-02);
+  min-width: 0;
+  text-align: start;
+}
+.oi-conversation-copy strong,
+.oi-conversation-copy span,
+.oi-conversation-copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.oi-conversation-meta {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--tp-space-02);
+}
+.oi-avatar {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--tp-space-02);
+  min-width: 0;
+}
+.oi-avatar-label { overflow: hidden; text-overflow: ellipsis; }
+.oi-chat-heading { justify-content: flex-start; }
+.oi-chat-heading > div { display: flex; flex-direction: column; min-width: 0; }
+.oi-timeline { display: flex; flex-direction: column; gap: var(--tp-space-05); padding: var(--tp-space-05); }
+.oi-message {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-self: flex-start;
+  gap: var(--tp-space-02);
+  width: min(76%, 40rem);
+  min-width: 0;
+}
+.oi-message--outbound { align-self: flex-end; }
+.oi-message-meta,
+.oi-message-foot { justify-content: flex-start; }
+.oi-message-foot { justify-content: flex-end; }
+.oi-bubble,
+.oi-email-card,
+.oi-file-card { width: 100%; min-width: 0; overflow-wrap: anywhere; }
+.oi-email-title,
+.oi-file-card { display: flex; align-items: center; gap: var(--tp-space-03); }
+.oi-email-title strong,
+.oi-file-card > div { flex: 1 1 auto; min-width: 0; }
+.oi-composer { display: flex; flex-direction: column; gap: var(--tp-space-03); }
+.oi-channel-picker,
+.oi-subject { width: 100%; min-width: 0; }
+.oi-channel-picker .cds--dropdown,
+.oi-channel-picker .cds--list-box__wrapper { width: 100%; max-width: none; }
+.oi-compose-row { align-items: flex-end; }
+.oi-compose-row .cds--text-area__wrapper { flex: 1 1 auto; min-width: 0; }
+.oi-profile-header { justify-content: space-between; }
+.oi-profile-scroll { display: flex; flex-direction: column; gap: var(--tp-space-04); padding: var(--tp-space-04); }
+.oi-profile-identity { display: flex; align-items: center; gap: var(--tp-space-03); min-width: 0; }
+.oi-profile-identity > div:last-child { display: flex; flex-direction: column; min-width: 0; }
+.oi-profile-section { display: flex; flex-direction: column; gap: var(--tp-space-03); min-width: 0; }
+.oi-details { display: grid; grid-template-columns: minmax(4rem, auto) minmax(0, 1fr); gap: var(--tp-space-03); min-width: 0; }
+.oi-details dd { margin: 0; overflow-wrap: anywhere; }
+.oi-tags { display: flex; flex-wrap: wrap; gap: var(--tp-space-02); }
+.oi-identity-row { display: flex; align-items: center; gap: var(--tp-space-02); min-width: 0; }
+.oi-identity-row > span:nth-child(2) { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.oi-edit-fields { display: flex; flex-direction: column; gap: var(--tp-space-03); }
+.oi-template-option { display: flex; flex-direction: column; gap: var(--tp-space-02); }
+.oi-empty { padding: var(--tp-space-06); text-align: center; }
+.oi-profile-backdrop { display: none; }
+
+@media (max-width: 1024px) and (min-width: 768px) {
+  .oi-workspace-grid { grid-template-columns: minmax(15rem, 17rem) minmax(0, 1fr); }
+  .oi-profile-panel { display: none; }
+}
+@media (max-width: 767px) {
+  .oi-metrics-row { grid-template-columns: minmax(0, 1fr); }
+  .oi-workspace-grid {
+    position: relative;
+    display: block;
+    min-height: 38rem;
+    height: 38rem;
+  }
+  .oi-conversation-panel,
+  .oi-chat-panel {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    transition: opacity 180ms ease, transform 180ms ease, visibility 180ms ease;
+  }
+  .oi-chat-panel { visibility: hidden; opacity: 0; transform: translateX(0.75rem); }
+  .oi-workspace--mobile-chat .oi-conversation-panel { visibility: hidden; opacity: 0; transform: translateX(-0.75rem); pointer-events: none; }
+  .oi-workspace--mobile-chat .oi-chat-panel { visibility: visible; opacity: 1; transform: translateX(0); }
+  .oi-profile-backdrop { display: block; position: absolute; z-index: 19; inset: 0; width: 100%; height: 100%; }
+  .oi-profile-panel { position: absolute; z-index: 20; inset: 0 0 0 auto; width: min(88vw, 23rem); height: 100%; }
+  .oi-mobile-back { display: inline-flex; }
+  .oi-chat-actions > button:not(:last-child) { display: none; }
+  .oi-message { width: 88%; }
+}
+@media (min-width: 768px) {
+  .oi-mobile-back { display: none; }
+}

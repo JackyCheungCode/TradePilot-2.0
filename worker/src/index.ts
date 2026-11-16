@@ -16,6 +16,10 @@ import { handleTradeDocuments } from "./routes/trade-documents";
 import { handleMasterData } from "./routes/master-data";
 import { handleProspectConsole } from "./routes/prospect-console";
 import { handleContactValidation } from "./routes/contact-validation";
+import { handleInbox } from "./routes/inbox";
+import { handleInboxWebhook } from "./routes/inbox-webhooks";
+import { handleInboxAttachment } from "./routes/inbox-attachments";
+import { processInboxMediaJobs } from "./routes/inbox-media-worker";
 import { AgentOrchestrationWorkflow } from "./workflows/agent-orchestration";
 
 export interface WorkerEnv {
@@ -24,6 +28,8 @@ export interface WorkerEnv {
  SUPABASE_URL: string;
  SUPABASE_ANON_KEY: string;
  SUPABASE_SERVICE_ROLE_KEY: string;
+ INBOX_SCANNER_URL?: string;
+ INBOX_SCANNER_HMAC_SECRET?: string;
  GOOGLE_MAPS_API_KEY?: string;
  DEEPL_API_KEY?: string;
  DHL_API_KEY?: string;
@@ -50,6 +56,11 @@ export interface WorkerEnv {
 export { LeadDiscoveryWorkflow, ContactEnrichmentWorkflow, FacebookDiscoveryWorkflow, InstagramDiscoveryWorkflow, AgentOrchestrationWorkflow };
 
 export default {
+ async scheduled(_controller: { scheduledTime: number; cron: string }, env: WorkerEnv, ctx: { waitUntil(promise: Promise<unknown>): void }): Promise<void> {
+  ctx.waitUntil(processInboxMediaJobs(env).catch(error => {
+   console.error("INBOX_MEDIA_QUEUE_RUN_FAILED", { code: error instanceof Error && /^[A-Z0-9_]+$/.test(error.message) ? error.message : "MEDIA_QUEUE_FAILED" });
+  }));
+ },
  async fetch(request: Request, env: WorkerEnv): Promise<Response> {
   const url = new URL(request.url);
   try {
@@ -61,6 +72,9 @@ export default {
    if (url.pathname.startsWith("/api/v1/master-data/")) return await handleMasterData(request, env);
    if (url.pathname === "/api/v1/prospect-console" && request.method === "GET") return await handleProspectConsole(request, env);
    if (url.pathname === "/api/v1/contact-validation") return await handleContactValidation(request, env);
+   if (url.pathname.startsWith("/api/v1/inbox/webhooks/")) return await handleInboxWebhook(request, env);
+   if (url.pathname.startsWith("/api/v1/inbox/attachments/")) return await handleInboxAttachment(request, env);
+   if (url.pathname.startsWith("/api/v1/inbox/")) return await handleInbox(request, env);
    if (url.pathname === "/api/v1/settings/search-exclusions") return await handleSearchExclusions(request, env);
    if (url.pathname.startsWith("/api/v1/settings/")) return await handleSettings(request, env);
    if (url.pathname.startsWith("/api/v1/discovery/translate") || url.pathname === "/api/v1/trade-tools/translate") return await handleTranslation(request, env);

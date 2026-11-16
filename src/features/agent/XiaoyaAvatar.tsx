@@ -93,13 +93,13 @@ type XiaoyaAvatarProps = {
   size?: number;
 };
 
-const SUPPORTED_SIZES = new Set([16, 20, 24, 28, 30, 32, 40, 48, 64]);
+
 
 export function XiaoyaAvatar({ emotion = 'idle', size = 30 }: XiaoyaAvatarProps) {
   const hostRef = useRef<HTMLSpanElement>(null);
   const instanceRef = useRef<EmotionBallInstance | null>(null);
   const [ready, setReady] = useState(false);
-  const normalizedSize = SUPPORTED_SIZES.has(size) ? size : 30;
+  const normalizedSize = Number.isFinite(size) ? Math.max(16, Math.min(192, size)) : 30;
 
   useEffect(() => {
     let active = true;

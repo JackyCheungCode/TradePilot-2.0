@@ -1,0 +1,59 @@
+name: Deploy TradePilot Inbox Preview
+
+on:
+  push:
+    branches:
+      - feature/omnichannel-inbox
+    paths:
+      - "src/**"
+      - "worker/**"
+      - "public/**"
+      - "index.html"
+      - "vite.config.*"
+      - "package.json"
+      - "package-lock.json"
+      - "wrangler.preview.jsonc"
+      - ".github/workflows/deploy-inbox-preview.yml"
+  pull_request:
+    branches:
+      - develop
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tradepilot-inbox-preview
+  cancel-in-progress: true
+
+jobs:
+  deploy-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/omnichannel-inbox
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build and validate
+        run: npm run build
+
+      - name: Deploy isolated preview Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ea4e98dce9c478d7dd5c07f10e5c722d
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::Preview deployment blocked: CLOUDFLARE_API_TOKEN is not configured."
+            exit 1
+          fi
+          npx wrangler deploy --config wrangler.preview.jsonc
