@@ -15,16 +15,19 @@ const fmtSize = (bytes: number) => bytes > 1_000_000 ? (bytes / 1_000_000).toFix
 const channelOptions = Object.keys(channelLabels).map((id) => ({ id, text: channelLabels[id as ChannelType] }));
 
 function ChannelMark({ channel }: { channel: ChannelType }) {
-  const Icon = channel === 'whatsapp' ? CarbonIcons.Phone
-    : channel === 'telegram' ? CarbonIcons.Send
-    : channel === 'email' ? CarbonIcons.Email
-    : CarbonIcons.Chat;
-  return <span className={'oi-channel oi-channel--' + channel} role="img" aria-label={channelLabels[channel]} title={channelLabels[channel]}><Icon size={14} /></span>;
+  const slugs: Partial<Record<ChannelType, string>> = {
+    whatsapp: 'whatsapp', line: 'line', messenger: 'messenger', telegram: 'telegram', wecom: 'wechatwork',
+  };
+  const slug = slugs[channel];
+  return <span className={'oi-channel oi-channel--' + channel} role="img" aria-label={channelLabels[channel]} title={channelLabels[channel]}>
+    {slug ? <img src={'https://cdn.simpleicons.org/' + slug + '/FFFFFF'} alt="" aria-hidden="true" /> : <CarbonIcons.Email size={14} />}
+  </span>;
 }
 function Avatar({ customer, small = false }: { customer: Customer; small?: boolean }) {
   return <div className={'oi-avatar' + (small ? ' oi-avatar--small' : '')} role="img" aria-label={customer.contact_name}>{customer.avatar}</div>;
 }
 function StatusText({ status }: { status: Message['status'] }) {
+  if (status === 'local') return <span className="oi-message-status">仅本地演示</span>;
   if (status === 'failed') return <span className="oi-message-status oi-message-status--failed"><CarbonIcons.WarningAlt size={12} /> 发送失败</span>;
   if (status === 'read') return <span className="oi-message-status oi-message-status--read"><CarbonIcons.Checkmark size={13} /><CarbonIcons.Checkmark size={13} /> 已读</span>;
   if (status === 'delivered') return <span className="oi-message-status"><CarbonIcons.Checkmark size={13} /><CarbonIcons.Checkmark size={13} /> 已送达</span>;
@@ -86,7 +89,7 @@ export function OmnichannelInboxPage() {
   const updateConversation = (patch: Partial<Conversation>) => setConversations((current) => current.map((item) => item.id === activeConversation.id ? { ...item, ...patch } : item));
   const appendMessage = (content: string, type: Message['content_type'] = 'text', extra: Partial<Message> = {}) => {
     const created_at = now();
-    const message: Message = { id: 'm-' + created_at, conversation_id: activeConversation.id, customer_id: customer.id, channel_type: channel, direction: 'outbound', content_type: type, content, status: 'sent', created_at, ...extra };
+    const message: Message = { id: 'm-' + created_at, conversation_id: activeConversation.id, customer_id: customer.id, channel_type: channel, direction: 'outbound', content_type: type, content, status: 'local', created_at, ...extra };
     setMessages((current) => [...current, message]);
     updateConversation({ last_message_at: created_at, last_channel_type: channel, status: 'open' });
     setDraft('');
@@ -126,11 +129,9 @@ export function OmnichannelInboxPage() {
       setActionNotice('每位客户至少保留一个渠道身份。');
       return;
     }
-    setIdentities((current) => current.filter((item) => item.id !== identity.id));
-    if (channel === identity.channel_type) {
-      const fallback = customerIdentities.find((item) => item.id !== identity.id);
-      if (fallback) setChannel(fallback.channel_type);
-    }
+    const fallback = customerIdentities.find((item) => item.id !== identity.id);
+    setIdentities((current) => current.filter((item) => item.id !== identity.id).map((item) => item.id === fallback?.id ? { ...item, is_primary: true } : item));
+    if (channel === identity.channel_type && fallback) setChannel(fallback.channel_type);
     setActionNotice('渠道身份已从本地演示数据中移除。');
   };
   useEffect(() => {
@@ -208,6 +209,7 @@ export function OmnichannelInboxPage() {
       </div>
     </section>
 
+    {profileOpen && <Button className="oi-profile-backdrop" kind="ghost" aria-label="关闭客户档案" onClick={() => setProfileOpen(false)} />}
     {profileOpen && <aside ref={profilePanelRef} className="oi-profile-panel" role={typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches ? 'dialog' : 'complementary'} aria-modal={typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches ? true : undefined} aria-labelledby="oi-profile-title" tabIndex={-1}>
       <div className="oi-profile-header"><h2 id="oi-profile-title">客户 360 档案</h2><IconButton kind="ghost" label="关闭档案" onClick={() => setProfileOpen(false)}><CarbonIcons.Close /></IconButton></div>
       <div className="oi-profile-scroll">
