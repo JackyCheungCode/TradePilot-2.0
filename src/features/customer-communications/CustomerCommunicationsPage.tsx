@@ -281,7 +281,7 @@ export function CustomerCommunicationsPage() {
                 {conversationStateLabels[activeConversation.state]}
               </Tag>
               <Button kind="tertiary" size="sm" onClick={updateConversationState}>
-                {activeConversation.state === 'open' ? '标记待处理' : activeConversation.state === 'pending' ? '解决会话' : '重新打开'}
+                {activeConversation.state === 'open' ? '待处理' : activeConversation.state === 'pending' ? '解决' : '重开'}
               </Button>
               <Button kind="tertiary" size="sm" onClick={() => setProfileOpen((open) => !open)}>
                 {profileOpen ? '收起客户资料' : '客户资料'}
