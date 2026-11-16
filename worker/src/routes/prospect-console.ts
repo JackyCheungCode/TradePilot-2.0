@@ -180,10 +180,10 @@ export async function handleProspectConsole(request: Request, env: ConsoleEnv): 
       const day = localDay(row.captured_at);
       entities.add(entityId);
       const isConverted = record.status === "promoted" || Boolean(record.lead_id);
-      const isTerminal = record.status === "discarded" || record.status === "removed";
+      const terminalStage: "discarded" | "removed" | null = record.status === "discarded" ? "discarded" : record.status === "removed" ? "removed" : null;
       if (isConverted) converted.add(entityId);
-      else if (!isTerminal) pending.add(entityId);
-      const lifecycleStage = isConverted ? "converted" : isTerminal ? record.status : String(record.raw_data?.lifecycle_stage ?? (hasContactEnrichmentData(record.raw_data) || record.email || record.phone ? "collected" : "discovered"));
+      else if (!terminalStage) pending.add(entityId);
+      const lifecycleStage: string = isConverted ? "converted" : terminalStage ?? String(record.raw_data?.lifecycle_stage ?? (hasContactEnrichmentData(record.raw_data) || record.email || record.phone ? "collected" : "discovered"));
       const entityStages = lifecycleStagesByEntity.get(entityId) ?? [];
       entityStages.push(lifecycleStage);
       lifecycleStagesByEntity.set(entityId,entityStages);
