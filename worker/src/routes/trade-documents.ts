@@ -39,7 +39,7 @@ function calculateShipmentInvoiceTotals(shipment:Json,orderItems:Json[],snapshot
 
 function htmlEscape(value:unknown):string{return String(value??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");}
 function pdfText(value:unknown):string{return value===null||value===undefined||value===""?"—":htmlEscape(typeof value==="object"?JSON.stringify(value):value);}
-function pdfAddress(value:unknown):string{if(typeof value==="string")return htmlEscape(value);const item=obj(value);return htmlEscape(item.text??[item.name,item.street,item.street2,item.city,item.state,item.postal_code,item.country_code,item.country].filter(Boolean).join(", ")||"—");}
+function pdfAddress(value:unknown):string{if(typeof value==="string")return htmlEscape(value);const item=obj(value);const addressText=item.text??[item.name,item.street,item.street2,item.city,item.state,item.postal_code,item.country_code,item.country].filter(Boolean).join(", ");return htmlEscape(addressText||"—");}
 function pdfMoney(value:unknown,currency:string):string{const amount=Number(value??0);return htmlEscape(currency+" "+(Number.isFinite(amount)?amount:0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2}));}
 function renderTradeDocumentHtml(document:Json,version:Json):{html:string;pdfOptions:Json;fileName:string}{
  const content=obj(version.content_snapshot),totals=obj(version.totals_snapshot),template=obj(version.template_snapshot),config=obj(template.template_config),currency=str(document.currency_code,3)||"USD",type=str(document.document_type,80),items=Array.isArray(content.items)?content.items as Json[]:[],shipment=obj(content.shipment);
