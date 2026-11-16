@@ -420,19 +420,16 @@ export function InboxPage() {
               <section key={group.id} className="tp-inbox-company-group">
                 <h3 className="tp-inbox-company-heading">{group.name}</h3>
                 {group.conversations.map(row => (
-                  <ClickableTile key={row.id} className={selected?.id === row.id ? 'tp-inbox__selected' : ''} onClick={() => { setSelected(row); setError(''); }}>
-                    <Stack gap={2}>
-                      <Stack orientation="horizontal">
-                        <strong>{row.contact?.full_name || row.contact_display_name}</strong>
-                        <span>{formatTime(row.last_message_at)}</span>
-                      </Stack>
-                      {row.contact?.job_title && <span className="tp-inbox-company-name">{row.contact.job_title}</span>}
-                      <span className="tp-inbox-list-preview">{row.last_message_preview || '暂无消息内容'}</span>
-                      <Stack orientation="horizontal" gap={2}>
-                        {row.last_channel_type && <Tag type="blue">{channelLabel(row.last_channel_type)}</Tag>}
-                        {row.unread_count > 0 && <Tag type="red">{row.unread_count}</Tag>}
-                      </Stack>
-                    </Stack>
+                  <ClickableTile
+                    key={row.id}
+                    className={selected?.id === row.id ? 'tp-inbox__selected tp-inbox-contact-item' : 'tp-inbox-contact-item'}
+                    onClick={() => { setSelected(row); setError(''); }}
+                  >
+                    <span className="tp-inbox-contact-line">
+                      <strong>{row.contact?.full_name || row.contact_display_name}</strong>
+                      {row.contact?.job_title && <span className="tp-inbox-contact-role">{row.contact.job_title}</span>}
+                      {row.unread_count > 0 && <Tag type="red">{row.unread_count}</Tag>}
+                    </span>
                   </ClickableTile>
                 ))}
               </section>
