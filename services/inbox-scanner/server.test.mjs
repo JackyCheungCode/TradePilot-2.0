@@ -23,7 +23,7 @@ async function mockClamd(reply) {
         if (buffer.length < size + 4) return;
         buffer = buffer.subarray(size + 4);
         if (size === 0) {
-          socket.end(Buffer.from("stream: " + reply + "\\0", "binary"));
+          socket.end(Buffer.from("stream: " + reply + "\0", "binary"));
           return;
         }
       }
