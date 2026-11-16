@@ -142,7 +142,7 @@ async function zoomInfoContacts(env:Env,companyName:string):Promise<ContactCandi
  const tokenBody=await tokenResponse.json() as {access_token?:string};
  if(!tokenBody.access_token)throw new Error("ZoomInfo 未返回访问令牌");
  const headers={Authorization:"Bearer "+tokenBody.access_token,Accept:"application/vnd.api+json","Content-Type":"application/vnd.api+json","User-Agent":"TradePilot/1.0"};
- const search=await fetch("https://api.zoominfo.com/gtm/data/v1/contacts/search?page%5Bnumber%5D=1&page%5Bsize%5D=5&sort=-contactAccuracyScore",{method:"POST",headers,body:JSON.stringify({data:{type:"ContactSearch",attributes:{companyName,requiredFields:"email,phone"}}})});
+ const search=await fetch("https://api.zoominfo.com/gtm/data/v1/contacts/search?page%5Bnumber%5D=1&page%5Bsize%5D=5&sort=-contactAccuracyScore",{method:"POST",headers,body:JSON.stringify({data:{type:"ContactSearch",attributes:{companyName}}})});
  if(!search.ok)throw new Error("ZoomInfo 联系人搜索失败（HTTP "+search.status+"）");
  const searchBody=await search.json() as {data?:Array<{id?:string;attributes?:Record<string,unknown>}>};
  const ids=(searchBody.data??[]).slice(0,5).map(item=>item.id).filter((id):id is string=>Boolean(id));
