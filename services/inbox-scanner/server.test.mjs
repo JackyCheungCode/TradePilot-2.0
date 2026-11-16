@@ -38,3 +38,15 @@ test("rejects stale signed requests", () => {
     "x-scan-signature": signature,
   }, body, "test-secret"), false);
 });
+
+test("rejects weak scanner secrets", () => {
+  const body = Buffer.from("safe test bytes");
+  const timestamp = String(Math.floor(Date.now() / 1000));
+  const digest = createHash("sha256").update(body).digest("hex");
+  const signature = createHmac("sha256", "short").update(timestamp + "." + digest).digest("hex");
+  assert.equal(verifyRequest({
+    "x-scan-timestamp": timestamp,
+    "x-scan-sha256": digest,
+    "x-scan-signature": signature,
+  }, body, "short"), false);
+});
