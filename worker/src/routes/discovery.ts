@@ -517,14 +517,15 @@ export async function handleDiscovery(request: Request, env: DiscoveryEnv): Prom
     const rows=await db<Array<Record<string,unknown>>>(env,"discovery_records?id=eq."+actionMatch[1]+"&owner_id=eq."+userId+"&select=*");
     const record=rows?.[0];if(!record)return errorResponse(request,"NOT_FOUND","找不到该搜索结果。",404);
     if(body.action==="review"){
-      if(record.status!=="new")return errorResponse(request,"INVALID_LIFECYCLE_TRANSITION","只有新发现的记录可以审核。",409);
-      const rawData=record.raw_data&&typeof record.raw_data==="object"?record.raw_data as Record<string,unknown>:{};
-      const previousStage=String(rawData.lifecycle_stage??"discovered");
-      if(previousStage!=="discovered")return errorResponse(request,"INVALID_LIFECYCLE_TRANSITION","该潜客已经审核或进入后续阶段。",409);
-      const now=new Date().toISOString();
-      await db(env,"discovery_records?id=eq."+record.id+"&owner_id=eq."+userId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({raw_data:{...rawData,lifecycle_stage:"reviewed",lifecycle_updated_at:now},updated_at:now})});
-      await db(env,"business_transition_events",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({owner_id:userId,record_type:"prospect",record_id:record.id,event_type:"prospect_reviewed",from_status:"discovered",to_status:"reviewed",actor_id:userId,note:"潜客审核通过",gatekeeper_required:false,gatekeeper_status:"not_required",payload:{source:"prospect_console"}})});
-      return successResponse(request,{id:record.id,status:record.status,lifecycleStage:"reviewed"});
+      try{
+        const result=await db<{lifecycleStage:string}>(env,"rpc/confirm_prospect_review",{
+          method:"POST",headers:{Prefer:"return=representation"},
+          body:JSON.stringify({p_owner_id:userId,p_record_id:record.id})
+        });
+        return successResponse(request,{id:record.id,status:record.status,lifecycleStage:result?.lifecycleStage??"reviewed"});
+      }catch(error){
+        return errorResponse(request,"INVALID_LIFECYCLE_TRANSITION",error instanceof Error?error.message:"潜客审核失败。",409);
+      }
     }
     if(body.action==="remove"){
       if(typeof body.runId==="string" && /^[0-9a-f-]{36}$/i.test(body.runId)){
@@ -541,22 +542,15 @@ export async function handleDiscovery(request: Request, env: DiscoveryEnv): Prom
       return successResponse(request,{id:record.id,status:"discarded"});
     }
     if(body.action==="promote"){
-      if(!["business","website","page"].includes(String(record.record_type??"business")))return errorResponse(request,"RECORD_NOT_PROMOTABLE","该对象不是企业主页或网站记录；请先关联企业主体，再转移到线索。",409);
-      if(record.status==="promoted" && record.lead_id)return successResponse(request,{id:record.id,status:"promoted",leadId:record.lead_id});
-      const rawData=record.raw_data&&typeof record.raw_data==="object"?record.raw_data as Record<string,unknown>:{};
-      const lifecycleStage=String(rawData.lifecycle_stage??(hasCollectedContactData(record,rawData)?"collected":"discovered"));
-      if(lifecycleStage!=="collected")return errorResponse(request,"LIFECYCLE_STAGE_REQUIRED","请先审核潜客并完成联系人采集，再进行转化。",409);
-      const existing=await db<Array<{id:string}>>(env,"leads?owner_id=eq."+userId+"&discovery_record_id=eq."+record.id+"&select=id");
-      let leadId=existing?.[0]?.id;
-      if(!leadId){
-        const created=await db<Array<{id:string}>>(env,"leads",{method:"POST",headers:{Prefer:"return=representation"},body:JSON.stringify({owner_id:userId,name:record.name,country_code:record.country_code??"ZZ",address:record.address,phone:record.phone,email:record.email,website:record.website,business_type:record.business_type,confidence_score:record.confidence_score,latitude:record.latitude,longitude:record.longitude,status:"qualified",dedupe_key:"discovery:"+record.id,discovery_record_id:record.id,entity_id:record.entity_id,is_formal:true})});
-        leadId=created?.[0]?.id;
+      try{
+        const result=await db<{id:string;status:string;lifecycleStage:string;leadId:string}>(env,"rpc/promote_prospect_to_lead",{
+          method:"POST",headers:{Prefer:"return=representation"},
+          body:JSON.stringify({p_owner_id:userId,p_record_id:record.id})
+        });
+        return successResponse(request,result);
+      }catch(error){
+        return errorResponse(request,"INVALID_LIFECYCLE_TRANSITION",error instanceof Error?error.message:"潜客转化失败。",409);
       }
-      if(!leadId)throw new Error("LEAD_PROMOTION_FAILED");
-      const convertedAt=new Date().toISOString();
-      await db(env,"discovery_records?id=eq."+record.id+"&owner_id=eq."+userId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({status:"promoted",lead_id:leadId,raw_data:{...rawData,lifecycle_stage:"converted",lifecycle_updated_at:convertedAt},updated_at:convertedAt})});
-      await db(env,"business_transition_events",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({owner_id:userId,record_type:"prospect",record_id:record.id,event_type:"prospect_converted",from_status:lifecycleStage,to_status:"converted",actor_id:userId,note:"潜客已转化为 CRM 线索",gatekeeper_required:false,gatekeeper_status:"not_required",payload:{lead_id:leadId}})});
-      return successResponse(request,{id:record.id,status:"promoted",lifecycleStage:"converted",leadId});
     }
     return errorResponse(request,"VALIDATION_ERROR","不支持的操作。",400);
   }
