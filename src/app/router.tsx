@@ -21,7 +21,7 @@ import { DashboardPage } from '../features/dashboard/DashboardPage';
 import { DocumentsCenterPage } from '../features/documents/DocumentsCenterPage';
 import { GeneratedDocumentsPage } from '../features/documents/GeneratedDocumentsPage';
 import { DocumentPreviewPage } from '../features/documents/DocumentPreviewPage';
-import { OmnichannelInboxPage } from '../features/omnichannel-inbox/OmnichannelInboxPage';
+import { CustomerCommunicationsPage } from '../features/customer-communications/CustomerCommunicationsPage';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -34,7 +34,7 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <Navigate to="/dashboard" replace /> },
           { path: 'dashboard', element: <DashboardPage /> },
-          { path: 'Omnichannel-inbox', element: <OmnichannelInboxPage /> },
+          { path: 'customer-communications', element: <CustomerCommunicationsPage /> },
           { path: 'agent', element: <AgentWorkspacePage /> },
           { path: 'prospect-discovery', element: <ProspectDiscoveryPage /> },
           { path: 'prospect-console', element: <ProspectConsolePage /> },
