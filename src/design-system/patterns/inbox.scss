@@ -507,3 +507,90 @@
   .tp-inbox-page .tp-inbox-message-column { flex-basis: 66%; max-width: 66%; }
   .tp-inbox-page .tp-inbox-assist-column { flex-basis: 100%; max-width: 100%; }
 }
+
+
+/* Mobile CRM directory: a real contact list, independent from desktop conversations. */
+.tp-inbox-mobile-directory { display: none; }
+@media (max-width: 671px) {
+  .tp-inbox-mobile-directory {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-width: 0;
+    gap: 0;
+    background: var(--cds-background);
+  }
+  .tp-inbox-mobile-directory.is-hidden-mobile { display: none !important; }
+  .tp-inbox-mobile-directory-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 0 1rem;
+  }
+  .tp-inbox-mobile-directory-heading h1 {
+    margin: 0;
+    font-size: 1.25rem;
+    line-height: 1.5;
+    font-weight: 600;
+  }
+  .tp-inbox-mobile-directory-heading > span {
+    color: var(--cds-text-secondary);
+    font-size: 0.875rem;
+  }
+  .tp-inbox-mobile-directory > .cds--search {
+    width: 100%;
+    margin: 0 0 0.75rem;
+  }
+  .tp-inbox-mobile-contact {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    width: 100%;
+    min-width: 0;
+    min-height: 4.5rem;
+    padding: 0.625rem 0.25rem;
+    border: 0;
+    border-bottom: 1px solid var(--cds-border-subtle);
+    background: transparent;
+    color: var(--cds-text-primary);
+    text-align: left;
+    cursor: pointer;
+  }
+  .tp-inbox-mobile-contact:disabled { opacity: 0.65; cursor: wait; }
+  .tp-inbox-mobile-contact .tp-inbox-contact-avatar {
+    flex: 0 0 2.75rem;
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+  .tp-inbox-mobile-contact .tp-inbox-contact-content {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-width: 0;
+    gap: 0.25rem;
+  }
+  .tp-inbox-mobile-contact .tp-inbox-contact-content strong,
+  .tp-inbox-mobile-contact .tp-inbox-contact-content > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .tp-inbox-mobile-contact .tp-inbox-contact-content strong {
+    font-size: 0.9375rem;
+    font-weight: 600;
+  }
+  .tp-inbox-mobile-contact .tp-inbox-contact-content > span {
+    color: var(--cds-text-secondary);
+    font-size: 0.8125rem;
+  }
+  .tp-inbox-mobile-empty {
+    padding: 2rem 0;
+    color: var(--cds-text-secondary);
+    text-align: center;
+  }
+  .tp-inbox-page > .cds--stack > .tp-inbox-layout { display: none !important; }
+  .tp-inbox-page.has-selection > .cds--stack > .tp-inbox-layout { display: flex !important; }
+}
+@media (min-width: 672px) {
+  .tp-inbox-mobile-directory { display: none !important; }
+}
