@@ -307,7 +307,7 @@ as $claim_media$
   update public.inbox_media_jobs j
   set status = 'processing',
       attempts = j.attempts + 1,
-      locked_until = now() + interval '2 minutes',
+      locked_until = now() + interval '5 minutes',
       updated_at = now()
   from candidates c
   where j.id = c.id
