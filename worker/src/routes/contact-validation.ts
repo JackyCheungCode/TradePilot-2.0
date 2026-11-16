@@ -69,11 +69,11 @@ async function validateEmail(request: Request, env: ValidationEnv, email: string
     const format = (data.is_valid_format && typeof data.is_valid_format === "object" ? (data.is_valid_format as Record<string, unknown>).value : undefined);
     const disposable = (data.is_disposable_email && typeof data.is_disposable_email === "object" ? (data.is_disposable_email as Record<string, unknown>).value : undefined);
     const catchall = (data.is_catchall_email && typeof data.is_catchall_email === "object" ? (data.is_catchall_email as Record<string, unknown>).value : undefined);
-    const status = deliverability === "DELIVERABLE" && smtp === true && format === true && disposable !== true
+    const status = deliverability === "DELIVERABLE" && smtp === true && format === true && disposable !== true && catchall !== true
       ? "valid" : deliverability === "UNDELIVERABLE" || format === false || smtp === false ? "invalid"
       : catchall === true || deliverability === "RISKY" || disposable === true ? "risky" : "unknown";
     const result = { deliverability, smtpValid: smtp ?? null, formatValid: format ?? null, disposable: disposable ?? null, catchAll: catchall ?? null, qualityScore: data.quality_score ?? null };
-    await writeCache(env, "email", hash, status, result);
+    await writeCache(env, "email", hash, status, result, status === "unknown" ? 1 : undefined);
     return responsePayload(request, "email", email, await readCache(env, "email", hash));
   } catch (error) { return errorResponse(request, "EMAIL_VALIDATION_FAILED", error instanceof Error ? error.message : "邮箱验证失败。", 502); }
 }
