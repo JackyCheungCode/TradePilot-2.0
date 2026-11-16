@@ -88,6 +88,24 @@ export function DocumentPreviewPage() {
     finally { setSaving(false); }
   };
 
+  const runDocumentAction = async (action: 'confirm' | 'approve') => {
+    if (!doc) return;
+    setSaving(true); setError('');
+    try {
+      const client = await getSupabaseClient();
+      const { data: { session } } = await client.auth.getSession();
+      if (!session?.access_token) throw new Error('登录状态已失效，请重新登录。');
+      const response = await fetch('/api/v1/trade/documents/' + encodeURIComponent(doc.id) + '/' + action, {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + session.access_token, Accept: 'application/json' },
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.error?.message || (action === 'approve' ? '审核操作失败。' : '正式确认失败。'));
+      await load();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : '单据状态更新失败。'); }
+    finally { setSaving(false); }
+  };
+
   const content = doc?.content ?? {};
   const items = useMemo(() => Array.isArray(content.items) ? content.items as Json[] : [], [content.items]);
   const versions = doc?.trade_document_versions ?? [];
@@ -103,7 +121,7 @@ export function DocumentPreviewPage() {
   return <main className="tp-document-preview">
     <header className="tp-document-preview__toolbar">
       <div><p className="tp-document-preview__eyebrow">TRADEPILOT / DOCUMENTS / PREVIEW</p><h1>{doc.document_number}</h1><p>{labels[doc.document_type] || doc.document_type} · V{doc.current_version} · {statusLabel(doc.status)}</p></div>
-      <div className="tp-document-preview__actions"><Button kind="tertiary" onClick={() => navigate('/documents')}>返回单据中心</Button>{doc.status === 'draft' && !editing && <Button kind="secondary" onClick={beginEdit}>编辑草稿</Button>}<Button kind="secondary" onClick={() => void load()}>刷新</Button><Button kind="primary" onClick={() => window.print()}>打印 / 导出 PDF</Button></div>
+      <div className="tp-document-preview__actions"><Button kind="tertiary" onClick={() => navigate('/documents')}>返回单据中心</Button>{doc.status === 'draft' && !editing && <><Button kind="secondary" onClick={beginEdit}>编辑草稿</Button><Button kind="primary" disabled={saving} onClick={() => void runDocumentAction('confirm')}>提交审核 / 正式确认</Button></>}{doc.status === 'review' && <Button kind="primary" disabled={saving} onClick={() => void runDocumentAction('approve')}>审核通过</Button>}{doc.status === 'approved' && <Button kind="primary" disabled={saving} onClick={() => void runDocumentAction('confirm')}>正式确认</Button>}<Button kind="secondary" onClick={() => void load()}>刷新</Button><Button kind="primary" onClick={() => window.print()}>打印 / 导出 PDF</Button></div>
     </header>
 
     {error && <InlineNotification kind="error" lowContrast title="操作未完成" subtitle={error} onCloseButtonClick={() => setError('')} />}
