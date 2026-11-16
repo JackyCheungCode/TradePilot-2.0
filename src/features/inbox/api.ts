@@ -121,3 +121,10 @@ export type InboxChannelReadiness = Record<string, boolean>;
 export async function getInboxChannelReadiness(token: string): Promise<InboxChannelReadiness> {
   return request<InboxChannelReadiness>('/api/v1/settings/integrations', token);
 }
+
+export async function translateInboxMessage(token: string, messageId: string): Promise<void> {
+  await request<unknown>(
+    '/api/v1/inbox/messages/' + encodeURIComponent(messageId) + '/translate',
+    token,
+  );
+}
