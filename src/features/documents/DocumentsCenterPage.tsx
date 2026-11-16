@@ -29,7 +29,6 @@ const documentGroups: DocumentGroup[] = [
   ] },
 ];
 const typeLabel = (type: string) => documentGroups.flatMap(g => g.items).find(x => x.id === type)?.label ?? type;
-const statusLabel = (status: string) => (({ draft: '草稿', review: '待审核', approved: '已批准', issued: '已签发', sent: '已发送', void: '已作废', voided: '已作废', archived: '已归档' } as Record<string, string>)[status] ?? status);
 const dateLabel = (value?: string | null) => value ? new Date(value).toLocaleDateString() : '—';
 const unwrap = <T,>(payload: any): T => (payload?.data ?? payload?.result ?? payload) as T;
 
@@ -144,6 +143,7 @@ export function DocumentsCenterPage() {
       <div className="tp-documents__actions"><Button kind="primary" onClick={() => { setCreated(null); setStep(1); setError(''); setNotice(''); }}>新建单据</Button><Button kind="secondary" onClick={() => navigate('/documents/generated')}>已生成单据</Button></div>
     </header>
 
+    {loading && <InlineLoading description="正在加载订单与模板…" />}
     {error && <InlineNotification kind="error" lowContrast title="操作未完成" subtitle={error} onCloseButtonClick={() => setError('')} />}
     {notice && <InlineNotification kind="success" lowContrast title="已完成" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
 
