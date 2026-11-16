@@ -418,7 +418,7 @@ export async function handleDiscovery(request: Request, env: DiscoveryEnv): Prom
   }
 
   if(request.method==="POST" && url.pathname==="/api/v1/discovery-contact-candidates/convert"){
-    let body:{recordId?:string;candidateKeys?:string[];candidateEdits?:Record<string,{email?:string;phone?:string;job_title?:string}>};
+    let body:{recordId?:string;candidateKeys?:string[];candidateEdits?:Record<string,{email?:string;phone?:string;mobile?:string;job_title?:string}>};
     try{body=await request.json() as {recordId?:string;candidateKeys?:string[];candidateEdits?:Record<string,{email?:string;phone?:string;job_title?:string}>};}catch{return errorResponse(request,"VALIDATION_ERROR","请求内容不是有效 JSON。",400);}
     const recordId=String(body.recordId??"");
     const candidateKeys=[...new Set(Array.isArray(body.candidateKeys)?body.candidateKeys.map(String):[])];
@@ -438,6 +438,7 @@ export async function handleDiscovery(request: Request, env: DiscoveryEnv): Prom
       const edit=candidateEdits[keyOf(candidate)]??{};
       if(edit.email!==undefined){const email=String(edit.email).trim().toLowerCase();if(email&&(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||email.length>254))return errorResponse(request,"INVALID_CONTACT_EMAIL","联系人邮箱格式无效。",422);candidate.email=email||undefined;candidate.field_provenance={...(candidate.field_provenance as Record<string,unknown>??{}),email:{provider:"user_review",sources:["user_review"],captured_at:editedAt,verification_status:"user_confirmed"}};}
       if(edit.phone!==undefined){const phone=String(edit.phone).trim();if(phone.length>80)return errorResponse(request,"INVALID_CONTACT_PHONE","联系人电话长度超出限制。",422);candidate.phone=phone||undefined;candidate.field_provenance={...(candidate.field_provenance as Record<string,unknown>??{}),phone:{provider:"user_review",sources:["user_review"],captured_at:editedAt,verification_status:"user_confirmed"}};}
+      if(edit.mobile!==undefined){const mobile=String(edit.mobile).trim();if(mobile.length>80)return errorResponse(request,"INVALID_CONTACT_MOBILE","联系人手机长度超出限制。",422);candidate.mobile=mobile||undefined;candidate.field_provenance={...(candidate.field_provenance as Record<string,unknown>??{}),mobile:{provider:"user_review",sources:["user_review"],captured_at:editedAt,verification_status:"user_confirmed"}};}
       if(edit.job_title!==undefined){const title=String(edit.job_title).trim();if(title.length>160)return errorResponse(request,"INVALID_CONTACT_TITLE","联系人职位长度超出限制。",422);candidate.job_title=title||undefined;candidate.field_provenance={...(candidate.field_provenance as Record<string,unknown>??{}),job_title:{provider:"user_review",sources:["user_review"],captured_at:editedAt,verification_status:"user_confirmed"}};}
     }
     let leadId=String(record.lead_id??"")||null;
@@ -474,12 +475,12 @@ export async function handleDiscovery(request: Request, env: DiscoveryEnv): Prom
       const customFields={source:"prospect_contact_enrichment",provider:candidate.provider,source_providers:candidate.source_providers??[candidate.provider],provider_person_id:candidate.provider_person_id??null,field_provenance:candidate.field_provenance??{},discovery_record_id:recordId,match_confidence:candidate.confidence??null,verification_status:"provider_returned",do_not_contact:candidate.do_not_contact===true};
       if(duplicate[0]){
         const existing=duplicate[0],patch:Record<string,unknown>={custom_fields:{...(existing.custom_fields as Record<string,unknown>??{}),...customFields},updated_at:new Date().toISOString()};
-        for(const field of ["first_name","last_name","full_name","job_title","department","email","phone","mobile","whatsapp","linkedin_url"]){const incoming=field==="full_name"?fullName:field==="first_name"?firstName:field==="last_name"?lastName:field==="job_title"?candidate.job_title:field==="department"?candidate.department:field==="email"?email:field==="phone"?candidate.phone:field==="linkedin_url"?linkedin:undefined;if((existing[field]===null||existing[field]==="")&&incoming)patch[field]=incoming;}
+        for(const field of ["first_name","last_name","full_name","job_title","department","email","phone","mobile","whatsapp","linkedin_url"]){const incoming=field==="full_name"?fullName:field==="first_name"?firstName:field==="last_name"?lastName:field==="job_title"?candidate.job_title:field==="department"?candidate.department:field==="email"?email:field==="phone"?candidate.phone:field==="mobile"?candidate.mobile:field==="linkedin_url"?linkedin:undefined;if((existing[field]===null||existing[field]==="")&&incoming)patch[field]=incoming;}
         if(candidate.do_not_contact===true)patch.do_not_contact=true;
         await db(env,"crm_contacts?id=eq."+existing.id+"&owner_id=eq."+userId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify(patch)});
         (candidate as Record<string,unknown>).crm_contact_id=existing.id;linkedCount++;
       }else{
-        const created=await db<Array<{id:string}>>(env,"crm_contacts",{method:"POST",headers:{Prefer:"return=representation"},body:JSON.stringify({owner_id:userId,account_id:account.id,first_name:firstName,last_name:lastName||null,full_name:fullName,job_title:candidate.job_title??null,department:candidate.department??null,email:email||null,phone:candidate.phone??null,linkedin_url:linkedin||null,contact_type:"business",decision_role:candidate.job_title??null,do_not_contact:candidate.do_not_contact===true,is_active:true,custom_fields:customFields})});
+        const created=await db<Array<{id:string}>>(env,"crm_contacts",{method:"POST",headers:{Prefer:"return=representation"},body:JSON.stringify({owner_id:userId,account_id:account.id,first_name:firstName,last_name:lastName||null,full_name:fullName,job_title:candidate.job_title??null,department:candidate.department??null,email:email||null,phone:candidate.phone??null,mobile:candidate.mobile??null,linkedin_url:linkedin||null,contact_type:"business",decision_role:candidate.job_title??null,do_not_contact:candidate.do_not_contact===true,is_active:true,custom_fields:customFields})});
         if(!created?.[0]?.id)throw new Error("CRM_CONTACT_CREATE_FAILED");
         (candidate as Record<string,unknown>).crm_contact_id=created[0].id;createdCount++;
       }
