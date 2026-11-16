@@ -214,7 +214,7 @@ export function ProspectConsolePage() {
     const q=search.trim().toLocaleLowerCase();
     return (stats?.prospects??[]).filter(row=>
       (platformKey==='all'||row.platforms.some(item=>item.key===platformKey)) &&
-      (status==='all'||row.status===status) &&
+      (status==='all'||row.lifecycleStage===status) &&
       (country==='all'||row.country===country) &&
       (!q||[row.name,row.country,row.address,row.website,row.phone,row.email].join(' ').toLocaleLowerCase().includes(q))
     ).sort((a,b)=>sort==='newest'?b.discoveredAt.localeCompare(a.discoveredAt):a.discoveredAt.localeCompare(b.discoveredAt));
@@ -227,7 +227,7 @@ export function ProspectConsolePage() {
       const {data}=await client.auth.getSession();
       const token=data.session?.access_token;
       if(!token)throw new Error('登录状态已失效，请重新登录。');
-      const selectedRows=filtered.filter(row=>selectedIds.includes(row.id)&&(action!=='promote'||row.status==='pending'));
+      const selectedRows=filtered.filter(row=>selectedIds.includes(row.id)&&(action!=='promote'||row.lifecycleStage==='collected'));
       const targets=selectedRows.flatMap(row=>(action==='promote'?row.recordIds.slice(0,1):row.recordIds));
       const results=await Promise.allSettled(targets.map(id=>applyDiscoveryRecordAction(token,id,action)));
       const failed=results.filter(result=>result.status==='rejected').length;
@@ -354,7 +354,7 @@ export function ProspectConsolePage() {
     const additional=(stats?.platforms??[]).filter(platform=>!consolePlatformCatalog.some(item=>item.key===platform.key));
     return [...configured,...additional];
   },[stats]);
-  const selectedPendingCount=filtered.filter(row=>selectedIds.includes(row.id)&&row.status==='pending').length;
+  const selectedPendingCount=filtered.filter(row=>selectedIds.includes(row.id)&&row.lifecycleStage==='collected').length;
   useEffect(()=>{setSelectedIds(previous=>previous.filter(id=>filtered.some(row=>row.id===id)));},[filtered]);
   const maxDaily=Math.max(0,...(stats?.daily??[]).map(item=>item.count));
   const tabs=[{key:'all',label:'全部平台',count:stats?.metrics.prospectCount??0},...displayPlatforms];
@@ -389,7 +389,7 @@ export function ProspectConsolePage() {
         {selectedIds.length>0&&<div className="tp-console__bulk-actions"><span>已选择 {selectedIds.length} 家企业</span><Button kind="secondary" size="sm" disabled={!!contactBusyId} onClick={()=>requestContactEnrichment(filtered.filter(row=>selectedIds.includes(row.id)&&['reviewed','collected'].includes(row.lifecycleStage)).flatMap(row=>row.recordIds.slice(0,1)),'contact-bulk')}>批量补全联系人</Button><Button kind="secondary" size="sm" disabled={!!actionBusyId||selectedPendingCount===0} onClick={()=>void runBulkAction('promote')}>批量转为线索</Button><Button kind="danger--ghost" size="sm" disabled={!!actionBusyId} onClick={()=>void runBulkAction('discard')}>批量排除</Button><Button kind="danger--ghost" size="sm" disabled={!!actionBusyId} onClick={()=>{if(confirmBulkRemove)void runBulkAction('remove');else setConfirmBulkRemove(true);}}>{confirmBulkRemove?'再次点击确认删除':'批量删除'}</Button><Button kind="ghost" size="sm" onClick={()=>{setSelectedIds([]);setConfirmBulkRemove(false);}}>清除选择</Button></div>}
         <div className="tp-console__filters">
           <TextInput id="prospect-console-search" labelText="搜索潜客" placeholder="企业名称、国家、地址、网站或联系方式" value={search} onChange={event=>setSearch(event.currentTarget.value)} />
-          <Select id="prospect-console-status" labelText="线索状态" value={status} onChange={event=>setStatus(event.currentTarget.value)}><SelectItem value="all" text="全部状态"/><SelectItem value="pending" text="待处理"/><SelectItem value="converted" text="已转化"/></Select>
+          <Select id="prospect-console-status" labelText="生命周期状态" value={status} onChange={event=>setStatus(event.currentTarget.value)}><SelectItem value="all" text="全部阶段"/><SelectItem value="discovered" text="待审核"/><SelectItem value="reviewed" text="待采集"/><SelectItem value="collected" text="待转化"/><SelectItem value="converted" text="已转化"/></Select>
           <Select id="prospect-console-country" labelText="国家 / 地区" value={country} onChange={event=>setCountry(event.currentTarget.value)}><SelectItem value="all" text="全部国家 / 地区"/>{countries.map(value=><SelectItem key={value} value={value} text={value}/>)}</Select>
           <Select id="prospect-console-sort" labelText="发现时间排序" value={sort} onChange={event=>setSort(event.currentTarget.value)}><SelectItem value="newest" text="最近发现优先"/><SelectItem value="oldest" text="最早发现优先"/></Select>
         </div>

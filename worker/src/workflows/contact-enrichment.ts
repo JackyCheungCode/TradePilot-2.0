@@ -169,6 +169,9 @@ function mergeCandidates(input:ContactCandidate[]):ContactCandidate[] {
 }
 async function enrichOne(env:Env,owner:string,id:string,providers:Params["providers"]=["website"]){
  const rows=await db<RecordRow[]>(env,"discovery_records?id=eq."+id+"&owner_id=eq."+owner+"&select=id,name,website,phone,email,address,raw_data"),row=rows?.[0];if(!row)throw new Error("记录不存在");
+ const previousData=row.raw_data??{};
+ const previousStage=String(previousData.lifecycle_stage??(previousData.contact_enrichment?"collected":""));
+ if(!["reviewed","collected"].includes(previousStage))throw new Error("请先审核通过潜客，再开始联系人采集。");
  const selected=new Set(providers??["website"]);
  const found={emails:[] as string[],phones:[] as string[],addresses:[] as string[],social:{} as Record<string,string[]>},sources:string[]=[];let visited=0;
  if(selected.has("website")&&row.website){
@@ -185,10 +188,13 @@ async function enrichOne(env:Env,owner:string,id:string,providers:Params["provid
  const apolloMatched=candidates.filter(candidate=>candidate.source_providers.includes("apollo")).length,zoomInfoMatched=candidates.filter(candidate=>candidate.source_providers.includes("zoominfo")).length;
  const creditEstimate={apollo:{matched_contacts:apolloMatched,min_credits:apolloMatched,max_credits:apolloMatched*9},zoominfo:{matched_contacts:zoomInfoMatched,max_credits:zoomInfoMatched}};
  const emails=[...new Set(found.emails)].slice(0,20),phones=[...new Set(found.phones)].slice(0,20),addresses=[...new Set(found.addresses)].slice(0,10),email=emails[0]??null,phone=phones[0]??null,address=addresses[0]??null;
- const previous=row.raw_data??{},capturedAt=new Date().toISOString();
- const patch:Record<string,unknown>={updated_at:capturedAt,raw_data:{...previous,contact_enrichment:{captured_at:capturedAt,pages_visited:visited,emails,phones,addresses,social:found.social,source_pages:sources,method:"http_rules_structured_data"},contact_intelligence:{captured_at:capturedAt,providers:[...selected],candidate_count:candidates.length,candidates,provider_errors:providerErrors,credit_estimate:creditEstimate,review_status:"pending_review"}}};
+ const hasCollectedData=emails.length>0||phones.length>0||addresses.length>0||Object.values(found.social).some(values=>values.length>0)||candidates.length>0;
+ const previous=previousData,capturedAt=new Date().toISOString();
+ const nextLifecycleStage=hasCollectedData?"collected":previousStage;
+ const patch:Record<string,unknown>={updated_at:capturedAt,raw_data:{...previous,lifecycle_stage:nextLifecycleStage,lifecycle_updated_at:capturedAt,contact_enrichment:{captured_at:capturedAt,pages_visited:visited,emails,phones,addresses,social:found.social,source_pages:sources,method:"http_rules_structured_data"},contact_intelligence:{captured_at:capturedAt,providers:[...selected],candidate_count:candidates.length,candidates,provider_errors:providerErrors,credit_estimate:creditEstimate,review_status:"pending_review"}}};
  if(!row.email&&email)patch.email=email;if(!row.phone&&phone)patch.phone=phone;if(!row.address&&address)patch.address=address;
  await db(env,"discovery_records?id=eq."+id+"&owner_id=eq."+owner,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify(patch)});
+ await db(env,"business_transition_events",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({owner_id:owner,record_type:"prospect",record_id:id,event_type:hasCollectedData?"prospect_collected":"prospect_collection_empty",from_status:previousStage,to_status:nextLifecycleStage,actor_id:owner,note:hasCollectedData?"联系人信息采集成功":"本次未找到可用联系方式，保留在待采集阶段",gatekeeper_required:false,gatekeeper_status:"not_required",payload:{providers:[...selected],pages_visited:visited,candidates:candidates.length,collected:hasCollectedData}})});
  return {email:email??row.email,phone:phone??row.phone,address:address??row.address,pages:visited,candidates:candidates.length,providerErrors};
 }
 export class ContactEnrichmentWorkflow extends WorkflowEntrypoint<Env,Params>{

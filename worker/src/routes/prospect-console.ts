@@ -77,6 +77,14 @@ function canonicalEntityKey(record: NonNullable<OccurrenceRow["record"]>): strin
   if (name) return "name:" + String(record.country_code ?? "") + ":" + name + ":" + String(record.address ?? "").normalize("NFKC").trim().toLocaleLowerCase();
   return "record:" + record.id;
 }
+function hasContactEnrichmentData(raw?: Record<string, unknown> | null): boolean {
+  const enrichment = raw?.contact_enrichment && typeof raw.contact_enrichment === 'object' ? raw.contact_enrichment as Record<string, unknown> : {};
+  const intelligence = raw?.contact_intelligence && typeof raw.contact_intelligence === 'object' ? raw.contact_intelligence as Record<string, unknown> : {};
+  const arrays = ['emails','phones','addresses'].some(key => Array.isArray(enrichment[key]) && (enrichment[key] as unknown[]).length > 0);
+  const social = enrichment.social && typeof enrichment.social === 'object' ? Object.values(enrichment.social as Record<string, unknown>).some(value => Array.isArray(value) && value.length > 0) : false;
+  const candidates = Array.isArray(intelligence.candidates) && intelligence.candidates.length > 0;
+  return arrays || social || candidates;
+}
 function platformFor(channel: string, provider: string): { key: string; label: string } {
   if (channel === "map_local_businesses") return { key: "google_maps", label: "Google Maps" };
   if (channel === "facebook") return { key: "facebook", label: "Facebook Pages" };
@@ -167,7 +175,7 @@ export async function handleProspectConsole(request: Request, env: ConsoleEnv): 
       entities.add(entityId);
       if (record.status === "promoted" || record.lead_id) converted.add(entityId);
       else pending.add(entityId);
-      const lifecycleStage = record.status === "promoted" || record.lead_id ? "converted" : String(record.raw_data?.lifecycle_stage ?? ((record.raw_data?.contact_enrichment || record.raw_data?.contact_intelligence) ? "collected" : "discovered"));
+      const lifecycleStage = record.status === "promoted" || record.lead_id ? "converted" : String(record.raw_data?.lifecycle_stage ?? (hasContactEnrichmentData(record.raw_data) ? "collected" : "discovered"));
       const channel = row.run?.channel ?? "";
       const platform = platformFor(channel, row.provider);
       const validCoordinates = typeof record.latitude === "number" && Number.isFinite(record.latitude) && record.latitude >= -90 && record.latitude <= 90 && typeof record.longitude === "number" && Number.isFinite(record.longitude) && record.longitude >= -180 && record.longitude <= 180;

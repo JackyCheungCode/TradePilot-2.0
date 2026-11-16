@@ -76,7 +76,7 @@ export function OpportunityConsolePage() {
     finally { setLoading(false); }
   },[]);
   useEffect(()=>{void load()},[load]);
- useEffect(()=>{const currentStep=lifecycleScrollRef.current?.querySelector<HTMLElement>('[aria-current="step"], .cds--progress-step--current');currentStep?.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});},[row?.stage,loading]);
+
   const filtered = useMemo(()=>rows.filter(r=>(stage==='all'||r.stage===stage)&&[r.name,r.opportunity_number,r.source,r.sales_person,r.sales_team].join(' ').toLowerCase().includes(query.trim().toLowerCase())),[rows,stage,query]);
   useEffect(()=>setPage(1),[query,stage]);
   const open = rows.filter(r=>r.status==='open');
@@ -179,7 +179,7 @@ export function OpportunityDetailPage() {
    }catch(e){setError(e instanceof Error?e.message:'读取商机详情失败')}
    finally{setLoading(false)}
  },[id]);
- useEffect(()=>{void load()},[load]);
+ useEffect(()=>{void load()},[load]); useEffect(()=>{const currentStep=lifecycleScrollRef.current?.querySelector<HTMLElement>('[aria-current="step"], .cds--progress-step--current');currentStep?.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});},[row?.stage,loading]);
  const currentIndex=Math.max(0,stages.filter(([key])=>key!=='won'&&key!=='lost').findIndex(([key])=>key===row?.stage));
  const lifecycleStages=stages.filter(([key])=>key!=='won'&&key!=='lost');
  const terminal=row?.stage==='won'||row?.stage==='lost';
