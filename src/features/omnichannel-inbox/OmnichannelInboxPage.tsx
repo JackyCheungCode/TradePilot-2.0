@@ -1,10 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
-  Button, Search, TextInput, TextArea, Dropdown, Tag, InlineNotification, Modal, ModalHeader, ModalBody, ModalFooter, IconButton,
+  Button, Search, TextInput, TextArea, Dropdown, Tag, InlineNotification, Modal, ModalBody, IconButton, CarbonIcons,
 } from '@/design-system';
-import {
-  Add, ArrowLeft, Attachment, Checkmark, ChevronDown, ChevronRight, Close, DocumentPdf, Email, Information, MessageSquare, OverflowMenuHorizontal, Send, UserAvatar, WarningAlt, View, ViewOff,
-} from '@carbon/icons-react';
 import {
   assignees, channelLabels, conversationsSeed, customersSeed, identitiesSeed, messagesSeed,
   type ChannelType, type Conversation, type Customer, type CustomerIdentity, type Message,
