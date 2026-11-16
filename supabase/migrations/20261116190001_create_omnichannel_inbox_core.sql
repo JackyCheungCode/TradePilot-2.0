@@ -255,7 +255,7 @@ begin
     execute format('grant all on public.%I to service_role', table_name);
   end loop;
 end;
-$;
+$$;
 
 -- Messages and delivery events are written only by the authenticated Worker using service_role.
 drop policy if exists inbox_messages_owner_insert on public.inbox_messages;
