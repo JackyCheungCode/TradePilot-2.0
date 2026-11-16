@@ -413,6 +413,64 @@ export async function handleDiscovery(request: Request, env: DiscoveryEnv): Prom
     return successResponse(request,{id:job.id,status:job.status,progress:job.progress,completedCount:job.completed_count,failedCount:job.failed_count,message:job.message});
   }
 
+  if(request.method==="POST" && url.pathname==="/api/v1/discovery-contact-candidates/convert"){
+    let body:{recordId?:string;candidateKeys?:string[]};
+    try{body=await request.json() as {recordId?:string;candidateKeys?:string[]};}catch{return errorResponse(request,"VALIDATION_ERROR","请求内容不是有效 JSON。",400);}
+    const recordId=String(body.recordId??"");
+    const candidateKeys=[...new Set(Array.isArray(body.candidateKeys)?body.candidateKeys.map(String):[])];
+    if(!/^[0-9a-f-]{36}$/i.test(recordId)||!candidateKeys.length||candidateKeys.length>30)return errorResponse(request,"VALIDATION_ERROR","请选择有效企业及 1 到 30 位联系人。",400);
+    const records=await db<Array<Record<string,unknown>>>(env,"discovery_records?id=eq."+recordId+"&owner_id=eq."+userId+"&select=*");
+    const record=records?.[0];if(!record)return errorResponse(request,"NOT_FOUND","找不到该潜客记录。",404);
+    const rawData=record.raw_data&&typeof record.raw_data==="object"?record.raw_data as Record<string,unknown>:{};
+    const intel=rawData.contact_intelligence&&typeof rawData.contact_intelligence==="object"?rawData.contact_intelligence as Record<string,unknown>:{};
+    const candidates=Array.isArray(intel.candidates)?intel.candidates as Array<Record<string,unknown>>:[];
+    const keyOf=(candidate:Record<string,unknown>)=>String(candidate.provider??"")+"："+String(candidate.provider_person_id??candidate.email??candidate.linkedin_url??candidate.full_name??"");
+    const chosen=candidates.filter(candidate=>candidateKeys.includes(keyOf(candidate)));
+    if(chosen.length!==candidateKeys.length)return errorResponse(request,"CONTACT_CANDIDATE_NOT_FOUND","部分联系人候选已变化，请刷新后重新选择。",409);
+    if(chosen.some(candidate=>!String(candidate.full_name??"").trim()))return errorResponse(request,"CONTACT_NAME_REQUIRED","联系人姓名缺失，无法转换。",422);
+    let leadId=String(record.lead_id??"")||null;
+    if(!leadId){
+      const existingLeads=await db<Array<{id:string}>>(env,"leads?owner_id=eq."+userId+"&discovery_record_id=eq."+recordId+"&select=id");
+      leadId=existingLeads?.[0]?.id??null;
+      if(!leadId){
+        const createdLeads=await db<Array<{id:string}>>(env,"leads",{method:"POST",headers:{Prefer:"return=representation"},body:JSON.stringify({owner_id:userId,name:record.name,country_code:record.country_code??"ZZ",address:record.address,phone:record.phone,email:record.email,website:record.website,business_type:record.business_type,confidence_score:record.confidence_score,latitude:record.latitude,longitude:record.longitude,status:"qualified",dedupe_key:"discovery:"+recordId,discovery_record_id:recordId,entity_id:record.entity_id,is_formal:true})});
+        leadId=createdLeads?.[0]?.id??null;
+      }
+    }
+    if(!leadId)throw new Error("LEAD_PROMOTION_FAILED");
+    const existingAccounts=await db<Array<{id:string;account_name:string}>>(env,"crm_accounts?owner_id=eq."+userId+"&source_lead_id=eq."+leadId+"&select=id,account_name&limit=1");
+    let account=existingAccounts?.[0];
+    if(!account){
+      const createdAccounts=await db<Array<{id:string;account_name:string}>>(env,"crm_accounts",{method:"POST",headers:{Prefer:"return=representation"},body:JSON.stringify({owner_id:userId,source_lead_id:leadId,account_name:String(record.name??"未命名企业"),legal_name:String(record.name??""),website:record.website??null,email:record.email??null,phone:record.phone??null,country_code:record.country_code??null,account_type:"customer",status:"active",custom_fields:{source:"prospect_discovery",discovery_record_id:recordId}})});
+      account=createdAccounts?.[0];
+    }
+    if(!account?.id)throw new Error("CRM_ACCOUNT_CREATE_FAILED");
+    let createdCount=0,linkedCount=0;
+    const confirmedAt=new Date().toISOString();
+    for(const candidate of chosen){
+      const fullName=String(candidate.full_name).trim(),parts=fullName.split(/\s+/),firstName=String(candidate.first_name??parts[0]??fullName).trim(),lastName=String(candidate.last_name??parts.slice(1).join(" ")).trim();
+      const email=String(candidate.email??"").trim().toLowerCase(),linkedin=String(candidate.linkedin_url??"").trim();
+      let duplicate:Array<Record<string,unknown>>=[];
+      if(email)duplicate=await db<Array<Record<string,unknown>>>(env,"crm_contacts?owner_id=eq."+userId+"&account_id=eq."+account.id+"&email=eq."+encodeURIComponent(email)+"&select=id,first_name,last_name,full_name,job_title,department,email,phone,mobile,whatsapp,linkedin_url,custom_fields&limit=1");
+      if(!duplicate.length&&linkedin)duplicate=await db<Array<Record<string,unknown>>>(env,"crm_contacts?owner_id=eq."+userId+"&account_id=eq."+account.id+"&linkedin_url=eq."+encodeURIComponent(linkedin)+"&select=id,first_name,last_name,full_name,job_title,department,email,phone,mobile,whatsapp,linkedin_url,custom_fields&limit=1");
+      const customFields={source:"prospect_contact_enrichment",provider:candidate.provider,source_providers:candidate.source_providers??[candidate.provider],provider_person_id:candidate.provider_person_id??null,field_provenance:candidate.field_provenance??{},discovery_record_id:recordId,match_confidence:candidate.confidence??null,verification_status:"provider_returned"};
+      if(duplicate[0]){
+        const existing=duplicate[0],patch:Record<string,unknown>={custom_fields:{...(existing.custom_fields as Record<string,unknown>??{}),...customFields},updated_at:new Date().toISOString()};
+        for(const field of ["first_name","last_name","full_name","job_title","department","email","phone","mobile","whatsapp","linkedin_url"]){const incoming=field==="full_name"?fullName:field==="first_name"?firstName:field==="last_name"?lastName:field==="job_title"?candidate.job_title:field==="department"?candidate.department:field==="email"?email:field==="phone"?candidate.phone:field==="linkedin_url"?linkedin:undefined;if((existing[field]===null||existing[field]==="")&&incoming)patch[field]=incoming;}
+        await db(env,"crm_contacts?id=eq."+existing.id+"&owner_id=eq."+userId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify(patch)});
+        (candidate as Record<string,unknown>).crm_contact_id=existing.id;linkedCount++;
+      }else{
+        const created=await db<Array<{id:string}>>(env,"crm_contacts",{method:"POST",headers:{Prefer:"return=representation"},body:JSON.stringify({owner_id:userId,account_id:account.id,first_name:firstName,last_name:lastName||null,full_name:fullName,job_title:candidate.job_title??null,department:candidate.department??null,email:email||null,phone:candidate.phone??null,linkedin_url:linkedin||null,contact_type:"business",decision_role:candidate.job_title??null,is_active:true,custom_fields:customFields})});
+        if(!created?.[0]?.id)throw new Error("CRM_CONTACT_CREATE_FAILED");
+        (candidate as Record<string,unknown>).crm_contact_id=created[0].id;createdCount++;
+      }
+      (candidate as Record<string,unknown>).review_status="confirmed";
+      (candidate as Record<string,unknown>).confirmed_at=confirmedAt;
+    }
+    await db(env,"discovery_records?id=eq."+recordId+"&owner_id=eq."+userId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({lead_id:leadId,status:"promoted",raw_data:{...rawData,contact_intelligence:{...intel,candidates,review_status:"confirmed",confirmed_at:confirmedAt,crm_account_id:account.id}},updated_at:confirmedAt})});
+    return successResponse(request,{leadId,accountId:account.id,accountName:account.account_name,createdContacts:createdCount,linkedContacts:linkedCount,total:chosen.length});
+  }
+
   if(request.method==="GET" && url.pathname==="/api/v1/discovery-records"){
     const runId=url.searchParams.get("runId"),status=url.searchParams.get("status"),limit=Math.min(500,Math.max(1,Number(url.searchParams.get("limit"))||250));
     const filters=["owner_id=eq."+userId,"select=*,discovery_record_occurrences!inner(id,run_id,provider,keyword,external_id,source_url,license,attribution,raw_data,captured_at,is_removed,run:discovery_runs!discovery_record_occurrences_run_id_owner_id_fkey(task_code,query))","order=created_at.desc","limit="+limit];
