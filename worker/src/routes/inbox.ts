@@ -19,14 +19,16 @@ async function ownerFromRequest(request: Request, env: InboxEnv): Promise<string
   return user.id ?? null;
 }
 
-async function db<T>(env: InboxEnv, path: string): Promise<T> {
+async function db<T>(env: InboxEnv, path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(env.SUPABASE_URL + "/rest/v1/" + path, {
+    ...init,
     headers: {
       apikey: env.SUPABASE_SERVICE_ROLE_KEY,
       Authorization: "Bearer " + env.SUPABASE_SERVICE_ROLE_KEY,
       "Content-Type": "application/json",
+      ...init.headers,
     },
-    signal: AbortSignal.timeout(12000),
+    signal: init.signal ?? AbortSignal.timeout(12000),
   });
   const raw = await response.text();
   if (!response.ok) throw new Error("INBOX_DATABASE_" + response.status + ": " + raw.slice(0, 240));
@@ -40,7 +42,7 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
   const url = new URL(request.url);
   const ownerId = await ownerFromRequest(request, env);
   if (!ownerId) return errorResponse(request, "UNAUTHORIZED", "请先登录后访问消息工作台。", 401);
-  if (request.method !== "GET") return errorResponse(request, "METHOD_NOT_ALLOWED", "当前消息接口暂不支持此操作。", 405);
+  if (request.method !== "GET" && request.method !== "POST") return errorResponse(request, "METHOD_NOT_ALLOWED", "当前消息接口暂不支持此操作。", 405);
 
   try {
     if (url.pathname === "/api/v1/inbox/conversations") {
@@ -88,6 +90,36 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
         "inbox_channel_connections?select=id,channel_type,display_name,external_account_id,connection_status,last_verified_at,last_error,created_at,updated_at&owner_id=eq." +
         ownerId + "&order=channel_type.asc");
       return successResponse(request, { connections });
+    }
+
+    const noteMatch = url.pathname.match(/^\/api\/v1\/inbox\/conversations\/([0-9a-f-]{36})\/notes$/i);
+    if (noteMatch && request.method === "POST") {
+      const conversationId = noteMatch[1];
+      const owned = await db<Row[]>(env,
+        "inbox_conversations?select=id&id=eq." + conversationId + "&owner_id=eq." + ownerId + "&limit=1");
+      if (!owned.length) return errorResponse(request, "CONVERSATION_NOT_FOUND", "会话不存在或无权访问。", 404);
+      let body: { content?: unknown; mentionedUserIds?: unknown };
+      try { body = await request.json() as { content?: unknown; mentionedUserIds?: unknown }; }
+      catch { return errorResponse(request, "INVALID_JSON", "备注内容格式不正确。", 400); }
+      const content = typeof body.content === "string" ? body.content.trim() : "";
+      if (!content || content.length > 10000) {
+        return errorResponse(request, "VALIDATION_ERROR", "内部备注不能为空，且不能超过 10000 个字符。", 400);
+      }
+      const mentionedUserIds = Array.isArray(body.mentionedUserIds)
+        ? body.mentionedUserIds.filter((value): value is string => typeof value === "string" && /^[0-9a-f-]{36}$/i.test(value)).slice(0, 20)
+        : [];
+      const created = await db<Row[]>(env, "inbox_internal_notes?select=id,conversation_id,author_id,content,mentioned_user_ids,created_at", {
+        method: "POST",
+        headers: { Prefer: "return=representation" },
+        body: JSON.stringify({
+          owner_id: ownerId,
+          conversation_id: conversationId,
+          author_id: ownerId,
+          content,
+          mentioned_user_ids: mentionedUserIds,
+        }),
+      });
+      return successResponse(request, { note: created[0] ?? null }, 201);
     }
 
     const messageMatch = url.pathname.match(/^\/api\/v1\/inbox\/conversations\/([0-9a-f-]{36})\/messages$/i);
