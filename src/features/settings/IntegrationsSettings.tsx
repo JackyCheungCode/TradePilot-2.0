@@ -52,6 +52,12 @@ const apiCards=[
 {id:'wecom',name:'企业微信客户联系',logo:'wechat',initial:'企',description:'企业微信官方接口。配置企业 ID、应用 Agent ID、Secret 及回调校验参数。',fields:[{key:'wecomCorpId',label:'企业 ID（Corp ID）',type:'text'},{key:'wecomAgentId',label:'应用 Agent ID',type:'text'},{key:'wecomSecret',label:'应用 Secret'},{key:'wecomToken',label:'Webhook Token'},{key:'wecomEncodingAESKey',label:'EncodingAESKey'}],test:'wecom'},
 {id:'emailChannel',name:'Email 邮件通道',logo:'',initial:'@',description:'邮件通道连接参数。先保存 IMAP/SMTP 配置；邮件传输适配器完成后再启用连通性测试与收发。',fields:[{key:'emailImapHost',label:'IMAP Host',type:'text'},{key:'emailImapPort',label:'IMAP Port',type:'number'},{key:'emailSmtpHost',label:'SMTP Host',type:'text'},{key:'emailSmtpPort',label:'SMTP Port',type:'number'},{key:'emailUsername',label:'邮箱账号',type:'text'},{key:'emailPassword',label:'邮箱密码 / App Password'},{key:'emailFromAddress',label:'发件邮箱地址',type:'email'}],test:'emailChannel'}
 ] as const;
+function integrationFieldType(key:string):'password'|'text'|'number'|'email'{
+ if(['whatsappPhoneNumberId','whatsappBusinessAccountId','messengerPageId','wecomCorpId','wecomAgentId','emailImapHost','emailSmtpHost','emailUsername'].includes(key))return 'text';
+ if(['emailImapPort','emailSmtpPort'].includes(key))return 'number';
+ if(key==='emailFromAddress')return 'email';
+ return 'password';
+}
 async function request<T>(path:string,init:RequestInit={}):Promise<T>{
  const db=await getSupabaseClient();const {data}=await db.auth.getSession();if(!data.session?.access_token)throw new Error('登录状态已失效，请重新登录。');
  const r=await fetch(path,{...init,headers:{Authorization:'Bearer '+data.session.access_token,...(init.body?{'Content-Type':'application/json'}:{}),...init.headers}});
@@ -87,7 +93,7 @@ export function IntegrationsSettings({section}:{section:string}){
  {apiNotice&&<InlineNotification kind="success" title="操作完成" subtitle={apiNotice} onCloseButtonClick={()=>setApiNotice('')}/>}
  {apiLoading?<InlineLoading description="正在读取 API 配置…"/>:<div className="tp-integrations-settings__api-grid">{apiCards.map(card=><Tile key={card.id} className="tp-integrations-settings__card">
  <div className="tp-integrations-settings__heading"><div className="tp-integrations-settings__provider"><Logo logo={card.logo} initial={card.initial}/><div><h4>{card.name}</h4><p>{card.description}</p></div></div><Tag type={card.fields.every(f=>statuses[f.key])?'green':'cool-gray'}>{card.fields.every(f=>statuses[f.key])?'已配置':card.fields.some(f=>statuses[f.key])?'部分配置':'待配置'}</Tag></div>
- <div className="tp-integrations-settings__fields">{card.fields.map(f=><TextInput key={f.key} id={'integration-'+f.key} labelText={f.label} type={f.type ?? "password"} autoComplete={f.type && f.type !== "password" ? "off" : "new-password"} placeholder={statuses[f.key]?'已保存 · 输入新值可更新':'填写 '+f.label} value={values[f.key]||''} onChange={e=>setValues(v=>({...v,[f.key]:e.currentTarget.value}))}/>)}</div>
+ <div className="tp-integrations-settings__fields">{card.fields.map(f=><TextInput key={f.key} id={'integration-'+f.key} labelText={f.label} type={integrationFieldType(f.key)} autoComplete={integrationFieldType(f.key) === "password" ? "new-password" : "off"} placeholder={statuses[f.key]?'已保存 · 输入新值可更新':'填写 '+f.label} value={values[f.key]||''} onChange={e=>setValues(v=>({...v,[f.key]:e.currentTarget.value}))}/>)}</div>
  {tests[card.id]&&<InlineNotification kind={tests[card.id].ok?'success':'error'} title={tests[card.id].ok?'测试成功':'测试失败'} subtitle={tests[card.id].message}/>}
  <div className="tp-integrations-settings__actions"><Button kind="primary" disabled={Boolean(apiSaving)||!card.fields.some(f=>Boolean(values[f.key]?.trim()))} onClick={()=>void saveAPI(card)}>{apiSaving===card.id?'正在保存…':'保存配置'}</Button><Button kind="secondary" disabled={card.id === 'emailChannel' || Boolean(apiTesting) || !card.fields.every(f=>statuses[f.key])} onClick={()=>void testAPI(card)}>{apiTesting===card.id?'正在测试…':'测试连接'}</Button>{card.fields.some(f=>statuses[f.key])&&<Button kind="ghost" disabled={Boolean(apiSaving)} onClick={()=>setPendingDelete({type:'api',card})}>删除</Button>}</div>
  </Tile>)}</div>}</>}
