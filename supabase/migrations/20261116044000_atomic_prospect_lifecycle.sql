@@ -97,6 +97,9 @@ begin
   if v_stage <> 'collected' then
     raise exception 'Review and contact enrichment must be completed before promotion';
   end if;
+  if not exists(select 1 from public.business_transition_events where owner_id=p_owner_id and record_type='prospect' and record_id=p_record_id and event_type='prospect_reviewed') then
+    raise exception 'Prospect review approval is required before promotion';
+  end if;
 
   select id into v_lead_id from public.leads
   where owner_id=p_owner_id and discovery_record_id=p_record_id
