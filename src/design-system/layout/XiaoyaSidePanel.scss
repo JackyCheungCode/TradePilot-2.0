@@ -102,8 +102,8 @@
 /* Welcome state uses Carbon typography and layer tokens; chat controls remain Carbon AI Chat. */
 .tp-xiaoya-drawer__heading {
   margin: 0;
-  font-size: 20px;
-  line-height: 28px;
+  font-size: 16px;
+  line-height: 24px;
   font-weight: 400;
 }
 
@@ -172,5 +172,39 @@
   .tp-xiaoya-welcome {
     inset-block-end: 6.5rem;
     padding: var(--tp-space-05) var(--tp-space-04);
+  }
+}
+
+
+.tp-xiaoya-conversation-toolbar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--tp-space-04);
+  min-width: 0;
+  padding: var(--tp-space-03) var(--tp-space-05);
+  background: var(--cds-layer);
+  border-block-end: 1px solid var(--cds-border-subtle-01);
+}
+
+.tp-xiaoya-conversation-toolbar__history {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.tp-xiaoya-conversation-toolbar__history .cds--dropdown,
+.tp-xiaoya-conversation-toolbar__history .cds--list-box {
+  width: 100%;
+  max-width: 100%;
+}
+
+@media (max-width: 767px) {
+  .tp-xiaoya-conversation-toolbar {
+    gap: var(--tp-space-03);
+    padding-inline: var(--tp-space-04);
+  }
+
+  .tp-xiaoya-conversation-toolbar > .cds--btn {
+    flex: 0 0 auto;
   }
 }
