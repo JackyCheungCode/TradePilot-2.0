@@ -93,7 +93,9 @@ begin
 
   if v_record_id is not null then
     update public.discovery_records
-      set status = 'promoted', lead_id = v_lead.id, updated_at = now()
+      set status = 'promoted', lead_id = v_lead.id,
+          raw_data=coalesce(raw_data,'{}'::jsonb)||jsonb_build_object('lifecycle_stage','converted','lifecycle_updated_at',now()),
+          updated_at = now()
       where id = v_record_id and owner_id = v_owner;
 
     insert into public.business_record_relations(
