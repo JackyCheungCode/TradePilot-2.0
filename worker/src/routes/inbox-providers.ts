@@ -54,14 +54,15 @@ export async function sendInboxProviderMessage(
       secrets.lineChannelAccessToken,
       { to: recipient, messages: [{ type: "text", text: content }] },
     );
-    return { provider: channel, externalMessageId: typeof payload.sentMessages === "string" ? payload.sentMessages : null };
+    const sent = Array.isArray(payload.sentMessages) ? payload.sentMessages as Array<Record<string, unknown>> : [];
+    return { provider: channel, externalMessageId: typeof sent[0]?.id === "string" ? sent[0].id : null };
   }
   if (channel === "messenger") {
     const token = secrets.messengerPageAccessToken;
     if (!token) throw new Error("CHANNEL_CREDENTIAL_MISSING");
     const payload = await providerRequest(
       "https://graph.facebook.com/v21.0/me/messages?access_token=" + encodeURIComponent(token),
-      undefined,
+      token,
       { recipient: { id: recipient }, messaging_type: "RESPONSE", message: { text: content } },
     );
     return { provider: channel, externalMessageId: typeof payload.message_id === "string" ? payload.message_id : null };
