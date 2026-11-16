@@ -31,12 +31,12 @@ export function DocumentTemplateSettings() {
     try{
       const data=await request('templates');
       const next=(Array.isArray(data)?data:[]) as TemplateRow[];setRows(next);
-      const active=next.find(row=>row.id===(preferredId??selectedId))??next[0];
+      const active=next.find(row=>row.id===preferredId)??next[0];
       setSelectedId(active?.id??'');setDraft(active?{...active,template_config:asConfig(active.template_config)}:null);
     }catch(cause){setError(cause instanceof Error?cause.message:'读取模板失败。');}
     finally{setLoading(false);}
-  },[request,selectedId]);
-  useEffect(()=>{void load();},[]);
+  },[request]);
+  useEffect(()=>{void load();},[load]);
   const update=(patch:Partial<TemplateRow>)=>setDraft(current=>current?{...current,...patch}:current);
   const updateConfig=(key:string,value:unknown)=>setDraft(current=>current?{...current,template_config:{...asConfig(current.template_config),[key]:value}}:current);
   const create=()=>{const row:TemplateRow={id:'',name:'新单据模板',document_type:'proforma_invoice',locale:'en',description:'',is_default:false,is_active:true,template_config:{...defaultConfig}};setDraft(row);setSelectedId('');setError('');setNotice('');};
