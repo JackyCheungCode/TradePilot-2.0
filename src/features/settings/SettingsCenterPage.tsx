@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput,
   Table, TableHead, TableRow, TableHeader, TableBody, TableCell, CarbonIcons,
@@ -81,8 +82,9 @@ const displayTypes = [{ value: 'select', label: '下拉选择' }, { value: 'radi
 const variantModes = [{ value: 'never', label: '不生成变体' }, { value: 'dynamic', label: '按需生成' }, { value: 'always', label: '始终生成' }];
 
 export function SettingsCenterPage() {
-  const [domain, setDomain] = useState('products');
-  const [section, setSection] = useState('categories');
+  const [searchParams] = useSearchParams();
+  const [domain, setDomain] = useState(() => searchParams.get('domain') || 'products');
+  const [section, setSection] = useState(() => searchParams.get('section') || (searchParams.get('domain') === 'integrations' ? 'api' : 'categories'));
   const [query, setQuery] = useState('');
   const [categories, setCategories] = useState<Category[]>([]);
   const [attributes, setAttributes] = useState<Attribute[]>([]);
