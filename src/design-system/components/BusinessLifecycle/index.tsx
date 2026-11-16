@@ -16,12 +16,12 @@ export function BusinessLifecycle({title,steps,current,description,terminal=fals
   const currentStep=steps.find(step=>step.value===current);
   const eventLabel=(value:string)=>({
     prospect_discovered:'发现潜客',prospect_reviewed:'审核通过',prospect_collected:'联系人采集完成',prospect_collection_empty:'本次未找到可用联系方式',prospect_converted:'转化为 CRM 线索',prospect_discarded:'排除潜客',prospect_removed:'移除潜客',
-    customer_created:'创建客户档案',customer_status_changed:'客户状态变更',contact_created:'创建联系人档案',contact_status_changed:'联系人有效状态变更',contact_contact_preference_changed:'联系人联系许可变更',
+    customer_created:'创建客户档案',customer_status_changed:'客户状态变更',contact_created:'创建联系人档案',contact_status_changed:'联系人有效状态变更',contact_contact_preference_changed:'联系人联系许可变更',contact_employment_status_changed:'联系人任职状态变更',
     opportunity_stage_changed:'商机阶段变更',quote_created:'创建报价单',quote_status_changed:'报价状态变更',sales_order_created:'创建销售订单',sales_order_status_changed:'订单状态变更',
     payment_created:'创建收款记录',payment_status_changed:'收款状态变更',shipment_created:'创建发运单',shipment_status_changed:'发运状态变更'
   } as Record<string,string>)[value]||value;
   const statusLabel=(value:string)=>steps.find(step=>step.value===value)?.label||({
-    active:'活跃',inactive:'停用',dormant:'休眠',lost:'流失',blacklist:'黑名单',do_not_contact:'拒绝联系',contact_allowed:'允许联系',
+    active:'活跃',inactive:'停用',dormant:'休眠',lost:'流失',blacklist:'黑名单',do_not_contact:'拒绝联系',contact_allowed:'允许联系',departed:'已离职',unknown:'未设置',
     verified:'已验证',pending_verification:'待核实',valid:'有效',invalid:'无效',
     draft:'草稿',sent:'已发送',viewed:'已查看',accepted:'已接受',rejected:'已拒绝',expired:'已过期',cancelled:'已取消',
     confirmed:'已确认',preparing:'备货中',partially_shipped:'部分发货',shipped:'已发货',completed:'已完成',
