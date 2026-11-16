@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
 import {
-  Button, Search, TextInput, TextArea, Dropdown, Tag, InlineNotification, Modal, ModalBody, IconButton, CarbonIcons,
+  Button, Search, TextInput, TextArea, Tag, InlineNotification, Modal, ModalBody, IconButton, Heading, CarbonIcons,
 } from '@/design-system';
 import {
-  assignees, channelLabels, conversationsSeed, customersSeed, identitiesSeed, messagesSeed,
+  channelLabels, conversationsSeed, customersSeed, identitiesSeed, messagesSeed,
   type ChannelType, type Conversation, type Customer, type CustomerIdentity, type Message,
 } from './data';
 import '@/design-system/styles/omnichannel-inbox.scss';
@@ -15,10 +15,11 @@ const fmtSize = (bytes: number) => bytes > 1_000_000 ? (bytes / 1_000_000).toFix
 const channelOptions = Object.keys(channelLabels).map((id) => ({ id, text: channelLabels[id as ChannelType] }));
 
 function ChannelMark({ channel }: { channel: ChannelType }) {
-  return <span className={'oi-channel oi-channel--' + channel}>{channelLabels[channel]}</span>;
+  const marks: Record<ChannelType, string> = { whatsapp: 'WA', line: 'LINE', messenger: 'M', telegram: 'TG', wecom: '微', email: '@' };
+  return <span className={'oi-channel oi-channel--' + channel} role="img" aria-label={channelLabels[channel]} title={channelLabels[channel]}>{marks[channel]}</span>;
 }
 function Avatar({ customer, small = false }: { customer: Customer; small?: boolean }) {
-  return <div className={'oi-avatar' + (small ? ' oi-avatar--small' : '')}>{customer.avatar}</div>;
+  return <div className={'oi-avatar' + (small ? ' oi-avatar--small' : '')} aria-label={customer.contact_name}>{customer.avatar}</div>;
 }
 function StatusText({ status }: { status: Message['status'] }) {
   if (status === 'failed') return <span className="oi-message-status oi-message-status--failed"><CarbonIcons.WarningAlt size={12} /> 发送失败</span>;
@@ -101,7 +102,7 @@ export function OmnichannelInboxPage() {
 
   return <main className={'oi-workspace' + (mobileChat ? ' oi-workspace--mobile-chat' : '') + (!profileOpen ? ' oi-workspace--profile-collapsed' : '')}>
     <aside className="oi-conversation-panel">
-      <div className="oi-list-header"><div><h1>混合聊天</h1><p>全渠道客户沟通</p></div><span className="oi-total">{conversations.length} 个会话</span></div>
+      <div className="oi-list-header"><div><Heading className="oi-page-title">混合聊天</Heading><p>全渠道客户沟通</p></div><span className="oi-total">{conversations.length} 个会话</span></div>
       <div className="oi-search"><Search size="lg" labelText="搜索会话" placeholder="搜索公司、联系人或标签" value={query} onChange={(event: React.ChangeEvent<HTMLInputElement>) => setQuery(event.currentTarget.value)} /></div>
       <div className="oi-filter-row" role="tablist" aria-label="会话状态筛选">{tabs.map((tab) => <Button type="button" kind="ghost" size="sm" role="tab" aria-selected={filter === tab.id} className={filter === tab.id ? 'is-active' : ''} key={tab.id} onClick={() => setFilter(tab.id)}>{tab.label}{tab.id === 'unread' && <span>{conversations.filter((item) => item.unread_count > 0).length}</span>}</Button>)}</div>
       <div className="oi-conversation-scroll">{filteredConversations.map((conversation) => {
@@ -120,10 +121,9 @@ export function OmnichannelInboxPage() {
         <div className="oi-chat-heading">
           <Button className="oi-mobile-back" kind="ghost" size="sm" hasIconOnly renderIcon={CarbonIcons.ArrowLeft} iconDescription="返回会话列表" onClick={() => setMobileChat(false)} />
           <Avatar customer={customer} small />
-          <div><strong>{customer.company_name || customer.contact_name}</strong><span>{customer.contact_name} · {customer.role}</span></div>
+          <div><Heading className="oi-chat-title">{customer.company_name || customer.contact_name}</Heading><span>{customer.contact_name} · {customer.role}</span></div>
         </div>
         <div className="oi-chat-actions">
-          <Dropdown id="oi-assignee" titleText="" label="负责人" size="sm" items={assignees} itemToString={(item: { id: string; label: string } | null) => item?.label ?? ''} selectedItem={assignees.find((item) => item.id === activeConversation.assignee_id) ?? assignees[0]} onChange={({ selectedItem }: { selectedItem: { id: string; label: string } | null }) => selectedItem && updateConversation({ assignee_id: selectedItem.id })} />
           <Button kind="ghost" size="sm" onClick={() => updateConversation({ status: activeConversation.status === 'resolved' ? 'open' : 'resolved' })}>{activeConversation.status === 'resolved' ? '重新打开' : '标记已解决'}</Button>
           <IconButton kind="ghost" label="客户档案" onClick={() => setProfileOpen((value) => !value)}>{profileOpen ? <CarbonIcons.ViewOff /> : <CarbonIcons.View />}</IconButton>
         </div>
