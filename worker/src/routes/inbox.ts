@@ -76,7 +76,7 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
   // Preview omits the project-wide service-role key; use the caller JWT so RLS remains the authorization boundary.
   const accessToken = request.headers.get("Authorization")?.match(/^Bearer\s+(\S+)$/i)?.[1];
   const dbEnv: InboxEnv = { ...env, SUPABASE_ACCESS_TOKEN: accessToken };
-  if (request.method !== "GET" && request.method !== "POST") return errorResponse(request, "METHOD_NOT_ALLOWED", "当前消息接口暂不支持此操作。", 405);
+  if (request.method !== "GET" && request.method !== "POST" && request.method !== "PATCH") return errorResponse(request, "METHOD_NOT_ALLOWED", "当前消息接口暂不支持此操作。", 405);
 
   try {
     if (url.pathname === "/api/v1/inbox/conversations" && request.method === "POST") {
@@ -505,6 +505,9 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
       const identities = await db<Row[]>(dbEnv, "inbox_customer_identities?select=id,external_user_id,channel_connection_id,is_primary&owner_id=eq." + ownerId + "&contact_id=eq." + String(conversation.contact_id) + "&channel_type=eq." + channel + "&order=is_primary.desc,last_seen_at.desc.nullslast&limit=1");
       const identity = identities[0];
       if (!identity || typeof identity.external_user_id !== "string" || !identity.external_user_id) return errorResponse(request, "CHANNEL_IDENTITY_MISSING", "该联系人尚未绑定此渠道的客户身份，暂时无法发送。", 409);
+      if (typeof identity.channel_connection_id !== "string") return errorResponse(request, "CHANNEL_CONNECTION_NOT_READY", "该客户渠道身份未关联有效渠道连接。", 409);
+      const connection = await db<Row[]>(dbEnv, "inbox_channel_connections?select=id,connection_status&id=eq." + identity.channel_connection_id + "&owner_id=eq." + ownerId + "&limit=1");
+      if (connection[0]?.connection_status !== "connected") return errorResponse(request, "CHANNEL_CONNECTION_NOT_READY", "该渠道尚未完成连接验证，暂时无法发送。", 409);
 
       if (channel === "whatsapp" || channel === "messenger") {
         const recentInbound = await db<Row[]>(dbEnv, "inbox_messages?select=id,created_at&owner_id=eq." + ownerId + "&conversation_id=eq." + conversationId + "&channel_type=eq." + channel + "&direction=eq.inbound&order=created_at.desc&limit=1");
