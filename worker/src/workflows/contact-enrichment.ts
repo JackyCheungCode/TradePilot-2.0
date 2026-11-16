@@ -76,7 +76,7 @@ function candidateFrom(provider:ContactProvider,raw:Record<string,unknown>,id?:s
  const name=String(raw.name??raw.full_name??raw.fullName??[first,last].filter(Boolean).join(" ")).trim();
  if(!name)return null;
  const email=String(raw.email??raw.work_email??"").trim().toLowerCase();
- const phoneValue=raw.phone_number??raw.phone??raw.mobile_phone??raw.mobilePhone;
+ const phoneValue=raw.phone_number??raw.phone??raw.mobile_phone??raw.mobilePhone??(Array.isArray(raw.phone_numbers)?raw.phone_numbers[0]:undefined);
  const phone=typeof phoneValue==="string"?phoneValue:phoneValue&&typeof phoneValue==="object"?String((phoneValue as Record<string,unknown>).sanitized_number??(phoneValue as Record<string,unknown>).number??""):"";
  const linkedin=String(raw.linkedin_url??raw.linkedinUrl??raw.linkedin??"").trim();
  const doNotContact=raw.directPhoneDoNotCall===true||raw.mobilePhoneDoNotCall===true||raw.do_not_call===true;
@@ -97,11 +97,41 @@ async function apolloContacts(env:Env,domain:string):Promise<ContactCandidate[]>
  const people=Array.isArray(searchBody.people)?searchBody.people as Array<Record<string,unknown>>:Array.isArray(searchBody.contacts)?searchBody.contacts as Array<Record<string,unknown>>:[];
  const details=people.slice(0,5).map(person=>({id:String(person.person_id??person.id??"")})).filter(item=>item.id);
  if(!details.length)return [];
- const enrich=await fetch("https://api.apollo.io/api/v1/people/bulk_match?reveal_personal_emails=false&reveal_phone_number=false",{method:"POST",headers,body:JSON.stringify({details})});
+ const enrich=await fetch("https://api.apollo.io/api/v1/people/bulk_match?reveal_personal_emails=false&reveal_phone_number=true&poll_only=true",{method:"POST",headers,body:JSON.stringify({details})});
  if(!enrich.ok)throw new Error("Apollo 联系人补全失败（HTTP "+enrich.status+"）");
  const enrichBody=await enrich.json() as Record<string,unknown>;
  const matches=Array.isArray(enrichBody.matches)?enrichBody.matches as Array<Record<string,unknown>>:Array.isArray(enrichBody.people)?enrichBody.people as Array<Record<string,unknown>>:Array.isArray(enrichBody.persons)?enrichBody.persons as Array<Record<string,unknown>>:[];
- return matches.map(item=>candidateFrom("apollo",(item.person&&typeof item.person==="object"?item.person:item) as Record<string,unknown>)).filter((item):item is ContactCandidate=>Boolean(item));
+ const phoneStatus=enrichBody.phone_enrichment&&typeof enrichBody.phone_enrichment==="object"?(enrichBody.phone_enrichment as Record<string,unknown>).status:"";
+ const requestId=String(enrichBody.request_id_str??"");
+ const phoneById=new Map<string,string>();
+ if(phoneStatus==="pending"&&requestId){
+  for(let attempt=0;attempt<8;attempt++){
+   const poll=await fetch("https://api.apollo.io/api/v1/webhook_result/"+encodeURIComponent(requestId),{headers:{"x-api-key":key,Accept:"application/json","Cache-Control":"no-cache"}});
+   const pollBody=await poll.json().catch(()=>({})) as Record<string,unknown>;
+   if(poll.ok&&pollBody.webhook_result&&typeof pollBody.webhook_result==="object"){
+    const webhook= pollBody.webhook_result as Record<string,unknown>;
+    const people=Array.isArray(webhook.people)?webhook.people as Array<Record<string,unknown>>:[];
+    for(const person of people){
+     const personId=String(person.id??"");
+     const numbers=Array.isArray(person.phone_numbers)?person.phone_numbers as Array<Record<string,unknown>>:[];
+     const number=numbers.map(item=>String(item.sanitized_number??item.number??item.phone_number??"")).find(value=>Boolean(value));
+     if(personId&&number)phoneById.set(personId,number);
+    }
+    break;
+   }
+   if(poll.status!==404||String(pollBody.error_code??"")!=="result_pending")break;
+   const retryAfter=Number(pollBody.retry_after_seconds??3);
+   await new Promise(resolve=>setTimeout(resolve,Math.max(2,Math.min(10,retryAfter))*1000));
+  }
+ }
+ return matches.map(item=>{
+  const person=(item.person&&typeof item.person==="object"?item.person:item) as Record<string,unknown>;
+  const candidate=candidateFrom("apollo",person);
+  const personId=String(person.id??person.person_id??"");
+  const phone=phoneById.get(personId);
+  if(candidate&&phone){candidate.phone=phone;candidate.field_provenance.phone={provider:"apollo",sources:["apollo"],captured_at:new Date().toISOString(),verification_status:"provider_returned"};}
+  return candidate;
+ }).filter((item):item is ContactCandidate=>Boolean(item));
 }
 async function zoomInfoContacts(env:Env,companyName:string):Promise<ContactCandidate[]> {
  const clientId=await readIntegrationSecret(env,"tradepilot_api_zoominfo_client_id","ZOOMINFO_CLIENT_ID");
