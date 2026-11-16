@@ -26,6 +26,24 @@ const messageStatusLabel = (status?: string) => {
 const formatTime = (value?: string | null) => value
   ? new Intl.DateTimeFormat('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(value))
   : '';
+const formatFileSize = (value?: number) => {
+  if (!value || !Number.isFinite(value)) return '大小未知';
+  if (value < 1024) return value + ' B';
+  if (value < 1024 * 1024) return (value / 1024).toFixed(1) + ' KB';
+  return (value / (1024 * 1024)).toFixed(1) + ' MB';
+};
+const attachmentScanLabel = (status: string) => ({
+  pending: '待安全扫描',
+  clean: '已通过安全检查',
+  rejected: '已隔离',
+  unavailable: '扫描服务不可用',
+}[status] ?? '状态未知');
+const attachmentScanTag = (status: string) => ({
+  pending: 'cool-gray',
+  clean: 'green',
+  rejected: 'red',
+  unavailable: 'warm-gray',
+}[status] ?? 'cool-gray');
 
 export function InboxPage() {
   const navigate = useNavigate();
@@ -550,6 +568,24 @@ export function InboxPage() {
                             </Stack>
                             {item.email_subject && <strong>{item.email_subject}</strong>}
                             <p>{item.content}</p>
+                            {item.attachments?.length ? (
+                              <Stack gap={2}>
+                                <strong>附件（{item.attachments.length}）</strong>
+                                {item.attachments.map(file => (
+                                  <Tile key={file.id}>
+                                    <Stack orientation="horizontal" gap={2}>
+                                      <Stack gap={1}>
+                                        <strong>{file.original_file_name}</strong>
+                                        <span>{file.content_type} · {formatFileSize(file.file_size_bytes)}</span>
+                                      </Stack>
+                                      <Tag type={attachmentScanTag(file.scan_status) as 'cool-gray' | 'green' | 'red' | 'warm-gray'}>
+                                        {attachmentScanLabel(file.scan_status)}
+                                      </Tag>
+                                    </Stack>
+                                  </Tile>
+                                ))}
+                              </Stack>
+                            ) : null}
                             {item.translated_content
                               ? <Tile><Tag type="cool-gray">DeepL · {item.target_language || '已翻译'}</Tag><p>{item.translated_content}</p></Tile>
                               : item.timeline_type === 'message' && item.direction === 'inbound' && <Button kind="ghost" size="sm" disabled={Boolean(translatingMessageId)} onClick={() => void translateMessage(item.id)}>{translatingMessageId === item.id ? '正在翻译…' : '翻译消息'}</Button>}
