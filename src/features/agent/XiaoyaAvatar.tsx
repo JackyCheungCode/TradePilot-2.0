@@ -141,7 +141,6 @@ export function XiaoyaAvatar({ emotion = 'idle', size = 30 }: XiaoyaAvatarProps)
     <span
       ref={hostRef}
       className={`tp-xiaoya-avatar tp-xiaoya-avatar--${normalizedSize}${ready ? ' is-ready' : ''}`}
-      style={{ width: normalizedSize, height: normalizedSize, display: 'block', flex: '0 0 auto' }}
       role="img"
       aria-label={`小雅状态：${emotion}`}
     >
