@@ -151,7 +151,7 @@ export async function handleProspectConsole(request: Request, env: ConsoleEnv): 
     }
     const transitionEvents = await db<Array<{id:string;record_id:string;event_type:string;from_status:string|null;to_status:string|null;note:string|null;actor_id:string|null;created_at:string}>>(env,
       "business_transition_events?owner_id=eq."+ownerId+"&record_type=eq.prospect&select=id,record_id,event_type,from_status,to_status,note,actor_id,created_at&order=created_at.desc&limit=5000");
-    const eventsByRecord = new Map<string,Array<{record_id:string;event_type:string;from_status:string|null;to_status:string|null;note:string|null;actor_id:string|null;created_at:string}>>();
+    const eventsByRecord = new Map<string,Array<{id:string;record_id:string;event_type:string;from_status:string|null;to_status:string|null;note:string|null;actor_id:string|null;created_at:string}>>();
     for(const event of transitionEvents??[]){const list=eventsByRecord.get(event.record_id)??[];list.push(event);eventsByRecord.set(event.record_id,list);}
     const filtered = rows.filter(row => {
       if (!row.record || !row.run || !row.captured_at) return false;
