@@ -17,7 +17,8 @@ type DocumentRecord = {
 
 const labels: Record<string, string> = {
   proforma_invoice: '形式发票（Proforma Invoice）', sales_contract: '销售合同（Sales Contract）',
-  sales_confirmation: '订单确认书（Sales Confirmation）', purchase_order: '采购订单（Purchase Order）',\n  purchase_confirmation: '采购订单确认书', supplier_invoice: '供应商发票', commercial_invoice: '商业发票（Commercial Invoice）',
+  sales_confirmation: '订单确认书（Sales Confirmation）', purchase_order: '采购订单（Purchase Order）',
+  purchase_confirmation: '采购订单确认书', supplier_invoice: '供应商发票', commercial_invoice: '商业发票（Commercial Invoice）',
   packing_list: '装箱单（Packing List）', shipping_instructions: '装运指示（Shipping Instructions）',
 };
 const statusLabel = (value: string) => ({ draft: '草稿', review: '待审核', approved: '已批准', issued: '已签发', void: '已作废', archived: '已归档' } as Record<string, string>)[value] ?? value;
