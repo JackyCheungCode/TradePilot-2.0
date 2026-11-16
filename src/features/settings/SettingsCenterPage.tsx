@@ -44,6 +44,7 @@ const agentSections: Section[] = [
   { id: 'models', label: '模型配置', group: '小雅与 Agent', description: '设置小雅使用的模型供应商、对话模型和任务规划模型。', implemented: true },
   { id: 'profiles', label: 'Agent 管理', group: '小雅与 Agent', description: '管理内置专业 Agent 的启用状态与专属指令。', implemented: true },
   { id: 'appearance', label: '头像与形象', group: '小雅与 Agent', description: '配置小雅默认头像的形状、配色和视觉风格。', implemented: true },
+  { id: 'history', label: 'AI 历史记录', group: '小雅与 Agent', description: '查看、筛选并批量移除小雅的历史对话记录。', implemented: true },
 ];
 
 const tradeOperationsSections: Section[] = [
