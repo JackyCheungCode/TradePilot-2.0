@@ -402,6 +402,7 @@ export function InboxPage() {
   ];
 
   return (
+    <div className="tp-inbox-page">
     <Stack gap={5}>
       <Stack orientation="horizontal" gap={4}>
         <Stack gap={2}>
