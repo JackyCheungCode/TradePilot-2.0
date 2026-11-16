@@ -225,62 +225,16 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
           }
         }
         if (!identity?.id || String(identity.contact_id) !== contactId) throw new Error("CUSTOMER_IDENTITY_LINK_FAILED");
-        const duplicate = await db<Row[]>(env,
-          "inbox_messages?select=id,conversation_id&channel_connection_id=eq." + connectionId +
-          "&external_message_id=eq." + encodeURIComponent(externalMessageId) + "&limit=1");
-        let conversation: Row | undefined;
-        if (duplicate.length) {
-          conversation = { id: duplicate[0].conversation_id };
-        } else {
-          let conversations = await db<Row[]>(env,
-            "inbox_conversations?select=id,unread_count&owner_id=eq." + ownerId +
-            "&contact_id=eq." + contactId + "&status=in.(open,pending)&order=updated_at.desc&limit=1");
-          conversation = conversations[0];
-          if (!conversation) {
-            try {
-              const created = await db<Row[]>(env, "inbox_conversations?select=id,unread_count", {
-                method: "POST", headers: { Prefer: "return=representation" },
-                body: JSON.stringify({
-                  owner_id: ownerId, contact_id: contactId, account_id: contact.account_id ?? null,
-                  status: "open", unread_count: 0, last_channel_type: channel,
-                }),
-              });
-              conversation = created[0];
-            } catch {
-              conversations = await db<Row[]>(env,
-                "inbox_conversations?select=id,unread_count&owner_id=eq." + ownerId +
-                "&contact_id=eq." + contactId + "&status=in.(open,pending)&limit=1");
-              conversation = conversations[0];
-            }
-          }
-          if (!conversation?.id) throw new Error("INBOX_CONVERSATION_CREATE_FAILED");
-          const content = typeof payload.content === "string" ? payload.content : "";
-          const contentType = typeof payload.contentType === "string" ? payload.contentType : "text";
-          await db<Row[]>(env, "inbox_messages?select=id", {
-            method: "POST", headers: { Prefer: "return=representation" },
-            body: JSON.stringify({
-              owner_id: ownerId, conversation_id: conversation.id, customer_identity_id: identity.id,
-              channel_connection_id: connectionId, channel_type: channel, direction: "inbound",
-              content_type: contentType, content, external_message_id: externalMessageId, status: "received",
-              created_at: payload.occurredAt ?? webhookEvent.received_at, metadata: payload.metadata ?? {},
-            }),
-          });
-          await db<Row[]>(env, "inbox_conversations?id=eq." + String(conversation.id) + "&owner_id=eq." + ownerId, {
-            method: "PATCH", headers: { Prefer: "return=minimal" },
-            body: JSON.stringify({
-              last_message_at: payload.occurredAt ?? webhookEvent.received_at,
-              last_channel_type: channel, last_message_preview: content.slice(0, 500),
-              unread_count: Number(conversation.unread_count ?? 0) + 1,
-            }),
-          });
-        }
-        await db<Row[]>(env, "inbox_webhook_events?id=eq." + eventId + "&owner_id=eq." + ownerId, {
-          method: "PATCH", headers: { Prefer: "return=minimal" },
-          body: JSON.stringify({ status: "processed", payload: {}, processed_at: new Date().toISOString(), error_code: null }),
+        const processed = await db<{ conversation_id?: string }>(env, "rpc/inbox_process_webhook_event", {
+          method: "POST",
+          body: JSON.stringify({
+            p_event_id: eventId, p_owner_id: ownerId,
+            p_contact_id: contactId, p_identity_id: identity.id,
+          }),
         });
-        return successResponse(request, { assigned: true, conversation_id: conversation?.id ?? null });
+        return successResponse(request, { assigned: true, conversation_id: processed.conversation_id ?? null });
       } catch (error) {
-        await db<Row[]>(env, "inbox_webhook_events?id=eq." + eventId + "&owner_id=eq." + ownerId, {
+        await db<Row[]>(env, "inbox_webhook_events?id=eq." + eventId + "&owner_id=eq." + ownerId + "&status=eq.processing", {
           method: "PATCH", headers: { Prefer: "return=minimal" },
           body: JSON.stringify({ status: "unmatched", error_code: error instanceof Error ? error.message.slice(0, 100) : "ASSIGN_FAILED" }),
         });
