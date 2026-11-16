@@ -40,6 +40,7 @@ export interface InboxTimelineItem {
   content: string;
   translated_content?: string | null;
   source_language?: string | null;
+  target_language?: string | null;
   email_subject?: string | null;
   status?: string;
   created_at: string;
