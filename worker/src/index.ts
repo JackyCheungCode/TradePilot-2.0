@@ -28,6 +28,8 @@ export interface WorkerEnv {
  SUPABASE_URL: string;
  SUPABASE_ANON_KEY: string;
  SUPABASE_SERVICE_ROLE_KEY: string;
+ INBOX_SCANNER_URL?: string;
+ INBOX_SCANNER_HMAC_SECRET?: string;
  GOOGLE_MAPS_API_KEY?: string;
  DEEPL_API_KEY?: string;
  DHL_API_KEY?: string;
