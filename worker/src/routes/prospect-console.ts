@@ -157,6 +157,7 @@ export async function handleProspectConsole(request: Request, env: ConsoleEnv): 
       longitude: number | null; status: string; leadId: string | null; locationScore: number;
       discoveredAt: string; platforms: Array<{ key: string; label: string }>; recordIds: string[];
       sourceDetails: Array<{ platform: string; fields: Array<{ label: string; value: string }> }>;
+      contactIntelligence?: Record<string, unknown>;
     }>();
     for (const row of filtered) {
       const record = row.record!;
@@ -184,12 +185,14 @@ export async function handleProspectConsole(request: Request, env: ConsoleEnv): 
           longitude: validCoordinates ? record.longitude! : null,
           status: record.status === "promoted" || record.lead_id ? "converted" : "pending",
           leadId: record.lead_id || null, locationScore, discoveredAt: row.captured_at, platforms: [platform], recordIds: [record.id], sourceDetails: detail ? [detail] : [],
+          contactIntelligence: record.raw_data?.contact_intelligence && typeof record.raw_data.contact_intelligence === "object" ? record.raw_data.contact_intelligence as Record<string, unknown> : undefined,
         });
       } else {
         if (row.captured_at > existing.discoveredAt) existing.discoveredAt = row.captured_at;
         if (!existing.platforms.some(item => item.key === platform.key)) existing.platforms.push(platform);
         if (!existing.recordIds.includes(record.id)) existing.recordIds.push(record.id);
         if (detail && !existing.sourceDetails.some(item => item.platform === detail.platform)) existing.sourceDetails.push(detail);
+        if (!existing.contactIntelligence && record.raw_data?.contact_intelligence && typeof record.raw_data.contact_intelligence === "object") existing.contactIntelligence = record.raw_data.contact_intelligence as Record<string, unknown>;
         if (locationScore > existing.locationScore && (record.address || validCoordinates)) {
           existing.locationScore = locationScore;
           if (record.address) existing.address = record.address;
