@@ -25,7 +25,7 @@ begin
     owner_id,record_type,record_id,event_type,from_status,to_status,
     gatekeeper_required,gatekeeper_status,actor_id,note,payload
   ) values (
-    new.owner_id,'payment',new.id,'payment_status_changed',old.status,new.status,
+    new.owner_id,'payment',new.id,'payment_reconciliation_changed',old.reconcile_status,new.reconcile_status,
     false,'not_required',coalesce(v_actor,new.updated_by,new.created_by),
     v_note,
     jsonb_build_object(
@@ -80,8 +80,7 @@ security definer
 set search_path = public
 as $$
 begin
-  if new.status is not distinct from old.status
-     and new.reconcile_status is not distinct from old.reconcile_status then
+  if new.reconcile_status is not distinct from old.reconcile_status then
     return new;
   end if;
 
@@ -91,12 +90,9 @@ begin
   ) values (
     new.owner_id,'payment',new.id,'payment_status_changed',old.status,new.status,
     false,'not_required',coalesce(auth.uid(),new.updated_by,new.owner_id),
-    '收款状态：'||coalesce(old.status,'未设置')||' → '||coalesce(new.status,'未设置')||
-      case when new.reconcile_status is distinct from old.reconcile_status
-        then '；核销状态：'||coalesce(old.reconcile_status,'未设置')||' → '||coalesce(new.reconcile_status,'未设置')
-        else '' end,
+    '核销状态：'||coalesce(old.reconcile_status,'未设置')||' → '||coalesce(new.reconcile_status,'未设置'),
     jsonb_build_object(
-      'dimension','payment_and_reconciliation',
+      'dimension','reconciliation',
       'from_reconcile_status',old.reconcile_status,
       'to_reconcile_status',new.reconcile_status,
       'payment_type',new.payment_type,
@@ -112,7 +108,6 @@ drop trigger if exists trg_trade_payment_status_lifecycle_event on public.trade_
 create trigger trg_trade_payment_status_lifecycle_event
 after update on public.trade_payments
 for each row when (
-  old.status is distinct from new.status or
   old.reconcile_status is distinct from new.reconcile_status
 )
 execute function public.capture_trade_payment_status_event();
