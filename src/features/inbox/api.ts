@@ -31,6 +31,13 @@ export interface InboxConversation {
   contact: InboxContact | null;
   account: InboxAccount | null;
 }
+export interface InboxAttachment {
+  id: string;
+  original_file_name: string;
+  content_type: string;
+  file_size_bytes: number;
+  scan_status: 'pending' | 'clean' | 'rejected' | 'unavailable';
+}
 export interface InboxTimelineItem {
   id: string;
   timeline_type: 'message' | 'internal_note';
@@ -44,6 +51,7 @@ export interface InboxTimelineItem {
   email_subject?: string | null;
   status?: string;
   created_at: string;
+  attachments?: InboxAttachment[];
 }
 export interface InboxConnection {
   id: string;
