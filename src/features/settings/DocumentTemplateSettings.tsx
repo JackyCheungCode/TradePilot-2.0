@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Button, Checkbox, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput, TextArea } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 
@@ -18,7 +18,6 @@ export function DocumentTemplateSettings() {
   const [saving,setSaving]=useState(false);
   const [error,setError]=useState('');
   const [notice,setNotice]=useState('');
-  const selectedType=useMemo(()=>types.find(([id])=>id===draft?.document_type)?.[1]??draft?.document_type??'', [draft?.document_type]);
   const request=useCallback(async(path:string,init?:RequestInit)=>{
     const db=await getSupabaseClient();const {data:{session}}=await db.auth.getSession();
     if(!session?.access_token)throw new Error('登录状态已失效，请重新登录。');
