@@ -13,6 +13,8 @@ interface TradeToolsEnv {
   FEDEX_CLIENT_ID?: string;
   FEDEX_CLIENT_SECRET?: string;
   OMNIBOX_API_KEY?: string;
+  JINA_READER_API_KEY?: string;
+  AI?: { run(model:string,input:Record<string,unknown>): Promise<unknown> };
 }
 
 async function authenticated(request: Request, env: TradeToolsEnv): Promise<boolean> {
