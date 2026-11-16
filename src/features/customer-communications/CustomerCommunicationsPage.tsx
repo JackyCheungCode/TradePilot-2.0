@@ -29,7 +29,7 @@ const channelOptions: ChannelOption[] = Object.entries(communicationChannelLabel
 const sendableChannels = new Set<CommunicationChannel>(['whatsapp', 'messenger', 'telegram', 'line']);
 
 function mapInboxConversation(row: InboxConversation): { conversation: CommunicationConversation; customer: CommunicationCustomer } {
-  const contact = row.contact ?? {};
+  const contact = row.contact ?? ({} as InboxContact);
   const contactName = row.contact_display_name || contact.full_name ||
     [contact.first_name, contact.last_name].filter(Boolean).join(' ') || '未命名联系人';
   const channel = (row.last_channel_type || row.identities[0]?.channel_type || 'email') as CommunicationChannel;
@@ -267,9 +267,10 @@ export function CustomerCommunicationsPage() {
         const mapped = rows.map(mapInboxConversation);
         const customerById = new Map(mapped.map((item) => [item.customer.id, item.customer]));
         setCustomers([...customerById.values()]);
-        setConversations((current) => mapped.map((item) => {
-          return { ...item.conversation, unread: item.conversation.id === activeId ? 0 : item.conversation.unread };
-        }));
+        setConversations(mapped.map((item) => ({
+          ...item.conversation,
+          unread: item.conversation.id === activeId ? 0 : item.conversation.unread,
+        })));
       } catch {
         // Keep the last successfully loaded inbox snapshot during transient network failures.
       }
@@ -314,7 +315,7 @@ export function CustomerCommunicationsPage() {
   const customerChannels = activeCustomer?.identities.map((identity) => identity.channel) ?? [];
   const connectedChannels = new Set(connections.filter((connection) => connection.connection_status === 'connected').map((connection) => connection.channel_type));
   const replyOptions = channelOptions.filter((option) => customerChannels.includes(option.id)
-    && sendableChannels.has(option.id) && (backendMode !== 'connected' || connectedChannels.has(option.id)));
+    && sendableChannels.has(option.id) && (backendMode !== 'connected' || connectedChannels.has(option.id as InboxChannel)));
   const visibleConversations = useMemo(() => conversations.filter((conversation) => {
     const customer = customers.find((item) => item.id === conversation.customerId);
     if (!customer) return false;
