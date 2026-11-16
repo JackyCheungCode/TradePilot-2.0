@@ -115,7 +115,177 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
       const connections = await db<Row[]>(env,
         "inbox_channel_connections?select=id,channel_type,display_name,external_account_id,connection_status,last_verified_at,created_at,updated_at&owner_id=eq." +
         ownerId + "&order=channel_type.asc");
-      return successResponse(request, { connections });
+      const data = connections.map(connection => ({
+        ...connection,
+        webhook_url: ["whatsapp", "line", "messenger", "telegram"].includes(String(connection.channel_type))
+          ? url.origin + "/api/v1/inbox/webhooks/" + String(connection.channel_type) + "/" + String(connection.id)
+          : null,
+      }));
+      return successResponse(request, { connections: data });
+    }
+
+    if (url.pathname === "/api/v1/inbox/channel-connections" && request.method === "POST") {
+      let body: { channelType?: unknown; displayName?: unknown; externalAccountId?: unknown };
+      try { body = await request.json() as typeof body; }
+      catch { return errorResponse(request, "INVALID_JSON", "渠道连接信息格式不正确。", 400); }
+      const channel = typeof body.channelType === "string" ? body.channelType : "";
+      const supported = new Set(["whatsapp", "line", "messenger", "telegram"]);
+      const displayName = typeof body.displayName === "string" ? body.displayName.trim() : "";
+      const externalAccountId = typeof body.externalAccountId === "string" ? body.externalAccountId.trim() : "";
+      if (!supported.has(channel) || !displayName || displayName.length > 120 ||
+          !externalAccountId || externalAccountId.length > 255) {
+        return errorResponse(request, "VALIDATION_ERROR", "请选择受支持的渠道，并填写连接名称与渠道账号 ID。", 400);
+      }
+      const existing = await db<Row[]>(env,
+        "inbox_channel_connections?select=id,channel_type,display_name,external_account_id,connection_status&id=not.is.null&owner_id=eq." +
+        ownerId + "&channel_type=eq." + channel + "&external_account_id=eq." + encodeURIComponent(externalAccountId) + "&limit=1");
+      let connection = existing[0];
+      if (!connection) {
+        const created = await db<Row[]>(env, "inbox_channel_connections?select=id,channel_type,display_name,external_account_id,connection_status", {
+          method: "POST", headers: { Prefer: "return=representation" },
+          body: JSON.stringify({
+            owner_id: ownerId, channel_type: channel, display_name: displayName,
+            external_account_id: externalAccountId, connection_status: "pending",
+          }),
+        });
+        connection = created[0];
+      }
+      if (!connection?.id) throw new Error("INBOX_CONNECTION_CREATE_FAILED");
+      return successResponse(request, {
+        connection,
+        webhook_url: url.origin + "/api/v1/inbox/webhooks/" + channel + "/" + String(connection.id),
+        webhook_status: "pending",
+      }, existing.length ? 200 : 201);
+    }
+
+    if (url.pathname === "/api/v1/inbox/unmatched-events" && request.method === "GET") {
+      const events = await db<Row[]>(env,
+        "inbox_webhook_events?select=id,channel_type,channel_connection_id,external_event_id,event_type,status,payload,received_at,error_code&owner_id=eq." +
+        ownerId + "&status=eq.unmatched&order=received_at.desc&limit=100");
+      return successResponse(request, { events, total: events.length });
+    }
+
+    const assignEventMatch = url.pathname.match(/^\\/api\\/v1\\/inbox\\/unmatched-events\\/([0-9a-f-]{36})\\/assign$/i);
+    if (assignEventMatch && request.method === "POST") {
+      const eventId = assignEventMatch[1];
+      let body: { contactId?: unknown };
+      try { body = await request.json() as { contactId?: unknown }; }
+      catch { return errorResponse(request, "INVALID_JSON", "客户匹配信息格式不正确。", 400); }
+      const contactId = typeof body.contactId === "string" ? body.contactId : "";
+      if (!/^[0-9a-f-]{36}$/i.test(contactId)) return errorResponse(request, "VALIDATION_ERROR", "请选择有效的 CRM 联系人。", 400);
+      const claimed = await db<Row[]>(env,
+        "inbox_webhook_events?id=eq." + eventId + "&owner_id=eq." + ownerId + "&status=eq.unmatched",
+        { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify({ status: "processing" }) });
+      const webhookEvent = claimed[0];
+      if (!webhookEvent) return errorResponse(request, "EVENT_NOT_AVAILABLE", "该待匹配消息已处理或不存在。", 409);
+      try {
+        const payload = webhookEvent.payload && typeof webhookEvent.payload === "object" ? webhookEvent.payload as Row : {};
+        const channel = String(webhookEvent.channel_type ?? "");
+        const externalUserId = typeof payload.externalUserId === "string" ? payload.externalUserId : "";
+        const externalMessageId = typeof payload.messageId === "string" ? payload.messageId : "";
+        const allowedChannels = new Set(["whatsapp", "line", "messenger", "telegram"]);
+        if (!allowedChannels.has(channel) || !externalUserId || !externalMessageId) throw new Error("INVALID_UNMATCHED_EVENT");
+        const contacts = await db<Row[]>(env,
+          "crm_contacts?select=id,account_id&id=eq." + contactId + "&owner_id=eq." + ownerId + "&limit=1");
+        const contact = contacts[0];
+        if (!contact) {
+          await db<Row[]>(env, "inbox_webhook_events?id=eq." + eventId + "&owner_id=eq." + ownerId,
+            { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ status: "unmatched" }) });
+          return errorResponse(request, "CUSTOMER_NOT_FOUND", "找不到该 CRM 联系人。", 404);
+        }
+        const connectionId = String(webhookEvent.channel_connection_id);
+        let identities = await db<Row[]>(env,
+          "inbox_customer_identities?select=id,contact_id,external_user_id&owner_id=eq." + ownerId +
+          "&channel_type=eq." + channel + "&external_user_id=eq." + encodeURIComponent(externalUserId) + "&limit=1");
+        let identity = identities[0];
+        if (identity && String(identity.contact_id) !== contactId) {
+          await db<Row[]>(env, "inbox_webhook_events?id=eq." + eventId + "&owner_id=eq." + ownerId,
+            { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ status: "unmatched" }) });
+          return errorResponse(request, "IDENTITY_ALREADY_LINKED", "该渠道身份已关联到另一位联系人，请先检查现有客户绑定。", 409);
+        }
+        if (!identity) {
+          try {
+            const created = await db<Row[]>(env, "inbox_customer_identities?select=id,contact_id,external_user_id", {
+              method: "POST", headers: { Prefer: "return=representation" },
+              body: JSON.stringify({
+                owner_id: ownerId, contact_id: contactId, channel_connection_id: connectionId,
+                channel_type: channel, external_user_id: externalUserId,
+                external_display_name: payload.displayName ?? null,
+                external_username: payload.username ?? null,
+                last_seen_at: payload.occurredAt ?? new Date().toISOString(),
+                metadata: { linked_from_webhook_event: eventId },
+              }),
+            });
+            identity = created[0];
+          } catch {
+            identities = await db<Row[]>(env,
+              "inbox_customer_identities?select=id,contact_id,external_user_id&owner_id=eq." + ownerId +
+              "&channel_type=eq." + channel + "&external_user_id=eq." + encodeURIComponent(externalUserId) + "&limit=1");
+            identity = identities[0];
+          }
+        }
+        if (!identity?.id || String(identity.contact_id) !== contactId) throw new Error("CUSTOMER_IDENTITY_LINK_FAILED");
+        const duplicate = await db<Row[]>(env,
+          "inbox_messages?select=id,conversation_id&channel_connection_id=eq." + connectionId +
+          "&external_message_id=eq." + encodeURIComponent(externalMessageId) + "&limit=1");
+        let conversation: Row | undefined;
+        if (duplicate.length) {
+          conversation = { id: duplicate[0].conversation_id };
+        } else {
+          let conversations = await db<Row[]>(env,
+            "inbox_conversations?select=id,unread_count&owner_id=eq." + ownerId +
+            "&contact_id=eq." + contactId + "&status=in.(open,pending)&order=updated_at.desc&limit=1");
+          conversation = conversations[0];
+          if (!conversation) {
+            try {
+              const created = await db<Row[]>(env, "inbox_conversations?select=id,unread_count", {
+                method: "POST", headers: { Prefer: "return=representation" },
+                body: JSON.stringify({
+                  owner_id: ownerId, contact_id: contactId, account_id: contact.account_id ?? null,
+                  status: "open", unread_count: 0, last_channel_type: channel,
+                }),
+              });
+              conversation = created[0];
+            } catch {
+              conversations = await db<Row[]>(env,
+                "inbox_conversations?select=id,unread_count&owner_id=eq." + ownerId +
+                "&contact_id=eq." + contactId + "&status=in.(open,pending)&limit=1");
+              conversation = conversations[0];
+            }
+          }
+          if (!conversation?.id) throw new Error("INBOX_CONVERSATION_CREATE_FAILED");
+          const content = typeof payload.content === "string" ? payload.content : "";
+          const contentType = typeof payload.contentType === "string" ? payload.contentType : "text";
+          await db<Row[]>(env, "inbox_messages?select=id", {
+            method: "POST", headers: { Prefer: "return=representation" },
+            body: JSON.stringify({
+              owner_id: ownerId, conversation_id: conversation.id, customer_identity_id: identity.id,
+              channel_connection_id: connectionId, channel_type: channel, direction: "inbound",
+              content_type: contentType, content, external_message_id: externalMessageId, status: "received",
+              created_at: payload.occurredAt ?? webhookEvent.received_at, metadata: payload.metadata ?? {},
+            }),
+          });
+          await db<Row[]>(env, "inbox_conversations?id=eq." + String(conversation.id) + "&owner_id=eq." + ownerId, {
+            method: "PATCH", headers: { Prefer: "return=minimal" },
+            body: JSON.stringify({
+              last_message_at: payload.occurredAt ?? webhookEvent.received_at,
+              last_channel_type: channel, last_message_preview: content.slice(0, 500),
+              unread_count: Number(conversation.unread_count ?? 0) + 1,
+            }),
+          });
+        }
+        await db<Row[]>(env, "inbox_webhook_events?id=eq." + eventId + "&owner_id=eq." + ownerId, {
+          method: "PATCH", headers: { Prefer: "return=minimal" },
+          body: JSON.stringify({ status: "processed", payload: {}, processed_at: new Date().toISOString(), error_code: null }),
+        });
+        return successResponse(request, { assigned: true, conversation_id: conversation?.id ?? null });
+      } catch (error) {
+        await db<Row[]>(env, "inbox_webhook_events?id=eq." + eventId + "&owner_id=eq." + ownerId, {
+          method: "PATCH", headers: { Prefer: "return=minimal" },
+          body: JSON.stringify({ status: "unmatched", error_code: error instanceof Error ? error.message.slice(0, 100) : "ASSIGN_FAILED" }),
+        });
+        throw error;
+      }
     }
 
     const metricsMatch = url.pathname.match(/^\/api\/v1\/inbox\/customers\/([0-9a-f-]{36})\/business-metrics$/i);
