@@ -71,6 +71,25 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
   if (request.method !== "GET" && request.method !== "POST") return errorResponse(request, "METHOD_NOT_ALLOWED", "当前消息接口暂不支持此操作。", 405);
 
   try {
+    if (url.pathname === "/api/v1/inbox/conversations" && request.method === "POST") {
+      let body: { contactId?: unknown };
+      try { body = await request.json() as { contactId?: unknown }; }
+      catch { return errorResponse(request, "INVALID_JSON", "联系人信息格式不正确。", 400); }
+      const contactId = typeof body.contactId === "string" ? body.contactId : "";
+      if (!/^[0-9a-f-]{36}$/i.test(contactId)) return errorResponse(request, "VALIDATION_ERROR", "请选择有效的 CRM 联系人。", 400);
+      const contacts = await db<Row[]>(env, "crm_contacts?select=id,account_id&id=eq." + contactId + "&owner_id=eq." + ownerId + "&is_archived=eq.false&limit=1");
+      const contact = contacts[0];
+      if (!contact) return errorResponse(request, "CUSTOMER_NOT_FOUND", "联系人不存在或无权访问。", 404);
+      const existing = await db<Row[]>(env, "inbox_conversations?select=id,owner_id,contact_id,account_id,assignee_id,status,unread_count,last_message_at,last_channel_type,last_message_preview,ai_summary,created_at,updated_at&owner_id=eq." + ownerId + "&contact_id=eq." + contactId + "&status=in.(open,pending)&limit=1");
+      if (existing[0]) return successResponse(request, { conversation: existing[0] });
+      const created = await db<Row[]>(env, "inbox_conversations?select=id,owner_id,contact_id,account_id,assignee_id,status,unread_count,last_message_at,last_channel_type,last_message_preview,ai_summary,created_at,updated_at", {
+        method: "POST", headers: { Prefer: "return=representation" },
+        body: JSON.stringify({ owner_id: ownerId, contact_id: contactId, account_id: contact.account_id ?? null, status: "open" }),
+      });
+      if (!created[0]) throw new Error("INBOX_CONVERSATION_CREATE_FAILED");
+      return successResponse(request, { conversation: created[0] }, 201);
+    }
+
     if (url.pathname === "/api/v1/inbox/conversations" && request.method === "GET") {
       const status = url.searchParams.get("status");
       const allowedStatuses = new Set(["open", "pending", "resolved", "closed"]);
