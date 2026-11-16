@@ -275,4 +275,37 @@ $inbox_media_ingest$;
 revoke all on function public.inbox_process_webhook_event(uuid, uuid, uuid, uuid) from public, anon, authenticated;
 grant execute on function public.inbox_process_webhook_event(uuid, uuid, uuid, uuid) to service_role;
 
+
+-- Claim a bounded batch with row locks so multiple Worker invocations cannot process the same job.
+create or replace function public.inbox_claim_media_jobs(p_limit integer default 5)
+returns setof public.inbox_media_jobs
+language sql
+security invoker
+set search_path = ''
+as $claim_media$
+  with candidates as (
+    select id
+    from public.inbox_media_jobs
+    where (
+      status = 'queued' and available_at <= now()
+    ) or (
+      status = 'processing' and locked_until < now() and attempts < 5
+    )
+    order by available_at asc, created_at asc
+    for update skip locked
+    limit greatest(1, least(coalesce(p_limit, 5), 10))
+  )
+  update public.inbox_media_jobs j
+  set status = 'processing',
+      attempts = j.attempts + 1,
+      locked_until = now() + interval '2 minutes',
+      updated_at = now()
+  from candidates c
+  where j.id = c.id
+  returning j.*;
+$claim_media$;
+
+revoke all on function public.inbox_claim_media_jobs(integer) from public, anon, authenticated;
+grant execute on function public.inbox_claim_media_jobs(integer) to service_role;
+
 commit;
