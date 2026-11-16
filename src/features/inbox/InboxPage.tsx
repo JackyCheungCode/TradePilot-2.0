@@ -4,7 +4,7 @@ import {
   Grid, Column, Stack, ClickableTile,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
-import { getInboxConversations, getInboxMessages, createInboxNote, type InboxConversation, type InboxTimelineItem } from './api';
+import { getInboxConversations, getInboxMessages, getInboxBusinessMetrics, createInboxNote, type InboxConversation, type InboxTimelineItem, type InboxBusinessMetrics } from './api';
 
 const channels = [
   { id: 'whatsapp', label: 'WhatsApp' },
@@ -31,6 +31,8 @@ export function InboxPage() {
   const [error, setError] = useState('');
   const [composerMode, setComposerMode] = useState<'reply' | 'note'>('reply');
   const [savingNote, setSavingNote] = useState(false);
+  const [businessMetrics, setBusinessMetrics] = useState<InboxBusinessMetrics | null>(null);
+  const [metricsLoading, setMetricsLoading] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -167,6 +169,31 @@ export function InboxPage() {
       if (channel) void getSupabaseClient().then(client => client.removeChannel(channel!));
     };
   }, [selected?.id]);
+
+
+  useEffect(() => {
+    let active = true;
+    if (!selected) {
+      setBusinessMetrics(null);
+      return () => { active = false; };
+    }
+    void (async () => {
+      setMetricsLoading(true);
+      try {
+        const client = await getSupabaseClient();
+        const { data: { session } } = await client.auth.getSession();
+        if (!session?.access_token) throw new Error('登录状态已失效，请重新登录。');
+        const metrics = await getInboxBusinessMetrics(session.access_token, selected.contact_id);
+        if (active) setBusinessMetrics(metrics);
+      } catch (cause) {
+        if (active) setBusinessMetrics(null);
+        if (active) setError(cause instanceof Error ? cause.message : '读取客户业务概览失败。');
+      } finally {
+        if (active) setMetricsLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, [selected?.contact_id]);
 
   const visibleConversations = useMemo(() => conversations.filter(row => {
     const matchesChannel = channelFilter === 'all' || row.last_channel_type === channelFilter;
@@ -324,11 +351,25 @@ export function InboxPage() {
               <Stack gap={3}>
                 <h2>业务概览 <span>Business Overview</span></h2>
                 <Grid>
-                  <Column sm={4} md={2} lg={4}><Tile><p>总订单数</p><h3>—</h3></Tile></Column>
-                  <Column sm={4} md={3} lg={4}><Tile><p>累计交易额</p><h3>—</h3></Tile></Column>
-                  <Column sm={4} md={3} lg={4}><Tile><p>进行中订单</p><h3>—</h3></Tile></Column>
+                  <Column sm={4} md={2} lg={4}><Tile><p>总订单数</p><h3>{metricsLoading ? '…' : businessMetrics?.total_order_count ?? '—'}</h3></Tile></Column>
+                  <Column sm={4} md={3} lg={4}>
+                    <Tile>
+                      <p>累计交易额</p>
+                      {metricsLoading ? <h3>…</h3> : businessMetrics?.total_amount_by_currency.length
+                        ? businessMetrics.total_amount_by_currency.map(item => (
+                          <p key={item.currency}>{new Intl.NumberFormat('en-US', { style: 'currency', currency: item.currency, maximumFractionDigits: 0 }).format(item.amount)}</p>
+                        ))
+                        : <h3>—</h3>}
+                    </Tile>
+                  </Column>
+                  <Column sm={4} md={3} lg={4}><Tile><p>进行中订单</p><h3>{metricsLoading ? '…' : businessMetrics?.active_order_count ?? '—'}</h3></Tile></Column>
                 </Grid>
-                <p>选择客户后，显示订单趋势及报价、订单、发运和收款单据入口。</p>
+                <Stack orientation="horizontal" gap={2}>
+                  <Tag type="cool-gray">销售订单 {businessMetrics?.total_order_count ?? 0}</Tag>
+                  <Tag type="cool-gray">发运单 {businessMetrics?.shipment_count ?? 0}</Tag>
+                  <Tag type="cool-gray">收款单 {businessMetrics?.payment_count ?? 0}</Tag>
+                </Stack>
+                <p>统计基于现有 ERP 客户、销售订单、发运和收款记录；不同币种分别汇总。</p>
               </Stack>
             </Tile>
           </Stack>
