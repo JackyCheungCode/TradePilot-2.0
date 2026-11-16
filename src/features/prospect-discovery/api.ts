@@ -101,7 +101,7 @@ export function getDiscoveryRecords(token: string, runId: string): Promise<Disco
 export async function applyDiscoveryRecordAction(
   token: string,
   recordId: string,
-  action: 'remove' | 'discard' | 'promote',
+  action: 'remove' | 'discard' | 'promote' | 'review',
   runId?: string,
 ): Promise<{ id: string; status: string; leadId?: string }> {
   return request<{ id: string; status: string; leadId?: string }>(

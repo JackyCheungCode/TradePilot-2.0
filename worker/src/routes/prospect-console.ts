@@ -13,7 +13,7 @@ type OccurrenceRow = {
   record?: {
     id: string;
     entity_id?: string | null;
-    status?: string;
+    status?: string; lifecycle_stage?: string;
     latitude?: number | null;
     longitude?: number | null;
     lead_id?: string | null;
@@ -154,7 +154,7 @@ export async function handleProspectConsole(request: Request, env: ConsoleEnv): 
     const prospects = new Map<string, {
       id: string; name: string; type: string; country: string; address: string;
       phone: string; email: string; website: string; latitude: number | null;
-      longitude: number | null; status: string; leadId: string | null; locationScore: number;
+      longitude: number | null; status: string; lifecycleStage: string; leadId: string | null; locationScore: number;
       discoveredAt: string; platforms: Array<{ key: string; label: string }>; recordIds: string[];
       sourceDetails: Array<{ platform: string; fields: Array<{ label: string; value: string }> }>;
       contactIntelligence?: Record<string, unknown>;
@@ -167,6 +167,7 @@ export async function handleProspectConsole(request: Request, env: ConsoleEnv): 
       entities.add(entityId);
       if (record.status === "promoted" || record.lead_id) converted.add(entityId);
       else pending.add(entityId);
+      const lifecycleStage = record.status === "promoted" || record.lead_id ? "converted" : String(record.raw_data?.lifecycle_stage ?? ((record.raw_data?.contact_enrichment || record.raw_data?.contact_intelligence) ? "collected" : "discovered"));
       const channel = row.run?.channel ?? "";
       const platform = platformFor(channel, row.provider);
       const validCoordinates = typeof record.latitude === "number" && Number.isFinite(record.latitude) && record.latitude >= -90 && record.latitude <= 90 && typeof record.longitude === "number" && Number.isFinite(record.longitude) && record.longitude >= -180 && record.longitude <= 180;
@@ -184,7 +185,7 @@ export async function handleProspectConsole(request: Request, env: ConsoleEnv): 
           phone: record.phone || "", email: record.email || "", website: record.website || "",
           latitude: validCoordinates ? record.latitude! : null,
           longitude: validCoordinates ? record.longitude! : null,
-          status: record.status === "promoted" || record.lead_id ? "converted" : "pending",
+          status: record.status === "promoted" || record.lead_id ? "converted" : "pending", lifecycleStage,
           leadId: record.lead_id || null, locationScore, discoveredAt: row.captured_at, platforms: [platform], recordIds: [record.id], sourceDetails: detail ? [detail] : [],
           contactIntelligence: record.raw_data?.contact_intelligence && typeof record.raw_data.contact_intelligence === "object" ? record.raw_data.contact_intelligence as Record<string, unknown> : undefined,
           websiteContacts: record.raw_data?.contact_enrichment && typeof record.raw_data.contact_enrichment === "object" ? record.raw_data.contact_enrichment as Record<string, unknown> : undefined,
@@ -204,7 +205,8 @@ export async function handleProspectConsole(request: Request, env: ConsoleEnv): 
         if (!existing.phone && record.phone) existing.phone = record.phone;
         if (!existing.email && record.email) existing.email = record.email;
         if (!existing.website && record.website) existing.website = record.website;
-        if (record.status === "promoted" || record.lead_id) { existing.status = "converted"; existing.leadId = record.lead_id || existing.leadId; }
+        if (record.status === "promoted" || record.lead_id) { existing.status = "converted"; existing.lifecycleStage = "converted"; existing.leadId = record.lead_id || existing.leadId; }
+        else { const rank:Record<string,number>={discovered:0,reviewed:1,collected:2,converted:3}; if((rank[lifecycleStage]??0)>(rank[existing.lifecycleStage]??0))existing.lifecycleStage=lifecycleStage; }
       }
     }
     const platforms = [...platformEntities.entries()]

@@ -507,6 +507,16 @@ export async function handleDiscovery(request: Request, env: DiscoveryEnv): Prom
     let body:{action?:string;runId?:string};try{body=await request.json() as {action?:string;runId?:string};}catch{return errorResponse(request,"VALIDATION_ERROR","请求内容不是有效 JSON。",400);}
     const rows=await db<Array<Record<string,unknown>>>(env,"discovery_records?id=eq."+actionMatch[1]+"&owner_id=eq."+userId+"&select=*");
     const record=rows?.[0];if(!record)return errorResponse(request,"NOT_FOUND","找不到该搜索结果。",404);
+    if(body.action==="review"){
+      if(record.status!=="new")return errorResponse(request,"INVALID_LIFECYCLE_TRANSITION","只有新发现的记录可以审核。",409);
+      const rawData=record.raw_data&&typeof record.raw_data==="object"?record.raw_data as Record<string,unknown>:{};
+      const previousStage=String(rawData.lifecycle_stage??"discovered");
+      if(previousStage!=="discovered")return errorResponse(request,"INVALID_LIFECYCLE_TRANSITION","该潜客已经审核或进入后续阶段。",409);
+      const now=new Date().toISOString();
+      await db(env,"discovery_records?id=eq."+record.id+"&owner_id=eq."+userId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({raw_data:{...rawData,lifecycle_stage:"reviewed",lifecycle_updated_at:now},updated_at:now})});
+      await db(env,"business_transition_events",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({owner_id:userId,record_type:"prospect",record_id:record.id,event_type:"prospect_reviewed",from_status:"discovered",to_status:"reviewed",actor_id:userId,note:"潜客审核通过",gatekeeper_required:false,gatekeeper_status:"not_required",payload:{source:"prospect_console"}})});
+      return successResponse(request,{id:record.id,status:record.status,lifecycleStage:"reviewed"});
+    }
     if(body.action==="remove"){
       if(typeof body.runId==="string" && /^[0-9a-f-]{36}$/i.test(body.runId)){
         const occurrences=await db<Array<{id:string}>>(env,"discovery_record_occurrences?owner_id=eq."+userId+"&record_id=eq."+record.id+"&run_id=eq."+body.runId+"&select=id");
