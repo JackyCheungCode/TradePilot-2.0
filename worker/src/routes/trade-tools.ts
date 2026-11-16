@@ -285,7 +285,11 @@ export async function handleTradeTools(request: Request, env: TradeToolsEnv): Pr
   const secretNames = ["tradepilot_api_google_maps", "tradepilot_api_dhl", "tradepilot_api_ups_client_id", "tradepilot_api_ups_client_secret", "tradepilot_api_fedex_client_id", "tradepilot_api_fedex_client_secret", ...(pathname === "/api/v1/trade-tools/omnibox" ? ["tradepilot_api_omnibox"] : []), ...(pathname === "/api/v1/trade-tools/website-intelligence" ? ["tradepilot_api_jina_reader"] : [])];
   const secrets = await readIntegrationSecrets(env, secretNames);
   const configuredEnv: TradeToolsEnv = { ...env, GOOGLE_MAPS_API_KEY: secrets.tradepilot_api_google_maps || env.GOOGLE_MAPS_API_KEY, DHL_API_KEY: secrets.tradepilot_api_dhl || env.DHL_API_KEY, UPS_CLIENT_ID: secrets.tradepilot_api_ups_client_id || env.UPS_CLIENT_ID, UPS_CLIENT_SECRET: secrets.tradepilot_api_ups_client_secret || env.UPS_CLIENT_SECRET, FEDEX_CLIENT_ID: secrets.tradepilot_api_fedex_client_id || env.FEDEX_CLIENT_ID, FEDEX_CLIENT_SECRET: secrets.tradepilot_api_fedex_client_secret || env.FEDEX_CLIENT_SECRET, OMNIBOX_API_KEY: secrets.tradepilot_api_omnibox || env.OMNIBOX_API_KEY, JINA_READER_API_KEY: secrets.tradepilot_api_jina_reader, AI: env.AI };
-  if (pathname === "/api/v1/trade-tools/website-intelligence") {\n    if (!configuredEnv.JINA_READER_API_KEY) return errorResponse(request, "JINA_NOT_CONFIGURED", "请先在「设置中心 → API 集成」配置 Jina Reader API Key。", 503);\n    return websiteIntelligence(request, configuredEnv, configuredEnv.JINA_READER_API_KEY);\n  }\n  if (pathname === "/api/v1/trade-tools/omnibox") {
+  if (pathname === "/api/v1/trade-tools/website-intelligence") {
+    if (!configuredEnv.JINA_READER_API_KEY) return errorResponse(request, "JINA_NOT_CONFIGURED", "请先在「设置中心 → API 集成」配置 Jina Reader API Key。", 503);
+    return websiteIntelligence(request, configuredEnv, configuredEnv.JINA_READER_API_KEY);
+  }
+  if (pathname === "/api/v1/trade-tools/omnibox") {
     if (!configuredEnv.OMNIBOX_API_KEY) return errorResponse(request, "OMNIBOX_NOT_CONFIGURED", "请先在「设置中心 → API 集成」配置 Omnibox API Key。", 503);
     return omniboxQuery(request, configuredEnv.OMNIBOX_API_KEY);
   }
