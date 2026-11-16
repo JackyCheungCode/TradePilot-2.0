@@ -35,6 +35,13 @@ begin
   if v_from not in ('reviewed','collected') then
     raise exception 'Prospect must be reviewed before contact enrichment';
   end if;
+  if not exists(
+    select 1 from public.business_transition_events
+    where owner_id=p_owner_id and record_type='prospect'
+      and record_id=p_record_id and event_type='prospect_reviewed'
+  ) then
+    raise exception 'Prospect review approval is required before contact enrichment';
+  end if;
 
   v_to := case when p_has_collected then 'collected' else v_from end;
   v_event := case when p_has_collected then 'prospect_collected' else 'prospect_collection_empty' end;
