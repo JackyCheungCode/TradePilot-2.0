@@ -141,7 +141,13 @@
     margin-top: 0.5rem;
   }
 }
-@media (min-width: 672px) {
+@media (min-width: 672px) and (max-width: 1055px) {
+  .tp-inbox-page .tp-inbox-mobile-back { display: none; }
+  .tp-inbox-conversation-column { flex: 0 0 33.3333%; max-width: 33.3333%; }
+  .tp-inbox-message-column { flex: 0 0 66.6667%; max-width: 66.6667%; }
+  .tp-inbox-assist-column { flex: 0 0 100%; max-width: 100%; }
+}
+@media (min-width: 1056px) {
   .tp-inbox-page .tp-inbox-mobile-back { display: none; }
   .tp-inbox-layout { flex-wrap: nowrap; }
   .tp-inbox-conversation-column,
