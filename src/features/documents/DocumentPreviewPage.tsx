@@ -89,7 +89,7 @@ export function DocumentPreviewPage() {
     finally { setSaving(false); }
   };
 
-  const generateAndDownloadPdf = async () => {
+  const generateAndDownloadPdf = async (force = false) => {
     if (!doc) return;
     setPdfBusy(true); setError('');
     try {
@@ -98,7 +98,7 @@ export function DocumentPreviewPage() {
       if (!session?.access_token) throw new Error('登录状态已失效，请重新登录。');
       const headers = { Authorization: 'Bearer ' + session.access_token, Accept: 'application/json' };
       const generated = await fetch('/api/v1/trade/documents/' + encodeURIComponent(doc.id) + '/pdf', {
-        method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({}),
+        method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ force }),
       });
       const generatedPayload = await generated.json().catch(() => ({}));
       if (!generated.ok) throw new Error(generatedPayload?.error?.message || 'PDF 生成失败。');
@@ -178,7 +178,7 @@ export function DocumentPreviewPage() {
   return <main className="tp-document-preview">
     <header className="tp-document-preview__toolbar">
       <div><p className="tp-document-preview__eyebrow">TRADEPILOT / DOCUMENTS / PREVIEW</p><h1>{doc.document_number}</h1><p>{labels[doc.document_type] || doc.document_type} · V{doc.current_version} · {statusLabel(doc.status)}</p></div>
-      <div className="tp-document-preview__actions"><Button kind="tertiary" onClick={() => navigate('/documents')}>返回单据中心</Button>{doc.status === 'draft' && !editing && <><Button kind="secondary" onClick={beginEdit}>编辑草稿</Button><Button kind="primary" disabled={saving} onClick={() => void runDocumentAction('confirm')}>提交审核 / 正式确认</Button></>}{doc.status === 'review' && <Button kind="primary" disabled={saving} onClick={() => void runDocumentAction('approve')}>审核通过</Button>}{doc.status === 'approved' && <Button kind="primary" disabled={saving} onClick={() => void runDocumentAction('confirm')}>正式确认</Button>}<Button kind="secondary" onClick={() => void load()}>刷新</Button><Button kind="secondary" disabled={pdfBusy} onClick={() => void generateAndDownloadPdf()}>{pdfBusy ? 'PDF 处理中…' : hasArchivedPdf ? '下载归档 PDF' : '生成并下载 PDF'}</Button><Button kind="primary" onClick={() => window.print()}>打印预览</Button></div>
+      <div className="tp-document-preview__actions"><Button kind="tertiary" onClick={() => navigate('/documents')}>返回单据中心</Button>{doc.status === 'draft' && !editing && <><Button kind="secondary" onClick={beginEdit}>编辑草稿</Button><Button kind="primary" disabled={saving} onClick={() => void runDocumentAction('confirm')}>提交审核 / 正式确认</Button></>}{doc.status === 'review' && <Button kind="primary" disabled={saving} onClick={() => void runDocumentAction('approve')}>审核通过</Button>}{doc.status === 'approved' && <Button kind="primary" disabled={saving} onClick={() => void runDocumentAction('confirm')}>正式确认</Button>}<Button kind="secondary" onClick={() => void load()}>刷新</Button><Button kind="secondary" disabled={pdfBusy} onClick={() => void generateAndDownloadPdf()}>{pdfBusy ? 'PDF 处理中…' : hasArchivedPdf ? '下载归档 PDF' : '生成并下载 PDF'}</Button>{hasArchivedPdf && <Button kind="tertiary" disabled={pdfBusy} onClick={() => void generateAndDownloadPdf(true)}>重新生成 PDF</Button>}<Button kind="primary" onClick={() => window.print()}>打印预览</Button></div>
     </header>
 
     {Object.keys(sourceSnapshot).length > 0 && <section className="tp-document-preview__policy-snapshot"><div><h2>来源与规则快照</h2><p>本单据创建时保存的配置，不会随设置中心后续修改而变化。</p></div><dl><div><dt>数据来源</dt><dd>{sourceSummary}</dd></div><div><dt>关联订单</dt><dd>{sourceSnapshot.order_id ? '已关联' : '未关联'}</dd></div><div><dt>发运批次</dt><dd>{sourceSnapshot.shipment_id ? '已关联' : '未关联'}</dd></div><div><dt>设置更新时间</dt><dd>{systemSnapshot.document_settings_updated_at ? new Date(String(systemSnapshot.document_settings_updated_at)).toLocaleString() : '系统默认规则'}</dd></div></dl><p>{policySummary}</p></section>}
