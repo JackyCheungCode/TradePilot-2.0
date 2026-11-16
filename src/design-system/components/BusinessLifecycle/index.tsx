@@ -3,7 +3,7 @@ import { useEffect, useRef, type ReactNode } from 'react';
 import './business-lifecycle.scss';
 
 export type BusinessLifecycleStep = { value: string; label: string };
-export type BusinessLifecycleEvent = { id:string; event_type:string; from_status:string|null; to_status:string|null; note:string|null; created_at:string };
+export type BusinessLifecycleEvent = { id:string; event_type:string; from_status:string|null; to_status:string|null; note:string|null; actor_id?:string|null; created_at:string };
 type Props = {
   title: string; steps: BusinessLifecycleStep[]; current: string; description?: string;
   terminal?: boolean; terminalKind?: 'success' | 'warning' | 'error' | 'info';
@@ -37,7 +37,7 @@ export function BusinessLifecycle({title,steps,current,description,terminal=fals
       <h3>生命周期记录</h3>
       <ol>{events.slice(0,10).map(event=><li key={event.id}>
         <div><strong>{event.from_status?statusLabel(event.from_status)+' → '+statusLabel(event.to_status||'—'):statusLabel(event.to_status||eventLabel(event.event_type))}</strong><time>{new Date(event.created_at).toLocaleString()}</time></div>
-        <p>{event.note||eventLabel(event.event_type)}</p>
+        <p>{event.note||eventLabel(event.event_type)}{event.actor_id&&<span className="tp-business-lifecycle__actor"> · 操作账户 ID {event.actor_id.slice(0,8)}</span>}</p>
       </li>)}</ol>
     </section>}
   </section>;
