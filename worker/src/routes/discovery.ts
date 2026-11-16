@@ -11,7 +11,7 @@ export interface DiscoveryEnv {
   SERPER_API_KEY?: string;
   SERPAPI_API_KEY?: string;
   LEAD_DISCOVERY_WORKFLOW: { create(options: { id: string; params: { runId: string; ownerId: string; input: DiscoveryRunInput } }): Promise<{ id: string }> };
-  CONTACT_ENRICHMENT_WORKFLOW?: { create(options:{id:string;params:{jobId:string;ownerId:string;recordIds:string[]}}):Promise<{id:string}> };
+  CONTACT_ENRICHMENT_WORKFLOW?: { create(options:{id:string;params:{jobId:string;ownerId:string;recordIds:string[];providers?:Array<"website"|"apollo"|"zoominfo">}}):Promise<{id:string}> };
   OVERPASS_API_URL?: string;
 }
 export type DiscoveryProvider = "google_maps" | "openstreetmap";
@@ -391,17 +391,20 @@ export async function handleDiscovery(request: Request, env: DiscoveryEnv): Prom
   }
 
   if(request.method==="POST" && url.pathname==="/api/v1/discovery-contact-enrichments"){
-    let body:{recordIds?:string[]};try{body=await request.json() as {recordIds?:string[]};}catch{return errorResponse(request,"VALIDATION_ERROR","请求内容不是有效 JSON。",400);}
+    let body:{recordIds?:string[];providers?:Array<string>};try{body=await request.json() as {recordIds?:string[];providers?:Array<string>};}catch{return errorResponse(request,"VALIDATION_ERROR","请求内容不是有效 JSON。",400);}
     const recordIds=[...new Set(Array.isArray(body.recordIds)?body.recordIds:[])];
     if(recordIds.length<1||recordIds.length>50||recordIds.some(id=>!/^[0-9a-f-]{36}$/i.test(id)))return errorResponse(request,"VALIDATION_ERROR","请选择 1 到 50 条有效搜索结果。",400);
+    const allowedProviders=["website","apollo","zoominfo"];
+    const providers=[...new Set(Array.isArray(body.providers)?body.providers: ["website"])];
+    if(!providers.length||providers.some(provider=>!allowedProviders.includes(provider)))return errorResponse(request,"INVALID_CONTACT_PROVIDER","联系人补全数据源无效；Lusha 尚未获得书面授权，暂不开放调用。",400);
     const records=await db<Array<{id:string;channel:string;website:string|null}>>(env,"discovery_records?owner_id=eq."+userId+"&id=in.("+recordIds.join(",")+")&select=id,channel,website");
     if(records.length!==recordIds.length)return errorResponse(request,"NOT_FOUND","部分所选记录不存在或无权访问。",404);
-    if(records.some(record=>!record.website))return errorResponse(request,"VALIDATION_ERROR","所选记录中存在没有官网地址的项目，请先筛选有官网的记录。",400);
-    const created=await db<Array<{id:string}>>(env,"discovery_contact_enrichment_runs",{method:"POST",headers:{Prefer:"return=representation"},body:JSON.stringify({owner_id:userId,record_ids:recordIds,status:"queued",progress:0,completed_count:0,failed_count:0,message:"联系方式采集任务已排队"})});
+    if(providers.length===1&&providers[0]==="website"&&records.every(record=>!record.website))return errorResponse(request,"VALIDATION_ERROR","所选记录均没有官网地址，请选择 Apollo 或 ZoomInfo 数据源。",400);
+    const created=await db<Array<{id:string}>>(env,"discovery_contact_enrichment_runs",{method:"POST",headers:{Prefer:"return=representation"},body:JSON.stringify({owner_id:userId,record_ids:recordIds,status:"queued",progress:0,completed_count:0,failed_count:0,message:"联系人搜索与联系方式补全任务已排队"})});
     const job=created?.[0];if(!job?.id)throw new Error("CONTACT_ENRICHMENT_JOB_CREATE_FAILED");
     if(!env.CONTACT_ENRICHMENT_WORKFLOW)return errorResponse(request,"WORKFLOW_NOT_CONFIGURED","联系方式采集工作流尚未部署，请稍后重试。",503);
-    try{await env.CONTACT_ENRICHMENT_WORKFLOW.create({id:job.id,params:{jobId:job.id,ownerId:userId,recordIds}});}catch(error){await db(env,"discovery_contact_enrichment_runs?id=eq."+job.id,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({status:"failed",message:"工作流启动失败："+String(error).slice(0,180)})});return errorResponse(request,"WORKFLOW_START_FAILED","任务已创建，但后台工作流启动失败。",503);}
-    return successResponse(request,{id:job.id,status:"queued",progress:0,completedCount:0,failedCount:0,message:"联系方式采集工作流已启动"},202);
+    try{await env.CONTACT_ENRICHMENT_WORKFLOW.create({id:job.id,params:{jobId:job.id,ownerId:userId,recordIds,providers:providers as Array<"website"|"apollo"|"zoominfo">}});}catch(error){await db(env,"discovery_contact_enrichment_runs?id=eq."+job.id,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({status:"failed",message:"工作流启动失败："+String(error).slice(0,180)})});return errorResponse(request,"WORKFLOW_START_FAILED","任务已创建，但后台工作流启动失败。",503);}
+    return successResponse(request,{id:job.id,status:"queued",progress:0,completedCount:0,failedCount:0,message:"联系人搜索与联系方式补全工作流已启动"},202);
   }
   const contactJobMatch=url.pathname.match(/^\/api\/v1\/discovery-contact-enrichments\/([0-9a-f-]+)$/i);
   if(request.method==="GET"&&contactJobMatch){
