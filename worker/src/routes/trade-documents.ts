@@ -208,6 +208,14 @@ export async function handleTradeDocuments(request:Request,env:Env):Promise<Resp
    const requiredFields=Array.isArray(policy.requiredFields)?policy.requiredFields.map(String):[];
    const missing=requiredFields.filter(key=>{const value=key.split(".").reduce<unknown>((current,part)=>Array.isArray(current)&&part==="length"?current.length:obj(current)[part],validationData);return value===undefined||value===null||value===""||(Array.isArray(value)&&value.length===0)||(typeof value==="object"&&!Array.isArray(value)&&Object.keys(obj(value)).length===0);});
    if(missing.length)return errorResponse(request,"DOCUMENT_REQUIRED_FIELDS_MISSING","正式确认缺少必填字段："+missing.join("、"),400);
+   const positiveShipmentFields=["shipment.total_packages","shipment.total_gross_weight"].filter(key=>requiredFields.includes(key));
+   const invalidShipmentFields=positiveShipmentFields.filter(key=>{const value=key.split(".").reduce<unknown>((current,part)=>obj(current)[part],validationData);return !Number.isFinite(Number(value))||Number(value)<=0;});
+   if(invalidShipmentFields.length)return errorResponse(request,"DOCUMENT_INVALID_SHIPMENT_MEASUREMENTS","发运箱数和毛重必须大于 0。",400);
+   if(requiredFields.includes("items")){
+    const lines=Array.isArray(content.items)?content.items as Json[]:[];
+    const invalidLines=lines.filter(line=>!str(line.product_name??line.name,240)||!Number.isFinite(Number(line.quantity))||Number(line.quantity)<=0);
+    if(invalidLines.length)return errorResponse(request,"DOCUMENT_INVALID_LINE_ITEMS","货物明细必须填写品名且数量大于 0。",400);
+   }
    if(policy.requireReview===true&&String(doc.status)!=="approved"){
     if(String(doc.status)!=="review"){
      const updated=await db<Json[]>(env,"trade_documents?id=eq."+encodeURIComponent(path[1])+"&owner_id=eq."+ownerId+"&status=eq.draft",{method:"PATCH",headers:{Prefer:"return=representation"},body:JSON.stringify({status:"review",updated_at:new Date().toISOString()})});
