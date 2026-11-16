@@ -1,5 +1,4 @@
 -- Allow documents to be drafted independently from an existing sales or purchase order.
--- A null order_id represents a standalone document; all document content remains owner-scoped.
 alter table public.trade_documents
   alter column order_id drop not null;
 
