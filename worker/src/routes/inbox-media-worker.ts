@@ -342,6 +342,8 @@ async function processJob(env: MediaWorkerEnv, job: MediaJob, secrets: Record<st
 }
 
 export async function processInboxMediaJobs(env: MediaWorkerEnv): Promise<void> {
+  // Do not claim jobs until the scanner is configured; they remain queued for later.
+  if (!env.INBOX_SCANNER_URL?.trim() || !env.INBOX_SCANNER_HMAC_SECRET) return;
   const secrets = await readIntegrationSecrets(SECRET_KEYS, env);
   const jobs = await db<MediaJob[]>(env, "rpc/inbox_claim_media_jobs", {
     method: "POST",
