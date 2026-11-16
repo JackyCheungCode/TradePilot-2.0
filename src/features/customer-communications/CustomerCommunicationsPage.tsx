@@ -29,7 +29,7 @@ const channelOptions: ChannelOption[] = Object.entries(communicationChannelLabel
 const sendableChannels = new Set<CommunicationChannel>(['whatsapp', 'messenger', 'telegram', 'line']);
 
 function mapInboxConversation(row: InboxConversation): { conversation: CommunicationConversation; customer: CommunicationCustomer } {
-  const contact = row.contact ?? ({} as InboxContact);
+  const contact = row.contact ?? ({} as NonNullable<InboxConversation['contact']>);
   const contactName = row.contact_display_name || contact.full_name ||
     [contact.first_name, contact.last_name].filter(Boolean).join(' ') || '未命名联系人';
   const channel = (row.last_channel_type || row.identities[0]?.channel_type || 'email') as CommunicationChannel;
