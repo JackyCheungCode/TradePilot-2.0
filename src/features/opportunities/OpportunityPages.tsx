@@ -190,22 +190,10 @@ export function OpportunityDetailPage() {
    try{
      const db=await getSupabaseClient();const {data:sessionData}=await db.auth.getSession();const user=sessionData.session?.user;
      if(!user)throw new Error('登录状态已失效，请重新登录。');
-     const targetStatus=nextStage==='won'?'won':nextStage==='lost'?'lost':'open';
-     const probability=nextStage==='won'?100:nextStage==='lost'?0:Number(row.probability||0);
-     const update=await db.from('crm_opportunities').update({
-       stage:nextStage,status:targetStatus,probability,forecast_probability:probability,
-       forecast_category:targetStatus==='won'?'won':targetStatus==='lost'?'lost':'pipeline',
-       ...(nextStage==='won'?{won_at:new Date().toISOString(),actual_amount:row.actual_amount??row.amount}:{}),
-       ...(nextStage==='won'||nextStage==='lost'?{closed_at:new Date().toISOString()}: {})
-     }).eq('id',row.id).eq('owner_id',user.id).select('id').single();
-     if(update.error)throw update.error;
-     const event=await db.from('business_transition_events').insert({
-       owner_id:user.id,record_type:'opportunity',record_id:row.id,event_type:'gatekeeper_stage_confirmed',
-       from_status:row.stage,to_status:nextStage,gatekeeper_required:true,gatekeeper_status:'approved',
-       actor_id:user.id,note:transitionNote.trim()||'人工确认商机阶段变更',
-       payload:{source:'opportunity_detail',confirmed:true}
+     const transition=await db.rpc('confirm_opportunity_stage_transition',{
+       p_opportunity_id:row.id,p_expected_stage:row.stage,p_target_stage:nextStage,p_note:transitionNote.trim()||null
      });
-     if(event.error)throw event.error;
+     if(transition.error)throw transition.error;
      setLifecycleOpen(false);await load();
    }catch(e){setTransitionError(e instanceof Error?e.message:'阶段变更失败')}
    finally{setSaving(false)}
