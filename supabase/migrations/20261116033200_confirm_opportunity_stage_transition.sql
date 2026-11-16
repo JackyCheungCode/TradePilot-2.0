@@ -5,7 +5,7 @@ create or replace function public.confirm_opportunity_stage_transition(
   p_note text default null
 ) returns uuid
 language plpgsql
-security invoker
+security definer
 set search_path = public
 as $$
 declare
