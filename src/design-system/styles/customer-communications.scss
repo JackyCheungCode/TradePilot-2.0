@@ -76,10 +76,8 @@
   gap: var(--tp-space-03);
   padding: 0 var(--tp-space-04) var(--tp-space-03);
 }
-.cc-status-filters {
+.cc-status-filter {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--tp-space-02);
   padding: 0 var(--tp-space-04) var(--tp-space-03);
 }
 .cc-conversation-list {
@@ -116,6 +114,8 @@
   color: var(--cds-text-primary);
   font-size: 1rem;
   font-weight: 600;
+  border-radius: 50%;
+  overflow: hidden;
 }
 .cc-customer-initial--large { flex-basis: 3rem; width: 3rem; height: 3rem; font-size: 1.25rem; }
 .cc-conversation-copy {
@@ -291,4 +291,61 @@
     height: 100%;
     border-inline-start: 1px solid var(--cds-border-subtle-01);
   }
+}
+
+
+/* Compact type scale for the dense enterprise conversation workspace. */
+.cc-panel-heading .cc-section-title {
+  font-size: 1rem;
+  line-height: 1.375rem;
+  font-weight: 600;
+}
+.cc-chat-contact .cc-chat-company-title {
+  font-size: 1rem;
+  line-height: 1.375rem;
+  font-weight: 600;
+}
+.cc-profile-panel .cc-profile-title {
+  font-size: 1rem;
+  line-height: 1.375rem;
+  font-weight: 600;
+}
+.cc-profile-panel .cc-profile-section-title {
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  font-weight: 600;
+}
+.cc-profile-identity strong { font-size: 0.8125rem; }
+.cc-details { font-size: 0.75rem; line-height: 1.125rem; }
+.cc-identity-row > span:last-child,
+.cc-profile-identity span:not(.cc-customer-initial) { font-size: 0.6875rem; line-height: 1rem; }
+
+.cc-channel-logo {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  color: #fff;
+  overflow: hidden;
+}
+.cc-channel-logo svg { display: block; width: 68%; height: 68%; }
+.cc-channel-logo--sm { width: 1.375rem; height: 1.375rem; }
+.cc-channel-logo--lg { width: 2.25rem; height: 2.25rem; }
+.cc-channel-logo--whatsapp { background: #25D366; }
+.cc-channel-logo--messenger { background: #0866FF; }
+.cc-channel-logo--instagram { background: radial-gradient(circle at 30% 105%, #feda75 0%, #fa7e1e 28%, #d62976 58%, #962fbf 78%, #4f5bd5 100%); }
+.cc-channel-logo--email { background: #525252; }
+.cc-channel-logo--telegram { background: #229ED9; }
+.cc-conversation-meta .cc-channel-logo { margin-top: 0.125rem; }
+.cc-message-meta .cc-channel-logo { margin-inline-end: 0.125rem; }
+.cc-chat-actions .cc-channel-logo { margin-inline-end: 0.25rem; }
+.cc-identity-row .cc-channel-logo { margin-inline-end: 0.125rem; }
+
+@media (max-width: 767px) {
+  .cc-panel-heading .cc-section-title,
+  .cc-chat-contact .cc-chat-company-title,
+  .cc-profile-panel .cc-profile-title { font-size: 0.9375rem; line-height: 1.25rem; }
 }
