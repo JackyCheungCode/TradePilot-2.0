@@ -12,7 +12,7 @@ type Props = {
 export function BusinessLifecycle({title,steps,current,description,terminal=false,terminalKind='info',terminalTitle,statusOnly=false,children,events=[]}:Props) {
   const viewportRef=useRef<HTMLDivElement>(null);
   useEffect(()=>{const currentStep=viewportRef.current?.querySelector<HTMLElement>('[aria-current="step"], .cds--progress-step--current');currentStep?.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});},[current]);
-  const currentIndex=Math.max(0,steps.findIndex(step=>step.value===current));
+  const currentIndex=steps.findIndex(step=>step.value===current);
   const currentStep=steps.find(step=>step.value===current);
   const eventLabel=(value:string)=>({
     prospect_discovered:'发现潜客',prospect_reviewed:'审核通过',prospect_collected:'联系人采集完成',prospect_collection_empty:'本次未找到可用联系方式',prospect_converted:'转化为 CRM 线索',prospect_discarded:'排除潜客',prospect_removed:'移除潜客',
@@ -30,7 +30,7 @@ export function BusinessLifecycle({title,steps,current,description,terminal=fals
   } as Record<string,string>)[value]||value;
   return <section className="tp-business-lifecycle" aria-label={title}>
     <div className="tp-business-lifecycle__heading"><div><h2>{title}</h2>{description&&<p>{description}</p>}</div>{currentStep&&<span className="tp-business-lifecycle__current">{currentStep.label}</span>}</div>
-    {terminal||statusOnly?<InlineNotification kind={terminalKind} title={terminalTitle||currentStep?.label||current} hideCloseButton lowContrast/>:
+    {terminal||statusOnly||currentIndex<0?<InlineNotification kind={terminalKind} title={terminalTitle||currentStep?.label||current} hideCloseButton lowContrast/>:
       <div ref={viewportRef} className="tp-business-lifecycle__viewport" role="region" aria-label={title+'阶段进度'} tabIndex={0}><div className="tp-business-lifecycle__track"><ProgressIndicator currentIndex={currentIndex} spaceEqually>{steps.map((step,index)=><ProgressStep key={step.value} label={step.label} description={index===currentIndex?'当前阶段':index<currentIndex?'已完成':'待处理'}/>)}</ProgressIndicator></div></div>}
     {children&&<div className="tp-business-lifecycle__footer">{children}</div>}
     {events.length>0&&<section className="tp-business-lifecycle__history" aria-label={title+'变更记录'}>
