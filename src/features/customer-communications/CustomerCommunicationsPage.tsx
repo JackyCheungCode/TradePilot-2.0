@@ -247,14 +247,16 @@ export function CustomerCommunicationsPage() {
     let cancelled = false;
     const refreshConversations = async () => {
       try {
-        const rows = await getInboxConversations(sessionToken);
+        const [rows, channelConnections] = await Promise.all([
+          getInboxConversations(sessionToken), getInboxConnections(sessionToken),
+        ]);
         if (cancelled) return;
+        setConnections(channelConnections);
         const mapped = rows.map(mapInboxConversation);
         const customerById = new Map(mapped.map((item) => [item.customer.id, item.customer]));
         setCustomers([...customerById.values()]);
         setConversations((current) => mapped.map((item) => {
-          const previous = current.find((candidate) => candidate.id === item.conversation.id);
-          return previous ? { ...item.conversation, unread: item.conversation.id === activeId ? 0 : item.conversation.unread } : item.conversation;
+          return { ...item.conversation, unread: item.conversation.id === activeId ? 0 : item.conversation.unread };
         }));
       } catch {
         // Keep the last successfully loaded inbox snapshot during transient network failures.
