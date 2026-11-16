@@ -168,7 +168,7 @@ export function DocumentPreviewPage() {
     </div><div className="tp-document-preview__editor-actions"><Button kind="tertiary" disabled={saving} onClick={() => { setEditing(false); setDraftContent(null); }}>取消</Button><Button kind="primary" disabled={saving} onClick={() => void saveDraft()}>{saving ? '保存中…' : '保存并创建新版本'}</Button></div></section>}
     <article className={"tp-document-preview__sheet tp-document-preview__sheet--" + pageOrientation + " tp-document-preview__sheet--" + pageSize}>
       <header className="tp-document-preview__paper-header">
-        <div className="tp-document-preview__brand"><small>{text(templateConfig.headerText)}</small>
+        <div className="tp-document-preview__brand">{templateConfig.headerText && <small>{text(templateConfig.headerText)}</small>}
           {showLogo && (content.seller_logo_url || content.company_logo_url) && <img src={content.seller_logo_url || content.company_logo_url} alt="Seller logo" />}
           <div><strong>{text(content.seller_name)}</strong><span>{text(content.seller_website)}</span></div>
         </div>
