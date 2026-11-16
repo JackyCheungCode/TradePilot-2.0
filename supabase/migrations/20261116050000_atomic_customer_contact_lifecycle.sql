@@ -268,3 +268,42 @@ drop trigger if exists trg_contact_method_verification_event on public.crm_conta
 create trigger trg_contact_method_verification_event
 after insert or update on public.crm_contact_methods
 for each row execute function public.capture_contact_method_verification_event();
+
+create or replace function public.capture_crm_archive_lifecycle_event()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_record_type text := case tg_table_name when 'crm_accounts' then 'customer' else 'contact' end;
+  v_label text := case tg_table_name when 'crm_accounts' then '客户' else '联系人' end;
+begin
+  if new.is_archived is not distinct from old.is_archived then return new; end if;
+  insert into public.business_transition_events(
+    owner_id,record_type,record_id,event_type,from_status,to_status,
+    gatekeeper_required,gatekeeper_status,actor_id,note,payload
+  ) values (
+    new.owner_id,v_record_type,new.id,
+    case when new.is_archived then v_record_type||'_archived' else v_record_type||'_unarchived' end,
+    case when old.is_archived then 'archived' else 'unarchived' end,
+    case when new.is_archived then 'archived' else 'unarchived' end,
+    false,'not_required',coalesce(auth.uid(),new.owner_id),
+    v_label||case when new.is_archived then '已归档' else '已取消归档' end,
+    jsonb_build_object('dimension','archive','atomic',true)
+  );
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_customer_archive_lifecycle_event on public.crm_accounts;
+create trigger trg_customer_archive_lifecycle_event
+after update of is_archived on public.crm_accounts
+for each row when (old.is_archived is distinct from new.is_archived)
+execute function public.capture_crm_archive_lifecycle_event();
+
+drop trigger if exists trg_contact_archive_lifecycle_event on public.crm_contacts;
+create trigger trg_contact_archive_lifecycle_event
+after update of is_archived on public.crm_contacts
+for each row when (old.is_archived is distinct from new.is_archived)
+execute function public.capture_crm_archive_lifecycle_event();
