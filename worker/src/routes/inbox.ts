@@ -1,6 +1,6 @@
 import { errorResponse, successResponse } from "../lib/http";
 import { handleTranslation } from "./translation";
-import { runConfiguredAI } from "./settings";
+import { readIntegrationSecrets, runConfiguredAI } from "./settings";
 import { sendInboxProviderMessage, type InboxProviderSecrets } from "./inbox-providers";
 
 interface InboxEnv {
@@ -53,15 +53,7 @@ const channelSecretNames: Record<string, string> = {
 
 async function readInboxChannelSecrets(env: InboxEnv): Promise<InboxProviderSecrets> {
   const names = Object.values(channelSecretNames);
-  const response = await fetch(env.SUPABASE_URL + "/rest/v1/rpc/tradepilot_secret_get", {
-    method: "POST",
-    headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: "Bearer " + env.SUPABASE_SERVICE_ROLE_KEY, "Content-Type": "application/json" },
-    body: JSON.stringify({ p_names: names }),
-    signal: AbortSignal.timeout(10000),
-  });
-  if (!response.ok) throw new Error("INBOX_SECRET_STORE_UNAVAILABLE");
-  const rows = await response.json() as Array<{ name: string; secret: string }>;
-  const byName = Object.fromEntries((rows ?? []).map(row => [row.name, row.secret]));
+  const byName = await readIntegrationSecrets(names, env);
   const result: Record<string, string> = {};
   for (const [key, name] of Object.entries(channelSecretNames)) {
     const value = byName[name];
