@@ -192,19 +192,40 @@ function isPrivateIpv4(host: string): boolean {
   const parts=host.split(".").map(Number);
   if(parts.length!==4||parts.some(value=>!Number.isInteger(value)||value<0||value>255))return false;
   const [a,b]=parts;
-  return a===0||a===10||a===127||a>=224||(a===169&&b===254)||(a===172&&b>=16&&b<=31)||(a===192&&b===168);
+  return a===0||a===10||a===127||a>=224||(a===100&&b>=64&&b<=127)||(a===169&&b===254)||(a===172&&b>=16&&b<=31)||(a===192&&(b===168||b===0))||(a===198&&(b===18||b===19));
+}
+function isPrivateIpv6(host: string): boolean {
+  const value=host.toLowerCase();
+  return value==="::"||value==="::1"||value.startsWith("fc")||value.startsWith("fd")||value.startsWith("fe80:")||value.startsWith("ff")||value.startsWith("2001:db8")||value.startsWith("::ffff:") ;
 }
 async function assertPublicWebsite(url: URL): Promise<void> {
-  if(!["http:","https:"].includes(url.protocol)||url.username||url.password)throw new Error("仅支持公开 HTTP/HTTPS 网站地址。");
-  const host=url.hostname.toLowerCase().replace(/^\\[|\\]$/g,"");
-  if(!host||host==="localhost"||host.endsWith(".localhost")||host.endsWith(".local")||host.endsWith(".internal")||host==="metadata.google.internal")throw new Error("不允许抓取本地或内部网络地址。");
-  if(isPrivateIpv4(host)||host==="::1"||host==="::"||host.startsWith("fc")||host.startsWith("fd")||host.startsWith("fe80:"))throw new Error("不允许抓取私有或保留 IP 地址。");
-  if(/^\\d{1,3}(?:\\.\\d{1,3}){3}$/.test(host))return;
-  const dns=await fetch("https://cloudflare-dns.com/dns-query?name="+encodeURIComponent(host)+"&type=A",{headers:{Accept:"application/dns-json"},signal:AbortSignal.timeout(5000)});
-  if(!dns.ok)throw new Error("无法验证网站 DNS 地址，请稍后重试。");
-  const answer=await dns.json() as {Answer?:Array<{type?:number;data?:string}>};
-  const ips=(answer.Answer||[]).filter(item=>item.type===1&&item.data).map(item=>item.data!);
-  if(!ips.length||ips.some(isPrivateIpv4))throw new Error("目标网站未解析到安全的公网 IPv4 地址，已阻止抓取。");
+  let current=new URL(url.toString());
+  for(let hop=0;hop<5;hop++){
+    if(!["http:","https:"].includes(current.protocol)||current.username||current.password)throw new Error("仅支持公开 HTTP/HTTPS 网站地址。");
+    const host=current.hostname.toLowerCase().replace(/^\\[|\\]$/g,"");
+    if(!host||host==="localhost"||host.endsWith(".localhost")||host.endsWith(".local")||host.endsWith(".internal")||host==="metadata.google.internal")throw new Error("不允许抓取本地或内部网络地址。");
+    if(isPrivateIpv4(host)||isPrivateIpv6(host))throw new Error("不允许抓取私有或保留 IP 地址。");
+    if(!/^\\d{1,3}(?:\\.\\d{1,3}){3}$/.test(host)){
+      const [aResponse,aaaaResponse]=await Promise.all([
+        fetch("https://cloudflare-dns.com/dns-query?name="+encodeURIComponent(host)+"&type=A",{headers:{Accept:"application/dns-json"},signal:AbortSignal.timeout(5000)}),
+        fetch("https://cloudflare-dns.com/dns-query?name="+encodeURIComponent(host)+"&type=AAAA",{headers:{Accept:"application/dns-json"},signal:AbortSignal.timeout(5000)}),
+      ]);
+      if(!aResponse.ok||!aaaaResponse.ok)throw new Error("无法验证网站 DNS 地址，请稍后重试。");
+      const [aData,aaaaData]=await Promise.all([aResponse.json(),aaaaResponse.json()]) as Array<{Answer?:Array<{type?:number;data?:string}>}>;
+      const ipv4=(aData.Answer||[]).filter(item=>item.type===1&&item.data).map(item=>item.data!);
+      const ipv6=(aaaaData.Answer||[]).filter(item=>item.type===28&&item.data).map(item=>item.data!);
+      if(!ipv4.length&&!ipv6.length||ipv4.some(isPrivateIpv4)||ipv6.some(isPrivateIpv6))throw new Error("目标网站未解析到安全的公网 IP 地址，已阻止抓取。");
+    }
+    const probe=await fetch(current.toString(),{method:"HEAD",redirect:"manual",signal:AbortSignal.timeout(7000)}).catch(()=>null);
+    if(probe&&probe.status>=300&&probe.status<400){
+      const location=probe.headers.get("Location");
+      if(!location)throw new Error("网站返回不完整的重定向，已停止抓取。");
+      current=new URL(location,current);
+      continue;
+    }
+    return;
+  }
+  throw new Error("网站重定向次数过多，已停止抓取。");
 }
 async function jinaRead(url: URL, apiKey: string): Promise<{url:string;content:string;links:string[]}> {
   await assertPublicWebsite(url);
