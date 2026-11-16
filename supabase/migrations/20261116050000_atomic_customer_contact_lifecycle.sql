@@ -113,3 +113,58 @@ revoke all on function public.confirm_customer_status_transition(uuid,text,text,
 revoke all on function public.confirm_contact_active_transition(uuid,boolean,boolean,text) from public, anon;
 grant execute on function public.confirm_customer_status_transition(uuid,text,text,text) to authenticated;
 grant execute on function public.confirm_contact_active_transition(uuid,boolean,boolean,text) to authenticated;
+
+create or replace function public.capture_customer_created_event()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_status text := coalesce(nullif(new.custom_fields->>'customerStatus',''),
+    case new.status when 'inactive' then 'dormant' when 'blocked' then 'blacklist'
+      when 'unqualified' then 'lost' else 'active' end);
+begin
+  insert into public.business_transition_events(
+    owner_id,record_type,record_id,event_type,from_status,to_status,
+    gatekeeper_required,gatekeeper_status,actor_id,note,payload
+  ) values (
+    new.owner_id,'customer',new.id,'customer_created',null,v_status,
+    false,'not_required',coalesce(auth.uid(),new.owner_id),
+    '客户档案已创建',
+    jsonb_build_object('atomic',true)
+  );
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_customer_created_lifecycle_event on public.crm_accounts;
+create trigger trg_customer_created_lifecycle_event
+after insert on public.crm_accounts
+for each row execute function public.capture_customer_created_event();
+
+create or replace function public.capture_contact_created_event()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.business_transition_events(
+    owner_id,record_type,record_id,event_type,from_status,to_status,
+    gatekeeper_required,gatekeeper_status,actor_id,note,payload
+  ) values (
+    new.owner_id,'contact',new.id,'contact_created',null,
+    case when new.is_active then 'active' else 'inactive' end,
+    false,'not_required',coalesce(auth.uid(),new.owner_id),
+    '联系人档案已创建',
+    jsonb_build_object('atomic',true)
+  );
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_contact_created_lifecycle_event on public.crm_contacts;
+create trigger trg_contact_created_lifecycle_event
+after insert on public.crm_contacts
+for each row execute function public.capture_contact_created_event();
