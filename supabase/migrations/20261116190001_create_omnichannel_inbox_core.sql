@@ -169,12 +169,14 @@ begin
   end if;
 
   if tg_table_name = 'inbox_conversations' then
-    if (to_jsonb(new)->>'account_id') is null or contact_account <> (to_jsonb(new)->>'account_id')::uuid then
+    if contact_account is distinct from nullif(to_jsonb(new)->>'account_id', '')::uuid then
       raise exception 'Inbox account must match the contact account';
     end if;
-    select a.owner_id into account_owner from public.crm_accounts a where a.id = (to_jsonb(new)->>'account_id')::uuid;
-    if account_owner is null or account_owner <> new.owner_id then
-      raise exception 'Inbox account must belong to the same owner';
+    if contact_account is not null then
+      select a.owner_id into account_owner from public.crm_accounts a where a.id = contact_account;
+      if account_owner is null or account_owner <> new.owner_id then
+        raise exception 'Inbox account must belong to the same owner';
+      end if;
     end if;
   end if;
   return new;
