@@ -69,8 +69,9 @@ export function DocumentsCenterPage() {
   const selectedPolicy = useMemo<DocumentPolicy>(() => {
     const configured = documentPolicies[documentType] ?? {};
     const purchase = ['purchase_order', 'purchase_confirmation', 'request_for_quotation'].includes(documentType);
-    const shipping = ['commercial_invoice', 'packing_list', 'shipping_instructions', 'vgm_declaration', 'packing_declaration'].includes(documentType);
-    return { enabled: true, allowedSources: purchase ? ['blank', 'purchase_order'] : shipping ? ['blank', 'sales_order', 'shipment'] : ['blank', 'sales_order'], allowBlankCreation: true, requireShipmentWhenOrderLinked: shipping, ...configured };
+    const shipping = ['commercial_invoice', 'packing_list', 'shipping_instructions', 'shipper_letter_instruction', 'vgm_declaration', 'packing_declaration'].includes(documentType);
+    const shipmentOnly = ['vgm_declaration', 'packing_declaration'].includes(documentType);
+    return { enabled: true, allowedSources: purchase ? ['blank', 'purchase_order'] : shipmentOnly ? ['sales_order', 'shipment'] : shipping ? ['blank', 'sales_order', 'shipment'] : ['blank', 'sales_order'], allowBlankCreation: !shipmentOnly, requireShipmentWhenOrderLinked: shipping, ...configured };
   }, [documentPolicies, documentType]);
   const activeDocumentGroups = useMemo(() => documentGroups.map(group => ({ ...group, items: group.items.filter(item => documentPolicies[item.id]?.enabled !== false) })).filter(group => group.items.length > 0), [documentPolicies]);
   const orderSourceKey = category === 'purchase' ? 'purchase_order' : 'sales_order';
