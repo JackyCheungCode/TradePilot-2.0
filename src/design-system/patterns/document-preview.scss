@@ -131,3 +131,25 @@
     min-height: 250mm;
   }
 }
+
+@page tp-a4-landscape {
+  size: A4 landscape;
+  margin: 12mm;
+}
+@page tp-letter-portrait {
+  size: Letter portrait;
+  margin: 12mm;
+}
+@page tp-letter-landscape {
+  size: Letter landscape;
+  margin: 12mm;
+}
+.tp-document-preview__sheet--landscape:not(.tp-document-preview__sheet--letter) {
+  page: tp-a4-landscape;
+}
+.tp-document-preview__sheet--letter:not(.tp-document-preview__sheet--landscape) {
+  page: tp-letter-portrait;
+}
+.tp-document-preview__sheet--letter.tp-document-preview__sheet--landscape {
+  page: tp-letter-landscape;
+}
