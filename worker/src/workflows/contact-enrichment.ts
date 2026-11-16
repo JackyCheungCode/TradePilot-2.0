@@ -61,7 +61,7 @@ type ContactCandidate = {
  phone?: string;
  linkedin_url?: string;
  confidence?: number;
- field_provenance: Record<string,{provider:string;captured_at:string;verification_status:string}>;
+ field_provenance: Record<string,{provider:string;sources?:string[];captured_at:string;verification_status:string}>;
  source_providers: string[];
  review_status: "pending_review";
 };
@@ -82,7 +82,8 @@ function candidateFrom(provider:ContactProvider,raw:Record<string,unknown>,id?:s
  const fields:Record<string,unknown>={first_name:first,last_name:last,full_name:name,job_title:String(raw.title??raw.job_title??raw.jobTitle??""),department:String(raw.department??raw.job_function??""),email,phone,linkedin_url:linkedin};
  const provenance:ContactCandidate["field_provenance"]={};
  for(const [key,value] of Object.entries(fields))if(value)provenance[key]={provider,captured_at:capturedAt,verification_status:"provider_returned"};
- return {provider,provider_person_id:id??String(raw.id??raw.person_id??""),first_name:first||undefined,last_name:last||undefined,full_name:name,job_title:String(raw.title??raw.job_title??raw.jobTitle??"")||undefined,department:String(raw.department??raw.job_function??"")||undefined,email:email||undefined,phone:phone||undefined,linkedin_url:linkedin||undefined,confidence:typeof raw.contactAccuracyScore==="number"?raw.contactAccuracyScore:undefined,field_provenance:provenance,source_providers:[provider],review_status:"pending_review"};
+ const providerId=id??String(raw.id??raw.person_id??"");
+ return {provider,provider_person_id:providerId||undefined,first_name:first||undefined,last_name:last||undefined,full_name:name,job_title:String(raw.title??raw.job_title??raw.jobTitle??"")||undefined,department:String(raw.department??raw.job_function??"")||undefined,email:email||undefined,phone:phone||undefined,linkedin_url:linkedin||undefined,confidence:typeof raw.contactAccuracyScore==="number"?raw.contactAccuracyScore:undefined,field_provenance:provenance,source_providers:[provider],review_status:"pending_review"};
 }
 async function apolloContacts(env:Env,domain:string):Promise<ContactCandidate[]> {
  const key=await readIntegrationSecret(env,"tradepilot_api_apollo","APOLLO_API_KEY");
@@ -127,7 +128,7 @@ function mergeCandidates(input:ContactCandidate[]):ContactCandidate[] {
   if(!existing){merged.set(key,candidate);continue;}
   for(const [field,value] of Object.entries(candidate))if((existing as unknown as Record<string,unknown>)[field]===undefined&&(value!==undefined)) (existing as unknown as Record<string,unknown>)[field]=value;
   existing.source_providers=[...new Set([...existing.source_providers,...candidate.source_providers])];
-  existing.field_provenance={...existing.field_provenance,...candidate.field_provenance};
+  const provenance={...existing.field_provenance};for(const [field,nextValue] of Object.entries(candidate.field_provenance)){const previous=provenance[field];provenance[field]={...nextValue,provider:previous?.provider??nextValue.provider,sources:[...new Set([...(previous?.sources??(previous?.provider?[previous.provider]:[])),...(nextValue.sources??[nextValue.provider])])]};}existing.field_provenance=provenance;
  }
  return [...merged.values()].slice(0,15);
 }
