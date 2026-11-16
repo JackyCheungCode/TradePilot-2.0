@@ -147,7 +147,7 @@ export async function handleTradeDocuments(request:Request,env:Env):Promise<Resp
   if(path.length===3&&path[0]==="documents"&&path[2]==="confirm"&&method==="POST"){
    const docs=await db<Json[]>(env,"trade_documents?id=eq."+encodeURIComponent(path[1])+"&owner_id=eq."+ownerId+"&limit=1");
    const doc=docs[0];if(!doc)return errorResponse(request,"NOT_FOUND","单据不存在。",404);
-   if(["quotation","request_for_quotation"].includes(String(doc.document_type))){
+   if(["quotation","request_for_quotation"].includes(String(doc.document_type))&&doc.order_id){
     try{
      const rows=await db<Json[]>(env,"rpc/confirm_trade_quotation",{method:"POST",body:JSON.stringify({p_owner_id:ownerId,p_document_id:path[1]})});
      if(!rows.length)return errorResponse(request,"CONFIRMATION_FAILED","报价单确认未返回结果。",409);
