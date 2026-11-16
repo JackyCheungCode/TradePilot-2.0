@@ -78,7 +78,12 @@ export function DocumentsCenterPage() {
   const canUseBlankSource = selectedPolicy.allowBlankCreation !== false && (selectedPolicy.allowedSources ?? []).includes('blank');
   const selectedOrder = useMemo(() => orders.find(x => x.id === orderId), [orders, orderId]);
   const selectedShipment = useMemo(() => shipments.find(x => x.id === shipmentId), [shipments, shipmentId]);
-  const activeTemplates = useMemo(() => templates.filter(x => x.document_type === documentType && x.is_active), [templates, documentType]);
+  const activeTemplates = useMemo(() => templates.filter(x => x.document_type === documentType && x.locale === locale && x.is_active), [templates, documentType, locale]);
+  useEffect(() => {
+    const matching = templates.filter(item => item.document_type === documentType && item.locale === locale && item.is_active);
+    if (templateId && matching.some(item => item.id === templateId)) return;
+    setTemplateId(matching.find(item => item.is_default)?.id ?? '');
+  }, [templates, documentType, locale, templateId]);
 
   const request = useCallback(async (path: string, init?: RequestInit) => {
     const client = await getSupabaseClient();
@@ -224,7 +229,7 @@ export function DocumentsCenterPage() {
         <div className="tp-documents__wizard-actions"><Button kind="tertiary" onClick={() => setStep(2)}>上一步</Button><Button kind="primary" disabled={sourceMode === 'order' && (!orderId || (Boolean(selectedType?.shipment) && !shipmentId))} onClick={() => setStep(4)}>下一步</Button></div>
       </div>}
       {step === 4 && <div className="tp-documents__step-content"><h2>模板与生成</h2><p>模板负责版式，业务字段由订单和发运数据自动填充。草稿创建后仍可继续校对。</p>
-        <div className="tp-documents__form-grid"><div><Select id="tp-doc-template" labelText="单据模板" value={templateId} onChange={e => setTemplateId(e.currentTarget.value)}><SelectItem value="" text="使用系统默认版式" />{activeTemplates.map(t => <SelectItem key={t.id} value={t.id} text={t.name + (t.is_default ? ' · 默认' : '')} />)}</Select></div>
+        <div className="tp-documents__form-grid"><div><Select id="tp-doc-template" labelText="单据模板" value={templateId} onChange={e => setTemplateId(e.currentTarget.value)}><SelectItem value="" text="使用系统默认版式" />{activeTemplates.map(t => <SelectItem key={t.id} value={t.id} text={t.name + (t.is_default ? ' · 默认' : '') + ' · ' + t.locale} />)}</Select></div>
         <div><Select id="tp-doc-locale" labelText="单据语言" value={locale} onChange={e => setLocale(e.currentTarget.value)}><SelectItem value="en" text="English" /><SelectItem value="zh-CN" text="简体中文" /><SelectItem value="zh-TW" text="繁體中文" /><SelectItem value="es" text="Español" /><SelectItem value="fr" text="Français" /><SelectItem value="de" text="Deutsch" /></Select></div>
         <div className="tp-documents__currency-summary"><span>单据币种</span><strong>{selectedOrder?.currency_code || currency}</strong><small>订单来源默认带入币种；空白单据可在此选择币种</small></div></div>
         <div className="tp-documents__review"><strong>生成内容</strong><span>{typeLabel(documentType)}</span><span>{selectedOrder?.order_number || selectedOrder?.title}</span>{selectedShipment && <span>{selectedShipment.shipment_no}</span>}<span>{locale} · {currency}</span></div>
