@@ -37,8 +37,8 @@ export const customersSeed: Customer[] = [
 export const identitiesSeed: CustomerIdentity[] = [
   { id: 'id-a1', customer_id: 'cus-a', channel_type: 'email', external_user_id: 'erik@nordicmobility.se', window_expires_at: null, is_primary: true },
   { id: 'id-a2', customer_id: 'cus-a', channel_type: 'wecom', external_user_id: 'wxid_nordic_erik', window_expires_at: null, is_primary: false },
-  { id: 'id-a3', customer_id: 'cus-a', channel_type: 'whatsapp', external_user_id: '+46701234567', window_expires_at: Date.now() + 8 * 60 * 60_000, is_primary: false },
-  { id: 'id-b1', customer_id: 'cus-b', channel_type: 'whatsapp', external_user_id: '+49305550182', window_expires_at: ago(26 * 60), is_primary: true },
+  { id: 'id-a3', customer_id: 'cus-a', channel_type: 'whatsapp', external_user_id: '+46701234567', window_expires_at: null, is_primary: false },
+  { id: 'id-b1', customer_id: 'cus-b', channel_type: 'whatsapp', external_user_id: '+49305550182', window_expires_at: null, is_primary: true },
   { id: 'id-c1', customer_id: 'cus-c', channel_type: 'line', external_user_id: 'tanaka_tokyo', window_expires_at: null, is_primary: true },
   { id: 'id-c2', customer_id: 'cus-c', channel_type: 'email', external_user_id: 'k.tanaka@tokyoparts.jp', window_expires_at: null, is_primary: false },
   { id: 'id-d1', customer_id: 'cus-d', channel_type: 'messenger', external_user_id: 'sophie.pacific', window_expires_at: null, is_primary: true },
