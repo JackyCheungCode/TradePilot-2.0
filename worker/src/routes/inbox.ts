@@ -94,6 +94,63 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
       return successResponse(request, { connections });
     }
 
+    const metricsMatch = url.pathname.match(/^\/api\/v1\/inbox\/customers\/([0-9a-f-]{36})\/business-metrics$/i);
+    if (metricsMatch && request.method === "GET") {
+      const contactId = metricsMatch[1];
+      const contacts = await db<Row[]>(env,
+        "crm_contacts?select=id,account_id&id=eq." + contactId + "&owner_id=eq." + ownerId + "&limit=1");
+      if (!contacts.length || typeof contacts[0].account_id !== "string") {
+        return errorResponse(request, "CUSTOMER_NOT_FOUND", "客户联系人不存在或尚未关联客户档案。", 404);
+      }
+      const accountId = String(contacts[0].account_id);
+      const orderFilter = "owner_id=eq." + ownerId +
+        "&order_type=eq.sales&status=in.(active,completed)&or=(crm_account_id.eq." + accountId +
+        ",crm_contact_id.eq." + contactId + ")";
+      const orders = await db<Row[]>(env,
+        "trade_orders?select=id,status,currency_code,trade_date,created_at&" + orderFilter + "&order=trade_date.asc&limit=1000");
+      const orderIds = unique(orders.map(row => row.id));
+      const items = orderIds.length
+        ? await db<Row[]>(env, "trade_order_items?select=order_id,amount&owner_id=eq." + ownerId +
+            "&order_id=in.(" + orderIds.join(",") + ")&limit=5000")
+        : [];
+      const orderAmounts = new Map<string, number>();
+      for (const item of items) {
+        const orderId = String(item.order_id ?? "");
+        orderAmounts.set(orderId, (orderAmounts.get(orderId) ?? 0) + Number(item.amount ?? 0));
+      }
+      const totalsByCurrency = new Map<string, number>();
+      const monthly = new Map<string, { orders: number; totals: Map<string, number> }>();
+      for (const order of orders) {
+        const currency = String(order.currency_code || "USD");
+        const amount = orderAmounts.get(String(order.id)) ?? 0;
+        totalsByCurrency.set(currency, (totalsByCurrency.get(currency) ?? 0) + amount);
+        const dateValue = String(order.trade_date || order.created_at || "");
+        const period = dateValue.length >= 7 ? dateValue.slice(0, 7) : "未注明日期";
+        const bucket = monthly.get(period) ?? { orders: 0, totals: new Map<string, number>() };
+        bucket.orders += 1;
+        bucket.totals.set(currency, (bucket.totals.get(currency) ?? 0) + amount);
+        monthly.set(period, bucket);
+      }
+      const [shipments, payments] = await Promise.all([
+        db<Row[]>(env, "trade_shipments?select=id,status&owner_id=eq." + ownerId +
+          "&account_id=eq." + accountId + "&status=in.(pending_booking,booked,loaded,customs_cleared,departed,in_transit,arrived,import_cleared)&limit=1000"),
+        db<Row[]>(env, "trade_payments?select=id&owner_id=eq." + ownerId +
+          "&account_id=eq." + accountId + "&payment_type=eq.receipt&status=not.eq.voided&limit=1000"),
+      ]);
+      return successResponse(request, {
+        account_id: accountId,
+        total_order_count: orders.length,
+        active_order_count: orders.filter(order => order.status === "active").length,
+        total_amount_by_currency: [...totalsByCurrency.entries()].map(([currency, amount]) => ({ currency, amount })),
+        shipment_count: shipments.length,
+        payment_count: payments.length,
+        monthly_trend: [...monthly.entries()].map(([period, bucket]) => ({
+          period, order_count: bucket.orders,
+          amount_by_currency: [...bucket.totals.entries()].map(([currency, amount]) => ({ currency, amount })),
+        })),
+      });
+    }
+
     const noteMatch = url.pathname.match(/^\/api\/v1\/inbox\/conversations\/([0-9a-f-]{36})\/notes$/i);
     if (noteMatch && request.method === "POST") {
       const conversationId = noteMatch[1];
