@@ -185,7 +185,7 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
         <div className="tp-xiaoya-drawer__toolbar">
           <div className="tp-xiaoya-drawer__title">
             <CarbonIcons.Chat size={20} />
-            <Heading className="tp-xiaoya-drawer__heading cds--type-heading-compact-01">小雅 AI 助手</Heading>
+            <Heading className="tp-xiaoya-drawer__heading">小雅 AI 助手</Heading>
           </div>
           <Button kind="ghost" size="sm" onClick={onClose}>
             <CarbonIcons.Close size={16} />
@@ -195,9 +195,9 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
         {welcomeVisible && (
           <section className="tp-xiaoya-welcome" aria-label="小雅助手介绍">
             <div className={`tp-xiaoya-welcome__avatar tp-xiaoya-welcome__avatar--${avatarEmotion}`}>
-              <XiaoyaAvatar emotion={avatarEmotion} size={64} />
+              <XiaoyaAvatar emotion={avatarEmotion} size={192} />
             </div>
-            <Heading className="tp-xiaoya-welcome__title cds--type-heading-compact-02">你好，我是小雅。</Heading>
+            <Heading className="tp-xiaoya-welcome__title">你好，我是小雅。</Heading>
             <p className="tp-xiaoya-welcome__description cds--type-label-01">我可以结合当前页面上下文，帮你分析业务数据、查找信息、梳理问题并完成日常工作。</p>
           </section>
         )}
