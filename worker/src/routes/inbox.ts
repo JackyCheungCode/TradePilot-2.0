@@ -291,7 +291,7 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
       return successResponse(request, { message: updated[0] ?? null, translated_content: translatedPayload.data.translatedText, target_language: targetLanguage });
     }
 
-    const sendMatch = url.pathname.match(/^\\/api\\/v1\\/inbox\\/conversations\\/([0-9a-f-]{36})\\/messages$/i);
+    const sendMatch = url.pathname.match(/^\/api\/v1\/inbox\/conversations\/([0-9a-f-]{36})\/messages$/i);
     if (sendMatch && request.method === "POST") {
       const conversationId = sendMatch[1];
       let body: { content?: unknown };
