@@ -4,7 +4,7 @@ import { Accordion, AccordionItem, Button, InlineLoading, InlineNotification, Se
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/trade-tools.scss';
 
-type ToolKey = 'hs' | 'tariff' | 'screen' | 'rulings';
+type ToolKey = 'hs' | 'tariff' | 'screen' | 'rulings' | 'website';
 type ToolMeta = { id: ToolKey; name: string; description: string; icon: React.ReactNode; category: string };
 type ResultRecord = Record<string, unknown>;
 const omniboxTools: ToolMeta[] = [
@@ -12,6 +12,7 @@ const omniboxTools: ToolMeta[] = [
   { id: 'tariff', name: '出口关税预估', description: '查询基础、优惠及附加关税结构', icon: <CarbonIcons.Calculator size={20}/>, category: '产品与关税' },
   { id: 'screen', name: '贸易实体制裁筛查', description: '检查企业或个人是否命中受限名单', icon: <CarbonIcons.Security size={20}/>, category: '贸易合规' },
   { id: 'rulings', name: '美国 CBP 海关裁决检索', description: '语义检索美国海关历史裁决', icon: <CarbonIcons.Document size={20}/>, category: '贸易合规' },
+  { id: 'website', name: '网站抓取与 AI 企业背调', description: '使用 Jina Reader 抓取官网，提取公开联系方式并生成企业背景报告', icon: <CarbonIcons.Globe size={20}/>, category: '网站情报' },
 ];
 const fieldLabels: Record<string, string> = {
   hs_code: 'HS 编码', hts_code: 'HTS 编码', code: '编码', description: '商品描述', product_description: '商品描述',
@@ -73,11 +74,14 @@ export function TradeToolsHubPage() {
   const [countries, setCountries] = useState('');
   const [keyword, setKeyword] = useState('');
   const [threshold, setThreshold] = useState('0.65');
+  const [websiteUrl, setWebsiteUrl] = useState('');
+  const [websiteMode, setWebsiteMode] = useState('all');
+  const [websiteMaxPages, setWebsiteMaxPages] = useState('4');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState<unknown>(null);
   const filteredTools = useMemo(() => omniboxTools.filter(tool => (tool.name + tool.description + tool.category).toLowerCase().includes(query.trim().toLowerCase())), [query]);
-  const categories = useMemo(() => [{ name: '产品与关税', tools: filteredTools.filter(tool => tool.category === '产品与关税') }, { name: '贸易合规', tools: filteredTools.filter(tool => tool.category === '贸易合规') }], [filteredTools]);
+  const categories = useMemo(() => [{ name: '产品与关税', tools: filteredTools.filter(tool => tool.category === '产品与关税') }, { name: '贸易合规', tools: filteredTools.filter(tool => tool.category === '贸易合规') }, { name: '网站情报', tools: filteredTools.filter(tool => tool.category === '网站情报') }], [filteredTools]);
   const activeTool = omniboxTools.find(tool => tool.id === active) || null;
   const records = useMemo(() => findRecords(result), [result]);
   const entries = useMemo(() => resultEntries(result), [result]);
@@ -87,9 +91,11 @@ export function TradeToolsHubPage() {
     try {
       const token = await authToken();
       const payload: Record<string, unknown> = active === 'hs' ? { productDescription, originCountry } : active === 'tariff' ? { productDescription, originCountry, value: declaredValue } : active === 'screen' ? { name: entityName, fuzzy_name: fuzzy === 'true', countries } : { keyword, match_threshold: Number(threshold) };
-      const response = await fetch('/api/v1/trade-tools/omnibox', { method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify({ action: active === 'hs' || active === 'tariff' ? 'classify' : active, payload }) });
+      const response = active === 'website'
+        ? await fetch('/api/v1/trade-tools/website-intelligence', { method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify({ url: websiteUrl, mode: websiteMode, maxPages: Number(websiteMaxPages) }) })
+        : await fetch('/api/v1/trade-tools/omnibox', { method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify({ action: active === 'hs' || active === 'tariff' ? 'classify' : active, payload }) });
       const body = await response.json() as { data?: unknown; error?: { message?: string } };
-      if (!response.ok) throw new Error(body.error?.message || 'Omnibox 查询失败（HTTP ' + response.status + '）');
+      if (!response.ok) throw new Error(body.error?.message || (active === 'website' ? '网站情报分析失败' : 'Omnibox 查询失败') + '（HTTP ' + response.status + '）');
       setResult(body.data ?? body);
     } catch (e) { setError(e instanceof Error ? e.message : '查询失败，请稍后重试。'); }
     finally { setBusy(false); }
@@ -113,11 +119,21 @@ export function TradeToolsHubPage() {
           {(active === 'hs' || active === 'tariff') && <><TextArea id="omnibox-product-description" labelText="商品详细描述" rows={4} value={productDescription} onChange={e => setProductDescription(e.currentTarget.value)} placeholder="输入商品名称、材质、用途和技术规格"/><div className="tp-tool-center__form-grid"><TextInput id="omnibox-origin" labelText="原产国代码（ISO 两位代码）" value={originCountry} onChange={e => setOriginCountry(e.currentTarget.value.toUpperCase())} placeholder="CN"/>{active === 'tariff' && <TextInput id="omnibox-value" labelText="申报价值（USD）" type="number" value={declaredValue} onChange={e => setDeclaredValue(e.currentTarget.value)} placeholder="例如 1200"/>}</div></>}
           {active === 'screen' && <><TextInput id="omnibox-screen-name" labelText="企业或个人名称" value={entityName} onChange={e => setEntityName(e.currentTarget.value)} placeholder="输入英文法定名称或常用名称"/><div className="tp-tool-center__form-grid"><Select id="omnibox-screen-fuzzy" labelText="模糊匹配" value={fuzzy} onChange={e => setFuzzy(e.currentTarget.value)}><SelectItem value="true" text="启用"/><SelectItem value="false" text="精确匹配"/></Select><TextInput id="omnibox-screen-countries" labelText="国家过滤（可选）" value={countries} onChange={e => setCountries(e.currentTarget.value.toUpperCase())} placeholder="CN,RU"/></div></>}
           {active === 'rulings' && <><TextArea id="omnibox-rulings-keyword" labelText="裁决检索关键词" rows={4} value={keyword} onChange={e => setKeyword(e.currentTarget.value)} placeholder="例如：waterproof footwear, wireless bluetooth speaker"/><TextInput id="omnibox-rulings-threshold" labelText="匹配阈值（0–1）" type="number" value={threshold} onChange={e => setThreshold(e.currentTarget.value)}/></>}
+          {active === 'website' && <><TextInput id="website-intelligence-url" labelText="客户官网 URL" placeholder="https://www.example.com" value={websiteUrl} onChange={e=>setWebsiteUrl(e.currentTarget.value)}/><div className="tp-tool-center__form-grid"><Select id="website-intelligence-mode" labelText="分析任务" value={websiteMode} onChange={e=>setWebsiteMode(e.currentTarget.value)}><SelectItem value="all" text="网站抓取 + 联系方式提取 + AI 背调"/><SelectItem value="scrape" text="仅抓取网站内容"/><SelectItem value="contacts" text="公开联系方式提取"/><SelectItem value="diligence" text="AI 企业背景调查"/></Select><Select id="website-intelligence-pages" labelText="抓取页面上限" value={websiteMaxPages} onChange={e=>setWebsiteMaxPages(e.currentTarget.value)}><SelectItem value="1" text="1 页（仅首页）"/><SelectItem value="3" text="最多 3 页"/><SelectItem value="4" text="最多 4 页"/><SelectItem value="5" text="最多 5 页"/></Select></div></>}
           {error && <InlineNotification kind="error" title="查询失败" subtitle={error}/>}
-          <div className="tp-tool-center__actions"><Button kind="primary" disabled={busy || ((active === 'hs' || active === 'tariff') ? !productDescription.trim() : active === 'screen' ? !entityName.trim() : !keyword.trim())} onClick={() => void runQuery()}>{busy ? '正在查询…' : '查询'}</Button>{busy && <InlineLoading description="正在请求 Omnibox 服务…"/>}</div>
+          <div className="tp-tool-center__actions"><Button kind="primary" disabled={busy || (active === 'website' ? !websiteUrl.trim() : (active === 'hs' || active === 'tariff') ? !productDescription.trim() : active === 'screen' ? !entityName.trim() : !keyword.trim())} onClick={() => void runQuery()}>{busy ? '正在处理…' : active === 'website' ? '开始网站分析' : '查询'}</Button>{busy && <InlineLoading description={active === 'website' ? '正在抓取网站并生成背调…' : '正在请求 Omnibox 服务…'}/>}</div>
           {result !== null && <section className="tp-tool-center__result" aria-live="polite">
             <div className="tp-tool-center__result-heading"><h3>查询结果</h3><Button kind="ghost" size="sm" onClick={() => void navigator.clipboard?.writeText(JSON.stringify(result, null, 2))}>复制原始数据</Button></div>
-            {records.length > 0 ? <div className="tp-tool-center__table-wrap tp-tool-center__table-wrap--records"><table className="cds--data-table cds--data-table--md"><thead><tr>{Object.keys(records[0]).filter(key => !['raw', 'metadata'].includes(key.toLowerCase())).slice(0, 9).map(key => <th key={key} scope="col">{labelFor(key)}</th>)}</tr></thead><tbody>{records.map((record, index) => <tr key={String(record.id ?? record.ruling_number ?? record.hts_code ?? index)}>{Object.keys(records[0]).filter(key => !['raw', 'metadata'].includes(key.toLowerCase())).slice(0, 9).map(key => <td key={key} data-label={labelFor(key)}>{displayValue(record[key])}</td>)}</tr>)}</tbody></table></div> : <div className="tp-tool-center__table-wrap tp-tool-center__table-wrap--fields"><table className="cds--data-table cds--data-table--md"><thead><tr><th scope="col">业务字段</th><th scope="col">查询结果</th></tr></thead><tbody>{entries.map(([key, value]) => <tr key={key}><th scope="row">{labelFor(key)}</th><td data-label="查询结果">{displayValue(value)}</td></tr>)}</tbody></table></div>}
+            {active === 'website' && result && typeof result === 'object' && <div className="tp-tool-center__website-result">
+              {(() => { const data=result as Record<string,unknown>; const contacts=(data.contacts&&typeof data.contacts==='object'?data.contacts:{}) as Record<string,unknown>; const report=data.aiReport; return <>
+                <p>抓取页面：{Array.isArray(data.pages)?data.pages.length:0} 个 · 抓取时间：{String(data.extractedAt||'—')}</p>
+                <h4>公开联系方式</h4>
+                {(['emails','phones','whatsapp','social'] as const).map(key=><div key={key}><strong>{{emails:'邮箱',phones:'电话',whatsapp:'WhatsApp',social:'社交账号'}[key]}</strong><p>{Array.isArray(contacts[key])&&contacts[key].length?contacts[key].map(String).join(' · '):'未发现'}</p></div>)}
+                {report!==null&&report!==undefined&&<><h4>AI 企业背调报告</h4><pre>{typeof report==='string'?report:JSON.stringify(report,null,2)}</pre></>}
+                {Array.isArray(data.pages)&&<><h4>来源页面</h4><ul>{(data.pages as Array<Record<string,unknown>>).map(page=><li key={String(page.url)}><a href={String(page.url)} target="_blank" rel="noreferrer">{String(page.url)}</a></li>)}</ul></>}
+              </>; })()}
+            </div>}
+            {active === 'website' ? null : records.length > 0 ? <div className="tp-tool-center__table-wrap tp-tool-center__table-wrap--records"><table className="cds--data-table cds--data-table--md"><thead><tr>{Object.keys(records[0]).filter(key => !['raw', 'metadata'].includes(key.toLowerCase())).slice(0, 9).map(key => <th key={key} scope="col">{labelFor(key)}</th>)}</tr></thead><tbody>{records.map((record, index) => <tr key={String(record.id ?? record.ruling_number ?? record.hts_code ?? index)}>{Object.keys(records[0]).filter(key => !['raw', 'metadata'].includes(key.toLowerCase())).slice(0, 9).map(key => <td key={key} data-label={labelFor(key)}>{displayValue(record[key])}</td>)}</tr>)}</tbody></table></div> : <div className="tp-tool-center__table-wrap tp-tool-center__table-wrap--fields"><table className="cds--data-table cds--data-table--md"><thead><tr><th scope="col">业务字段</th><th scope="col">查询结果</th></tr></thead><tbody>{entries.map(([key, value]) => <tr key={key}><th scope="row">{labelFor(key)}</th><td data-label="查询结果">{displayValue(value)}</td></tr>)}</tbody></table></div>}
             <details className="tp-tool-center__raw"><summary>查看原始 JSON 数据</summary><pre>{JSON.stringify(result, null, 2)}</pre></details>
           </section>}
           <p className="tp-tool-center__footnote">查询结果仅供业务预判。HS Code 和关税信息不构成海关正式归类或报关意见；实体筛查命中结果需要结合主体身份、地址和官方清单进一步核实。</p>
