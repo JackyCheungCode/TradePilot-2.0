@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ComponentType } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { SalesConversionFunnel } from './SalesConversionFunnel';
 import { Button, InlineLoading, InlineNotification, Select, SelectItem, TextInput, Tile, CarbonIcons } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/dashboard.scss';
@@ -227,6 +228,7 @@ export function DashboardPage() {
     </header>
     {error && <InlineNotification kind="error" title="工作台数据加载失败" subtitle={error} lowContrast />}
     {period === 'custom' && (!from || !to || from > to) && <InlineNotification kind="warning" title="请选择有效日期范围" subtitle="开始日期和结束日期均需填写，且开始日期不能晚于结束日期。" lowContrast />}
+    <SalesConversionFunnel startDate={range.start.toISOString()} endDate={range.end.toISOString()} />
     <section className="tp-dashboard__section-heading"><div><h2>业务指标</h2><p>各业务板块统一按所选日期范围统计，卡片趋势按日绘制</p></div><span>{periodOptions.find(item => item.value === period)?.label} · {data?.dailyLabels[0] || '—'} 至 {data?.dailyLabels.at(-1) || '—'}</span></section>
     {loading && !data ? <div className="tp-dashboard__loading"><InlineLoading description="正在汇聚各业务板块数据…" /></div> : <section className="tp-dashboard__metrics" aria-label="跨模块业务指标">
       {metrics.map((item, index) => {
