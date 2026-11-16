@@ -265,12 +265,14 @@ export function ProspectConsolePage() {
   useEffect(()=>{setPage(1);},[platformKey,status,country,sort,search,period,customFrom,customTo]);
   useEffect(()=>{if(page>totalPages)setPage(totalPages);},[page,totalPages]);
   useEffect(()=>{setSelectedCandidateKeys([]);setCandidateEdits({});},[selected?.id]);
-  const runAction=async(row:ProspectRow,action:'promote'|'discard'|'remove')=>{
+  const runAction=async(row:ProspectRow,action:'promote'|'discard'|'remove'|'review')=>{
     if(action==='promote'){
+      if(row.lifecycleStage!=='collected'){setError('请先审核潜客并完成联系人采集，再转为 CRM 线索。');return;}
       navigate('/leads/new?discoveryRecordId='+encodeURIComponent(row.recordIds[0]??''));
       return;
     }
     if(!stats||actionBusyId)return;
+    if(action==='review'&&row.lifecycleStage!=='discovered'){setError('只有新发现的潜客可以进入审核。');return;}
     setActionBusyId(row.id);setError('');
     try{
       const client=await getSupabaseClient();
