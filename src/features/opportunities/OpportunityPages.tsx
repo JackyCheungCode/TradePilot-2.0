@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput, TextArea,
@@ -76,6 +76,7 @@ export function OpportunityConsolePage() {
     finally { setLoading(false); }
   },[]);
   useEffect(()=>{void load()},[load]);
+ useEffect(()=>{const currentStep=lifecycleScrollRef.current?.querySelector<HTMLElement>('[aria-current="step"], .cds--progress-step--current');currentStep?.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});},[row?.stage,loading]);
   const filtered = useMemo(()=>rows.filter(r=>(stage==='all'||r.stage===stage)&&[r.name,r.opportunity_number,r.source,r.sales_person,r.sales_team].join(' ').toLowerCase().includes(query.trim().toLowerCase())),[rows,stage,query]);
   useEffect(()=>setPage(1),[query,stage]);
   const open = rows.filter(r=>r.status==='open');
@@ -156,6 +157,7 @@ export function OpportunityDetailPage() {
  const [lifecycleOpen,setLifecycleOpen]=useState(false); const [nextStage,setNextStage]=useState(''); const [transitionNote,setTransitionNote]=useState('');
  const [quoteModalOpen,setQuoteModalOpen]=useState(false); const [quoteMode,setQuoteMode]=useState('single'); const [quoteConfirmed,setQuoteConfirmed]=useState(false);
  const [confirmed,setConfirmed]=useState(false); const [saving,setSaving]=useState(false); const [transitionError,setTransitionError]=useState('');
+ const lifecycleScrollRef=useRef<HTMLDivElement>(null);
  const load=useCallback(async()=>{
    setLoading(true);setError('');
    try{
@@ -208,7 +210,7 @@ export function OpportunityDetailPage() {
    <section className="tp-opportunities__primary tp-opportunities__lifecycle">
      <div className="tp-opportunities__lifecycle-head"><div><h2>生命周期</h2><p>{terminal?'商机已进入终止阶段':`当前阶段：${stageLabel(row.stage)}`}</p></div><Tag type={row.stage==='won'?'green':row.stage==='lost'?'red':'blue'}>{stageLabel(row.stage)}</Tag></div>
      {terminal?<InlineNotification kind={row.stage==='won'?'success':'warning'} title={row.stage==='won'?'商机已赢单':'商机已输单'} subtitle="终止状态不能通过普通阶段管理直接修改；如需纠正，请走受控更正流程。"/>:
-       <div className="tp-opportunities__lifecycle-scroll" role="region" aria-label="商机生命周期阶段" tabIndex={0}><div className="tp-opportunities__lifecycle-track"><ProgressIndicator currentIndex={currentIndex} spaceEqually>
+       <div ref={lifecycleScrollRef} className="tp-opportunities__lifecycle-scroll" role="region" aria-label="商机生命周期阶段" tabIndex={0}><div className="tp-opportunities__lifecycle-track"><ProgressIndicator currentIndex={currentIndex} spaceEqually>
          {lifecycleStages.map(([key,title],index)=><ProgressStep key={key} label={title} description={index===currentIndex?'当前阶段':index<currentIndex?'已完成':'待处理'}/>)}
        </ProgressIndicator></div></div>}
      <div className="tp-opportunities__lifecycle-foot"><span>阶段变更需要人工确认；报价、订单等下游记录的生成不会仅凭阶段按钮自动发生。</span>{!terminal&&<Button kind="tertiary" size="sm" onClick={openLifecycle}>确认下一阶段</Button>}</div>
