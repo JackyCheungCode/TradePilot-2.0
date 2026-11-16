@@ -138,7 +138,7 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
       <aside className="tp-xiaoya-drawer" role="dialog" aria-modal="true" aria-label="小雅 AI 助手">
         <div className="tp-xiaoya-drawer__toolbar">
           <div className="tp-xiaoya-drawer__title">
-            <CarbonIcons.AI size={20} />
+            <CarbonIcons.Chat size={20} />
             <Heading>小雅 AI 助手</Heading>
           </div>
           <Button kind="ghost" size="sm" onClick={onClose}>
