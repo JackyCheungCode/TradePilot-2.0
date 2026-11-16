@@ -78,6 +78,38 @@ export function InboxPage() {
     return () => { active = false; };
   }, [selected?.id]);
 
+
+  useEffect(() => {
+    let active = true;
+    let channel: ReturnType<Awaited<ReturnType<typeof getSupabaseClient>>['channel']> | null = null;
+    void (async () => {
+      try {
+        const client = await getSupabaseClient();
+        const { data: { session } } = await client.auth.getSession();
+        if (!session?.access_token || !active) return;
+        channel = client.channel('inbox-list:' + session.user.id)
+          .on('postgres_changes', {
+            event: '*', schema: 'public', table: 'inbox_conversations',
+            filter: 'owner_id=eq.' + session.user.id,
+          }, async () => {
+            try {
+              const rows = await getInboxConversations(session.access_token);
+              if (active) setConversations(rows);
+            } catch (cause) {
+              if (active) setError(cause instanceof Error ? cause.message : '刷新会话失败。');
+            }
+          })
+          .subscribe();
+      } catch {
+        // Initial REST loading remains available if realtime cannot connect.
+      }
+    })();
+    return () => {
+      active = false;
+      if (channel) void getSupabaseClient().then(client => client.removeChannel(channel!));
+    };
+  }, []);
+
   const addInternalNote = async () => {
     if (!selected || !draft.trim() || savingNote) return;
     setSavingNote(true);
@@ -97,6 +129,44 @@ export function InboxPage() {
       setSavingNote(false);
     }
   };
+
+
+  useEffect(() => {
+    let active = true;
+    let channel: ReturnType<Awaited<ReturnType<typeof getSupabaseClient>>['channel']> | null = null;
+    if (!selected) return () => { active = false; };
+    void (async () => {
+      try {
+        const client = await getSupabaseClient();
+        const { data: { session } } = await client.auth.getSession();
+        if (!session?.access_token || !active) return;
+        const refresh = async () => {
+          try {
+            const rows = await getInboxMessages(session.access_token, selected.id);
+            if (active) setMessages(rows);
+          } catch (cause) {
+            if (active) setError(cause instanceof Error ? cause.message : '刷新消息失败。');
+          }
+        };
+        channel = client.channel('inbox-thread:' + selected.id)
+          .on('postgres_changes', {
+            event: '*', schema: 'public', table: 'inbox_messages',
+            filter: 'conversation_id=eq.' + selected.id,
+          }, () => { void refresh(); })
+          .on('postgres_changes', {
+            event: '*', schema: 'public', table: 'inbox_internal_notes',
+            filter: 'conversation_id=eq.' + selected.id,
+          }, () => { void refresh(); })
+          .subscribe();
+      } catch {
+        // The REST timeline remains usable without realtime.
+      }
+    })();
+    return () => {
+      active = false;
+      if (channel) void getSupabaseClient().then(client => client.removeChannel(channel!));
+    };
+  }, [selected?.id]);
 
   const visibleConversations = useMemo(() => conversations.filter(row => {
     const matchesChannel = channelFilter === 'all' || row.last_channel_type === channelFilter;
