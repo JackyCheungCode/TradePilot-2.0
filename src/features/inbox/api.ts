@@ -6,6 +6,7 @@ export interface InboxContact {
   job_title?: string | null;
   email?: string | null;
   phone?: string | null;
+  mobile?: string | null;
   preferred_language?: string | null;
   account_id?: string | null;
 }
