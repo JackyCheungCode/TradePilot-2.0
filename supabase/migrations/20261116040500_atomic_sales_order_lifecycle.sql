@@ -5,7 +5,7 @@ create or replace function public.confirm_sales_order_status_transition(
   p_reason text default null
 ) returns uuid
 language plpgsql
-security invoker
+security definer
 set search_path = public
 as $$
 declare
