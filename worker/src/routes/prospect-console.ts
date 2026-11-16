@@ -3,7 +3,6 @@ import { errorResponse, successResponse } from "../lib/http";
 interface ConsoleEnv {
   SUPABASE_URL: string;
   SUPABASE_ANON_KEY: string;
-  SUPABASE_SERVICE_ROLE_KEY: string;
 }
 type OccurrenceRow = {
   id: string;
@@ -28,18 +27,19 @@ type OccurrenceRow = {
     raw_data?: Record<string, unknown> | null;
   } | null;
 };
-async function authenticate(request: Request, env: ConsoleEnv): Promise<string | null> {
+async function authenticate(request: Request, env: ConsoleEnv): Promise<{ ownerId: string; token: string } | null> {
   const token = request.headers.get("Authorization")?.replace(/^Bearer\s+/i, "");
   if (!token) return null;
   const response = await fetch(env.SUPABASE_URL + "/auth/v1/user", {
     headers: { apikey: env.SUPABASE_ANON_KEY, Authorization: "Bearer " + token },
   });
   if (!response.ok) return null;
-  return (await response.json() as { id?: string }).id ?? null;
+  const ownerId = (await response.json() as { id?: string }).id;
+  return ownerId ? { ownerId, token } : null;
 }
-async function db<T>(env: ConsoleEnv, path: string): Promise<T> {
+async function db<T>(env: ConsoleEnv, path: string, token: string): Promise<T> {
   const response = await fetch(env.SUPABASE_URL + "/rest/v1/" + path, {
-    headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: "Bearer " + env.SUPABASE_SERVICE_ROLE_KEY },
+    headers: { apikey: env.SUPABASE_ANON_KEY, Authorization: "Bearer " + token },
   });
   const raw = await response.text();
   if (!response.ok) throw new Error("DATABASE_" + response.status + ": " + raw.slice(0, 300));
@@ -128,8 +128,9 @@ function sourceDetails(channel: string, rawData?: Record<string, unknown> | null
   return fields.length ? { platform: channel, fields } : null;
 }
 export async function handleProspectConsole(request: Request, env: ConsoleEnv): Promise<Response> {
-  const ownerId = await authenticate(request, env);
-  if (!ownerId) return errorResponse(request, "UNAUTHORIZED", "请先登录 TradePilot。", 401);
+  const auth = await authenticate(request, env);
+  if (!auth) return errorResponse(request, "UNAUTHORIZED", "请先登录 TradePilot。", 401);
+  const { ownerId, token } = auth;
   const url = new URL(request.url);
   const from = url.searchParams.get("from");
   const to = url.searchParams.get("to");
@@ -144,13 +145,13 @@ export async function handleProspectConsole(request: Request, env: ConsoleEnv): 
       const page = await db<OccurrenceRow[]>(env,
         "discovery_record_occurrences?owner_id=eq." + ownerId +
         "&is_removed=eq.false&select=" + encodeURIComponent(select) +
-        "&record.status=not.in.(removed,discarded)&order=captured_at.asc&limit=1000&offset=" + offset);
+        "&record.status=not.in.(removed,discarded)&order=captured_at.asc&limit=1000&offset=" + offset, token);
       rows.push(...(page ?? []));
       if (!page || page.length < 1000) break;
       if (offset === 199000) throw new Error("PROSPECT_CONSOLE_DATASET_TOO_LARGE: 请将统计聚合迁移到数据库端后再查询完整数据。");
     }
     const transitionEvents = await db<Array<{id:string;record_id:string;event_type:string;from_status:string|null;to_status:string|null;note:string|null;actor_id:string|null;created_at:string}>>(env,
-      "business_transition_events?owner_id=eq."+ownerId+"&record_type=eq.prospect&select=id,record_id,event_type,from_status,to_status,note,actor_id,created_at&order=created_at.desc&limit=5000");
+      "business_transition_events?owner_id=eq."+ownerId+"&record_type=eq.prospect&select=id,record_id,event_type,from_status,to_status,note,actor_id,created_at&order=created_at.desc&limit=5000", token);
     const eventsByRecord = new Map<string,Array<{id:string;record_id:string;event_type:string;from_status:string|null;to_status:string|null;note:string|null;actor_id:string|null;created_at:string}>>();
     for(const event of transitionEvents??[]){const list=eventsByRecord.get(event.record_id)??[];list.push(event);eventsByRecord.set(event.record_id,list);}
     const filtered = rows.filter(row => {
