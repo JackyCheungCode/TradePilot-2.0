@@ -15,6 +15,7 @@ type DocumentPolicy = {
   requiredFields: string[];
 };
 type Config = Record<string, unknown> & { documentTypes?: Record<string, Partial<DocumentPolicy>> };
+type HistoryRow = { id: string; created_at: string; old_config: Config; new_config: Config };
 
 const definitions = [
   { id: 'quotation', label: '报价单', sources: ['blank','sales_order'] as Source[] },
@@ -70,6 +71,7 @@ export function DocumentTypeSettings() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [history, setHistory] = useState<HistoryRow[]>([]);
 
   const selected = useMemo(() => definitions.find(item => item.id === selectedType) ?? definitions[0], [selectedType]);
   const load = useCallback(async () => {
@@ -80,9 +82,14 @@ export function DocumentTypeSettings() {
       if (sessionError) throw sessionError;
       const ownerId = session.session?.user.id;
       if (!ownerId) throw new Error('登录状态已失效，请重新登录。');
-      const { data, error: queryError } = await db.from('trade_document_settings').select('config').eq('owner_id', ownerId).eq('owner_id', ownerId).eq('scope_key', 'shared').maybeSingle();
-      if (queryError) throw queryError;
-      const next = (data?.config ?? {}) as Config;
+      const [settingsResult, historyResult] = await Promise.all([
+        db.from('trade_document_settings').select('config').eq('owner_id', ownerId).eq('scope_key', 'shared').maybeSingle(),
+        db.from('trade_document_settings_history').select('id,created_at,old_config,new_config').eq('owner_id', ownerId).eq('scope_key', 'shared').order('created_at', { ascending: false }).limit(8),
+      ]);
+      if (settingsResult.error) throw settingsResult.error;
+      if (historyResult.error) throw historyResult.error;
+      const next = (settingsResult.data?.config ?? {}) as Config;
+      setHistory((historyResult.data ?? []) as unknown as HistoryRow[]);
       setConfig(next);
       const first = definitions[0];
       setPolicy(normalize(first.id, [...first.sources], next.documentTypes?.[first.id]));
@@ -109,6 +116,9 @@ export function DocumentTypeSettings() {
       const { error: saveError } = await db.from('trade_document_settings').upsert({ owner_id: ownerId, scope_key: 'shared', config: next }, { onConflict: 'owner_id,scope_key' });
       if (saveError) throw saveError;
       setConfig(next);
+      const { data: historyRows, error: historyError } = await db.from('trade_document_settings_history').select('id,created_at,old_config,new_config').eq('owner_id', ownerId).eq('scope_key', 'shared').order('created_at', { ascending: false }).limit(8);
+      if (historyError) throw historyError;
+      setHistory((historyRows ?? []) as unknown as HistoryRow[]);
       setNotice(selected.label + '配置已保存。新建单据将采用这套规则，已有单据保留原快照。');
     } catch (cause) { setError(cause instanceof Error ? cause.message : '保存单据类型配置失败。'); }
     finally { setSaving(false); }
@@ -141,6 +151,15 @@ export function DocumentTypeSettings() {
         <div><h5>正式确认必填字段</h5><TextInput id="tp-document-required-fields" labelText="字段键（逗号分隔）" value={policy.requiredFields.join(', ')} onChange={event => update('requiredFields', event.currentTarget.value.split(',').map(value => value.trim()).filter(Boolean))} /></div>
       </div>
       <div className="tp-document-type-settings__footer"><p>空白草稿是否允许保存，与正式确认要求分开判断。修改配置不会追溯改变已生成单据。</p><Button kind="primary" disabled={saving} onClick={() => void save()}>{saving ? '正在保存…' : '保存当前单据配置'}</Button></div>
+      <section className="tp-document-type-settings__history">
+        <h5>配置变更历史</h5>
+        {history.length ? <ul>{history.map(row => {
+          const before = row.old_config.documentTypes?.[selectedType];
+          const after = row.new_config.documentTypes?.[selectedType];
+          const changed = JSON.stringify(before) !== JSON.stringify(after);
+          return <li key={row.id}><time>{new Date(row.created_at).toLocaleString()}</time><span>{changed ? selected.label + '规则更新' : '其他单据配置更新'}</span></li>;
+        })}</ul> : <p>尚无配置变更记录。保存后，后续修改会记录在这里。</p>}
+      </section>
     </>}
   </section>;
 }
