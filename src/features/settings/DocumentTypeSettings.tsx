@@ -13,6 +13,8 @@ type DocumentPolicy = {
   allowStandaloneConfirmation: boolean;
   requireReview: boolean;
   requiredFields: string[];
+  requiredOnDraftFields?: string[];
+  editableFields?: string[];
 };
 type Config = Record<string, unknown> & { documentTypes?: Record<string, Partial<DocumentPolicy>> };
 type HistoryRow = { id: string; created_at: string; old_config: Config; new_config: Config };
@@ -41,6 +43,28 @@ const definitions = [
 ] as const;
 
 const boolOptions = [{ value: 'true', text: '启用' }, { value: 'false', text: '停用' }];
+const fieldOptions = [
+  { id: 'seller_name', label: '卖方名称' }, { id: 'seller_address', label: '卖方地址' },
+  { id: 'buyer_name', label: '买方名称' }, { id: 'buyer_address', label: '买方开票地址' },
+  { id: 'buyer_shipping_address', label: '买方收货地址' }, { id: 'contact_name', label: '联系人' },
+  { id: 'contact_email', label: '联系人邮箱' }, { id: 'contact_phone', label: '联系人电话' },
+  { id: 'currency_code', label: '币种' }, { id: 'items', label: '货物明细' },
+  { id: 'totals.grand_total', label: '单据总金额' }, { id: 'payment_terms', label: '付款条件' },
+  { id: 'incoterms_code', label: '贸易术语' }, { id: 'named_place', label: '贸易术语指定地点' },
+  { id: 'delivery_date', label: '交付日期' }, { id: 'shipment.total_packages', label: '发运总箱数' },
+  { id: 'shipment.total_gross_weight', label: '发运毛重' },
+];
+const editableFieldOptions = [
+  { id: 'seller_name', label: '卖方名称' }, { id: 'seller_address', label: '卖方地址' },
+  { id: 'buyer_name', label: '买方名称' }, { id: 'buyer_address', label: '买方开票地址' },
+  { id: 'buyer_shipping_address', label: '买方收货地址' }, { id: 'contact_name', label: '联系人' },
+  { id: 'contact_email', label: '联系人邮箱' }, { id: 'contact_phone', label: '联系人电话' },
+  { id: 'notes', label: '单据备注' }, { id: 'items', label: '货物明细（仅空白单据）' },
+  { id: 'customer_reference', label: '客户参考号' }, { id: 'payment_terms', label: '付款条件' },
+  { id: 'incoterms_code', label: '贸易术语' }, { id: 'named_place', label: '指定地点' },
+  { id: 'delivery_date', label: '交付日期' },
+];
+
 const sourceOptions: { id: Source; label: string }[] = [{ id: 'blank', label: '空白创建' }, { id: 'sales_order', label: '销售订单' }, { id: 'purchase_order', label: '采购订单' }, { id: 'shipment', label: '发运记录' }];
 const defaultsFor = (id: string, sources: Source[]): DocumentPolicy => ({
   enabled: true,
@@ -51,6 +75,8 @@ const defaultsFor = (id: string, sources: Source[]): DocumentPolicy => ({
   requireShipmentWhenOrderLinked: ['commercial_invoice','packing_list','shipping_instructions','shipper_letter_instruction','vgm_declaration','packing_declaration'].includes(id),
   allowStandaloneConfirmation: !['vgm_declaration','packing_declaration'].includes(id),
   requireReview: false,
+  editableFields: ['seller_name','seller_address','buyer_name','buyer_address','buyer_shipping_address','contact_name','contact_email','contact_phone','notes','customer_reference','items'],
+  requiredOnDraftFields: [],
   requiredFields: ['vgm_declaration'].includes(id) ? ['seller_name','buyer_name','shipment.total_gross_weight'] :
     ['packing_declaration'].includes(id) ? ['seller_name','buyer_name','shipment.total_packages','shipment.total_gross_weight'] :
     ['shipping_instructions','shipper_letter_instruction'].includes(id) ? ['seller_name','buyer_name','buyer_shipping_address'] :
@@ -60,7 +86,7 @@ const defaultsFor = (id: string, sources: Source[]): DocumentPolicy => ({
 });
 const normalize = (id: string, sources: Source[], value?: Partial<DocumentPolicy>): DocumentPolicy => {
   const base = defaultsFor(id, sources);
-  return { ...base, ...(value ?? {}), allowedSources: Array.isArray(value?.allowedSources) ? value.allowedSources.filter((v): v is Source => ['blank','sales_order','purchase_order','shipment'].includes(v)) : base.allowedSources, requiredFields: Array.isArray(value?.requiredFields) ? value.requiredFields : base.requiredFields };
+  return { ...base, ...(value ?? {}), allowedSources: Array.isArray(value?.allowedSources) ? value.allowedSources.filter((v): v is Source => ['blank','sales_order','purchase_order','shipment'].includes(v)) : base.allowedSources, requiredFields: Array.isArray(value?.requiredFields) ? value.requiredFields : base.requiredFields, requiredOnDraftFields: Array.isArray(value?.requiredOnDraftFields) ? value.requiredOnDraftFields : base.requiredOnDraftFields, editableFields: Array.isArray(value?.editableFields) ? value.editableFields : base.editableFields };
 };
 
 export function DocumentTypeSettings() {
@@ -148,7 +174,9 @@ export function DocumentTypeSettings() {
         <div><h5>发运来源校验</h5><Select id="tp-document-shipment-required" labelText="订单来源是否必须关联实际发运批次" value={String(policy.requireShipmentWhenOrderLinked)} onChange={event => update('requireShipmentWhenOrderLinked', event.currentTarget.value === 'true')}>{boolOptions.map(item => <SelectItem key={item.value} value={item.value} text={item.text} />)}</Select></div>
         <div><h5>独立正式确认</h5><Select id="tp-document-standalone-confirm" labelText="无订单时是否允许正式确认" value={String(policy.allowStandaloneConfirmation)} onChange={event => update('allowStandaloneConfirmation', event.currentTarget.value === 'true')}>{boolOptions.map(item => <SelectItem key={item.value} value={item.value} text={item.text} />)}</Select></div>
         <div><h5>审核流程</h5><Select id="tp-document-review" labelText="正式确认前是否需要审核" value={String(policy.requireReview)} onChange={event => update('requireReview', event.currentTarget.value === 'true')}>{boolOptions.map(item => <SelectItem key={item.value} value={item.value} text={item.text} />)}</Select></div>
-        <div><h5>正式确认必填字段</h5><TextInput id="tp-document-required-fields" labelText="字段键（逗号分隔）" value={policy.requiredFields.join(', ')} onChange={event => update('requiredFields', event.currentTarget.value.split(',').map(value => value.trim()).filter(Boolean))} /></div>
+        <div className="tp-document-type-settings__field-group"><h5>正式确认必填字段</h5><p>勾选后，后端会在正式确认时逐项校验；空白草稿仍可先保存。</p><div className="tp-document-type-settings__field-options">{fieldOptions.map(option=><Checkbox key={option.id} id={'tp-document-required-'+option.id.replaceAll('.','-')} labelText={option.label} checked={policy.requiredFields.includes(option.id)} onChange={(_,data)=>update('requiredFields',data.checked?[...new Set([...policy.requiredFields,option.id])]:policy.requiredFields.filter(value=>value!==option.id))}/>)}</div></div>
+        <div className="tp-document-type-settings__field-group"><h5>草稿保存时必填字段（可选）</h5><p>仅在此处勾选的字段会在保存草稿时校验，不影响未配置的草稿。</p><div className="tp-document-type-settings__field-options">{fieldOptions.filter(option=>!option.id.startsWith('shipment.')).map(option=><Checkbox key={option.id} id={'tp-document-draft-required-'+option.id.replaceAll('.','-')} labelText={option.label} checked={(policy.requiredOnDraftFields??[]).includes(option.id)} onChange={(_,data)=>update('requiredOnDraftFields',data.checked?[...new Set([...(policy.requiredOnDraftFields??[]),option.id])]: (policy.requiredOnDraftFields??[]).filter(value=>value!==option.id))}/>)}</div></div>
+        <div className="tp-document-type-settings__field-group"><h5>草稿允许编辑的字段</h5><p>成交订单中的商品、价格、数量、币种和锁定条款不允许通过单据编辑器修改；空白单据可按配置编辑货物明细。</p><div className="tp-document-type-settings__field-options">{editableFieldOptions.map(option=><Checkbox key={option.id} id={'tp-document-editable-'+option.id} labelText={option.label} checked={(policy.editableFields??[]).includes(option.id)} onChange={(_,data)=>update('editableFields',data.checked?[...new Set([...(policy.editableFields??[]),option.id])]: (policy.editableFields??[]).filter(value=>value!==option.id))}/>)}</div></div>
       </div>
       <div className="tp-document-type-settings__footer"><p>空白草稿是否允许保存，与正式确认要求分开判断。修改配置不会追溯改变已生成单据。</p><Button kind="primary" disabled={saving} onClick={() => void save()}>{saving ? '正在保存…' : '保存当前单据配置'}</Button></div>
       <section className="tp-document-type-settings__history">
