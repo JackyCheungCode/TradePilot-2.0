@@ -19,20 +19,24 @@ export function DocumentTemplateSettings() {
   const [error,setError]=useState('');
   const [notice,setNotice]=useState('');
   const selectedType=useMemo(()=>types.find(([id])=>id===draft?.document_type)?.[1]??draft?.document_type??'', [draft?.document_type]);
-  const load=useCallback(async()=>{
+  const request=useCallback(async(path:string,init?:RequestInit)=>{
+    const db=await getSupabaseClient();const {data:{session}}=await db.auth.getSession();
+    if(!session?.access_token)throw new Error('登录状态已失效，请重新登录。');
+    const response=await fetch('/api/v1/trade/'+path,{...init,headers:{'Content-Type':'application/json',Authorization:'Bearer '+session.access_token,...(init?.headers??{})}});
+    const payload=await response.json().catch(()=>({}));
+    if(!response.ok)throw new Error(payload?.error?.message??payload?.message??'模板服务请求失败。');
+    return payload?.data??payload?.result??payload;
+  },[]);
+  const load=useCallback(async(preferredId?:string)=>{
     setLoading(true);setError('');
     try{
-      const db=await getSupabaseClient();
-      const {data:{session}}=await db.auth.getSession();
-      if(!session?.user.id)throw new Error('登录状态已失效，请重新登录。');
-      const {data,error}=await db.from('trade_document_templates').select('id,name,document_type,locale,description,is_default,is_active,template_config').eq('owner_id',session.user.id).order('document_type').order('name');
-      if(error)throw error;
-      const next=(data??[]) as TemplateRow[];setRows(next);
-      const active=next.find(row=>row.id===selectedId)??next[0];
+      const data=await request('templates');
+      const next=(Array.isArray(data)?data:[]) as TemplateRow[];setRows(next);
+      const active=next.find(row=>row.id===(preferredId??selectedId))??next[0];
       setSelectedId(active?.id??'');setDraft(active?{...active,template_config:asConfig(active.template_config)}:null);
     }catch(cause){setError(cause instanceof Error?cause.message:'读取模板失败。');}
     finally{setLoading(false);}
-  },[selectedId]);
+  },[request,selectedId]);
   useEffect(()=>{void load();},[]);
   const update=(patch:Partial<TemplateRow>)=>setDraft(current=>current?{...current,...patch}:current);
   const updateConfig=(key:string,value:unknown)=>setDraft(current=>current?{...current,template_config:{...asConfig(current.template_config),[key]:value}}:current);
@@ -41,25 +45,20 @@ export function DocumentTemplateSettings() {
     if(!draft?.name.trim())return setError('请填写模板名称。');
     setSaving(true);setError('');setNotice('');
     try{
-      const db=await getSupabaseClient();const {data:{session}}=await db.auth.getSession();const ownerId=session?.user.id;
-      if(!ownerId)throw new Error('登录状态已失效，请重新登录。');
-      if(draft.is_default){
-        const {error:clearError}=await db.from('trade_document_templates').update({is_default:false,updated_at:new Date().toISOString()}).eq('owner_id',ownerId).eq('document_type',draft.document_type);
-        if(clearError)throw clearError;
-      }
-      const payload={owner_id:ownerId,name:draft.name.trim(),document_type:draft.document_type,locale:draft.locale,description:draft.description,is_default:draft.is_default,is_active:draft.is_active,template_config:asConfig(draft.template_config),updated_at:new Date().toISOString()};
-      const result=draft.id?await db.from('trade_document_templates').update(payload).eq('id',draft.id).eq('owner_id',ownerId).select('id').single():await db.from('trade_document_templates').insert(payload).select('id').single();
-      if(result.error)throw result.error;
-      setSelectedId(result.data.id);setNotice('模板已保存。新生成单据会保存该模板快照，历史单据不会被追溯修改。');await load();
+      const payload={name:draft.name.trim(),document_type:draft.document_type,locale:draft.locale,description:draft.description,is_default:draft.is_default,is_active:draft.is_active,template_config:asConfig(draft.template_config)};
+      const result=await request(draft.id?'templates/'+encodeURIComponent(draft.id):'templates',{method:draft.id?'PATCH':'POST',body:JSON.stringify(payload)});
+      const id=String(result?.id??draft.id);
+      setNotice('模板已保存。新生成单据会保存该模板快照，历史单据不会被追溯修改。');
+      await load(id);
     }catch(cause){setError(cause instanceof Error?cause.message:'保存模板失败。');}
     finally{setSaving(false);}
   };
   const deactivate=async()=>{
     if(!draft?.id)return;
     setSaving(true);setError('');
-    try{const db=await getSupabaseClient();const {data:{session}}=await db.auth.getSession();if(!session?.user.id)throw new Error('登录状态已失效，请重新登录。');
-      const {error}=await db.from('trade_document_templates').update({is_active:false,is_default:false,updated_at:new Date().toISOString()}).eq('id',draft.id).eq('owner_id',session.user.id);
-      if(error)throw error;setNotice('模板已停用，历史单据快照不受影响。');await load();
+    try{
+      await request('templates/'+encodeURIComponent(draft.id),{method:'PATCH',body:JSON.stringify({is_active:false,is_default:false})});
+      setNotice('模板已停用，历史单据快照不受影响。');await load(draft.id);
     }catch(cause){setError(cause instanceof Error?cause.message:'停用模板失败。');}
     finally{setSaving(false);}
   };
