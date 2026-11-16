@@ -9,7 +9,7 @@ import {
   assignees, channelLabels, conversationsSeed, customersSeed, identitiesSeed, messagesSeed,
   type ChannelType, type Conversation, type Customer, type CustomerIdentity, type Message,
 } from './data';
-import './omnichannel-inbox.scss';
+import '@/design-system/styles/omnichannel-inbox.scss';
 
 type Filter = 'all' | 'unread' | 'pending' | 'resolved';
 const now = () => Date.now();
