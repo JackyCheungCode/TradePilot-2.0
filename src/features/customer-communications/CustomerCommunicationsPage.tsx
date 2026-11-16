@@ -144,10 +144,10 @@ function MessageStatus({ status }: { status?: CommunicationMessage['status'] }) 
 }
 
 export function CustomerCommunicationsPage() {
-  const [conversations, setConversations] = useState<CommunicationConversation[]>(communicationConversations);
-  const [customers, setCustomers] = useState<CommunicationCustomer[]>(communicationCustomers);
-  const [messages, setMessages] = useState<CommunicationMessage[]>(communicationMessages);
-  const [activeId, setActiveId] = useState('conversation-nordic');
+  const [conversations, setConversations] = useState<CommunicationConversation[]>([]);
+  const [customers, setCustomers] = useState<CommunicationCustomer[]>([]);
+  const [messages, setMessages] = useState<CommunicationMessage[]>([]);
+  const [activeId, setActiveId] = useState('');
   const [filter, setFilter] = useState<ConversationFilter>('all');
   const [channelFilter, setChannelFilter] = useState<CommunicationChannel | 'all'>('all');
   const [query, setQuery] = useState('');
@@ -163,18 +163,7 @@ export function CustomerCommunicationsPage() {
   const [isSending, setIsSending] = useState(false);
 
   useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem('tradepilot.customer-communications.demo.v1');
-      if (saved) {
-        const parsed = JSON.parse(saved) as { conversations?: CommunicationConversation[]; messages?: CommunicationMessage[] };
-        if (Array.isArray(parsed.conversations)) setConversations(parsed.conversations);
-        if (Array.isArray(parsed.messages)) setMessages(parsed.messages);
-      }
-    } catch {
-      // Ignore invalid or unavailable local demo storage and keep the bundled sample data.
-    } finally {
-      setStorageReady(true);
-    }
+    setStorageReady(true);
   }, []);
 
   useEffect(() => {
@@ -200,6 +189,27 @@ export function CustomerCommunicationsPage() {
         setNotice('');
       } catch (error) {
         if (cancelled) return;
+        let restored = false;
+        try {
+          const saved = window.localStorage.getItem('tradepilot.customer-communications.demo.v1');
+          if (saved) {
+            const parsed = JSON.parse(saved) as { conversations?: CommunicationConversation[]; messages?: CommunicationMessage[] };
+            if (Array.isArray(parsed.conversations) && parsed.conversations.length) {
+              setConversations(parsed.conversations);
+              setMessages(Array.isArray(parsed.messages) ? parsed.messages : []);
+              setActiveId(parsed.conversations[0].id);
+              restored = true;
+            }
+          }
+        } catch {
+          // Invalid local demo state is ignored.
+        }
+        if (!restored) {
+          setConversations(communicationConversations);
+          setMessages(communicationMessages);
+          setActiveId(communicationConversations[0].id);
+        }
+        setCustomers(communicationCustomers);
         setBackendMode('unavailable');
         setNotice(error instanceof Error ? '真实收件箱暂不可用：' + error.message + ' 当前显示本地演示数据。' : '真实收件箱暂不可用，当前显示本地演示数据。');
       }
