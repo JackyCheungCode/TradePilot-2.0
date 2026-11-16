@@ -165,7 +165,7 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
       return successResponse(request, { events, total: events.length });
     }
 
-    const assignEventMatch = url.pathname.match(/^\\/api\\/v1\\/inbox\\/unmatched-events\\/([0-9a-f-]{36})\\/assign$/i);
+    const assignEventMatch = url.pathname.match(new RegExp("^/api/v1/inbox/unmatched-events/([0-9a-f-]{36})/assign$", "i"));
     if (assignEventMatch && request.method === "POST") {
       const eventId = assignEventMatch[1];
       let body: { contactId?: unknown };
