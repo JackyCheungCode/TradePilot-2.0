@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, ProgressIndicator, ProgressStep,
-  Tile,
+  Tile, TextInput, TextArea,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/documents.scss';
