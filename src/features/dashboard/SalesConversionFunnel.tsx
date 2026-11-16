@@ -15,7 +15,7 @@ export function SalesConversionFunnel({ startDate, endDate }: { startDate: strin
       setLoading(true); setError('');
       try {
         const db = await getSupabaseClient();
-        const leadsResult = await db.from('leads').select('id').gte('created_at', startDate).lte('created_at', endDate).limit(10000);
+        const leadsResult = await db.from('leads').select('id').eq('is_formal',true).gte('created_at', startDate).lte('created_at', endDate).limit(10000);
         if (leadsResult.error) throw new Error(leadsResult.error.message);
         const leadIds = (leadsResult.data || []).map((row: {id:string}) => row.id);
         const base: Stage[] = [
