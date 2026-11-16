@@ -91,7 +91,7 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
           time,
           message: {
             id: row.id,
-            input: { text: row.content, message_type: 'text' },
+            input: { text: row.content.split('\\n\\n---\\n当前页面上下文')[0], message_type: 'text' },
             history: { timestamp },
           },
         } as HistoryItem;
