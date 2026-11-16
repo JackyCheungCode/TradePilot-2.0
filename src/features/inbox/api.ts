@@ -137,3 +137,22 @@ export async function generateInboxSummary(token: string, conversationId: string
   );
   return result.ai_summary;
 }
+
+export async function sendInboxMessage(token: string, conversationId: string, content: string): Promise<InboxTimelineItem> {
+  const response = await fetch('/api/v1/inbox/conversations/' + encodeURIComponent(conversationId) + '/messages', {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      Authorization: 'Bearer ' + token,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ content }),
+  });
+  const payload = await response.json().catch(() => ({})) as {
+    data?: { message?: InboxTimelineItem };
+    error?: { message?: string };
+  };
+  if (!response.ok) throw new Error(payload.error?.message ?? '发送消息失败。');
+  if (!payload.data?.message) throw new Error('渠道未返回发送结果。');
+  return { ...payload.data.message, timeline_type: 'message' };
+}
