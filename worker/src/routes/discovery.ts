@@ -340,14 +340,7 @@ export async function processRun(env: DiscoveryEnv, runId: string, ownerId: stri
   return {status,discovered,created,googleCount,osmCount};
 }
 
-function hasCollectedContactData(record:Record<string,unknown>,rawData:Record<string,unknown>):boolean {
-  const enrichment=rawData.contact_enrichment&&typeof rawData.contact_enrichment==="object"?rawData.contact_enrichment as Record<string,unknown>:{};
-  const intelligence=rawData.contact_intelligence&&typeof rawData.contact_intelligence==="object"?rawData.contact_intelligence as Record<string,unknown>:{};
-  const arrays=["emails","phones","addresses"].some(key=>Array.isArray(enrichment[key])&&(enrichment[key] as unknown[]).length>0);
-  const social=enrichment.social&&typeof enrichment.social==="object"?Object.values(enrichment.social as Record<string,unknown>).some(value=>Array.isArray(value)&&value.length>0):false;
-  const candidates=Array.isArray(intelligence.candidates)&&intelligence.candidates.length>0;
-  return Boolean(record.email||record.phone||arrays||social||candidates);
-}
+
 export async function handleDiscovery(request: Request, env: DiscoveryEnv): Promise<Response> {
   const url = new URL(request.url);
   const userId = await authenticate(request, env);
