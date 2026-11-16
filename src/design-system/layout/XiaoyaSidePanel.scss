@@ -179,7 +179,7 @@
 .tp-xiaoya-conversation-toolbar {
   display: flex;
   flex: 0 0 auto;
-  align-items: center;
+  align-items: flex-end;
   gap: var(--tp-space-04);
   min-width: 0;
   padding: var(--tp-space-03) var(--tp-space-05);
@@ -196,6 +196,11 @@
 .tp-xiaoya-conversation-toolbar__history .cds--list-box {
   width: 100%;
   max-width: 100%;
+}
+
+.tp-xiaoya-conversation-toolbar > .cds--btn {
+  align-self: flex-end;
+  margin-block-end: 0;
 }
 
 @media (max-width: 767px) {
