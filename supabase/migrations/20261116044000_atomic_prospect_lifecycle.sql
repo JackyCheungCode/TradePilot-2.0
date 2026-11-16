@@ -91,7 +91,8 @@ begin
       jsonb_array_length(case when jsonb_typeof(v_enrichment->'emails')='array' then v_enrichment->'emails' else '[]'::jsonb end)>0 or
       jsonb_array_length(case when jsonb_typeof(v_enrichment->'phones')='array' then v_enrichment->'phones' else '[]'::jsonb end)>0 or
       jsonb_array_length(case when jsonb_typeof(v_enrichment->'addresses')='array' then v_enrichment->'addresses' else '[]'::jsonb end)>0 or
-      jsonb_array_length(case when jsonb_typeof(v_intelligence->'candidates')='array' then v_intelligence->'candidates' else '[]'::jsonb end)>0
+      jsonb_array_length(case when jsonb_typeof(v_intelligence->'candidates')='array' then v_intelligence->'candidates' else '[]'::jsonb end)>0 or
+      exists(select 1 from jsonb_each(case when jsonb_typeof(v_enrichment->'social')='object' then v_enrichment->'social' else '{}'::jsonb end) social_entry where jsonb_typeof(social_entry.value)='array' and jsonb_array_length(social_entry.value)>0)
       then 'collected' else 'discovered' end);
   if v_stage <> 'collected' then
     raise exception 'Review and contact enrichment must be completed before promotion';
