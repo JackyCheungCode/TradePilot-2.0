@@ -74,18 +74,16 @@ export function AppShell() {
       </Header>
       <SideNav
         aria-label="TradePilot 主导航"
-        className={`${sideNavExpanded ? 'tp-sidenav--expanded' : 'tp-sidenav--rail'}${location.pathname.startsWith('/inbox') ? ' tp-sidenav--inbox' : ''}`}
+        className={sideNavExpanded ? 'tp-sidenav--expanded' : 'tp-sidenav--rail'}
         expanded={sideNavExpanded}
         isPersistent
         isRail={!sideNavExpanded}
         onOverlayClick={() => setSideNavExpanded(false)}
       >
-        
         <div className="tp-sidenav__group">
           <div className="tp-sidenav__group-label">工作台（Workspace）</div>
           <SideNavItems>
             <SideNavLink href="/dashboard" isActive={location.pathname === '/dashboard' || location.pathname === '/'} title="概览（Overview）" renderIcon={CarbonIcons.Dashboard}>概览（Overview）</SideNavLink>
-            <SideNavLink href="/inbox" isActive={location.pathname.startsWith('/inbox')} title="消息（Inbox）" renderIcon={CarbonIcons.Chat}>消息（Inbox）</SideNavLink>
           </SideNavItems>
         </div>
         <div className="tp-sidenav__group">
