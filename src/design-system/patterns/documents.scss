@@ -49,12 +49,14 @@
   .tp-documents__wizard .cds--progress-step__description{display:none}
 }
 
-.tp-documents__progress-wrap{display:grid;gap:var(--cds-spacing-03);min-width:0;width:100%;max-width:100%;overflow:hidden}
+.tp-documents__progress-wrap{display:block;min-width:0;width:100%;max-width:100%;overflow-x:auto;overflow-y:hidden;overscroll-behavior-inline:contain;scrollbar-width:thin;-webkit-overflow-scrolling:touch}
 .tp-documents__mobile-step-label{display:none;margin:0;color:var(--cds-text-secondary);font-size:.8125rem;line-height:1.5}
 @media(max-width:600px){
-  .tp-documents__progress-wrap .cds--progress{display:flex;align-items:flex-start;width:100%;max-width:100%;min-width:0;overflow:hidden}
-  .tp-documents__progress-wrap .cds--progress-step{flex:1 1 0!important;width:25%;min-width:0!important;max-width:25%;padding-inline:0!important;overflow:hidden}
-  .tp-documents__progress-wrap .cds--progress-step__label,.tp-documents__progress-wrap .cds--progress-step__description{display:none!important}
+  .tp-documents__progress-wrap .cds--progress{display:flex;align-items:flex-start;width:max-content;min-width:100%;max-width:none;overflow:visible}
+  .tp-documents__progress-wrap .cds--progress-step{flex:0 0 9rem!important;width:9rem;min-width:9rem!important;max-width:9rem;padding-inline:var(--cds-spacing-03)!important;overflow:visible}
+  .tp-documents__progress-wrap .cds--progress-step__description{display:none!important}.tp-documents__progress-wrap .cds--progress-step__label{display:block!important;font-size:.75rem;line-height:1.3;white-space:normal;overflow-wrap:anywhere}
   .tp-documents__progress-wrap .cds--progress-step__connector{min-width:0;max-width:100%}
   .tp-documents__mobile-step-label{display:block}
 }
+
+.tp-documents__blank-form{display:grid;gap:var(--cds-spacing-04);padding:var(--cds-spacing-05);background:var(--cds-layer-02);min-width:0}.tp-documents__blank-form h3{margin:0;font-size:1rem;font-weight:500}.tp-documents__blank-form>p{margin:0;color:var(--cds-text-secondary);font-size:.8125rem;line-height:1.5}
