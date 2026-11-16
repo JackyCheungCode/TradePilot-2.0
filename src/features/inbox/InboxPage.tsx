@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import '@/design-system/patterns/inbox.scss';
 import {
   Button, Search, Tag, Tile, TextArea, CarbonIcons, InlineLoading, Modal, ModalBody, Select, SelectItem, TextInput,
   Grid, Column, Stack, ClickableTile, LineChart, ScaleTypes,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
-import { getInboxConversations, getInboxMessages, getInboxBusinessMetrics, getInboxChannelReadiness, translateInboxMessage, generateInboxSummary, createInboxNote, sendInboxMessage, getInboxConnections, createInboxConnection, getInboxUnmatchedEvents, searchInboxCRMContacts, assignInboxUnmatchedEvent, type InboxConversation, type InboxTimelineItem, type InboxBusinessMetrics, type InboxChannelReadiness, type InboxConnection, type InboxUnmatchedEvent, type InboxCRMContact } from './api';
+import { getInboxConversations, getInboxMessages, getInboxBusinessMetrics, translateInboxMessage, generateInboxSummary, createInboxNote, sendInboxMessage, getInboxUnmatchedEvents, searchInboxCRMContacts, assignInboxUnmatchedEvent, type InboxConversation, type InboxTimelineItem, type InboxBusinessMetrics, type InboxUnmatchedEvent, type InboxCRMContact } from './api';
 
 const channels = [
   { id: 'whatsapp', label: 'WhatsApp' },
@@ -47,8 +46,6 @@ const attachmentScanTag = (status: string) => ({
 }[status] ?? 'cool-gray');
 
 export function InboxPage() {
-  const navigate = useNavigate();
-  const [channelReadiness, setChannelReadiness] = useState<InboxChannelReadiness>({});
   const [query, setQuery] = useState('');
   const [draft, setDraft] = useState('');
   const [channelFilter, setChannelFilter] = useState('all');
@@ -65,14 +62,7 @@ export function InboxPage() {
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [businessMetrics, setBusinessMetrics] = useState<InboxBusinessMetrics | null>(null);
   const [metricsLoading, setMetricsLoading] = useState(false);
-  const [connections, setConnections] = useState<InboxConnection[]>([]);
   const [unmatchedEvents, setUnmatchedEvents] = useState<InboxUnmatchedEvent[]>([]);
-  const [connectionModalOpen, setConnectionModalOpen] = useState(false);
-  const [connectionChannel, setConnectionChannel] = useState('whatsapp');
-  const [connectionName, setConnectionName] = useState('');
-  const [externalAccountId, setExternalAccountId] = useState('');
-  const [connectionSaving, setConnectionSaving] = useState(false);
-  const [webhookUrl, setWebhookUrl] = useState('');
   const [matchingEvent, setMatchingEvent] = useState<InboxUnmatchedEvent | null>(null);
   const [contactSearch, setContactSearch] = useState('');
   const [contactOptions, setContactOptions] = useState<InboxCRMContact[]>([]);
@@ -90,20 +80,6 @@ export function InboxPage() {
         const { data: { session } } = await client.auth.getSession();
         if (!session?.access_token) throw new Error('登录状态已失效，请重新登录。');
         const rows = await getInboxConversations(session.access_token);
-        try {
-          const readiness = await getInboxChannelReadiness(session.access_token);
-          if (active) setChannelReadiness(readiness);
-        } catch { /* Inbox remains usable when integration status is temporarily unavailable. */ }
-        try {
-          const [connectionRows, unmatchedRows] = await Promise.all([
-            getInboxConnections(session.access_token),
-            getInboxUnmatchedEvents(session.access_token),
-          ]);
-          if (active) {
-            setConnections(connectionRows);
-            setUnmatchedEvents(unmatchedRows);
-          }
-        } catch { /* Existing conversations remain available if connection setup data is unavailable. */ }
         if (active) {
           setConversations(rows);
           setSelected(current => current ? rows.find(row => row.id === current.id) ?? null : null);
@@ -316,31 +292,6 @@ export function InboxPage() {
     }
   };
 
-  const createChannelConnection = async () => {
-    if (!connectionName.trim() || !externalAccountId.trim() || connectionSaving) return;
-    setConnectionSaving(true);
-    setError('');
-    try {
-      const client = await getSupabaseClient();
-      const { data: { session } } = await client.auth.getSession();
-      if (!session?.access_token) throw new Error('登录状态已失效，请重新登录。');
-      const result = await createInboxConnection(session.access_token, {
-        channelType: connectionChannel,
-        displayName: connectionName.trim(),
-        externalAccountId: externalAccountId.trim(),
-      });
-      setWebhookUrl(result.webhook_url);
-      setConnectionModalOpen(false);
-      setConnectionName('');
-      setExternalAccountId('');
-      setConnections(await getInboxConnections(session.access_token));
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : '创建渠道连接失败。');
-    } finally {
-      setConnectionSaving(false);
-    }
-  };
-
   const searchContacts = async () => {
     if (contactSearch.trim().length < 2 || contactSearchLoading) return;
     setContactSearchLoading(true);
@@ -392,15 +343,6 @@ export function InboxPage() {
     return matchesChannel && haystack.includes(query.trim().toLocaleLowerCase());
   }), [conversations, channelFilter, query]);
 
-  const channelSetup = [
-    { id: 'whatsapp', label: 'WhatsApp', ready: Boolean(channelReadiness.whatsappAccessToken && channelReadiness.whatsappPhoneNumberId) },
-    { id: 'line', label: 'LINE', ready: Boolean(channelReadiness.lineChannelAccessToken && channelReadiness.lineChannelSecret) },
-    { id: 'messenger', label: 'Messenger', ready: Boolean(channelReadiness.messengerPageAccessToken && channelReadiness.messengerPageId) },
-    { id: 'telegram', label: 'Telegram', ready: Boolean(channelReadiness.telegramBotToken) },
-    { id: 'wecom', label: '企业微信', ready: Boolean(channelReadiness.wecomCorpId && channelReadiness.wecomSecret) },
-    { id: 'email', label: 'Email', ready: Boolean(channelReadiness.emailImapHost && channelReadiness.emailSmtpHost && channelReadiness.emailUsername && channelReadiness.emailPassword) },
-  ];
-
   return (
     <div className="tp-inbox-page">
     <Stack gap={5}>
@@ -410,7 +352,6 @@ export function InboxPage() {
           <h1>消息 <span>Inbox</span></h1>
           <p>统一查看和处理来自不同渠道的客户沟通。</p>
         </Stack>
-        <Button kind="tertiary" renderIcon={CarbonIcons.Settings} onClick={() => navigate("/settings?domain=integrations&section=api")}>渠道设置</Button>
       </Stack>
 
 
@@ -642,34 +583,7 @@ export function InboxPage() {
           </Stack>
         </Column>
       </Grid>
-      <Modal
-        open={connectionModalOpen}
-        modalHeading="添加渠道连接"
-        primaryButtonText={connectionSaving ? "正在创建…" : "创建连接"}
-        primaryButtonDisabled={connectionSaving || !connectionName.trim() || !externalAccountId.trim()}
-        secondaryButtonText="取消"
-        onRequestSubmit={() => void createChannelConnection()}
-        onRequestClose={() => setConnectionModalOpen(false)}
-      >
-        <ModalBody>
-          <Stack gap={4}>
-            <Select id="inbox-connection-channel" labelText="渠道类型" value={connectionChannel}
-              onChange={(event: React.ChangeEvent<HTMLSelectElement>) => setConnectionChannel(event.target.value)}>
-              <SelectItem value="whatsapp" text="WhatsApp" />
-              <SelectItem value="line" text="LINE" />
-              <SelectItem value="messenger" text="Messenger" />
-              <SelectItem value="telegram" text="Telegram" />
-            </Select>
-            <TextInput id="inbox-connection-name" labelText="连接名称" value={connectionName}
-              onChange={(event: React.ChangeEvent<HTMLInputElement>) => setConnectionName(event.target.value)}
-              placeholder="例如：品牌官方 WhatsApp" />
-            <TextInput id="inbox-external-account-id" labelText="渠道账号 ID" value={externalAccountId}
-              onChange={(event: React.ChangeEvent<HTMLInputElement>) => setExternalAccountId(event.target.value)}
-              placeholder="WhatsApp Phone Number ID / Messenger Page ID / LINE Bot ID / Telegram Bot ID" />
-            <p>此处填写渠道平台账号标识，不是 API Token。API Token 与 App Secret 仍在「渠道设置」中安全保存。</p>
-          </Stack>
-        </ModalBody>
-      </Modal>
+
 
       <Modal
         open={Boolean(matchingEvent)}
