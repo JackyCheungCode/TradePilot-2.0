@@ -15,7 +15,7 @@ import {
 import {
   getInboxSessionToken, getInboxConversations, getInboxConnections, getInboxMessages,
   sendInboxMessage, updateInboxConversation, searchInboxCrmContacts, createInboxConversation, createInboxChannelConnection,
-  type InboxChannel, type InboxConversation, type InboxMessage, type InboxCrmContact,
+  type InboxChannel, type InboxConversation, type InboxMessage, type InboxConnection, type InboxCrmContact,
 } from './api';
 import '@/design-system/styles/customer-communications.scss';
 
@@ -159,7 +159,7 @@ export function CustomerCommunicationsPage() {
   const [storageReady, setStorageReady] = useState(false);
   const [backendMode, setBackendMode] = useState<'loading' | 'connected' | 'unavailable'>('loading');
   const [sessionToken, setSessionToken] = useState<string | null>(null);
-  const [connections, setConnections] = useState<Array<{ channel_type: InboxChannel; connection_status: string }>>([]);
+  const [connections, setConnections] = useState<InboxConnection[]>([]);
   const [isSending, setIsSending] = useState(false);
   const [newConversationOpen, setNewConversationOpen] = useState(false);
   const [contactSearch, setContactSearch] = useState('');
