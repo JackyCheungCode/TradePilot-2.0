@@ -51,7 +51,7 @@ function safeStoragePath(value: unknown): string[] | null {
   return segments;
 }
 
-function resolveSignedUrl(value: unknown, base: URL): string | null {
+function resolveSignedUrl(value: unknown, base: URL, expectedObjectPath: string): string | null {
   if (typeof value !== "string" || !value || value.length > 8192) return null;
   let signed: URL;
   try {
@@ -67,9 +67,10 @@ function resolveSignedUrl(value: unknown, base: URL): string | null {
   } catch {
     return null;
   }
-  const expectedPrefix = "/storage/v1/object/sign/inbox-attachments/";
+  const expectedPath = "/storage/v1/object/sign/inbox-attachments/" + expectedObjectPath;
   if (signed.origin !== base.origin || signed.protocol !== base.protocol ||
-      !signed.pathname.startsWith(expectedPrefix) || !signed.searchParams.has("token")) return null;
+      signed.username || signed.password || signed.hash ||
+      signed.pathname !== expectedPath || !signed.searchParams.has("token")) return null;
   return signed.toString();
 }
 
@@ -120,7 +121,7 @@ export async function handleInboxAttachment(request: Request, env: AttachmentEnv
     });
     if (!signResponse.ok) return Response.json({ error: "ATTACHMENT_SIGNING_FAILED" }, { status: 502 });
     const signed = await signResponse.json() as { signedURL?: string };
-    const signedUrl = resolveSignedUrl(signed.signedURL, base);
+    const signedUrl = resolveSignedUrl(signed.signedURL, base, objectPath);
     if (!signedUrl) return Response.json({ error: "ATTACHMENT_SIGNING_FAILED" }, { status: 502 });
 
     return Response.json({
