@@ -2,6 +2,7 @@ import { readIntegrationSecrets } from "./settings";
 
 interface MediaWorkerEnv {
   SUPABASE_URL: string;
+  SUPABASE_ANON_KEY: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
 }
 type Row = Record<string, unknown>;
@@ -198,7 +199,7 @@ async function uploadObject(env: MediaWorkerEnv, path: string, media: Downloaded
       "Content-Type": media.mimeType,
       "x-upsert": "true",
     },
-    body: media.bytes,
+    body: new Blob([media.bytes]),
     signal: AbortSignal.timeout(30000),
   });
   if (!response.ok) throw new Error("MEDIA_STORAGE_UPLOAD_FAILED");
