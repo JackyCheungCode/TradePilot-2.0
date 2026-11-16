@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Button, Search, Tag, Tile, TextArea, CarbonIcons, InlineLoading } from '@/design-system';
+import {
+  Button, Search, Tag, Tile, TextArea, CarbonIcons, InlineLoading,
+  Grid, Column, Stack, ClickableTile,
+} from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import { getInboxConversations, getInboxMessages, type InboxConversation, type InboxTimelineItem } from './api';
-import './InboxPage.scss';
 
 const channels = [
   { id: 'whatsapp', label: 'WhatsApp' },
@@ -84,155 +86,155 @@ export function InboxPage() {
   }), [conversations, channelFilter, query]);
 
   return (
-    <main className="tp-inbox">
-      <header className="tp-inbox__header">
-        <div>
-          <p className="tp-inbox__eyebrow">CUSTOMER COMMUNICATION</p>
+    <Stack gap={5}>
+      <Stack orientation="horizontal" gap={4} align="center" justify="space-between">
+        <Stack gap={2}>
+          <p> CUSTOMER COMMUNICATION </p>
           <h1>消息 <span>Inbox</span></h1>
-          <p className="tp-inbox__description">统一查看和处理来自不同渠道的客户沟通。</p>
-        </div>
-        <div className="tp-inbox__header-actions">
-          <Button kind="tertiary" renderIcon={CarbonIcons.Settings} disabled>渠道设置</Button>
-        </div>
-      </header>
+          <p>统一查看和处理来自不同渠道的客户沟通。</p>
+        </Stack>
+        <Button kind="tertiary" renderIcon={CarbonIcons.Settings} disabled>渠道设置</Button>
+      </Stack>
 
-      {error && <div className="tp-inbox__error" role="alert">{error}</div>}
+      {error && <Tile><Tag type="red">读取失败</Tag><p>{error}</p></Tile>}
 
-      <section className="tp-inbox__workspace" aria-label="消息工作台">
-        <aside className="tp-inbox__conversations">
-          <div className="tp-inbox__list-header">
-            <h2>会话 <span>Conversations</span></h2>
-            <Tag type="cool-gray">{conversations.length}</Tag>
-          </div>
-          <Search
-            size="lg"
-            labelText="搜索会话"
-            placeholder="搜索公司、联系人、电话或邮箱"
-            value={query}
-            onChange={(event: React.ChangeEvent<HTMLInputElement>) => setQuery(event.target.value)}
-          />
-          <div className="tp-inbox__filters" aria-label="渠道筛选">
-            <Button size="sm" kind={channelFilter === 'all' ? 'primary' : 'tertiary'} onClick={() => setChannelFilter('all')}>全部</Button>
-            {channels.map(channel => (
-              <Button key={channel.id} size="sm" kind={channelFilter === channel.id ? 'primary' : 'tertiary'} onClick={() => setChannelFilter(channel.id)}>{channel.label}</Button>
-            ))}
-          </div>
-          <div className="tp-inbox__conversation-list">
+      <Grid fullWidth>
+        <Column sm={4} md={3} lg={5}>
+          <Stack gap={4}>
+            <Stack orientation="horizontal" align="center" justify="space-between">
+              <h2>会话 <span>Conversations</span></h2>
+              <Tag type="cool-gray">{conversations.length}</Tag>
+            </Stack>
+            <Search size="lg" labelText="搜索会话" placeholder="搜索公司、联系人、电话或邮箱" value={query}
+              onChange={(event: React.ChangeEvent<HTMLInputElement>) => setQuery(event.target.value)} />
+            <Stack orientation="horizontal" gap={2} wrap>
+              <Button size="sm" kind={channelFilter === 'all' ? 'primary' : 'tertiary'} onClick={() => setChannelFilter('all')}>全部</Button>
+              {channels.map(channel => (
+                <Button key={channel.id} size="sm" kind={channelFilter === channel.id ? 'primary' : 'tertiary'} onClick={() => setChannelFilter(channel.id)}>{channel.label}</Button>
+              ))}
+            </Stack>
             {loading && <InlineLoading description="正在加载会话…" />}
             {!loading && visibleConversations.map(row => (
-              <button
-                type="button"
-                key={row.id}
-                className={'tp-inbox__conversation-item' + (selected?.id === row.id ? ' is-selected' : '')}
-                onClick={() => { setSelected(row); setError(''); }}
-              >
-                <span className="tp-inbox__avatar">{(row.display_name || '客').slice(0, 1).toUpperCase()}</span>
-                <span className="tp-inbox__conversation-copy">
-                  <span className="tp-inbox__conversation-title">{row.display_name}</span>
-                  <span className="tp-inbox__conversation-contact">{row.contact_display_name}{row.contact?.job_title ? ' · ' + row.contact.job_title : ''}</span>
-                  <span className="tp-inbox__conversation-preview">{row.last_message_preview || '暂无消息内容'}</span>
-                </span>
-                <span className="tp-inbox__conversation-meta">
-                  <span>{formatTime(row.last_message_at)}</span>
-                  {row.last_channel_type && <Tag type="blue">{channelLabel(row.last_channel_type)}</Tag>}
-                  {row.unread_count > 0 && <Tag type="red">{row.unread_count}</Tag>}
-                </span>
-              </button>
+              <ClickableTile key={row.id} className={selected?.id === row.id ? 'tp-inbox__selected' : ''} onClick={() => { setSelected(row); setError(''); }}>
+                <Stack gap={2}>
+                  <Stack orientation="horizontal" align="center" justify="space-between">
+                    <strong>{row.display_name}</strong>
+                    <span>{formatTime(row.last_message_at)}</span>
+                  </Stack>
+                  <span>{row.contact_display_name}{row.contact?.job_title ? ' · ' + row.contact.job_title : ''}</span>
+                  <span>{row.last_message_preview || '暂无消息内容'}</span>
+                  <Stack orientation="horizontal" gap={2}>
+                    {row.last_channel_type && <Tag type="blue">{channelLabel(row.last_channel_type)}</Tag>}
+                    {row.unread_count > 0 && <Tag type="red">{row.unread_count}</Tag>}
+                  </Stack>
+                </Stack>
+              </ClickableTile>
             ))}
             {!loading && visibleConversations.length === 0 && (
-              <div className="tp-inbox__empty-list">
-                <CarbonIcons.Chat size={28} />
-                <h3>{conversations.length ? '没有匹配的会话' : '暂无会话'}</h3>
-                <p>{conversations.length ? '尝试更换搜索词或渠道筛选。' : '连接沟通渠道并收到客户消息后，会话会显示在这里。'}</p>
-              </div>
+              <Tile>
+                <Stack gap={2} align="center">
+                  <CarbonIcons.Chat size={28} />
+                  <strong>{conversations.length ? '没有匹配的会话' : '暂无会话'}</strong>
+                  <p>{conversations.length ? '尝试更换搜索词或渠道筛选。' : '连接沟通渠道并收到客户消息后，会话会显示在这里。'}</p>
+                </Stack>
+              </Tile>
             )}
-          </div>
-        </aside>
+          </Stack>
+        </Column>
 
-        <section className="tp-inbox__thread" aria-label="聊天内容">
-          {selected ? (
-            <>
-              <div className="tp-inbox__thread-header">
-                <div>
-                  <h2>{selected.display_name}</h2>
-                  <p>{selected.contact_display_name}{selected.contact?.job_title ? ' · ' + selected.contact.job_title : ''}</p>
-                </div>
-                <div className="tp-inbox__thread-tools">
-                  {selected.last_channel_type && <Tag type="blue">{channelLabel(selected.last_channel_type)}</Tag>}
-                  <Button kind="ghost" size="sm" renderIcon={CarbonIcons.Download} disabled>导出会话</Button>
-                </div>
-              </div>
-              <div className="tp-inbox__timeline">
+        <Column sm={4} md={5} lg={7}>
+          <Stack gap={4}>
+            {selected ? (
+              <>
+                <Stack orientation="horizontal" align="center" justify="space-between">
+                  <Stack gap={1}>
+                    <h2>{selected.display_name}</h2>
+                    <p>{selected.contact_display_name}{selected.contact?.job_title ? ' · ' + selected.contact.job_title : ''}</p>
+                  </Stack>
+                  <Stack orientation="horizontal" gap={2}>
+                    {selected.last_channel_type && <Tag type="blue">{channelLabel(selected.last_channel_type)}</Tag>}
+                    <Button kind="ghost" size="sm" renderIcon={CarbonIcons.Download} disabled>导出会话</Button>
+                  </Stack>
+                </Stack>
                 {messagesLoading && <InlineLoading description="正在加载消息…" />}
-                {!messagesLoading && messages.length === 0 && (
-                  <div className="tp-inbox__thread-empty">
-                    <CarbonIcons.Chat size={36} />
-                    <h2>暂无消息</h2>
-                    <p>该客户暂时没有已归档的跨渠道消息。</p>
-                  </div>
-                )}
-                {messages.map((item, index) => {
-                  const previous = messages[index - 1];
-                  const channelChanged = item.timeline_type === 'message' && previous?.timeline_type === 'message' && previous.channel_type !== item.channel_type;
-                  return (
-                    <div key={item.id}>
-                      {channelChanged && <div className="tp-inbox__channel-divider">切换至 {channelLabel(item.channel_type)} · {formatTime(item.created_at)}</div>}
-                      <article className={'tp-inbox__message ' + (item.timeline_type === 'internal_note' ? 'is-note' : item.direction === 'outbound' ? 'is-outbound' : 'is-inbound')}>
-                        <div className="tp-inbox__message-meta">
-                          {item.timeline_type === 'internal_note' ? '内部备注' : channelLabel(item.channel_type)}
-                          <span>{formatTime(item.created_at)}</span>
-                          {item.status && <span>{item.status}</span>}
-                        </div>
-                        {item.email_subject && <strong className="tp-inbox__email-subject">{item.email_subject}</strong>}
-                        <p>{item.content}</p>
-                        {item.translated_content && <div className="tp-inbox__translation"><span>DeepL</span>{item.translated_content}</div>}
-                      </article>
-                    </div>
-                  );
-                })}
-              </div>
-            </>
-          ) : (
-            <div className="tp-inbox__thread-empty">
-              <CarbonIcons.Chat size={40} />
-              <h2>选择一个会话</h2>
-              <p>从左侧选择客户，即可查看跨渠道消息时间线。</p>
-            </div>
-          )}
-          <div className="tp-inbox__composer" aria-label="消息编辑区">
-            <div className="tp-inbox__composer-meta">
-              <Tag type="cool-gray">回复渠道：{selected?.last_channel_type ? channelLabel(selected.last_channel_type) : '等待选择会话'}</Tag>
-              <span>发送功能将在渠道授权完成后启用</span>
-            </div>
-            <TextArea id="inbox-message-draft" labelText="撰写消息" hideLabel placeholder="选择会话后开始撰写消息…" value={draft} onChange={(event: React.ChangeEvent<HTMLTextAreaElement>) => setDraft(event.target.value)} rows={3} disabled />
-            <div className="tp-inbox__composer-actions">
-              <Button kind="ghost" size="sm" renderIcon={CarbonIcons.Attachment} disabled>添加附件</Button>
-              <Button size="md" renderIcon={CarbonIcons.Send} disabled>发送消息</Button>
-            </div>
-          </div>
-        </section>
+                <Stack gap={3}>
+                  {!messagesLoading && messages.length === 0 && <Tile><p>该客户暂时没有已归档的跨渠道消息。</p></Tile>}
+                  {messages.map((item, index) => {
+                    const previous = messages[index - 1];
+                    const channelChanged = item.timeline_type === 'message' && previous?.timeline_type === 'message' && previous.channel_type !== item.channel_type;
+                    return (
+                      <Stack key={item.id} gap={2}>
+                        {channelChanged && <p>──────── 切换至 {channelLabel(item.channel_type)} · {formatTime(item.created_at)} ────────</p>}
+                        <Tile>
+                          <Stack gap={2}>
+                            <Stack orientation="horizontal" gap={2} align="center">
+                              <Tag type={item.timeline_type === 'internal_note' ? 'warm-gray' : item.direction === 'outbound' ? 'blue' : 'cool-gray'}>
+                                {item.timeline_type === 'internal_note' ? '内部备注' : channelLabel(item.channel_type)}
+                              </Tag>
+                              <span>{formatTime(item.created_at)}</span>
+                              {item.status && <span>{item.status}</span>}
+                            </Stack>
+                            {item.email_subject && <strong>{item.email_subject}</strong>}
+                            <p>{item.content}</p>
+                            {item.translated_content && <Tile><Tag type="cool-gray">DeepL</Tag><p>{item.translated_content}</p></Tile>}
+                          </Stack>
+                        </Tile>
+                      </Stack>
+                    );
+                  })}
+                </Stack>
+              </>
+            ) : (
+              <Tile>
+                <Stack gap={3} align="center">
+                  <CarbonIcons.Chat size={40} />
+                  <h2>选择一个会话</h2>
+                  <p>从左侧选择客户，即可查看跨渠道消息时间线。</p>
+                </Stack>
+              </Tile>
+            )}
+            <Tile>
+              <Stack gap={3}>
+                <Tag type="cool-gray">回复渠道：{selected?.last_channel_type ? channelLabel(selected.last_channel_type) : '等待选择会话'}</Tag>
+                <TextArea id="inbox-message-draft" labelText="撰写消息" placeholder="选择会话后开始撰写消息…" value={draft}
+                  onChange={(event: React.ChangeEvent<HTMLTextAreaElement>) => setDraft(event.target.value)} rows={3} disabled />
+                <Stack orientation="horizontal" align="center" justify="space-between">
+                  <Button kind="ghost" size="sm" renderIcon={CarbonIcons.Attachment} disabled>添加附件</Button>
+                  <Button size="md" renderIcon={CarbonIcons.Send} disabled>发送消息</Button>
+                </Stack>
+                <p>消息发送将在渠道授权及合规校验完成后启用。</p>
+              </Stack>
+            </Tile>
+          </Stack>
+        </Column>
 
-        <aside className="tp-inbox__insights" aria-label="AI 助手与客户业务数据">
-          <section className="tp-inbox__panel">
-            <div className="tp-inbox__panel-heading">
-              <h2>AI 助手 <span>AI Assist</span></h2>
-              <CarbonIcons.Chat size={20} />
-            </div>
-            <p className="tp-inbox__muted">结合客户沟通与 ERP 业务记录，辅助整理客户诉求和跟进建议。</p>
-            <Button kind="tertiary" size="sm" renderIcon={CarbonIcons.Chat} disabled>生成会话总结</Button>
-            <div className="tp-inbox__placeholder">{selected?.ai_summary || '选择会话后，将在此显示客户摘要、待确认事项和建议回复。'}</div>
-          </section>
-          <section className="tp-inbox__panel">
-            <h2>业务概览 <span>Business Overview</span></h2>
-            <div className="tp-inbox__metrics">
-              <Tile><span>总订单数</span><strong>—</strong></Tile>
-              <Tile><span>累计交易额</span><strong>—</strong></Tile>
-              <Tile><span>进行中订单</span><strong>—</strong></Tile>
-            </div>
-            <div className="tp-inbox__placeholder">选择客户后，显示订单趋势及报价、订单、发运和收款单据入口。</div>
-          </section>
-        </aside>
-      </section>
-    </main>
+        <Column sm={4} md={8} lg={4}>
+          <Stack gap={4}>
+            <Tile>
+              <Stack gap={3}>
+                <Stack orientation="horizontal" align="center" justify="space-between">
+                  <h2>AI 助手 <span>AI Assist</span></h2>
+                  <CarbonIcons.Chat size={20} />
+                </Stack>
+                <p>结合客户沟通与 ERP 业务记录，辅助整理客户诉求和跟进建议。</p>
+                <Button kind="tertiary" size="sm" renderIcon={CarbonIcons.Chat} disabled>生成会话总结</Button>
+                <p>{selected?.ai_summary || '选择会话后，将在此显示客户摘要、待确认事项和建议回复。'}</p>
+              </Stack>
+            </Tile>
+            <Tile>
+              <Stack gap={3}>
+                <h2>业务概览 <span>Business Overview</span></h2>
+                <Grid>
+                  <Column sm={4} md={2} lg={4}><Tile><p>总订单数</p><h3>—</h3></Tile></Column>
+                  <Column sm={4} md={3} lg={4}><Tile><p>累计交易额</p><h3>—</h3></Tile></Column>
+                  <Column sm={4} md={3} lg={4}><Tile><p>进行中订单</p><h3>—</h3></Tile></Column>
+                </Grid>
+                <p>选择客户后，显示订单趋势及报价、订单、发运和收款单据入口。</p>
+              </Stack>
+            </Tile>
+          </Stack>
+        </Column>
+      </Grid>
+    </Stack>
   );
 }
