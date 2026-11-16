@@ -48,7 +48,7 @@ const defaultsFor = (id: string, sources: Source[]): DocumentPolicy => ({
   requireOrderOnConfirmation: false,
   requireLockedOrderWhenOrderLinked: !['quotation','request_for_quotation','purchase_order','purchase_confirmation'].includes(id),
   requireShipmentWhenOrderLinked: ['commercial_invoice','packing_list','shipping_instructions','shipper_letter_instruction','vgm_declaration','packing_declaration'].includes(id),
-  allowStandaloneConfirmation: true,
+  allowStandaloneConfirmation: !['vgm_declaration','packing_declaration'].includes(id),
   requireReview: false,
   requiredFields: ['vgm_declaration'].includes(id) ? ['seller_name','buyer_name','shipment.total_gross_weight'] :
     ['packing_declaration'].includes(id) ? ['seller_name','buyer_name','shipment.total_packages','shipment.total_gross_weight'] :
