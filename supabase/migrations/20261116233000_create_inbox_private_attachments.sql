@@ -54,10 +54,34 @@ values (
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
   ]
 )
-on conflict (id) do update set
-  public = false,
-  file_size_limit = excluded.file_size_limit,
-  allowed_mime_types = excluded.allowed_mime_types;
+on conflict (id) do nothing;
+
+-- Never silently weaken or rewrite an existing bucket's security configuration.
+do $
+declare
+  v_bucket record;
+begin
+  select public, file_size_limit, allowed_mime_types
+    into v_bucket
+  from storage.buckets
+  where id = 'inbox-attachments';
+
+  if not found
+     or v_bucket.public is distinct from false
+     or v_bucket.file_size_limit is distinct from 26214400
+     or v_bucket.allowed_mime_types is distinct from array[
+       'image/jpeg','image/png','image/webp','image/gif',
+       'application/pdf','text/plain',
+       'audio/mpeg','audio/mp4','audio/ogg','audio/wav',
+       'video/mp4','video/webm',
+       'application/zip',
+       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+     ]::text[] then
+    raise exception 'INBOX_ATTACHMENT_BUCKET_CONFIGURATION_MISMATCH';
+  end if;
+end;
+$;
 
 -- No authenticated storage.objects policies are created. All object access is mediated
 -- by the Worker using service_role after checking conversation/message ownership.
