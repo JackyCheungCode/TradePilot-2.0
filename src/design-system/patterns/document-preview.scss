@@ -120,3 +120,14 @@
     min-height: 190mm;
   }
 }
+
+.tp-document-preview__sheet--letter {
+  max-width: 816px;
+}
+@media print {
+  .tp-document-preview__sheet--letter {
+    width: 100%;
+    max-width: none;
+    min-height: 250mm;
+  }
+}
