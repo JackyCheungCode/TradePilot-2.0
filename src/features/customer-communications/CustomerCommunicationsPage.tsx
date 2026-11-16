@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Button, IconButton, Search, TextArea, Dropdown, Tag, InlineNotification, Heading, CarbonIcons,
+  Button, IconButton, Search, TextArea, Dropdown, Tag, InlineNotification, Heading, Modal, CarbonIcons,
 } from '@/design-system';
 import {
   communicationChannelLabels,
@@ -14,8 +14,8 @@ import {
 } from './data';
 import {
   getInboxSessionToken, getInboxConversations, getInboxConnections, getInboxMessages,
-  sendInboxMessage, updateInboxConversation,
-  type InboxChannel, type InboxConversation, type InboxMessage,
+  sendInboxMessage, updateInboxConversation, searchInboxCrmContacts, createInboxConversation,
+  type InboxChannel, type InboxConversation, type InboxMessage, type InboxCrmContact,
 } from './api';
 import '@/design-system/styles/customer-communications.scss';
 
@@ -161,6 +161,12 @@ export function CustomerCommunicationsPage() {
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [connections, setConnections] = useState<Array<{ channel_type: InboxChannel; connection_status: string }>>([]);
   const [isSending, setIsSending] = useState(false);
+  const [newConversationOpen, setNewConversationOpen] = useState(false);
+  const [contactSearch, setContactSearch] = useState('');
+  const [contactResults, setContactResults] = useState<InboxCrmContact[]>([]);
+  const [selectedContact, setSelectedContact] = useState<InboxCrmContact | null>(null);
+  const [contactLoading, setContactLoading] = useState(false);
+  const [creatingConversation, setCreatingConversation] = useState(false);
 
   useEffect(() => {
     setStorageReady(true);
@@ -275,6 +281,26 @@ export function CustomerCommunicationsPage() {
     }
   }, [conversations, messages, storageReady, backendMode]);
 
+  useEffect(() => {
+    if (!newConversationOpen || backendMode !== 'connected' || !sessionToken || contactSearch.trim().length < 2) {
+      setContactResults([]);
+      setContactLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setContactLoading(true);
+    const timer = window.setTimeout(() => {
+      void searchInboxCrmContacts(sessionToken, contactSearch.trim()).then((results) => {
+        if (!cancelled) setContactResults(results);
+      }).catch((error) => {
+        if (!cancelled) setNotice(error instanceof Error ? '搜索 CRM 联系人失败：' + error.message : '搜索联系人失败。');
+      }).finally(() => {
+        if (!cancelled) setContactLoading(false);
+      });
+    }, 250);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [newConversationOpen, backendMode, sessionToken, contactSearch]);
+
   const activeConversation = conversations.find((item) => item.id === activeId) ?? conversations[0];
   const activeCustomer = activeConversation
     ? customers.find((item) => item.id === activeConversation.customerId) ?? customers[0]
@@ -304,6 +330,32 @@ export function CustomerCommunicationsPage() {
     setReplyChannel(conversation.channel);
     setConversations((current) => current.map((item) => item.id === conversation.id ? { ...item, unread: 0 } : item));
     if (backendMode !== 'connected') setNotice('');
+  };
+
+  const createConversation = async () => {
+    if (!sessionToken || !selectedContact || creatingConversation) return;
+    setCreatingConversation(true);
+    try {
+      const createdId = await createInboxConversation(sessionToken, selectedContact.id);
+      const [rows, channelConnections] = await Promise.all([
+        getInboxConversations(sessionToken), getInboxConnections(sessionToken),
+      ]);
+      const mapped = rows.map(mapInboxConversation);
+      const customerById = new Map(mapped.map((item) => [item.customer.id, item.customer]));
+      setCustomers([...customerById.values()]);
+      setConversations(mapped.map((item) => item.conversation));
+      setConnections(channelConnections);
+      setActiveId(createdId);
+      setMobileChat(true);
+      setNewConversationOpen(false);
+      setContactSearch('');
+      setSelectedContact(null);
+      setNotice('会话已创建。该联系人仍需绑定已验证的渠道身份后，才能发送平台消息。');
+    } catch (error) {
+      setNotice(error instanceof Error ? '创建会话失败：' + error.message : '创建会话失败，请稍后重试。');
+    } finally {
+      setCreatingConversation(false);
+    }
   };
 
   const updateConversationState = async () => {
@@ -381,8 +433,46 @@ export function CustomerCommunicationsPage() {
           <Heading>客户沟通工作台</Heading>
           <p>统一处理跨渠道客户消息与跟进</p>
         </div>
-        
+        <Button kind="primary" size="sm" disabled={backendMode !== 'connected'} onClick={() => setNewConversationOpen(true)}>新建会话</Button>
       </header>
+
+      <Modal
+        open={newConversationOpen}
+        modalHeading="新建客户会话"
+        primaryButtonText={creatingConversation ? '创建中…' : '创建会话'}
+        secondaryButtonText="取消"
+        primaryButtonDisabled={!selectedContact || creatingConversation}
+        onRequestClose={() => setNewConversationOpen(false)}
+        onRequestSubmit={createConversation}
+      >
+        <p>从 CRM 联系人中选择客户。创建会话后，仍需有已验证的渠道身份才能发送外部消息。</p>
+        <Search
+          size="lg"
+          labelText="搜索 CRM 联系人"
+          placeholder="输入姓名、邮箱或电话（至少 2 个字符）"
+          value={contactSearch}
+          onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
+            setContactSearch(event.currentTarget.value);
+            setSelectedContact(null);
+          }}
+        />
+        {contactLoading && <p className="cc-empty-state">正在搜索联系人…</p>}
+        <div className="cc-contact-search-results">
+          {contactResults.map((contact) => (
+            <Button
+              key={contact.id}
+              kind={selectedContact?.id === contact.id ? 'tertiary' : 'ghost'}
+              size="lg"
+              className="cc-contact-search-result"
+              onClick={() => setSelectedContact(contact)}
+            >
+              <span><strong>{contact.display_name}</strong><small>{[contact.email, contact.phone].filter(Boolean).join(' · ')}</small></span>
+              {selectedContact?.id === contact.id && <CarbonIcons.Checkmark />}
+            </Button>
+          ))}
+          {!contactLoading && contactSearch.trim().length >= 2 && contactResults.length === 0 && <p className="cc-empty-state">没有找到匹配的 CRM 联系人</p>}
+        </div>
+      </Modal>
 
       {notice && (
         <InlineNotification
