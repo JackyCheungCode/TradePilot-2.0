@@ -111,16 +111,24 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
       const conversations = await db<Row[]>(dbEnv, "inbox_conversations?" + filters.join("&"));
       const contactIds = unique(conversations.map(row => row.contact_id));
       const accountIds = unique(conversations.map(row => row.account_id));
-      const [contacts, accounts] = await Promise.all([
+      const [contacts, accounts, identities] = await Promise.all([
         contactIds.length
           ? db<Row[]>(dbEnv, "crm_contacts?select=id,account_id,first_name,last_name,full_name,job_title,department,email,phone,mobile,preferred_language,preferred_channel&id=in.(" + contactIds.join(",") + ")&owner_id=eq." + ownerId)
           : Promise.resolve([]),
         accountIds.length
           ? db<Row[]>(dbEnv, "crm_accounts?select=id,account_name,legal_name,logo_url&id=in.(" + accountIds.join(",") + ")&owner_id=eq." + ownerId)
           : Promise.resolve([]),
+        contactIds.length
+          ? db<Row[]>(dbEnv, "inbox_customer_identities?select=id,contact_id,channel_type,external_user_id,external_display_name,external_username,is_primary,last_seen_at,channel_connection_id&owner_id=eq." + ownerId + "&contact_id=in.(" + contactIds.join(",") + ")&order=is_primary.desc,last_seen_at.desc.nullslast")
+          : Promise.resolve([]),
       ]);
       const contactById = new Map(contacts.map(row => [String(row.id), row]));
       const accountById = new Map(accounts.map(row => [String(row.id), row]));
+      const identitiesByContact = new Map<string, Row[]>();
+      for (const identity of identities) {
+        const key = String(identity.contact_id);
+        identitiesByContact.set(key, [...(identitiesByContact.get(key) ?? []), identity]);
+      }
       const data = conversations.map(row => {
         const contact = contactById.get(String(row.contact_id)) ?? null;
         const account = row.account_id ? accountById.get(String(row.account_id)) ?? null : null;
@@ -131,6 +139,7 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
           ...row,
           contact,
           account,
+          identities: identitiesByContact.get(String(row.contact_id)) ?? [],
           display_name: account?.account_name || contactName || "未命名联系人",
           contact_display_name: contactName,
         };
