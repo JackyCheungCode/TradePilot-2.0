@@ -33,9 +33,9 @@ export function SalesConversionFunnel({ startDate, endDate }: { startDate: strin
         const accountToLead = new Map<string,string>(accounts.map((row:{id:string;source_lead_id:string})=>[row.id,row.source_lead_id]));
         const customerLeads = new Set<string>(accounts.map((row:{source_lead_id:string})=>row.source_lead_id));
         const accountIds = accounts.map((row:{id:string})=>row.id);
-        let orders: Array<{id:string;crm_account_id:string}> = [];
+        let orders: Array<{id:string;crm_account_id:string;confirmed_from_document_id:string|null}> = [];
         if (accountIds.length) {
-          const orderResult = await db.from('trade_orders').select('id,crm_account_id').eq('order_type','sales').in('status',['active','completed']).in('crm_account_id',accountIds).limit(10000);
+          const orderResult = await db.from('trade_orders').select('id,crm_account_id,confirmed_from_document_id').eq('order_type','sales').in('status',['active','completed']).in('crm_account_id',accountIds).limit(10000);
           if (orderResult.error) throw new Error(orderResult.error.message);
           orders = orderResult.data || [];
         }
@@ -44,9 +44,10 @@ export function SalesConversionFunnel({ startDate, endDate }: { startDate: strin
         const orderIds = orders.map(row=>row.id);
         const quoteLeads = new Set<string>(), paidLeads = new Set<string>(), shippedLeads = new Set<string>();
         if (orderIds.length) {
-          const quoteResult = await db.from('trade_documents').select('order_id').eq('document_type','quotation').in('status',['approved','issued']).in('order_id',orderIds).limit(10000);
+          const quoteDocumentIds = [...new Set(orders.map(row=>row.confirmed_from_document_id).filter((id):id is string=>Boolean(id)))];
+          const quoteResult = quoteDocumentIds.length ? await db.from('trade_documents').select('id').eq('document_type','quotation').in('status',['approved','issued']).in('id',quoteDocumentIds).limit(10000) : {data:[],error:null};
           if (quoteResult.error) throw new Error(quoteResult.error.message);
-          (quoteResult.data||[]).forEach((row:{order_id:string})=>{const id=orderToLead.get(row.order_id);if(id)quoteLeads.add(id);});
+          (quoteResult.data||[]).forEach((row:{id:string})=>{const order=orders.find(item=>item.confirmed_from_document_id===row.id);const id=order?orderToLead.get(order.id):undefined;if(id)quoteLeads.add(id);});
           const allocationResult = await db.from('trade_payment_allocations').select('order_id,payment_id').in('order_id',orderIds).limit(20000);
           if (allocationResult.error) throw new Error(allocationResult.error.message);
           const allocations = allocationResult.data || [];
