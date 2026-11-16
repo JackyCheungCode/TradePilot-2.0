@@ -394,7 +394,76 @@ export function InboxPage() {
         ))}
       </Grid>
 
-      {error && <Tile><Tag type="red">读取失败</Tag><p>{error}</p></Tile>}
+      <Tile>
+        <Stack gap={3}>
+          <Stack orientation="horizontal">
+            <Stack gap={1}>
+              <h2>渠道连接 <span>Channel Connections</span></h2>
+              <p>登记渠道账号并生成专属 Webhook 地址，供渠道平台回调。</p>
+            </Stack>
+            <Button kind="tertiary" size="sm" renderIcon={CarbonIcons.Add} onClick={() => setConnectionModalOpen(true)}>添加连接</Button>
+          </Stack>
+          {connections.length === 0
+            ? <p>尚未登记渠道连接。配置 API 凭证后，添加渠道账号 ID 即可生成 Webhook 地址。</p>
+            : connections.map(connection => (
+              <Stack key={connection.id} gap={2}>
+                <Stack orientation="horizontal" gap={2}>
+                  <strong>{connection.display_name}</strong>
+                  <Tag type={connection.connection_status === 'connected' ? 'green' : connection.connection_status === 'error' ? 'red' : 'cool-gray'}>
+                    {connection.connection_status === 'connected' ? '已验证' : connection.connection_status === 'error' ? '连接错误' : '等待验证'}
+                  </Tag>
+                  <span>{channelLabel(connection.channel_type)} · {connection.external_account_id}</span>
+                </Stack>
+                {connection.webhook_url && (
+                  <Stack orientation="horizontal" gap={2}>
+                    <code>{connection.webhook_url}</code>
+                    <Button kind="ghost" size="sm" onClick={() => void navigator.clipboard?.writeText(connection.webhook_url || '')}>复制 Webhook</Button>
+                  </Stack>
+                )}
+              </Stack>
+            ))}
+          {webhookUrl && (
+            <Tile>
+              <Stack gap={2}>
+                <Tag type="green">连接记录已创建</Tag>
+                <p>请将此地址填入渠道平台的 Webhook / Callback URL，并完成平台验证。</p>
+                <code>{webhookUrl}</code>
+                <Button kind="tertiary" size="sm" onClick={() => void navigator.clipboard?.writeText(webhookUrl)}>复制地址</Button>
+              </Stack>
+            </Tile>
+          )}
+        </Stack>
+      </Tile>
+
+      {unmatchedEvents.length > 0 && (
+        <Tile>
+          <Stack gap={3}>
+            <Stack orientation="horizontal">
+              <h2>待匹配消息 <span>Unmatched Messages</span></h2>
+              <Tag type="warm-gray">{unmatchedEvents.length}</Tag>
+            </Stack>
+            <p>这些消息已通过渠道验签，但发送者尚未关联到 CRM 联系人。匹配后才会进入客户会话。</p>
+            {unmatchedEvents.map(event => (
+              <Stack key={event.id} gap={2}>
+                <Stack orientation="horizontal" gap={2}>
+                  <Tag type="blue">{channelLabel(event.channel_type)}</Tag>
+                  <strong>{event.payload.displayName || event.payload.username || event.payload.externalUserId || '未知发送者'}</strong>
+                  <span>{formatTime(event.received_at)}</span>
+                </Stack>
+                <p>{event.payload.content || '（无文本内容）'}</p>
+                <Button kind="tertiary" size="sm" onClick={() => {
+                  setMatchingEvent(event);
+                  setContactSearch('');
+                  setContactOptions([]);
+                  setSelectedContactId('');
+                }}>匹配 CRM 联系人</Button>
+              </Stack>
+            ))}
+          </Stack>
+        </Tile>
+      )}
+
+      {error && <Tile><Tag type="red">操作失败</Tag><p>{error}</p></Tile>}
 
       <Grid fullWidth>
         <Column sm={4} md={3} lg={5}>
@@ -575,6 +644,68 @@ export function InboxPage() {
           </Stack>
         </Column>
       </Grid>
+      <Modal
+        open={connectionModalOpen}
+        modalHeading="添加渠道连接"
+        primaryButtonText={connectionSaving ? "正在创建…" : "创建连接"}
+        primaryButtonDisabled={connectionSaving || !connectionName.trim() || !externalAccountId.trim()}
+        secondaryButtonText="取消"
+        onRequestSubmit={() => void createChannelConnection()}
+        onRequestClose={() => setConnectionModalOpen(false)}
+      >
+        <ModalBody>
+          <Stack gap={4}>
+            <Select id="inbox-connection-channel" labelText="渠道类型" value={connectionChannel}
+              onChange={(event: React.ChangeEvent<HTMLSelectElement>) => setConnectionChannel(event.target.value)}>
+              <SelectItem value="whatsapp" text="WhatsApp" />
+              <SelectItem value="line" text="LINE" />
+              <SelectItem value="messenger" text="Messenger" />
+              <SelectItem value="telegram" text="Telegram" />
+            </Select>
+            <TextInput id="inbox-connection-name" labelText="连接名称" value={connectionName}
+              onChange={(event: React.ChangeEvent<HTMLInputElement>) => setConnectionName(event.target.value)}
+              placeholder="例如：品牌官方 WhatsApp" />
+            <TextInput id="inbox-external-account-id" labelText="渠道账号 ID" value={externalAccountId}
+              onChange={(event: React.ChangeEvent<HTMLInputElement>) => setExternalAccountId(event.target.value)}
+              placeholder="WhatsApp Phone Number ID / Messenger Page ID / LINE Bot ID / Telegram Bot ID" />
+            <p>此处填写渠道平台账号标识，不是 API Token。API Token 与 App Secret 仍在「渠道设置」中安全保存。</p>
+          </Stack>
+        </ModalBody>
+      </Modal>
+
+      <Modal
+        open={Boolean(matchingEvent)}
+        modalHeading="匹配 CRM 联系人"
+        primaryButtonText={eventAssigning ? "正在关联…" : "关联并归档消息"}
+        primaryButtonDisabled={eventAssigning || !selectedContactId}
+        secondaryButtonText="取消"
+        onRequestSubmit={() => void assignUnmatchedEvent()}
+        onRequestClose={() => setMatchingEvent(null)}
+      >
+        <ModalBody>
+          <Stack gap={4}>
+            <Tile>
+              <strong>{matchingEvent?.payload.displayName || matchingEvent?.payload.username || matchingEvent?.payload.externalUserId}</strong>
+              <p>{matchingEvent?.payload.content || "（无文本内容）"}</p>
+            </Tile>
+            <TextInput id="inbox-contact-search" labelText="搜索 CRM 联系人" value={contactSearch}
+              onChange={(event: React.ChangeEvent<HTMLInputElement>) => setContactSearch(event.target.value)}
+              placeholder="输入姓名、邮箱或电话" />
+            <Button kind="tertiary" size="sm" onClick={() => void searchContacts()} disabled={contactSearch.length < 2 || contactSearchLoading}>
+              {contactSearchLoading ? "正在搜索…" : "搜索联系人"}
+            </Button>
+            <Select id="inbox-contact-select" labelText="选择联系人" value={selectedContactId}
+              onChange={(event: React.ChangeEvent<HTMLSelectElement>) => setSelectedContactId(event.target.value)}>
+              <SelectItem value="" text="请选择 CRM 联系人" />
+              {contactOptions.map(contact => (
+                <SelectItem key={contact.id} value={contact.id}
+                  text={[contact.display_name, contact.email, contact.phone || contact.mobile].filter(Boolean).join(" · ")} />
+              ))}
+            </Select>
+            {contactOptions.length === 0 && <p>请先搜索 CRM 联系人，再选择正确的客户档案。</p>}
+          </Stack>
+        </ModalBody>
+      </Modal>
     </Stack>
   );
 }
