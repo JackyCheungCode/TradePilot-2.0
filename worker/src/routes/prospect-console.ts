@@ -183,7 +183,6 @@ export async function handleProspectConsole(request: Request, env: ConsoleEnv): 
       const terminalStage: "discarded" | "removed" | null = record.status === "discarded" ? "discarded" : record.status === "removed" ? "removed" : null;
       if (isConverted) converted.add(entityId);
       else if (!terminalStage) pending.add(entityId);
-      const storedLifecycleStage = String(record.raw_data?.lifecycle_stage ?? "");
       const hasReviewEvent = (eventsByRecord.get(record.id) ?? []).some(event => event.event_type === "prospect_reviewed");
       const hasCollectedData = hasContactEnrichmentData(record.raw_data) || Boolean(record.email || record.phone || record.address);
       const lifecycleStage: string = isConverted ? "converted" : terminalStage ??
