@@ -37,7 +37,7 @@ function verifySignature(headers, secret, nowSeconds = Math.floor(Date.now() / 1
   const timestamp = String(headers["x-scan-timestamp"] || "");
   const claimedHash = String(headers["x-scan-sha256"] || "").toLowerCase();
   const signature = String(headers["x-scan-signature"] || "").toLowerCase();
-  if (!/^\\d{10}$/.test(timestamp) || !/^[a-f0-9]{64}$/.test(claimedHash) || !/^[a-f0-9]{64}$/.test(signature)) return false;
+  if (!/^\d{10}$/.test(timestamp) || !/^[a-f0-9]{64}$/.test(claimedHash) || !/^[a-f0-9]{64}$/.test(signature)) return false;
   if (Math.abs(nowSeconds - Number(timestamp)) > MAX_CLOCK_SKEW_SECONDS) return false;
   const expected = createHmac("sha256", secret).update(timestamp + "." + claimedHash).digest();
   const supplied = Buffer.from(signature, "hex");
