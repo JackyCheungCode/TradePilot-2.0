@@ -78,3 +78,21 @@ export async function getInboxConnections(token: string): Promise<InboxConnectio
   const result = await request<{ connections: InboxConnection[] }>('/api/v1/inbox/channel-connections', token);
   return result.connections ?? [];
 }
+
+export async function createInboxNote(token: string, conversationId: string, content: string): Promise<unknown> {
+  const response = await fetch('/api/v1/inbox/conversations/' + encodeURIComponent(conversationId) + '/notes', {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      Authorization: 'Bearer ' + token,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ content }),
+  });
+  const payload = await response.json().catch(() => ({})) as {
+    data?: { note?: unknown };
+    error?: { message?: string };
+  };
+  if (!response.ok) throw new Error(payload.error?.message ?? '添加内部备注失败。');
+  return payload.data?.note ?? null;
+}
