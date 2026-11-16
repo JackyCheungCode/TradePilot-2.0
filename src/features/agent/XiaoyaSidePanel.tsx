@@ -120,10 +120,10 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
   ) => {
     const message = request.input.text?.trim();
     if (!message) return;
-    const conversationId = await ensureConversation();
-    const context = readPageContext(pathnameRef.current);
     setWelcomeVisible(false);
     setAvatarEmotion('thinking');
+    const conversationId = await ensureConversation();
+    const context = readPageContext(pathnameRef.current);
     try {
       const result = await agentRequest<{ reply: string; model?: string; task?: { goal?: string } | null }>(
         '/api/v1/agent/chat',
