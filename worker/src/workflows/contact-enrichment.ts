@@ -144,7 +144,7 @@ async function enrichOne(env:Env,owner:string,id:string,providers:Params["provid
  }
  const providerErrors:Record<string,string>={};let candidates:ContactCandidate[]=[];
  const domain=row.website?domainFromWebsite(row.website):"";
- if(selected.has("apollo")&&domain){try{candidates.push(...await apolloContacts(env,domain));}catch(error){providerErrors.apollo=String(error).slice(0,240);}}
+ if(selected.has("apollo")){if(!domain)providerErrors.apollo="企业缺少官网域名，无法按域名搜索 Apollo 联系人";else{try{candidates.push(...await apolloContacts(env,domain));}catch(error){providerErrors.apollo=String(error).slice(0,240);}}}
  if(selected.has("zoominfo")){try{candidates.push(...await zoomInfoContacts(env,row.name));}catch(error){providerErrors.zoominfo=String(error).slice(0,240);}}
  candidates=mergeCandidates(candidates);
  const emails=[...new Set(found.emails)].slice(0,20),phones=[...new Set(found.phones)].slice(0,20),addresses=[...new Set(found.addresses)].slice(0,10),email=emails[0]??null,phone=phones[0]??null,address=addresses[0]??null;
