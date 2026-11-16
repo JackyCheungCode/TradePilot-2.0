@@ -170,7 +170,9 @@ function mergeCandidates(input:ContactCandidate[]):ContactCandidate[] {
 async function enrichOne(env:Env,owner:string,id:string,providers:Params["providers"]=["website"]){
  const rows=await db<RecordRow[]>(env,"discovery_records?id=eq."+id+"&owner_id=eq."+owner+"&select=id,name,website,phone,email,address,raw_data"),row=rows?.[0];if(!row)throw new Error("记录不存在");
  const previousData=row.raw_data??{};
- const previousStage=String(previousData.lifecycle_stage??(previousData.contact_enrichment?"collected":""));
+ const reviewEvents=await db<Array<{id:string}>>(env,"business_transition_events?owner_id=eq."+owner+"&record_type=eq.prospect&record_id=eq."+id+"&event_type=eq.prospect_reviewed&select=id&limit=1");
+ if(!reviewEvents.length)throw new Error("请先完成潜客审核，再开始联系人采集。");
+ const previousStage=String(previousData.lifecycle_stage??(previousData.contact_enrichment?"collected":"reviewed"));
  if(!["reviewed","collected"].includes(previousStage))throw new Error("请先审核通过潜客，再开始联系人采集。");
  const selected=new Set(providers??["website"]);
  const found={emails:[] as string[],phones:[] as string[],addresses:[] as string[],social:{} as Record<string,string[]>},sources:string[]=[];let visited=0;
