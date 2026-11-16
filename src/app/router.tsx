@@ -18,6 +18,7 @@ import { TradeToolsHubPage } from '../features/trade-tools/TradeToolsHubPage';
 import { ShipmentConsolePage, ShipmentDetailPage, ShipmentFormPage } from '../features/shipments/ShipmentPages';
 import { PaymentAllocationPage, PaymentConsolePage, PaymentDetailPage, PaymentFormPage } from '../features/payments/PaymentPages';
 import { DashboardPage } from '../features/dashboard/DashboardPage';
+import { InboxPage } from '../features/inbox/InboxPage';
 import { DocumentsCenterPage } from '../features/documents/DocumentsCenterPage';
 import { GeneratedDocumentsPage } from '../features/documents/GeneratedDocumentsPage';
 import { DocumentPreviewPage } from '../features/documents/DocumentPreviewPage';
@@ -33,6 +34,7 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <Navigate to="/dashboard" replace /> },
           { path: 'dashboard', element: <DashboardPage /> },
+          { path: 'inbox', element: <InboxPage /> },
           { path: 'agent', element: <AgentWorkspacePage /> },
           { path: 'prospect-discovery', element: <ProspectDiscoveryPage /> },
           { path: 'prospect-console', element: <ProspectConsolePage /> },
