@@ -1,9 +1,9 @@
-name: Deploy TradePilot Inbox Preview
+name: Deploy TradePilot Customer Communications Preview
 
 on:
   push:
     branches:
-      - feature/omnichannel-inbox
+      - feature/customer-communications-workspace
     paths:
       - "src/**"
       - "worker/**"
@@ -24,7 +24,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: tradepilot-inbox-preview
+  group: tradepilot-customer-communications-preview
   cancel-in-progress: true
 
 jobs:
@@ -34,7 +34,7 @@ jobs:
       - name: Checkout feature branch
         uses: actions/checkout@v4
         with:
-          ref: feature/omnichannel-inbox
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -47,7 +47,7 @@ jobs:
       - name: Build and validate
         run: npm run build
 
-      - name: Deploy isolated preview Worker
+      - name: Deploy isolated customer communications preview Worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ea4e98dce9c478d7dd5c07f10e5c722d
