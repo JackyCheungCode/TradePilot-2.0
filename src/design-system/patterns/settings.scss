@@ -769,3 +769,15 @@
     width: 100%;
   }
 }
+
+.tp-document-type-settings__sources {
+  display: grid;
+  gap: var(--cds-spacing-03);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-width: 0;
+}
+@media (max-width: 672px) {
+  .tp-document-type-settings__sources {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
