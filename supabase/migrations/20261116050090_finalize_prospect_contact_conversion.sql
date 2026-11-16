@@ -107,7 +107,8 @@ begin
   );
 
   update public.business_transition_events
-  set payload=coalesce(payload,'{}'::jsonb)||coalesce(p_event_payload,'{}'::jsonb)
+  set payload=coalesce(payload,'{}'::jsonb)||coalesce(p_event_payload,'{}'::jsonb),
+      note=coalesce(note,'潜客已转化为 CRM 客户')||'；新增联系人 '||coalesce(p_event_payload->>'created_contacts','0')||' 位，关联联系人 '||coalesce(p_event_payload->>'linked_contacts','0')||' 位'
   where owner_id=p_owner_id and record_type='prospect' and record_id=p_record_id
     and event_type='prospect_converted'
     and created_at=(select max(created_at) from public.business_transition_events
