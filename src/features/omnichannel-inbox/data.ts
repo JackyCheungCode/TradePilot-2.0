@@ -29,10 +29,10 @@ export const channelColors: Record<ChannelType, string> = {
   whatsapp: 'green', line: 'green', messenger: 'blue', telegram: 'purple', wecom: 'cyan', email: 'gray',
 };
 export const customersSeed: Customer[] = [
-  { id: 'cus-a', company_name: 'Nordic Mobility AB', contact_name: 'Erik Andersson', role: '采购经理', avatar: 'EA', email: 'erik@nordicmobility.se', phone: '+46 70 123 4567', tags: ['VIP', '轮毂采购', '老客户'] },
-  { id: 'cus-b', company_name: 'Berlin Auto GmbH', contact_name: 'Lena Fischer', role: 'CEO', avatar: 'LF', email: 'lena@berlinauto.de', phone: '+49 30 555 0182', tags: ['潜在客户', '汽车配件'] },
-  { id: 'cus-c', company_name: 'Tokyo Parts株式会社', contact_name: '田中 健太', role: '采购经理', avatar: '田', email: 'k.tanaka@tokyoparts.jp', phone: '+81 3 4567 8901', tags: ['重点跟进', '轮毂采购'] },
-  { id: 'cus-d', company_name: 'Pacific Trade Co.', contact_name: 'Sophie Chen', role: '财务经理', avatar: 'SC', email: 'sophie@pacifictrade.com', phone: '+65 6123 4567', tags: ['财务', '新客户'] },
+  { id: 'cus-a', company_name: 'Nordic Mobility AB', contact_name: 'Erik Andersson', role: '采购经理', avatar: '', email: 'erik@nordicmobility.se', phone: '+46 70 123 4567', tags: ['VIP', '轮毂采购', '老客户'] },
+  { id: 'cus-b', company_name: 'Berlin Auto GmbH', contact_name: 'Lena Fischer', role: 'CEO', avatar: '', email: 'lena@berlinauto.de', phone: '+49 30 555 0182', tags: ['潜在客户', '汽车配件'] },
+  { id: 'cus-c', company_name: 'Tokyo Parts株式会社', contact_name: '田中 健太', role: '采购经理', avatar: '', email: 'k.tanaka@tokyoparts.jp', phone: '+81 3 4567 8901', tags: ['重点跟进', '轮毂采购'] },
+  { id: 'cus-d', company_name: 'Pacific Trade Co.', contact_name: 'Sophie Chen', role: '财务经理', avatar: '', email: 'sophie@pacifictrade.com', phone: '+65 6123 4567', tags: ['财务', '新客户'] },
 ];
 export const identitiesSeed: CustomerIdentity[] = [
   { id: 'id-a1', customer_id: 'cus-a', channel_type: 'email', external_user_id: 'erik@nordicmobility.se', window_expires_at: null, is_primary: true },
