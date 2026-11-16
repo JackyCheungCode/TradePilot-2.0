@@ -11,7 +11,6 @@ as $$
 declare
   v_owner uuid := auth.uid();
   v_status text;
-  v_fields jsonb;
   v_db_status text;
 begin
   if v_owner is null then raise exception 'Authentication required'; end if;
@@ -78,8 +77,8 @@ begin
   if coalesce(trim(p_note),'') = '' then raise exception 'Status change reason is required'; end if;
   if p_expected_active = p_target_active then raise exception 'Contact already has this status'; end if;
 
-  select is_active, coalesce(custom_fields,'{}'::jsonb)
-    into v_current_active, v_fields
+  select is_active
+    into v_current_active
   from public.crm_contacts
   where id = p_contact_id and owner_id = v_owner and is_archived = false
   for update;
@@ -94,7 +93,6 @@ begin
 
   update public.crm_contacts
   set is_active = p_target_active,
-      custom_fields = jsonb_set(v_fields,'{status}',to_jsonb(v_to_status),true),
       updated_at = now()
   where id = p_contact_id and owner_id = v_owner;
 
