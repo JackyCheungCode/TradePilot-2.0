@@ -146,3 +146,15 @@ export async function createInboxConversation(token: string, contactId: string):
   );
   return result.conversation.id;
 }
+
+export async function createInboxChannelConnection(
+  token: string,
+  channelType: Exclude<InboxChannel, 'email' | 'wecom'>,
+  displayName: string,
+  externalAccountId: string,
+): Promise<{ connection: InboxConnection; webhook_url: string }> {
+  return request<{ connection: InboxConnection; webhook_url: string }>(
+    '/api/v1/inbox/channel-connections', token,
+    { method: 'POST', body: JSON.stringify({ channelType, displayName, externalAccountId }) },
+  );
+}
