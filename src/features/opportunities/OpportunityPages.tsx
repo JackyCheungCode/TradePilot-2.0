@@ -153,7 +153,6 @@ export function OpportunityFormPage() {
 export function OpportunityDetailPage() {
  const nav=useNavigate(); const {id}=useParams(); const lifecycleEvents=useBusinessTransitionEvents('opportunity',id);
  const [row,setRow]=useState<Opportunity|null>(null); const [account,setAccount]=useState(''); const [contact,setContact]=useState('');
- const [history,setHistory]=useState<Array<{id:string;from_stage:string|null;to_stage:string;changed_at:string;note:string|null}>>([]);
  const [relations,setRelations]=useState<Array<{id:string;source_record_type:string;source_record_id:string;target_record_type:string;target_record_id:string;relation_type:string;created_at:string}>>([]);
  const [error,setError]=useState(''); const [loading,setLoading]=useState(true);
  const [lifecycleOpen,setLifecycleOpen]=useState(false); const [nextStage,setNextStage]=useState(''); const [transitionNote,setTransitionNote]=useState('');
@@ -165,18 +164,17 @@ export function OpportunityDetailPage() {
      const db=await getSupabaseClient();
      const r=await db.from('crm_opportunities').select('*').eq('id',id).single();if(r.error)throw r.error;
      const o=r.data as Opportunity;setRow(o);
-     const [a,c,h,sourceRelations,targetRelations]=await Promise.all([
+     const [a,c,sourceRelations,targetRelations]=await Promise.all([
        db.from('crm_accounts').select('account_name').eq('id',o.account_id).maybeSingle(),
        o.primary_contact_id?db.from('crm_contacts').select('full_name,first_name,last_name').eq('id',o.primary_contact_id).maybeSingle():Promise.resolve({data:null,error:null}),
-       db.from('crm_opportunity_stage_history').select('id,from_stage,to_stage,changed_at,note').eq('opportunity_id',id).order('changed_at',{ascending:false}),
        db.from('business_record_relations').select('id,source_record_type,source_record_id,target_record_type,target_record_id,relation_type,created_at').eq('source_record_type','opportunity').eq('source_record_id',id).order('created_at',{ascending:false}),
        db.from('business_record_relations').select('id,source_record_type,source_record_id,target_record_type,target_record_id,relation_type,created_at').eq('target_record_type','opportunity').eq('target_record_id',id).order('created_at',{ascending:false})
      ]);
-     if(a.error)throw a.error;if(c.error)throw c.error;if(h.error)throw h.error;
+     if(a.error)throw a.error;if(c.error)throw c.error;
      if(sourceRelations.error)throw sourceRelations.error;if(targetRelations.error)throw targetRelations.error;
      setAccount(a.data?.account_name||'—');
      setContact(c.data?(c.data.full_name||[c.data.first_name,c.data.last_name].filter(Boolean).join(' ')):'—');
-     setHistory(h.data||[]);setRelations([...(sourceRelations.data||[]),...(targetRelations.data||[])]);
+     setRelations([...(sourceRelations.data||[]),...(targetRelations.data||[])]);
    }catch(e){setError(e instanceof Error?e.message:'读取商机详情失败')}
    finally{setLoading(false)}
  },[id]);
@@ -213,7 +211,7 @@ export function OpportunityDetailPage() {
    <section className="tp-opportunities__panel"><div className="tp-opportunities__panel-head"><div><h2>关联业务</h2><p>显示以本商机为来源或目标的业务记录。</p></div><Tag type="blue">{relations.length} 条关联</Tag></div>
      {relations.length?<div className="tp-opportunities__relations">{relations.map(rel=><div className="tp-opportunities__relation" key={rel.id}><div><strong>{rel.source_record_type==='opportunity'?'本商机':rel.source_record_type} → {rel.target_record_type==='opportunity'?'本商机':rel.target_record_type}</strong><small>{rel.relation_type} · {new Date(rel.created_at).toLocaleString()}</small></div><code>{rel.source_record_id===row.id?rel.target_record_id:rel.source_record_id}</code></div>)}</div>:<p className="tp-opportunities__empty">暂无已登记的业务关联。后续转换成功后会自动显示来源与目标记录。</p>}
    </section>
-   <section className="tp-opportunities__panel"><h2>销售阶段历史</h2>{history.length?<Table><TableHead><TableRow><TableHeader>原阶段</TableHeader><TableHeader>新阶段</TableHeader><TableHeader>变更时间</TableHeader><TableHeader>备注</TableHeader></TableRow></TableHead><TableBody>{history.map(h=><TableRow key={h.id}><TableCell>{h.from_stage?stageLabel(h.from_stage):'创建'}</TableCell><TableCell>{stageLabel(h.to_stage)}</TableCell><TableCell>{new Date(h.changed_at).toLocaleString()}</TableCell><TableCell>{h.note||'—'}</TableCell></TableRow>)}</TableBody></Table>:<p className="tp-opportunities__empty">暂无阶段变更记录。</p>}</section>
+   
    <ComposedModal open={quoteModalOpen} onClose={()=>setQuoteModalOpen(false)}>
      <ModalHeader title="从商机创建报价" label={row.opportunity_number}/>
      <ModalBody hasForm>
