@@ -132,6 +132,7 @@ export function DocumentPreviewPage() {
   const showOrigin = templateConfig.showOrigin !== false;
   const showNotes = templateConfig.showNotes !== false;
   const pageOrientation = String(templateConfig.orientation ?? 'portrait');
+  const pageSize = String(templateConfig.pageSize ?? 'A4').toLowerCase();
   const configuredEditableFields = Array.isArray(policySnapshot.editableFields) ? policySnapshot.editableFields.map(String) : ['seller_name','seller_address','buyer_name','buyer_address','buyer_shipping_address','contact_name','contact_email','contact_phone','notes','customer_reference','items'];
   const canEditField = (key: string) => configuredEditableFields.includes(key) && (key !== 'items' || !doc?.order_id);
   const totals = doc?.totals ?? {};
@@ -157,10 +158,15 @@ export function DocumentPreviewPage() {
       {canEditField('buyer_shipping_address') && (<TextArea id="doc-edit-shipping-address" labelText="收货地址" rows={3} value={typeof draftContent.buyer_shipping_address === 'string' ? draftContent.buyer_shipping_address : address(draftContent.buyer_shipping_address) === '—' ? '' : address(draftContent.buyer_shipping_address)} onChange={e => setDraftField('buyer_shipping_address', e.currentTarget.value)} />)}
       {canEditField('contact_name') && (<TextInput id="doc-edit-contact" labelText="联系人" value={String(draftContent.contact_name || '')} onChange={e => setDraftField('contact_name', e.currentTarget.value)} />)}
       {canEditField('contact_email') && (<TextInput id="doc-edit-contact-email" labelText="联系人邮箱" value={String(draftContent.contact_email || '')} onChange={e => setDraftField('contact_email', e.currentTarget.value)} />)}
+      {canEditField('customer_reference') && <TextInput id="doc-edit-customer-reference" labelText="客户参考号" value={String(draftContent.customer_reference || '')} onChange={e => setDraftField('customer_reference', e.currentTarget.value)} />}
+      {canEditField('payment_terms') && <TextInput id="doc-edit-payment-terms" labelText="付款条件" value={String(draftContent.payment_terms || '')} onChange={e => setDraftField('payment_terms', e.currentTarget.value)} />}
+      {canEditField('incoterms_code') && <TextInput id="doc-edit-incoterms" labelText="贸易术语" value={String(draftContent.incoterms_code || '')} onChange={e => setDraftField('incoterms_code', e.currentTarget.value)} />}
+      {canEditField('named_place') && <TextInput id="doc-edit-named-place" labelText="指定地点" value={String(draftContent.named_place || '')} onChange={e => setDraftField('named_place', e.currentTarget.value)} />}
+      {canEditField('delivery_date') && <TextInput id="doc-edit-delivery-date" labelText="交付日期" value={String(draftContent.delivery_date || '')} onChange={e => setDraftField('delivery_date', e.currentTarget.value)} />}
       {canEditField('contact_phone') && (<TextInput id="doc-edit-contact-phone" labelText="联系人电话" value={String(draftContent.contact_phone || '')} onChange={e => setDraftField('contact_phone', e.currentTarget.value)} />)}
       {canEditField('notes') && (<TextArea id="doc-edit-notes" labelText="单据备注" rows={3} value={String(draftContent.notes || '')} onChange={e => setDraftField('notes', e.currentTarget.value)} />)}\n      {canEditField('items') && !doc.order_id && <TextArea id="doc-edit-items" labelText="货物明细（每行：品名 | SKU | 数量 | 单位 | 单价 | HS Code）" helperText="例如：Wireless Mouse | WM-01 | 100 | pcs | 8.5 | 847160" rows={6} value={draftItemsText} onChange={e => setDraftItemsText(e.currentTarget.value)} />}
     </div><div className="tp-document-preview__editor-actions"><Button kind="tertiary" disabled={saving} onClick={() => { setEditing(false); setDraftContent(null); }}>取消</Button><Button kind="primary" disabled={saving} onClick={() => void saveDraft()}>{saving ? '保存中…' : '保存并创建新版本'}</Button></div></section>}
-    <article className={"tp-document-preview__sheet tp-document-preview__sheet--" + pageOrientation}>
+    <article className={"tp-document-preview__sheet tp-document-preview__sheet--" + pageOrientation + " tp-document-preview__sheet--" + pageSize}>
       <header className="tp-document-preview__paper-header">
         <div className="tp-document-preview__brand"><small>{text(templateConfig.headerText)}</small>
           {showLogo && (content.seller_logo_url || content.company_logo_url) && <img src={content.seller_logo_url || content.company_logo_url} alt="Seller logo" />}
@@ -188,10 +194,10 @@ export function DocumentPreviewPage() {
       {doc.shipment_id && <section className="tp-document-preview__shipment"><h3>本次发运 / Shipment</h3><div><span>包装件数</span><strong>{text(shipment.total_packages)}</strong><span>净重</span><strong>{text(shipment.total_net_weight)} kg</strong><span>毛重</span><strong>{text(shipment.total_gross_weight)} kg</strong><span>体积</span><strong>{text(shipment.total_volume)} CBM</strong></div><p>收货地址：{address(shipment.ship_to_address || content.buyer_shipping_address)}</p></section>}
 
       <section className="tp-document-preview__items"><h3>货物明细 / Goods Description</h3>
-        <Table size="sm"><TableHead><TableRow><TableHeader>序号</TableHeader><TableHeader>SKU / 产品名称</TableHeader>{showHsCode && <TableHeader>HS Code</TableHeader>}<TableHeader>原产国</TableHeader><TableHeader>数量</TableHeader><TableHeader>单位</TableHeader>{showPricing && <><TableHeader>单价</TableHeader><TableHeader>折扣</TableHeader><TableHeader>税率</TableHeader><TableHeader>金额</TableHeader></>}</TableRow></TableHead><TableBody>
+        <Table size="sm"><TableHead><TableRow><TableHeader>序号</TableHeader><TableHeader>SKU / 产品名称</TableHeader>{showHsCode && <TableHeader>HS Code</TableHeader>}{showOrigin && <TableHeader>原产国</TableHeader>}<TableHeader>数量</TableHeader><TableHeader>单位</TableHeader>{showPricing && <><TableHeader>单价</TableHeader><TableHeader>折扣</TableHeader><TableHeader>税率</TableHeader><TableHeader>金额</TableHeader></>}</TableRow></TableHead><TableBody>
           {items.map((item, index) => {
             const amount = item.amount ?? Math.max(0, Number(item.quantity || 0) * Number(item.unit_price || 0) - Number(item.discount_amount || 0));
-            return <TableRow key={String(item.order_line_id || item.id || index)}><TableCell>{index + 1}</TableCell><TableCell>{text(item.product_name || item.name)}<small>{text(item.sku)}</small></TableCell>{showHsCode && <TableCell>{text(item.hs_code)}</TableCell>}<TableCell>{showOrigin ? text(item.origin_country_code || item.origin_country) : "—"}</TableCell><TableCell>{text(item.quantity)}</TableCell><TableCell>{text(item.unit)}</TableCell>{showPricing && <><TableCell>{money(item.unit_price, doc.currency_code)}</TableCell><TableCell>{money(item.discount_amount, doc.currency_code)}</TableCell><TableCell>{text(item.tax_rate)}%</TableCell><TableCell>{money(amount, doc.currency_code)}</TableCell></>}</TableRow>;
+            return <TableRow key={String(item.order_line_id || item.id || index)}><TableCell>{index + 1}</TableCell><TableCell>{text(item.product_name || item.name)}<small>{text(item.sku)}</small></TableCell>{showHsCode && <TableCell>{text(item.hs_code)}</TableCell>}{showOrigin && <TableCell>{text(item.origin_country_code || item.origin_country)}</TableCell>}<TableCell>{text(item.quantity)}</TableCell><TableCell>{text(item.unit)}</TableCell>{showPricing && <><TableCell>{money(item.unit_price, doc.currency_code)}</TableCell><TableCell>{money(item.discount_amount, doc.currency_code)}</TableCell><TableCell>{text(item.tax_rate)}%</TableCell><TableCell>{money(amount, doc.currency_code)}</TableCell></>}</TableRow>;
           })}
         </TableBody></Table>
       </section>
