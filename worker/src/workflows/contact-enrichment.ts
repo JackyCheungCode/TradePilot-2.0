@@ -1,9 +1,10 @@
 /// <reference path="../../../worker-workflows.d.ts" />
 import { WorkflowEntrypoint } from "cloudflare:workers";
 import type { WorkflowEvent, WorkflowStep } from "cloudflare:workers";
+import { readIntegrationSecret } from "../lib/integrations";
 
 interface Env { SUPABASE_URL:string; SUPABASE_SERVICE_ROLE_KEY:string; }
-interface Params { jobId:string; ownerId:string; recordIds:string[]; }
+interface Params { jobId:string; ownerId:string; recordIds:string[]; providers?:Array<"website"|"apollo"|"zoominfo">; }
 interface RecordRow { id:string; name:string; website:string|null; phone:string|null; email:string|null; address:string|null; raw_data:Record<string,unknown>|null; }
 async function db<T>(env:Env,path:string,init:RequestInit={}):Promise<T>{
  const response=await fetch(env.SUPABASE_URL+"/rest/v1/"+path,{...init,headers:{apikey:env.SUPABASE_SERVICE_ROLE_KEY,Authorization:"Bearer "+env.SUPABASE_SERVICE_ROLE_KEY,"Content-Type":"application/json",...init.headers}});
@@ -47,23 +48,118 @@ function extractContacts(html:string){
  return {emails:[...new Set(emails.map(x=>x.toLowerCase()))].slice(0,20),phones:[...new Set(phones)].slice(0,20),addresses:addresses.slice(0,10),social};
 }
 function contactLinks(html:string,base:URL):URL[]{const out:URL[]=[];for(const m of html.matchAll(/<a\b[^>]*href\s*=\s*["']([^"'#]+)["'][^>]*>/gi)){const href=m[1];if(!/(contact|about|company|team|support|imprint|location|office|privacy|legal)/i.test(href+" "+m[0]))continue;try{const u=new URL(href,base);if(u.origin===base.origin&&u.protocol==="https:"&&!out.some(x=>x.href===u.href))out.push(u);}catch { /* Ignore malformed optional contact metadata. */ }}return out.slice(0,4);}
-async function enrichOne(env:Env,owner:string,id:string){
- const rows=await db<RecordRow[]>(env,"discovery_records?id=eq."+id+"&owner_id=eq."+owner+"&select=id,name,website,phone,email,address,raw_data"),row=rows?.[0];if(!row)throw new Error("记录不存在");if(!row.website)throw new Error("没有官网地址");
- const home=safePageUrl(row.website),origin=home.origin;let robots="";try{const rr=await fetch(origin+"/robots.txt",{redirect:"manual",signal:AbortSignal.timeout(5000),headers:{"User-Agent":"TradePilotContactBot/1.0"}});if(rr.ok)robots=(await rr.text()).slice(0,100000);}catch { /* Ignore malformed optional contact metadata. */ }
- const targets=[home],found={emails:[] as string[],phones:[] as string[],addresses:[] as string[],social:{} as Record<string,string[]>},sources:string[]=[];let visited=0;
- for(let i=0;i<targets.length&&visited<5;i++){const url=targets[i];if(url.origin!==origin||!robotsAllows(robots,url.pathname))continue;try{const html=await readHtml(url);visited++;const c=extractContacts(html);found.emails.push(...c.emails);found.phones.push(...c.phones);found.addresses.push(...c.addresses);for(const [k,v] of Object.entries(c.social))found.social[k]=[...new Set([...(found.social[k]??[]),...v])].slice(0,10);sources.push(url.href);if(i===0)for(const link of contactLinks(html,url))if(targets.length<5)targets.push(link);}catch(error){if(i===0)throw error;}}
+type ContactProvider = "apollo" | "zoominfo";
+type ContactCandidate = {
+ provider: ContactProvider;
+ provider_person_id?: string;
+ first_name?: string;
+ last_name?: string;
+ full_name: string;
+ job_title?: string;
+ department?: string;
+ email?: string;
+ phone?: string;
+ linkedin_url?: string;
+ confidence?: number;
+ field_provenance: Record<string,{provider:string;captured_at:string;verification_status:string}>;
+ source_providers: string[];
+ review_status: "pending_review";
+};
+function domainFromWebsite(raw:string):string {
+ const url=safePageUrl(raw);
+ return url.hostname.toLowerCase().replace(/^www\./,"");
+}
+function candidateFrom(provider:ContactProvider,raw:Record<string,unknown>,id?:string):ContactCandidate|null {
+ const first=String(raw.first_name??raw.firstName??"").trim();
+ const last=String(raw.last_name??raw.lastName??"").trim();
+ const name=String(raw.name??raw.full_name??raw.fullName??[first,last].filter(Boolean).join(" ")).trim();
+ if(!name)return null;
+ const email=String(raw.email??raw.work_email??"").trim().toLowerCase();
+ const phoneValue=raw.phone_number??raw.phone??raw.mobile_phone??raw.mobilePhone;
+ const phone=typeof phoneValue==="string"?phoneValue:phoneValue&&typeof phoneValue==="object"?String((phoneValue as Record<string,unknown>).sanitized_number??(phoneValue as Record<string,unknown>).number??""):"";
+ const linkedin=String(raw.linkedin_url??raw.linkedinUrl??raw.linkedin??"").trim();
+ const capturedAt=new Date().toISOString();
+ const fields:Record<string,unknown>={first_name:first,last_name:last,full_name:name,job_title:String(raw.title??raw.job_title??raw.jobTitle??""),department:String(raw.department??raw.job_function??""),email,phone,linkedin_url:linkedin};
+ const provenance:ContactCandidate["field_provenance"]={};
+ for(const [key,value] of Object.entries(fields))if(value)provenance[key]={provider,captured_at:capturedAt,verification_status:"provider_returned"};
+ return {provider,provider_person_id:id??String(raw.id??raw.person_id??""),first_name:first||undefined,last_name:last||undefined,full_name:name,job_title:String(raw.title??raw.job_title??raw.jobTitle??"")||undefined,department:String(raw.department??raw.job_function??"")||undefined,email:email||undefined,phone:phone||undefined,linkedin_url:linkedin||undefined,confidence:typeof raw.contactAccuracyScore==="number"?raw.contactAccuracyScore:undefined,field_provenance:provenance,source_providers:[provider],review_status:"pending_review"};
+}
+async function apolloContacts(env:Env,domain:string):Promise<ContactCandidate[]> {
+ const key=await readIntegrationSecret(env,"tradepilot_api_apollo","APOLLO_API_KEY");
+ if(!key)return [];
+ const headers={"x-api-key":key,"Content-Type":"application/json",Accept:"application/json"};
+ const search=await fetch("https://api.apollo.io/api/v1/mixed_people/api_search",{method:"POST",headers,body:JSON.stringify({q_organization_domains_list:[domain],person_titles:["CEO","Founder","Owner","Managing Director","Purchasing Manager","Procurement Manager","Head of Procurement","Sourcing Manager","Sales Director","Business Development Director"],per_page:5,page:1})});
+ if(!search.ok)throw new Error("Apollo 联系人搜索失败（HTTP "+search.status+"）");
+ const searchBody=await search.json() as Record<string,unknown>;
+ const people=Array.isArray(searchBody.people)?searchBody.people as Array<Record<string,unknown>>:Array.isArray(searchBody.contacts)?searchBody.contacts as Array<Record<string,unknown>>:[];
+ const details=people.slice(0,5).map(person=>({id:String(person.person_id??person.id??"")})).filter(item=>item.id);
+ if(!details.length)return [];
+ const enrich=await fetch("https://api.apollo.io/api/v1/people/bulk_match?reveal_personal_emails=false&reveal_phone_number=false",{method:"POST",headers,body:JSON.stringify({details})});
+ if(!enrich.ok)throw new Error("Apollo 联系人补全失败（HTTP "+enrich.status+"）");
+ const enrichBody=await enrich.json() as Record<string,unknown>;
+ const matches=Array.isArray(enrichBody.matches)?enrichBody.matches as Array<Record<string,unknown>>:Array.isArray(enrichBody.people)?enrichBody.people as Array<Record<string,unknown>>:Array.isArray(enrichBody.persons)?enrichBody.persons as Array<Record<string,unknown>>:[];
+ return matches.map(item=>candidateFrom("apollo",(item.person&&typeof item.person==="object"?item.person:item) as Record<string,unknown>)).filter((item):item is ContactCandidate=>Boolean(item));
+}
+async function zoomInfoContacts(env:Env,companyName:string):Promise<ContactCandidate[]> {
+ const clientId=await readIntegrationSecret(env,"tradepilot_api_zoominfo_client_id","ZOOMINFO_CLIENT_ID");
+ const clientSecret=await readIntegrationSecret(env,"tradepilot_api_zoominfo_client_secret","ZOOMINFO_CLIENT_SECRET");
+ if(!clientId||!clientSecret)return [];
+ const tokenResponse=await fetch("https://api.zoominfo.com/gtm/oauth/v1/token",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded",Accept:"application/json","User-Agent":"TradePilot/1.0"},body:new URLSearchParams({grant_type:"client_credentials",client_id:clientId,client_secret:clientSecret})});
+ if(!tokenResponse.ok)throw new Error("ZoomInfo OAuth 认证失败（HTTP "+tokenResponse.status+"）");
+ const tokenBody=await tokenResponse.json() as {access_token?:string};
+ if(!tokenBody.access_token)throw new Error("ZoomInfo 未返回访问令牌");
+ const headers={Authorization:"Bearer "+tokenBody.access_token,Accept:"application/vnd.api+json","Content-Type":"application/vnd.api+json","User-Agent":"TradePilot/1.0"};
+ const search=await fetch("https://api.zoominfo.com/gtm/data/v1/contacts/search?page%5Bnumber%5D=1&page%5Bsize%5D=5&sort=-contactAccuracyScore",{method:"POST",headers,body:JSON.stringify({data:{type:"ContactSearch",attributes:{companyName,requiredFields:"email,phone"}}})});
+ if(!search.ok)throw new Error("ZoomInfo 联系人搜索失败（HTTP "+search.status+"）");
+ const searchBody=await search.json() as {data?:Array<{id?:string;attributes?:Record<string,unknown>}>};
+ const ids=(searchBody.data??[]).slice(0,5).map(item=>item.id).filter((id):id is string=>Boolean(id));
+ if(!ids.length)return [];
+ const enrich=await fetch("https://api.zoominfo.com/gtm/data/v1/contacts/enrich",{method:"POST",headers,body:JSON.stringify({data:ids.map(personId=>({type:"ContactEnrich",attributes:{personId}})),outputFields:["firstName","lastName","jobTitle","managementLevel","email","phone","mobilePhone","companyName","contactAccuracyScore","linkedinUrl"]})});
+ if(!enrich.ok)throw new Error("ZoomInfo 联系人补全失败（HTTP "+enrich.status+"）");
+ const enrichBody=await enrich.json() as {data?:Array<{id?:string;attributes?:Record<string,unknown>}>};
+ return (enrichBody.data??[]).map(item=>candidateFrom("zoominfo",item.attributes??{},item.id)).filter((item):item is ContactCandidate=>Boolean(item));
+}
+function mergeCandidates(input:ContactCandidate[]):ContactCandidate[] {
+ const merged=new Map<string,ContactCandidate>();
+ for(const candidate of input){
+  const key=candidate.email?.toLowerCase()||candidate.linkedin_url?.toLowerCase()||[candidate.full_name.toLowerCase(),candidate.job_title?.toLowerCase()||""].join("|");
+  const existing=merged.get(key);
+  if(!existing){merged.set(key,candidate);continue;}
+  for(const [field,value] of Object.entries(candidate))if((existing as unknown as Record<string,unknown>)[field]===undefined&&(value!==undefined)) (existing as unknown as Record<string,unknown>)[field]=value;
+  existing.source_providers=[...new Set([...existing.source_providers,...candidate.source_providers])];
+  existing.field_provenance={...existing.field_provenance,...candidate.field_provenance};
+ }
+ return [...merged.values()].slice(0,15);
+}
+async function enrichOne(env:Env,owner:string,id:string,providers:Params["providers"]=["website"]){
+ const rows=await db<RecordRow[]>(env,"discovery_records?id=eq."+id+"&owner_id=eq."+owner+"&select=id,name,website,phone,email,address,raw_data"),row=rows?.[0];if(!row)throw new Error("记录不存在");
+ const selected=new Set(providers??["website"]);
+ const found={emails:[] as string[],phones:[] as string[],addresses:[] as string[],social:{} as Record<string,string[]>},sources:string[]=[];let visited=0;
+ if(selected.has("website")&&row.website){
+  const home=safePageUrl(row.website),origin=home.origin;let robots="";
+  try{const rr=await fetch(origin+"/robots.txt",{redirect:"manual",signal:AbortSignal.timeout(5000),headers:{"User-Agent":"TradePilotContactBot/1.0"}});if(rr.ok)robots=(await rr.text()).slice(0,100000);}catch { /* optional robots.txt */ }
+  const targets=[home];
+  for(let i=0;i<targets.length&&visited<5;i++){const url=targets[i];if(url.origin!==origin||!robotsAllows(robots,url.pathname))continue;try{const html=await readHtml(url);visited++;const c=extractContacts(html);found.emails.push(...c.emails);found.phones.push(...c.phones);found.addresses.push(...c.addresses);for(const [k,v] of Object.entries(c.social))found.social[k]=[...new Set([...(found.social[k]??[]),...v])].slice(0,10);sources.push(url.href);if(i===0)for(const link of contactLinks(html,url))if(targets.length<5)targets.push(link);}catch(error){if(i===0)throw error;}}
+ }
+ const providerErrors:Record<string,string>={};let candidates:ContactCandidate[]=[];
+ const domain=row.website?domainFromWebsite(row.website):"";
+ if(selected.has("apollo")&&domain){try{candidates.push(...await apolloContacts(env,domain));}catch(error){providerErrors.apollo=String(error).slice(0,240);}}
+ if(selected.has("zoominfo")){try{candidates.push(...await zoomInfoContacts(env,row.name));}catch(error){providerErrors.zoominfo=String(error).slice(0,240);}}
+ candidates=mergeCandidates(candidates);
  const emails=[...new Set(found.emails)].slice(0,20),phones=[...new Set(found.phones)].slice(0,20),addresses=[...new Set(found.addresses)].slice(0,10),email=emails[0]??null,phone=phones[0]??null,address=addresses[0]??null;
- const patch:Record<string,unknown>={updated_at:new Date().toISOString(),raw_data:{...(row.raw_data??{}),contact_enrichment:{captured_at:new Date().toISOString(),pages_visited:visited,emails,phones,addresses,social:found.social,source_pages:sources,method:"http_rules_structured_data"}}};
+ const previous=row.raw_data??{},capturedAt=new Date().toISOString();
+ const patch:Record<string,unknown>={updated_at:capturedAt,raw_data:{...previous,contact_enrichment:{captured_at:capturedAt,pages_visited:visited,emails,phones,addresses,social:found.social,source_pages:sources,method:"http_rules_structured_data"},contact_intelligence:{captured_at:capturedAt,providers:[...selected],candidate_count:candidates.length,candidates,provider_errors:providerErrors,review_status:"pending_review"}}};
  if(!row.email&&email)patch.email=email;if(!row.phone&&phone)patch.phone=phone;if(!row.address&&address)patch.address=address;
- await db(env,"discovery_records?id=eq."+id+"&owner_id=eq."+owner,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify(patch)});return {email:email??row.email,phone:phone??row.phone,address:address??row.address,pages:visited};
+ await db(env,"discovery_records?id=eq."+id+"&owner_id=eq."+owner,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify(patch)});
+ return {email:email??row.email,phone:phone??row.phone,address:address??row.address,pages:visited,candidates:candidates.length,providerErrors};
 }
 export class ContactEnrichmentWorkflow extends WorkflowEntrypoint<Env,Params>{
  async run(event:WorkflowEvent<Params>,step:WorkflowStep){
-  const {jobId,ownerId,recordIds}=event.payload;let completed=0,failed=0;const total=recordIds.length;
-  await step.do("mark-contact-enrichment-running",async()=>{await db(this.env,"discovery_contact_enrichment_runs?id=eq."+jobId+"&owner_id=eq."+ownerId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({status:"running",message:"正在采集官网公开联系方式"})});return true;});
+  const {jobId,ownerId,recordIds,providers=["website"]}=event.payload;let completed=0,failed=0;const total=recordIds.length;
+  await step.do("mark-contact-enrichment-running",async()=>{await db(this.env,"discovery_contact_enrichment_runs?id=eq."+jobId+"&owner_id=eq."+ownerId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({status:"running",message:"正在查找企业联系人并补全联系方式"})});return true;});
   for(let index=0;index<recordIds.length;index++){
    const recordId=recordIds[index];
-   try{await step.do("enrich-record-"+recordId,{retries:{limit:1,delay:"5 seconds",backoff:"exponential"},timeout:"2 minutes"},async()=>enrichOne(this.env,ownerId,recordId));completed++;}
+   try{await step.do("enrich-record-"+recordId,{retries:{limit:1,delay:"5 seconds",backoff:"exponential"},timeout:"2 minutes"},async()=>enrichOne(this.env,ownerId,recordId,providers));completed++;}
    catch { failed++; }
    const progress=Math.round((index+1)/total*100);
    await step.do("save-contact-progress-"+(index+1),async()=>{await db(this.env,"discovery_contact_enrichment_runs?id=eq."+jobId+"&owner_id=eq."+ownerId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({status:index===total-1?(failed===0?"completed":completed===0?"failed":"partial"):"running",progress,completed_count:completed,failed_count:failed,message:(index===total-1?(failed===0?"联系方式采集完成":completed===0?"联系方式采集失败":"联系方式采集部分完成"):"联系方式采集中")+" · "+completed+" 条完成 · "+failed+" 条失败"})});return progress;});
