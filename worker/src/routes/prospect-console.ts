@@ -187,8 +187,7 @@ export async function handleProspectConsole(request: Request, env: ConsoleEnv): 
       const hasReviewEvent = (eventsByRecord.get(record.id) ?? []).some(event => event.event_type === "prospect_reviewed");
       const hasCollectedData = hasContactEnrichmentData(record.raw_data) || Boolean(record.email || record.phone || record.address);
       const lifecycleStage: string = isConverted ? "converted" : terminalStage ??
-        (["reviewed","collected"].includes(storedLifecycleStage) ? storedLifecycleStage :
-          hasReviewEvent ? (hasCollectedData ? "collected" : "reviewed") : "discovered");
+        (hasReviewEvent ? (hasCollectedData ? "collected" : "reviewed") : "discovered");
       const entityStages = lifecycleStagesByEntity.get(entityId) ?? [];
       entityStages.push(lifecycleStage);
       lifecycleStagesByEntity.set(entityId,entityStages);
