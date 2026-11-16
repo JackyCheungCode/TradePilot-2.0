@@ -89,3 +89,94 @@
     transition: none;
   }
 }
+
+
+/* Welcome state uses Carbon typography and layer tokens; chat controls remain Carbon AI Chat. */
+.tp-xiaoya-drawer__heading {
+  font-size: var(--cds-heading-compact-01);
+  line-height: var(--cds-heading-compact-01-line-height);
+  font-weight: 600;
+}
+
+.tp-xiaoya-welcome {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--tp-space-03);
+  padding: var(--tp-space-07) var(--tp-space-06) var(--tp-space-05);
+  text-align: center;
+  background: var(--cds-layer);
+}
+
+.tp-xiaoya-welcome__avatar {
+  position: relative;
+  display: grid;
+  width: 6rem;
+  height: 6rem;
+  place-items: center;
+  margin-block-end: var(--tp-space-02);
+}
+
+.tp-xiaoya-welcome__avatar::before,
+.tp-xiaoya-welcome__avatar::after {
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--cds-border-subtle-01);
+  border-radius: 50%;
+  content: '';
+  pointer-events: none;
+}
+
+.tp-xiaoya-welcome__avatar::after {
+  inset: .45rem;
+  border-color: var(--cds-border-strong);
+}
+
+.tp-xiaoya-welcome__avatar--thinking::before {
+  animation: tp-xiaoya-pulse 1.2s ease-in-out infinite;
+  border-color: var(--cds-interactive);
+}
+
+.tp-xiaoya-welcome__avatar--success::before {
+  border: 2px solid var(--cds-support-success);
+  animation: tp-xiaoya-success 420ms ease-out both;
+}
+
+.tp-xiaoya-welcome__avatar--error::before {
+  border: 2px solid var(--cds-support-error);
+}
+
+.tp-xiaoya-welcome__title {
+  margin: 0;
+  font-size: var(--cds-heading-compact-02);
+  line-height: var(--cds-heading-compact-02-line-height);
+  font-weight: 600;
+}
+
+.tp-xiaoya-welcome__description {
+  max-width: 27rem;
+  margin: 0;
+  color: var(--cds-text-secondary);
+  font-size: var(--cds-label-01);
+  line-height: var(--cds-body-compact-01-line-height);
+}
+
+@keyframes tp-xiaoya-pulse {
+  0%, 100% { transform: scale(1); opacity: .55; }
+  50% { transform: scale(1.08); opacity: 1; }
+}
+
+@keyframes tp-xiaoya-success {
+  0% { transform: scale(.82); opacity: .25; }
+  65% { transform: scale(1.12); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tp-xiaoya-welcome__avatar--thinking::before,
+  .tp-xiaoya-welcome__avatar--success::before {
+    animation: none;
+  }
+}
