@@ -237,13 +237,13 @@ export async function handleProspectConsole(request: Request, env: ConsoleEnv): 
     for (const prospect of prospects.values()) {
       const stages = lifecycleStagesByEntity.get(prospect.id) ?? [];
       const activeStages = stages.filter(stage => ["discovered","reviewed","collected"].includes(stage));
-      if (activeStages.length) {
+      if (stages.includes("converted")) {
+        prospect.lifecycleStage = "converted";
+        prospect.status = "converted";
+      } else if (activeStages.length) {
         const order = ["discovered","reviewed","collected"];
         prospect.lifecycleStage = activeStages.sort((a,b)=>order.indexOf(b)-order.indexOf(a))[0];
         prospect.status = "pending";
-      } else if (stages.includes("converted")) {
-        prospect.lifecycleStage = "converted";
-        prospect.status = "converted";
       } else if (stages.length) {
         prospect.lifecycleStage = stages[stages.length-1];
         prospect.status = prospect.lifecycleStage;
