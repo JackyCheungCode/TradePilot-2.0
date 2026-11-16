@@ -98,7 +98,7 @@ export function DocumentsCenterPage() {
     try {
       const client = await getSupabaseClient();
       const [orderResult, templateResult, settingsResult] = await Promise.all([
-        client.from('trade_orders').select('id,order_number,title,order_type,status,currency_code,locked_at,confirmed_at,crm_account:crm_accounts(account_name)').in('order_type', ['sales', 'purchase']).or('and(order_type.eq.sales,locked_at.not.is.null),order_type.eq.purchase').order('updated_at', { ascending: false }).limit(200),
+        client.from('trade_orders').select('id,order_number,title,order_type,status,currency_code,locked_at,confirmed_at,crm_account:crm_accounts(account_name)').in('order_type', ['sales', 'purchase']).order('updated_at', { ascending: false }).limit(200),
         request('templates'),
         client.from('trade_document_settings').select('config').eq('scope_key', 'shared').maybeSingle(),
       ]);
@@ -113,6 +113,11 @@ export function DocumentsCenterPage() {
   }, [request]);
 
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    if (sourceMode === 'order' && !canUseOrderSource && canUseBlankSource) setSourceMode('blank');
+    if (sourceMode === 'blank' && !canUseBlankSource && canUseOrderSource) setSourceMode('order');
+  }, [sourceMode, canUseOrderSource, canUseBlankSource]);
+
   useEffect(() => { if (selectedOrder?.currency_code) setCurrency(selectedOrder.currency_code); }, [selectedOrder?.currency_code]);
 
   useEffect(() => {
