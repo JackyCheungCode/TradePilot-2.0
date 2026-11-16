@@ -452,7 +452,7 @@ export function InboxPage() {
             </Stack>
             <Search size="lg" labelText="搜索会话" placeholder="搜索公司、联系人、电话或邮箱" value={query}
               onChange={(event: React.ChangeEvent<HTMLInputElement>) => setQuery(event.target.value)} />
-            <Stack orientation="horizontal" gap={2}>
+            <Stack orientation="horizontal" gap={2} className="tp-inbox-channel-filters">
               <Button size="sm" kind={channelFilter === 'all' ? 'primary' : 'tertiary'} onClick={() => setChannelFilter('all')}>全部</Button>
               {channels.map(channel => (
                 <Button key={channel.id} size="sm" kind={channelFilter === channel.id ? 'primary' : 'tertiary'} onClick={() => setChannelFilter(channel.id)}>{channel.label}</Button>
