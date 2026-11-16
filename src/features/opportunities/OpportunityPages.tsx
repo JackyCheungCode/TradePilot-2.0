@@ -7,6 +7,7 @@ import {
   CarbonIcons, BusinessLifecycle,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
+import { useBusinessTransitionEvents } from '@/lib/useBusinessTransitionEvents';
 import '@/design-system/patterns/opportunities.scss';
 import '@/design-system/patterns/responsive-actions.scss';
 
@@ -107,7 +108,7 @@ export function OpportunityConsolePage() {
 }
 
 export function OpportunityFormPage() {
-  const nav=useNavigate(); const {id}=useParams(); const editing=Boolean(id);
+  const nav=useNavigate(); const {id}=useParams(); const lifecycleEvents=useBusinessTransitionEvents('opportunity',id); const editing=Boolean(id);
   const [accounts,setAccounts]=useState<AccountOption[]>([]); const [contacts,setContacts]=useState<ContactOption[]>([]); const [settings,setSettings]=useState<OpportunitySetting[]>([]);
   const [loading,setLoading]=useState(editing); const [saving,setSaving]=useState(false); const [error,setError]=useState('');
   const [data,setData]=useState<Record<string,string>>({name:'',account_id:'',primary_contact_id:'',description:'',opportunity_type:'new_business',stage:'prospecting',status:'open',probability:'10',priority:'normal',qualification_status:'pending',amount:'0',currency_code:'USD',actual_amount:'',expected_quantity:'',expected_margin:'',expected_margin_rate:'',source:'manual',campaign:'',sales_team:'',sales_person:'',expected_close_date:'',first_contact_date:'',next_activity_date:'',next_activity_at:'',next_activity_type:'',next_step:'',competitor:'',competitive_product:'',competitive_advantages:'',competitive_disadvantages:'',lost_reason:'',lost_notes:'',lead_source_detail:'',follow_up_summary:'',internal_notes:'',tags:'',products:'',win_reason:''});
@@ -205,7 +206,7 @@ export function OpportunityDetailPage() {
    <header className="tp-opportunities__header"><div><p className="tp-opportunities__eyebrow">TRADEPILOT / CRM / OPPORTUNITY</p><h1>{row.name}</h1><p>{row.opportunity_number} · {account} · {stageLabel(row.stage)}</p></div>
      <div className="tp-opportunities__actions tp-responsive-header-actions"><Button className="tp-opportunities__primary-action tp-responsive-header-actions__primary" kind="primary" onClick={()=>nav('/opportunities/'+row.id+'/edit')}><CarbonIcons.Edit size={16}/>编辑商机</Button><div className="tp-opportunities__secondary-actions tp-responsive-header-actions__secondary"><Button kind="tertiary" onClick={()=>nav('/opportunities')}>返回列表</Button><Button kind="tertiary" onClick={()=>nav('/quotes/new?opportunity='+row.id)}><CarbonIcons.Document size={16}/>创建报价单</Button><Button kind="secondary" disabled={terminal} onClick={openLifecycle}>管理生命周期</Button></div></div>
    </header>
-   <BusinessLifecycle title="商机生命周期" steps={lifecycleStages.map(([value,label])=>({value,label}))} current={row.stage} terminal={terminal} terminalKind={row.stage==='won'?'success':'warning'} terminalTitle={row.stage==='won'?'商机已赢单':'商机已输单'} description={terminal?'商机已进入终止阶段':`当前阶段：${stageLabel(row.stage)}`}>
+   <BusinessLifecycle title="商机生命周期" steps={lifecycleStages.map(([value,label])=>({value,label}))} current={row.stage} terminal={terminal} terminalKind={row.stage==='won'?'success':'warning'} terminalTitle={row.stage==='won'?'商机已赢单':'商机已输单'} description={terminal?'商机已进入终止阶段':`当前阶段：${stageLabel(row.stage)}`} events={lifecycleEvents}>
      <div className="tp-opportunities__lifecycle-foot"><span>阶段变更需要人工确认；报价、订单等下游记录的生成不会仅凭阶段按钮自动发生。</span>{!terminal&&<Button kind="tertiary" size="sm" onClick={openLifecycle}>确认下一阶段</Button>}</div>
    </BusinessLifecycle>
    <section className="tp-opportunities__primary"><div className="tp-opportunities__detail-grid">{[['所属客户',account],['主要联系人',contact],['销售阶段',stageLabel(row.stage)],['商机状态',row.status],['预计金额',row.currency_code+' '+Number(row.amount||0).toLocaleString()],['赢率',row.probability+'%'],['加权预测金额',row.currency_code+' '+(Number(row.amount||0)*Number(row.probability||0)/100).toLocaleString()],['预计成交日期',row.expected_close_date||'—'],['负责人',row.sales_person||'—'],['销售团队',row.sales_team||'—'],['来源',row.source||'—'],['优先级',row.priority||'普通']].map(([k,v])=><div key={k}><span>{k}</span><strong>{v}</strong></div>)}</div>{row.description&&<p>{row.description}</p>}</section>
