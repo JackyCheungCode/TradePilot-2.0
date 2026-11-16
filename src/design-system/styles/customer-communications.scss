@@ -349,3 +349,15 @@
   .cc-chat-contact .cc-chat-company-title,
   .cc-profile-panel .cc-profile-title { font-size: 0.9375rem; line-height: 1.25rem; }
 }
+
+
+.cc-channel-filter-control,
+.cc-reply-channel-control {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--tp-space-03);
+  min-width: 0;
+}
+.cc-channel-filter-control > :last-child,
+.cc-reply-channel-control > :last-child { flex: 1 1 auto; min-width: 0; }
+.cc-reply-channel-control { align-items: flex-end; }
