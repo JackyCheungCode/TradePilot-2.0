@@ -149,6 +149,10 @@ export async function handleProspectConsole(request: Request, env: ConsoleEnv): 
       if (!page || page.length < 1000) break;
       if (offset === 199000) throw new Error("PROSPECT_CONSOLE_DATASET_TOO_LARGE: 请将统计聚合迁移到数据库端后再查询完整数据。");
     }
+    const transitionEvents = await db<Array<{record_id:string;event_type:string;from_status:string|null;to_status:string|null;note:string|null;created_at:string}>>(env,
+      "business_transition_events?owner_id=eq."+ownerId+"&record_type=eq.prospect&select=record_id,event_type,from_status,to_status,note,created_at&order=created_at.desc&limit=5000");
+    const eventsByRecord = new Map<string,Array<{record_id:string;event_type:string;from_status:string|null;to_status:string|null;note:string|null;created_at:string}>>();
+    for(const event of transitionEvents??[]){const list=eventsByRecord.get(event.record_id)??[];list.push(event);eventsByRecord.set(event.record_id,list);}
     const filtered = rows.filter(row => {
       if (!row.record || !row.run || !row.captured_at) return false;
       const day = localDay(row.captured_at);
@@ -167,6 +171,7 @@ export async function handleProspectConsole(request: Request, env: ConsoleEnv): 
       sourceDetails: Array<{ platform: string; fields: Array<{ label: string; value: string }> }>;
       contactIntelligence?: Record<string, unknown>;
       websiteContacts?: Record<string, unknown>;
+      lifecycleEvents?: Array<{event_type:string;from_status:string|null;to_status:string|null;note:string|null;created_at:string}>;
     }>();
     for (const row of filtered) {
       const record = row.record!;
@@ -224,6 +229,7 @@ export async function handleProspectConsole(request: Request, env: ConsoleEnv): 
       .map(([date, values]) => ({ date, count: values.size }))
       .sort((a, b) => a.date.localeCompare(b.date));
     const prospectRows = [...prospects.values()].sort((a, b) => b.discoveredAt.localeCompare(a.discoveredAt));
+    for(const prospect of prospectRows){const events=prospect.recordIds.flatMap(recordId=>eventsByRecord.get(recordId)??[]).sort((a,b)=>b.created_at.localeCompare(a.created_at));prospect.lifecycleEvents=events.slice(0,20).map(({event_type,from_status,to_status,note,created_at})=>({event_type,from_status,to_status,note,created_at}));}
     return successResponse(request, {
       metrics: {
         platformCount: platforms.length, prospectCount: entities.size,
