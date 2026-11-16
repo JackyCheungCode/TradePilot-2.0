@@ -79,7 +79,7 @@ export function SalesConversionFunnel({ startDate, endDate }: { startDate: strin
     {loading ? <InlineLoading description="正在计算销售转化路径…"/> : <div className="tp-dashboard__funnel-stages">
       {stages.map((stage,index) => <button type="button" key={stage.key} onClick={()=>navigate(stage.href)} className="tp-dashboard__funnel-stage">
         <span className="tp-dashboard__funnel-stage-label">{stage.label}</span>
-        <span className="tp-dashboard__funnel-track"><span style={{width:(stage.count?Math.max(12,stage.count/max*100):0)+'%'}}/></span>
+        <span className="tp-dashboard__funnel-track"><svg viewBox="0 0 100 8" preserveAspectRatio="none" aria-hidden="true"><rect x="0" y="0" width={stage.count?Math.max(12,stage.count/max*100):0} height="8"/></svg></span>
         <strong>{stage.count.toLocaleString()}</strong>
         {index>0 && <small>{stages[index-1]?.count ? ((stage.count/stages[index-1].count)*100).toFixed(1)+'% 转化' : '—'}</small>}
       </button>)}
