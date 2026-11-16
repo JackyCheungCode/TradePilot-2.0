@@ -4,6 +4,7 @@ import {
   Table, TableHead, TableRow, TableHeader, TableBody, TableCell, Tag,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
+import './AgentHistoryManagement.scss';
 
 type Conversation = {
   id: string;
