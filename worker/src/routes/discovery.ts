@@ -418,8 +418,8 @@ export async function handleDiscovery(request: Request, env: DiscoveryEnv): Prom
   }
 
   if(request.method==="POST" && url.pathname==="/api/v1/discovery-contact-candidates/convert"){
-    let body:{recordId?:string;candidateKeys?:string[]};
-    try{body=await request.json() as {recordId?:string;candidateKeys?:string[]};}catch{return errorResponse(request,"VALIDATION_ERROR","请求内容不是有效 JSON。",400);}
+    let body:{recordId?:string;candidateKeys?:string[];candidateEdits?:Record<string,{email?:string;phone?:string;job_title?:string}>};
+    try{body=await request.json() as {recordId?:string;candidateKeys?:string[];candidateEdits?:Record<string,{email?:string;phone?:string;job_title?:string}>};}catch{return errorResponse(request,"VALIDATION_ERROR","请求内容不是有效 JSON。",400);}
     const recordId=String(body.recordId??"");
     const candidateKeys=[...new Set(Array.isArray(body.candidateKeys)?body.candidateKeys.map(String):[])];
     if(!/^[0-9a-f-]{36}$/i.test(recordId)||!candidateKeys.length||candidateKeys.length>30)return errorResponse(request,"VALIDATION_ERROR","请选择有效企业及 1 到 30 位联系人。",400);
@@ -433,6 +433,13 @@ export async function handleDiscovery(request: Request, env: DiscoveryEnv): Prom
     const chosen=candidates.filter(candidate=>candidateKeys.includes(keyOf(candidate)));
     if(chosen.length!==candidateKeys.length)return errorResponse(request,"CONTACT_CANDIDATE_NOT_FOUND","部分联系人候选已变化，请刷新后重新选择。",409);
     if(chosen.some(candidate=>!String(candidate.full_name??"").trim()))return errorResponse(request,"CONTACT_NAME_REQUIRED","联系人姓名缺失，无法转换。",422);
+    const candidateEdits=body.candidateEdits??{},editedAt=new Date().toISOString();
+    for(const candidate of chosen){
+      const edit=candidateEdits[keyOf(candidate)]??{};
+      if(edit.email!==undefined){const email=String(edit.email).trim().toLowerCase();if(email&&(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||email.length>254))return errorResponse(request,"INVALID_CONTACT_EMAIL","联系人邮箱格式无效。",422);candidate.email=email||undefined;candidate.field_provenance={...(candidate.field_provenance as Record<string,unknown>??{}),email:{provider:"user_review",sources:["user_review"],captured_at:editedAt,verification_status:"user_confirmed"}};}
+      if(edit.phone!==undefined){const phone=String(edit.phone).trim();if(phone.length>80)return errorResponse(request,"INVALID_CONTACT_PHONE","联系人电话长度超出限制。",422);candidate.phone=phone||undefined;candidate.field_provenance={...(candidate.field_provenance as Record<string,unknown>??{}),phone:{provider:"user_review",sources:["user_review"],captured_at:editedAt,verification_status:"user_confirmed"}};}
+      if(edit.job_title!==undefined){const title=String(edit.job_title).trim();if(title.length>160)return errorResponse(request,"INVALID_CONTACT_TITLE","联系人职位长度超出限制。",422);candidate.job_title=title||undefined;candidate.field_provenance={...(candidate.field_provenance as Record<string,unknown>??{}),job_title:{provider:"user_review",sources:["user_review"],captured_at:editedAt,verification_status:"user_confirmed"}};}
+    }
     let leadId=String(record.lead_id??"")||null;
     if(!leadId){
       const existingLeads=await db<Array<{id:string}>>(env,"leads?owner_id=eq."+userId+"&discovery_record_id=eq."+recordId+"&select=id");
@@ -450,7 +457,7 @@ export async function handleDiscovery(request: Request, env: DiscoveryEnv): Prom
       account=domainMatch?.[0];
     }
     if(!account){
-      const createdAccounts=await db<Array<{id:string;account_name:string}>>(env,"crm_accounts",{method:"POST",headers:{Prefer:"return=representation"},body:JSON.stringify({owner_id:userId,source_lead_id:leadId,account_name:String(record.name??"未命名企业"),legal_name:String(record.name??""),website:record.website??null,email:record.email??null,phone:record.phone??null,country_code:record.country_code??null,account_type:"customer",status:"active",custom_fields:{source:"prospect_discovery",discovery_record_id:recordId}})});
+      const createdAccounts=await db<Array<{id:string;account_name:string}>>(env,"crm_accounts",{method:"POST",headers:{Prefer:"return=representation"},body:JSON.stringify({owner_id:userId,source_lead_id:leadId,account_name:String(record.name??"未命名企业"),legal_name:String(record.name??""),website:record.website??null,email:record.email??null,phone:record.phone??null,country_code:record.country_code??null,account_type:"customer",customer_rank:1,status:"active",custom_fields:{source:"prospect_discovery",discovery_record_id:recordId}})});
       account=createdAccounts?.[0];
     }
     if(!account?.id)throw new Error("CRM_ACCOUNT_CREATE_FAILED");
