@@ -218,11 +218,11 @@ async function scanWithClamAV(env: MediaWorkerEnv, bytes: Uint8Array): Promise<"
   if (!base || !secret) throw new Error("MEDIA_SCANNER_NOT_CONFIGURED");
   let endpoint: URL;
   try {
-    endpoint = new URL("/scan", base);
+    const scannerBase = new URL(base);
+    if (scannerBase.protocol !== "https:" || scannerBase.username || scannerBase.password ||
+        scannerBase.search || scannerBase.hash) throw new Error("INVALID_SCANNER_URL");
+    endpoint = new URL("/scan", scannerBase.origin);
   } catch {
-    throw new Error("MEDIA_SCANNER_CONFIGURATION_INVALID");
-  }
-  if (endpoint.protocol !== "https:" || endpoint.username || endpoint.password || endpoint.search || endpoint.hash) {
     throw new Error("MEDIA_SCANNER_CONFIGURATION_INVALID");
   }
   const timestamp = String(Math.floor(Date.now() / 1000));
@@ -343,7 +343,15 @@ async function processJob(env: MediaWorkerEnv, job: MediaJob, secrets: Record<st
 
 export async function processInboxMediaJobs(env: MediaWorkerEnv): Promise<void> {
   // Do not claim jobs until the scanner is configured; they remain queued for later.
-  if (!env.INBOX_SCANNER_URL?.trim() || !env.INBOX_SCANNER_HMAC_SECRET) return;
+  if (!env.INBOX_SCANNER_URL?.trim() || !env.INBOX_SCANNER_HMAC_SECRET ||
+      env.INBOX_SCANNER_HMAC_SECRET.length < 32) return;
+  try {
+    const scannerUrl = new URL(env.INBOX_SCANNER_URL);
+    if (scannerUrl.protocol !== "https:" || scannerUrl.username || scannerUrl.password ||
+        scannerUrl.search || scannerUrl.hash) return;
+  } catch {
+    return;
+  }
   const secrets = await readIntegrationSecrets(SECRET_KEYS, env);
   const jobs = await db<MediaJob[]>(env, "rpc/inbox_claim_media_jobs", {
     method: "POST",
