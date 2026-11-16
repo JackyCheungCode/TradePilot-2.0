@@ -100,6 +100,22 @@ export async function getInboxConversations(token: string): Promise<InboxConvers
   const result = await request<{ conversations: InboxConversation[] }>('/api/v1/inbox/conversations', token);
   return result.conversations ?? [];
 }
+export async function createInboxConversation(token: string, contactId: string): Promise<InboxConversation> {
+  const response = await fetch('/api/v1/inbox/conversations', {
+    method: 'POST',
+    headers: { Accept: 'application/json', Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ contactId }),
+  });
+  const payload = await response.json().catch(() => ({})) as {
+    data?: { conversation?: InboxConversation };
+    error?: { message?: string };
+  };
+  if (!response.ok || !payload.data?.conversation) {
+    throw new Error(payload.error?.message ?? '创建客户会话失败。');
+  }
+  return payload.data.conversation;
+}
+
 export async function getInboxMessages(token: string, conversationId: string): Promise<InboxTimelineItem[]> {
   const result = await request<{ items: InboxTimelineItem[] }>(
     '/api/v1/inbox/conversations/' + encodeURIComponent(conversationId) + '/messages',
