@@ -24,6 +24,16 @@ export interface DiscoveryRun {
   searchConfig?: Record<string, unknown>;
   providers?: string[];
 }
+export interface ContactEnrichmentJob {
+  id: string;
+  status: string;
+  progress: number;
+  completedCount: number;
+  failedCount: number;
+  message: string;
+  recordIds: string[];
+  createdAt: string;
+}
 export interface DiscoveryRecord {
   id: string;
   channel: string;
@@ -77,6 +87,10 @@ export function getDiscoveryRun(token: string, id: string): Promise<DiscoveryRun
 
 export function getDiscoveryRuns(token: string): Promise<DiscoveryRun[]> {
   return request<DiscoveryRun[]>('/api/v1/discovery-runs', token);
+}
+
+export function getContactEnrichmentJobs(token: string): Promise<ContactEnrichmentJob[]> {
+  return request<ContactEnrichmentJob[]>('/api/v1/discovery-contact-enrichments', token);
 }
 
 export function getDiscoveryRecords(token: string, runId: string): Promise<DiscoveryRecord[]> {
