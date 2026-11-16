@@ -480,8 +480,8 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
     const sendMatch = url.pathname.match(/^\/api\/v1\/inbox\/conversations\/([0-9a-f-]{36})\/messages$/i);
     if (sendMatch && request.method === "POST") {
       const conversationId = sendMatch[1];
-      let body: { content?: unknown };
-      try { body = await request.json() as { content?: unknown }; }
+      let body: { content?: unknown; channelType?: unknown };
+      try { body = await request.json() as { content?: unknown; channelType?: unknown }; }
       catch { return errorResponse(request, "INVALID_JSON", "消息内容格式不正确。", 400); }
       const content = typeof body.content === "string" ? body.content.trim() : "";
       if (!content || content.length > 4000) return errorResponse(request, "VALIDATION_ERROR", "消息不能为空，且不能超过 4000 个字符。", 400);
@@ -489,7 +489,8 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
       const conversations = await db<Row[]>(dbEnv, "inbox_conversations?select=id,contact_id,last_channel_type&id=eq." + conversationId + "&owner_id=eq." + ownerId + "&limit=1");
       const conversation = conversations[0];
       if (!conversation) return errorResponse(request, "CONVERSATION_NOT_FOUND", "会话不存在或无权访问。", 404);
-      const channel = String(conversation.last_channel_type ?? "");
+      const requestedChannel = typeof body.channelType === "string" ? body.channelType : String(conversation.last_channel_type ?? "");
+      const channel = requestedChannel;
       if (!["whatsapp", "line", "messenger", "telegram"].includes(channel)) return errorResponse(request, "CHANNEL_NOT_READY", "当前渠道尚未开放真实文本发送。", 409);
 
       const identities = await db<Row[]>(dbEnv, "inbox_customer_identities?select=id,external_user_id,channel_connection_id,is_primary&owner_id=eq." + ownerId + "&contact_id=eq." + String(conversation.contact_id) + "&channel_type=eq." + channel + "&order=is_primary.desc,last_seen_at.desc.nullslast&limit=1");
@@ -533,6 +534,28 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
         });
         return errorResponse(request, code, "渠道发送失败，请检查渠道配置或稍后重试。", 502);
       }
+    }
+
+    const conversationUpdateMatch = url.pathname.match(/^\/api\/v1\/inbox\/conversations\/([0-9a-f-]{36})$/i);
+    if (conversationUpdateMatch && request.method === "PATCH") {
+      const conversationId = conversationUpdateMatch[1];
+      let body: { status?: unknown; markRead?: unknown };
+      try { body = await request.json() as { status?: unknown; markRead?: unknown }; }
+      catch { return errorResponse(request, "INVALID_JSON", "会话更新内容格式不正确。", 400); }
+      const patch: Row = {};
+      if (body.status !== undefined) {
+        if (!["open", "pending", "resolved", "closed"].includes(String(body.status))) {
+          return errorResponse(request, "VALIDATION_ERROR", "会话状态无效。", 400);
+        }
+        patch.status = body.status;
+      }
+      if (body.markRead === true) patch.unread_count = 0;
+      if (!Object.keys(patch).length) return errorResponse(request, "VALIDATION_ERROR", "没有可更新的会话字段。", 400);
+      const updated = await db<Row[]>(dbEnv,
+        "inbox_conversations?id=eq." + conversationId + "&owner_id=eq." + ownerId,
+        { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify(patch) });
+      if (!updated[0]) return errorResponse(request, "CONVERSATION_NOT_FOUND", "会话不存在或无权访问。", 404);
+      return successResponse(request, { conversation: updated[0] });
     }
 
     const noteMatch = url.pathname.match(/^\/api\/v1\/inbox\/conversations\/([0-9a-f-]{36})\/notes$/i);
