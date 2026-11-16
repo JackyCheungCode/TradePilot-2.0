@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Heading, CarbonIcons, ChatCustomElement, MessageResponseTypes, type ChatInstance, type CustomSendMessageOptions, type MessageRequest, type PublicConfig, type HistoryItem } from '@/design-system';
+import { XiaoyaAvatar } from './XiaoyaAvatar';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/layout/XiaoyaSidePanel.scss';
 
@@ -48,6 +49,8 @@ function readPageContext(pathname: string) {
 
 export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
   const [hasMounted, setHasMounted] = useState(false);
+  const [welcomeVisible, setWelcomeVisible] = useState(true);
+  const [avatarEmotion, setAvatarEmotion] = useState<'idle' | 'thinking' | 'success' | 'error'>('idle');
   const conversationIdRef = useRef('');
   const pathnameRef = useRef(pathname);
   pathnameRef.current = pathname;
@@ -83,6 +86,7 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
   const customLoadHistory = useCallback(async (_instance: ChatInstance): Promise<HistoryItem[]> => {
     const conversationId = await ensureConversation();
     const rows = await agentRequest<AgentMessage[]>(`/api/v1/agent/conversations/${conversationId}/messages`);
+    setWelcomeVisible(rows.length === 0);
     return rows.map((row) => {
       const timestamp = row.created_at ? Date.parse(row.created_at) : Date.now();
       const time = new Date(timestamp).toISOString();
@@ -137,7 +141,14 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
           text: reply,
         }],
       },
-    });
+      });
+      setAvatarEmotion('success');
+      window.setTimeout(() => setAvatarEmotion((current) => current === 'success' ? 'idle' : current), 1800);
+    } catch (error) {
+      setAvatarEmotion('error');
+      window.setTimeout(() => setAvatarEmotion((current) => current === 'error' ? 'idle' : current), 1800);
+      throw error;
+    }
   }, [ensureConversation]);
 
   const chatConfig = useMemo<PublicConfig>(() => ({
@@ -165,13 +176,22 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
         <div className="tp-xiaoya-drawer__toolbar">
           <div className="tp-xiaoya-drawer__title">
             <CarbonIcons.Chat size={20} />
-            <Heading>小雅 AI 助手</Heading>
+            <Heading className="tp-xiaoya-drawer__heading">小雅 AI 助手</Heading>
           </div>
           <Button kind="ghost" size="sm" onClick={onClose}>
             <CarbonIcons.Close size={16} />
             关闭
           </Button>
         </div>
+        {welcomeVisible && (
+          <section className="tp-xiaoya-welcome" aria-label="小雅助手介绍">
+            <div className={`tp-xiaoya-welcome__avatar tp-xiaoya-welcome__avatar--${avatarEmotion}`}>
+              <XiaoyaAvatar emotion={avatarEmotion} size={64} />
+            </div>
+            <Heading className="tp-xiaoya-welcome__title">你好，我是小雅。</Heading>
+            <p className="tp-xiaoya-welcome__description">我可以结合当前页面上下文，帮你分析业务数据、查找信息、梳理问题并完成日常工作。</p>
+          </section>
+        )}
         <div className="tp-xiaoya-drawer__chat">
           {hasMounted && <ChatCustomElement className="tp-xiaoya-chat" {...chatConfig} />}
         </div>
