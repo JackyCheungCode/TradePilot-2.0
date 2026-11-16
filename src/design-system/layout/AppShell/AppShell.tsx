@@ -74,7 +74,7 @@ export function AppShell() {
       </Header>
       <SideNav
         aria-label="TradePilot 主导航"
-        className={sideNavExpanded ? 'tp-sidenav--expanded' : 'tp-sidenav--rail'}
+        className={`${sideNavExpanded ? 'tp-sidenav--expanded' : 'tp-sidenav--rail'}${location.pathname.startsWith('/inbox') ? ' tp-sidenav--inbox' : ''}`}
         expanded={sideNavExpanded}
         isPersistent
         isRail={!sideNavExpanded}
