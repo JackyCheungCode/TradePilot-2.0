@@ -367,7 +367,7 @@ async function processEvent(env: WebhookEnv, connection: Connection, event: Norm
 
   try {
     if (event.eventType === "status" && event.receiptStatus) {
-      await db<Row>(env, "rpc/inbox_process_webhook_status", {
+      const receipt = await db<{ updated?: boolean }>(env, "rpc/inbox_process_webhook_status", {
         method: "POST",
         body: JSON.stringify({
           p_event_id: (await db<Row[]>(env,
@@ -380,6 +380,7 @@ async function processEvent(env: WebhookEnv, connection: Connection, event: Norm
           p_error_code: event.errorCode ?? null,
         }),
       });
+      if (receipt.updated !== true) throw new Error("OUTBOUND_MESSAGE_NOT_FOUND");
       return;
     }
     if (!event.externalUserId) {
