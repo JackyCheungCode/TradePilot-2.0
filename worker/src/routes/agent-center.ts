@@ -770,6 +770,21 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
       return successResponse(request,{run:{...run,status:synchronizedStatus},discoveryRun:discovery?.[0]??null,events:events??[],logs:logs??[],records:detailedRecords});
     }
 
+    if(path==="/api/v1/agent/conversations/bulk-delete"&&request.method==="POST"){
+      let body:Record<string,unknown>;
+      try{body=await request.json() as Record<string,unknown>;}catch{return errorResponse(request,"INVALID_JSON","请求内容不是有效 JSON。",400);}
+      const rawIds=body.conversationIds;
+      if(!Array.isArray(rawIds)||rawIds.length<1||rawIds.length>100||rawIds.some(id=>typeof id!=="string"||!/^[0-9a-f-]{36}$/i.test(id))){
+        return errorResponse(request,"VALIDATION_ERROR","请选择 1–100 条有效的 AI 历史对话记录。",400);
+      }
+      const conversationIds=[...new Set(rawIds as string[])];
+      const rows=await db<Array<{id:string}>>(env,"agent_conversations?owner_id=eq."+ownerId+"&id=in.("+conversationIds.join(",")+")&select=id",{
+        method:"DELETE",
+        headers:{Prefer:"return=representation"}
+      });
+      const deletedIds=(rows??[]).map(item=>item.id);
+      return successResponse(request,{deletedIds,deletedCount:deletedIds.length});
+    }
     if(path==="/api/v1/agent/conversations"&&request.method==="GET"){
       const rows=await db<Array<Record<string,unknown>>>(env,"agent_conversations?owner_id=eq."+ownerId+"&select=id,title,last_message_at,created_at&order=last_message_at.desc&limit=100");
       return successResponse(request,rows??[]);
