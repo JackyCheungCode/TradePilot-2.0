@@ -391,6 +391,25 @@ export async function handleInboxWebhook(request: Request, env: WebhookEnv): Pro
     } catch {
       return new Response("Invalid JSON", { status: 400 });
     }
+    if (channel === "whatsapp") {
+      const entries = Array.isArray(payload.entry) ? payload.entry as Row[] : [];
+      const matched = entries.some(entry => Array.isArray(entry.changes) &&
+        (entry.changes as Row[]).some(change => {
+          const value = change.value && typeof change.value === "object" ? change.value as Row : {};
+          const metadata = value.metadata && typeof value.metadata === "object" ? value.metadata as Row : {};
+          return String(metadata.phone_number_id ?? "") === String(connection.external_account_id ?? "");
+        }));
+      if (!matched) return new Response("Webhook account mismatch", { status: 403 });
+    }
+    if (channel === "messenger") {
+      const entries = Array.isArray(payload.entry) ? payload.entry as Row[] : [];
+      if (!entries.some(entry => String(entry.id ?? "") === String(connection.external_account_id ?? ""))) {
+        return new Response("Webhook account mismatch", { status: 403 });
+      }
+    }
+    if (channel === "line" && String(payload.destination ?? "") !== String(connection.external_account_id ?? "")) {
+      return new Response("Webhook account mismatch", { status: 403 });
+    }
     let events: NormalizedEvent[] = [];
     if (channel === "whatsapp") events = parseWhatsApp(payload, connection);
     if (channel === "messenger") events = parseMessenger(payload, connection);
