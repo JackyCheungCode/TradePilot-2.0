@@ -10,6 +10,7 @@ import { OpportunitySettings, opportunitySettingSections } from './OpportunitySe
 import { CrmDomainSettings, crmSettingSections, type CrmSettingsDomain } from './CrmDomainSettings';
 import { TradeDocumentSettings } from './TradeDocumentSettings';
 import { DocumentTypeSettings } from './DocumentTypeSettings';
+import { DocumentTemplateSettings } from './DocumentTemplateSettings';
 import { TradeOperationsSettings } from './TradeOperationsSettings';
 import { AgentSettings } from './AgentSettings';
 import { IntegrationsSettings } from './IntegrationsSettings';
@@ -55,7 +56,8 @@ const enterpriseSections: Section[] = [
 ];
 
 const tradeDocumentSections: Section[] = [
-  { id: 'document-types', label: '单据类型管理', group: '单据生成规则', description: '逐种配置单据是否启用、允许哪些来源、能否空白创建及独立正式确认。', implemented: true },
+  { id: 'document-types', label: '单据类型管理', group: '单据生成规则', description: '逐种配置单据来源、字段校验、编辑权限和正式确认规则。', implemented: true },
+  { id: 'templates', label: '模板管理', group: '单据生成规则', description: '按单据类型和语言管理版式、展示字段及默认模板。', implemented: true },
   { id: 'shared', label: '通用设置', group: '通用规则', description: '报价单与销售订单共享的业务规则和默认值。', implemented: true },
   { id: 'quotation', label: '报价单设置', group: '单据专属设置', description: '报价有效期、修订和客户确认规则。', implemented: true },
   { id: 'sales_order', label: '销售订单设置', group: '单据专属设置', description: '订单确认、锁定、履行和取消规则。', implemented: true },
@@ -389,7 +391,7 @@ export function SettingsCenterPage() {
                 </>
               )}
 
-              {domain === 'enterprise' ? <EnterpriseProfileSettings /> : domain === 'integrations' ? <IntegrationsSettings section={section} /> : domain === 'agent' ? <AgentSettings section={section} /> : domain === 'trade-operations' ? <TradeOperationsSettings scope={section as 'shared' | 'shipment' | 'payment'} /> : domain === 'trade-documents' ? (section === 'document-types' ? <DocumentTypeSettings /> : <TradeDocumentSettings scope={section as 'shared' | 'quotation' | 'sales_order'} />) : domain === 'opportunities' ? <OpportunitySettings section={section} /> : domain === 'contacts' || domain === 'accounts' || domain === 'leads' ? <CrmDomainSettings domain={domain as CrmSettingsDomain} section={section} /> : !['categories','attributes'].includes(section) && <ProductAdvancedSettings section={section} /> }
+              {domain === 'enterprise' ? <EnterpriseProfileSettings /> : domain === 'integrations' ? <IntegrationsSettings section={section} /> : domain === 'agent' ? <AgentSettings section={section} /> : domain === 'trade-operations' ? <TradeOperationsSettings scope={section as 'shared' | 'shipment' | 'payment'} /> : domain === 'trade-documents' ? (section === 'document-types' ? <DocumentTypeSettings /> : section === 'templates' ? <DocumentTemplateSettings /> : <TradeDocumentSettings scope={section as 'shared' | 'quotation' | 'sales_order'} />) : domain === 'opportunities' ? <OpportunitySettings section={section} /> : domain === 'contacts' || domain === 'accounts' || domain === 'leads' ? <CrmDomainSettings domain={domain as CrmSettingsDomain} section={section} /> : !['categories','attributes'].includes(section) && <ProductAdvancedSettings section={section} /> }
 
             </div>
           </div>
