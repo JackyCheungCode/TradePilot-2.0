@@ -227,7 +227,7 @@ export function DocumentsCenterPage() {
             <TextArea id="tp-blank-notes" labelText="单据备注" rows={3} value={blankFields.notes} onChange={e => setBlankFields(v => ({...v,notes:e.currentTarget.value}))} />
           </div>
         </section>}
-        {sourceMode === 'order' && selectedType?.shipment && orderId && shipments.length === 0 && <InlineNotification kind="warning" lowContrast title="暂无发运批次" subtitle="请先在发运管理中创建该订单的实际发运批次，再生成商业发票或装箱单。" />}
+        {sourceMode === 'order' && requiresShipmentSelection && orderId && shipments.length === 0 && <InlineNotification kind="warning" lowContrast title="暂无发运批次" subtitle="请先在发运管理中创建该订单的实际发运批次，再生成商业发票或装箱单。" />}
         <div className="tp-documents__wizard-actions"><Button kind="tertiary" onClick={() => setStep(2)}>上一步</Button><Button kind="primary" disabled={sourceMode === 'order' && (!orderId || (Boolean(selectedPolicy.requireShipmentWhenOrderLinked) && !shipmentId))} onClick={() => setStep(4)}>下一步</Button></div>
       </div>}
       {step === 4 && <div className="tp-documents__step-content"><h2>模板与生成</h2><p>模板负责版式，业务字段由订单和发运数据自动填充。草稿创建后仍可继续校对。</p>
