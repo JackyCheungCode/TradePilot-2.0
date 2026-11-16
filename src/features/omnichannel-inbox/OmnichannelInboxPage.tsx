@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Button, Search, TextInput, TextArea, Dropdown, Tag, InlineNotification, Modal, ModalBody, IconButton, Heading, Tile, LineChart, ScaleTypes, CarbonIcons,
+  Button, Search, TextInput, TextArea, Dropdown, Tag, InlineNotification, Modal, ModalBody, IconButton, Heading, Tile, LineChart, ScaleTypes, CarbonIcons, Breadcrumb, BreadcrumbItem, ContentSwitcher, Switch,
 } from '@/design-system';
 import {
   channelLabels, conversationsSeed, customersSeed, identitiesSeed, messagesSeed,
@@ -15,13 +15,12 @@ const fmtSize = (bytes: number) => bytes > 1_000_000 ? (bytes / 1_000_000).toFix
 const channelOptions = Object.keys(channelLabels).map((id) => ({ id, text: channelLabels[id as ChannelType] }));
 
 function ChannelMark({ channel }: { channel: ChannelType }) {
-  const slugs: Partial<Record<ChannelType, string>> = {
-    whatsapp: 'whatsapp', line: 'line', messenger: 'messenger', telegram: 'telegram', wecom: 'wechatwork',
+  const icons: Record<ChannelType, React.ComponentType<{ size?: number }>> = {
+    email: CarbonIcons.Email, whatsapp: CarbonIcons.Chat, line: CarbonIcons.Chat,
+    messenger: CarbonIcons.Chat, telegram: CarbonIcons.Chat, wecom: CarbonIcons.Chat,
   };
-  const slug = slugs[channel];
-  return <span className={'oi-channel oi-channel--' + channel} role="img" aria-label={channelLabels[channel]} title={channelLabels[channel]}>
-    {slug ? <img src={'https://cdn.simpleicons.org/' + slug + '/FFFFFF'} alt="" aria-hidden="true" /> : <CarbonIcons.Email size={14} />}
-  </span>;
+  const ChannelIcon = icons[channel];
+  return <Tag type="cool-gray"><ChannelIcon size={16} /> {channelLabels[channel]}</Tag>;
 }
 function avatarFallback(contactName: string) {
   const name = contactName.trim();
@@ -34,7 +33,7 @@ function avatarFallback(contactName: string) {
 function Avatar({ customer, small = false }: { customer: Customer; small?: boolean }) {
   const fallback = avatarFallback(customer.contact_name);
   const avatarText = customer.avatar?.trim() || fallback;
-  return <div className={'oi-avatar' + (small ? ' oi-avatar--small' : '')} role="img" aria-label={customer.contact_name}>{avatarText}</div>;
+  return <span className="oi-avatar" role="img" aria-label={customer.contact_name}><CarbonIcons.User size={small ? 24 : 32} /><span className="oi-avatar-label">{avatarText}</span></span>;
 }
 function StatusText({ status }: { status: Message['status'] }) {
   if (status === 'local') return <span className="oi-message-status">仅本地演示</span>;
@@ -100,10 +99,6 @@ export function OmnichannelInboxPage() {
   const demoPreviousUnreadCount = 3;
   const unreadDelta = unreadConversationCount - demoPreviousUnreadCount;
   const trendLabel = (delta: number) => delta > 0 ? '+' + delta : String(delta);
-  const trendTone = (metric: 'unread' | 'active', delta: number) => {
-    if (delta === 0) return 'oi-trend--neutral';
-    return (metric === 'unread' ? delta < 0 : delta > 0) ? 'oi-trend--positive' : 'oi-trend--negative';
-  };
 
   const filteredConversations = useMemo(() => conversations.filter((conversation) => {
     const person = customers.find((item) => item.id === conversation.customer_id)!;
@@ -192,26 +187,22 @@ export function OmnichannelInboxPage() {
   const tabs: { id: Filter; label: string }[] = [{ id: 'all', label: '全部' }, { id: 'unread', label: '未读' }, { id: 'pending', label: '待处理' }, { id: 'resolved', label: '已解决' }];
 
   return <main className={'oi-workspace' + (mobileChat ? ' oi-workspace--mobile-chat' : '') + (!profileOpen ? ' oi-workspace--profile-collapsed' : '')} aria-label="混合聊天工作台">
+    <Breadcrumb noTrailingSlash>
+      <BreadcrumbItem href="/dashboard">概览</BreadcrumbItem>
+      <BreadcrumbItem isCurrentPage>混合聊天</BreadcrumbItem>
+    </Breadcrumb>
     <header className="oi-page-header">
       <div><Heading className="oi-page-title">混合聊天</Heading><p>统一管理跨渠道客户沟通与跟进</p></div>
-      <span className="oi-total">{conversations.length} 个会话</span>
+      <Tag type="cool-gray">{conversations.length} 个会话</Tag>
     </header>
     <section className="oi-metrics-row" aria-label="会话统计">
       <Tile className="oi-metric-tile">
-        <div className="oi-metric-icon oi-metric-icon--unread"><CarbonIcons.Chat size={24} /></div>
-        <div className="oi-metric-copy"><span>未读对话</span><strong>{unreadConversationCount}</strong><small>有未读消息的会话</small></div>
-        <div className={'oi-metric-trend ' + trendTone('unread', unreadDelta)}>
-          {unreadDelta < 0 ? <CarbonIcons.ArrowDown size={16} /> : unreadDelta > 0 ? <CarbonIcons.ArrowUp size={16} /> : <CarbonIcons.Subtract size={16} />}
-          <strong>{trendLabel(unreadDelta)}</strong><small>较演示基准</small>
-        </div>
+        <div className="oi-metric-copy"><span>未读对话</span><Heading>{unreadConversationCount}</Heading><small>有未读消息的会话</small></div>
+        <Tag type="cool-gray">较演示基准 {trendLabel(unreadDelta)}</Tag>
       </Tile>
       <Tile className="oi-metric-tile">
-        <div className="oi-metric-icon oi-metric-icon--active"><CarbonIcons.UserMultiple size={24} /></div>
-        <div className="oi-metric-copy"><span>今日活跃客户</span><strong>{todayActiveCustomerCount}</strong><small>按客户去重统计</small></div>
-        <div className={'oi-metric-trend ' + trendTone('active', activeCustomerDelta)}>
-          {activeCustomerDelta < 0 ? <CarbonIcons.ArrowDown size={16} /> : activeCustomerDelta > 0 ? <CarbonIcons.ArrowUp size={16} /> : <CarbonIcons.Subtract size={16} />}
-          <strong>{trendLabel(activeCustomerDelta)}</strong><small>较昨日</small>
-        </div>
+        <div className="oi-metric-copy"><span>今日活跃客户</span><Heading>{todayActiveCustomerCount}</Heading><small>按客户去重统计</small></div>
+        <Tag type="cool-gray">较昨日 {trendLabel(activeCustomerDelta)}</Tag>
       </Tile>
     </section>
     <section className="oi-activity-panel" aria-label="每日对话客户数趋势">
@@ -239,7 +230,7 @@ export function OmnichannelInboxPage() {
     <aside className="oi-conversation-panel">
       <div className="oi-list-header"><strong>会话列表</strong><span className="oi-total">{filteredConversations.length} 条</span></div>
       <div className="oi-search"><Search size="lg" labelText="搜索会话" placeholder="搜索公司、联系人或标签" value={query} onChange={(event: React.ChangeEvent<HTMLInputElement>) => setQuery(event.currentTarget.value)} /></div>
-      <div className="oi-filter-row" role="tablist" aria-label="会话状态筛选">{tabs.map((tab) => <Button type="button" kind="ghost" size="sm" role="tab" aria-selected={filter === tab.id} className={filter === tab.id ? 'is-active' : ''} key={tab.id} onClick={() => setFilter(tab.id)}>{tab.label}{tab.id === 'unread' && <span>{conversations.filter((item) => item.unread_count > 0).length}</span>}</Button>)}</div>
+      <div className="oi-filter-row" aria-label="会话状态筛选"><ContentSwitcher selectedIndex={tabs.findIndex((tab) => tab.id === filter)} onChange={(selection: { name?: string }) => selection.name && setFilter(selection.name as Filter)} size="sm">{tabs.map((tab) => <Switch key={tab.id} name={tab.id} text={tab.label + (tab.id === 'unread' ? ' ' + conversations.filter((item) => item.unread_count > 0).length : '')} />)}</ContentSwitcher></div>
       <div className="oi-conversation-scroll">{filteredConversations.map((conversation) => {
         const person = customers.find((item) => item.id === conversation.customer_id)!;
         const last = messages.filter((item) => item.conversation_id === conversation.id).sort((a, b) => b.created_at - a.created_at)[0];
@@ -265,9 +256,9 @@ export function OmnichannelInboxPage() {
       </header>
       <div className="oi-timeline" aria-label="统一消息时间线">{timeline.map((message) => <article key={message.id} className={'oi-message oi-message--' + message.direction}>
         <div className="oi-message-meta"><ChannelMark channel={message.channel_type} /><time>{fmtTime(message.created_at)}</time></div>
-        {message.content_type === 'email_card' ? <div className="oi-email-card"><div className="oi-email-title"><CarbonIcons.Email size={18} /><strong>{message.email_subject}</strong><Button type="button" kind="ghost" size="sm" onClick={() => setExpandedEmail((current) => current.includes(message.id) ? current.filter((id) => id !== message.id) : [...current, message.id])}>{expandedEmail.includes(message.id) ? '收起' : '展开'} <CarbonIcons.ChevronDown size={14} /></Button></div><div className="oi-email-from">发件人：{customer.email}</div>{expandedEmail.includes(message.id) && <p>{message.content}</p>}</div>
-          : message.content_type === 'file' ? <div className="oi-file-card"><CarbonIcons.DocumentPdf size={28} /><div><strong>{message.file_meta?.filename}</strong><span>{fmtSize(message.file_meta?.size ?? 0)} · PDF 文档</span></div><Button type="button" kind="ghost" size="sm" hasIconOnly renderIcon={CarbonIcons.Attachment} iconDescription="演示文件不可下载" disabled /></div>
-          : <div className="oi-bubble">{message.content}</div>}
+        {message.content_type === 'email_card' ? <Tile className="oi-email-card"><div className="oi-email-title"><CarbonIcons.Email size={18} /><strong>{message.email_subject}</strong><Button type="button" kind="ghost" size="sm" onClick={() => setExpandedEmail((current) => current.includes(message.id) ? current.filter((id) => id !== message.id) : [...current, message.id])}>{expandedEmail.includes(message.id) ? '收起' : '展开'} <CarbonIcons.ChevronDown size={14} /></Button></div><div className="oi-email-from">发件人：{customer.email}</div>{expandedEmail.includes(message.id) && <p>{message.content}</p>}</Tile>
+          : message.content_type === 'file' ? <Tile className="oi-file-card"><CarbonIcons.DocumentPdf size={28} /><div><strong>{message.file_meta?.filename}</strong><span>{fmtSize(message.file_meta?.size ?? 0)} · PDF 文档</span></div><Button type="button" kind="ghost" size="sm" hasIconOnly renderIcon={CarbonIcons.Attachment} iconDescription="演示文件不可下载" disabled /></Tile>
+          : <Tile className="oi-bubble">{message.content}</Tile>}
         {message.direction === 'outbound' && <div className="oi-message-foot"><StatusText status={message.status} />{message.status === 'failed' && <Button kind="ghost" size="sm" onClick={() => retryMessage(message)}>点击重试</Button>}</div>}
       </article>)}</div>
       <div className="oi-composer">
@@ -285,8 +276,8 @@ export function OmnichannelInboxPage() {
     {profileOpen && <aside ref={profilePanelRef} className="oi-profile-panel" role={typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches ? 'dialog' : 'complementary'} aria-modal={typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches ? true : undefined} aria-labelledby="oi-profile-title" tabIndex={-1}>
       <div className="oi-profile-header"><h2 id="oi-profile-title">客户 360 档案</h2><IconButton kind="ghost" label="关闭档案" onClick={() => setProfileOpen(false)}><CarbonIcons.Close /></IconButton></div>
       <div className="oi-profile-scroll">
-        <div className="oi-profile-identity"><Avatar customer={customer} /><div><strong>{customer.company_name || customer.contact_name}</strong><span>{customer.contact_name}</span></div></div>
-        <div className="oi-profile-section"><div className="oi-section-heading"><h3>基础信息</h3><Button kind="ghost" size="sm" onClick={() => { setProfileDraft({ ...customer, tags: [...customer.tags] }); setEditing(true); }}>编辑</Button></div>
+        <Tile className="oi-profile-identity"><Avatar customer={customer} /><div><strong>{customer.company_name || customer.contact_name}</strong><span>{customer.contact_name}</span></div></Tile>
+        <Tile className="oi-profile-section"><div className="oi-section-heading"><h3>基础信息</h3><Button kind="ghost" size="sm" onClick={() => { setProfileDraft({ ...customer, tags: [...customer.tags] }); setEditing(true); }}>编辑</Button></div>
           {editing && profileDraft ? <div className="oi-edit-fields">
             <TextInput id="oi-company" labelText="公司名称" value={profileDraft.company_name ?? ''} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setProfileDraft({ ...profileDraft, company_name: e.currentTarget.value })} />
             <TextInput id="oi-contact" labelText="联系人" value={profileDraft.contact_name} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setProfileDraft({ ...profileDraft, contact_name: e.currentTarget.value })} />
@@ -296,11 +287,11 @@ export function OmnichannelInboxPage() {
             <TextInput id="oi-tags" labelText="标签（逗号分隔）" value={profileDraft.tags.join(', ')} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setProfileDraft({ ...profileDraft, tags: e.currentTarget.value.split(',').map((tag) => tag.trim()).filter(Boolean) })} />
             <div className="oi-edit-actions"><Button size="sm" onClick={saveProfile}>保存</Button><Button size="sm" kind="secondary" onClick={() => setEditing(false)}>取消</Button></div>
           </div> : <dl className="oi-details"><dt>联系人</dt><dd>{customer.contact_name} · {customer.role}</dd><dt>邮箱</dt><dd>{customer.email}</dd><dt>电话</dt><dd className="oi-mono">{customer.phone}</dd></dl>}
-        </div>
-        <div className="oi-profile-section"><div className="oi-section-heading"><h3>渠道身份绑定</h3><Button kind="ghost" size="sm" renderIcon={CarbonIcons.Add} onClick={() => setIdentityOpen(true)}>绑定新渠道</Button></div>
+        </Tile>
+        <Tile className="oi-profile-section"><div className="oi-section-heading"><h3>渠道身份绑定</h3><Button kind="ghost" size="sm" renderIcon={CarbonIcons.Add} onClick={() => setIdentityOpen(true)}>绑定新渠道</Button></div>
           {customerIdentities.map((identity) => <div className="oi-identity-row" key={identity.id}><ChannelMark channel={identity.channel_type} /><span>{identity.external_user_id}</span>{identity.is_primary && <Tag type="green">主要</Tag>}<IconButton kind="ghost" label={'移除 ' + channelLabels[identity.channel_type] + ' 身份'} disabled={customerIdentities.length <= 1} onClick={() => removeIdentity(identity)}><CarbonIcons.TrashCan /></IconButton></div>)}
-        </div>
-        <div className="oi-profile-section"><h3>客户标签</h3><div className="oi-tags">{customer.tags.map((tag) => <Tag key={tag} type="cool-gray">{tag}</Tag>)}</div></div>
+        </Tile>
+        <Tile className="oi-profile-section"><h3>客户标签</h3><div className="oi-tags">{customer.tags.map((tag) => <Tag key={tag} type="cool-gray">{tag}</Tag>)}</div></Tile>
       </div>
     </aside>}
 
