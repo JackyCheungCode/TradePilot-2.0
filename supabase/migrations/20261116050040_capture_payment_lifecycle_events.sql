@@ -73,7 +73,7 @@ create trigger trg_trade_payment_created_lifecycle_event
 after insert on public.trade_payments
 for each row execute function public.capture_trade_payment_created_event();
 
-create or replace function public.capture_trade_payment_status_event()
+create or replace function public.capture_trade_payment_reconciliation_event()
 returns trigger
 language plpgsql
 security definer
@@ -104,10 +104,10 @@ begin
 end;
 $$;
 
-drop trigger if exists trg_trade_payment_status_lifecycle_event on public.trade_payments;
-create trigger trg_trade_payment_status_lifecycle_event
+drop trigger if exists trg_trade_payment_reconciliation_lifecycle_event on public.trade_payments;
+create trigger trg_trade_payment_reconciliation_lifecycle_event
 after update on public.trade_payments
 for each row when (
   old.reconcile_status is distinct from new.reconcile_status
 )
-execute function public.capture_trade_payment_status_event();
+execute function public.capture_trade_payment_reconciliation_event();
