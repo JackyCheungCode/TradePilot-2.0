@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  Button, InlineLoading, InlineNotification, Select, SelectItem, TextInput, Tag, ProgressIndicator, ProgressStep,
-  Table, TableHead, TableRow, TableHeader, TableBody, TableCell, Tile,
+  Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, ProgressIndicator, ProgressStep,
+  Tile,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/documents.scss';
@@ -41,7 +41,6 @@ export function DocumentsCenterPage() {
   const initialDocumentType = searchParams.get('document_type') || 'proforma_invoice';
   const initialCategory = searchParams.get('category') || (['commercial_invoice', 'packing_list', 'shipping_instructions'].includes(initialDocumentType) ? 'shipping' : 'sales');
   const initialNeedsShipment = Boolean(documentGroups.flatMap(group => group.items).find(item => item.id === initialDocumentType)?.shipment);
-  const [docs, setDocs] = useState<Doc[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -57,14 +56,12 @@ export function DocumentsCenterPage() {
   const [templateId, setTemplateId] = useState('');
   const [locale, setLocale] = useState('en');
   const [currency, setCurrency] = useState('USD');
-  const [search, setSearch] = useState('');
   const [created, setCreated] = useState<Doc | null>(null);
 
   const selectedType = useMemo(() => documentGroups.flatMap(g => g.items).find(x => x.id === documentType), [documentType]);
   const selectedOrder = useMemo(() => orders.find(x => x.id === orderId), [orders, orderId]);
   const selectedShipment = useMemo(() => shipments.find(x => x.id === shipmentId), [shipments, shipmentId]);
   const activeTemplates = useMemo(() => templates.filter(x => x.document_type === documentType && x.is_active), [templates, documentType]);
-  const filteredDocs = useMemo(() => docs.filter(d => [d.document_number, d.title, typeLabel(d.document_type)].some(v => String(v ?? '').toLowerCase().includes(search.toLowerCase()))), [docs, search]);
 
   const request = useCallback(async (path: string, init?: RequestInit) => {
     const client = await getSupabaseClient();
@@ -85,12 +82,10 @@ export function DocumentsCenterPage() {
       const client = await getSupabaseClient();
       const [orderResult, docResult, templateResult] = await Promise.all([
         client.from('trade_orders').select('id,order_number,title,order_type,status,currency_code,locked_at,confirmed_at,crm_account:crm_accounts(account_name)') .eq('order_type', 'sales').not('locked_at', 'is', null).order('updated_at', { ascending: false }).limit(100),
-        request('documents'),
         request('templates'),
       ]);
       if (orderResult.error) throw orderResult.error;
       setOrders((orderResult.data ?? []) as unknown as Order[]);
-      setDocs(Array.isArray(docResult) ? docResult : []);
       setTemplates(Array.isArray(templateResult) ? templateResult : []);
     } catch (cause) { setError(cause instanceof Error ? cause.message : '单据中心加载失败。'); }
     finally { setLoading(false); }
@@ -146,7 +141,7 @@ export function DocumentsCenterPage() {
   return <main className="tp-documents">
     <header className="tp-documents__header">
       <div><p className="tp-documents__eyebrow">TRADE OPERATIONS / DOCUMENTS</p><h1>单据中心</h1><p>从报价、销售订单和实际发运数据生成外贸单据，避免重复录入。</p></div>
-      <div className="tp-documents__actions"><Button kind="primary" onClick={() => { setCreated(null); setStep(1); setError(''); setNotice(''); }}>新建单据</Button></div>
+      <div className="tp-documents__actions"><Button kind="secondary" onClick={() => navigate('/documents/generated')}>已生成单据</Button><Button kind="primary" onClick={() => { setCreated(null); setStep(1); setError(''); setNotice(''); }}>新建单据</Button></div>
     </header>
 
     {error && <InlineNotification kind="error" lowContrast title="操作未完成" subtitle={error} onCloseButtonClick={() => setError('')} />}
@@ -158,12 +153,12 @@ export function DocumentsCenterPage() {
     </section>}
 
     {step > 0 && <section className="tp-documents__wizard" aria-label="单据创建流程">
-      <ProgressIndicator currentIndex={step - 1} spaceEqually>
+      <div className="tp-documents__progress-wrap"><ProgressIndicator currentIndex={step - 1} spaceEqually>
         <ProgressStep label="单据分类" description="选择业务场景" />
         <ProgressStep label="选择单据" description="确定单据类型" />
         <ProgressStep label="业务来源" description="关联订单或发运" />
         <ProgressStep label="模板与生成" description="设置语言并创建草稿" />
-      </ProgressIndicator>
+      </ProgressIndicator><p className="tp-documents__mobile-step-label">第 {step} 步 / 4 · {['单据分类','选择单据','业务来源','模板与生成'][step - 1]}</p></div>
       {step === 1 && <div className="tp-documents__step-content"><h2>选择单据分类</h2><p>先确定业务场景，系统会据此筛选可用单据。</p><div className="tp-documents__category-grid">
         {documentGroups.map(group => <Tile key={group.id} className="tp-documents__category"><h3>{group.title}</h3><p>{group.description}</p><Button kind="tertiary" onClick={() => chooseCategory(group.id)}>选择分类</Button></Tile>)}
       </div></div>}
@@ -186,9 +181,5 @@ export function DocumentsCenterPage() {
       </div>}
     </section>}
 
-    <section className="tp-documents__list">
-      <div className="tp-documents__list-head"><div className="tp-documents__list-heading"><h2>已生成单据</h2><p>所有单据统一管理，并保留业务来源和版本记录。</p></div><div className="tp-documents__search"><TextInput id="tp-doc-search" labelText="搜索单据" hideLabel placeholder="单据编号、名称或类型" value={search} onChange={e => setSearch(e.currentTarget.value)} /></div></div>
-      {loading ? <div className="tp-documents__loading"><InlineLoading description="正在加载单据…" /></div> : filteredDocs.length ? <div className="tp-documents__table-wrap"><Table size="lg"><TableHead><TableRow><TableHeader>单据编号</TableHeader><TableHeader>单据类型</TableHeader><TableHeader>币种</TableHeader><TableHeader>语言</TableHeader><TableHeader>版本</TableHeader><TableHeader>状态</TableHeader><TableHeader>创建时间</TableHeader><TableHeader>操作</TableHeader></TableRow></TableHead><TableBody>{filteredDocs.map(doc => <TableRow key={doc.id}><TableCell><strong>{doc.document_number}</strong><small className="tp-documents__cell-secondary">{doc.title}</small></TableCell><TableCell>{typeLabel(doc.document_type)}</TableCell><TableCell>{doc.currency_code || '—'}</TableCell><TableCell>{doc.locale || '—'}</TableCell><TableCell>v{doc.current_version || 1}</TableCell><TableCell><Tag type={doc.status === 'issued' ? 'green' : doc.status === 'voided' ? 'red' : 'blue'}>{statusLabel(doc.status)}</Tag></TableCell><TableCell>{dateLabel(doc.created_at)}</TableCell><TableCell><Button kind="ghost" size="sm" onClick={() => navigate(`/documents/${doc.id}`)}>查看</Button></TableCell></TableRow>)}</TableBody></Table></div> : <div className="tp-documents__empty"><p>还没有单据。可以从销售订单或发运批次开始创建。</p><Button kind="primary" onClick={() => { setCreated(null); setStep(1); }}>创建第一份单据</Button></div>}
-    </section>
   </main>;
 }
