@@ -12,7 +12,7 @@ type Version = { id: string; version_number: number; created_at: string; locale:
 type DocumentRecord = {
   id: string; document_number: string; title: string; document_type: string; status: string;
   locale: string; currency_code: string; created_at: string; current_version: number;
-  order_id: string; shipment_id?: string | null; content: Json; totals: Json; trade_document_versions?: Version[];
+  order_id?: string | null; shipment_id?: string | null; content: Json; totals: Json; trade_document_versions?: Version[];
 };
 
 const labels: Record<string, string> = {
@@ -41,7 +41,7 @@ export function DocumentPreviewPage() {
   const [error, setError] = useState('');
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [draftContent, setDraftContent] = useState<Json | null>(null);
+  const [draftContent, setDraftContent] = useState<Json | null>(null);\n  const [draftItemsText, setDraftItemsText] = useState('');
   const load = useCallback(async () => {
     if (!id) return;
     setLoading(true); setError('');
@@ -60,7 +60,7 @@ export function DocumentPreviewPage() {
   }, [id]);
   useEffect(() => { void load(); }, [load]);
 
-  const beginEdit = () => { if (doc?.status === 'draft') { setDraftContent(JSON.parse(JSON.stringify(doc.content || {})) as Json); setEditing(true); } };
+  const beginEdit = () => { if (doc?.status === 'draft') { const next = JSON.parse(JSON.stringify(doc.content || {})) as Json; setDraftContent(next); setDraftItemsText((Array.isArray(next.items) ? next.items : []).map((item: Json) => [item.product_name || item.name || '', item.sku || '', item.quantity ?? '', item.unit || '', item.unit_price ?? '', item.hs_code || ''].join(' | ')).join('\\n')); setEditing(true); } };
   const setDraftField = (key: string, value: string) => setDraftContent(current => current ? { ...current, [key]: value } : current);
   const saveDraft = async () => {
     if (!doc || !draftContent) return;
@@ -74,7 +74,7 @@ export function DocumentPreviewPage() {
       const response = await fetch('/api/v1/trade/documents/' + encodeURIComponent(doc.id), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
-        body: JSON.stringify({ content: draftContent, totals: doc.totals || {}, locale: doc.locale, currency_code: doc.currency_code }),
+        body: JSON.stringify({ content: nextContent, totals: nextTotals, locale: doc.locale, currency_code: doc.currency_code }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload?.error?.message || '草稿保存失败。');
@@ -102,7 +102,7 @@ export function DocumentPreviewPage() {
     </header>
 
     {error && <InlineNotification kind="error" lowContrast title="操作未完成" subtitle={error} onCloseButtonClick={() => setError('')} />}
-    {editing && draftContent && <section className="tp-document-preview__editor"><div><h2>编辑单据草稿</h2><p>可校对主体名称、地址、联系人和单据备注。产品、数量、单价、付款条件、贸易术语和交付日期仍以已锁定订单成交快照为准。</p></div><div className="tp-document-preview__editor-grid">
+    {editing && draftContent && <section className="tp-document-preview__editor"><div><h2>编辑单据草稿</h2><p>{doc.order_id ? '可校对主体名称、地址、联系人和单据备注；订单商品与成交条款仍以订单数据为准。' : '这是独立空白单据，可填写主体资料、条款和货物明细。草稿允许不完整，后续可继续补充。'}</p></div><div className="tp-document-preview__editor-grid">
       <TextInput id="doc-edit-seller" labelText="卖方名称" value={String(draftContent.seller_name || '')} onChange={e => setDraftField('seller_name', e.currentTarget.value)} />
       <TextInput id="doc-edit-buyer" labelText="买方名称" value={String(draftContent.buyer_name || '')} onChange={e => setDraftField('buyer_name', e.currentTarget.value)} />
       <TextArea id="doc-edit-seller-address" labelText="卖方地址" rows={3} value={typeof draftContent.seller_address === 'string' ? draftContent.seller_address : address(draftContent.seller_address) === '—' ? '' : address(draftContent.seller_address)} onChange={e => setDraftField('seller_address', e.currentTarget.value)} />
@@ -111,7 +111,7 @@ export function DocumentPreviewPage() {
       <TextInput id="doc-edit-contact" labelText="联系人" value={String(draftContent.contact_name || '')} onChange={e => setDraftField('contact_name', e.currentTarget.value)} />
       <TextInput id="doc-edit-contact-email" labelText="联系人邮箱" value={String(draftContent.contact_email || '')} onChange={e => setDraftField('contact_email', e.currentTarget.value)} />
       <TextInput id="doc-edit-contact-phone" labelText="联系人电话" value={String(draftContent.contact_phone || '')} onChange={e => setDraftField('contact_phone', e.currentTarget.value)} />
-      <TextArea id="doc-edit-notes" labelText="单据备注" rows={3} value={String(draftContent.notes || '')} onChange={e => setDraftField('notes', e.currentTarget.value)} />
+      <TextArea id="doc-edit-notes" labelText="单据备注" rows={3} value={String(draftContent.notes || '')} onChange={e => setDraftField('notes', e.currentTarget.value)} />\n      {!doc.order_id && <TextArea id="doc-edit-items" labelText="货物明细（每行：品名 | SKU | 数量 | 单位 | 单价 | HS Code）" helperText="例如：Wireless Mouse | WM-01 | 100 | pcs | 8.5 | 847160" rows={6} value={draftItemsText} onChange={e => setDraftItemsText(e.currentTarget.value)} />}
     </div><div className="tp-document-preview__editor-actions"><Button kind="tertiary" disabled={saving} onClick={() => { setEditing(false); setDraftContent(null); }}>取消</Button><Button kind="primary" disabled={saving} onClick={() => void saveDraft()}>{saving ? '保存中…' : '保存并创建新版本'}</Button></div></section>}
     <article className="tp-document-preview__sheet">
       <header className="tp-document-preview__paper-header">
