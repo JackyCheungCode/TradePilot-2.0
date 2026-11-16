@@ -406,6 +406,10 @@ export async function handleDiscovery(request: Request, env: DiscoveryEnv): Prom
     try{await env.CONTACT_ENRICHMENT_WORKFLOW.create({id:job.id,params:{jobId:job.id,ownerId:userId,recordIds,providers:providers as Array<"website"|"apollo"|"zoominfo">}});}catch(error){await db(env,"discovery_contact_enrichment_runs?id=eq."+job.id,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({status:"failed",message:"工作流启动失败："+String(error).slice(0,180)})});return errorResponse(request,"WORKFLOW_START_FAILED","任务已创建，但后台工作流启动失败。",503);}
     return successResponse(request,{id:job.id,status:"queued",progress:0,completedCount:0,failedCount:0,message:"联系人搜索与联系方式补全工作流已启动"},202);
   }
+  if(request.method==="GET"&&url.pathname==="/api/v1/discovery-contact-enrichments"){
+    const jobs=await db<Array<Record<string,unknown>>>(env,"discovery_contact_enrichment_runs?owner_id=eq."+userId+"&select=id,status,progress,completed_count,failed_count,message,record_ids,created_at&order=created_at.desc&limit=100");
+    return successResponse(request,(jobs??[]).map(job=>({id:job.id,status:job.status,progress:job.progress,completedCount:job.completed_count,failedCount:job.failed_count,message:job.message,recordIds:job.record_ids??[],createdAt:job.created_at})));
+  }
   const contactJobMatch=url.pathname.match(/^\/api\/v1\/discovery-contact-enrichments\/([0-9a-f-]+)$/i);
   if(request.method==="GET"&&contactJobMatch){
     const jobs=await db<Array<Record<string,unknown>>>(env,"discovery_contact_enrichment_runs?id=eq."+contactJobMatch[1]+"&owner_id=eq."+userId+"&select=id,status,progress,completed_count,failed_count,message");
