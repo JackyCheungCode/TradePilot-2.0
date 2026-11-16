@@ -27,6 +27,10 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Validate private ClamAV scanner service
+        run: |
+          node --check services/inbox-scanner/server.mjs
+          node --test services/inbox-scanner/server.test.mjs
       - name: Verify design-system boundary
         run: npm run check:design-system
 
