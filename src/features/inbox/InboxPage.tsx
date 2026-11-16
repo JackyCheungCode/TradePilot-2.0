@@ -26,7 +26,6 @@ const messageStatusLabel = (status?: string) => {
 const formatTime = (value?: string | null) => value
   ? new Intl.DateTimeFormat('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(value))
   : '';
-const contactInitials = (value?: string | null) => (value || '?').trim().split(/\\s+/).slice(0, 2).map(part => part[0]).join('').toUpperCase() || '?';
 const formatFileSize = (value?: number) => {
   if (!value || !Number.isFinite(value)) return '大小未知';
   if (value < 1024) return value + ' B';
@@ -410,7 +409,7 @@ export function InboxPage() {
                 className={selected?.id === row.id ? 'tp-inbox__selected tp-inbox-contact-item' : 'tp-inbox-contact-item'}
                 onClick={() => { setSelected(row); setError(''); }}
               >
-                <span className="tp-inbox-contact-avatar" aria-hidden="true">{contactInitials(row.contact?.full_name || row.contact_display_name)}</span>
+                <span className="tp-inbox-contact-avatar" aria-hidden="true"><CarbonIcons.UserAvatar size={28} /></span>
                 <span className="tp-inbox-contact-content">
                   <span className="tp-inbox-contact-topline">
                     <strong>{row.contact?.full_name || row.contact_display_name}</strong>
@@ -444,7 +443,7 @@ export function InboxPage() {
               <>
                 <Stack orientation="horizontal" className="tp-inbox-conversation-heading">
                   <Button className="tp-inbox-mobile-back" kind="ghost" size="sm" onClick={() => setSelected(null)}>返回会话</Button>
-                  <span className="tp-inbox-header-avatar" aria-hidden="true">{contactInitials(selected.contact?.full_name || selected.contact_display_name)}</span>
+                  <span className="tp-inbox-header-avatar" aria-hidden="true"><CarbonIcons.UserAvatar size={28} /></span>
                   <Stack gap={1} className="tp-inbox-header-contact">
                     <strong>{selected.contact?.full_name || selected.contact_display_name}</strong>
                     <p>{[selected.contact?.job_title, selected.account?.account_name || selected.display_name].filter(Boolean).join(' · ')}</p>
