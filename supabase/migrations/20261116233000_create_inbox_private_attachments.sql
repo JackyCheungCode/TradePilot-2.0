@@ -57,7 +57,7 @@ values (
 on conflict (id) do nothing;
 
 -- Never silently weaken or rewrite an existing bucket's security configuration.
-do $
+do $bucket_guard$
 declare
   v_bucket record;
 begin
@@ -81,7 +81,7 @@ begin
     raise exception 'INBOX_ATTACHMENT_BUCKET_CONFIGURATION_MISMATCH';
   end if;
 end;
-$;
+$bucket_guard$;
 
 -- No authenticated storage.objects policies are created. All object access is mediated
 -- by the Worker using service_role after checking conversation/message ownership.
