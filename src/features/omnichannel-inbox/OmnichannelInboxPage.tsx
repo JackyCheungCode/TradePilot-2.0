@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Button, Search, TextInput, TextArea, Dropdown, Tag, InlineNotification, Modal, ModalBody, IconButton, Heading, CarbonIcons,
 } from '@/design-system';
@@ -15,11 +15,14 @@ const fmtSize = (bytes: number) => bytes > 1_000_000 ? (bytes / 1_000_000).toFix
 const channelOptions = Object.keys(channelLabels).map((id) => ({ id, text: channelLabels[id as ChannelType] }));
 
 function ChannelMark({ channel }: { channel: ChannelType }) {
-  const marks: Record<ChannelType, string> = { whatsapp: 'WA', line: 'LINE', messenger: 'M', telegram: 'TG', wecom: '微', email: '@' };
-  return <span className={'oi-channel oi-channel--' + channel} role="img" aria-label={channelLabels[channel]} title={channelLabels[channel]}>{marks[channel]}</span>;
+  const Icon = channel === 'whatsapp' ? CarbonIcons.Phone
+    : channel === 'telegram' ? CarbonIcons.Send
+    : channel === 'email' ? CarbonIcons.Email
+    : CarbonIcons.Chat;
+  return <span className={'oi-channel oi-channel--' + channel} role="img" aria-label={channelLabels[channel]} title={channelLabels[channel]}><Icon size={14} /></span>;
 }
 function Avatar({ customer, small = false }: { customer: Customer; small?: boolean }) {
-  return <div className={'oi-avatar' + (small ? ' oi-avatar--small' : '')} aria-label={customer.contact_name}>{customer.avatar}</div>;
+  return <div className={'oi-avatar' + (small ? ' oi-avatar--small' : '')} role="img" aria-label={customer.contact_name}>{customer.avatar}</div>;
 }
 function StatusText({ status }: { status: Message['status'] }) {
   if (status === 'failed') return <span className="oi-message-status oi-message-status--failed"><CarbonIcons.WarningAlt size={12} /> 发送失败</span>;
@@ -48,12 +51,23 @@ export function OmnichannelInboxPage() {
   const [expandedEmail, setExpandedEmail] = useState<string[]>([]);
   const [editing, setEditing] = useState(false);
   const [profileDraft, setProfileDraft] = useState<Customer | null>(null);
+  const [actionNotice, setActionNotice] = useState('');
+  const profilePanelRef = useRef<HTMLElement | null>(null);
 
   const activeConversation = conversations.find((item) => item.id === activeId) ?? conversations[0];
   const customer = customers.find((item) => item.id === activeConversation.customer_id)!;
   const customerIdentities = identities.filter((item) => item.customer_id === customer.id);
+  const replyChannelOptions = customerIdentities.map((identity) => ({
+    id: identity.id,
+    text: channelLabels[identity.channel_type] + ' · ' + identity.external_user_id,
+    channel: identity.channel_type,
+  }));
   const activeIdentity = customerIdentities.find((item) => item.channel_type === channel);
-  const whatsappClosed = channel === 'whatsapp' && (!activeIdentity?.window_expires_at || activeIdentity.window_expires_at < now());
+  const lastWhatsappInbound = messages
+    .filter((item) => item.conversation_id === activeConversation.id && item.channel_type === 'whatsapp' && item.direction === 'inbound')
+    .sort((a, b) => b.created_at - a.created_at)[0];
+  const whatsappWindowExpiresAt = lastWhatsappInbound ? lastWhatsappInbound.created_at + 24 * 60 * 60_000 : null;
+  const whatsappClosed = channel === 'whatsapp' && (!whatsappWindowExpiresAt || whatsappWindowExpiresAt < now());
   const timeline = messages.filter((item) => item.conversation_id === activeConversation.id).sort((a, b) => a.created_at - b.created_at);
 
   const filteredConversations = useMemo(() => conversations.filter((conversation) => {
@@ -77,13 +91,16 @@ export function OmnichannelInboxPage() {
     setMessages((current) => [...current, message]);
     updateConversation({ last_message_at: created_at, last_channel_type: channel, status: 'open' });
     setDraft('');
+    setActionNotice('演示模式：消息仅加入本地时间线，尚未连接真实渠道发送服务。');
   };
   const sendMessage = () => {
     if (!draft.trim() || whatsappClosed) return;
     appendMessage(draft.trim(), channel === 'email' ? 'email_card' : 'text', channel === 'email' ? { email_subject: subject.trim() || '(无主题)' } : {});
     setSubject('');
   };
-  const retryMessage = (message: Message) => setMessages((current) => current.map((item) => item.id === message.id ? { ...item, status: 'sent' } : item));
+  const retryMessage = (_message: Message) => {
+    setActionNotice('演示模式：未连接渠道发送服务，因此没有执行真实重试；原消息仍保留失败状态。');
+  };
   const saveProfile = () => {
     if (!profileDraft) return;
     setCustomers((current) => current.map((item) => item.id === customer.id ? profileDraft : item));
@@ -91,18 +108,64 @@ export function OmnichannelInboxPage() {
     setProfileDraft(null);
   };
   const bindIdentity = () => {
-    if (!externalId.trim()) return;
-    const identity: CustomerIdentity = { id: 'id-' + now(), customer_id: customer.id, channel_type: identityChannel, external_user_id: externalId.trim(), window_expires_at: identityChannel === 'whatsapp' ? now() + 24 * 60 * 60_000 : null, is_primary: customerIdentities.length === 0 };
+    const normalizedId = externalId.trim().toLowerCase();
+    if (!normalizedId) return;
+    const duplicate = customerIdentities.some((item) => item.channel_type === identityChannel && item.external_user_id.toLowerCase() === normalizedId);
+    if (duplicate) {
+      setActionNotice('该客户已绑定相同的渠道身份，请检查账号信息。');
+      return;
+    }
+    const identity: CustomerIdentity = { id: 'id-' + now(), customer_id: customer.id, channel_type: identityChannel, external_user_id: externalId.trim(), window_expires_at: null, is_primary: customerIdentities.length === 0 };
     setIdentities((current) => [...current, identity]);
     setChannel(identityChannel);
     setExternalId('');
     setIdentityOpen(false);
+    setActionNotice('渠道身份已加入本地演示数据；尚未连接真实渠道授权。');
   };
+  const removeIdentity = (identity: CustomerIdentity) => {
+    if (customerIdentities.length <= 1) {
+      setActionNotice('每位客户至少保留一个渠道身份。');
+      return;
+    }
+    setIdentities((current) => current.filter((item) => item.id !== identity.id));
+    if (channel === identity.channel_type) {
+      const fallback = customerIdentities.find((item) => item.id !== identity.id);
+      if (fallback) setChannel(fallback.channel_type);
+    }
+    setActionNotice('渠道身份已从本地演示数据中移除。');
+  };
+  useEffect(() => {
+    if (!profileOpen || typeof window === 'undefined' || !window.matchMedia('(max-width: 767px)').matches) return;
+    const panel = profilePanelRef.current;
+    const focusable = panel?.querySelector<HTMLElement>('button, input, [tabindex]:not([tabindex="-1"])');
+    focusable?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setProfileOpen(false);
+        return;
+      }
+      if (event.key === 'Tab' && panel) {
+        const items = Array.from(panel.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'));
+        if (!items.length) return;
+        const first = items[0], last = items[items.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [profileOpen]);
+
   const tabs: { id: Filter; label: string }[] = [{ id: 'all', label: '全部' }, { id: 'unread', label: '未读' }, { id: 'pending', label: '待处理' }, { id: 'resolved', label: '已解决' }];
 
-  return <main className={'oi-workspace' + (mobileChat ? ' oi-workspace--mobile-chat' : '') + (!profileOpen ? ' oi-workspace--profile-collapsed' : '')}>
+  return <main className={'oi-workspace' + (mobileChat ? ' oi-workspace--mobile-chat' : '') + (!profileOpen ? ' oi-workspace--profile-collapsed' : '')} aria-label="混合聊天工作台">
+    <header className="oi-page-header">
+      <div><Heading className="oi-page-title">混合聊天</Heading><p>统一管理跨渠道客户沟通与跟进</p></div>
+      <span className="oi-total">{conversations.length} 个会话</span>
+    </header>
+    <div className="oi-workspace-grid">
     <aside className="oi-conversation-panel">
-      <div className="oi-list-header"><div><Heading className="oi-page-title">混合聊天</Heading><p>全渠道客户沟通</p></div><span className="oi-total">{conversations.length} 个会话</span></div>
+      <div className="oi-list-header"><strong>会话列表</strong><span className="oi-total">{filteredConversations.length} 条</span></div>
       <div className="oi-search"><Search size="lg" labelText="搜索会话" placeholder="搜索公司、联系人或标签" value={query} onChange={(event: React.ChangeEvent<HTMLInputElement>) => setQuery(event.currentTarget.value)} /></div>
       <div className="oi-filter-row" role="tablist" aria-label="会话状态筛选">{tabs.map((tab) => <Button type="button" kind="ghost" size="sm" role="tab" aria-selected={filter === tab.id} className={filter === tab.id ? 'is-active' : ''} key={tab.id} onClick={() => setFilter(tab.id)}>{tab.label}{tab.id === 'unread' && <span>{conversations.filter((item) => item.unread_count > 0).length}</span>}</Button>)}</div>
       <div className="oi-conversation-scroll">{filteredConversations.map((conversation) => {
@@ -136,15 +199,18 @@ export function OmnichannelInboxPage() {
         {message.direction === 'outbound' && <div className="oi-message-foot"><StatusText status={message.status} />{message.status === 'failed' && <Button kind="ghost" size="sm" onClick={() => retryMessage(message)}>点击重试</Button>}</div>}
       </article>)}</div>
       <div className="oi-composer">
-        <div className="oi-channel-picker"><span>发送渠道</span>{customerIdentities.map((identity) => <Button type="button" kind="ghost" size="sm" key={identity.id} className={channel === identity.channel_type ? 'is-active' : ''} onClick={() => setChannel(identity.channel_type)}><ChannelMark channel={identity.channel_type} /></Button>)}</div>
+        <div className="oi-channel-picker">
+          <Dropdown id="oi-reply-channel" titleText="发送渠道与身份" label="选择发送身份" items={replyChannelOptions} itemToString={(item: { id: string; text: string } | null) => item?.text ?? ''} selectedItem={replyChannelOptions.find((item) => item.channel === channel) ?? null} onChange={({ selectedItem }: { selectedItem: { id: string; text: string; channel: ChannelType } | null }) => selectedItem && setChannel(selectedItem.channel)} />
+        </div>
         {whatsappClosed && <><InlineNotification kind="warning" lowContrast hideCloseButton title="WhatsApp 24 小时自由回复窗口已关闭" subtitle="请使用官方审核模板触达客户。" /><Button size="sm" kind="tertiary" onClick={() => setTemplateOpen(true)}>选择模板消息</Button></>}
         {channel === 'email' && <div className="oi-subject"><TextInput id="oi-subject" labelText="邮件主题（Subject）" placeholder="输入邮件主题" value={subject} onChange={(event: React.ChangeEvent<HTMLInputElement>) => setSubject(event.currentTarget.value)} /></div>}
+        {actionNotice && <InlineNotification kind="info" lowContrast title={actionNotice} hideCloseButton />}
         <div className="oi-compose-row"><TextArea id="oi-message" labelText="消息内容" hideLabel placeholder={whatsappClosed ? '自由文本已禁用，请选择模板消息' : '输入消息…（Enter 发送，Shift + Enter 换行）'} rows={2} value={draft} disabled={whatsappClosed} onChange={(event: React.ChangeEvent<HTMLTextAreaElement>) => setDraft(event.currentTarget.value)} onKeyDown={(event: React.KeyboardEvent<HTMLTextAreaElement>) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(); } }} /><Button hasIconOnly renderIcon={CarbonIcons.Send} iconDescription="发送消息" disabled={!draft.trim() || whatsappClosed} onClick={sendMessage} /></div>
       </div>
     </section>
 
-    {profileOpen && <aside className="oi-profile-panel">
-      <div className="oi-profile-header"><h2>客户 360 档案</h2><IconButton kind="ghost" label="关闭档案" onClick={() => setProfileOpen(false)}><CarbonIcons.Close /></IconButton></div>
+    {profileOpen && <aside ref={profilePanelRef} className="oi-profile-panel" role="dialog" aria-modal="true" aria-labelledby="oi-profile-title" tabIndex={-1}>
+      <div className="oi-profile-header"><h2 id="oi-profile-title">客户 360 档案</h2><IconButton kind="ghost" label="关闭档案" onClick={() => setProfileOpen(false)}><CarbonIcons.Close /></IconButton></div>
       <div className="oi-profile-scroll">
         <div className="oi-profile-identity"><Avatar customer={customer} /><div><strong>{customer.company_name || customer.contact_name}</strong><span>{customer.contact_name}</span></div></div>
         <div className="oi-profile-section"><div className="oi-section-heading"><h3>基础信息</h3><Button kind="ghost" size="sm" onClick={() => { setProfileDraft({ ...customer, tags: [...customer.tags] }); setEditing(true); }}>编辑</Button></div>
@@ -157,15 +223,15 @@ export function OmnichannelInboxPage() {
             <TextInput id="oi-tags" labelText="标签（逗号分隔）" value={profileDraft.tags.join(', ')} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setProfileDraft({ ...profileDraft, tags: e.currentTarget.value.split(',').map((tag) => tag.trim()).filter(Boolean) })} />
             <div className="oi-edit-actions"><Button size="sm" onClick={saveProfile}>保存</Button><Button size="sm" kind="secondary" onClick={() => setEditing(false)}>取消</Button></div>
           </div> : <dl className="oi-details"><dt>联系人</dt><dd>{customer.contact_name} · {customer.role}</dd><dt>邮箱</dt><dd>{customer.email}</dd><dt>电话</dt><dd className="oi-mono">{customer.phone}</dd></dl>}
-          {!editing && <div className="oi-tags">{customer.tags.map((tag) => <Tag key={tag} type="blue">{tag}</Tag>)}</div>}
         </div>
         <div className="oi-profile-section"><div className="oi-section-heading"><h3>渠道身份绑定</h3><Button kind="ghost" size="sm" renderIcon={CarbonIcons.Add} onClick={() => setIdentityOpen(true)}>绑定新渠道</Button></div>
-          {customerIdentities.map((identity) => <div className="oi-identity-row" key={identity.id}><ChannelMark channel={identity.channel_type} /><span>{identity.external_user_id}</span>{identity.is_primary && <Tag type="green">主要</Tag>}</div>)}
+          {customerIdentities.map((identity) => <div className="oi-identity-row" key={identity.id}><ChannelMark channel={identity.channel_type} /><span>{identity.external_user_id}</span>{identity.is_primary && <Tag type="green">主要</Tag>}<IconButton kind="ghost" label={'移除 ' + channelLabels[identity.channel_type] + ' 身份'} disabled={customerIdentities.length <= 1} onClick={() => removeIdentity(identity)}><CarbonIcons.TrashCan /></IconButton></div>)}
         </div>
         <div className="oi-profile-section"><h3>客户标签</h3><div className="oi-tags">{customer.tags.map((tag) => <Tag key={tag} type="cool-gray">{tag}</Tag>)}</div></div>
       </div>
     </aside>}
 
+    </div>
     <Modal open={templateOpen} onRequestClose={() => setTemplateOpen(false)} modalHeading="选择 WhatsApp 官方模板" primaryButtonText="使用模板" secondaryButtonText="取消" onRequestSubmit={() => { appendMessage('您好，关于您咨询的产品目录，我们已为您准备最新版本。请问是否方便接收？', 'template'); setTemplateOpen(false); }}><ModalBody><p className="oi-modal-copy">选择已通过 WhatsApp 审核的模板，模板内容会作为新消息加入时间线。</p><div className="oi-template-option"><strong>product_catalog_followup</strong><span>产品目录跟进 · zh_CN</span></div><div className="oi-template-option"><strong>quotation_reminder</strong><span>报价单提醒 · zh_CN</span></div></ModalBody></Modal>
     <Modal open={identityOpen} onRequestClose={() => setIdentityOpen(false)} modalHeading="绑定新渠道身份" primaryButtonText="确认绑定" secondaryButtonText="取消" onRequestSubmit={bindIdentity}><ModalBody><Dropdown id="oi-new-channel" titleText="渠道类型" label="选择渠道" items={channelOptions} itemToString={(item: { id: string; text: string } | null) => item?.text ?? ''} selectedItem={channelOptions.find((item) => item.id === identityChannel)} onChange={({ selectedItem }: { selectedItem: { id: string; text: string } | null }) => selectedItem && setIdentityChannel(selectedItem.id as ChannelType)} /><TextInput id="oi-external-id" labelText="平台账号 ID / 邮箱 / 电话" value={externalId} onChange={(event: React.ChangeEvent<HTMLInputElement>) => setExternalId(event.currentTarget.value)} /></ModalBody></Modal>
   </main>;
