@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput, TextArea,
   Tabs, TabList, Tab, TabPanels, TabPanel, Table, TableHead, TableRow, TableHeader, TableBody, TableCell,
-  ComposedModal, ModalHeader, ModalBody, ModalFooter, Checkbox, ProgressIndicator, ProgressStep, RadioButtonGroup, RadioButton,
-  CarbonIcons,
+  ComposedModal, ModalHeader, ModalBody, ModalFooter, Checkbox, RadioButtonGroup, RadioButton,
+  CarbonIcons, BusinessLifecycle,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/opportunities.scss';
@@ -157,7 +157,6 @@ export function OpportunityDetailPage() {
  const [lifecycleOpen,setLifecycleOpen]=useState(false); const [nextStage,setNextStage]=useState(''); const [transitionNote,setTransitionNote]=useState('');
  const [quoteModalOpen,setQuoteModalOpen]=useState(false); const [quoteMode,setQuoteMode]=useState('single'); const [quoteConfirmed,setQuoteConfirmed]=useState(false);
  const [confirmed,setConfirmed]=useState(false); const [saving,setSaving]=useState(false); const [transitionError,setTransitionError]=useState('');
- const lifecycleScrollRef=useRef<HTMLDivElement>(null);
  const load=useCallback(async()=>{
    setLoading(true);setError('');
    try{
@@ -179,9 +178,7 @@ export function OpportunityDetailPage() {
    }catch(e){setError(e instanceof Error?e.message:'读取商机详情失败')}
    finally{setLoading(false)}
  },[id]);
- useEffect(()=>{void load()},[load]); useEffect(()=>{const currentStep=lifecycleScrollRef.current?.querySelector<HTMLElement>('[aria-current="step"], .cds--progress-step--current');currentStep?.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});},[row?.stage,loading]);
- const currentIndex=Math.max(0,stages.filter(([key])=>key!=='won'&&key!=='lost').findIndex(([key])=>key===row?.stage));
- const lifecycleStages=stages.filter(([key])=>key!=='won'&&key!=='lost');
+ useEffect(()=>{void load()},[load]); const lifecycleStages=stages.filter(([key])=>key!=='won'&&key!=='lost');
  const terminal=row?.stage==='won'||row?.stage==='lost';
  const nextOptions=(()=>{if(!row||terminal)return[];const idx=lifecycleStages.findIndex(([key])=>key===row.stage);const next=idx>=0?lifecycleStages[idx+1]:lifecycleStages[0];return [...(next?[[next[0],next[1]] as [string,string]]:[]),['won','已赢单'],['lost','已输单'] as [string,string]]})();
  const openLifecycle=()=>{setNextStage(nextOptions[0]?.[0]||'');setTransitionNote('');setConfirmed(false);setTransitionError('');setLifecycleOpen(true)};
@@ -207,14 +204,9 @@ export function OpportunityDetailPage() {
    <header className="tp-opportunities__header"><div><p className="tp-opportunities__eyebrow">TRADEPILOT / CRM / OPPORTUNITY</p><h1>{row.name}</h1><p>{row.opportunity_number} · {account} · {stageLabel(row.stage)}</p></div>
      <div className="tp-opportunities__actions"><Button className="tp-opportunities__primary-action" kind="primary" onClick={()=>nav('/opportunities/'+row.id+'/edit')}><CarbonIcons.Edit size={16}/>编辑商机</Button><div className="tp-opportunities__secondary-actions"><Button kind="tertiary" onClick={()=>nav('/opportunities')}>返回列表</Button><Button kind="tertiary" onClick={()=>nav('/quotes/new?opportunity='+row.id)}><CarbonIcons.Document size={16}/>创建报价单</Button><Button kind="secondary" disabled={terminal} onClick={openLifecycle}>管理生命周期</Button></div></div>
    </header>
-   <section className="tp-opportunities__primary tp-opportunities__lifecycle">
-     <div className="tp-opportunities__lifecycle-head"><div><h2>生命周期</h2><p>{terminal?'商机已进入终止阶段':`当前阶段：${stageLabel(row.stage)}`}</p></div><Tag type={row.stage==='won'?'green':row.stage==='lost'?'red':'blue'}>{stageLabel(row.stage)}</Tag></div>
-     {terminal?<InlineNotification kind={row.stage==='won'?'success':'warning'} title={row.stage==='won'?'商机已赢单':'商机已输单'} subtitle="终止状态不能通过普通阶段管理直接修改；如需纠正，请走受控更正流程。"/>:
-       <div ref={lifecycleScrollRef} className="tp-opportunities__lifecycle-scroll" role="region" aria-label="商机生命周期阶段" tabIndex={0}><div className="tp-opportunities__lifecycle-track"><ProgressIndicator currentIndex={currentIndex} spaceEqually>
-         {lifecycleStages.map(([key,title],index)=><ProgressStep key={key} label={title} description={index===currentIndex?'当前阶段':index<currentIndex?'已完成':'待处理'}/>)}
-       </ProgressIndicator></div></div>}
+   <BusinessLifecycle title="商机生命周期" steps={lifecycleStages.map(([value,label])=>({value,label}))} current={row.stage} terminal={terminal} terminalKind={row.stage==='won'?'success':'warning'} terminalTitle={row.stage==='won'?'商机已赢单':'商机已输单'} description={terminal?'商机已进入终止阶段':`当前阶段：${stageLabel(row.stage)}`}>
      <div className="tp-opportunities__lifecycle-foot"><span>阶段变更需要人工确认；报价、订单等下游记录的生成不会仅凭阶段按钮自动发生。</span>{!terminal&&<Button kind="tertiary" size="sm" onClick={openLifecycle}>确认下一阶段</Button>}</div>
-   </section>
+   </BusinessLifecycle>
    <section className="tp-opportunities__primary"><div className="tp-opportunities__detail-grid">{[['所属客户',account],['主要联系人',contact],['销售阶段',stageLabel(row.stage)],['商机状态',row.status],['预计金额',row.currency_code+' '+Number(row.amount||0).toLocaleString()],['赢率',row.probability+'%'],['加权预测金额',row.currency_code+' '+(Number(row.amount||0)*Number(row.probability||0)/100).toLocaleString()],['预计成交日期',row.expected_close_date||'—'],['负责人',row.sales_person||'—'],['销售团队',row.sales_team||'—'],['来源',row.source||'—'],['优先级',row.priority||'普通']].map(([k,v])=><div key={k}><span>{k}</span><strong>{v}</strong></div>)}</div>{row.description&&<p>{row.description}</p>}</section>
    <section className="tp-opportunities__panel"><div className="tp-opportunities__panel-head"><div><h2>关联业务</h2><p>显示以本商机为来源或目标的业务记录。</p></div><Tag type="blue">{relations.length} 条关联</Tag></div>
      {relations.length?<div className="tp-opportunities__relations">{relations.map(rel=><div className="tp-opportunities__relation" key={rel.id}><div><strong>{rel.source_record_type==='opportunity'?'本商机':rel.source_record_type} → {rel.target_record_type==='opportunity'?'本商机':rel.target_record_type}</strong><small>{rel.relation_type} · {new Date(rel.created_at).toLocaleString()}</small></div><code>{rel.source_record_id===row.id?rel.target_record_id:rel.source_record_id}</code></div>)}</div>:<p className="tp-opportunities__empty">暂无已登记的业务关联。后续转换成功后会自动显示来源与目标记录。</p>}
