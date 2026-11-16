@@ -11,6 +11,33 @@
 .oi-page-header { flex: 0 0 auto; min-height: 76px; padding: 14px 24px; display:flex; align-items:center; justify-content:space-between; gap:16px; background:var(--cds-background); border-bottom:1px solid var(--cds-border-subtle-01); }
 .oi-page-header .oi-page-title { display:block; margin:0; font-size:24px; line-height:30px; font-weight:400; }
 .oi-page-header p { margin:3px 0 0; color:var(--cds-text-secondary); font-size:12px; line-height:18px; }
+
+.oi-metrics-row { flex:0 0 auto; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; padding:14px 24px 0; }
+.oi-metric-tile { min-width:0; min-height:104px; padding:14px 16px; display:grid; grid-template-columns:42px minmax(0,1fr) auto; align-items:center; gap:14px; background:var(--cds-layer-01); }
+.oi-metric-icon { width:42px; height:42px; display:grid; place-items:center; }
+.oi-metric-icon--unread { color:#0f62fe; background:#e8f1ff; }
+.oi-metric-icon--active { color:#198038; background:#defbe6; }
+.oi-metric-copy { min-width:0; display:flex; flex-direction:column; gap:2px; }
+.oi-metric-copy>span { color:var(--cds-text-secondary); font-size:12px; }
+.oi-metric-copy>strong { color:var(--cds-text-primary); font-size:26px; line-height:30px; font-weight:600; font-family:'IBM Plex Sans',sans-serif; }
+.oi-metric-copy>small { color:var(--cds-text-secondary); font-size:10px; }
+.oi-metric-trend { display:grid; grid-template-columns:auto auto; align-items:center; justify-content:end; column-gap:4px; row-gap:2px; white-space:nowrap; }
+.oi-metric-trend strong { font-family:'IBM Plex Mono',monospace; font-size:12px; font-weight:600; }
+.oi-metric-trend small { grid-column:1 / -1; color:var(--cds-text-secondary); font-size:9px; text-align:right; }
+.oi-trend--positive { color:#198038; }
+.oi-trend--negative { color:#da1e28; }
+.oi-trend--neutral { color:#6f6f6f; }
+.oi-activity-panel { flex:0 0 auto; padding:12px 24px 14px; }
+.oi-activity-tile { padding:12px 16px 4px; background:var(--cds-layer-01); }
+.oi-activity-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.oi-activity-heading>div { min-width:0; }
+.oi-activity-title { display:block; margin:0; font-size:14px; line-height:20px; font-weight:600; }
+.oi-activity-heading p { margin:3px 0 0; color:var(--cds-text-secondary); font-size:10px; }
+.oi-activity-chart { width:100%; height:168px; min-width:0; }
+.oi-conversation-meta { align-items:center; justify-content:flex-start; }
+.oi-conversation-meta .oi-channel { flex:0 0 24px; align-self:center; }
+.oi-conversation-copy .oi-customer-name { font-weight:600; }
+
 .oi-workspace-grid { flex:1; min-height:0; display:grid; grid-template-columns:320px minmax(0,1fr) 340px; overflow:hidden; }
 .oi-workspace--profile-collapsed .oi-workspace-grid { grid-template-columns:320px minmax(0,1fr); }
 .oi-conversation-panel,.oi-profile-panel { min-width: 0; background: var(--cds-layer-01); display:flex; flex-direction:column; overflow:hidden; }
@@ -34,10 +61,10 @@
 .oi-avatar { flex:0 0 40px; width:40px; height:40px; display:grid; place-items:center; background:#d0e2ff; color:#0043ce; font-weight:600; font-size:14px; border-radius:50% !important; overflow:hidden; }
 .oi-avatar--small { width:36px;height:36px;flex-basis:36px;font-size:13px; }
 .oi-conversation-copy { min-width:0; flex:1; display:flex; flex-direction:column; gap:3px; }
-.oi-conversation-copy strong { font-size:13px; font-weight:600; overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+.oi-conversation-copy strong { font-size:13px; font-weight:700; overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
 .oi-conversation-copy>span { color:#525252;font-size:11px; }
 .oi-conversation-copy small { color:#6f6f6f;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
-.oi-conversation-meta { display:flex;align-items:flex-end;flex-direction:column;gap:6px; }
+.oi-conversation-meta { display:flex;align-items:center;flex-direction:column;gap:6px; }
 .oi-conversation-meta time { color:#6f6f6f; }
 .oi-conversation-meta b { background:#0f62fe;color:#fff;min-width:18px;height:18px;padding:0 5px;display:grid;place-items:center;font-size:10px;font-weight:500; }
 .oi-channel { display:inline-flex;align-items:center;justify-content:center;flex:0 0 24px;width:24px;height:24px;padding:0;font-size:8px;line-height:1;font-weight:700;letter-spacing:-.3px;white-space:nowrap;background:#e0e0e0;color:#393939;border-radius:50% !important; }
@@ -117,6 +144,15 @@
  .oi-workspace,.oi-workspace--profile-collapsed { display:flex;position:relative;height:calc(100dvh - 48px);min-height:0; }
  .oi-page-header { min-height:64px;padding:10px 14px; }
  .oi-page-header .oi-page-title { font-size:20px;line-height:26px; }
+ .oi-metrics-row { padding:10px 14px 0; gap:8px; }
+ .oi-metric-tile { min-height:92px; padding:10px; grid-template-columns:30px minmax(0,1fr); gap:8px; }
+ .oi-metric-icon { width:30px; height:30px; }
+ .oi-metric-copy>strong { font-size:22px; line-height:26px; }
+ .oi-metric-trend { grid-column:2; display:flex; justify-content:flex-start; gap:4px; }
+ .oi-metric-trend small { display:none; }
+ .oi-activity-panel { padding:9px 14px 10px; }
+ .oi-activity-tile { padding:10px 12px 2px; }
+ .oi-activity-chart { height:142px; }
  .oi-workspace-grid { position:relative;flex:1;min-height:0;display:block;width:100%; }
  .oi-conversation-panel,.oi-chat-panel { position:absolute;inset:0;width:100%;height:100%;transition:opacity 180ms ease,transform 180ms ease,visibility 180ms ease; }
  .oi-chat-panel { display:flex;visibility:hidden;opacity:0;transform:translateX(12px); }
