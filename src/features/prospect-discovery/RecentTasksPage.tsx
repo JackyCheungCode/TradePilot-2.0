@@ -7,7 +7,7 @@ import {
   TableContainer, TableHead, TableHeader, TableRow,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
-import { getDiscoveryRuns, retryDiscoveryRun, type DiscoveryRun } from './api';
+import { getDiscoveryRuns, getContactEnrichmentJobs, retryDiscoveryRun, type DiscoveryRun, type ContactEnrichmentJob } from './api';
 import '@/design-system/patterns/prospect-discovery.scss';
 
 const hiddenTasksKey = 'tradepilot.recent-tasks.excluded';
@@ -30,6 +30,7 @@ export function RecentTasksPage() {
   const navigate = useNavigate();
   const [session,setSession] = useState<Session|null>(null);
   const [runs,setRuns] = useState<DiscoveryRun[]>([]);
+  const [contactJobs,setContactJobs] = useState<ContactEnrichmentJob[]>([]);
   const [excluded,setExcluded] = useState<string[]>([]);
   const [loading,setLoading] = useState(true);
   const [busyId,setBusyId] = useState<string|null>(null);
@@ -43,8 +44,8 @@ export function RecentTasksPage() {
       if (!alive) return;
       setSession(data.session);
       if (data.session) {
-        const dataRuns = await getDiscoveryRuns(data.session.access_token);
-        if (alive) setRuns(dataRuns);
+        const [dataRuns,dataContactJobs] = await Promise.all([getDiscoveryRuns(data.session.access_token),getContactEnrichmentJobs(data.session.access_token)]);
+        if (alive) { setRuns(dataRuns); setContactJobs(dataContactJobs); }
       }
     }).catch(e => { if (alive) setError(e instanceof Error ? e.message : '无法读取最近任务'); })
       .finally(() => { if (alive) setLoading(false); });
@@ -54,7 +55,7 @@ export function RecentTasksPage() {
   const refresh = useCallback(async () => {
     if (!session) return;
     setLoading(true); setError('');
-    try { setRuns(await getDiscoveryRuns(session.access_token)); }
+    try { const [dataRuns,dataContactJobs]=await Promise.all([getDiscoveryRuns(session.access_token),getContactEnrichmentJobs(session.access_token)]);setRuns(dataRuns);setContactJobs(dataContactJobs); }
     catch (e) { setError(e instanceof Error ? e.message : '刷新任务列表失败'); }
     finally { setLoading(false); }
   },[session]);
@@ -110,6 +111,19 @@ export function RecentTasksPage() {
           </TableCell>
         </TableRow>)}</TableBody></Table></TableContainer>
       </div>:<p className="tp-discovery__empty">暂无最近任务。完成一次潜客发现后，任务会自动出现在这里。</p>}
+    </section>
+    <section className="tp-discovery__panel">
+      <div className="tp-discovery__section-head"><div><h2>联系人补全任务</h2><p>与企业发现任务共用此任务执行中心，显示 Apollo、ZoomInfo 及官网联系方式补全进度。</p></div><Tag type="gray">{contactJobs.length} 个任务</Tag></div>
+      {contactJobs.length?<div className="tp-discovery__table-scroll"><TableContainer><Table size="lg"><TableHead><TableRow>
+        <TableHeader>任务编号</TableHeader><TableHeader>状态</TableHeader><TableHeader>进度</TableHeader><TableHeader>完成 / 失败</TableHeader><TableHeader>任务信息</TableHeader><TableHeader>创建时间</TableHeader>
+      </TableRow></TableHead><TableBody>{contactJobs.map(job=><TableRow key={job.id}>
+        <TableCell className="tp-discovery__nowrap-cell"><span title={job.id}>{job.id.slice(0,8)}</span></TableCell>
+        <TableCell><Tag type={job.status==='failed'?'red':isTerminal(job.status)?'green':'blue'}>{labels[job.status]??job.status}</Tag></TableCell>
+        <TableCell>{Number(job.progress??0)}%</TableCell>
+        <TableCell>{job.completedCount} / {job.failedCount}</TableCell>
+        <TableCell>{job.message}</TableCell>
+        <TableCell className="tp-discovery__nowrap-cell"><span title={new Date(job.createdAt).toLocaleString()}>{new Date(job.createdAt).toLocaleString()}</span></TableCell>
+      </TableRow>)}</TableBody></Table></TableContainer></div>:<p className="tp-discovery__empty">暂无联系人补全任务。</p>}
     </section>
     <p className="tp-discovery__muted">“排除”仅将任务从当前最近任务列表隐藏，不会删除后台任务记录或发现结果。</p>
   </main>;
