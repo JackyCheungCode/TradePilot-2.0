@@ -116,7 +116,7 @@ export async function handleContactValidation(request: Request, env: ValidationE
   const kind = String(body.kind || "");
   const value = String(body.value || "").trim();
   if (!value || value.length > 320) return errorResponse(request, "INVALID_CONTACT_VALUE", "请输入有效联系方式。", 400);
-  const secrets = await readIntegrationSecrets(env, ["tradepilot_api_abstract_email_validation", "tradepilot_api_abstract_phone_validation", "tradepilot_api_whatsapp_check_url", "tradepilot_api_whatsapp_check_key"]);
+  const secrets = await readIntegrationSecrets(env, ["tradepilot_api_abstract_email_validation", "tradepilot_api_abstract_phone_validation", "tradepilot_api_whatsapp_check_key"]);
   if (kind === "email") {
     const email = value.toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return errorResponse(request, "INVALID_EMAIL", "邮箱格式无效。", 400);
