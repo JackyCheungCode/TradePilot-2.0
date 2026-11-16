@@ -18,7 +18,7 @@ export function BusinessLifecycle({title,steps,current,description,terminal=fals
     prospect_discovered:'发现潜客',prospect_reviewed:'审核通过',prospect_collected:'联系人采集完成',prospect_collection_empty:'本次未找到可用联系方式',prospect_converted:'转化为 CRM 线索',prospect_discarded:'排除潜客',prospect_removed:'移除潜客',
     customer_created:'创建客户档案',customer_status_changed:'客户状态变更',customer_archived:'客户已归档',customer_unarchived:'客户已取消归档',contact_archived:'联系人已归档',contact_unarchived:'联系人已取消归档',contact_created:'创建联系人档案',contact_status_changed:'联系人有效状态变更',contact_contact_preference_changed:'联系人联系许可变更',contact_employment_status_changed:'联系人任职状态变更',contact_method_verification_changed:'联系方式验证状态变更',
     opportunity_created:'创建商机',opportunity_stage_changed:'商机阶段变更',quote_created:'创建报价单',quote_status_changed:'报价状态变更',sales_order_created:'创建销售订单',sales_order_status_changed:'订单状态变更',
-    payment_created:'创建收款记录',payment_status_changed:'收款状态变更',shipment_created:'创建发运单',shipment_status_changed:'发运状态变更'
+    payment_created:'创建收款记录',payment_status_changed:'收款状态变更',payment_reconciliation_changed:'核销状态变更',shipment_created:'创建发运单',shipment_status_changed:'发运状态变更'
   } as Record<string,string>)[value]||value;
   const statusLabel=(value:string)=>steps.find(step=>step.value===value)?.label||({
     active:'活跃',inactive:'停用',dormant:'休眠',lost:'流失',blacklist:'黑名单',do_not_contact:'拒绝联系',contact_allowed:'允许联系',departed:'已离职',unknown:'未设置',archived:'已归档',unarchived:'未归档',discarded:'已排除',removed:'已移除',
