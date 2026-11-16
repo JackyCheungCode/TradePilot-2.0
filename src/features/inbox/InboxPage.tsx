@@ -5,7 +5,7 @@ import {
   Grid, Column, Stack, ClickableTile, LineChart, ScaleTypes,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
-import { getInboxConversations, getInboxMessages, getInboxBusinessMetrics, getInboxChannelReadiness, translateInboxMessage, createInboxNote, type InboxConversation, type InboxTimelineItem, type InboxBusinessMetrics, type InboxChannelReadiness } from './api';
+import { getInboxConversations, getInboxMessages, getInboxBusinessMetrics, getInboxChannelReadiness, translateInboxMessage, generateInboxSummary, createInboxNote, type InboxConversation, type InboxTimelineItem, type InboxBusinessMetrics, type InboxChannelReadiness } from './api';
 
 const channels = [
   { id: 'whatsapp', label: 'WhatsApp' },
@@ -35,6 +35,7 @@ export function InboxPage() {
   const [composerMode, setComposerMode] = useState<'reply' | 'note'>('reply');
   const [savingNote, setSavingNote] = useState(false);
   const [translatingMessageId, setTranslatingMessageId] = useState('');
+  const [summaryLoading, setSummaryLoading] = useState(false);
   const [businessMetrics, setBusinessMetrics] = useState<InboxBusinessMetrics | null>(null);
   const [metricsLoading, setMetricsLoading] = useState(false);
 
@@ -222,6 +223,26 @@ export function InboxPage() {
     }
   };
 
+
+  const generateSummary = async () => {
+    if (!selected || summaryLoading) return;
+    setSummaryLoading(true);
+    setError('');
+    try {
+      const client = await getSupabaseClient();
+      const { data: { session } } = await client.auth.getSession();
+      if (!session?.access_token) throw new Error('登录状态已失效，请重新登录。');
+      const summary = await generateInboxSummary(session.access_token, selected.id);
+      const updated = { ...selected, ai_summary: summary };
+      setSelected(updated);
+      setConversations(rows => rows.map(row => row.id === selected.id ? updated : row));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'AI 会话总结失败。');
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
+
   const visibleConversations = useMemo(() => conversations.filter(row => {
     const matchesChannel = channelFilter === 'all' || row.last_channel_type === channelFilter;
     const haystack = [
@@ -385,8 +406,8 @@ export function InboxPage() {
                   <CarbonIcons.Chat size={20} />
                 </Stack>
                 <p>结合客户沟通与 ERP 业务记录，辅助整理客户诉求和跟进建议。</p>
-                <Button kind="tertiary" size="sm" renderIcon={CarbonIcons.Chat} disabled>生成会话总结</Button>
-                <p>{selected?.ai_summary || '选择会话后，将在此显示客户摘要、待确认事项和建议回复。'}</p>
+                <Button kind="tertiary" size="sm" renderIcon={CarbonIcons.Chat} disabled={!selected || summaryLoading} onClick={() => void generateSummary()}>{summaryLoading ? "正在生成…" : "生成会话总结"}</Button>
+                <p>{selected?.ai_summary || '选择会话后生成客户摘要、待确认事项和建议回复。'}</p>
               </Stack>
             </Tile>
             <Tile>
