@@ -10,6 +10,9 @@ declare
   v_entity_id uuid;
   v_discovery_status text;
   v_discovery_raw jsonb;
+  v_discovery_email text;
+  v_discovery_phone text;
+  v_contact_stage text;
   v_existing public.leads%rowtype;
   v_lead public.leads%rowtype;
   v_company text := nullif(trim(v_profile->>'company_name'), '');
@@ -31,8 +34,8 @@ begin
   end if;
 
   if v_record_id is not null then
-    select entity_id,status,coalesce(raw_data,'{}'::jsonb)
-      into v_entity_id,v_discovery_status,v_discovery_raw
+    select entity_id,status,coalesce(raw_data,'{}'::jsonb),email,phone
+      into v_entity_id,v_discovery_status,v_discovery_raw,v_discovery_email,v_discovery_phone
       from public.discovery_records
       where id = v_record_id and owner_id = v_owner
       for update;
@@ -51,7 +54,15 @@ begin
     if v_discovery_status <> 'new' then
       raise exception 'PROSPECT_NOT_ELIGIBLE_FOR_CONVERSION' using errcode = '22023';
     end if;
-    if coalesce(v_discovery_raw->>'lifecycle_stage','discovered') <> 'collected' then
+    v_contact_stage := coalesce(nullif(v_discovery_raw->>'lifecycle_stage',''),
+      case when coalesce(v_discovery_email,'')<>'' or coalesce(v_discovery_phone,'')<>'' or
+        jsonb_array_length(case when jsonb_typeof(v_discovery_raw->'contact_enrichment'->'emails')='array' then v_discovery_raw->'contact_enrichment'->'emails' else '[]'::jsonb end)>0 or
+        jsonb_array_length(case when jsonb_typeof(v_discovery_raw->'contact_enrichment'->'phones')='array' then v_discovery_raw->'contact_enrichment'->'phones' else '[]'::jsonb end)>0 or
+        jsonb_array_length(case when jsonb_typeof(v_discovery_raw->'contact_enrichment'->'addresses')='array' then v_discovery_raw->'contact_enrichment'->'addresses' else '[]'::jsonb end)>0 or
+        jsonb_array_length(case when jsonb_typeof(v_discovery_raw->'contact_intelligence'->'candidates')='array' then v_discovery_raw->'contact_intelligence'->'candidates' else '[]'::jsonb end)>0 or
+        exists(select 1 from jsonb_each(case when jsonb_typeof(v_discovery_raw->'contact_enrichment'->'social')='object' then v_discovery_raw->'contact_enrichment'->'social' else '{}'::jsonb end) social_entry where jsonb_typeof(social_entry.value)='array' and jsonb_array_length(social_entry.value)>0)
+        then 'collected' else 'discovered' end);
+    if v_contact_stage <> 'collected' then
       raise exception 'PROSPECT_CONTACT_ENRICHMENT_REQUIRED' using errcode = '22023';
     end if;
     if not exists (
