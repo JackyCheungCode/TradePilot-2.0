@@ -41,7 +41,7 @@ create table if not exists public.inbox_customer_identities (
   unique (id, owner_id),
   constraint inbox_customer_identities_connection_owner_fk
     foreign key (channel_connection_id, owner_id)
-    references public.inbox_channel_connections(id, owner_id) on delete set null
+    references public.inbox_channel_connections(id, owner_id) on delete set null (channel_connection_id)
 );
 
 create table if not exists public.inbox_conversations (
@@ -104,7 +104,7 @@ create table if not exists public.inbox_messages (
     references public.inbox_conversations(id, owner_id) on delete cascade,
   constraint inbox_messages_identity_owner_fk
     foreign key (customer_identity_id, owner_id)
-    references public.inbox_customer_identities(id, owner_id) on delete set null,
+    references public.inbox_customer_identities(id, owner_id) on delete set null (customer_identity_id),
   constraint inbox_messages_connection_owner_fk
     foreign key (channel_connection_id, owner_id)
     references public.inbox_channel_connections(id, owner_id) on delete set null
@@ -168,9 +168,9 @@ begin
     raise exception 'Inbox contact must belong to the same owner';
   end if;
 
-  if tg_table_name = 'inbox_conversations' and new.account_id is not null then
-    select a.owner_id into account_owner from public.crm_accounts a where a.id = new.account_id;
-    if account_owner is null or account_owner <> new.owner_id or contact_account <> new.account_id then
+  if tg_table_name = 'inbox_conversations' and (to_jsonb(new)->>'account_id') is not null then
+    select a.owner_id into account_owner from public.crm_accounts a where a.id = (to_jsonb(new)->>'account_id')::uuid;
+    if account_owner is null or account_owner <> new.owner_id or contact_account <> (to_jsonb(new)->>'account_id')::uuid then
       raise exception 'Inbox account must match the contact account and owner';
     end if;
   end if;
