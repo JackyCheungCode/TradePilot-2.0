@@ -24,9 +24,9 @@ function Avatar({ customer, small = false }: { customer: Customer; small?: boole
   return <div className={'oi-avatar' + (small ? ' oi-avatar--small' : '')}>{customer.avatar}</div>;
 }
 function StatusText({ status }: { status: Message['status'] }) {
-  if (status === 'failed') return <span className="oi-message-status oi-message-status--failed"><WarningAlt size={12} /> 发送失败</span>;
-  if (status === 'read') return <span className="oi-message-status oi-message-status--read"><Checkmark size={13} /><Checkmark size={13} /> 已读</span>;
-  if (status === 'delivered') return <span className="oi-message-status"><Checkmark size={13} /><Checkmark size={13} /> 已送达</span>;
+  if (status === 'failed') return <span className="oi-message-status oi-message-status--failed"><CarbonIcons.WarningAlt size={12} /> 发送失败</span>;
+  if (status === 'read') return <span className="oi-message-status oi-message-status--read"><CarbonIcons.Checkmark size={13} /><CarbonIcons.Checkmark size={13} /> 已读</span>;
+  if (status === 'delivered') return <span className="oi-message-status"><CarbonIcons.Checkmark size={13} /><CarbonIcons.Checkmark size={13} /> 已送达</span>;
   return <span className="oi-message-status">{status === 'sending' ? '发送中…' : '已发送'}</span>;
 }
 
@@ -121,20 +121,20 @@ export function OmnichannelInboxPage() {
     <section className="oi-chat-panel">
       <header className="oi-chat-header">
         <div className="oi-chat-heading">
-          <button className="oi-mobile-back" type="button" aria-label="返回会话列表" onClick={() => setMobileChat(false)}><ArrowLeft /></button>
+          <button className="oi-mobile-back" type="button" aria-label="返回会话列表" onClick={() => setMobileChat(false)}><CarbonIcons.ArrowLeft /></button>
           <Avatar customer={customer} small />
           <div><strong>{customer.company_name || customer.contact_name}</strong><span>{customer.contact_name} · {customer.role}</span></div>
         </div>
         <div className="oi-chat-actions">
           <Dropdown id="oi-assignee" titleText="" label="负责人" size="sm" items={assignees} itemToString={(item: { id: string; label: string } | null) => item?.label ?? ''} selectedItem={assignees.find((item) => item.id === activeConversation.assignee_id) ?? assignees[0]} onChange={({ selectedItem }: { selectedItem: { id: string; label: string } | null }) => selectedItem && updateConversation({ assignee_id: selectedItem.id })} />
           <Button kind="ghost" size="sm" onClick={() => updateConversation({ status: activeConversation.status === 'resolved' ? 'open' : 'resolved' })}>{activeConversation.status === 'resolved' ? '重新打开' : '标记已解决'}</Button>
-          <IconButton kind="ghost" label="客户档案" onClick={() => setProfileOpen((value) => !value)}>{profileOpen ? <ViewOff /> : <View />}</IconButton>
+          <IconButton kind="ghost" label="客户档案" onClick={() => setProfileOpen((value) => !value)}>{profileOpen ? <CarbonIcons.ViewOff /> : <CarbonIcons.View />}</IconButton>
         </div>
       </header>
       <div className="oi-timeline" aria-label="统一消息时间线">{timeline.map((message) => <article key={message.id} className={'oi-message oi-message--' + message.direction}>
         <div className="oi-message-meta"><ChannelMark channel={message.channel_type} /><time>{fmtTime(message.created_at)}</time></div>
-        {message.content_type === 'email_card' ? <div className="oi-email-card"><div className="oi-email-title"><Email size={18} /><strong>{message.email_subject}</strong><button type="button" onClick={() => setExpandedEmail((current) => current.includes(message.id) ? current.filter((id) => id !== message.id) : [...current, message.id])}>{expandedEmail.includes(message.id) ? '收起' : '展开'} <ChevronDown size={14} /></button></div><div className="oi-email-from">发件人：{customer.email}</div>{expandedEmail.includes(message.id) && <p>{message.content}</p>}</div>
-          : message.content_type === 'file' ? <div className="oi-file-card"><DocumentPdf size={28} /><div><strong>{message.file_meta?.filename}</strong><span>{fmtSize(message.file_meta?.size ?? 0)} · PDF 文档</span></div><button type="button" aria-label="下载文件"><Attachment size={18} /></button></div>
+        {message.content_type === 'email_card' ? <div className="oi-email-card"><div className="oi-email-title"><CarbonIcons.Email size={18} /><strong>{message.email_subject}</strong><button type="button" onClick={() => setExpandedEmail((current) => current.includes(message.id) ? current.filter((id) => id !== message.id) : [...current, message.id])}>{expandedEmail.includes(message.id) ? '收起' : '展开'} <CarbonIcons.ChevronDown size={14} /></button></div><div className="oi-email-from">发件人：{customer.email}</div>{expandedEmail.includes(message.id) && <p>{message.content}</p>}</div>
+          : message.content_type === 'file' ? <div className="oi-file-card"><CarbonIcons.DocumentPdf size={28} /><div><strong>{message.file_meta?.filename}</strong><span>{fmtSize(message.file_meta?.size ?? 0)} · PDF 文档</span></div><button type="button" aria-label="下载文件"><CarbonIcons.Attachment size={18} /></button></div>
           : <div className="oi-bubble">{message.content}</div>}
         {message.direction === 'outbound' && <div className="oi-message-foot"><StatusText status={message.status} />{message.status === 'failed' && <Button kind="ghost" size="sm" onClick={() => retryMessage(message)}>点击重试</Button>}</div>}
       </article>)}</div>
@@ -143,12 +143,12 @@ export function OmnichannelInboxPage() {
         {whatsappClosed && <InlineNotification kind="warning" lowContrast hideCloseButton title="WhatsApp 24 小时自由回复窗口已关闭" subtitle="请使用官方审核模板触达客户。" />
           <Button size="sm" kind="tertiary" onClick={() => setTemplateOpen(true)}>选择模板消息</Button>}
         {channel === 'email' && <div className="oi-subject"><TextInput id="oi-subject" labelText="邮件主题（Subject）" placeholder="输入邮件主题" value={subject} onChange={(event: React.ChangeEvent<HTMLInputElement>) => setSubject(event.currentTarget.value)} /></div>}
-        <div className="oi-compose-row"><TextArea id="oi-message" labelText="消息内容" hideLabel placeholder={whatsappClosed ? '自由文本已禁用，请选择模板消息' : '输入消息…（Enter 发送，Shift + Enter 换行）'} rows={2} value={draft} disabled={whatsappClosed} onChange={(event: React.ChangeEvent<HTMLTextAreaElement>) => setDraft(event.currentTarget.value)} onKeyDown={(event: React.KeyboardEvent<HTMLTextAreaElement>) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(); } }} /><Button hasIconOnly renderIcon={Send} iconDescription="发送消息" disabled={!draft.trim() || whatsappClosed} onClick={sendMessage} /></div>
+        <div className="oi-compose-row"><TextArea id="oi-message" labelText="消息内容" hideLabel placeholder={whatsappClosed ? '自由文本已禁用，请选择模板消息' : '输入消息…（Enter 发送，Shift + Enter 换行）'} rows={2} value={draft} disabled={whatsappClosed} onChange={(event: React.ChangeEvent<HTMLTextAreaElement>) => setDraft(event.currentTarget.value)} onKeyDown={(event: React.KeyboardEvent<HTMLTextAreaElement>) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(); } }} /><Button hasIconOnly renderIcon={CarbonIcons.Send} iconDescription="发送消息" disabled={!draft.trim() || whatsappClosed} onClick={sendMessage} /></div>
       </div>
     </section>
 
     {profileOpen && <aside className="oi-profile-panel">
-      <div className="oi-profile-header"><h2>客户 360 档案</h2><IconButton kind="ghost" label="关闭档案" onClick={() => setProfileOpen(false)}><Close /></IconButton></div>
+      <div className="oi-profile-header"><h2>客户 360 档案</h2><IconButton kind="ghost" label="关闭档案" onClick={() => setProfileOpen(false)}><CarbonIcons.Close /></IconButton></div>
       <div className="oi-profile-scroll">
         <div className="oi-profile-identity"><Avatar customer={customer} /><div><strong>{customer.company_name || customer.contact_name}</strong><span>{customer.contact_name}</span></div></div>
         <div className="oi-profile-section"><div className="oi-section-heading"><h3>基础信息</h3><Button kind="ghost" size="sm" onClick={() => { setProfileDraft({ ...customer, tags: [...customer.tags] }); setEditing(true); }}>编辑</Button></div>
@@ -163,7 +163,7 @@ export function OmnichannelInboxPage() {
           </div> : <dl className="oi-details"><dt>联系人</dt><dd>{customer.contact_name} · {customer.role}</dd><dt>邮箱</dt><dd>{customer.email}</dd><dt>电话</dt><dd className="oi-mono">{customer.phone}</dd></dl>}
           {!editing && <div className="oi-tags">{customer.tags.map((tag) => <Tag key={tag} type="blue">{tag}</Tag>)}</div>}
         </div>
-        <div className="oi-profile-section"><div className="oi-section-heading"><h3>渠道身份绑定</h3><Button kind="ghost" size="sm" renderIcon={Add} onClick={() => setIdentityOpen(true)}>绑定新渠道</Button></div>
+        <div className="oi-profile-section"><div className="oi-section-heading"><h3>渠道身份绑定</h3><Button kind="ghost" size="sm" renderIcon={CarbonIcons.Add} onClick={() => setIdentityOpen(true)}>绑定新渠道</Button></div>
           {customerIdentities.map((identity) => <div className="oi-identity-row" key={identity.id}><ChannelMark channel={identity.channel_type} /><span>{identity.external_user_id}</span>{identity.is_primary && <Tag type="green">主要</Tag>}</div>)}
         </div>
         <div className="oi-profile-section"><h3>客户标签</h3><div className="oi-tags">{customer.tags.map((tag) => <Tag key={tag} type="cool-gray">{tag}</Tag>)}</div></div>
