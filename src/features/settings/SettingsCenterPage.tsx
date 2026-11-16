@@ -242,7 +242,7 @@ export function SettingsCenterPage() {
               size="md"
               className={`tp-settings__domain ${domain === item.id ? 'is-active' : ''}`}
               disabled={!item.available}
-              onClick={() => { setDomain(item.id); setSection(item.id === 'enterprise' ? 'profile' : item.id === 'integrations' ? 'api' : item.id === 'agent' ? 'models' : item.id === 'trade-documents' || item.id === 'trade-operations' ? 'shared' : item.id === 'opportunities' ? 'stages' : item.id === 'contacts' ? 'salutations' : item.id === 'accounts' ? 'account-types' : item.id === 'leads' ? 'lead-types' : 'categories'); setQuery(''); }}
+              onClick={() => { setDomain(item.id); setSection(item.id === 'enterprise' ? 'profile' : item.id === 'integrations' ? 'api' : item.id === 'agent' ? 'models' : item.id === 'trade-documents' ? 'document-types' : item.id === 'trade-operations' ? 'shared' : item.id === 'opportunities' ? 'stages' : item.id === 'contacts' ? 'salutations' : item.id === 'accounts' ? 'account-types' : item.id === 'leads' ? 'lead-types' : 'categories'); setQuery(''); }}
               aria-pressed={domain === item.id}
             >
               <span className="tp-settings__domain-icon">{item.icon}</span>
