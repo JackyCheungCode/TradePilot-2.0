@@ -74,7 +74,7 @@ export function DocumentTypeSettings() {
       if (sessionError) throw sessionError;
       const ownerId = session.session?.user.id;
       if (!ownerId) throw new Error('登录状态已失效，请重新登录。');
-      const { data, error: queryError } = await db.from('trade_document_settings').select('config').eq('owner_id', ownerId).eq('scope_key', 'shared').maybeSingle();
+      const { data, error: queryError } = await db.from('trade_document_settings').select('config').eq('owner_id', ownerId).eq('owner_id', ownerId).eq('scope_key', 'shared').maybeSingle();
       if (queryError) throw queryError;
       const next = (data?.config ?? {}) as Config;
       setConfig(next);
