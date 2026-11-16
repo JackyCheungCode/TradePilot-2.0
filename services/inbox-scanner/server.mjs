@@ -63,7 +63,7 @@ function scanWithClamd(bytes, host = CLAMD_HOST, port = CLAMD_PORT) {
       if (error) reject(error);
       else resolve(value);
     };
-    socket.setTimeout(120_000, () => finish(new Error("CLAMD_TIMEOUT")));
+    socket.setTimeout(90_000, () => finish(new Error("CLAMD_TIMEOUT")));
     socket.on("error", () => finish(new Error("CLAMD_UNAVAILABLE")));
     socket.on("end", () => finish(new Error("CLAMD_EMPTY_RESPONSE")));
     socket.on("data", chunk => {
@@ -127,7 +127,7 @@ const server = createServer(async (request, response) => {
     activeScans -= 1;
   }
 });
-server.requestTimeout = 120_000;
+server.requestTimeout = 100_000;
 server.headersTimeout = 15_000;
 server.keepAliveTimeout = 5_000;
 
