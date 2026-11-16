@@ -27,6 +27,47 @@ create table if not exists public.inbox_attachments (
   unique (storage_bucket, storage_path)
 );
 
+-- Durable media-download queue. Jobs are created atomically with their parent message.
+create table if not exists public.inbox_media_jobs (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  message_id uuid not null,
+  channel_connection_id uuid,
+  channel_type text not null check (channel_type in ('whatsapp','line','messenger','telegram')),
+  external_media_id text not null check (length(external_media_id) between 1 and 1024),
+  provider_url text,
+  mime_type_hint text,
+  original_file_name text,
+  size_bytes_hint bigint check (size_bytes_hint is null or size_bytes_hint > 0),
+  provider_metadata jsonb not null default '{}'::jsonb,
+  status text not null default 'queued'
+    check (status in ('queued','processing','completed','failed')),
+  attempts integer not null default 0 check (attempts >= 0 and attempts <= 10),
+  available_at timestamptz not null default now(),
+  locked_until timestamptz,
+  last_error_code text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint inbox_media_jobs_message_owner_fk
+    foreign key (message_id, owner_id)
+    references public.inbox_messages(id, owner_id) on delete cascade,
+  constraint inbox_media_jobs_connection_owner_fk
+    foreign key (channel_connection_id, owner_id)
+    references public.inbox_channel_connections(id, owner_id) on delete set null (channel_connection_id),
+  unique (message_id, external_media_id)
+);
+
+create index if not exists inbox_media_jobs_claim_idx
+  on public.inbox_media_jobs(status, available_at, created_at)
+  where status in ('queued','processing');
+
+alter table public.inbox_media_jobs enable row level security;
+revoke all on public.inbox_media_jobs from anon, authenticated;
+grant all on public.inbox_media_jobs to service_role;
+drop policy if exists inbox_media_jobs_service_role_only on public.inbox_media_jobs;
+create policy inbox_media_jobs_service_role_only on public.inbox_media_jobs
+  for all to service_role using (true) with check (true);
+
 create index if not exists inbox_attachments_message_idx
   on public.inbox_attachments(owner_id, message_id, created_at);
 
