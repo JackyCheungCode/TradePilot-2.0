@@ -17,6 +17,7 @@ interface ProspectRow {
   platforms: Array<{ key: string; label: string }>;
   recordIds: string[];
   sourceDetails?: Array<{ platform: string; fields: Array<{ label: string; value: string }> }>;
+  contactIntelligence?: Record<string, unknown>;
 }
 interface ConsoleStats {
   metrics: { platformCount: number; prospectCount: number; convertedCount: number; pendingCount: number };
@@ -161,6 +162,8 @@ export function ProspectConsolePage() {
   const [refreshing,setRefreshing] = useState(false);
   const [selected,setSelected] = useState<ProspectRow|null>(null);
   const [actionBusyId,setActionBusyId] = useState('');
+  const [contactBusyId,setContactBusyId] = useState('');
+  const [contactJobMessage,setContactJobMessage] = useState('');
   const [confirmRemoveId,setConfirmRemoveId] = useState('');
   const [selectedIds,setSelectedIds] = useState<string[]>([]);
   const [confirmBulkRemove,setConfirmBulkRemove] = useState(false);
@@ -245,6 +248,39 @@ export function ProspectConsolePage() {
     }catch(cause){setError(cause instanceof Error?cause.message:'潜客操作失败。');}
     finally{setActionBusyId('');}
   };
+  const runContactEnrichment=async(recordIds:string[],busyId:string)=>{
+    const ids=[...new Set(recordIds)].slice(0,50);
+    if(!ids.length||contactBusyId)return;
+    setContactBusyId(busyId);setContactJobMessage("正在提交联系人补全任务…");setError("");
+    try{
+      const client=await getSupabaseClient();
+      const {data}=await client.auth.getSession();
+      const token=data.session?.access_token;
+      if(!token)throw new Error("登录状态已失效，请重新登录。");
+      const response=await fetch("/api/v1/discovery-contact-enrichments",{method:"POST",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json",Accept:"application/json"},body:JSON.stringify({recordIds:ids,providers:["website","apollo","zoominfo"]})});
+      const payload=await response.json() as {data?:{id:string;message?:string};error?:{message?:string}};
+      if(!response.ok||!payload.data?.id)throw new Error(payload.error?.message??"联系人补全任务启动失败。");
+      const jobId=payload.data.id;
+      setContactJobMessage("任务已启动 · "+ids.length+" 家企业 · 正在查找联系人");
+      for(let attempt=0;attempt<90;attempt++){
+        await new Promise(resolve=>window.setTimeout(resolve,2000));
+        const statusResponse=await fetch("/api/v1/discovery-contact-enrichments/"+encodeURIComponent(jobId),{headers:{Authorization:"Bearer "+token,Accept:"application/json"}});
+        const statusPayload=await statusResponse.json() as {data?:{status:string;progress:number;completedCount:number;failedCount:number;message:string};error?:{message?:string}};
+        if(!statusResponse.ok||!statusPayload.data)throw new Error(statusPayload.error?.message??"读取联系人补全进度失败。");
+        const job=statusPayload.data;
+        setContactJobMessage(job.message+" · "+job.progress+"%");
+        if(["completed","partial","failed"].includes(job.status)){
+          await load(period,customFrom,customTo);
+          setSelected(null);
+          if(job.failedCount)setError("联系人补全完成："+job.completedCount+" 家成功，"+job.failedCount+" 家失败；请打开线索详情查看数据源错误。");
+          else setContactJobMessage(job.message+" · 已刷新结果");
+          return;
+        }
+      }
+      setContactJobMessage("任务仍在后台执行，可在任务执行中心查看进度。");
+    }catch(cause){setError(cause instanceof Error?cause.message:"联系人补全失败。");}
+    finally{setContactBusyId("");}
+  };
   const countries=[...new Set((stats?.prospects??[]).map(row=>row.country).filter(value=>value&&value!=='—'))].sort();
   const displayPlatforms=useMemo(()=>{
     const configured=consolePlatformCatalog.filter(item=>item.enabled).map(item=>({
@@ -259,7 +295,8 @@ export function ProspectConsolePage() {
   const tabs=[{key:'all',label:'全部平台',count:stats?.metrics.prospectCount??0},...displayPlatforms];
   return <main className="tp-console">
     <ProspectDiscoveryHeader title="全球情报（Global Intelligence）" description="汇总全网发现渠道的潜客资产，查看来源贡献、全球分布与每日发现趋势。" showRecentTasks={false}/>
-    {error&&<InlineNotification kind="error" title="数据读取失败" subtitle={error} onCloseButtonClick={()=>setError('')}/>}
+    {error&&<InlineNotification kind="error" title="操作失败或需要核对" subtitle={error} onCloseButtonClick={()=>setError('')}/>}
+    {contactJobMessage&&<InlineNotification kind="info" title="联系人补全任务" subtitle={contactJobMessage} onCloseButtonClick={()=>setContactJobMessage('')}/>} 
     <div className="tp-console__toolbar">
       <div><span className="tp-console__toolbar-label">统计时间范围</span><Select id="prospect-console-period" labelText="统计时间范围" hideLabel value={period} onChange={event=>setPeriod(event.currentTarget.value)}>{periods.map(item=><SelectItem key={item.value} value={item.value} text={item.label}/>)}</Select>
       {period==='custom'&&<div className="tp-console__date-range"><TextInput id="prospect-console-from" type="date" labelText="开始日期" value={customFrom} onChange={event=>setCustomFrom(event.currentTarget.value)}/><TextInput id="prospect-console-to" type="date" labelText="结束日期" value={customTo} onChange={event=>setCustomTo(event.currentTarget.value)}/></div>}</div>
@@ -284,7 +321,7 @@ export function ProspectConsolePage() {
       <section className="tp-console__panel tp-console__records-panel">
         <div className="tp-console__panel-heading"><div><h2>潜客资产</h2><p>按发现渠道查看聚合企业；平台来源标签来自实际发现记录。</p></div><Tag type="blue">{filtered.length.toLocaleString()} 家</Tag></div>
         <div className="tp-console__platform-tabs"><Tabs selectedIndex={Math.max(0,tabs.findIndex(item=>item.key===platformKey))} onChange={({selectedIndex})=>setPlatformKey(tabs[selectedIndex]?.key??'all')}><TabList aria-label="潜客发现平台">{tabs.map(item=><Tab key={item.key}><span className="tp-console__tab-label"><PlatformIcon platform={item.key}/>{item.label}</span><span className="tp-console__tab-count">{item.count}</span></Tab>)}</TabList></Tabs></div>
-        {selectedIds.length>0&&<div className="tp-console__bulk-actions"><span>已选择 {selectedIds.length} 家企业</span><Button kind="secondary" size="sm" disabled={!!actionBusyId||selectedPendingCount===0} onClick={()=>void runBulkAction('promote')}>批量转为线索</Button><Button kind="danger--ghost" size="sm" disabled={!!actionBusyId} onClick={()=>void runBulkAction('discard')}>批量排除</Button><Button kind="danger--ghost" size="sm" disabled={!!actionBusyId} onClick={()=>{if(confirmBulkRemove)void runBulkAction('remove');else setConfirmBulkRemove(true);}}>{confirmBulkRemove?'再次点击确认删除':'批量删除'}</Button><Button kind="ghost" size="sm" onClick={()=>{setSelectedIds([]);setConfirmBulkRemove(false);}}>清除选择</Button></div>}
+        {selectedIds.length>0&&<div className="tp-console__bulk-actions"><span>已选择 {selectedIds.length} 家企业</span><Button kind="secondary" size="sm" disabled={!!contactBusyId} onClick={()=>void runContactEnrichment(filtered.filter(row=>selectedIds.includes(row.id)).flatMap(row=>row.recordIds.slice(0,1)),'contact-bulk')}>批量补全联系人</Button><Button kind="secondary" size="sm" disabled={!!actionBusyId||selectedPendingCount===0} onClick={()=>void runBulkAction('promote')}>批量转为线索</Button><Button kind="danger--ghost" size="sm" disabled={!!actionBusyId} onClick={()=>void runBulkAction('discard')}>批量排除</Button><Button kind="danger--ghost" size="sm" disabled={!!actionBusyId} onClick={()=>{if(confirmBulkRemove)void runBulkAction('remove');else setConfirmBulkRemove(true);}}>{confirmBulkRemove?'再次点击确认删除':'批量删除'}</Button><Button kind="ghost" size="sm" onClick={()=>{setSelectedIds([]);setConfirmBulkRemove(false);}}>清除选择</Button></div>}
         <div className="tp-console__filters">
           <TextInput id="prospect-console-search" labelText="搜索潜客" placeholder="企业名称、国家、地址、网站或联系方式" value={search} onChange={event=>setSearch(event.currentTarget.value)} />
           <Select id="prospect-console-status" labelText="线索状态" value={status} onChange={event=>setStatus(event.currentTarget.value)}><SelectItem value="all" text="全部状态"/><SelectItem value="pending" text="待处理"/><SelectItem value="converted" text="已转化"/></Select>
@@ -292,13 +329,13 @@ export function ProspectConsolePage() {
           <Select id="prospect-console-sort" labelText="发现时间排序" value={sort} onChange={event=>setSort(event.currentTarget.value)}><SelectItem value="newest" text="最近发现优先"/><SelectItem value="oldest" text="最早发现优先"/></Select>
         </div>
         <div className="tp-console__table-scroll"><TableContainer><Table size="lg"><TableHead><TableRow><TableHeader><Checkbox id="prospect-console-select-all" labelText="全选" checked={allVisibleSelected} onChange={(_,data)=>setSelectedIds(data.checked?[...new Set([...selectedIds,...paginatedRows.map(row=>row.id)])]:selectedIds.filter(id=>!paginatedRows.some(row=>row.id===id)))}/></TableHeader><TableHeader>企业 / 客户</TableHeader><TableHeader>国家 / 地区</TableHeader><TableHeader>网站</TableHeader><TableHeader>联系方式</TableHeader><TableHeader>发现来源</TableHeader><TableHeader>最近发现</TableHeader><TableHeader>状态</TableHeader><TableHeader>操作</TableHeader></TableRow></TableHead>
-          <TableBody>{paginatedRows.map(row=><TableRow key={row.id}><TableCell><span className="tp-console__row-select"><Checkbox id={'prospect-select-'+row.id} labelText={'选择 '+row.name} checked={selectedIds.includes(row.id)} onChange={(_,data)=>toggleSelected(row.id,data.checked)}/></span></TableCell><TableCell><strong>{row.name}</strong><span className="tp-console__cell-secondary">{row.type}</span></TableCell><TableCell><span className="tp-console__country"><span className="tp-console__flag" aria-hidden="true">{countryFlag(row.country)}</span><span>{countryLabel(row.country)}</span></span><span className="tp-console__cell-secondary">{row.address}</span></TableCell><TableCell>{row.website?<a href={row.website} target="_blank" rel="noreferrer">{row.website}</a>:'—'}</TableCell><TableCell>{[row.phone,row.email].filter(Boolean).join(' · ')||'—'}</TableCell><TableCell><div className="tp-console__source-tags">{row.platforms.map(item=><Tag key={item.key} type="cool-gray">{item.label}</Tag>)}</div></TableCell><TableCell>{new Date(row.discoveredAt).toLocaleDateString('zh-TW')}</TableCell><TableCell><Tag type={row.status==='converted'?'green':'blue'}>{row.status==='converted'?'已转化':'待处理'}</Tag></TableCell><TableCell><div className="tp-console__row-actions"><Button kind="ghost" size="sm" onClick={()=>setSelected(row)}>详情</Button>{row.status==='pending'&&<Button kind="ghost" size="sm" disabled={!!actionBusyId} onClick={()=>void runAction(row,'promote')}>转为线索</Button>}<Button kind="danger--ghost" size="sm" disabled={!!actionBusyId} onClick={()=>void runAction(row,'discard')}>排除</Button><Button kind="danger--ghost" size="sm" disabled={!!actionBusyId} onClick={()=>{if(confirmRemoveId===row.id)void runAction(row,'remove');else setConfirmRemoveId(row.id);}}>{confirmRemoveId===row.id?'再次点击确认删除':'删除'}</Button></div></TableCell></TableRow>)}</TableBody>
+          <TableBody>{paginatedRows.map(row=><TableRow key={row.id}><TableCell><span className="tp-console__row-select"><Checkbox id={'prospect-select-'+row.id} labelText={'选择 '+row.name} checked={selectedIds.includes(row.id)} onChange={(_,data)=>toggleSelected(row.id,data.checked)}/></span></TableCell><TableCell><strong>{row.name}</strong><span className="tp-console__cell-secondary">{row.type}</span></TableCell><TableCell><span className="tp-console__country"><span className="tp-console__flag" aria-hidden="true">{countryFlag(row.country)}</span><span>{countryLabel(row.country)}</span></span><span className="tp-console__cell-secondary">{row.address}</span></TableCell><TableCell>{row.website?<a href={row.website} target="_blank" rel="noreferrer">{row.website}</a>:'—'}</TableCell><TableCell>{[row.phone,row.email].filter(Boolean).join(' · ')||'—'}</TableCell><TableCell><div className="tp-console__source-tags">{row.platforms.map(item=><Tag key={item.key} type="cool-gray">{item.label}</Tag>)}</div></TableCell><TableCell>{new Date(row.discoveredAt).toLocaleDateString('zh-TW')}</TableCell><TableCell><Tag type={row.status==='converted'?'green':'blue'}>{row.status==='converted'?'已转化':'待处理'}</Tag></TableCell><TableCell><div className="tp-console__row-actions"><Button kind="ghost" size="sm" onClick={()=>setSelected(row)}>详情</Button><Button kind="secondary" size="sm" disabled={!!contactBusyId} onClick={()=>void runContactEnrichment(row.recordIds.slice(0,1),row.id)}>{contactBusyId===row.id?"补全中…":"补全联系人"}</Button>{row.status==='pending'&&<Button kind="ghost" size="sm" disabled={!!actionBusyId} onClick={()=>void runAction(row,'promote')}>转为线索</Button>}<Button kind="danger--ghost" size="sm" disabled={!!actionBusyId} onClick={()=>void runAction(row,'discard')}>排除</Button><Button kind="danger--ghost" size="sm" disabled={!!actionBusyId} onClick={()=>{if(confirmRemoveId===row.id)void runAction(row,'remove');else setConfirmRemoveId(row.id);}}>{confirmRemoveId===row.id?'再次点击确认删除':'删除'}</Button></div></TableCell></TableRow>)}</TableBody>
         </Table></TableContainer></div>
         {!filtered.length&&<p className="tp-console__empty">没有符合当前筛选条件的潜客。</p>}
         {filtered.length>0&&<div className="tp-console__pagination" aria-label="潜客资产分页"><span>显示 {(currentPage-1)*pageSize+1}–{Math.min(currentPage*pageSize,filtered.length)} 条，共 {filtered.length.toLocaleString()} 条</span><div><Button kind="ghost" size="sm" disabled={currentPage<=1} onClick={()=>setPage(value=>Math.max(1,value-1))}>上一页</Button><span className="tp-console__page-number">{currentPage} / {totalPages}</span><Button kind="ghost" size="sm" disabled={currentPage>=totalPages} onClick={()=>setPage(value=>Math.min(totalPages,value+1))}>下一页</Button></div></div>}
       </section>
       {selected&&<section className="tp-console__detail" aria-live="polite"><div className="tp-console__detail-head"><h3>{selected.name}</h3><Button kind="ghost" size="sm" onClick={()=>setSelected(null)}>关闭详情</Button></div><div className="tp-console__detail-grid"><div><span>国家 / 地区</span><strong>{countryLabel(selected.country)}</strong></div><div><span>主要地址</span><strong>{selected.address}</strong></div><div><span>电话</span><strong>{selected.phone||'—'}</strong></div><div><span>邮箱</span><strong>{selected.email||'—'}</strong></div><div><span>网站</span><strong>{selected.website||'—'}</strong></div><div><span>发现渠道</span><strong>{selected.platforms.map(item=>item.label).join('、')}</strong></div></div>
-        {selected.sourceDetails?.map(detail=><section className="tp-console__source-detail" key={detail.platform}><h4>{detail.platform==='map_local_businesses'?'Google Maps':detail.platform==='facebook'?'Facebook Pages':detail.platform==='instagram'?'Instagram':detail.platform==='search_engine'?'搜索引擎':'内置 Agent'} 平台数据</h4><dl>{detail.fields.map(field=><div key={field.label}><dt>{field.label}</dt><dd>{field.value}</dd></div>)}</dl></section>)}
+        {selected.contactIntelligence&&<section className="tp-console__source-detail"><div className="tp-console__detail-head"><h4>联系人补全结果</h4><Button kind="secondary" size="sm" disabled={!!contactBusyId} onClick={()=>void runContactEnrichment(selected.recordIds.slice(0,1),selected.id)}>再次补全</Button></div><p>来源：{Array.isArray(selected.contactIntelligence.providers)?(selected.contactIntelligence.providers as string[]).join("、"):"—"} · 候选联系人：{String(selected.contactIntelligence.candidate_count??0)}</p>{Array.isArray(selected.contactIntelligence.candidates)&&selected.contactIntelligence.candidates.length>0?<div className="tp-console__source-detail-list">{(selected.contactIntelligence.candidates as Array<Record<string,unknown>>).map((candidate,index)=><div key={String(candidate.provider_person_id??index)}><strong>{String(candidate.full_name??"未命名联系人")}</strong><span>{String(candidate.job_title??"职位未知")} · {String(candidate.department??"")}</span><span>邮箱：{String(candidate.email??"—")} · 电话：{String(candidate.phone??"—")}</span>{candidate.linkedin_url&&<a href={String(candidate.linkedin_url)} target="_blank" rel="noreferrer">LinkedIn</a>}<span>数据来源：{Array.isArray(candidate.source_providers)?(candidate.source_providers as string[]).join("、"):String(candidate.provider??"—")} · 待人工确认</span></div>)}</div>:<p>当前没有返回联系人候选。请检查 API 配置、账户权限或数据源错误。</p>}{selected.contactIntelligence.provider_errors&&<p>数据源错误：{Object.entries(selected.contactIntelligence.provider_errors as Record<string,unknown>).map(([provider,message])=>provider+"："+String(message)).join("；")}</p>}</section>}{selected.sourceDetails?.map(detail=><section className="tp-console__source-detail" key={detail.platform}><h4>{detail.platform==='map_local_businesses'?'Google Maps':detail.platform==='facebook'?'Facebook Pages':detail.platform==='instagram'?'Instagram':detail.platform==='search_engine'?'搜索引擎':'内置 Agent'} 平台数据</h4><dl>{detail.fields.map(field=><div key={field.label}><dt>{field.label}</dt><dd>{field.value}</dd></div>)}</dl></section>)}
       </section>}
     </>}
   </main>;
