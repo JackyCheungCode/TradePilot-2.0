@@ -227,7 +227,7 @@ function parseMessenger(payload: Row, connection: Connection): NormalizedEvent[]
       const content = typeof message.text === "string" ? message.text :
         attachments.length ? "[" + type + "]" : "";
       if (!content && !attachments.length) continue;
-      const normalizedAttachments: NormalizedAttachment[] = attachments.slice(0, 10).map((item, index) => {
+      const normalizedAttachments: NormalizedAttachment[] = attachments.slice(0, 10).flatMap((item, index): NormalizedAttachment[] => {
         const payload = item.payload && typeof item.payload === "object" ? item.payload as Row : {};
         const rawUrl = typeof payload.url === "string" ? payload.url : typeof item.url === "string" ? item.url : "";
         let providerUrl: string | null = null;
@@ -238,16 +238,16 @@ function parseMessenger(payload: Row, connection: Connection): NormalizedEvent[]
             host === "fbsbx.com" || host.endsWith(".fbsbx.com");
           if (parsed.protocol === "https:" && allowedHost && !parsed.username && !parsed.password) providerUrl = parsed.toString();
         } catch { /* invalid provider URL is not queued */ }
-        if (!providerUrl) return null;
-        return {
+        if (!providerUrl) return [];
+        return [{
           mediaId: message.mid + ":" + index,
           providerUrl,
           mimeType: typeof payload.mime_type === "string" ? payload.mime_type : null,
           fileName: typeof payload.name === "string" ? payload.name : typeof payload.title === "string" ? payload.title : null,
           sizeBytes: typeof payload.size === "number" && Number.isSafeInteger(payload.size) ? payload.size : null,
           providerMetadata: { provider: "messenger", attachment_type: String(item.type ?? "file") },
-        };
-      }).filter((item): item is NormalizedAttachment => item !== null);
+        }];
+      });
       result.push({
         eventId: message.mid, messageId: message.mid, externalUserId: sender.id,
         displayName: null, username: null, content: content.slice(0, 20000),
