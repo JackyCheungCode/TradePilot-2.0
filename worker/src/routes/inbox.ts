@@ -533,11 +533,28 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
       ];
       if (before && !Number.isNaN(Date.parse(before))) params.push("created_at=lt." + encodeURIComponent(before));
       const messages = await db<Row[]>(env, "inbox_messages?" + params.join("&"));
+      const messageIds = unique(messages.map(row => row.id));
+      const attachments = messageIds.length
+        ? await db<Row[]>(env,
+            "inbox_attachments?select=id,message_id,original_file_name,content_type,file_size_bytes,scan_status,created_at&owner_id=eq." +
+            ownerId + "&message_id=in.(" + messageIds.join(",") + ")&order=created_at.asc")
+        : [];
+      const attachmentsByMessage = new Map<string, Row[]>();
+      for (const attachment of attachments) {
+        const key = String(attachment.message_id);
+        const current = attachmentsByMessage.get(key) ?? [];
+        current.push(attachment);
+        attachmentsByMessage.set(key, current);
+      }
       const notes = await db<Row[]>(env,
         "inbox_internal_notes?select=id,conversation_id,author_id,content,mentioned_user_ids,created_at&owner_id=eq." +
         ownerId + "&conversation_id=eq." + conversationId + "&order=created_at.desc&limit=" + limit);
       const timeline: Row[] = [
-        ...messages.map((row): Row => ({ ...row, timeline_type: "message" })),
+        ...messages.map((row): Row => ({
+          ...row,
+          attachments: attachmentsByMessage.get(String(row.id)) ?? [],
+          timeline_type: "message",
+        })),
         ...notes.map((row): Row => ({ ...row, timeline_type: "internal_note", direction: "internal" })),
       ].sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
       return successResponse(request, { items: timeline, has_more: messages.length === limit });
