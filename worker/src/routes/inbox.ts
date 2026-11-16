@@ -227,9 +227,14 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
       if (!conversations.length) return errorResponse(request, "CONVERSATION_NOT_FOUND", "会话不存在。", 404);
       const contacts = await db<Row[]>(env,
         "crm_contacts?select=preferred_language&id=eq." + String(conversations[0].contact_id) + "&owner_id=eq." + ownerId + "&limit=1");
-      const language = String(contacts[0]?.preferred_language ?? "zh-HANT").toLowerCase();
-      const targetLanguage = language.startsWith("zh") ? (language.includes("cn") || language.includes("hans") ? "ZH-HANS" : "ZH-HANT")
-        : language.startsWith("en") ? "EN-US" : language.split("-")[0].toUpperCase();
+      const language = String(contacts[0]?.preferred_language ?? "zh-HANT").replace("_", "-").toLowerCase();
+      const languageBase = language.split("-")[0];
+      const targetCandidate = languageBase === "zh" ? (language.includes("cn") || language.includes("hans") ? "ZH-HANS" : "ZH-HANT")
+        : languageBase === "en" ? (language.includes("gb") ? "EN-GB" : "EN-US")
+        : languageBase === "pt" ? (language.includes("br") ? "PT-BR" : "PT-PT")
+        : languageBase === "no" ? "NB" : languageBase.toUpperCase();
+      const supportedLanguages = new Set(["AR","BG","CS","DA","DE","EL","EN-US","EN-GB","ES","ET","FI","FR","HE","HU","ID","IT","JA","KO","LT","LV","NB","NL","PL","PT-BR","PT-PT","RO","RU","SK","SL","SV","TH","TR","UK","VI","ZH","ZH-HANS","ZH-HANT"]);
+      const targetLanguage = supportedLanguages.has(targetCandidate) ? targetCandidate : "EN-US";
       const translateRequest = new Request(new URL("/api/v1/inbox/translate", request.url), {
         method: "POST",
         headers: request.headers,
