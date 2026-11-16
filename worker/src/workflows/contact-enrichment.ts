@@ -91,7 +91,7 @@ async function apolloContacts(env:Env,domain:string):Promise<ContactCandidate[]>
  const key=await readIntegrationSecret(env,"tradepilot_api_apollo","APOLLO_API_KEY");
  if(!key)throw new Error("尚未配置 Apollo API Key");
  const headers={"x-api-key":key,"Content-Type":"application/json",Accept:"application/json"};
- const search=await fetch("https://api.apollo.io/api/v1/mixed_people/api_search",{method:"POST",headers,body:JSON.stringify({q_organization_domains_list:[domain],person_titles:["CEO","Founder","Owner","Managing Director","Purchasing Manager","Procurement Manager","Head of Procurement","Sourcing Manager","Sales Director","Business Development Director"],per_page:5,page:1})});
+ const search=await fetch("https://api.apollo.io/api/v1/mixed_people/api_search",{method:"POST",headers,body:JSON.stringify({q_organization_domains_list:[domain],person_titles:["CEO","Founder","Owner","Managing Director","Chief Procurement Officer","VP Procurement","Purchasing Manager","Procurement Manager","Head of Procurement","Sourcing Manager","Buyer","Import Manager","Supply Chain Director","Supply Chain Manager","Sales Director","Business Development Director"],per_page:5,page:1})});
  if(!search.ok)throw new Error("Apollo 联系人搜索失败（HTTP "+search.status+"）");
  const searchBody=await search.json() as Record<string,unknown>;
  const people=Array.isArray(searchBody.people)?searchBody.people as Array<Record<string,unknown>>:Array.isArray(searchBody.contacts)?searchBody.contacts as Array<Record<string,unknown>>:[];
