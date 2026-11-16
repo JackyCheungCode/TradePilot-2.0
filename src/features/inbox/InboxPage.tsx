@@ -26,6 +26,7 @@ const messageStatusLabel = (status?: string) => {
 const formatTime = (value?: string | null) => value
   ? new Intl.DateTimeFormat('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(value))
   : '';
+const contactInitials = (value?: string | null) => (value || '?').trim().split(/\\s+/).slice(0, 2).map(part => part[0]).join('').toUpperCase() || '?';
 const formatFileSize = (value?: number) => {
   if (!value || !Number.isFinite(value)) return '大小未知';
   if (value < 1024) return value + ' B';
@@ -343,20 +344,7 @@ export function InboxPage() {
     return matchesChannel && haystack.includes(query.trim().toLocaleLowerCase());
   }), [conversations, channelFilter, query]);
 
-  const companyGroups = useMemo(() => {
-    const groups = new Map<string, { id: string; name: string; conversations: InboxConversation[] }>();
-    visibleConversations.forEach(row => {
-      const id = row.account_id || row.account?.id || row.display_name;
-      const group = groups.get(id) ?? {
-        id,
-        name: row.account?.account_name || row.display_name,
-        conversations: [],
-      };
-      group.conversations.push(row);
-      groups.set(id, group);
-    });
-    return Array.from(groups.values());
-  }, [visibleConversations]);
+
 
   return (
     <div className={`tp-inbox-page ${selected ? "has-selection" : "has-no-selection"}`}>
@@ -401,10 +389,10 @@ export function InboxPage() {
       {error && <Tile><Tag type="red">操作失败</Tag><p>{error}</p></Tile>}
 
       <Grid fullWidth className="tp-inbox-layout">
-        <Column className={selected ? "tp-inbox-conversation-column is-hidden-mobile" : "tp-inbox-conversation-column"} sm={4} md={4} lg={4}>
+        <Column className={selected ? "tp-inbox-conversation-column is-hidden-mobile" : "tp-inbox-conversation-column"} sm={4} md={4} lg={3}>
           <Stack gap={3} className="tp-inbox-list-panel">
             <Stack orientation="horizontal">
-              <h2 className="tp-inbox-section-title">公司与联系人</h2>
+              <h2 className="tp-inbox-section-title">会话</h2>
               <Tag type="cool-gray">{conversations.length}</Tag>
             </Stack>
             <Search size="lg" labelText="搜索会话" placeholder="搜索公司、联系人、电话或邮箱" value={query}
@@ -416,23 +404,27 @@ export function InboxPage() {
               ))}
             </Stack>
             {loading && <InlineLoading description="正在加载会话…" />}
-            {!loading && companyGroups.map(group => (
-              <section key={group.id} className="tp-inbox-company-group">
-                <h3 className="tp-inbox-company-heading">{group.name}</h3>
-                {group.conversations.map(row => (
-                  <ClickableTile
-                    key={row.id}
-                    className={selected?.id === row.id ? 'tp-inbox__selected tp-inbox-contact-item' : 'tp-inbox-contact-item'}
-                    onClick={() => { setSelected(row); setError(''); }}
-                  >
-                    <span className="tp-inbox-contact-line">
-                      <strong>{row.contact?.full_name || row.contact_display_name}</strong>
-                      {row.contact?.job_title && <span className="tp-inbox-contact-role">{row.contact.job_title}</span>}
-                      {row.unread_count > 0 && <Tag type="red">{row.unread_count}</Tag>}
-                    </span>
-                  </ClickableTile>
-                ))}
-              </section>
+            {!loading && visibleConversations.map(row => (
+              <ClickableTile
+                key={row.id}
+                className={selected?.id === row.id ? 'tp-inbox__selected tp-inbox-contact-item' : 'tp-inbox-contact-item'}
+                onClick={() => { setSelected(row); setError(''); }}
+              >
+                <span className="tp-inbox-contact-avatar" aria-hidden="true">{contactInitials(row.contact?.full_name || row.contact_display_name)}</span>
+                <span className="tp-inbox-contact-content">
+                  <span className="tp-inbox-contact-topline">
+                    <strong>{row.contact?.full_name || row.contact_display_name}</strong>
+                    <time>{row.last_message_at ? formatTime(row.last_message_at) : ''}</time>
+                  </span>
+                  <span className="tp-inbox-contact-subline">
+                    {[row.contact?.job_title, row.account?.account_name || row.display_name].filter(Boolean).join(' · ')}
+                  </span>
+                  <span className="tp-inbox-contact-bottomline">
+                    <span>{row.last_message_preview || '暂无消息'}</span>
+                    {row.unread_count > 0 && <Tag type="green">{row.unread_count}</Tag>}
+                  </span>
+                </span>
+              </ClickableTile>
             ))}
             {!loading && visibleConversations.length === 0 && (
               <Tile>
@@ -446,15 +438,16 @@ export function InboxPage() {
           </Stack>
         </Column>
 
-        <Column className={selected ? "tp-inbox-message-column" : "tp-inbox-message-column is-hidden-mobile"} sm={4} md={8} lg={8}>
+        <Column className={selected ? "tp-inbox-message-column" : "tp-inbox-message-column is-hidden-mobile"} sm={4} md={8} lg={6}>
           <Stack gap={3} className="tp-inbox-chat-panel">
             {selected ? (
               <>
                 <Stack orientation="horizontal" className="tp-inbox-conversation-heading">
                   <Button className="tp-inbox-mobile-back" kind="ghost" size="sm" onClick={() => setSelected(null)}>返回会话</Button>
-                  <Stack gap={1}>
-                    <h2>{selected.display_name}</h2>
-                    <p>{selected.contact_display_name}{selected.contact?.job_title ? ' · ' + selected.contact.job_title : ''}</p>
+                  <span className="tp-inbox-header-avatar" aria-hidden="true">{contactInitials(selected.contact?.full_name || selected.contact_display_name)}</span>
+                  <Stack gap={1} className="tp-inbox-header-contact">
+                    <strong>{selected.contact?.full_name || selected.contact_display_name}</strong>
+                    <p>{[selected.contact?.job_title, selected.account?.account_name || selected.display_name].filter(Boolean).join(' · ')}</p>
                   </Stack>
                   <Stack orientation="horizontal" gap={2}>
                     {selected.last_channel_type && <Tag type="blue">{channelLabel(selected.last_channel_type)}</Tag>}
@@ -470,14 +463,14 @@ export function InboxPage() {
                     return (
                       <Stack key={item.id} gap={2} className={item.timeline_type === 'internal_note' ? 'tp-inbox-message-row is-note' : item.direction === 'outbound' ? 'tp-inbox-message-row is-outbound' : 'tp-inbox-message-row is-inbound'}>
                         {channelChanged && <p>──────── 切换至 {channelLabel(item.channel_type)} · {formatTime(item.created_at)} ────────</p>}
-                        <Tile>
+                        <Tile className="tp-inbox-message-bubble">
                           <Stack gap={2}>
                             <Stack orientation="horizontal" gap={2}>
                               <Tag type={item.timeline_type === 'internal_note' ? 'warm-gray' : item.direction === 'outbound' ? 'blue' : 'cool-gray'}>
                                 {item.timeline_type === 'internal_note' ? '内部备注' : channelLabel(item.channel_type)}
                               </Tag>
                               <span>{formatTime(item.created_at)}</span>
-                              {item.status && <span>{messageStatusLabel(item.status)}</span>}
+                              {item.status && <span className="tp-inbox-message-status">{messageStatusLabel(item.status)} {item.direction === 'outbound' && (item.status === 'read' ? '✓✓' : '✓')}</span>}
                             </Stack>
                             {item.email_subject && <strong>{item.email_subject}</strong>}
                             <p>{item.content}</p>
@@ -518,7 +511,7 @@ export function InboxPage() {
                 </Stack>
               </Tile>
             )}
-            <Tile className="tp-inbox-composer">
+            {selected && <Tile className="tp-inbox-composer">
               <Stack gap={3}>
                 <Stack orientation="horizontal" gap={2}>
                   <Button size="sm" kind={composerMode === 'reply' ? 'primary' : 'tertiary'} onClick={() => setComposerMode('reply')}>回复客户</Button>
@@ -540,11 +533,11 @@ export function InboxPage() {
                     ? '发送前会检查客户渠道身份与凭证；企业微信和 Email 暂未开放发送。'
                     : '当前渠道暂不支持真实发送，请切换到已接入的 WhatsApp、LINE、Messenger 或 Telegram 会话。'}</p>}
               </Stack>
-            </Tile>
+            </Tile>}
           </Stack>
         </Column>
 
-        <Column className="tp-inbox-assist-column" sm={4} md={4} lg={4}>
+        <Column className="tp-inbox-assist-column" sm={4} md={4} lg={3}>
           <Stack gap={4}>
             <Tile className="tp-inbox-ai-panel">
               <Stack gap={3}>
