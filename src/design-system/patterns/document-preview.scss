@@ -53,3 +53,53 @@
 .tp-document-preview__history p{margin:0;color:var(--cds-text-secondary);font-size:.8125rem}
 @media(max-width:760px){.tp-document-preview__editor-grid{grid-template-columns:minmax(0,1fr)}.tp-document-preview__toolbar{flex-direction:column}.tp-document-preview__actions{width:100%}.tp-document-preview__sheet{padding:1.25rem}.tp-document-preview__parties{grid-template-columns:minmax(0,1fr)}.tp-document-preview__metadata{grid-template-columns:repeat(2,minmax(0,1fr))}.tp-document-preview__paper-header{flex-direction:column}.tp-document-preview__paper-title{text-align:left}.tp-document-preview__footer{flex-direction:column}}
 @media print{@page{size:A4;margin:14mm}body *{visibility:hidden!important}.tp-document-preview__sheet,.tp-document-preview__sheet *{visibility:visible!important}.tp-document-preview__sheet{position:absolute;left:0;top:0;width:100%;max-width:none;margin:0;padding:0;box-shadow:none;border:0}.tp-document-preview__toolbar,.tp-document-preview__history{display:none!important}.tp-document-preview{display:block;padding:0!important;margin:0!important}.tp-document-preview__sheet .cds--data-table{font-size:9pt}.tp-document-preview__sheet section,.tp-document-preview__sheet header,.tp-document-preview__sheet footer{break-inside:avoid}}
+
+.tp-document-preview__policy-snapshot {
+  display: grid;
+  gap: var(--cds-spacing-04);
+  min-width: 0;
+  padding: var(--cds-spacing-05);
+  background: var(--cds-layer-02);
+}
+.tp-document-preview__policy-snapshot h2 {
+  margin: 0;
+  color: var(--cds-text-primary);
+  font-size: .9375rem;
+  font-weight: 600;
+}
+.tp-document-preview__policy-snapshot > div > p,
+.tp-document-preview__policy-snapshot > p {
+  margin: var(--cds-spacing-02) 0 0;
+  color: var(--cds-text-secondary);
+  font-size: .75rem;
+  line-height: 1.5;
+}
+.tp-document-preview__policy-snapshot dl {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--cds-spacing-04);
+  margin: 0;
+}
+.tp-document-preview__policy-snapshot dl > div {
+  display: grid;
+  gap: var(--cds-spacing-02);
+  min-width: 0;
+}
+.tp-document-preview__policy-snapshot dt {
+  color: var(--cds-text-secondary);
+  font-size: .6875rem;
+}
+.tp-document-preview__policy-snapshot dd {
+  margin: 0;
+  color: var(--cds-text-primary);
+  font-size: .8125rem;
+  font-weight: 600;
+}
+@media (max-width: 672px) {
+  .tp-document-preview__policy-snapshot {
+    padding: var(--cds-spacing-04);
+  }
+  .tp-document-preview__policy-snapshot dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
