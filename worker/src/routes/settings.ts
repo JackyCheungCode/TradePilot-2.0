@@ -199,13 +199,13 @@ export async function runConfiguredAI(task: string, prompt: string, env: Setting
  const data=await response.json() as Record<string,unknown>;
  if(provider.protocol==="anthropic"){
   const content=Array.isArray(data.content)?data.content as Array<Record<string,unknown>>:[];
-  return content.map(item=>String(item.text??"")).join("\\n");
+  return content.map(item=>String(item.text??"")).join("\n");
  }
  if(provider.protocol==="gemini"){
   const candidates=Array.isArray(data.candidates)?data.candidates as Array<Record<string,unknown>>:[];
   const content=candidates[0]?.content as Record<string,unknown>|undefined;
   const parts=Array.isArray(content?.parts)?content.parts as Array<Record<string,unknown>>:[];
-  return parts.map(item=>String(item.text??"")).join("\\n");
+  return parts.map(item=>String(item.text??"")).join("\n");
  }
  const choices=Array.isArray(data.choices)?data.choices as Array<Record<string,unknown>>:[];
  const message=choices[0]?.message as Record<string,unknown>|undefined;
