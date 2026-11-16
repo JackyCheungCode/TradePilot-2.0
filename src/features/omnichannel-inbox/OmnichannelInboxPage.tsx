@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
-  Button, Search, TextInput, TextArea, Tag, InlineNotification, Modal, ModalBody, IconButton, Heading, CarbonIcons,
+  Button, Search, TextInput, TextArea, Dropdown, Tag, InlineNotification, Modal, ModalBody, IconButton, Heading, CarbonIcons,
 } from '@/design-system';
 import {
   channelLabels, conversationsSeed, customersSeed, identitiesSeed, messagesSeed,
