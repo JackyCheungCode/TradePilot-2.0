@@ -99,20 +99,20 @@ async function validatePhone(request: Request, env: ValidationEnv, phone: string
       return responsePayload(request, "phone", normalized, await readCache(env, "phone", hash));
     } catch (error) { return errorResponse(request, "PHONE_VALIDATION_FAILED", error instanceof Error ? error.message : "电话号码验证失败。", 502); }
   }
-  const endpoint = secrets.tradepilot_api_whatsapp_check_url;
   const apiKey = secrets.tradepilot_api_whatsapp_check_key;
-  if (!endpoint || !apiKey) return errorResponse(request, "WHATSAPP_CHECK_NOT_CONFIGURED", "请先在设置中心配置 WhatsApp 注册检测 API 地址和密钥。", 503);
+  if (!apiKey) return errorResponse(request, "WHATSAPP_CHECK_NOT_CONFIGURED", "请先在设置中心配置 WA Lookup API Key。", 503);
   if (!(await claimCache(env, "whatsapp", hash))) return responsePayload(request, "whatsapp", normalized, await readCache(env, "whatsapp", hash));
   try {
-    const target = new URL(endpoint);
-    if (target.protocol !== "https:") return errorResponse(request, "INVALID_WHATSAPP_PROVIDER_URL", "WhatsApp 检测服务必须使用 HTTPS 地址。", 400);
-    const response = await fetch(target.toString(), { method: "POST", redirect: "manual", headers: { Authorization: "Bearer " + apiKey, "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ phone: normalized, number: normalized, country }), signal: AbortSignal.timeout(15000) });
-    if (!response.ok) throw new Error("WhatsApp 检测服务返回 HTTP " + response.status);
-    const data = await response.json() as Record<string, unknown>;
-    const value = data.registered ?? data.is_registered ?? data.is_whatsapp ?? data.whatsapp ?? data.exists;
+    const response = await fetch("https://api.walookup.com/api/v1/check", { method: "POST", redirect: "manual", headers: { "X-API-Key": apiKey, "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ service_type: "ws", identifier: normalized }), signal: AbortSignal.timeout(60000) });
+    const data = await response.json() as { code?: number; msg?: string; data?: { registered?: boolean; identifier?: string } };
+    if (response.status === 422 || data.code === 42200) {
+      await writeCache(env, "whatsapp", hash, "unknown", { provider: "WA Lookup", reason: "undetermined" }, 1);
+      return responsePayload(request, "whatsapp", normalized, await readCache(env, "whatsapp", hash));
+    }
+    if (!response.ok || data.code !== 0) throw new Error("WA Lookup 返回 HTTP " + response.status + " / code " + String(data.code ?? "unknown") + "：" + String(data.msg ?? "请求失败"));
+    const value = data.data?.registered;
     const status = value === true ? "registered" : value === false ? "not_registered" : "unknown";
-    const result = { registered: value === true ? true : value === false ? false : null, providerStatus: data.status ?? data.message ?? null, waId: typeof data.wa_id === "string" ? data.wa_id : null };
-    await writeCache(env, "whatsapp", hash, status, result, 14);
+    await writeCache(env, "whatsapp", hash, status, { provider: "WA Lookup", registered: value === true ? true : value === false ? false : null }, status === "unknown" ? 1 : 14);
     return responsePayload(request, "whatsapp", normalized, await readCache(env, "whatsapp", hash));
   } catch (error) { return errorResponse(request, "WHATSAPP_CHECK_FAILED", error instanceof Error ? error.message : "WhatsApp 注册检测失败。", 502); }
 }
