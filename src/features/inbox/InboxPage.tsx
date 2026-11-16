@@ -87,7 +87,7 @@ export function InboxPage() {
 
   return (
     <Stack gap={5}>
-      <Stack orientation="horizontal" gap={4} align="center" justify="space-between">
+      <Stack orientation="horizontal" gap={4}>
         <Stack gap={2}>
           <p> CUSTOMER COMMUNICATION </p>
           <h1>消息 <span>Inbox</span></h1>
@@ -101,13 +101,13 @@ export function InboxPage() {
       <Grid fullWidth>
         <Column sm={4} md={3} lg={5}>
           <Stack gap={4}>
-            <Stack orientation="horizontal" align="center" justify="space-between">
+            <Stack orientation="horizontal">
               <h2>会话 <span>Conversations</span></h2>
               <Tag type="cool-gray">{conversations.length}</Tag>
             </Stack>
             <Search size="lg" labelText="搜索会话" placeholder="搜索公司、联系人、电话或邮箱" value={query}
               onChange={(event: React.ChangeEvent<HTMLInputElement>) => setQuery(event.target.value)} />
-            <Stack orientation="horizontal" gap={2} wrap>
+            <Stack orientation="horizontal" gap={2}>
               <Button size="sm" kind={channelFilter === 'all' ? 'primary' : 'tertiary'} onClick={() => setChannelFilter('all')}>全部</Button>
               {channels.map(channel => (
                 <Button key={channel.id} size="sm" kind={channelFilter === channel.id ? 'primary' : 'tertiary'} onClick={() => setChannelFilter(channel.id)}>{channel.label}</Button>
@@ -117,7 +117,7 @@ export function InboxPage() {
             {!loading && visibleConversations.map(row => (
               <ClickableTile key={row.id} className={selected?.id === row.id ? 'tp-inbox__selected' : ''} onClick={() => { setSelected(row); setError(''); }}>
                 <Stack gap={2}>
-                  <Stack orientation="horizontal" align="center" justify="space-between">
+                  <Stack orientation="horizontal">
                     <strong>{row.display_name}</strong>
                     <span>{formatTime(row.last_message_at)}</span>
                   </Stack>
@@ -132,7 +132,7 @@ export function InboxPage() {
             ))}
             {!loading && visibleConversations.length === 0 && (
               <Tile>
-                <Stack gap={2} align="center">
+                <Stack gap={2}>
                   <CarbonIcons.Chat size={28} />
                   <strong>{conversations.length ? '没有匹配的会话' : '暂无会话'}</strong>
                   <p>{conversations.length ? '尝试更换搜索词或渠道筛选。' : '连接沟通渠道并收到客户消息后，会话会显示在这里。'}</p>
@@ -146,7 +146,7 @@ export function InboxPage() {
           <Stack gap={4}>
             {selected ? (
               <>
-                <Stack orientation="horizontal" align="center" justify="space-between">
+                <Stack orientation="horizontal">
                   <Stack gap={1}>
                     <h2>{selected.display_name}</h2>
                     <p>{selected.contact_display_name}{selected.contact?.job_title ? ' · ' + selected.contact.job_title : ''}</p>
@@ -167,7 +167,7 @@ export function InboxPage() {
                         {channelChanged && <p>──────── 切换至 {channelLabel(item.channel_type)} · {formatTime(item.created_at)} ────────</p>}
                         <Tile>
                           <Stack gap={2}>
-                            <Stack orientation="horizontal" gap={2} align="center">
+                            <Stack orientation="horizontal" gap={2}>
                               <Tag type={item.timeline_type === 'internal_note' ? 'warm-gray' : item.direction === 'outbound' ? 'blue' : 'cool-gray'}>
                                 {item.timeline_type === 'internal_note' ? '内部备注' : channelLabel(item.channel_type)}
                               </Tag>
@@ -186,7 +186,7 @@ export function InboxPage() {
               </>
             ) : (
               <Tile>
-                <Stack gap={3} align="center">
+                <Stack gap={3}>
                   <CarbonIcons.Chat size={40} />
                   <h2>选择一个会话</h2>
                   <p>从左侧选择客户，即可查看跨渠道消息时间线。</p>
@@ -198,7 +198,7 @@ export function InboxPage() {
                 <Tag type="cool-gray">回复渠道：{selected?.last_channel_type ? channelLabel(selected.last_channel_type) : '等待选择会话'}</Tag>
                 <TextArea id="inbox-message-draft" labelText="撰写消息" placeholder="选择会话后开始撰写消息…" value={draft}
                   onChange={(event: React.ChangeEvent<HTMLTextAreaElement>) => setDraft(event.target.value)} rows={3} disabled />
-                <Stack orientation="horizontal" align="center" justify="space-between">
+                <Stack orientation="horizontal">
                   <Button kind="ghost" size="sm" renderIcon={CarbonIcons.Attachment} disabled>添加附件</Button>
                   <Button size="md" renderIcon={CarbonIcons.Send} disabled>发送消息</Button>
                 </Stack>
@@ -212,7 +212,7 @@ export function InboxPage() {
           <Stack gap={4}>
             <Tile>
               <Stack gap={3}>
-                <Stack orientation="horizontal" align="center" justify="space-between">
+                <Stack orientation="horizontal">
                   <h2>AI 助手 <span>AI Assist</span></h2>
                   <CarbonIcons.Chat size={20} />
                 </Stack>
