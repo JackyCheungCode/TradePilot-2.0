@@ -167,3 +167,10 @@
   height: 3rem;
 }
 
+
+@media (max-width: 767px) {
+  .tp-xiaoya-welcome {
+    inset-block-end: 6.5rem;
+    padding: var(--tp-space-05) var(--tp-space-04);
+  }
+}
