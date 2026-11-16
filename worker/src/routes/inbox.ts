@@ -153,8 +153,7 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
     }
 
     return errorResponse(request, "NOT_FOUND", "消息工作台接口不存在。", 404);
-  } catch (cause) {
-    const message = cause instanceof Error ? cause.message : "unknown";
+  } catch {
     return errorResponse(request, "INBOX_REQUEST_FAILED", "读取消息工作台数据失败，请稍后重试。", 500);
   }
 }
