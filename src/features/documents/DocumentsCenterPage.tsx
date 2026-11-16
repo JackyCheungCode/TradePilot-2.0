@@ -97,10 +97,13 @@ export function DocumentsCenterPage() {
     setLoading(true); setError('');
     try {
       const client = await getSupabaseClient();
+      const { data: { session } } = await client.auth.getSession();
+      const ownerId = session?.user.id;
+      if (!ownerId) throw new Error('登录状态已失效，请重新登录。');
       const [orderResult, templateResult, settingsResult] = await Promise.all([
-        client.from('trade_orders').select('id,order_number,title,order_type,status,currency_code,locked_at,confirmed_at,crm_account:crm_accounts(account_name)').in('order_type', ['sales', 'purchase']).order('updated_at', { ascending: false }).limit(200),
+        client.from('trade_orders').select('id,order_number,title,order_type,status,currency_code,locked_at,confirmed_at,crm_account:crm_accounts(account_name)').eq('owner_id', ownerId).in('order_type', ['sales', 'purchase']).order('updated_at', { ascending: false }).limit(200),
         request('templates'),
-        client.from('trade_document_settings').select('config').eq('scope_key', 'shared').maybeSingle(),
+        client.from('trade_document_settings').select('config').eq('owner_id', ownerId).eq('scope_key', 'shared').maybeSingle(),
       ]);
       if (orderResult.error) throw orderResult.error;
       if (settingsResult.error) throw settingsResult.error;
