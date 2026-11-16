@@ -8,6 +8,7 @@ import {
 import { getSupabaseClient } from '@/lib/supabase';
 import '@carbon/charts/styles.css';
 import '@/design-system/patterns/payments.scss';
+import '@/design-system/patterns/responsive-actions.scss';
 
 type AnyRow = Record<string, any>;
 const CURRENCIES = ['USD','EUR','GBP','CNY','TWD','JPY','HKD','AUD','CAD'];
@@ -296,7 +297,17 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
   if(loading)return <main className="tp-payments"><InlineLoading description="正在加载收款资料…"/></main>;
   const statusText=statusLabel(payment.status);
   return <main className="tp-payments">
-    <header className="tp-payments__header"><div><p className="tp-payments__eyebrow">TRADEPILOT / FINANCE / PAYMENT</p><h1>{editing?paymentNo:'创建收款（Payment）'}</h1><p>{editing?'维护收款资料、分配与核销记录。':'录入真实到账，可分配多个订单节点，也可保留为预收款。'}</p></div><div className="tp-payments__actions"><Button kind="tertiary" onClick={()=>nav('/payments')}>返回收款列表</Button>{readOnly&&payment.status==='draft'&&<Button kind="tertiary" onClick={()=>nav('/payments/'+id+'/edit')}>编辑草稿</Button>}{readOnly&&payment.status==='draft'&&<Button kind="primary" disabled={saving} onClick={()=>void confirm()}>{payment.payment_type==='refund'?'确认退款 / 红冲':'确认收款并核销'}</Button>}{readOnly&&['confirmed','partially_reconciled','reconciled'].includes(payment.status)&&!payment.bank_reconciled&&<Button kind="tertiary" onClick={()=>nav('/payments/'+id+'/edit')}>登记银行对账</Button>}{readOnly&&['confirmed','partially_reconciled'].includes(payment.status)&&Number(payment.unallocated_amount)>0.005&&<Button kind="primary" onClick={()=>nav('/payments/'+id+'/allocate')}>分配预收余额</Button>}{editing&&!readOnly&&['confirmed','partially_reconciled','reconciled'].includes(payment.status)&&<Button kind="primary" disabled={saving} onClick={()=>void saveReconciliation()}>保存对账信息</Button>}{editing&&!readOnly&&payment.status==='draft'&&<Button kind="danger--tertiary" disabled={saving} onClick={()=>void voidPayment()}>作废</Button>}</div></header>
+    <header className="tp-payments__header"><div><p className="tp-payments__eyebrow">TRADEPILOT / FINANCE / PAYMENT</p><h1>{editing?paymentNo:'创建收款（Payment）'}</h1><p>{editing?'维护收款资料、分配与核销记录。':'录入真实到账，可分配多个订单节点，也可保留为预收款。'}</p></div><div className="tp-responsive-header-actions">
+      {readOnly&&payment.status==='draft'&&<Button className="tp-responsive-header-actions__primary" kind="primary" disabled={saving} onClick={()=>void confirm()}>{payment.payment_type==='refund'?'确认退款 / 红冲':'确认收款并核销'}</Button>}
+      {readOnly&&['confirmed','partially_reconciled'].includes(payment.status)&&Number(payment.unallocated_amount)>0.005&&<Button className="tp-responsive-header-actions__primary" kind="primary" onClick={()=>nav('/payments/'+id+'/allocate')}>分配预收余额</Button>}
+      {editing&&!readOnly&&['confirmed','partially_reconciled','reconciled'].includes(payment.status)&&<Button className="tp-responsive-header-actions__primary" kind="primary" disabled={saving} onClick={()=>void saveReconciliation()}>保存对账信息</Button>}
+      <div className="tp-responsive-header-actions__secondary">
+        <Button kind="tertiary" onClick={()=>nav('/payments')}>返回收款列表</Button>
+        {readOnly&&payment.status==='draft'&&<Button kind="tertiary" onClick={()=>nav('/payments/'+id+'/edit')}>编辑草稿</Button>}
+        {readOnly&&['confirmed','partially_reconciled','reconciled'].includes(payment.status)&&!payment.bank_reconciled&&<Button kind="tertiary" onClick={()=>nav('/payments/'+id+'/edit')}>登记银行对账</Button>}
+        {editing&&!readOnly&&payment.status==='draft'&&<Button kind="danger--tertiary" disabled={saving} onClick={()=>void voidPayment()}>作废</Button>}
+      </div>
+    </div></header>
     {error&&<InlineNotification kind="error" title="收款操作未完成" subtitle={error}/>}
     {similarDuplicate&&<InlineNotification kind="warning" title="发现疑似重复收款" subtitle="同一客户在 3 天内存在相同币种和相同实际入账金额的收款记录，请核对银行流水号与水单。此提示不会阻止保存。"/>}
     {netMismatch&&<InlineNotification kind="warning" title="实际入账金额与费用计算不一致" subtitle={'汇款金额减银行手续费和中间行费用为 '+money(suggestedNet,payment.currency)+'，当前实际入账为 '+money(Number(payment.net_received),payment.currency)+'。请确认扣款差异。'}/>} 
