@@ -137,7 +137,7 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
         return errorResponse(request, "VALIDATION_ERROR", "请选择受支持的渠道，并填写连接名称与渠道账号 ID。", 400);
       }
       const existing = await db<Row[]>(env,
-        "inbox_channel_connections?select=id,channel_type,display_name,external_account_id,connection_status&id=not.is.null&owner_id=eq." +
+        "inbox_channel_connections?select=id,channel_type,display_name,external_account_id,connection_status&owner_id=eq." +
         ownerId + "&channel_type=eq." + channel + "&external_account_id=eq." + encodeURIComponent(externalAccountId) + "&limit=1");
       let connection = existing[0];
       if (!connection) {
