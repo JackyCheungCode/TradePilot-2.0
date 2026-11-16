@@ -26,7 +26,7 @@ export function BusinessLifecycle({title,steps,current,description,terminal=fals
     draft:'草稿',sent:'已发送',viewed:'已查看',accepted:'已接受',rejected:'已拒绝',expired:'已过期',cancelled:'已取消',
     confirmed:'已确认',preparing:'备货中',partially_shipped:'部分发货',shipped:'已发货',completed:'已完成',
     pending_confirmation:'待确认',partially_reconciled:'部分核销',reconciled:'已核销',returned:'已退回',voided:'已作废',
-    pending_booking:'待订舱',booked:'已订舱',loaded:'已装柜',customs_cleared:'已报关',departed:'已开船',in_transit:'在途',arrived:'已到港',import_cleared:'已清关',delivered:'已签收'
+    pending_booking:'待订舱',booked:'已订舱',loaded:'已装柜',customs_cleared:'已报关',in_transit:'在途',arrived:'已到港',import_cleared:'已清关',delivered:'已签收'
   } as Record<string,string>)[value]||value;
   return <section className="tp-business-lifecycle" aria-label={title}>
     <div className="tp-business-lifecycle__heading"><div><h2>{title}</h2>{description&&<p>{description}</p>}</div>{currentStep&&<span className="tp-business-lifecycle__current">{currentStep.label}</span>}</div>
