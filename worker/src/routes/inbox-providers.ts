@@ -41,7 +41,7 @@ export async function sendInboxProviderMessage(
   if (channel === "whatsapp") {
     if (!secrets.whatsappPhoneNumberId) throw new Error("CHANNEL_CREDENTIAL_MISSING");
     const payload = await providerRequest(
-      "https://graph.facebook.com/v26.0/" + encodeURIComponent(secrets.whatsappPhoneNumberId) + "/messages",
+      "https://graph.facebook.com/v27.0/" + encodeURIComponent(secrets.whatsappPhoneNumberId) + "/messages",
       secrets.whatsappAccessToken,
       { messaging_product: "whatsapp", recipient_type: "individual", to: recipient, type: "text", text: { preview_url: false, body: content } },
     );
@@ -61,7 +61,7 @@ export async function sendInboxProviderMessage(
     const token = secrets.messengerPageAccessToken;
     if (!token) throw new Error("CHANNEL_CREDENTIAL_MISSING");
     const payload = await providerRequest(
-      "https://graph.facebook.com/v26.0/me/messages",
+      "https://graph.facebook.com/v27.0/me/messages",
       token,
       { recipient: { id: recipient }, messaging_type: "RESPONSE", message: { text: content } },
     );
