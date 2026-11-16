@@ -216,6 +216,7 @@ async function deleteObject(env: MediaWorkerEnv, path: string): Promise<void> {
 
 async function processJob(env: MediaWorkerEnv, job: MediaJob, secrets: Record<string, string>): Promise<void> {
   let objectPath: string | null = null;
+  let metadataSaved = false;
   try {
     const provider = await providerDownload(job, secrets);
     const bytes = await readBinary(provider.response);
@@ -244,12 +245,13 @@ async function processJob(env: MediaWorkerEnv, job: MediaJob, secrets: Record<st
       }),
     });
     if (!inserted.length) throw new Error("MEDIA_METADATA_SAVE_FAILED");
+    metadataSaved = true;
     await db<Row[]>(env, "inbox_media_jobs?id=eq." + encodeURIComponent(job.id), {
       method: "PATCH", headers: { Prefer: "return=minimal" },
       body: JSON.stringify({ status: "completed", locked_until: null, last_error_code: null, updated_at: new Date().toISOString() }),
     });
   } catch (error) {
-    if (objectPath) await deleteObject(env, objectPath);
+    if (objectPath && !metadataSaved) await deleteObject(env, objectPath);
     const code = error instanceof Error && /^[A-Z0-9_]+$/.test(error.message) ? error.message : "MEDIA_PROCESSING_FAILED";
     const terminal = job.attempts >= 5 || ["MEDIA_TOO_LARGE","MEDIA_MIME_REJECTED","MEDIA_PROVIDER_URL_REJECTED"].includes(code);
     await db<Row[]>(env, "inbox_media_jobs?id=eq." + encodeURIComponent(job.id), {
