@@ -171,6 +171,47 @@ async function testAIProvider(providerKey:string,protocol:AIProtocol,baseUrl:str
  }catch(error){return {ok:false,message:"模型连接异常："+(error instanceof Error?error.message:String(error)).slice(0,180)};}
 }
 
+export async function runConfiguredAI(task: string, prompt: string, env: SettingsEnv): Promise<string> {
+ const config=await readAIConfig(env);
+ const ref=config.taskModels?.[task]||config.defaultModel||defaultAIConfig.defaultModel;
+ const [providerId, ...modelParts]=ref.includes("::")?ref.split("::"):["workers-ai",ref];
+ const model=modelParts.join("::")||ref;
+ const provider=config.providers.find(item=>item.id===providerId)||config.providers.find(item=>item.providerKey===providerId);
+ if(!provider||provider.protocol==="workers-ai"||model.startsWith("@cf/")){
+  if(!env.AI)throw new Error("尚未配置可用的 AI 模型。请在设置中心配置并选择默认模型。");
+  const result=await env.AI.run(model,{messages:[{role:"user",content:prompt}]}) as Record<string,unknown>;
+  const response=result.response??result.output_text??result.text;
+  if(typeof response==="string")return response;
+  return JSON.stringify(result);
+ }
+ const key=await providerApiKey(provider.providerKey,provider.secretName,undefined,env);
+ if(!key)throw new Error("当前 AI 模型缺少 API Key，请在设置中心检查模型配置。");
+ const base=safeAIBaseUrl(provider.baseUrl,defaultAIBase(provider.providerKey,provider.protocol));
+ let response:Response;
+ if(provider.protocol==="anthropic"){
+  response=await fetch(base+"/messages",{method:"POST",redirect:"manual",headers:{"x-api-key":key,"anthropic-version":"2023-06-01","content-type":"application/json"},body:JSON.stringify({model,max_tokens:1800,messages:[{role:"user",content:prompt}]})});
+ }else if(provider.protocol==="gemini"){
+  response=await fetch(base+"/models/"+encodeURIComponent(model)+":generateContent?key="+encodeURIComponent(key),{method:"POST",redirect:"manual",headers:{"content-type":"application/json"},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{maxOutputTokens:1800,temperature:0.2}})});
+ }else{
+  response=await fetch(base+"/chat/completions",{method:"POST",redirect:"manual",headers:{Authorization:"Bearer "+key,"content-type":"application/json",...(provider.providerKey==="openrouter"?{"HTTP-Referer":"https://tradepilot.xg-y.workers.dev","X-Title":"TradePilot"}:{})},body:JSON.stringify({model,messages:[{role:"user",content:prompt}],max_tokens:1800,temperature:0.2})});
+ }
+ if(!response.ok)throw new Error("AI 服务请求失败（HTTP "+response.status+"）。请检查模型权限与额度。");
+ const data=await response.json() as Record<string,unknown>;
+ if(provider.protocol==="anthropic"){
+  const content=Array.isArray(data.content)?data.content as Array<Record<string,unknown>>:[];
+  return content.map(item=>String(item.text??"")).join("\\n");
+ }
+ if(provider.protocol==="gemini"){
+  const candidates=Array.isArray(data.candidates)?data.candidates as Array<Record<string,unknown>>:[];
+  const content=candidates[0]?.content as Record<string,unknown>|undefined;
+  const parts=Array.isArray(content?.parts)?content.parts as Array<Record<string,unknown>>:[];
+  return parts.map(item=>String(item.text??"")).join("\\n");
+ }
+ const choices=Array.isArray(data.choices)?data.choices as Array<Record<string,unknown>>:[];
+ const message=choices[0]?.message as Record<string,unknown>|undefined;
+ return typeof message?.content==="string"?message.content:JSON.stringify(data);
+}
+
 export async function handleSettings(request: Request, env: SettingsEnv): Promise<Response> {
   if (!(await authenticated(request, env))) return errorResponse(request, "UNAUTHORIZED", "请先登录后再管理集成密钥。", 401);
   const url = new URL(request.url);
