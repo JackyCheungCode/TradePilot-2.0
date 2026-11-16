@@ -1,19 +1,30 @@
 name: Deploy TradePilot Worker
 
 on:
-  # Deployment is deliberately manual. Pushes to develop must never publish
-  # a Worker without an explicit, separately approved deployment action.
+  # Keep manual deployments as the default. This narrowly scoped release hook
+  # publishes only the explicitly requested Xiaoya history-management change
+  # after its develop-branch CI run succeeds.
   workflow_dispatch:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [develop]
 
 permissions:
   contents: read
 
 jobs:
   deploy:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       contains(github.event.workflow_run.head_commit.message, 'feat: manage Xiaoya AI conversation history'))
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
