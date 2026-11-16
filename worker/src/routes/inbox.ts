@@ -58,7 +58,7 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
       const accountIds = unique(conversations.map(row => row.account_id));
       const [contacts, accounts] = await Promise.all([
         contactIds.length
-          ? db<Row[]>(env, "crm_contacts?select=id,account_id,first_name,last_name,full_name,job_title,department,email,phone,mobile,preferred_language,avatar_url,preferred_channel&id=in.(" + contactIds.join(",") + ")&owner_id=eq." + ownerId)
+          ? db<Row[]>(env, "crm_contacts?select=id,account_id,first_name,last_name,full_name,job_title,department,email,phone,mobile,preferred_language,preferred_channel&id=in.(" + contactIds.join(",") + ")&owner_id=eq." + ownerId)
           : Promise.resolve([]),
         accountIds.length
           ? db<Row[]>(env, "crm_accounts?select=id,account_name,legal_name,logo_url&id=in.(" + accountIds.join(",") + ")&owner_id=eq." + ownerId)
@@ -121,6 +121,6 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
     return errorResponse(request, "NOT_FOUND", "消息工作台接口不存在。", 404);
   } catch (cause) {
     const message = cause instanceof Error ? cause.message : "unknown";
-    return errorResponse(request, "INBOX_REQUEST_FAILED", "读取消息工作台数据失败：" + message.slice(0, 180), 500);
+    return errorResponse(request, "INBOX_REQUEST_FAILED", "读取消息工作台数据失败，请稍后重试。", 500);
   }
 }
