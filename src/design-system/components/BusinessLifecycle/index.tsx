@@ -14,6 +14,12 @@ export function BusinessLifecycle({title,steps,current,description,terminal=fals
   useEffect(()=>{const currentStep=viewportRef.current?.querySelector<HTMLElement>('[aria-current="step"], .cds--progress-step--current');currentStep?.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});},[current]);
   const currentIndex=Math.max(0,steps.findIndex(step=>step.value===current));
   const currentStep=steps.find(step=>step.value===current);
+  const eventLabel=(value:string)=>({
+    prospect_discovered:'发现潜客',prospect_reviewed:'审核通过',prospect_collected:'联系人采集完成',prospect_collection_empty:'本次未找到可用联系方式',prospect_converted:'转化为 CRM 线索',prospect_discarded:'排除潜客',prospect_removed:'移除潜客',
+    customer_created:'创建客户档案',customer_status_changed:'客户状态变更',contact_created:'创建联系人档案',contact_status_changed:'联系人状态变更',
+    opportunity_stage_changed:'商机阶段变更',quote_created:'创建报价单',quote_status_changed:'报价状态变更',sales_order_created:'创建销售订单',sales_order_status_changed:'订单状态变更',
+    payment_created:'创建收款记录',payment_status_changed:'收款状态变更',shipment_created:'创建发运单',shipment_status_changed:'发运状态变更'
+  } as Record<string,string>)[value]||value;
   const statusLabel=(value:string)=>steps.find(step=>step.value===value)?.label||({
     active:'活跃',inactive:'停用',dormant:'休眠',lost:'流失',blacklist:'黑名单',
     verified:'已验证',pending_verification:'待核实',valid:'有效',invalid:'无效',
@@ -30,8 +36,8 @@ export function BusinessLifecycle({title,steps,current,description,terminal=fals
     {events.length>0&&<section className="tp-business-lifecycle__history" aria-label={title+'变更记录'}>
       <h3>生命周期记录</h3>
       <ol>{events.slice(0,10).map(event=><li key={event.id}>
-        <div><strong>{event.from_status?statusLabel(event.from_status)+' → '+statusLabel(event.to_status||'—'):statusLabel(event.to_status||event.event_type)}</strong><time>{new Date(event.created_at).toLocaleString()}</time></div>
-        <p>{event.note||event.event_type}</p>
+        <div><strong>{event.from_status?statusLabel(event.from_status)+' → '+statusLabel(event.to_status||'—'):statusLabel(event.to_status||eventLabel(event.event_type))}</strong><time>{new Date(event.created_at).toLocaleString()}</time></div>
+        <p>{event.note||eventLabel(event.event_type)}</p>
       </li>)}</ol>
     </section>}
   </section>;
