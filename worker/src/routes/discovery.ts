@@ -466,7 +466,7 @@ export async function handleDiscovery(request: Request, env: DiscoveryEnv): Prom
       account=createdAccounts?.[0];
     }
     if(!account?.id)throw new Error("CRM_ACCOUNT_CREATE_FAILED");
-    let createdCount=0,linkedCount=0;
+    let createdCount=0,linkedCount=0;const relatedContactIds:string[]=[];
     const confirmedAt=new Date().toISOString();
     for(const candidate of chosen){
       const fullName=String(candidate.full_name).trim(),parts=fullName.split(/\s+/),firstName=String(candidate.first_name??parts[0]??fullName).trim(),lastName=String(candidate.last_name??parts.slice(1).join(" ")).trim();
@@ -482,11 +482,11 @@ export async function handleDiscovery(request: Request, env: DiscoveryEnv): Prom
         for(const field of ["first_name","last_name","full_name","job_title","department","email","phone","mobile","whatsapp","linkedin_url"]){const incoming=field==="full_name"?fullName:field==="first_name"?firstName:field==="last_name"?lastName:field==="job_title"?candidate.job_title:field==="department"?candidate.department:field==="email"?email:field==="phone"?candidate.phone:field==="mobile"?candidate.mobile:field==="linkedin_url"?linkedin:undefined;if((existing[field]===null||existing[field]==="")&&incoming)patch[field]=incoming;}
         if(candidate.do_not_contact===true)patch.do_not_contact=true;
         await db(env,"crm_contacts?id=eq."+existing.id+"&owner_id=eq."+userId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify(patch)});
-        (candidate as Record<string,unknown>).crm_contact_id=existing.id;linkedCount++;
+        (candidate as Record<string,unknown>).crm_contact_id=existing.id;relatedContactIds.push(String(existing.id));linkedCount++;
       }else{
         const created=await db<Array<{id:string}>>(env,"crm_contacts",{method:"POST",headers:{Prefer:"return=representation"},body:JSON.stringify({owner_id:userId,account_id:account.id,first_name:firstName,last_name:lastName||null,full_name:fullName,job_title:candidate.job_title??null,department:candidate.department??null,email:email||null,phone:candidate.phone??null,mobile:candidate.mobile??null,linkedin_url:linkedin||null,contact_type:"business",decision_role:candidate.job_title??null,do_not_contact:candidate.do_not_contact===true,is_active:true,custom_fields:customFields})});
         if(!created?.[0]?.id)throw new Error("CRM_CONTACT_CREATE_FAILED");
-        (candidate as Record<string,unknown>).crm_contact_id=created[0].id;createdCount++;
+        (candidate as Record<string,unknown>).crm_contact_id=created[0].id;relatedContactIds.push(String(created[0].id));createdCount++;
       }
       (candidate as Record<string,unknown>).review_status="confirmed";
       (candidate as Record<string,unknown>).confirmed_at=confirmedAt;
@@ -494,7 +494,7 @@ export async function handleDiscovery(request: Request, env: DiscoveryEnv): Prom
     const convertedRawData={...rawData,lifecycle_stage:"converted",lifecycle_updated_at:confirmedAt,contact_intelligence:{...intel,candidates,review_status:"confirmed",confirmed_at:confirmedAt,crm_account_id:account.id}};
     await db(env,"rpc/finalize_prospect_contact_conversion",{
       method:"POST",headers:{Prefer:"return=representation"},
-      body:JSON.stringify({p_owner_id:userId,p_record_id:recordId,p_lead_id:leadId,p_account_id:account.id,p_raw_data:convertedRawData,p_event_payload:{created_contacts:createdCount,linked_contacts:linkedCount,total_candidates:chosen.length}})
+      body:JSON.stringify({p_owner_id:userId,p_record_id:recordId,p_lead_id:leadId,p_account_id:account.id,p_raw_data:convertedRawData,p_event_payload:{created_contacts:createdCount,linked_contacts:linkedCount,total_candidates:chosen.length,contact_ids:relatedContactIds}})
     });
     return successResponse(request,{leadId,accountId:account.id,accountName:account.account_name,createdContacts:createdCount,linkedContacts:linkedCount,total:chosen.length});
   }
