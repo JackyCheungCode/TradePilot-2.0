@@ -68,6 +68,16 @@ export function InboxPage() {
           const readiness = await getInboxChannelReadiness(session.access_token);
           if (active) setChannelReadiness(readiness);
         } catch { /* Inbox remains usable when integration status is temporarily unavailable. */ }
+        try {
+          const [connectionRows, unmatchedRows] = await Promise.all([
+            getInboxConnections(session.access_token),
+            getInboxUnmatchedEvents(session.access_token),
+          ]);
+          if (active) {
+            setConnections(connectionRows);
+            setUnmatchedEvents(unmatchedRows);
+          }
+        } catch { /* Existing conversations remain available if connection setup data is unavailable. */ }
         if (active) {
           setConversations(rows);
           setSelected(current => current ? rows.find(row => row.id === current.id) ?? null : null);
