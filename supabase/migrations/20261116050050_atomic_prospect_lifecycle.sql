@@ -173,3 +173,28 @@ revoke all on function public.confirm_prospect_review(uuid,uuid) from public, an
 revoke all on function public.promote_prospect_to_lead(uuid,uuid) from public, anon;
 grant execute on function public.confirm_prospect_review(uuid,uuid) to authenticated, service_role;
 grant execute on function public.promote_prospect_to_lead(uuid,uuid) to authenticated, service_role;
+
+create or replace function public.capture_prospect_discovered_event()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.business_transition_events(
+    owner_id,record_type,record_id,event_type,from_status,to_status,
+    gatekeeper_required,gatekeeper_status,actor_id,note,payload
+  ) values (
+    new.owner_id,'prospect',new.id,'prospect_discovered',null,'discovered',
+    false,'not_required',coalesce(auth.uid(),new.owner_id),
+    '发现新的潜在客户',
+    jsonb_build_object('channel',new.channel,'record_type',new.record_type,'atomic',true)
+  );
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_prospect_discovered_lifecycle_event on public.discovery_records;
+create trigger trg_prospect_discovered_lifecycle_event
+after insert on public.discovery_records
+for each row execute function public.capture_prospect_discovered_event();
