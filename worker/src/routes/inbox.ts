@@ -159,7 +159,7 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
     }
 
     if (url.pathname === "/api/v1/inbox/crm-contacts" && request.method === "GET") {
-      const query = (url.searchParams.get("query") ?? "").replace(/[(),]/g, " ").replace(/\\s+/g, " ").trim().slice(0, 80);
+      const query = (url.searchParams.get("query") ?? "").replace(/[(),]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
       if (query.length < 2) return successResponse(request, { contacts: [] });
       const pattern = "*" + query + "*";
       const orFilter = "(full_name.ilike." + pattern + ",first_name.ilike." + pattern +
