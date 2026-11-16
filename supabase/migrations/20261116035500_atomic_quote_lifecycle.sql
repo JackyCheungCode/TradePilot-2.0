@@ -4,7 +4,7 @@ create or replace function public.confirm_quote_status_transition(
   p_target_status text
 ) returns uuid
 language plpgsql
-security invoker
+security definer
 set search_path = public
 as $$
 declare
