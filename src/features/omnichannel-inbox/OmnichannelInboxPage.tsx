@@ -220,8 +220,7 @@ export function OmnichannelInboxPage() {
             height: '168px',
             legend: { enabled: false },
             points: { enabled: true },
-            toolbar: { enabled: false },
-            color: { scale: { '对话客户': '#0f62fe' } }
+            toolbar: { enabled: false }
           }} />
         </div>
       </Tile>
