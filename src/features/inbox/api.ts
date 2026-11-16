@@ -116,3 +116,8 @@ export async function getInboxBusinessMetrics(token: string, contactId: string):
     token,
   );
 }
+
+export type InboxChannelReadiness = Record<string, boolean>;
+export async function getInboxChannelReadiness(token: string): Promise<InboxChannelReadiness> {
+  return request<InboxChannelReadiness>('/api/v1/settings/integrations', token);
+}
