@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, Checkbox, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput } from '@/design-system';
+import { Button, Checkbox, InlineLoading, InlineNotification, Select, SelectItem, Tag } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 
 type Source = 'blank' | 'sales_order' | 'purchase_order' | 'shipment';
