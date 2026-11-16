@@ -61,7 +61,7 @@ export async function sendInboxProviderMessage(
     const token = secrets.messengerPageAccessToken;
     if (!token) throw new Error("CHANNEL_CREDENTIAL_MISSING");
     const payload = await providerRequest(
-      "https://graph.facebook.com/v26.0/me/messages?access_token=" + encodeURIComponent(token),
+      "https://graph.facebook.com/v26.0/me/messages",
       token,
       { recipient: { id: recipient }, messaging_type: "RESPONSE", message: { text: content } },
     );
