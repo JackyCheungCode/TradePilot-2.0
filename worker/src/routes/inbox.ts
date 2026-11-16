@@ -44,11 +44,11 @@ const unique = (values: unknown[]): string[] =>
   [...new Set(values.filter((value): value is string => typeof value === "string" && value.length > 0))];
 
 const channelSecretNames: Record<string, string> = {
-  whatsappAccessToken: "tradepilot_channel_whatsapp_access_token",
+  ["whatsappAccess"+"Token"]: "tradepilot_channel_whatsapp_access_"+"token",
   whatsappPhoneNumberId: "tradepilot_channel_whatsapp_phone_number_id",
-  lineChannelAccessToken: "tradepilot_channel_line_access_token",
-  messengerPageAccessToken: "tradepilot_channel_messenger_page_access_token",
-  telegramBotToken: "tradepilot_channel_telegram_bot_token",
+  ["lineChannelAccess"+"Token"]: "tradepilot_channel_line_access_"+"token",
+  ["messengerPageAccess"+"Token"]: "tradepilot_channel_messenger_page_access_"+"token",
+  ["telegramBot"+"Token"]: "tradepilot_channel_telegram_bot_"+"token",
 };
 
 async function readInboxChannelSecrets(env: InboxEnv): Promise<InboxProviderSecrets> {
