@@ -419,7 +419,7 @@ export async function handleDiscovery(request: Request, env: DiscoveryEnv): Prom
 
   if(request.method==="POST" && url.pathname==="/api/v1/discovery-contact-candidates/convert"){
     let body:{recordId?:string;candidateKeys?:string[];candidateEdits?:Record<string,{email?:string;phone?:string;mobile?:string;job_title?:string}>};
-    try{body=await request.json() as {recordId?:string;candidateKeys?:string[];candidateEdits?:Record<string,{email?:string;phone?:string;job_title?:string}>};}catch{return errorResponse(request,"VALIDATION_ERROR","请求内容不是有效 JSON。",400);}
+    try{body=await request.json() as {recordId?:string;candidateKeys?:string[];candidateEdits?:Record<string,{email?:string;phone?:string;mobile?:string;job_title?:string}>};}catch{return errorResponse(request,"VALIDATION_ERROR","请求内容不是有效 JSON。",400);}
     const recordId=String(body.recordId??"");
     const candidateKeys=[...new Set(Array.isArray(body.candidateKeys)?body.candidateKeys.map(String):[])];
     if(!/^[0-9a-f-]{36}$/i.test(recordId)||!candidateKeys.length||candidateKeys.length>30)return errorResponse(request,"VALIDATION_ERROR","请选择有效企业及 1 到 30 位联系人。",400);
