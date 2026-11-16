@@ -214,12 +214,13 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
         const connectionId = String(webhookEvent.channel_connection_id);
         let identities = await db<Row[]>(env,
           "inbox_customer_identities?select=id,contact_id,external_user_id&owner_id=eq." + ownerId +
-          "&channel_type=eq." + channel + "&external_user_id=eq." + encodeURIComponent(externalUserId) + "&limit=1");
+          "&channel_type=eq." + channel + "&external_user_id=eq." + encodeURIComponent(externalUserId) +
+          "&or=" + encodeURIComponent("(channel_connection_id.eq." + connectionId + ",channel_connection_id.is.null)") + "&limit=1");
         let identity = identities[0];
-        if (identity && String(identity.contact_id) !== contactId) {
+        if (identity && (String(identity.contact_id) !== contactId || (identity.channel_connection_id && String(identity.channel_connection_id) !== connectionId))) {
           await db<Row[]>(env, "inbox_webhook_events?id=eq." + eventId + "&owner_id=eq." + ownerId,
             { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ status: "unmatched" }) });
-          return errorResponse(request, "IDENTITY_ALREADY_LINKED", "该渠道身份已关联到另一位联系人，请先检查现有客户绑定。", 409);
+          return errorResponse(request, "IDENTITY_ALREADY_LINKED", "该渠道身份已关联到其他联系人或渠道账号，请先检查现有客户绑定。", 409);
         }
         if (!identity) {
           try {
@@ -238,7 +239,8 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
           } catch {
             identities = await db<Row[]>(env,
               "inbox_customer_identities?select=id,contact_id,external_user_id&owner_id=eq." + ownerId +
-              "&channel_type=eq." + channel + "&external_user_id=eq." + encodeURIComponent(externalUserId) + "&limit=1");
+              "&channel_type=eq." + channel + "&external_user_id=eq." + encodeURIComponent(externalUserId) +
+              "&or=" + encodeURIComponent("(channel_connection_id.eq." + connectionId + ",channel_connection_id.is.null)") + "&limit=1");
             identity = identities[0];
           }
         }
