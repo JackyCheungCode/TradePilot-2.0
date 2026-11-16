@@ -335,7 +335,8 @@ async function processEvent(env: WebhookEnv, connection: Connection, event: Norm
     const identities = await db<Row[]>(env,
       "inbox_customer_identities?select=id,contact_id,external_user_id&owner_id=eq." + connection.owner_id +
       "&channel_type=eq." + connection.channel_type + "&external_user_id=eq." +
-      encodeURIComponent(event.externalUserId) + "&limit=1");
+      encodeURIComponent(event.externalUserId) + "&or=" +
+      encodeURIComponent("(channel_connection_id.eq." + connection.id + ",channel_connection_id.is.null)") + "&limit=1");
     const identity = identities[0];
     if (!identity) {
       await patchEvent(env, connection, event.eventId, {
