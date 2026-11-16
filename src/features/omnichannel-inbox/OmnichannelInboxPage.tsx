@@ -38,7 +38,7 @@ export function OmnichannelInboxPage() {
   const [channel, setChannel] = useState<ChannelType>('wecom');
   const [draft, setDraft] = useState('');
   const [subject, setSubject] = useState('');
-  const [profileOpen, setProfileOpen] = useState(true);
+  const [profileOpen, setProfileOpen] = useState(() => typeof window === 'undefined' ? true : window.matchMedia('(min-width: 768px)').matches);
   const [mobileChat, setMobileChat] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
   const [identityOpen, setIdentityOpen] = useState(false);
