@@ -193,8 +193,16 @@ async function enrichOne(env:Env,owner:string,id:string,providers:Params["provid
  const nextLifecycleStage=hasCollectedData?"collected":previousStage;
  const patch:Record<string,unknown>={updated_at:capturedAt,raw_data:{...previous,lifecycle_stage:nextLifecycleStage,lifecycle_updated_at:capturedAt,contact_enrichment:{captured_at:capturedAt,pages_visited:visited,emails,phones,addresses,social:found.social,source_pages:sources,method:"http_rules_structured_data"},contact_intelligence:{captured_at:capturedAt,providers:[...selected],candidate_count:candidates.length,candidates,provider_errors:providerErrors,credit_estimate:creditEstimate,review_status:"pending_review"}}};
  if(!row.email&&email)patch.email=email;if(!row.phone&&phone)patch.phone=phone;if(!row.address&&address)patch.address=address;
- await db(env,"discovery_records?id=eq."+id+"&owner_id=eq."+owner,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify(patch)});
- await db(env,"business_transition_events",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({owner_id:owner,record_type:"prospect",record_id:id,event_type:hasCollectedData?"prospect_collected":"prospect_collection_empty",from_status:previousStage,to_status:nextLifecycleStage,actor_id:owner,note:hasCollectedData?"联系人信息采集成功":"本次未找到可用联系方式，保留在待采集阶段",gatekeeper_required:false,gatekeeper_status:"not_required",payload:{providers:[...selected],pages_visited:visited,candidates:candidates.length,collected:hasCollectedData}})});
+ await db(env,"rpc/record_prospect_contact_enrichment",{
+  method:"POST",
+  headers:{Prefer:"return=representation"},
+  body:JSON.stringify({
+   p_owner_id:owner,p_record_id:id,p_raw_data:patch.raw_data,
+   p_email:email??null,p_phone:phone??null,p_address:address??null,
+   p_has_collected:hasCollectedData,
+   p_event_payload:{providers:[...selected],pages_visited:visited,candidates:candidates.length,collected:hasCollectedData}
+  })
+ });
  return {email:email??row.email,phone:phone??row.phone,address:address??row.address,pages:visited,candidates:candidates.length,providerErrors};
 }
 export class ContactEnrichmentWorkflow extends WorkflowEntrypoint<Env,Params>{
