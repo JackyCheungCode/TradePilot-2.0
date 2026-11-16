@@ -80,7 +80,7 @@ export function DocumentsCenterPage() {
     setLoading(true); setError('');
     try {
       const client = await getSupabaseClient();
-      const [orderResult, docResult, templateResult] = await Promise.all([
+      const [orderResult, templateResult] = await Promise.all([
         client.from('trade_orders').select('id,order_number,title,order_type,status,currency_code,locked_at,confirmed_at,crm_account:crm_accounts(account_name)') .eq('order_type', 'sales').not('locked_at', 'is', null).order('updated_at', { ascending: false }).limit(100),
         request('templates'),
       ]);
