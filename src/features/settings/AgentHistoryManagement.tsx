@@ -4,7 +4,6 @@ import {
   Table, TableHead, TableRow, TableHeader, TableBody, TableCell, Tag,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
-import './AgentHistoryManagement.scss';
 
 type Conversation = {
   id: string;
@@ -110,8 +109,8 @@ export function AgentHistoryManagement() {
   };
 
   return (
-    <section className="tp-settings__editor tp-agent-history">
-      <div className="tp-agent-history__heading">
+    <section className="tp-settings__editor">
+      <div className="tp-settings__editor-title">
         <div>
           <h4>AI 历史记录管理</h4>
           <p>查看小雅的历史对话，选择需要移除的记录。移除会同时删除该对话中的消息，且无法恢复。</p>
@@ -124,8 +123,8 @@ export function AgentHistoryManagement() {
       {error && <InlineNotification kind="error" title="操作失败" subtitle={error} onCloseButtonClick={() => setError('')} />}
       {notice && <InlineNotification kind="success" title="操作完成" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
 
-      <div className="tp-agent-history__actions">
-        <div className="tp-agent-history__selection">
+      <div className="tp-settings__editor-title">
+        <div className="tp-settings__workspace-status">
           <Tag type="blue">共 {rows.length} 条</Tag>
           <span>已选择 {selectedCount} 条</span>
         </div>
