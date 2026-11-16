@@ -212,7 +212,7 @@ async function jinaRead(url: URL, apiKey: string): Promise<{url:string;content:s
   if(response.status>=300&&response.status<400)throw new Error("Jina Reader 返回重定向（HTTP "+response.status+"），为安全起见已停止抓取。");
   if(!response.ok)throw new Error("Jina Reader 请求失败（HTTP "+response.status+"）。");
   const payload=await response.json() as {data?:{content?:string;links?:unknown};content?:string};
-  const data=payload.data??payload;
+  const data=(payload.data??payload) as {content?:string;links?:unknown};
   const content=String(data.content??"").slice(0,50000);
   const rawLinks=data.links;
   const links=Array.isArray(rawLinks)?rawLinks.map(item=>typeof item==="string"?item:String((item as Record<string,unknown>)?.url??"")).filter(Boolean)
