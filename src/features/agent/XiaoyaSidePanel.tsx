@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Heading, CarbonIcons, ChatCustomElement, MessageResponseTypes, type ChatInstance, type CustomSendMessageOptions, type MessageRequest, type PublicConfig } from '@/design-system';
+import { Button, Heading, CarbonIcons, ChatCustomElement, MessageResponseTypes, type ChatInstance, type CustomSendMessageOptions, type MessageRequest, type PublicConfig, type HistoryItem } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/layout/XiaoyaSidePanel.scss';
 
 type Conversation = { id: string; title: string; last_message_at: string; created_at: string };
+type AgentMessage = { id: string; role: 'user' | 'assistant'; content: string; created_at?: string };
 type ApiEnvelope<T> = { data: T } | { error?: { message?: string } };
 
 type Props = {
@@ -77,9 +78,33 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
     return created.id;
   }, []);
 
-  const customLoadHistory = useCallback(async (_instance: ChatInstance) => {
-    await ensureConversation();
-    return [];
+  const customLoadHistory = useCallback(async (_instance: ChatInstance): Promise<HistoryItem[]> => {
+    const conversationId = await ensureConversation();
+    const rows = await agentRequest<AgentMessage[]>(`/api/v1/agent/conversations/${conversationId}/messages`);
+    return rows.map((row) => {
+      const timestamp = row.created_at ? Date.parse(row.created_at) : Date.now();
+      const time = new Date(timestamp).toISOString();
+      if (row.role === 'user') {
+        return {
+          time,
+          message: {
+            id: row.id,
+            input: { text: row.content, message_type: 'text' },
+            history: { timestamp },
+          },
+        } as HistoryItem;
+      }
+      return {
+        time,
+        message: {
+          id: row.id,
+          output: {
+            generic: [{ response_type: MessageResponseTypes.TEXT, text: row.content }],
+          },
+          history: { timestamp },
+        },
+      } as HistoryItem;
+    });
   }, [ensureConversation]);
 
   const customSendMessage = useCallback(async (
