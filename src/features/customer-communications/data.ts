@@ -1,4 +1,4 @@
-export type CommunicationChannel = 'whatsapp' | 'messenger' | 'instagram' | 'email' | 'telegram';
+export type CommunicationChannel = 'whatsapp' | 'messenger' | 'instagram' | 'email' | 'telegram' | 'line' | 'wecom';
 export type ConversationState = 'open' | 'pending' | 'resolved';
 export type MessageKind = 'text' | 'email' | 'file' | 'system';
 
@@ -30,7 +30,7 @@ export interface CommunicationMessage {
   kind: MessageKind;
   body: string;
   time: number;
-  status?: 'sent' | 'delivered' | 'read' | 'failed';
+  status?: 'sent' | 'delivered' | 'read' | 'received' | 'failed';
   subject?: string;
   filename?: string;
   fileSize?: string;
@@ -44,6 +44,8 @@ export const communicationChannelLabels: Record<CommunicationChannel, string> = 
   instagram: 'Instagram',
   email: '电子邮件',
   telegram: 'Telegram',
+  line: 'LINE',
+  wecom: '企业微信',
 };
 
 export const communicationCustomers: CommunicationCustomer[] = [
