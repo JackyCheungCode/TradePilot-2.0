@@ -236,7 +236,7 @@ export async function handleTradeDocuments(request:Request,env:Env):Promise<Resp
     const existingRows=await db<Json[]>(env,"trade_documents?select=id,owner_id,order_id,document_type,status,content,totals,template_id,locale,currency_code,current_version&id=eq."+encodeURIComponent(id)+"&owner_id=eq."+ownerId+"&limit=1");
     const existing=existingRows[0];if(!existing||existing.status!=="draft")return errorResponse(request,"CONFLICT","仅草稿单据可编辑，或单据不存在。",409);
     const settings=await db<Json[]>(env,"trade_document_settings?select=config&owner_id=eq."+ownerId+"&scope_key=eq.shared&limit=1");
-    const docType=String(existing.document_type),savedPolicy=obj(obj(obj(existing.content)._system).document_policy_snapshot),configured=obj(obj(obj(settings[0]?.config).documentTypes)[docType]),policy={...defaultDocumentPolicy(docType),...configured,...savedPolicy};
+    const docType=String(existing.document_type),savedPolicy=obj(obj(obj(existing.content)._system).document_policy_snapshot),configured=obj(obj(obj(settings[0]?.config).documentTypes)[docType]),policy=Object.keys(savedPolicy).length?{...defaultDocumentPolicy(docType),...savedPolicy}:{...defaultDocumentPolicy(docType),...configured};
     const oldContent=obj(existing.content),incoming=obj(b.content),nextContent:Json={...incoming,_system:oldContent._system};
     const editable=Array.isArray(policy.editableFields)?policy.editableFields.map(String):[];
     const protectedKeys=["_system","currency_code","order_number","order_title","order_date","order_totals","bank_accounts","default_bank_account","charges","payment_schedule","tax_mode","items"];
