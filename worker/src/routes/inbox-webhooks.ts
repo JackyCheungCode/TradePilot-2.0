@@ -287,8 +287,7 @@ async function claimEvent(env: WebhookEnv, connection: Connection, event: Normal
     });
   if (inserted.length) return true;
   const existing = await db<Row[]>(env,
-    "inbox_webhook_events?select=id,status&id=eq." + encodeURIComponent(String(connection.id)) +
-    "&channel_connection_id=eq." + connection.id + "&external_event_id=eq." + encodeURIComponent(event.eventId) + "&limit=1");
+    "inbox_webhook_events?select=id,status&channel_connection_id=eq." + connection.id + "&external_event_id=eq." + encodeURIComponent(event.eventId) + "&limit=1");
   const row = existing[0];
   if (!row || row.status !== "failed") return false;
   const reclaimed = await db<Row[]>(env,
@@ -332,7 +331,7 @@ async function processEvent(env: WebhookEnv, connection: Connection, event: Norm
     if (!contact) throw new Error("CRM_CONTACT_NOT_FOUND");
 
     const existingMessages = await db<Row[]>(env,
-      "inbox_messages?select=id,conversation_id&id=not.is.null&channel_connection_id=eq." +
+      "inbox_messages?select=id,conversation_id&channel_connection_id=eq." +
       connection.id + "&external_message_id=eq." + encodeURIComponent(event.messageId) + "&limit=1");
     if (existingMessages.length) {
       await patchEvent(env, connection, event.eventId, { status: "processed", payload: {}, processed_at: new Date().toISOString(), error_code: null });
@@ -340,7 +339,7 @@ async function processEvent(env: WebhookEnv, connection: Connection, event: Norm
     }
 
     let conversations = await db<Row[]>(env,
-      "inbox_conversations?select=id&owner_id=eq." + connection.owner_id +
+      "inbox_conversations?select=id,unread_count&owner_id=eq." + connection.owner_id +
       "&contact_id=eq." + String(identity.contact_id) + "&status=in.(open,pending)&order=updated_at.desc&limit=1");
     let conversation = conversations[0];
     if (!conversation) {
@@ -356,7 +355,7 @@ async function processEvent(env: WebhookEnv, connection: Connection, event: Norm
         conversation = created[0];
       } catch {
         conversations = await db<Row[]>(env,
-          "inbox_conversations?select=id&owner_id=eq." + connection.owner_id +
+          "inbox_conversations?select=id,unread_count&owner_id=eq." + connection.owner_id +
           "&contact_id=eq." + String(identity.contact_id) + "&status=in.(open,pending)&limit=1");
         conversation = conversations[0];
       }
@@ -379,7 +378,7 @@ async function processEvent(env: WebhookEnv, connection: Connection, event: Norm
       method: "PATCH", headers: { Prefer: "return=minimal" },
       body: JSON.stringify({
         last_message_at: event.occurredAt, last_channel_type: connection.channel_type,
-        last_message_preview: event.content.slice(0, 500), unread_count: Number(0) + 1,
+        last_message_preview: event.content.slice(0, 500), unread_count: Number(conversation.unread_count ?? 0) + 1,
       }),
     });
     await db<Row[]>(env, "inbox_customer_identities?id=eq." + String(identity.id) +
