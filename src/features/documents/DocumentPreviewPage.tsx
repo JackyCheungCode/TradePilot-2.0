@@ -137,7 +137,7 @@ export function DocumentPreviewPage() {
   const canEditField = (key: string) => configuredEditableFields.includes(key) && (key !== 'items' || !doc?.order_id);
   const totals = doc?.totals ?? {};
   const isPackingList = doc?.document_type === 'packing_list';
-  const showPricing = templateConfig.showPrices !== false && ['commercial_invoice', 'proforma_invoice', 'sales_contract', 'sales_confirmation'].includes(doc?.document_type || '');
+  const showPricing = templateConfig.showPrices !== false && ['quotation','request_for_quotation','commercial_invoice','proforma_invoice','sales_contract','sales_confirmation','purchase_order','purchase_confirmation','tax_invoice','credit_note','debit_note','bill_of_exchange'].includes(doc?.document_type || '');
 
   if (loading) return <main className="tp-document-preview"><div className="tp-document-preview__loading"><InlineLoading description="正在读取单据与版本快照…" /></div></main>;
   if (!doc) return <main className="tp-document-preview"><InlineNotification kind="error" title="无法打开单据" subtitle={error || '单据不存在。'} /><Button kind="tertiary" onClick={() => navigate('/documents')}>返回单据中心</Button></main>;
