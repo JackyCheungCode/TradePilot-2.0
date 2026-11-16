@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
-  Button, Search, TextArea, Dropdown, Tag, InlineNotification, Heading, CarbonIcons,
+  Button, IconButton, Search, TextArea, Dropdown, Tag, InlineNotification, Heading, CarbonIcons,
 } from '@/design-system';
 import {
   communicationChannelLabels,
@@ -236,7 +236,7 @@ export function CustomerCommunicationsPage() {
               </div>
             </div>
             <div className="cc-chat-actions">
-              <Button kind="ghost" size="sm" className="cc-mobile-back" hasIconOnly renderIcon={CarbonIcons.ArrowLeft} iconDescription="返回会话" onClick={() => setMobileChat(false)} />
+              <IconButton kind="ghost" size="sm" className="cc-mobile-back" label="返回会话" onClick={() => setMobileChat(false)}><CarbonIcons.ArrowLeft /></IconButton>
               <Tag type={activeConversation.state === 'resolved' ? 'green' : activeConversation.state === 'pending' ? 'warm-gray' : 'blue'}>
                 {activeConversation.state === 'resolved' ? '已解决' : activeConversation.state === 'pending' ? '待处理' : '处理中'}
               </Tag>
