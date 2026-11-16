@@ -175,7 +175,7 @@ export async function handleProspectConsole(request: Request, env: ConsoleEnv): 
       entities.add(entityId);
       if (record.status === "promoted" || record.lead_id) converted.add(entityId);
       else pending.add(entityId);
-      const lifecycleStage = record.status === "promoted" || record.lead_id ? "converted" : String(record.raw_data?.lifecycle_stage ?? (hasContactEnrichmentData(record.raw_data) ? "collected" : "discovered"));
+      const lifecycleStage = record.status === "promoted" || record.lead_id ? "converted" : String(record.raw_data?.lifecycle_stage ?? (hasContactEnrichmentData(record.raw_data) || record.email || record.phone ? "collected" : "discovered"));
       const channel = row.run?.channel ?? "";
       const platform = platformFor(channel, row.provider);
       const validCoordinates = typeof record.latitude === "number" && Number.isFinite(record.latitude) && record.latitude >= -90 && record.latitude <= 90 && typeof record.longitude === "number" && Number.isFinite(record.longitude) && record.longitude >= -180 && record.longitude <= 180;

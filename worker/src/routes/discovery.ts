@@ -340,6 +340,14 @@ export async function processRun(env: DiscoveryEnv, runId: string, ownerId: stri
   return {status,discovered,created,googleCount,osmCount};
 }
 
+function hasCollectedContactData(record:Record<string,unknown>,rawData:Record<string,unknown>):boolean {
+  const enrichment=rawData.contact_enrichment&&typeof rawData.contact_enrichment==="object"?rawData.contact_enrichment as Record<string,unknown>:{};
+  const intelligence=rawData.contact_intelligence&&typeof rawData.contact_intelligence==="object"?rawData.contact_intelligence as Record<string,unknown>:{};
+  const arrays=["emails","phones","addresses"].some(key=>Array.isArray(enrichment[key])&&(enrichment[key] as unknown[]).length>0);
+  const social=enrichment.social&&typeof enrichment.social==="object"?Object.values(enrichment.social as Record<string,unknown>).some(value=>Array.isArray(value)&&value.length>0):false;
+  const candidates=Array.isArray(intelligence.candidates)&&intelligence.candidates.length>0;
+  return Boolean(record.email||record.phone||arrays||social||candidates);
+}
 export async function handleDiscovery(request: Request, env: DiscoveryEnv): Promise<Response> {
   const url = new URL(request.url);
   const userId = await authenticate(request, env);
@@ -487,7 +495,8 @@ export async function handleDiscovery(request: Request, env: DiscoveryEnv): Prom
       (candidate as Record<string,unknown>).review_status="confirmed";
       (candidate as Record<string,unknown>).confirmed_at=confirmedAt;
     }
-    await db(env,"discovery_records?id=eq."+recordId+"&owner_id=eq."+userId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({lead_id:leadId,status:"promoted",raw_data:{...rawData,contact_intelligence:{...intel,candidates,review_status:"confirmed",confirmed_at:confirmedAt,crm_account_id:account.id}},updated_at:confirmedAt})});
+    await db(env,"discovery_records?id=eq."+recordId+"&owner_id=eq."+userId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({lead_id:leadId,status:"promoted",raw_data:{...rawData,lifecycle_stage:"converted",lifecycle_updated_at:confirmedAt,contact_intelligence:{...intel,candidates,review_status:"confirmed",confirmed_at:confirmedAt,crm_account_id:account.id}},updated_at:confirmedAt})});
+    await db(env,"business_transition_events",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({owner_id:userId,record_type:"prospect",record_id:recordId,event_type:"prospect_converted",from_status:String(rawData.lifecycle_stage??"collected"),to_status:"converted",actor_id:userId,note:"潜客已转化为 CRM 客户与联系人",gatekeeper_required:false,gatekeeper_status:"not_required",payload:{lead_id:leadId,account_id:account.id,created_contacts:createdCount,linked_contacts:linkedCount}})});
     return successResponse(request,{leadId,accountId:account.id,accountName:account.account_name,createdContacts:createdCount,linkedContacts:linkedCount,total:chosen.length});
   }
 
@@ -534,6 +543,9 @@ export async function handleDiscovery(request: Request, env: DiscoveryEnv): Prom
     if(body.action==="promote"){
       if(!["business","website","page"].includes(String(record.record_type??"business")))return errorResponse(request,"RECORD_NOT_PROMOTABLE","该对象不是企业主页或网站记录；请先关联企业主体，再转移到线索。",409);
       if(record.status==="promoted" && record.lead_id)return successResponse(request,{id:record.id,status:"promoted",leadId:record.lead_id});
+      const rawData=record.raw_data&&typeof record.raw_data==="object"?record.raw_data as Record<string,unknown>:{};
+      const lifecycleStage=String(rawData.lifecycle_stage??(hasCollectedContactData(record,rawData)?"collected":"discovered"));
+      if(lifecycleStage!=="collected")return errorResponse(request,"LIFECYCLE_STAGE_REQUIRED","请先审核潜客并完成联系人采集，再进行转化。",409);
       const existing=await db<Array<{id:string}>>(env,"leads?owner_id=eq."+userId+"&discovery_record_id=eq."+record.id+"&select=id");
       let leadId=existing?.[0]?.id;
       if(!leadId){
@@ -541,8 +553,10 @@ export async function handleDiscovery(request: Request, env: DiscoveryEnv): Prom
         leadId=created?.[0]?.id;
       }
       if(!leadId)throw new Error("LEAD_PROMOTION_FAILED");
-      await db(env,"discovery_records?id=eq."+record.id+"&owner_id=eq."+userId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({status:"promoted",lead_id:leadId,updated_at:new Date().toISOString()})});
-      return successResponse(request,{id:record.id,status:"promoted",leadId});
+      const convertedAt=new Date().toISOString();
+      await db(env,"discovery_records?id=eq."+record.id+"&owner_id=eq."+userId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({status:"promoted",lead_id:leadId,raw_data:{...rawData,lifecycle_stage:"converted",lifecycle_updated_at:convertedAt},updated_at:convertedAt})});
+      await db(env,"business_transition_events",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({owner_id:userId,record_type:"prospect",record_id:record.id,event_type:"prospect_converted",from_status:lifecycleStage,to_status:"converted",actor_id:userId,note:"潜客已转化为 CRM 线索",gatekeeper_required:false,gatekeeper_status:"not_required",payload:{lead_id:leadId}})});
+      return successResponse(request,{id:record.id,status:"promoted",lifecycleStage:"converted",leadId});
     }
     return errorResponse(request,"VALIDATION_ERROR","不支持的操作。",400);
   }
