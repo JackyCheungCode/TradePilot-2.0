@@ -158,6 +158,8 @@ export function CustomerCommunicationsPage() {
               value={query}
               onChange={(event: React.ChangeEvent<HTMLInputElement>) => setQuery(event.currentTarget.value)}
             />
+            <div className="cc-channel-filter-control">
+            {channelFilter !== 'all' && <ChannelLogo channel={channelFilter} size="md" />}
             <Dropdown
               id="cc-channel-filter"
               titleText="渠道"
@@ -170,6 +172,7 @@ export function CustomerCommunicationsPage() {
                 if (selectedItem) setChannelFilter(selectedItem.id as CommunicationChannel | 'all');
               }}
             />
+            </div>
           </div>
           <div className="cc-status-filter">
             <Dropdown
@@ -267,6 +270,8 @@ export function CustomerCommunicationsPage() {
 
           <footer className="cc-composer">
             <div className="cc-composer-channel">
+              <div className="cc-reply-channel-control">
+              <ChannelLogo channel={replyChannel} size="md" />
               <Dropdown
                 id="cc-reply-channel"
                 titleText="回复渠道"
@@ -279,6 +284,7 @@ export function CustomerCommunicationsPage() {
                   if (selectedItem) setReplyChannel(selectedItem.id);
                 }}
               />
+              </div>
             </div>
             <TextArea
               id="cc-reply-draft"
