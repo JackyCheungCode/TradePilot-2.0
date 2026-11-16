@@ -375,7 +375,7 @@ export function ProspectConsolePage() {
       <div className="tp-console__contact-provider-options">
         <Checkbox id="contact-provider-website" labelText="官网公开联系方式（不消耗 Apollo / ZoomInfo 联系人额度）" checked={contactProviderSelection.includes("website")} onChange={(_,data)=>setContactProviderSelection(previous=>data.checked?[...new Set([...previous,"website"])]:previous.filter(value=>value!=="website"))}/>
         <Checkbox id="contact-provider-apollo" labelText="Apollo.io（优先联系人发现；补全匹配联系人可能消耗 1–9 credits / 人）" checked={contactProviderSelection.includes("apollo")} onChange={(_,data)=>setContactProviderSelection(previous=>data.checked?[...new Set([...previous,"apollo"])]:previous.filter(value=>value!=="apollo"))}/>
-        <Checkbox id="contact-provider-zoominfo" labelText="ZoomInfo（联系人搜索免费；补全通常每位联系人消耗 1 credit）" checked={contactProviderSelection.includes("zoominfo")} onChange={(_,data)=>setContactProviderSelection(previous=>data.checked?[...new Set([...previous,"zoominfo"])]:previous.filter(value=>value!=="zoominfo"))}/>
+        <Checkbox id="contact-provider-zoominfo" labelText="ZoomInfo（联系人搜索免费；新联系人补全 1 credit，12 个月内已管理记录通常不重复扣）" checked={contactProviderSelection.includes("zoominfo")} onChange={(_,data)=>setContactProviderSelection(previous=>data.checked?[...new Set([...previous,"zoominfo"])]:previous.filter(value=>value!=="zoominfo"))}/>
       </div>
       <InlineNotification kind="info" title="Lusha 暂未启用" subtitle="需先取得 Lusha 对在 TradePilot 内嵌入和展示其 API 数据的书面授权。" />
     </Modal>
