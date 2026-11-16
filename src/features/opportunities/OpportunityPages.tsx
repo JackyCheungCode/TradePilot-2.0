@@ -108,7 +108,7 @@ export function OpportunityConsolePage() {
 }
 
 export function OpportunityFormPage() {
-  const nav=useNavigate(); const {id}=useParams(); const lifecycleEvents=useBusinessTransitionEvents('opportunity',id); const editing=Boolean(id);
+  const nav=useNavigate(); const {id}=useParams(); const editing=Boolean(id);
   const [accounts,setAccounts]=useState<AccountOption[]>([]); const [contacts,setContacts]=useState<ContactOption[]>([]); const [settings,setSettings]=useState<OpportunitySetting[]>([]);
   const [loading,setLoading]=useState(editing); const [saving,setSaving]=useState(false); const [error,setError]=useState('');
   const [data,setData]=useState<Record<string,string>>({name:'',account_id:'',primary_contact_id:'',description:'',opportunity_type:'new_business',stage:'prospecting',status:'open',probability:'10',priority:'normal',qualification_status:'pending',amount:'0',currency_code:'USD',actual_amount:'',expected_quantity:'',expected_margin:'',expected_margin_rate:'',source:'manual',campaign:'',sales_team:'',sales_person:'',expected_close_date:'',first_contact_date:'',next_activity_date:'',next_activity_at:'',next_activity_type:'',next_step:'',competitor:'',competitive_product:'',competitive_advantages:'',competitive_disadvantages:'',lost_reason:'',lost_notes:'',lead_source_detail:'',follow_up_summary:'',internal_notes:'',tags:'',products:'',win_reason:''});
@@ -151,7 +151,7 @@ export function OpportunityFormPage() {
 }
 
 export function OpportunityDetailPage() {
- const nav=useNavigate(); const {id}=useParams();
+ const nav=useNavigate(); const {id}=useParams(); const lifecycleEvents=useBusinessTransitionEvents('opportunity',id);
  const [row,setRow]=useState<Opportunity|null>(null); const [account,setAccount]=useState(''); const [contact,setContact]=useState('');
  const [history,setHistory]=useState<Array<{id:string;from_stage:string|null;to_stage:string;changed_at:string;note:string|null}>>([]);
  const [relations,setRelations]=useState<Array<{id:string;source_record_type:string;source_record_id:string;target_record_type:string;target_record_id:string;relation_type:string;created_at:string}>>([]);
