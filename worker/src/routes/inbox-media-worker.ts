@@ -70,7 +70,10 @@ function allowedProviderUrl(raw: string, hosts: string[]): URL {
 
 function safeFileName(value: unknown): string {
   const raw = typeof value === "string" ? value.normalize("NFKC") : "attachment";
-  const cleaned = raw.replace(/[\\/\\u0000-\\u001f\\u007f]/g, "_").replace(/^\\.+/, "").trim();
+  const cleaned = Array.from(raw).map(character => {
+    const code = character.charCodeAt(0);
+    return character === "/" || character === "\\" || code <= 31 || code === 127 ? "_" : character;
+  }).join("").replace(/^\.+/, "").trim();
   return (cleaned || "attachment").slice(0, 255);
 }
 
