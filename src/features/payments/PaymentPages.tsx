@@ -8,6 +8,7 @@ import {
 import { getSupabaseClient } from '@/lib/supabase';
 import '@carbon/charts/styles.css';
 import '@/design-system/patterns/payments.scss';
+import { useBusinessTransitionEvents } from '@/lib/useBusinessTransitionEvents';
 import '@/design-system/patterns/responsive-actions.scss';
 
 type AnyRow = Record<string, any>;
@@ -140,7 +141,7 @@ export function PaymentConsolePage() {
 }
 
 export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
-  const nav=useNavigate();const {id}=useParams();const editing=Boolean(id);const [accounts,setAccounts]=useState<AnyRow[]>([]);const [contacts,setContacts]=useState<AnyRow[]>([]);const [orders,setOrders]=useState<AnyRow[]>([]);const [banks,setBanks]=useState<AnyRow[]>([]);const [payments,setPayments]=useState<AnyRow[]>([]);const [baseCurrency,setBaseCurrency]=useState('USD');
+  const nav=useNavigate();const {id}=useParams();const lifecycleEvents=useBusinessTransitionEvents('payment',id);const editing=Boolean(id);const [accounts,setAccounts]=useState<AnyRow[]>([]);const [contacts,setContacts]=useState<AnyRow[]>([]);const [orders,setOrders]=useState<AnyRow[]>([]);const [banks,setBanks]=useState<AnyRow[]>([]);const [payments,setPayments]=useState<AnyRow[]>([]);const [baseCurrency,setBaseCurrency]=useState('USD');
   const [shippedRefundOrders,setShippedRefundOrders]=useState<string[]>([]);
   const [payment,setPayment]=useState<AnyRow>({payment_type:'receipt',status:'draft',payment_date:dateToday(),received_date:dateToday(),owner_name:'',account_id:'',contact_id:'',payer_name:'',is_third_party:false,currency:'USD',amount:'',bank_fee:'0',intermediary_fee:'0',net_received:'',fee_bearer:'SHA',payment_method:'T/T',bank_account_id:'',bank_reference:'',uetr:'',remittance_info:'',exchange_rate:'',rate_date:'',payer_relation:'',payer_country:'',payer_bank:'',payer_swift:'',tags:[],lc_no:'',lc_issuing_bank:'',lc_advising_bank:'',lc_amount:'',lc_type:'即期',usance_days:'',presentation_date:'',acceptance_date:'',maturity_date:'',discrepancy:'',discrepancy_status:'无',diff_amount:'0',diff_type:'无',diff_reason:'',diff_handling:'',diff_note:'',original_payment_id:'',refund_reason:'',refund_amount:'',refund_date:'',refund_bank_ref:'',refund_shipped_confirmed:false,bank_reconciled:false,statement_date:'',statement_ref:'',void_reason:'',remarks_internal:'',bank_slip:'',receipt_sent:false,tags_text:'',source:'manual'});
   const [allocations,setAllocations]=useState<AnyRow[]>([]);
@@ -311,7 +312,7 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
     {error&&<InlineNotification kind="error" title="收款操作未完成" subtitle={error}/>}
     {similarDuplicate&&<InlineNotification kind="warning" title="发现疑似重复收款" subtitle="同一客户在 3 天内存在相同币种和相同实际入账金额的收款记录，请核对银行流水号与水单。此提示不会阻止保存。"/>}
     {netMismatch&&<InlineNotification kind="warning" title="实际入账金额与费用计算不一致" subtitle={'汇款金额减银行手续费和中间行费用为 '+money(suggestedNet,payment.currency)+'，当前实际入账为 '+money(Number(payment.net_received),payment.currency)+'。请确认扣款差异。'}/>} 
-    {readOnly&&<BusinessLifecycle title={payment.payment_type==='refund'?'退款生命周期':'收款生命周期'} steps={[{value:'draft',label:'草稿'},{value:'pending_confirmation',label:'待确认'},{value:'confirmed',label:'已确认'},{value:'partially_reconciled',label:'部分核销'},{value:'reconciled',label:'已核销'}]} current={payment.status} terminal={['returned','voided'].includes(payment.status)} terminalKind="warning" terminalTitle={statusText} description="退款、退回与作废属于独立终止状态；收款核销状态不等同于订单应收状态。"/>}
+    {readOnly&&<BusinessLifecycle title={payment.payment_type==='refund'?'退款生命周期':'收款生命周期'} steps={[{value:'draft',label:'草稿'},{value:'pending_confirmation',label:'待确认'},{value:'confirmed',label:'已确认'},{value:'partially_reconciled',label:'部分核销'},{value:'reconciled',label:'已核销'}]} current={payment.status} terminal={['returned','voided'].includes(payment.status)} terminalKind="warning" terminalTitle={statusText} description="退款、退回与作废属于独立终止状态；收款核销状态不等同于订单应收状态。" events={lifecycleEvents}/>}
     <section className="tp-payments__basic">
       <div className="tp-payments__basic-head"><div><Tag type={payment.status==='reconciled'?'green':payment.status==='voided'?'red':'blue'}>{statusText}</Tag><span>{paymentNo}</span></div><Tag type="cool-gray">{payment.payment_type==='refund'?'退款':'收款'}</Tag></div>
       <div className="tp-payments__form-grid">
