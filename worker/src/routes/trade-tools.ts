@@ -1,5 +1,6 @@
 import { errorResponse, successResponse } from "../lib/http";
 import { readIntegrationSecrets } from "../lib/integrations";
+import { runConfiguredAI } from "./settings";
 
 interface TradeToolsEnv {
   SUPABASE_URL: string;
@@ -186,15 +187,84 @@ async function omniboxQuery(request: Request, apiKey: string): Promise<Response>
   } catch (error) { return errorResponse(request, "OMNIBOX_UNAVAILABLE", error instanceof Error ? error.message : "Omnibox 服务暂时不可用。", 502); }
 }
 
+
+function isPrivateIpv4(host: string): boolean {
+  const parts=host.split(".").map(Number);
+  if(parts.length!==4||parts.some(value=>!Number.isInteger(value)||value<0||value>255))return false;
+  const [a,b]=parts;
+  return a===0||a===10||a===127||a>=224||(a===169&&b===254)||(a===172&&b>=16&&b<=31)||(a===192&&b===168);
+}
+async function assertPublicWebsite(url: URL): Promise<void> {
+  if(!["http:","https:"].includes(url.protocol)||url.username||url.password)throw new Error("仅支持公开 HTTP/HTTPS 网站地址。");
+  const host=url.hostname.toLowerCase().replace(/^\\[|\\]$/g,"");
+  if(!host||host==="localhost"||host.endsWith(".localhost")||host.endsWith(".local")||host.endsWith(".internal")||host==="metadata.google.internal")throw new Error("不允许抓取本地或内部网络地址。");
+  if(isPrivateIpv4(host)||host==="::1"||host==="::"||host.startsWith("fc")||host.startsWith("fd")||host.startsWith("fe80:"))throw new Error("不允许抓取私有或保留 IP 地址。");
+  if(/^\\d{1,3}(?:\\.\\d{1,3}){3}$/.test(host))return;
+  const dns=await fetch("https://cloudflare-dns.com/dns-query?name="+encodeURIComponent(host)+"&type=A",{headers:{Accept:"application/dns-json"},signal:AbortSignal.timeout(5000)});
+  if(!dns.ok)throw new Error("无法验证网站 DNS 地址，请稍后重试。");
+  const answer=await dns.json() as {Answer?:Array<{type?:number;data?:string}>};
+  const ips=(answer.Answer||[]).filter(item=>item.type===1&&item.data).map(item=>item.data!);
+  if(!ips.length||ips.some(isPrivateIpv4))throw new Error("目标网站未解析到安全的公网 IPv4 地址，已阻止抓取。");
+}
+async function jinaRead(url: URL, apiKey: string): Promise<{url:string;content:string;links:string[]}> {
+  await assertPublicWebsite(url);
+  const response=await fetch("https://r.jina.ai/",{method:"POST",redirect:"manual",headers:{Authorization:"Bearer "+apiKey,Accept:"application/json","Content-Type":"application/json","X-With-Links-Summary":"true","X-Engine":"browser","X-Token-Budget":"10000","DNT":"1"},body:JSON.stringify({url:url.toString()}),signal:AbortSignal.timeout(45000)});
+  if(response.status>=300&&response.status<400)throw new Error("Jina Reader 返回重定向（HTTP "+response.status+"），为安全起见已停止抓取。");
+  if(!response.ok)throw new Error("Jina Reader 请求失败（HTTP "+response.status+"）。");
+  const payload=await response.json() as {data?:{content?:string;links?:unknown};content?:string};
+  const data=payload.data??payload;
+  const content=String(data.content??"").slice(0,50000);
+  const rawLinks=data.links;
+  const links=Array.isArray(rawLinks)?rawLinks.map(item=>typeof item==="string"?item:String((item as Record<string,unknown>)?.url??"")).filter(Boolean)
+    :rawLinks&&typeof rawLinks==="object"?Object.values(rawLinks as Record<string,unknown>).map(item=>typeof item==="string"?item:String((item as Record<string,unknown>)?.url??"")).filter(Boolean):[];
+  const markdownLinks=[...content.matchAll(/\\[[^\\]]{1,100}\\]\\((https?:\\/\\/[^)]+)\\)/g)].map(match=>match[1]);
+  return {url:url.toString(),content,links:[...new Set([...links,...markdownLinks])].slice(0,100)};
+}
+function extractPublicContacts(text: string) {
+  const emails=[...new Set((text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}/gi)||[]).map(value=>value.toLowerCase()).filter(value=>!(/\\.(png|jpe?g|webp|svg|gif|css|js)$/i.test(value))))].slice(0,100);
+  const phones=[...new Set((text.match(/\\+?\\d[\\d\\s().-]{6,}\\d/g)||[]).map(value=>value.replace(/\\s+/g," ").trim()).filter(value=>value.replace(/\\D/g,"").length>=7&&value.replace(/\\D/g,"").length<=15))].slice(0,100);
+  const social=[...new Set(text.match(/https?:\\/\\/(?:www\\.)?(?:linkedin\\.com|facebook\\.com|instagram\\.com|youtube\\.com|x\\.com|twitter\\.com|tiktok\\.com)\\/[^\\s)\\]]+/gi)||[])].slice(0,100);
+  const whatsapp=[...new Set(text.match(/https?:\\/\\/(?:wa\\.me|api\\.whatsapp\\.com)\\/[^\\s)\\]]+/gi)||[])].slice(0,50);
+  return {emails,phones,social,whatsapp};
+}
+async function websiteIntelligence(request: Request, env: TradeToolsEnv, apiKey: string): Promise<Response> {
+  let body:{url?:string;mode?:string;maxPages?:number};
+  try{body=await request.json() as typeof body;}catch{return errorResponse(request,"INVALID_JSON","请求内容格式不正确。",400);}
+  let root:URL;
+  try{root=new URL(String(body.url||""));}catch{return errorResponse(request,"INVALID_WEBSITE_URL","请输入完整的网站 URL，例如 https://example.com。",400);}
+  if(root.protocol!=="https:"&&root.protocol!=="http:")return errorResponse(request,"INVALID_WEBSITE_URL","仅支持 HTTP 或 HTTPS 网站。",400);
+  const mode=["scrape","contacts","diligence","all"].includes(String(body.mode))?String(body.mode):"all";
+  const maxPages=Math.max(1,Math.min(5,Math.floor(Number(body.maxPages)||4)));
+  try{
+    const homepage=await jinaRead(root,apiKey);
+    const relevant=homepage.links.map(value=>{try{return new URL(value,root);}catch{return null;}})
+      .filter((value):value is URL=>Boolean(value)&&value!.hostname.toLowerCase()===root.hostname.toLowerCase())
+      .filter(value=>/(about|contact|company|team|imprint|legal|privacy|service|product|support)/i.test(value.pathname))
+      .filter((value,index,array)=>array.findIndex(item=>item.toString()===value.toString())===index).slice(0,maxPages-1);
+    const subpages=await Promise.all(relevant.map(url=>jinaRead(url,apiKey).catch(error=>({url:url.toString(),content:"",links:[],error:error instanceof Error?error.message:"抓取失败"}))));
+    const pages=[homepage,...subpages].filter(page=>page.content);
+    const combined=pages.map(page=>"SOURCE: "+page.url+"\\n"+page.content).join("\\n\\n").slice(0,120000);
+    const contacts=extractPublicContacts(combined);
+    let aiReport:unknown=null;
+    if(mode==="contacts"||mode==="diligence"||mode==="all"){
+      const task=mode==="contacts"?"请仅提取网站公开联系方式。":"请对该企业进行公开信息背景调查。";
+      const prompt=task+"\\n仅使用下方网页内容作为证据，不得猜测或补齐缺失事实。输出 JSON，字段包括 company_overview、products_services、industry、markets、business_model、public_contacts（emails, phones, whatsapp, social_accounts, addresses）、trust_signals、risk_signals、evidence（每项包含 claim、source_url、quote）、inferences、unknowns。明确区分网页事实与推断。无证据的字段用空数组或 null。\\n\\n网页内容：\\n"+combined.slice(0,36000);
+      const answer=await runConfiguredAI("website_due_diligence",prompt,env);
+      try{const clean=answer.replace(/^\\s*\\x60{3}(?:json)?/i,"").replace(/\\x60{3}\\s*$/,"").trim();aiReport=JSON.parse(clean);}catch{aiReport={raw:answer};}
+    }
+    return successResponse(request,{url:root.toString(),mode,pages:pages.map(page=>({url:page.url,characters:page.content.length})),contacts,aiReport,scrapedContent:mode==="scrape"||mode==="all"?combined.slice(0,50000):undefined,extractedAt:new Date().toISOString()});
+  }catch(error){return errorResponse(request,"WEBSITE_INTELLIGENCE_FAILED",error instanceof Error?error.message:"网站情报分析失败。",502);}
+}
+
 export async function handleTradeTools(request: Request, env: TradeToolsEnv): Promise<Response> {
   const pathname = new URL(request.url).pathname;
-  const allowed = ["/api/v1/trade-tools/track", "/api/v1/trade-tools/geocode", "/api/v1/trade-tools/omnibox"];
+  const allowed = ["/api/v1/trade-tools/track", "/api/v1/trade-tools/geocode", "/api/v1/trade-tools/omnibox", "/api/v1/trade-tools/website-intelligence"];
   if (request.method !== "POST" || !allowed.includes(pathname)) return errorResponse(request, "NOT_FOUND", "外贸工具接口不存在。", 404);
   if (!(await authenticated(request, env))) return errorResponse(request, "UNAUTHORIZED", "请先登录后使用外贸工具。", 401);
-  const secretNames = ["tradepilot_api_google_maps", "tradepilot_api_dhl", "tradepilot_api_ups_client_id", "tradepilot_api_ups_client_secret", "tradepilot_api_fedex_client_id", "tradepilot_api_fedex_client_secret", ...(pathname === "/api/v1/trade-tools/omnibox" ? ["tradepilot_api_omnibox"] : [])];
+  const secretNames = ["tradepilot_api_google_maps", "tradepilot_api_dhl", "tradepilot_api_ups_client_id", "tradepilot_api_ups_client_secret", "tradepilot_api_fedex_client_id", "tradepilot_api_fedex_client_secret", ...(pathname === "/api/v1/trade-tools/omnibox" ? ["tradepilot_api_omnibox"] : []), ...(pathname === "/api/v1/trade-tools/website-intelligence" ? ["tradepilot_api_jina_reader"] : [])];
   const secrets = await readIntegrationSecrets(env, secretNames);
-  const configuredEnv: TradeToolsEnv = { ...env, GOOGLE_MAPS_API_KEY: secrets.tradepilot_api_google_maps || env.GOOGLE_MAPS_API_KEY, DHL_API_KEY: secrets.tradepilot_api_dhl || env.DHL_API_KEY, UPS_CLIENT_ID: secrets.tradepilot_api_ups_client_id || env.UPS_CLIENT_ID, UPS_CLIENT_SECRET: secrets.tradepilot_api_ups_client_secret || env.UPS_CLIENT_SECRET, FEDEX_CLIENT_ID: secrets.tradepilot_api_fedex_client_id || env.FEDEX_CLIENT_ID, FEDEX_CLIENT_SECRET: secrets.tradepilot_api_fedex_client_secret || env.FEDEX_CLIENT_SECRET, OMNIBOX_API_KEY: secrets.tradepilot_api_omnibox || env.OMNIBOX_API_KEY };
-  if (pathname === "/api/v1/trade-tools/omnibox") {
+  const configuredEnv: TradeToolsEnv = { ...env, GOOGLE_MAPS_API_KEY: secrets.tradepilot_api_google_maps || env.GOOGLE_MAPS_API_KEY, DHL_API_KEY: secrets.tradepilot_api_dhl || env.DHL_API_KEY, UPS_CLIENT_ID: secrets.tradepilot_api_ups_client_id || env.UPS_CLIENT_ID, UPS_CLIENT_SECRET: secrets.tradepilot_api_ups_client_secret || env.UPS_CLIENT_SECRET, FEDEX_CLIENT_ID: secrets.tradepilot_api_fedex_client_id || env.FEDEX_CLIENT_ID, FEDEX_CLIENT_SECRET: secrets.tradepilot_api_fedex_client_secret || env.FEDEX_CLIENT_SECRET, OMNIBOX_API_KEY: secrets.tradepilot_api_omnibox || env.OMNIBOX_API_KEY, JINA_READER_API_KEY: secrets.tradepilot_api_jina_reader, AI: env.AI };
+  if (pathname === "/api/v1/trade-tools/website-intelligence") {\n    if (!configuredEnv.JINA_READER_API_KEY) return errorResponse(request, "JINA_NOT_CONFIGURED", "请先在「设置中心 → API 集成」配置 Jina Reader API Key。", 503);\n    return websiteIntelligence(request, configuredEnv, configuredEnv.JINA_READER_API_KEY);\n  }\n  if (pathname === "/api/v1/trade-tools/omnibox") {
     if (!configuredEnv.OMNIBOX_API_KEY) return errorResponse(request, "OMNIBOX_NOT_CONFIGURED", "请先在「设置中心 → API 集成」配置 Omnibox API Key。", 503);
     return omniboxQuery(request, configuredEnv.OMNIBOX_API_KEY);
   }
