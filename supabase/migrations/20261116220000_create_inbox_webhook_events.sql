@@ -42,7 +42,7 @@ create or replace function public.inbox_process_webhook_event(
 )
 returns jsonb
 language plpgsql
-security definer
+security invoker
 set search_path = ''
 as $$
 declare
