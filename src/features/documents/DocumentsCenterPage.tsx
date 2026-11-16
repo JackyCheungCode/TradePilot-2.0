@@ -141,7 +141,7 @@ export function DocumentsCenterPage() {
   return <main className="tp-documents">
     <header className="tp-documents__header">
       <div><p className="tp-documents__eyebrow">TRADE OPERATIONS / DOCUMENTS</p><h1>单据中心</h1><p>从报价、销售订单和实际发运数据生成外贸单据，避免重复录入。</p></div>
-      <div className="tp-documents__actions"><Button kind="secondary" onClick={() => navigate('/documents/generated')}>已生成单据</Button><Button kind="primary" onClick={() => { setCreated(null); setStep(1); setError(''); setNotice(''); }}>新建单据</Button></div>
+      <div className="tp-documents__actions"><Button kind="primary" onClick={() => { setCreated(null); setStep(1); setError(''); setNotice(''); }}>新建单据</Button><Button kind="secondary" onClick={() => navigate('/documents/generated')}>已生成单据</Button></div>
     </header>
 
     {error && <InlineNotification kind="error" lowContrast title="操作未完成" subtitle={error} onCloseButtonClick={() => setError('')} />}
@@ -149,7 +149,7 @@ export function DocumentsCenterPage() {
 
     {created && <section className="tp-documents__created" aria-live="polite">
       <div><Tag type="green">草稿已创建</Tag><h2>{created.document_number}</h2><p>{typeLabel(created.document_type)} · {created.title}</p></div>
-      <div className="tp-documents__actions"><Button kind="secondary" onClick={() => setCreated(null)}>返回列表</Button><Button kind="primary" onClick={() => navigate(`/documents/${created.id}`)}>打开单据预览</Button></div>
+      <div className="tp-documents__actions"><Button kind="secondary" onClick={() => navigate('/documents/generated')}>查看已生成单据</Button><Button kind="primary" onClick={() => navigate(`/documents/${created.id}`)}>打开单据预览</Button></div>
     </section>}
 
     {step > 0 && <section className="tp-documents__wizard" aria-label="单据创建流程">
