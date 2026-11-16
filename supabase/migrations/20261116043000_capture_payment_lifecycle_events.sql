@@ -47,3 +47,28 @@ after update of status on public.trade_payments
 for each row
 when (old.status is distinct from new.status)
 execute function public.capture_trade_payment_lifecycle_event();
+
+create or replace function public.capture_trade_payment_created_event()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.business_transition_events(
+    owner_id,record_type,record_id,event_type,from_status,to_status,
+    gatekeeper_required,gatekeeper_status,actor_id,note,payload
+  ) values (
+    new.owner_id,'payment',new.id,'payment_created',null,new.status,
+    false,'not_required',coalesce(auth.uid(),new.created_by,new.owner_id),
+    '收款记录已创建',
+    jsonb_build_object('payment_type',new.payment_type,'payment_no',new.payment_no,'atomic',true)
+  );
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_trade_payment_created_lifecycle_event on public.trade_payments;
+create trigger trg_trade_payment_created_lifecycle_event
+after insert on public.trade_payments
+for each row execute function public.capture_trade_payment_created_event();
