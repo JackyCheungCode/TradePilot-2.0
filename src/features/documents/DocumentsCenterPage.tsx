@@ -73,6 +73,7 @@ export function DocumentsCenterPage() {
     const shipmentOnly = ['vgm_declaration', 'packing_declaration'].includes(documentType);
     return { enabled: true, allowedSources: purchase ? ['blank', 'purchase_order'] : shipmentOnly ? ['sales_order', 'shipment'] : shipping ? ['blank', 'sales_order', 'shipment'] : ['blank', 'sales_order'], allowBlankCreation: !shipmentOnly, requireShipmentWhenOrderLinked: shipping, ...configured };
   }, [documentPolicies, documentType]);
+  const requiresShipmentSelection = (selectedPolicy.allowedSources ?? []).includes('shipment') || selectedPolicy.requireShipmentWhenOrderLinked === true;
   const activeDocumentGroups = useMemo(() => documentGroups.map(group => ({ ...group, items: group.items.filter(item => documentPolicies[item.id]?.enabled !== false) })).filter(group => group.items.length > 0), [documentPolicies]);
   const orderSourceKey = category === 'purchase' ? 'purchase_order' : 'sales_order';
   const canUseOrderSource = (selectedPolicy.allowedSources ?? []).includes(orderSourceKey) || (selectedPolicy.allowedSources ?? []).includes('shipment');
@@ -134,7 +135,7 @@ export function DocumentsCenterPage() {
   }, [activeTemplates, templateId]);
 
   useEffect(() => {
-    if (sourceMode !== 'order' || !selectedType?.shipment || !orderId) { setShipments([]); return; }
+    if (sourceMode !== 'order' || !requiresShipmentSelection || !orderId) { setShipments([]); return; }
     let alive = true;
     void (async () => {
       try {
@@ -147,7 +148,7 @@ export function DocumentsCenterPage() {
       } catch (cause) { if (alive) setError(cause instanceof Error ? cause.message : '发运批次读取失败。'); }
     })();
     return () => { alive = false; };
-  }, [orderId, selectedType?.shipment, sourceMode]);
+  }, [orderId, requiresShipmentSelection, sourceMode]);
 
   const chooseCategory = (value: string) => {
     setShipmentId('');
@@ -159,7 +160,7 @@ export function DocumentsCenterPage() {
 
   const createDocument = async () => {
     if ((sourceMode === 'order' && (!orderId || !canUseOrderSource)) || (sourceMode === 'blank' && !canUseBlankSource) || !selectedType || selectedPolicy.enabled === false) return;
-    if (sourceMode === 'order' && selectedType.shipment && selectedPolicy.requireShipmentWhenOrderLinked !== false && !shipmentId) { setError('该单据配置要求订单来源必须关联本次实际发运批次。'); return; }
+    if (sourceMode === 'order' && selectedPolicy.requireShipmentWhenOrderLinked === true && !shipmentId) { setError('该单据配置要求订单来源必须关联本次实际发运批次。'); return; }
     setSaving(true); setError(''); setNotice('');
     try {
       const content = sourceMode === 'blank' ? { ...blankFields, items: [], charges: [], payment_schedule: [], bank_accounts: [] } : undefined;
@@ -201,7 +202,7 @@ export function DocumentsCenterPage() {
       {step === 1 && <div className="tp-documents__step-content"><h2>选择单据分类</h2><p>先确定业务场景，系统会据此筛选可用单据。</p><div className="tp-documents__category-grid">
         {activeDocumentGroups.map(group => <Tile key={group.id} className="tp-documents__category"><h3>{group.title}</h3><p>{group.description}</p><Button kind="tertiary" onClick={() => chooseCategory(group.id)}>选择分类</Button></Tile>)}
       </div></div>}
-      {step === 2 && <div className="tp-documents__step-content"><h2>选择具体单据</h2><p>不同单据会读取不同的业务数据。</p><div className="tp-documents__form-grid"><div><Select id="tp-doc-type" labelText="单据类型" value={documentType} onChange={e => { const nextType = e.currentTarget.value; setDocumentType(nextType); if (!documentGroups.flatMap(group => group.items).find(item => item.id === nextType)?.shipment) setShipmentId(''); }}>{activeDocumentGroups.find(g => g.id === category)?.items.map(item => <SelectItem key={item.id} value={item.id} text={item.label} />)}</Select></div><div className="tp-documents__type-description"><strong>{selectedType?.label}</strong><span>{selectedType?.detail}</span><small>{selectedType?.shipment ? (selectedPolicy.requireShipmentWhenOrderLinked !== false ? '订单来源必须选择具体发运批次' : '可选关联本次实际发运批次') : '从关联订单读取业务数据'}</small></div></div><div className="tp-documents__wizard-actions"><Button kind="tertiary" onClick={() => setStep(1)}>上一步</Button><Button kind="primary" onClick={() => setStep(3)}>下一步</Button></div></div>}
+      {step === 2 && <div className="tp-documents__step-content"><h2>选择具体单据</h2><p>不同单据会读取不同的业务数据。</p><div className="tp-documents__form-grid"><div><Select id="tp-doc-type" labelText="单据类型" value={documentType} onChange={e => { const nextType = e.currentTarget.value; setDocumentType(nextType); setShipmentId(''); }}>{activeDocumentGroups.find(g => g.id === category)?.items.map(item => <SelectItem key={item.id} value={item.id} text={item.label} />)}</Select></div><div className="tp-documents__type-description"><strong>{selectedType?.label}</strong><span>{selectedType?.detail}</span><small>{selectedType?.shipment ? (selectedPolicy.requireShipmentWhenOrderLinked !== false ? '订单来源必须选择具体发运批次' : '可选关联本次实际发运批次') : '从关联订单读取业务数据'}</small></div></div><div className="tp-documents__wizard-actions"><Button kind="tertiary" onClick={() => setStep(1)}>上一步</Button><Button kind="primary" onClick={() => setStep(3)}>下一步</Button></div></div>}
       {step === 3 && <div className="tp-documents__step-content"><h2>选择业务来源</h2><p>可从销售订单、采购订单导入，也可以不依赖已有业务记录，从空白开始。</p>
         <div className="tp-documents__form-grid"><div><Select id="tp-doc-source-mode" labelText="创建方式" value={sourceMode} onChange={e => { setSourceMode(e.currentTarget.value as 'order' | 'blank'); setOrderId(''); setShipmentId(''); }}>{canUseOrderSource && <SelectItem value="order" text="从系统订单导入" />}{canUseBlankSource && <SelectItem value="blank" text="从空白开始创建" />}</Select></div>{sourceMode === 'order' && canUseOrderSource && <div><Select id="tp-doc-order" labelText="销售 / 采购订单" value={orderId} onChange={e => { setOrderId(e.currentTarget.value); setShipmentId(''); setCurrency(orders.find(o => o.id === e.currentTarget.value)?.currency_code || 'USD'); }}><SelectItem value="" text="请选择销售或采购订单" />{orders.filter(o => category === 'purchase' ? o.order_type === 'purchase' : category === 'sales' || category === 'shipping' ? o.order_type === 'sales' : true).map(o => <SelectItem key={o.id} value={o.id} text={(o.order_number || o.title || o.id) + ' · ' + (o.order_type === 'purchase' ? '采购' : '销售') + ' · ' + (o.crm_account?.account_name || '未关联往来方') + ' · ' + o.status} />)}</Select></div>}
         {sourceMode === 'order' && selectedType?.shipment && <div><Select id="tp-doc-shipment" labelText="本次发运批次" value={shipmentId} onChange={e => setShipmentId(e.currentTarget.value)} disabled={!orderId}><SelectItem value="" text={orderId ? '请选择发运批次' : '请先选择销售订单'} />{shipments.map(s => <SelectItem key={s.id} value={s.id} text={s.shipment_no + ' · ' + s.status + ' · ' + dateLabel(s.actual_ship_date || s.planned_ship_date)} />)}</Select></div>}</div>
