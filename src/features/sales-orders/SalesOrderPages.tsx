@@ -10,6 +10,7 @@ import { ScaleTypes } from '@carbon/charts';
 import '@carbon/charts/styles.css';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/sales-orders.scss';
+import '@/design-system/patterns/responsive-actions.scss';
 
 type Account = { id:string; account_name:string; currency_code?:string; billing_address?:Record<string,unknown>; shipping_address?:Record<string,unknown> };
 type Contact = { id:string; account_id:string; full_name:string|null; first_name:string; last_name:string|null; email?:string|null };
@@ -125,7 +126,7 @@ export function SalesOrderFormPage(){
  const ev=await db.from('trade_document_events').insert({owner_id:user.id,order_id:savedId,event_type:orderId?'sales_order_draft_updated':'sales_order_created',payload:{order_number:orderNo||'existing',source_quote_id:quoteId,grand_total:totals.grand_total}});if(ev.error)throw ev.error;nav('/sales-orders/'+savedId,{replace:true});
  }catch(e){setError(e instanceof Error?e.message:'保存销售订单失败')}finally{setSaving(false)}};
  if(loading)return <main className="tp-sales-orders"><InlineLoading description="正在准备销售订单…"/></main>;
- return <main className="tp-sales-orders"><header className="tp-sales-orders__header"><div><p className="tp-sales-orders__eyebrow">TRADEPILOT / SALES / ORDER</p><h1>{orderId?'编辑销售订单':'创建销售订单'}</h1><p>{sourceQuote?'从已接受报价单继承产品、客户与商业条款。':'可独立创建订单，也可从已接受报价单转换。'}</p></div><div className="tp-sales-orders__actions"><Button kind="tertiary" onClick={()=>nav('/sales-orders')}>返回列表</Button><Button kind="primary" disabled={saving} onClick={()=>void save()}>{saving?'保存中…':'保存草稿'}</Button></div></header>
+ return <main className="tp-sales-orders"><header className="tp-sales-orders__header"><div><p className="tp-sales-orders__eyebrow">TRADEPILOT / SALES / ORDER</p><h1>{orderId?'编辑销售订单':'创建销售订单'}</h1><p>{sourceQuote?'从已接受报价单继承产品、客户与商业条款。':'可独立创建订单，也可从已接受报价单转换。'}</p></div><div className="tp-responsive-header-actions">{s==='draft'&&<Button className="tp-responsive-header-actions__primary" kind="primary" onClick={()=>void transition('confirmed')}>确认订单并锁定价格</Button>}<div className="tp-responsive-header-actions__secondary"><Button kind="tertiary" onClick={()=>nav('/sales-orders')}>返回列表</Button>{order.locked_at&&<Button kind="secondary" onClick={()=>nav('/documents?order_id='+order.id+'&category=sales&document_type=proforma_invoice')}>生成单据</Button>}{s==='draft'&&<Button kind="tertiary" onClick={()=>nav('/sales-orders/'+order.id+'/edit')}>编辑草稿</Button>}</div></div></header>
  {error&&<InlineNotification kind="error" title="销售订单操作失败" subtitle={error}/>}
  <section className="tp-sales-orders__form-shell">
   <div className="tp-sales-orders__form-top"><div><Tag type="cool-gray">{orderId?'草稿编辑':'新订单 · 草稿'}</Tag>{sourceQuote&&<Tag type="green">来源报价：{sourceQuote.document_number}</Tag>}</div><div className="tp-sales-orders__amount-strip"><div><span>订单总额</span><strong>{money(totals.grand_total,data.currency_code)}</strong></div><div><span>已收金额</span><strong>{money(paid,data.currency_code)}</strong></div><div><span>未收金额</span><strong>{money(outstanding,data.currency_code)}</strong></div></div></div>
