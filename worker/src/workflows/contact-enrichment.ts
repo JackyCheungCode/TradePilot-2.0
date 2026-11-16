@@ -60,6 +60,7 @@ type ContactCandidate = {
  email?: string;
  phone?: string;
  linkedin_url?: string;
+ do_not_contact?: boolean;
  confidence?: number;
  field_provenance: Record<string,{provider:string;sources?:string[];captured_at:string;verification_status:string}>;
  source_providers: string[];
@@ -78,12 +79,13 @@ function candidateFrom(provider:ContactProvider,raw:Record<string,unknown>,id?:s
  const phoneValue=raw.phone_number??raw.phone??raw.mobile_phone??raw.mobilePhone;
  const phone=typeof phoneValue==="string"?phoneValue:phoneValue&&typeof phoneValue==="object"?String((phoneValue as Record<string,unknown>).sanitized_number??(phoneValue as Record<string,unknown>).number??""):"";
  const linkedin=String(raw.linkedin_url??raw.linkedinUrl??raw.linkedin??"").trim();
+ const doNotContact=raw.directPhoneDoNotCall===true||raw.mobilePhoneDoNotCall===true||raw.do_not_call===true;
  const capturedAt=new Date().toISOString();
- const fields:Record<string,unknown>={first_name:first,last_name:last,full_name:name,job_title:String(raw.title??raw.job_title??raw.jobTitle??""),department:String(raw.department??raw.job_function??""),email,phone,linkedin_url:linkedin};
+ const fields:Record<string,unknown>={first_name:first,last_name:last,full_name:name,job_title:String(raw.title??raw.job_title??raw.jobTitle??""),department:String(raw.department??raw.job_function??""),email,phone,linkedin_url:linkedin,do_not_contact:doNotContact?true:undefined};
  const provenance:ContactCandidate["field_provenance"]={};
  for(const [key,value] of Object.entries(fields))if(value)provenance[key]={provider,captured_at:capturedAt,verification_status:"provider_returned"};
  const providerId=id??String(raw.id??raw.person_id??"");
- return {provider,provider_person_id:providerId||undefined,first_name:first||undefined,last_name:last||undefined,full_name:name,job_title:String(raw.title??raw.job_title??raw.jobTitle??"")||undefined,department:String(raw.department??raw.job_function??"")||undefined,email:email||undefined,phone:phone||undefined,linkedin_url:linkedin||undefined,confidence:typeof raw.contactAccuracyScore==="number"?raw.contactAccuracyScore:undefined,field_provenance:provenance,source_providers:[provider],review_status:"pending_review"};
+ return {provider,provider_person_id:providerId||undefined,first_name:first||undefined,last_name:last||undefined,full_name:name,job_title:String(raw.title??raw.job_title??raw.jobTitle??"")||undefined,department:String(raw.department??raw.job_function??"")||undefined,email:email||undefined,phone:phone||undefined,linkedin_url:linkedin||undefined,do_not_contact:doNotContact||undefined,confidence:typeof raw.contactAccuracyScore==="number"?raw.contactAccuracyScore:undefined,field_provenance:provenance,source_providers:[provider],review_status:"pending_review"};
 }
 async function apolloContacts(env:Env,domain:string):Promise<ContactCandidate[]> {
  const key=await readIntegrationSecret(env,"tradepilot_api_apollo","APOLLO_API_KEY");
@@ -115,7 +117,7 @@ async function zoomInfoContacts(env:Env,companyName:string):Promise<ContactCandi
  const searchBody=await search.json() as {data?:Array<{id?:string;attributes?:Record<string,unknown>}>};
  const ids=(searchBody.data??[]).slice(0,5).map(item=>item.id).filter((id):id is string=>Boolean(id));
  if(!ids.length)return [];
- const enrich=await fetch("https://api.zoominfo.com/gtm/data/v1/contacts/enrich",{method:"POST",headers,body:JSON.stringify({data:ids.map(personId=>({type:"ContactEnrich",attributes:{personId}})),outputFields:["firstName","lastName","jobTitle","managementLevel","email","phone","mobilePhone","companyName","contactAccuracyScore","linkedinUrl"]})});
+ const enrich=await fetch("https://api.zoominfo.com/gtm/data/v1/contacts/enrich",{method:"POST",headers,body:JSON.stringify({data:ids.map(personId=>({type:"ContactEnrich",attributes:{personId}})),outputFields:["firstName","lastName","jobTitle","managementLevel","email","phone","mobilePhone","companyName","contactAccuracyScore","linkedinUrl","directPhoneDoNotCall","mobilePhoneDoNotCall"]})});
  if(!enrich.ok)throw new Error("ZoomInfo 联系人补全失败（HTTP "+enrich.status+"）");
  const enrichBody=await enrich.json() as {data?:Array<{id?:string;attributes?:Record<string,unknown>}>};
  return (enrichBody.data??[]).map(item=>candidateFrom("zoominfo",item.attributes??{},item.id)).filter((item):item is ContactCandidate=>Boolean(item));
