@@ -74,9 +74,9 @@ export function DocumentsCenterPage() {
     return { enabled: true, allowedSources: purchase ? ['blank', 'purchase_order'] : shipmentOnly ? ['sales_order', 'shipment'] : shipping ? ['blank', 'sales_order', 'shipment'] : ['blank', 'sales_order'], allowBlankCreation: !shipmentOnly, requireShipmentWhenOrderLinked: shipping, ...configured };
   }, [documentPolicies, documentType]);
   const requiresShipmentSelection = (selectedPolicy.allowedSources ?? []).includes('shipment') || selectedPolicy.requireShipmentWhenOrderLinked === true;
-  const mustSelectShipment = selectedPolicy.requireShipmentWhenOrderLinked === true || ((selectedPolicy.allowedSources ?? []).includes('shipment') && !(selectedPolicy.allowedSources ?? []).includes(orderSourceKey));
   const activeDocumentGroups = useMemo(() => documentGroups.map(group => ({ ...group, items: group.items.filter(item => documentPolicies[item.id]?.enabled !== false) })).filter(group => group.items.length > 0), [documentPolicies]);
   const orderSourceKey = category === 'purchase' ? 'purchase_order' : 'sales_order';
+  const mustSelectShipment = selectedPolicy.requireShipmentWhenOrderLinked === true || ((selectedPolicy.allowedSources ?? []).includes('shipment') && !(selectedPolicy.allowedSources ?? []).includes(orderSourceKey));
   const canUseOrderSource = (selectedPolicy.allowedSources ?? []).includes(orderSourceKey) || (selectedPolicy.allowedSources ?? []).includes('shipment');
   const canUseBlankSource = selectedPolicy.allowBlankCreation !== false && (selectedPolicy.allowedSources ?? []).includes('blank');
   const selectedOrder = useMemo(() => orders.find(x => x.id === orderId), [orders, orderId]);
