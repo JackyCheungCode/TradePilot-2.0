@@ -33,7 +33,8 @@ export function InboxPage() {
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [error, setError] = useState('');
   const [composerMode, setComposerMode] = useState<'reply' | 'note'>('reply');
-  const [savingNote, setSavingNote] = useState(false);\n  const [sendingMessage, setSendingMessage] = useState(false);
+  const [savingNote, setSavingNote] = useState(false);
+  const [sendingMessage, setSendingMessage] = useState(false);
   const [translatingMessageId, setTranslatingMessageId] = useState('');
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [businessMetrics, setBusinessMetrics] = useState<InboxBusinessMetrics | null>(null);
