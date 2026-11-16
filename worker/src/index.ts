@@ -15,6 +15,7 @@ import { handleTradeTools } from "./routes/trade-tools";
 import { handleTradeDocuments } from "./routes/trade-documents";
 import { handleMasterData } from "./routes/master-data";
 import { handleProspectConsole } from "./routes/prospect-console";
+import { handleContactValidation } from "./routes/contact-validation";
 import { AgentOrchestrationWorkflow } from "./workflows/agent-orchestration";
 
 export interface WorkerEnv {
@@ -59,6 +60,7 @@ export default {
    if (url.pathname.startsWith("/api/v1/trade/")) return await handleTradeDocuments(request, env);
    if (url.pathname.startsWith("/api/v1/master-data/")) return await handleMasterData(request, env);
    if (url.pathname === "/api/v1/prospect-console" && request.method === "GET") return await handleProspectConsole(request, env);
+   if (url.pathname === "/api/v1/contact-validation") return await handleContactValidation(request, env);
    if (url.pathname === "/api/v1/settings/search-exclusions") return await handleSearchExclusions(request, env);
    if (url.pathname.startsWith("/api/v1/settings/")) return await handleSettings(request, env);
    if (url.pathname.startsWith("/api/v1/discovery/translate") || url.pathname === "/api/v1/trade-tools/translate") return await handleTranslation(request, env);
