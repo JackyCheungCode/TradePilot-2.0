@@ -33,6 +33,7 @@ const secretNames = [
   "tradepilot_channel_messenger_verify_token",
   "tradepilot_channel_line_secret",
   "tradepilot_channel_telegram_webhook_secret",
+  "tradepilot_channel_telegram_bot_token",
 ];
 
 async function db<T>(env: WebhookEnv, path: string, init: RequestInit = {}): Promise<T> {
@@ -253,6 +254,17 @@ async function handleVerification(request: Request, channel: Channel, secrets: R
   return new Response(challenge, { status: 200, headers: { "Content-Type": "text/plain; charset=utf-8" } });
 }
 
+async function verifyTelegramBot(connection: Connection, secrets: Record<string, string>): Promise<boolean> {
+  const token = secrets.tradepilot_channel_telegram_bot_token;
+  if (!token || !connection.external_account_id) return false;
+  const response = await fetch("https://api.telegram.org/bot" + token + "/getMe", {
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!response.ok) return false;
+  const payload = await response.json().catch(() => ({})) as { ok?: boolean; result?: { id?: number } };
+  return payload.ok === true && String(payload.result?.id ?? "") === connection.external_account_id;
+}
+
 async function verifySignature(channel: Channel, request: Request, raw: Uint8Array, secrets: Record<string, string>): Promise<boolean> {
   if (channel === "whatsapp" || channel === "messenger") {
     const secret = channel === "whatsapp" ? secrets.tradepilot_channel_whatsapp_app_secret :
@@ -324,74 +336,16 @@ async function processEvent(env: WebhookEnv, connection: Connection, event: Norm
       return;
     }
 
-    const contacts = await db<Row[]>(env,
-      "crm_contacts?select=id,account_id&id=eq." + String(identity.contact_id) +
-      "&owner_id=eq." + connection.owner_id + "&limit=1");
-    const contact = contacts[0];
-    if (!contact) throw new Error("CRM_CONTACT_NOT_FOUND");
-
-    const existingMessages = await db<Row[]>(env,
-      "inbox_messages?select=id,conversation_id&channel_connection_id=eq." +
-      connection.id + "&external_message_id=eq." + encodeURIComponent(event.messageId) + "&limit=1");
-    if (existingMessages.length) {
-      await patchEvent(env, connection, event.eventId, { status: "processed", payload: {}, processed_at: new Date().toISOString(), error_code: null });
-      return;
-    }
-
-    let conversations = await db<Row[]>(env,
-      "inbox_conversations?select=id,unread_count&owner_id=eq." + connection.owner_id +
-      "&contact_id=eq." + String(identity.contact_id) + "&status=in.(open,pending)&order=updated_at.desc&limit=1");
-    let conversation = conversations[0];
-    if (!conversation) {
-      try {
-        const created = await db<Row[]>(env, "inbox_conversations?select=id", {
-          method: "POST", headers: { Prefer: "return=representation" },
-          body: JSON.stringify({
-            owner_id: connection.owner_id, contact_id: identity.contact_id,
-            account_id: contact.account_id ?? null, status: "open", unread_count: 0,
-            last_channel_type: connection.channel_type,
-          }),
-        });
-        conversation = created[0];
-      } catch {
-        conversations = await db<Row[]>(env,
-          "inbox_conversations?select=id,unread_count&owner_id=eq." + connection.owner_id +
-          "&contact_id=eq." + String(identity.contact_id) + "&status=in.(open,pending)&limit=1");
-        conversation = conversations[0];
-      }
-    }
-    if (!conversation?.id) throw new Error("INBOX_CONVERSATION_CREATE_FAILED");
-
-    await db<Row[]>(env, "inbox_messages?select=id", {
-      method: "POST", headers: { Prefer: "return=representation" },
+    await db<Row>(env, "rpc/inbox_process_webhook_event", {
+      method: "POST",
       body: JSON.stringify({
-        owner_id: connection.owner_id, conversation_id: conversation.id,
-        customer_identity_id: identity.id, channel_connection_id: connection.id,
-        channel_type: connection.channel_type, direction: "inbound",
-        content_type: event.contentType, content: event.content,
-        external_message_id: event.messageId, status: "received",
-        created_at: event.occurredAt, metadata: event.metadata,
+        p_event_id: (await db<Row[]>(env,
+          "inbox_webhook_events?select=id&channel_connection_id=eq." + connection.id +
+          "&external_event_id=eq." + encodeURIComponent(event.eventId) + "&limit=1"))[0]?.id,
+        p_owner_id: connection.owner_id,
+        p_contact_id: identity.contact_id,
+        p_identity_id: identity.id,
       }),
-    });
-    await db<Row[]>(env, "inbox_conversations?id=eq." + String(conversation.id) +
-      "&owner_id=eq." + connection.owner_id, {
-      method: "PATCH", headers: { Prefer: "return=minimal" },
-      body: JSON.stringify({
-        last_message_at: event.occurredAt, last_channel_type: connection.channel_type,
-        last_message_preview: event.content.slice(0, 500), unread_count: Number(conversation.unread_count ?? 0) + 1,
-      }),
-    });
-    await db<Row[]>(env, "inbox_customer_identities?id=eq." + String(identity.id) +
-      "&owner_id=eq." + connection.owner_id, {
-      method: "PATCH", headers: { Prefer: "return=minimal" },
-      body: JSON.stringify({
-        external_display_name: event.displayName ?? undefined,
-        external_username: event.username ?? undefined,
-        last_seen_at: event.occurredAt,
-      }),
-    });
-    await patchEvent(env, connection, event.eventId, {
-      status: "processed", payload: {}, processed_at: new Date().toISOString(), error_code: null,
     });
   } catch (error) {
     const code = error instanceof Error && /^[A-Z0-9_]+$/.test(error.message) ? error.message : "INBOX_WEBHOOK_PROCESS_FAILED";
@@ -417,6 +371,7 @@ export async function handleInboxWebhook(request: Request, env: WebhookEnv): Pro
     const raw = await readLimitedBody(request);
     if (!raw) return new Response("Payload Too Large", { status: 413 });
     if (!await verifySignature(channel, request, raw, secrets)) return new Response("Unauthorized", { status: 401 });
+    if (channel === "telegram" && !await verifyTelegramBot(connection, secrets)) return new Response("Webhook bot mismatch", { status: 403 });
     let payload: Row;
     try {
       payload = JSON.parse(new TextDecoder().decode(raw)) as Row;
