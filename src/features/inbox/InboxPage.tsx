@@ -4,7 +4,7 @@ import {
   Grid, Column, Stack, ClickableTile,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
-import { getInboxConversations, getInboxMessages, type InboxConversation, type InboxTimelineItem } from './api';
+import { getInboxConversations, getInboxMessages, createInboxNote, type InboxConversation, type InboxTimelineItem } from './api';
 
 const channels = [
   { id: 'whatsapp', label: 'WhatsApp' },
@@ -29,6 +29,8 @@ export function InboxPage() {
   const [loading, setLoading] = useState(true);
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [error, setError] = useState('');
+  const [composerMode, setComposerMode] = useState<'reply' | 'note'>('reply');
+  const [savingNote, setSavingNote] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -75,6 +77,26 @@ export function InboxPage() {
     })();
     return () => { active = false; };
   }, [selected?.id]);
+
+  const addInternalNote = async () => {
+    if (!selected || !draft.trim() || savingNote) return;
+    setSavingNote(true);
+    setError('');
+    try {
+      const client = await getSupabaseClient();
+      const { data: { session } } = await client.auth.getSession();
+      if (!session?.access_token) throw new Error('登录状态已失效，请重新登录。');
+      await createInboxNote(session.access_token, selected.id, draft.trim());
+      const rows = await getInboxMessages(session.access_token, selected.id);
+      setMessages(rows);
+      setDraft('');
+      setComposerMode('reply');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '添加内部备注失败。');
+    } finally {
+      setSavingNote(false);
+    }
+  };
 
   const visibleConversations = useMemo(() => conversations.filter(row => {
     const matchesChannel = channelFilter === 'all' || row.last_channel_type === channelFilter;
@@ -195,14 +217,21 @@ export function InboxPage() {
             )}
             <Tile>
               <Stack gap={3}>
-                <Tag type="cool-gray">回复渠道：{selected?.last_channel_type ? channelLabel(selected.last_channel_type) : '等待选择会话'}</Tag>
-                <TextArea id="inbox-message-draft" labelText="撰写消息" placeholder="选择会话后开始撰写消息…" value={draft}
-                  onChange={(event: React.ChangeEvent<HTMLTextAreaElement>) => setDraft(event.target.value)} rows={3} disabled />
-                <Stack orientation="horizontal">
-                  <Button kind="ghost" size="sm" renderIcon={CarbonIcons.Attachment} disabled>添加附件</Button>
-                  <Button size="md" renderIcon={CarbonIcons.Send} disabled>发送消息</Button>
+                <Stack orientation="horizontal" gap={2}>
+                  <Button size="sm" kind={composerMode === 'reply' ? 'primary' : 'tertiary'} onClick={() => setComposerMode('reply')}>回复客户</Button>
+                  <Button size="sm" kind={composerMode === 'note' ? 'primary' : 'tertiary'} onClick={() => setComposerMode('note')} disabled={!selected}>内部备注</Button>
                 </Stack>
-                <p>消息发送将在渠道授权及合规校验完成后启用。</p>
+                {composerMode === 'reply'
+                  ? <Tag type="cool-gray">回复渠道：{selected?.last_channel_type ? channelLabel(selected.last_channel_type) : '等待选择会话'}</Tag>
+                  : <Tag type="warm-gray">仅团队内部可见，不会发送给客户</Tag>}
+                <TextArea id="inbox-message-draft" labelText={composerMode === 'note' ? '内部备注' : '撰写消息'}
+                  placeholder={composerMode === 'note' ? '记录内部跟进信息…' : '外部消息发送功能尚未启用。'}
+                  value={draft} onChange={(event: React.ChangeEvent<HTMLTextAreaElement>) => setDraft(event.target.value)}
+                  rows={3} disabled={!selected || composerMode === 'reply'} />
+                {composerMode === 'note'
+                  ? <Button size="md" renderIcon={CarbonIcons.Add} onClick={() => void addInternalNote()} disabled={!selected || !draft.trim() || savingNote}>{savingNote ? '正在保存…' : '添加内部备注'}</Button>
+                  : <Button size="md" renderIcon={CarbonIcons.Send} disabled>发送消息</Button>}
+                {composerMode === 'reply' && <p>外部消息发送将在渠道授权及合规校验完成后启用。</p>}
               </Stack>
             </Tile>
           </Stack>
