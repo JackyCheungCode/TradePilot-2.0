@@ -103,3 +103,20 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+.tp-document-preview__sheet--landscape {
+  max-width: 1120px;
+}
+.tp-document-preview__brand > small {
+  display: block;
+  color: var(--cds-text-secondary);
+  font-size: .6875rem;
+  margin-bottom: var(--cds-spacing-02);
+}
+@media print {
+  .tp-document-preview__sheet--landscape {
+    width: 100%;
+    max-width: none;
+    min-height: 190mm;
+  }
+}
