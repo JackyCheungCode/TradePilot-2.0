@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Button, Search, Tag, Tile, TextArea, CarbonIcons, InlineLoading,
+  Button, Search, Tag, Tile, TextArea, CarbonIcons, InlineLoading, Modal, ModalBody, Select, SelectItem, TextInput,
   Grid, Column, Stack, ClickableTile, LineChart, ScaleTypes,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
-import { getInboxConversations, getInboxMessages, getInboxBusinessMetrics, getInboxChannelReadiness, translateInboxMessage, generateInboxSummary, createInboxNote, sendInboxMessage, type InboxConversation, type InboxTimelineItem, type InboxBusinessMetrics, type InboxChannelReadiness } from './api';
+import { getInboxConversations, getInboxMessages, getInboxBusinessMetrics, getInboxChannelReadiness, translateInboxMessage, generateInboxSummary, createInboxNote, sendInboxMessage, getInboxConnections, createInboxConnection, getInboxUnmatchedEvents, searchInboxCRMContacts, assignInboxUnmatchedEvent, type InboxConversation, type InboxTimelineItem, type InboxBusinessMetrics, type InboxChannelReadiness, type InboxConnection, type InboxUnmatchedEvent, type InboxCRMContact } from './api';
 
 const channels = [
   { id: 'whatsapp', label: 'WhatsApp' },
@@ -39,6 +39,20 @@ export function InboxPage() {
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [businessMetrics, setBusinessMetrics] = useState<InboxBusinessMetrics | null>(null);
   const [metricsLoading, setMetricsLoading] = useState(false);
+  const [connections, setConnections] = useState<InboxConnection[]>([]);
+  const [unmatchedEvents, setUnmatchedEvents] = useState<InboxUnmatchedEvent[]>([]);
+  const [connectionModalOpen, setConnectionModalOpen] = useState(false);
+  const [connectionChannel, setConnectionChannel] = useState('whatsapp');
+  const [connectionName, setConnectionName] = useState('');
+  const [externalAccountId, setExternalAccountId] = useState('');
+  const [connectionSaving, setConnectionSaving] = useState(false);
+  const [webhookUrl, setWebhookUrl] = useState('');
+  const [matchingEvent, setMatchingEvent] = useState<InboxUnmatchedEvent | null>(null);
+  const [contactSearch, setContactSearch] = useState('');
+  const [contactOptions, setContactOptions] = useState<InboxCRMContact[]>([]);
+  const [selectedContactId, setSelectedContactId] = useState('');
+  const [contactSearchLoading, setContactSearchLoading] = useState(false);
+  const [eventAssigning, setEventAssigning] = useState(false);
 
   useEffect(() => {
     let active = true;
