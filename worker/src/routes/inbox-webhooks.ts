@@ -24,6 +24,8 @@ interface NormalizedEvent {
   contentType: "text" | "image" | "file" | "audio" | "video";
   occurredAt: string;
   eventType: string;
+  receiptStatus?: "sent" | "delivered" | "read" | "failed";
+  errorCode?: string | null;
   metadata: Record<string, unknown>;
 }
 
@@ -136,6 +138,23 @@ function parseWhatsApp(payload: Row, connection: Connection): NormalizedEvent[] 
       for (const contact of contacts) {
         const profile = (contact.profile && typeof contact.profile === "object" ? contact.profile : {}) as Row;
         if (typeof contact.wa_id === "string" && typeof profile.name === "string") names.set(contact.wa_id, profile.name);
+      }
+      const statuses = Array.isArray(value.statuses) ? value.statuses as Row[] : [];
+      for (const status of statuses) {
+        const messageId = typeof status.id === "string" ? status.id : "";
+        const state = String(status.status ?? "");
+        if (!messageId || !["sent", "delivered", "read", "failed"].includes(state)) continue;
+        const errors = Array.isArray(status.errors) ? status.errors as Row[] : [];
+        const firstError = errors[0] ?? {};
+        result.push({
+          eventId: "status:" + messageId + ":" + state + ":" + String(status.timestamp ?? ""),
+          messageId, externalUserId: typeof status.recipient_id === "string" ? status.recipient_id : "",
+          displayName: null, username: null, content: "", contentType: "text",
+          occurredAt: timestamp(status.timestamp), eventType: "status",
+          receiptStatus: state as NormalizedEvent["receiptStatus"],
+          errorCode: firstError.code == null ? null : String(firstError.code).slice(0, 100),
+          metadata: { provider: "whatsapp", status: state },
+        });
       }
       const messages = Array.isArray(value.messages) ? value.messages as Row[] : [];
       for (const message of messages) {
@@ -327,11 +346,31 @@ async function patchEvent(env: WebhookEnv, connection: Connection, eventId: stri
 }
 
 async function processEvent(env: WebhookEnv, connection: Connection, event: NormalizedEvent): Promise<void> {
-  if (!event.eventId || !event.externalUserId) return;
+  if (!event.eventId) return;
   const claimed = await claimEvent(env, connection, event);
   if (!claimed) return;
 
   try {
+    if (event.eventType === "status" && event.receiptStatus) {
+      await db<Row>(env, "rpc/inbox_process_webhook_status", {
+        method: "POST",
+        body: JSON.stringify({
+          p_event_id: (await db<Row[]>(env,
+            "inbox_webhook_events?select=id&channel_connection_id=eq." + connection.id +
+            "&external_event_id=eq." + encodeURIComponent(event.eventId) + "&limit=1"))[0]?.id,
+          p_owner_id: connection.owner_id,
+          p_message_id: event.messageId,
+          p_status: event.receiptStatus,
+          p_occurred_at: event.occurredAt,
+          p_error_code: event.errorCode ?? null,
+        }),
+      });
+      return;
+    }
+    if (!event.externalUserId) {
+      await patchEvent(env, connection, event.eventId, { status: "ignored", payload: {} });
+      return;
+    }
     const identities = await db<Row[]>(env,
       "inbox_customer_identities?select=id,contact_id,external_user_id&owner_id=eq." + connection.owner_id +
       "&channel_type=eq." + connection.channel_type + "&external_user_id=eq." +
