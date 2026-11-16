@@ -225,7 +225,7 @@ export function OmnichannelInboxPage() {
     <aside className="oi-conversation-panel">
       <div className="oi-list-header"><strong>会话列表</strong><span className="oi-total">{filteredConversations.length} 条</span></div>
       <div className="oi-search"><Search size="lg" labelText="搜索会话" placeholder="搜索公司、联系人或标签" value={query} onChange={(event: React.ChangeEvent<HTMLInputElement>) => setQuery(event.currentTarget.value)} /></div>
-      <div className="oi-filter-row" aria-label="会话状态筛选"><ContentSwitcher selectedIndex={tabs.findIndex((tab) => tab.id === filter)} onChange={(selection: { name?: string }) => selection.name && setFilter(selection.name as Filter)} size="sm">{tabs.map((tab) => <Switch key={tab.id} name={tab.id} text={tab.label + (tab.id === 'unread' ? ' ' + conversations.filter((item) => item.unread_count > 0).length : '')} />)}</ContentSwitcher></div>
+      <div className="oi-filter-row" aria-label="会话状态筛选"><ContentSwitcher selectedIndex={tabs.findIndex((tab) => tab.id === filter)} onChange={(selection: { name?: string | number }) => { if (selection.name !== undefined) setFilter(String(selection.name) as Filter); }} size="sm">{tabs.map((tab) => <Switch key={tab.id} name={tab.id} text={tab.label + (tab.id === 'unread' ? ' ' + conversations.filter((item) => item.unread_count > 0).length : '')} />)}</ContentSwitcher></div>
       <div className="oi-conversation-scroll">{filteredConversations.map((conversation) => {
         const person = customers.find((item) => item.id === conversation.customer_id)!;
         const last = messages.filter((item) => item.conversation_id === conversation.id).sort((a, b) => b.created_at - a.created_at)[0];
