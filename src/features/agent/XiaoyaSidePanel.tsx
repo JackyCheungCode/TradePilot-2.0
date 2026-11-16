@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Heading, CarbonIcons, ChatCustomElement, MessageResponseTypes, type ChatInstance, type CustomSendMessageOptions, type MessageRequest, type PublicConfig, type HistoryItem } from '@/design-system';
+import { Button, Dropdown, Heading, CarbonIcons, ChatCustomElement, MessageResponseTypes, type ChatInstance, type CustomSendMessageOptions, type MessageRequest, type PublicConfig, type HistoryItem } from '@/design-system';
 import { XiaoyaAvatar } from './XiaoyaAvatar';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/layout/XiaoyaSidePanel.scss';
@@ -47,6 +47,10 @@ function readPageContext(pathname: string) {
   ].filter(Boolean).join('\\n');
 }
 
+function normalizeModelText(value: string): string {
+  return value.replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n').replace(/\\t/g, '\t').replace(/\r\n/g, '\n');
+}
+
 function toHistoryItems(rows: AgentMessage[]): HistoryItem[] {
   return rows.map((row) => {
     const timestamp = row.created_at ? Date.parse(row.created_at) : Date.now();
@@ -56,7 +60,7 @@ function toHistoryItems(rows: AgentMessage[]): HistoryItem[] {
         time,
         message: {
           id: row.id,
-          input: { text: row.content.split('\\n\\n---\\n当前页面上下文')[0], message_type: 'text' },
+          input: { text: row.content.split('\n\n---\n当前页面上下文')[0], message_type: 'text' },
           history: { timestamp },
         },
       } as HistoryItem;
@@ -80,6 +84,9 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
   const [avatarEmotion, setAvatarEmotion] = useState<'idle' | 'thinking' | 'success' | 'error'>('idle');
   const [welcomePhase, setWelcomePhase] = useState<'greeting' | 'loading' | 'ready' | 'error'>('greeting');
   const [chatStatusVisible, setChatStatusVisible] = useState(false);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [selectedConversationId, setSelectedConversationId] = useState('');
+  const chatInstanceRef = useRef<ChatInstance | null>(null);
   const conversationIdRef = useRef('');
   const historyLoadPromiseRef = useRef<Promise<void> | null>(null);
   const statusTimerRef = useRef<number | null>(null);
@@ -103,29 +110,87 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
     if (statusTimerRef.current !== null) window.clearTimeout(statusTimerRef.current);
   }, []);
 
-  const ensureConversation = useCallback(async () => {
-    if (conversationIdRef.current) return conversationIdRef.current;
+  const refreshConversations = useCallback(async () => {
     const rows = await agentRequest<Conversation[]>('/api/v1/agent/conversations');
-    if (rows.length) {
-      conversationIdRef.current = rows[0].id;
-      return rows[0].id;
-    }
+    setConversations(rows);
+    return rows;
+  }, []);
+
+  const createConversation = useCallback(async () => {
     const created = await agentRequest<Conversation>('/api/v1/agent/conversations', {
       method: 'POST',
-      body: JSON.stringify({ title: '小雅 · 页面辅助' }),
+      body: JSON.stringify({ title: '新聊天' }),
     });
     conversationIdRef.current = created.id;
-    return created.id;
+    setSelectedConversationId(created.id);
+    setConversations((current) => [created, ...current.filter((item) => item.id !== created.id)]);
+    return created;
   }, []);
+
+  const ensureConversation = useCallback(async () => {
+    if (conversationIdRef.current) return conversationIdRef.current;
+    const rows = await refreshConversations();
+    if (rows.length) {
+      conversationIdRef.current = rows[0].id;
+      setSelectedConversationId(rows[0].id);
+      return rows[0].id;
+    }
+    const created = await createConversation();
+    return created.id;
+  }, [createConversation, refreshConversations]);
+
+  const selectConversation = useCallback(async (conversationId: string) => {
+    const instance = chatInstanceRef.current;
+    if (!instance || conversationId === conversationIdRef.current) return;
+    setWelcomeVisible(false);
+    setChatStatusVisible(false);
+    setAvatarEmotion('thinking');
+    try {
+      const rows = await agentRequest<AgentMessage[]>(`/api/v1/agent/conversations/${conversationId}/messages`);
+      await instance.messaging.clearConversation();
+      if (rows.length) await instance.messaging.insertHistory(toHistoryItems(rows));
+      conversationIdRef.current = conversationId;
+      setSelectedConversationId(conversationId);
+      setWelcomeVisible(rows.length === 0);
+      setWelcomePhase('ready');
+      setAvatarEmotion('success');
+    } catch (error) {
+      console.error('[Xiaoya] Conversation could not be opened', error);
+      setAvatarEmotion('error');
+      setWelcomeVisible(true);
+      setWelcomePhase('error');
+    }
+  }, []);
+
+  const startNewConversation = useCallback(async () => {
+    const instance = chatInstanceRef.current;
+    if (!instance) return;
+    try {
+      const created = await createConversation();
+      await instance.messaging.clearConversation();
+      setWelcomeVisible(true);
+      setWelcomePhase('ready');
+      setAvatarEmotion('success');
+      setChatStatusVisible(false);
+      conversationIdRef.current = created.id;
+    } catch (error) {
+      console.error('[Xiaoya] New conversation could not be created', error);
+      setAvatarEmotion('error');
+      setWelcomePhase('error');
+      setWelcomeVisible(true);
+    }
+  }, [createConversation]);
 
   const customLoadHistory = useCallback(async (instance: ChatInstance): Promise<HistoryItem[]> => {
     // Return an empty initial history immediately. Fetch and insert persisted history
     // in the background so Carbon's full-screen hydration spinner never splits the panel.
+    chatInstanceRef.current = instance;
     historyLoadPromiseRef.current = (async () => {
       setWelcomePhase('loading');
       setAvatarEmotion('thinking');
       const conversationId = await ensureConversation();
       const rows = await agentRequest<AgentMessage[]>(`/api/v1/agent/conversations/${conversationId}/messages`);
+      setSelectedConversationId(conversationId);
       if (rows.length) {
         setWelcomeVisible(false);
         await instance.messaging.insertHistory(toHistoryItems(rows));
@@ -164,11 +229,11 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
           signal: requestOptions.signal,
           body: JSON.stringify({
             conversationId,
-            message: `${message}\\n\\n---\\n${context}`,
+            message: `${message}\n\n---\n${context}`, 
           }),
         },
       );
-      const reply = [result.reply, result.model ? `\\n\\n模型：${result.model}` : ''].join('');
+      const reply = [normalizeModelText(result.reply), result.model ? `\n\n模型：${result.model}` : ''].join('');
       await instance.messaging.addMessage({
         output: {
           generic: [{
@@ -195,6 +260,8 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
 
   const chatConfig = useMemo<PublicConfig>(() => ({
     aiEnabled: true,
+    assistantName: '小雅',
+    assistantAvatarUrl: '/xiaoya-avatar.svg',
     openChatByDefault: true,
     header: {
       isOn: false,
@@ -227,6 +294,26 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
           <Button kind="ghost" size="sm" onClick={onClose}>
             <CarbonIcons.Close size={16} />
             关闭
+          </Button>
+        </div>
+        <div className="tp-xiaoya-conversation-toolbar">
+          <div className="tp-xiaoya-conversation-toolbar__history">
+            <Dropdown
+              id="tp-xiaoya-conversation-history"
+              titleText="历史聊天"
+              label="选择历史聊天"
+              size="sm"
+              items={conversations}
+              itemToString={(item: Conversation | null) => item?.title || '选择历史聊天'}
+              selectedItem={conversations.find((item) => item.id === selectedConversationId) ?? null}
+              onChange={({ selectedItem }: { selectedItem?: Conversation | null }) => {
+                if (selectedItem) void selectConversation(selectedItem.id);
+              }}
+            />
+          </div>
+          <Button kind="tertiary" size="sm" onClick={() => void startNewConversation()}>
+            <CarbonIcons.Add size={16} />
+            新建聊天
           </Button>
         </div>
         <div className="tp-xiaoya-drawer__chat">
