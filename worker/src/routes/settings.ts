@@ -283,7 +283,7 @@ export async function handleSettings(request: Request, env: SettingsEnv): Promis
     if(service==="whatsappCloud"){
       const token=secret("whatsappAccessToken"),phoneId=secret("whatsappPhoneNumberId");
       if(!token||!phoneId)return successResponse(request,{ok:false,message:"请配置 WhatsApp Access Token 与 Phone Number ID"});
-      const r=await fetch("https://graph.facebook.com/v22.0/"+encodeURIComponent(phoneId)+"?fields=id,display_phone_number,verified_name",{headers:{Authorization:"Bearer "+token,Accept:"application/json"}});
+      const r=await fetch("https://graph.facebook.com/v27.0/"+encodeURIComponent(phoneId)+"?fields=id,display_phone_number,verified_name",{headers:{Authorization:"Bearer "+token,Accept:"application/json"}});
       const data=await r.json().catch(()=>({})) as {id?:string;display_phone_number?:string;error?:{message?:string}};
       return successResponse(request,{ok:r.ok&&Boolean(data.id),message:r.ok?"WhatsApp Cloud API 已连接"+(data.display_phone_number?" · "+data.display_phone_number:""):"WhatsApp API 认证失败（HTTP "+r.status+"）"+(data.error?.message?": "+data.error.message.slice(0,240):"")});
     }
@@ -295,7 +295,7 @@ export async function handleSettings(request: Request, env: SettingsEnv): Promis
     }
     if(service==="messenger"){
       const token=secret("messengerPageAccessToken");if(!token)return successResponse(request,{ok:false,message:"请配置 Messenger Page Access Token"});
-      const r=await fetch("https://graph.facebook.com/v22.0/me?fields=id,name",{headers:{Authorization:"Bearer "+token,Accept:"application/json"}});
+      const r=await fetch("https://graph.facebook.com/v27.0/me?fields=id,name",{headers:{Authorization:"Bearer "+token,Accept:"application/json"}});
       const data=await r.json().catch(()=>({})) as {id?:string;name?:string};
       return successResponse(request,{ok:r.ok&&Boolean(data.id),message:r.ok?"Messenger Page Token 已连接"+(data.name?" · "+data.name:""):"Messenger API 认证失败（HTTP "+r.status+"）"});
     }
