@@ -22,7 +22,12 @@ const documentGroups: DocumentGroup[] = [
     { id: 'sales_contract', label: '销售合同', detail: '锁定买卖双方、价格和贸易条款', shipment: false },
     { id: 'sales_confirmation', label: '订单确认书', detail: '向买方确认订单内容和交付安排', shipment: false },
   ] },
-  { id: 'purchase', title: '采购与供应商', description: '从采购订单生成供应商往来文件', items: [\n    { id: 'purchase_order', label: '采购订单（PO）', detail: '向供应商发出采购要求和交付条件', shipment: false },\n    { id: 'purchase_confirmation', label: '采购订单确认书', detail: '记录供应商确认的采购内容和交期', shipment: false },\n    { id: 'supplier_invoice', label: '供应商发票', detail: '记录供应商提供的发票信息', shipment: false },\n  ] },\n  { id: 'shipping', title: '发运与出口', description: '根据订单和本次实际发运数量生成', items: [
+  { id: 'purchase', title: '采购与供应商', description: '从采购订单生成供应商往来文件', items: [
+    { id: 'purchase_order', label: '采购订单（PO）', detail: '向供应商发出采购要求和交付条件', shipment: false },
+    { id: 'purchase_confirmation', label: '采购订单确认书', detail: '记录供应商确认的采购内容和交期', shipment: false },
+    { id: 'supplier_invoice', label: '供应商发票', detail: '记录供应商提供的发票信息', shipment: false },
+  ] },
+  { id: 'shipping', title: '发运与出口', description: '根据订单和本次实际发运数量生成', items: [
     { id: 'commercial_invoice', label: '商业发票', detail: '按本次发运批次数量形成发票草稿', shipment: true },
     { id: 'packing_list', label: '装箱单', detail: '使用本次发运的包装、箱数、重量和货品明细', shipment: true },
     { id: 'shipping_instructions', label: '装运指示', detail: '整理本次发运的收发货人与运输信息', shipment: true },
@@ -50,7 +55,9 @@ export function DocumentsCenterPage() {
   const [step, setStep] = useState<Step>(initialOrderId ? (initialNeedsShipment && !initialShipmentId ? 3 : 4) : 1);
   const [category, setCategory] = useState(initialCategory);
   const [documentType, setDocumentType] = useState(initialDocumentType);
-  const [orderId, setOrderId] = useState(initialOrderId);\n  const [sourceMode, setSourceMode] = useState<'order' | 'blank'>('order');\n  const [blankFields, setBlankFields] = useState({ seller_name: '', seller_address: '', buyer_name: '', buyer_address: '', buyer_shipping_address: '', contact_name: '', contact_email: '', contact_phone: '', customer_reference: '', payment_terms: '', incoterms_code: '', named_place: '', delivery_date: '', notes: '' });
+  const [orderId, setOrderId] = useState(initialOrderId);
+  const [sourceMode, setSourceMode] = useState<'order' | 'blank'>('order');
+  const [blankFields, setBlankFields] = useState({ seller_name: '', seller_address: '', buyer_name: '', buyer_address: '', buyer_shipping_address: '', contact_name: '', contact_email: '', contact_phone: '', customer_reference: '', payment_terms: '', incoterms_code: '', named_place: '', delivery_date: '', notes: '' });
   const [shipmentId, setShipmentId] = useState(initialShipmentId);
   const [templateId, setTemplateId] = useState('');
   const [locale, setLocale] = useState('en');
@@ -126,9 +133,12 @@ export function DocumentsCenterPage() {
     if (sourceMode === 'order' && selectedType.shipment && !shipmentId) { setError('该单据必须选择本次实际发运批次。'); return; }
     setSaving(true); setError(''); setNotice('');
     try {
+      const content = sourceMode === 'blank' ? { ...blankFields, items: [], charges: [], payment_schedule: [], bank_accounts: [] } : undefined;
       const result = await request('documents', { method: 'POST', body: JSON.stringify({
-        order_id: orderId, shipment_id: shipmentId || undefined, document_type: documentType,
-        title: typeLabel(documentType), template_id: templateId || undefined, locale, currency_code: currency,
+        order_id: sourceMode === 'order' ? orderId : undefined,
+        shipment_id: sourceMode === 'order' ? (shipmentId || undefined) : undefined,
+        document_type: documentType, title: typeLabel(documentType),
+        template_id: templateId || undefined, locale, currency_code: currency, content, totals: {},
       }) });
       setCreated(result as Doc);
       setNotice(sourceMode === 'blank' ? '空白单据草稿已创建，可继续填写内容。' : '单据草稿已创建，已关联对应业务订单' + (shipmentId ? '及发运批次' : '') + '。');
