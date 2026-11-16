@@ -168,3 +168,67 @@ $$;
 
 revoke all on function public.inbox_process_webhook_event(uuid, uuid, uuid, uuid) from public, anon, authenticated;
 grant execute on function public.inbox_process_webhook_event(uuid, uuid, uuid, uuid) to service_role;
+
+-- Apply provider delivery receipts only to outbound messages on the same owner and channel connection.
+create or replace function public.inbox_process_webhook_status(
+  p_event_id uuid, p_owner_id uuid, p_message_id text, p_status text,
+  p_occurred_at timestamptz, p_error_code text default null
+)
+returns jsonb
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  v_event public.inbox_webhook_events%rowtype;
+  v_message_id uuid;
+  v_previous_status text;
+begin
+  if p_status not in ('sent','delivered','read','failed') then
+    raise exception 'INBOX_WEBHOOK_STATUS_INVALID';
+  end if;
+
+  select * into v_event from public.inbox_webhook_events
+  where id = p_event_id and owner_id = p_owner_id and status = 'processing'
+  for update;
+  if not found then raise exception 'INBOX_WEBHOOK_EVENT_NOT_PROCESSABLE'; end if;
+
+  select id, status into v_message_id, v_previous_status
+  from public.inbox_messages
+  where owner_id = p_owner_id and channel_connection_id = v_event.channel_connection_id
+    and external_message_id = p_message_id and direction = 'outbound'
+  limit 1 for update;
+
+  if not found then
+    update public.inbox_webhook_events set status = 'failed',
+      error_code = 'OUTBOUND_MESSAGE_NOT_FOUND', payload = '{}'::jsonb, processed_at = now()
+    where id = p_event_id and owner_id = p_owner_id;
+    return jsonb_build_object('updated', false, 'reason', 'OUTBOUND_MESSAGE_NOT_FOUND');
+  end if;
+
+  update public.inbox_messages set
+    status = case
+      when v_previous_status = 'read' then 'read'
+      when v_previous_status = 'failed' and p_status <> 'read' then 'failed'
+      when v_previous_status = 'delivered' and p_status = 'sent' then 'delivered'
+      else p_status end,
+    sent_at = case when p_status in ('sent','delivered','read') then coalesce(sent_at, p_occurred_at) else sent_at end,
+    delivered_at = case when p_status in ('delivered','read') then coalesce(delivered_at, p_occurred_at) else delivered_at end,
+    read_at = case when p_status = 'read' then coalesce(read_at, p_occurred_at) else read_at end,
+    error_code = case when p_status = 'failed' then coalesce(p_error_code, 'PROVIDER_DELIVERY_FAILED') else error_code end
+  where id = v_message_id and owner_id = p_owner_id;
+
+  insert into public.inbox_message_events(owner_id, message_id, event_type, provider_event_id, payload)
+  values (p_owner_id, v_message_id, p_status, v_event.external_event_id,
+    jsonb_build_object('occurred_at', p_occurred_at, 'error_code', p_error_code, 'channel_type', v_event.channel_type));
+
+  update public.inbox_webhook_events set status = 'processed', payload = '{}'::jsonb,
+    processed_at = now(), error_code = null
+  where id = p_event_id and owner_id = p_owner_id;
+
+  return jsonb_build_object('updated', true, 'message_id', v_message_id);
+end;
+$$;
+
+revoke all on function public.inbox_process_webhook_status(uuid, uuid, text, text, timestamptz, text) from public, anon, authenticated;
+grant execute on function public.inbox_process_webhook_status(uuid, uuid, text, text, timestamptz, text) to service_role;
