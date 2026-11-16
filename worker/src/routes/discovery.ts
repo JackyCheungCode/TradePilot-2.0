@@ -440,6 +440,10 @@ export async function handleDiscovery(request: Request, env: DiscoveryEnv): Prom
     if(!leadId)throw new Error("LEAD_PROMOTION_FAILED");
     const existingAccounts=await db<Array<{id:string;account_name:string}>>(env,"crm_accounts?owner_id=eq."+userId+"&source_lead_id=eq."+leadId+"&select=id,account_name&limit=1");
     let account=existingAccounts?.[0];
+    if(!account&&typeof record.website==="string"&&record.website.trim()){
+      const domainMatch=await db<Array<{id:string;account_name:string}>>(env,"crm_accounts?owner_id=eq."+userId+"&website=eq."+encodeURIComponent(record.website.trim())+"&select=id,account_name&limit=1");
+      account=domainMatch?.[0];
+    }
     if(!account){
       const createdAccounts=await db<Array<{id:string;account_name:string}>>(env,"crm_accounts",{method:"POST",headers:{Prefer:"return=representation"},body:JSON.stringify({owner_id:userId,source_lead_id:leadId,account_name:String(record.name??"未命名企业"),legal_name:String(record.name??""),website:record.website??null,email:record.email??null,phone:record.phone??null,country_code:record.country_code??null,account_type:"customer",status:"active",custom_fields:{source:"prospect_discovery",discovery_record_id:recordId}})});
       account=createdAccounts?.[0];
