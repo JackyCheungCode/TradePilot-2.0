@@ -1,0 +1,91 @@
+/* Host-only layout for the Carbon AI Chat custom element. The chat surface,
+   controls, typography and message UI are rendered by @carbon/ai-chat. */
+.tp-xiaoya-drawer-layer {
+  position: fixed;
+  z-index: 9000;
+  inset-block: 3rem 0;
+  inset-inline: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.tp-xiaoya-drawer-layer.is-open {
+  visibility: visible;
+  pointer-events: auto;
+}
+.tp-xiaoya-drawer-backdrop {
+  position: absolute;
+  inset: 0;
+  background: var(--cds-overlay);
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+.tp-xiaoya-drawer-layer.is-open .tp-xiaoya-drawer-backdrop {
+  opacity: 1;
+}
+.tp-xiaoya-drawer {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  display: flex;
+  flex-direction: column;
+  width: min(50vw, 48rem);
+  min-width: min(24rem, 100vw);
+  height: 100%;
+  min-height: 0;
+  background: var(--cds-layer);
+  border-inline-start: 1px solid var(--cds-border-subtle-01);
+  box-shadow: var(--cds-shadow, 0 2px 6px rgb(0 0 0 / 20%));
+  transform: translateX(100%);
+  transition: transform 180ms ease;
+}
+.tp-xiaoya-drawer-layer.is-open .tp-xiaoya-drawer {
+  transform: translateX(0);
+}
+.tp-xiaoya-drawer__toolbar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--tp-space-04);
+  min-height: 3rem;
+  padding-inline: var(--tp-space-05);
+  background: var(--cds-layer-01);
+  border-block-end: 1px solid var(--cds-border-subtle-01);
+}
+.tp-xiaoya-drawer__title {
+  display: flex;
+  align-items: center;
+  gap: var(--tp-space-03);
+  min-width: 0;
+}
+.tp-xiaoya-drawer__title h1,
+.tp-xiaoya-drawer__title h2 {
+  margin: 0;
+}
+.tp-xiaoya-drawer__chat {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.tp-xiaoya-chat {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  --cds-aichat-messages-max-width: 100%;
+  --cds-aichat-card-max-width: 100%;
+}
+@media (max-width: 767px) {
+  .tp-xiaoya-drawer {
+    width: 100%;
+    min-width: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tp-xiaoya-drawer,
+  .tp-xiaoya-drawer-backdrop {
+    transition: none;
+  }
+}
