@@ -56,7 +56,7 @@ export function CustomerCommunicationsPage() {
   const [draft, setDraft] = useState('');
   const [notice, setNotice] = useState('');
   const [mobileChat, setMobileChat] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(true);
+  const [profileOpen, setProfileOpen] = useState(() => typeof window === 'undefined' ? true : window.matchMedia('(min-width: 768px)').matches);
 
   const activeConversation = conversations.find((item) => item.id === activeId) ?? conversations[0];
   const activeCustomer = communicationCustomers.find((item) => item.id === activeConversation.customerId) ?? communicationCustomers[0];
