@@ -294,7 +294,7 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
         "&order_type=eq.sales&status=in.(active,completed)&or=(crm_account_id.eq." + accountId +
         ",crm_contact_id.eq." + contactId + ")";
       const orders = await db<Row[]>(env,
-        "trade_orders?select=id,status,currency_code,trade_date,created_at&" + orderFilter + "&order=trade_date.asc&limit=1000");
+        "trade_orders?select=id,order_number,title,status,currency_code,trade_date,created_at,metadata&" + orderFilter + "&order=trade_date.asc&limit=1000");
       const orderIds = unique(orders.map(row => row.id));
       const items = orderIds.length
         ? await db<Row[]>(env, "trade_order_items?select=order_id,amount&owner_id=eq." + ownerId +
@@ -335,6 +335,20 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
           period, order_count: bucket.orders,
           amount_by_currency: [...bucket.totals.entries()].map(([currency, amount]) => ({ currency, amount })),
         })),
+        unshipped_order_count: orders.filter(order => {
+          const sales = order.metadata && typeof order.metadata === "object" ? (order.metadata as Row).sales_order as Row | undefined : undefined;
+          const fulfillment = String(sales?.fulfillment_status ?? sales?.shipping_status ?? "");
+          return !["shipped", "completed", "delivered"].includes(fulfillment) && order.status !== "completed";
+        }).length,
+        orders: orders.map(order => {
+          const sales = order.metadata && typeof order.metadata === "object" ? (order.metadata as Row).sales_order as Row | undefined : undefined;
+          return {
+            id: order.id, order_number: order.order_number, title: order.title, status: order.status,
+            currency_code: order.currency_code, trade_date: order.trade_date, created_at: order.created_at,
+            grand_total: Number((sales?.totals as Row | undefined)?.grand_total ?? 0),
+            fulfillment_status: String(sales?.fulfillment_status ?? sales?.shipping_status ?? "not_shipped"),
+          };
+        }),
       });
     }
 
