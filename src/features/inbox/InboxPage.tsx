@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import '@/design-system/patterns/inbox.scss';
 import {
   Button, Search, Tag, Tile, TextArea, CarbonIcons, InlineLoading, Modal, ModalBody, Select, SelectItem, TextInput,
-  Grid, Column, Stack, ClickableTile, LineChart, ScaleTypes,
+  Grid, Column, Stack, ClickableTile, LineChart, ScaleTypes, OverflowMenu, OverflowMenuItem,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import { getInboxConversations, createInboxConversation, getInboxMessages, getInboxBusinessMetrics, translateInboxMessage, generateInboxSummary, createInboxNote, sendInboxMessage, getInboxUnmatchedEvents, searchInboxCRMContacts, assignInboxUnmatchedEvent, type InboxConversation, type InboxTimelineItem, type InboxBusinessMetrics, type InboxUnmatchedEvent, type InboxCRMContact, type InboxContact } from './api';
@@ -51,6 +51,7 @@ export function InboxPage() {
   const [mobileContacts, setMobileContacts] = useState<Array<InboxContact & { crm_accounts?: { account_name?: string | null } | null }>>([]);
   const [mobileContactsLoading, setMobileContactsLoading] = useState(true);
   const [openingContactId, setOpeningContactId] = useState('');
+  const [businessView, setBusinessView] = useState<'contact' | 'quotes' | 'orders' | 'payments' | 'shipments'>('contact');
   const [draft, setDraft] = useState('');
   const [channelFilter, setChannelFilter] = useState('all');
   const [conversations, setConversations] = useState<InboxConversation[]>([]);
@@ -524,9 +525,15 @@ export function InboxPage() {
                     <strong>{selected.contact?.full_name || selected.contact_display_name}</strong>
                     <p>{[selected.contact?.job_title, selected.account?.account_name || selected.display_name].filter(Boolean).join(' · ')}</p>
                   </Stack>
-                  <Stack orientation="horizontal" gap={2}>
+                  <Stack orientation="horizontal" gap={2} className="tp-inbox-chat-actions">
                     {selected.last_channel_type && <Tag type="blue">{channelLabel(selected.last_channel_type)}</Tag>}
-                    <Button kind="ghost" size="sm" renderIcon={CarbonIcons.Download} disabled>导出会话</Button>
+                    <OverflowMenu ariaLabel="客户业务菜单" iconDescription="客户业务菜单" flipped size="lg">
+                      <OverflowMenuItem itemText="客户详细信息" onClick={() => setBusinessView('contact')} />
+                      <OverflowMenuItem itemText="报价单" onClick={() => setBusinessView('quotes')} />
+                      <OverflowMenuItem itemText="订单" onClick={() => setBusinessView('orders')} />
+                      <OverflowMenuItem itemText="收款" onClick={() => setBusinessView('payments')} />
+                      <OverflowMenuItem itemText="发运" onClick={() => setBusinessView('shipments')} />
+                    </OverflowMenu>
                   </Stack>
                 </Stack>
                 {messagesLoading && <InlineLoading description="正在加载消息…" />}
@@ -669,6 +676,36 @@ export function InboxPage() {
         </Column>
       </Grid>
 
+
+      <Modal
+        open={Boolean(selected) && businessView !== 'contact'}
+        modalHeading={businessView === 'quotes' ? '客户报价单' : businessView === 'orders' ? '客户订单' : businessView === 'payments' ? '客户收款' : '客户发运'}
+        primaryButtonText="关闭"
+        onRequestSubmit={() => setBusinessView('contact')}
+        onRequestClose={() => setBusinessView('contact')}
+      >
+        <ModalBody>
+          <Stack gap={3}>
+            <Grid fullWidth>
+              <Column sm={4} md={2} lg={4}><Tile><p>订单总金额</p>{businessMetrics?.total_amount_by_currency?.length ? businessMetrics.total_amount_by_currency.map(item => <strong key={item.currency}>{new Intl.NumberFormat('en-US',{style:'currency',currency:item.currency,maximumFractionDigits:0}).format(item.amount)} </strong>) : <strong>—</strong>}</Tile></Column>
+              <Column sm={4} md={2} lg={4}><Tile><p>交易笔数</p><h3>{businessMetrics?.total_order_count ?? '—'}</h3></Tile></Column>
+              <Column sm={4} md={2} lg={4}><Tile><p>未发运订单</p><h3>{businessMetrics?.unshipped_order_count ?? '—'}</h3></Tile></Column>
+            </Grid>
+            {businessView === 'quotes' && <p>报价单记录尚未接入此客户弹窗。</p>}
+            {businessView === 'payments' && <p>该客户收款记录：{businessMetrics?.payment_count ?? 0} 笔。</p>}
+            {businessView === 'shipments' && <p>该客户发运记录：{businessMetrics?.shipment_count ?? 0} 笔。</p>}
+            {businessView === 'orders' && <Stack gap={2}>
+              <strong>订单明细</strong>
+              {metricsLoading && <InlineLoading description="正在读取订单…" />}
+              {(businessMetrics?.orders ?? []).map(order => <Tile key={order.id}><Stack orientation="horizontal" gap={2}>
+                <Stack gap={1}><strong>{order.order_number || order.title || '销售订单'}</strong><span>{order.trade_date || order.created_at.slice(0,10)} · {order.fulfillment_status}</span></Stack>
+                <span>{new Intl.NumberFormat('en-US',{style:'currency',currency:order.currency_code || 'USD',maximumFractionDigits:2}).format(order.grand_total || 0)}</span>
+              </Stack></Tile>)}
+              {!metricsLoading && !(businessMetrics?.orders?.length) && <p>该客户暂无订单。</p>}
+            </Stack>}
+          </Stack>
+        </ModalBody>
+      </Modal>
 
       <Modal
         open={Boolean(matchingEvent)}
