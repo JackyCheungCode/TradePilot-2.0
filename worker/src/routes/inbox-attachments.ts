@@ -6,7 +6,7 @@ interface AttachmentEnv {
 type Row = Record<string, unknown>;
 
 async function authenticate(request: Request, env: AttachmentEnv): Promise<string | null> {
-  const token = request.headers.get("Authorization")?.match(/^Bearer\\s+(\\S+)$/i)?.[1];
+  const token = request.headers.get("Authorization")?.match(/^Bearer\s+(\S+)$/i)?.[1];
   if (!token) return null;
   const response = await fetch(env.SUPABASE_URL + "/auth/v1/user", {
     headers: { apikey: env.SUPABASE_ANON_KEY, Authorization: "Bearer " + token },
@@ -30,7 +30,7 @@ async function db<T>(env: AttachmentEnv, path: string): Promise<T> {
 }
 
 export async function handleInboxAttachment(request: Request, env: AttachmentEnv): Promise<Response> {
-  const match = new URL(request.url).pathname.match(/^\\/api\\/v1\\/inbox\\/attachments\\/([0-9a-f-]{36})\\/signed-url$/i);
+  const match = new URL(request.url).pathname.match(/^\/api\/v1\/inbox\/attachments\/([0-9a-f-]{36})\/signed-url$/i);
   if (!match || request.method !== "GET") return new Response("Not Found", { status: 404 });
 
   const ownerId = await authenticate(request, env);
