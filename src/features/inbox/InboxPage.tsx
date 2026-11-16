@@ -272,9 +272,13 @@ export function InboxPage() {
         <Button kind="tertiary" renderIcon={CarbonIcons.Settings} onClick={() => navigate("/settings?domain=integrations&section=api")}>渠道设置</Button>
       </Stack>
 
-      <Stack orientation="horizontal" gap={2} wrap>
-        {channelSetup.map(channel => <Tag key={channel.id} type={channel.ready ? 'green' : 'cool-gray'}>{channel.label} · {channel.ready ? '凭证已配置' : '待配置'}</Tag>)}
-      </Stack>
+      <Grid fullWidth>
+        {channelSetup.map(channel => (
+          <Column key={channel.id} sm={2} md={4} lg={2}>
+            <Tag type={channel.ready ? 'green' : 'cool-gray'}>{channel.label} · {channel.ready ? '凭证已配置' : '待配置'}</Tag>
+          </Column>
+        ))}
+      </Grid>
 
       {error && <Tile><Tag type="red">读取失败</Tag><p>{error}</p></Tile>}
 
