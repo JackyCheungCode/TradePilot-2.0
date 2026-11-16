@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput } from '@/design-system';
+import { Button, Checkbox, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 
 type Source = 'blank' | 'sales_order' | 'purchase_order' | 'shipment';
@@ -40,6 +40,7 @@ const definitions = [
 ] as const;
 
 const boolOptions = [{ value: 'true', text: '启用' }, { value: 'false', text: '停用' }];
+const sourceOptions: { id: Source; label: string }[] = [{ id: 'blank', label: '空白创建' }, { id: 'sales_order', label: '销售订单' }, { id: 'purchase_order', label: '采购订单' }, { id: 'shipment', label: '发运记录' }];
 const defaultsFor = (id: string, sources: Source[]): DocumentPolicy => ({
   enabled: true,
   allowedSources: [...sources],
@@ -130,7 +131,7 @@ export function DocumentTypeSettings() {
         </Select>
       </div>
       <div className="tp-document-type-settings__grid">
-        <div><h5>允许的数据来源</h5><p>输入多个来源时以逗号分隔：blank、sales_order、purchase_order、shipment。</p><TextInput id="tp-document-sources" labelText="来源代码" value={policy.allowedSources.join(', ')} onChange={event => update('allowedSources', event.currentTarget.value.split(',').map(value => value.trim()).filter((value): value is Source => ['blank','sales_order','purchase_order','shipment'].includes(value)))} /></div>
+        <div><h5>允许的数据来源</h5><div className="tp-document-type-settings__sources">{sourceOptions.map(option => <Checkbox key={option.id} id={'tp-document-source-' + option.id} labelText={option.label} checked={policy.allowedSources.includes(option.id)} onChange={(_, data) => update('allowedSources', data.checked ? [...new Set([...policy.allowedSources, option.id])] : policy.allowedSources.filter(value => value !== option.id))} />)}</div></div>
         <div><h5>空白创建</h5><Select id="tp-document-blank" labelText="是否允许不关联订单创建草稿" value={String(policy.allowBlankCreation)} onChange={event => update('allowBlankCreation', event.currentTarget.value === 'true')}>{boolOptions.map(item => <SelectItem key={item.value} value={item.value} text={item.text} />)}</Select></div>
         <div><h5>正式确认规则</h5><Select id="tp-document-order-required" labelText="正式确认时是否必须关联订单" value={String(policy.requireOrderOnConfirmation)} onChange={event => update('requireOrderOnConfirmation', event.currentTarget.value === 'true')}>{boolOptions.map(item => <SelectItem key={item.value} value={item.value} text={item.text} />)}</Select></div>
         <div><h5>订单来源校验</h5><Select id="tp-document-lock-required" labelText="关联订单时是否要求成交快照已锁定" value={String(policy.requireLockedOrderWhenOrderLinked)} onChange={event => update('requireLockedOrderWhenOrderLinked', event.currentTarget.value === 'true')}>{boolOptions.map(item => <SelectItem key={item.value} value={item.value} text={item.text} />)}</Select></div>
