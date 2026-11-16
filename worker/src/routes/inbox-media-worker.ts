@@ -68,6 +68,23 @@ function allowedProviderUrl(raw: string, hosts: string[]): URL {
   return url;
 }
 
+async function fetchProviderResource(
+  initialUrl: URL,
+  init: RequestInit,
+  allowedHosts: string[],
+): Promise<Response> {
+  let current = initialUrl;
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    allowedProviderUrl(current.toString(), allowedHosts);
+    const response = await fetch(current, { ...init, redirect: "manual" });
+    if (![301, 302, 303, 307, 308].includes(response.status)) return response;
+    const location = response.headers.get("Location");
+    if (!location) throw new Error("MEDIA_REDIRECT_INVALID");
+    current = allowedProviderUrl(new URL(location, current).toString(), allowedHosts);
+  }
+  throw new Error("MEDIA_REDIRECT_LIMIT");
+}
+
 function safeFileName(value: unknown): string {
   const raw = typeof value === "string" ? value.normalize("NFKC") : "attachment";
   const cleaned = Array.from(raw).map(character => {
@@ -140,42 +157,42 @@ async function providerDownload(job: MediaJob, secrets: Record<string, string>):
     const token = secrets.tradepilot_channel_whatsapp_access_token;
     if (!token) throw new Error("MEDIA_CHANNEL_TOKEN_MISSING");
     const metaUrl = new URL("https://graph.facebook.com/v26.0/" + encodeURIComponent(job.external_media_id));
-    const metaResponse = await fetch(metaUrl, {
+    const metaResponse = await fetchProviderResource(metaUrl, {
       headers: { Authorization: "Bearer " + token }, signal: AbortSignal.timeout(15000),
-    });
+    }, ["graph.facebook.com"]);
     if (!metaResponse.ok) throw new Error("MEDIA_PROVIDER_METADATA_FAILED");
     const meta = await metaResponse.json() as { url?: string; mime_type?: string; file_size?: number };
     if (!meta.url) throw new Error("MEDIA_PROVIDER_METADATA_INVALID");
     const mediaUrl = allowedProviderUrl(meta.url, ["fbcdn.net", "fbsbx.com"]);
-    const response = await fetch(mediaUrl, {
+    const response = await fetchProviderResource(mediaUrl, {
       headers: { Authorization: "Bearer " + token }, signal: AbortSignal.timeout(30000),
-    });
+    }, ["fbcdn.net", "fbsbx.com"]);
     return { response, fileName: job.original_file_name || "whatsapp-attachment", mimeHint: meta.mime_type || job.mime_type_hint };
   }
   if (job.channel_type === "line") {
     const token = secrets.tradepilot_channel_line_access_token;
     if (!token) throw new Error("MEDIA_CHANNEL_TOKEN_MISSING");
     const url = new URL("https://api-data.line.me/v2/bot/message/" + encodeURIComponent(job.external_media_id) + "/content");
-    const response = await fetch(url, {
+    const response = await fetchProviderResource(url, {
       headers: { Authorization: "Bearer " + token }, signal: AbortSignal.timeout(30000),
-    });
+    }, ["api-data.line.me", "line-scdn.net", "line.me"]);
     return { response, fileName: job.original_file_name || "line-attachment", mimeHint: job.mime_type_hint };
   }
   if (job.channel_type === "messenger") {
     if (!job.provider_url) throw new Error("MEDIA_PROVIDER_URL_MISSING");
     const url = allowedProviderUrl(job.provider_url, ["fbcdn.net", "fbsbx.com"]);
     const token = secrets.tradepilot_channel_messenger_page_access_token;
-    const response = await fetch(url, {
+    const response = await fetchProviderResource(url, {
       headers: token ? { Authorization: "Bearer " + token } : {},
       signal: AbortSignal.timeout(30000),
-    });
+    }, ["fbcdn.net", "fbsbx.com"]);
     return { response, fileName: job.original_file_name || "messenger-attachment", mimeHint: job.mime_type_hint };
   }
   const token = secrets.tradepilot_channel_telegram_bot_token;
   if (!token) throw new Error("MEDIA_CHANNEL_TOKEN_MISSING");
   const getFileUrl = new URL("https://api.telegram.org/bot" + token + "/getFile");
   getFileUrl.searchParams.set("file_id", job.external_media_id);
-  const metaResponse = await fetch(getFileUrl, { signal: AbortSignal.timeout(15000) });
+  const metaResponse = await fetchProviderResource(getFileUrl, { signal: AbortSignal.timeout(15000) }, ["api.telegram.org"]);
   if (!metaResponse.ok) throw new Error("MEDIA_PROVIDER_METADATA_FAILED");
   const meta = await metaResponse.json() as { ok?: boolean; result?: { file_path?: string } };
   const filePath = meta.result?.file_path;
@@ -183,7 +200,7 @@ async function providerDownload(job: MediaJob, secrets: Record<string, string>):
     throw new Error("MEDIA_PROVIDER_METADATA_INVALID");
   }
   const url = allowedProviderUrl("https://api.telegram.org/file/bot" + token + "/" + filePath, ["api.telegram.org"]);
-  const response = await fetch(url, { signal: AbortSignal.timeout(30000) });
+  const response = await fetchProviderResource(url, { signal: AbortSignal.timeout(30000) }, ["api.telegram.org"]);
   const providerMeta = job.provider_metadata ?? {};
   return {
     response,
