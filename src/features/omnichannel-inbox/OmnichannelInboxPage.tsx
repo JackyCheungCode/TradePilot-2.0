@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Button, Search, TextInput, TextArea, Dropdown, Tag, InlineNotification, Modal, ModalBody, IconButton, Heading, CarbonIcons,
+  Button, Search, TextInput, TextArea, Dropdown, Tag, InlineNotification, Modal, ModalBody, IconButton, Heading, Tile, LineChart, ScaleTypes, CarbonIcons,
 } from '@/design-system';
 import {
   channelLabels, conversationsSeed, customersSeed, identitiesSeed, messagesSeed,
@@ -23,8 +23,18 @@ function ChannelMark({ channel }: { channel: ChannelType }) {
     {slug ? <img src={'https://cdn.simpleicons.org/' + slug + '/FFFFFF'} alt="" aria-hidden="true" /> : <CarbonIcons.Email size={14} />}
   </span>;
 }
+function avatarFallback(contactName: string) {
+  const name = contactName.trim();
+  if (!name) return '?';
+  const firstToken = name.split(/\\s+/)[0];
+  if (/[\\u3400-\\u9fff\\u3040-\\u30ff\\uac00-\\ud7af]/.test(name)) return Array.from(firstToken)[0];
+  const parts = name.split(/\\s+/).filter(Boolean);
+  return (parts.length > 1 ? parts[parts.length - 1] : parts[0]).charAt(0).toUpperCase();
+}
 function Avatar({ customer, small = false }: { customer: Customer; small?: boolean }) {
-  return <div className={'oi-avatar' + (small ? ' oi-avatar--small' : '')} role="img" aria-label={customer.contact_name}>{customer.avatar}</div>;
+  const fallback = avatarFallback(customer.contact_name);
+  const avatarText = customer.avatar?.trim() || fallback;
+  return <div className={'oi-avatar' + (small ? ' oi-avatar--small' : '')} role="img" aria-label={customer.contact_name}>{avatarText}</div>;
 }
 function StatusText({ status }: { status: Message['status'] }) {
   if (status === 'local') return <span className="oi-message-status">仅本地演示</span>;
@@ -71,6 +81,29 @@ export function OmnichannelInboxPage() {
   const whatsappWindowExpiresAt = lastWhatsappInbound ? lastWhatsappInbound.created_at + 24 * 60 * 60_000 : null;
   const whatsappClosed = channel === 'whatsapp' && (!whatsappWindowExpiresAt || whatsappWindowExpiresAt < now());
   const timeline = messages.filter((item) => item.conversation_id === activeConversation.id).sort((a, b) => a.created_at - b.created_at);
+
+  const unreadConversationCount = conversations.filter((item) => item.unread_count > 0).length;
+  const todayKey = new Date().toLocaleDateString('en-CA');
+  const isSameLocalDay = (timestamp: number, key: string) => new Date(timestamp).toLocaleDateString('en-CA') === key;
+  const todayActiveCustomerCount = new Set(messages.filter((item) => isSameLocalDay(item.created_at, todayKey)).map((item) => item.customer_id)).size;
+  const dailyActivityData = useMemo(() => Array.from({ length: 7 }, (_, index) => {
+    const date = new Date();
+    date.setHours(0, 0, 0, 0);
+    date.setDate(date.getDate() - (6 - index));
+    const key = date.toLocaleDateString('en-CA');
+    const customerCount = new Set(messages.filter((item) => isSameLocalDay(item.created_at, key)).map((item) => item.customer_id)).size;
+    return { group: '对话客户', date: date.toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' }), customers: customerCount };
+  }), [messages]);
+  const yesterdayActiveCustomerCount = dailyActivityData[dailyActivityData.length - 2]?.customers ?? 0;
+  const activeCustomerDelta = todayActiveCustomerCount - yesterdayActiveCustomerCount;
+  // The previous unread snapshot is demo-only until real inbox analytics are connected.
+  const demoPreviousUnreadCount = 3;
+  const unreadDelta = unreadConversationCount - demoPreviousUnreadCount;
+  const trendLabel = (delta: number) => delta > 0 ? '+' + delta : String(delta);
+  const trendTone = (metric: 'unread' | 'active', delta: number) => {
+    if (delta === 0) return 'oi-trend--neutral';
+    return (metric === 'unread' ? delta < 0 : delta > 0) ? 'oi-trend--positive' : 'oi-trend--negative';
+  };
 
   const filteredConversations = useMemo(() => conversations.filter((conversation) => {
     const person = customers.find((item) => item.id === conversation.customer_id)!;
@@ -163,6 +196,45 @@ export function OmnichannelInboxPage() {
       <div><Heading className="oi-page-title">混合聊天</Heading><p>统一管理跨渠道客户沟通与跟进</p></div>
       <span className="oi-total">{conversations.length} 个会话</span>
     </header>
+    <section className="oi-metrics-row" aria-label="会话统计">
+      <Tile className="oi-metric-tile">
+        <div className="oi-metric-icon oi-metric-icon--unread"><CarbonIcons.Chat size={24} /></div>
+        <div className="oi-metric-copy"><span>未读对话</span><strong>{unreadConversationCount}</strong><small>有未读消息的会话</small></div>
+        <div className={'oi-metric-trend ' + trendTone('unread', unreadDelta)}>
+          {unreadDelta < 0 ? <CarbonIcons.ArrowDown size={16} /> : unreadDelta > 0 ? <CarbonIcons.ArrowUp size={16} /> : <CarbonIcons.Subtract size={16} />}
+          <strong>{trendLabel(unreadDelta)}</strong><small>较演示基准</small>
+        </div>
+      </Tile>
+      <Tile className="oi-metric-tile">
+        <div className="oi-metric-icon oi-metric-icon--active"><CarbonIcons.UserMultiple size={24} /></div>
+        <div className="oi-metric-copy"><span>今日活跃客户</span><strong>{todayActiveCustomerCount}</strong><small>按客户去重统计</small></div>
+        <div className={'oi-metric-trend ' + trendTone('active', activeCustomerDelta)}>
+          {activeCustomerDelta < 0 ? <CarbonIcons.ArrowDown size={16} /> : activeCustomerDelta > 0 ? <CarbonIcons.ArrowUp size={16} /> : <CarbonIcons.Subtract size={16} />}
+          <strong>{trendLabel(activeCustomerDelta)}</strong><small>较昨日</small>
+        </div>
+      </Tile>
+    </section>
+    <section className="oi-activity-panel" aria-label="每日对话客户数趋势">
+      <Tile className="oi-activity-tile">
+        <div className="oi-activity-heading">
+          <div><Heading className="oi-activity-title">每日对话客户数</Heading><p>最近 7 天 · 同一客户跨渠道只计一次</p></div>
+          <Tag type="cool-gray">演示数据</Tag>
+        </div>
+        <div className="oi-activity-chart">
+          <LineChart data={dailyActivityData} options={{
+            axes: {
+              bottom: { title: '日期', mapsTo: 'date', scaleType: ScaleTypes.LABELS },
+              left: { title: '客户数', mapsTo: 'customers', scaleType: ScaleTypes.LINEAR }
+            },
+            height: '168px',
+            legend: { enabled: false },
+            points: { enabled: true },
+            toolbar: { enabled: false },
+            color: { scale: { '对话客户': '#0f62fe' } }
+          }} />
+        </div>
+      </Tile>
+    </section>
     <div className="oi-workspace-grid">
     <aside className="oi-conversation-panel">
       <div className="oi-list-header"><strong>会话列表</strong><span className="oi-total">{filteredConversations.length} 条</span></div>
