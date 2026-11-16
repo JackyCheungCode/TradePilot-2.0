@@ -5,7 +5,7 @@ import {
   Grid, Column, Stack, ClickableTile, LineChart, ScaleTypes,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
-import { getInboxConversations, getInboxMessages, getInboxBusinessMetrics, translateInboxMessage, generateInboxSummary, createInboxNote, sendInboxMessage, getInboxUnmatchedEvents, searchInboxCRMContacts, assignInboxUnmatchedEvent, type InboxConversation, type InboxTimelineItem, type InboxBusinessMetrics, type InboxUnmatchedEvent, type InboxCRMContact } from './api';
+import { getInboxConversations, createInboxConversation, getInboxMessages, getInboxBusinessMetrics, translateInboxMessage, generateInboxSummary, createInboxNote, sendInboxMessage, getInboxUnmatchedEvents, searchInboxCRMContacts, assignInboxUnmatchedEvent, type InboxConversation, type InboxTimelineItem, type InboxBusinessMetrics, type InboxUnmatchedEvent, type InboxCRMContact, type InboxContact } from './api';
 
 const channels = [
   { id: 'whatsapp', label: 'WhatsApp' },
@@ -47,6 +47,10 @@ const attachmentScanTag = (status: string) => ({
 
 export function InboxPage() {
   const [query, setQuery] = useState('');
+  const [mobileQuery, setMobileQuery] = useState('');
+  const [mobileContacts, setMobileContacts] = useState<Array<InboxContact & { crm_accounts?: { account_name?: string | null } | null }>>([]);
+  const [mobileContactsLoading, setMobileContactsLoading] = useState(true);
+  const [openingContactId, setOpeningContactId] = useState('');
   const [draft, setDraft] = useState('');
   const [channelFilter, setChannelFilter] = useState('all');
   const [conversations, setConversations] = useState<InboxConversation[]>([]);
@@ -69,6 +73,59 @@ export function InboxPage() {
   const [selectedContactId, setSelectedContactId] = useState('');
   const [contactSearchLoading, setContactSearchLoading] = useState(false);
   const [eventAssigning, setEventAssigning] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      setMobileContactsLoading(true);
+      try {
+        const client = await getSupabaseClient();
+        const { data, error: queryError } = await client.from('crm_contacts')
+          .select('id,full_name,first_name,last_name,job_title,email,phone,mobile,preferred_language,account_id,crm_accounts(account_name)')
+          .eq('is_archived', false).eq('is_active', true).order('full_name', { ascending: true }).limit(1000);
+        if (queryError) throw queryError;
+        if (active) setMobileContacts((data ?? []) as unknown as Array<InboxContact & { crm_accounts?: { account_name?: string | null } | null }>);
+      } catch (cause) {
+        if (active) setError(cause instanceof Error ? cause.message : '读取 CRM 联系人失败。');
+      } finally {
+        if (active) setMobileContactsLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
+
+  const openMobileContact = async (contact: InboxContact & { crm_accounts?: { account_name?: string | null } | null }) => {
+    if (openingContactId) return;
+    setOpeningContactId(contact.id);
+    setError('');
+    try {
+      const client = await getSupabaseClient();
+      const { data: { session } } = await client.auth.getSession();
+      if (!session?.access_token) throw new Error('登录状态已失效，请重新登录。');
+      const conversation = await createInboxConversation(session.access_token, contact.id);
+      const fullName = contact.full_name || [contact.first_name, contact.last_name].filter(Boolean).join(' ') || '未命名联系人';
+      const accountName = contact.crm_accounts?.account_name || '';
+      const selectedConversation: InboxConversation = {
+        ...conversation, display_name: accountName || fullName, contact_display_name: fullName,
+        contact, account: contact.account_id ? { id: contact.account_id, account_name: accountName } : null,
+      };
+      setSelected(selectedConversation);
+      setConversations(rows => [selectedConversation, ...rows.filter(row => row.id !== selectedConversation.id)]);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '打开客户聊天失败。');
+    } finally {
+      setOpeningContactId('');
+    }
+  };
+
+  const visibleMobileContacts = useMemo(() => {
+    const q = mobileQuery.trim().toLocaleLowerCase();
+    if (!q) return mobileContacts;
+    return mobileContacts.filter(contact => [
+      contact.full_name, contact.first_name, contact.last_name, contact.job_title,
+      contact.crm_accounts?.account_name, contact.email, contact.phone, contact.mobile,
+    ].filter(Boolean).join(' ').toLocaleLowerCase().includes(q));
+  }, [mobileContacts, mobileQuery]);
 
   useEffect(() => {
     let active = true;
@@ -386,6 +443,25 @@ export function InboxPage() {
       )}
 
       {error && <Tile><Tag type="red">操作失败</Tag><p>{error}</p></Tile>}
+
+      <section className={selected ? 'tp-inbox-mobile-directory is-hidden-mobile' : 'tp-inbox-mobile-directory'}>
+        <div className="tp-inbox-mobile-directory-heading"><h1>联系人</h1><span>{mobileContacts.length}</span></div>
+        <Search size="lg" labelText="搜索联系人" placeholder="搜索姓名、职位、公司、电话或邮箱" value={mobileQuery}
+          onChange={(event: React.ChangeEvent<HTMLInputElement>) => setMobileQuery(event.target.value)} />
+        {mobileContactsLoading && <InlineLoading description="正在读取客户联系人…" />}
+        {!mobileContactsLoading && visibleMobileContacts.map(contact => (
+          <button type="button" className="tp-inbox-mobile-contact" key={contact.id}
+            onClick={() => void openMobileContact(contact)} disabled={Boolean(openingContactId)}>
+            <span className="tp-inbox-contact-avatar"><CarbonIcons.UserAvatar size={32} /></span>
+            <span className="tp-inbox-contact-content">
+              <strong>{contact.full_name || [contact.first_name, contact.last_name].filter(Boolean).join(' ') || '未命名联系人'}</strong>
+              <span>{[contact.job_title, contact.crm_accounts?.account_name].filter(Boolean).join(' · ') || '未设置职位与公司'}</span>
+            </span>
+            {openingContactId === contact.id ? <InlineLoading description="打开中" /> : <CarbonIcons.ChevronRight size={20} />}
+          </button>
+        ))}
+        {!mobileContactsLoading && visibleMobileContacts.length === 0 && <p className="tp-inbox-mobile-empty">{mobileContacts.length ? '没有匹配的联系人' : '暂无客户联系人'}</p>}
+      </section>
 
       <Grid fullWidth className="tp-inbox-layout">
         <Column className={selected ? "tp-inbox-conversation-column is-hidden-mobile" : "tp-inbox-conversation-column"} sm={4} md={4} lg={3}>
