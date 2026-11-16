@@ -49,6 +49,10 @@ async function readVaultSecrets(names:string[],env:SettingsEnv):Promise<Record<s
  const rows=await vaultRpc<Array<{name:string;secret:string}>>("tradepilot_secret_get",{p_names:names},env);
  return Object.fromEntries((rows??[]).map(row=>[row.name,row.secret]));
 }
+
+export async function readIntegrationSecrets(names: string[], env: SettingsEnv): Promise<Record<string, string>> {
+ return readVaultSecrets(names, env);
+}
 async function saveVaultSecret(name:string,value:string,description:string,env:SettingsEnv){
  await vaultRpc<string>("tradepilot_secret_upsert",{p_name:name,p_secret:value,p_description:description},env);
 }
