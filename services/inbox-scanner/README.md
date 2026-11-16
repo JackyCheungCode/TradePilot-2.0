@@ -9,9 +9,8 @@ This service runs beside the official ClamAV daemon. The daemon's TCP port is on
 2. Start the service:
    `docker compose up -d --build`
 3. Wait for ClamAV's initial signature database download and health check.
-4. Publish only `http://127.0.0.1:8787` through a Cloudflare Tunnel hostname. Do not publish port 3310.
-5. Create a Cloudflare Tunnel public hostname that forwards to `http://127.0.0.1:8787`. Do not create a DNS record pointing directly at the host's public IP or expose port 8787/3310.
-6. Configure the Worker with the scanner HTTPS URL as the `INBOX_SCANNER_URL` Worker variable, and set the matching HMAC secret with `wrangler secret put INBOX_SCANNER_HMAC_SECRET` from an authorized deployment environment.
+4. Create a Cloudflare Tunnel public hostname that forwards to `http://127.0.0.1:8787`. Do not create a DNS record pointing directly at the host's public IP or expose ports 8787/3310.
+5. Configure the Worker with the scanner HTTPS URL as the `INBOX_SCANNER_URL` Worker variable, and set the matching HMAC secret with `wrangler secret put INBOX_SCANNER_HMAC_SECRET` from an authorized deployment environment.
 
 The API authenticates the timestamp, digest, and HMAC before buffering the request body; it accepts only `POST /scan` with `application/octet-stream`, a 25 MiB maximum body, a 60-second timestamp window, a SHA-256 body digest, and an HMAC-SHA256 signature over `timestamp.digest`. Only two concurrent scans are accepted; overload returns 503 so the Worker can retry. It returns `{"status":"clean"}` or `{"status":"infected"}`; daemon errors fail closed.
 
