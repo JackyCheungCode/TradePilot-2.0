@@ -11,6 +11,7 @@ as $$
 declare
   v_owner uuid := auth.uid();
   v_status text;
+  v_fields jsonb;
   v_db_status text;
 begin
   if v_owner is null then raise exception 'Authentication required'; end if;
@@ -69,7 +70,6 @@ as $$
 declare
   v_owner uuid := auth.uid();
   v_current_active boolean;
-  v_fields jsonb;
   v_from_status text;
   v_to_status text;
 begin
