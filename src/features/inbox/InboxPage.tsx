@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Button, Search, Tag, Tile, TextArea, CarbonIcons, InlineLoading,
   Grid, Column, Stack, ClickableTile, LineChart, ScaleTypes,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
-import { getInboxConversations, getInboxMessages, getInboxBusinessMetrics, createInboxNote, type InboxConversation, type InboxTimelineItem, type InboxBusinessMetrics } from './api';
+import { getInboxConversations, getInboxMessages, getInboxBusinessMetrics, getInboxChannelReadiness, createInboxNote, type InboxConversation, type InboxTimelineItem, type InboxBusinessMetrics, type InboxChannelReadiness } from './api';
 
 const channels = [
   { id: 'whatsapp', label: 'WhatsApp' },
@@ -20,6 +21,8 @@ const formatTime = (value?: string | null) => value
   : '';
 
 export function InboxPage() {
+  const navigate = useNavigate();
+  const [channelReadiness, setChannelReadiness] = useState<InboxChannelReadiness>({});
   const [query, setQuery] = useState('');
   const [draft, setDraft] = useState('');
   const [channelFilter, setChannelFilter] = useState('all');
@@ -44,6 +47,10 @@ export function InboxPage() {
         const { data: { session } } = await client.auth.getSession();
         if (!session?.access_token) throw new Error('登录状态已失效，请重新登录。');
         const rows = await getInboxConversations(session.access_token);
+        try {
+          const readiness = await getInboxChannelReadiness(session.access_token);
+          if (active) setChannelReadiness(readiness);
+        } catch { /* Inbox remains usable when integration status is temporarily unavailable. */ }
         if (active) {
           setConversations(rows);
           setSelected(current => current ? rows.find(row => row.id === current.id) ?? null : null);
@@ -204,6 +211,15 @@ export function InboxPage() {
     return matchesChannel && haystack.includes(query.trim().toLocaleLowerCase());
   }), [conversations, channelFilter, query]);
 
+  const channelSetup = [
+    { id: 'whatsapp', label: 'WhatsApp', ready: Boolean(channelReadiness.whatsappAccessToken && channelReadiness.whatsappPhoneNumberId) },
+    { id: 'line', label: 'LINE', ready: Boolean(channelReadiness.lineChannelAccessToken && channelReadiness.lineChannelSecret) },
+    { id: 'messenger', label: 'Messenger', ready: Boolean(channelReadiness.messengerPageAccessToken && channelReadiness.messengerPageId) },
+    { id: 'telegram', label: 'Telegram', ready: Boolean(channelReadiness.telegramBotToken) },
+    { id: 'wecom', label: '企业微信', ready: Boolean(channelReadiness.wecomCorpId && channelReadiness.wecomSecret) },
+    { id: 'email', label: 'Email', ready: Boolean(channelReadiness.emailImapHost && channelReadiness.emailSmtpHost && channelReadiness.emailUsername && channelReadiness.emailPassword) },
+  ];
+
   return (
     <Stack gap={5}>
       <Stack orientation="horizontal" gap={4}>
@@ -212,7 +228,11 @@ export function InboxPage() {
           <h1>消息 <span>Inbox</span></h1>
           <p>统一查看和处理来自不同渠道的客户沟通。</p>
         </Stack>
-        <Button kind="tertiary" renderIcon={CarbonIcons.Settings} disabled>渠道设置</Button>
+        <Button kind="tertiary" renderIcon={CarbonIcons.Settings} onClick={() => navigate("/settings?domain=integrations&section=api")}>渠道设置</Button>
+      </Stack>
+
+      <Stack orientation="horizontal" gap={2} wrap>
+        {channelSetup.map(channel => <Tag key={channel.id} type={channel.ready ? 'green' : 'cool-gray'}>{channel.label} · {channel.ready ? '凭证已配置' : '待配置'}</Tag>)}
       </Stack>
 
       {error && <Tile><Tag type="red">读取失败</Tag><p>{error}</p></Tile>}
