@@ -1,6 +1,7 @@
 import { errorResponse, successResponse } from "../lib/http";
 import { handleTranslation } from "./translation";
 import { runConfiguredAI } from "./settings";
+import { sendInboxProviderMessage, type InboxProviderSecrets } from "./inbox-providers";
 
 interface InboxEnv {
   SUPABASE_URL: string;
@@ -41,6 +42,33 @@ async function db<T>(env: InboxEnv, path: string, init: RequestInit = {}): Promi
 
 const unique = (values: unknown[]): string[] =>
   [...new Set(values.filter((value): value is string => typeof value === "string" && value.length > 0))];
+
+const channelSecretNames: Record<string, string> = {
+  whatsappAccessToken: "tradepilot_channel_whatsapp_access_token",
+  whatsappPhoneNumberId: "tradepilot_channel_whatsapp_phone_number_id",
+  lineChannelAccessToken: "tradepilot_channel_line_access_token",
+  messengerPageAccessToken: "tradepilot_channel_messenger_page_access_token",
+  telegramBotToken: "tradepilot_channel_telegram_bot_token",
+};
+
+async function readInboxChannelSecrets(env: InboxEnv): Promise<InboxProviderSecrets> {
+  const names = Object.values(channelSecretNames);
+  const response = await fetch(env.SUPABASE_URL + "/rest/v1/rpc/tradepilot_secret_get", {
+    method: "POST",
+    headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: "Bearer " + env.SUPABASE_SERVICE_ROLE_KEY, "Content-Type": "application/json" },
+    body: JSON.stringify({ p_names: names }),
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!response.ok) throw new Error("INBOX_SECRET_STORE_UNAVAILABLE");
+  const rows = await response.json() as Array<{ name: string; secret: string }>;
+  const byName = Object.fromEntries((rows ?? []).map(row => [row.name, row.secret]));
+  const result: Record<string, string> = {};
+  for (const [key, name] of Object.entries(channelSecretNames)) {
+    const value = byName[name];
+    if (typeof value === "string" && value) result[key] = value;
+  }
+  return result as InboxProviderSecrets;
+}
 
 export async function handleInbox(request: Request, env: InboxEnv): Promise<Response> {
   const url = new URL(request.url);
@@ -261,6 +289,64 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
           }),
         });
       return successResponse(request, { message: updated[0] ?? null, translated_content: translatedPayload.data.translatedText, target_language: targetLanguage });
+    }
+
+    const sendMatch = url.pathname.match(/^\\/api\\/v1\\/inbox\\/conversations\\/([0-9a-f-]{36})\\/messages$/i);
+    if (sendMatch && request.method === "POST") {
+      const conversationId = sendMatch[1];
+      let body: { content?: unknown };
+      try { body = await request.json() as { content?: unknown }; }
+      catch { return errorResponse(request, "INVALID_JSON", "消息内容格式不正确。", 400); }
+      const content = typeof body.content === "string" ? body.content.trim() : "";
+      if (!content || content.length > 4000) return errorResponse(request, "VALIDATION_ERROR", "消息不能为空，且不能超过 4000 个字符。", 400);
+
+      const conversations = await db<Row[]>(env, "inbox_conversations?select=id,contact_id,last_channel_type&id=eq." + conversationId + "&owner_id=eq." + ownerId + "&limit=1");
+      const conversation = conversations[0];
+      if (!conversation) return errorResponse(request, "CONVERSATION_NOT_FOUND", "会话不存在或无权访问。", 404);
+      const channel = String(conversation.last_channel_type ?? "");
+      if (!["whatsapp", "line", "messenger", "telegram"].includes(channel)) return errorResponse(request, "CHANNEL_NOT_READY", "当前渠道尚未开放真实文本发送。", 409);
+
+      const identities = await db<Row[]>(env, "inbox_customer_identities?select=id,external_user_id,channel_connection_id,is_primary&owner_id=eq." + ownerId + "&contact_id=eq." + String(conversation.contact_id) + "&channel_type=eq." + channel + "&order=is_primary.desc,last_seen_at.desc.nullslast&limit=1");
+      const identity = identities[0];
+      if (!identity || typeof identity.external_user_id !== "string" || !identity.external_user_id) return errorResponse(request, "CHANNEL_IDENTITY_MISSING", "该联系人尚未绑定此渠道的客户身份，暂时无法发送。", 409);
+
+      if (channel === "whatsapp" || channel === "messenger") {
+        const recentInbound = await db<Row[]>(env, "inbox_messages?select=id,created_at&owner_id=eq." + ownerId + "&conversation_id=eq." + conversationId + "&channel_type=eq." + channel + "&direction=eq.inbound&order=created_at.desc&limit=1");
+        const lastInboundAt = recentInbound[0]?.created_at;
+        const elapsed = typeof lastInboundAt === "string" ? Date.now() - Date.parse(lastInboundAt) : Number.POSITIVE_INFINITY;
+        if (!(elapsed >= 0 && elapsed < 24 * 60 * 60 * 1000)) return errorResponse(request, "CHANNEL_REPLY_WINDOW_EXPIRED",
+          channel === "whatsapp" ? "WhatsApp 24 小时客户服务窗口已过期，普通文本消息已拦截；请使用获批模板消息。" : "Messenger 24 小时回复窗口已过期，当前不能发送普通回复。", 409);
+      }
+
+      const pending = await db<Row[]>(env, "inbox_messages?select=id,conversation_id,channel_type,direction,content,status,created_at", {
+        method: "POST", headers: { Prefer: "return=representation" },
+        body: JSON.stringify({ owner_id: ownerId, conversation_id: conversationId, customer_identity_id: identity.id,
+          channel_connection_id: identity.channel_connection_id ?? null, channel_type: channel, direction: "outbound",
+          content_type: "text", content, status: "sending" }),
+      });
+      const pendingMessage = pending[0];
+      if (!pendingMessage?.id) throw new Error("INBOX_OUTBOUND_INSERT_FAILED");
+
+      try {
+        const result = await sendInboxProviderMessage(channel as "whatsapp" | "line" | "messenger" | "telegram",
+          String(identity.external_user_id), content, await readInboxChannelSecrets(env));
+        const updated = await db<Row[]>(env, "inbox_messages?id=eq." + String(pendingMessage.id) + "&owner_id=eq." + ownerId, {
+          method: "PATCH", headers: { Prefer: "return=representation" },
+          body: JSON.stringify({ status: "sent", external_message_id: result.externalMessageId, sent_at: new Date().toISOString(), error_code: null, error_message: null }),
+        });
+        await db<Row[]>(env, "inbox_conversations?id=eq." + conversationId + "&owner_id=eq." + ownerId, {
+          method: "PATCH", headers: { Prefer: "return=minimal" },
+          body: JSON.stringify({ last_message_at: new Date().toISOString(), last_channel_type: channel, last_message_preview: content.slice(0, 500) }),
+        });
+        return successResponse(request, { message: updated[0] ?? pendingMessage }, 201);
+      } catch (sendError) {
+        const code = sendError instanceof Error && /^[A-Z0-9_]+$/.test(sendError.message) ? sendError.message : "CHANNEL_SEND_FAILED";
+        await db<Row[]>(env, "inbox_messages?id=eq." + String(pendingMessage.id) + "&owner_id=eq." + ownerId, {
+          method: "PATCH", headers: { Prefer: "return=minimal" },
+          body: JSON.stringify({ status: "failed", error_code: code, error_message: "渠道发送失败，请检查渠道配置或稍后重试。" }),
+        });
+        return errorResponse(request, code, "渠道发送失败，请检查渠道配置或稍后重试。", 502);
+      }
     }
 
     const noteMatch = url.pathname.match(/^\/api\/v1\/inbox\/conversations\/([0-9a-f-]{36})\/notes$/i);
