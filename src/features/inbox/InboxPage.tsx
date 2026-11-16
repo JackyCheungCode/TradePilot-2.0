@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import './inbox-page.scss';
 import {
   Button, Search, Tag, Tile, TextArea, CarbonIcons, InlineLoading, Modal, ModalBody, Select, SelectItem, TextInput,
   Grid, Column, Stack, ClickableTile, LineChart, ScaleTypes,
@@ -411,54 +412,6 @@ export function InboxPage() {
         <Button kind="tertiary" renderIcon={CarbonIcons.Settings} onClick={() => navigate("/settings?domain=integrations&section=api")}>渠道设置</Button>
       </Stack>
 
-      <Grid fullWidth>
-        {channelSetup.map(channel => (
-          <Column key={channel.id} sm={2} md={4} lg={2}>
-            <Tag type={channel.ready ? 'green' : 'cool-gray'}>{channel.label} · {channel.ready ? '凭证已配置' : '待配置'}</Tag>
-          </Column>
-        ))}
-      </Grid>
-
-      <Tile>
-        <Stack gap={3}>
-          <Stack orientation="horizontal">
-            <Stack gap={1}>
-              <h2>渠道连接 <span>Channel Connections</span></h2>
-              <p>登记渠道账号并生成专属 Webhook 地址，供渠道平台回调。</p>
-            </Stack>
-            <Button kind="tertiary" size="sm" renderIcon={CarbonIcons.Add} onClick={() => setConnectionModalOpen(true)}>添加连接</Button>
-          </Stack>
-          {connections.length === 0
-            ? <p>尚未登记渠道连接。配置 API 凭证后，添加渠道账号 ID 即可生成 Webhook 地址。</p>
-            : connections.map(connection => (
-              <Stack key={connection.id} gap={2}>
-                <Stack orientation="horizontal" gap={2}>
-                  <strong>{connection.display_name}</strong>
-                  <Tag type={connection.connection_status === 'connected' ? 'green' : connection.connection_status === 'error' ? 'red' : 'cool-gray'}>
-                    {connection.connection_status === 'connected' ? '已验证' : connection.connection_status === 'error' ? '连接错误' : '等待验证'}
-                  </Tag>
-                  <span>{channelLabel(connection.channel_type)} · {connection.external_account_id}</span>
-                </Stack>
-                {connection.webhook_url && (
-                  <Stack orientation="horizontal" gap={2}>
-                    <code>{connection.webhook_url}</code>
-                    <Button kind="ghost" size="sm" onClick={() => void navigator.clipboard?.writeText(connection.webhook_url || '')}>复制 Webhook</Button>
-                  </Stack>
-                )}
-              </Stack>
-            ))}
-          {webhookUrl && (
-            <Tile>
-              <Stack gap={2}>
-                <Tag type="green">连接记录已创建</Tag>
-                <p>请将此地址填入渠道平台的 Webhook / Callback URL，并完成平台验证。</p>
-                <code>{webhookUrl}</code>
-                <Button kind="tertiary" size="sm" onClick={() => void navigator.clipboard?.writeText(webhookUrl)}>复制地址</Button>
-              </Stack>
-            </Tile>
-          )}
-        </Stack>
-      </Tile>
 
       {unmatchedEvents.length > 0 && (
         <Tile>
@@ -491,7 +444,7 @@ export function InboxPage() {
       {error && <Tile><Tag type="red">操作失败</Tag><p>{error}</p></Tile>}
 
       <Grid fullWidth>
-        <Column sm={4} md={3} lg={5}>
+        <Column className={selected ? "tp-inbox-conversation-column is-hidden-mobile" : "tp-inbox-conversation-column"} sm={4} md={3} lg={5}>
           <Stack gap={4}>
             <Stack orientation="horizontal">
               <h2>会话 <span>Conversations</span></h2>
@@ -534,11 +487,12 @@ export function InboxPage() {
           </Stack>
         </Column>
 
-        <Column sm={4} md={5} lg={7}>
+        <Column className={selected ? "tp-inbox-message-column" : "tp-inbox-message-column is-hidden-mobile"} sm={4} md={5} lg={7}>
           <Stack gap={4}>
             {selected ? (
               <>
-                <Stack orientation="horizontal">
+                <Stack orientation="horizontal" className="tp-inbox-conversation-heading">
+                  <Button className="tp-inbox-mobile-back" kind="ghost" size="sm" onClick={() => setSelected(null)}>返回会话</Button>
                   <Stack gap={1}>
                     <h2>{selected.display_name}</h2>
                     <p>{selected.contact_display_name}{selected.contact?.job_title ? ' · ' + selected.contact.job_title : ''}</p>
@@ -631,7 +585,7 @@ export function InboxPage() {
           </Stack>
         </Column>
 
-        <Column sm={4} md={8} lg={4}>
+        <Column className="tp-inbox-assist-column" sm={4} md={8} lg={4}>
           <Stack gap={4}>
             <Tile>
               <Stack gap={3}>
@@ -750,5 +704,6 @@ export function InboxPage() {
         </ModalBody>
       </Modal>
     </Stack>
+    </div>
   );
 }
