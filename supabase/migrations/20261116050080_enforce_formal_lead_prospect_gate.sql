@@ -95,6 +95,18 @@ begin
     update public.discovery_records
       set status = 'promoted', lead_id = v_lead.id, updated_at = now()
       where id = v_record_id and owner_id = v_owner;
+
+    insert into public.business_record_relations(
+      owner_id,source_record_type,source_record_id,target_record_type,target_record_id,
+      relation_type,created_by,metadata
+    )
+    select v_owner,'prospect',v_record_id,'lead',v_lead.id,'converted_to',v_owner,
+      jsonb_build_object('conversion_method','formal_lead_form','atomic',true)
+    where not exists(
+      select 1 from public.business_record_relations
+      where owner_id=v_owner and source_record_type='prospect' and source_record_id=v_record_id
+        and target_record_type='lead' and target_record_id=v_lead.id and relation_type='converted_to'
+    );
   end if;
 
   return jsonb_build_object('id', v_lead.id, 'lead_number', v_lead.lead_number, 'already_exists', false);
