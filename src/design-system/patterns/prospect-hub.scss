@@ -71,24 +71,6 @@
   gap: $spacing-06;
   &__header { align-items:center; }
   &__actions { display:flex; align-items:center; flex-wrap:wrap; justify-content:flex-end; gap:$spacing-03; }
-  &__signal-strip {
-    display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:1px;
-    background:var(--cds-border-subtle-01); border:1px solid var(--cds-border-subtle-01);
-  }
-  &__signal {
-    display:flex; flex-direction:column; gap:$spacing-02; min-width:0;
-    padding:$spacing-04 $spacing-05; background:var(--cds-layer-01);
-    border-top:3px solid var(--signal-color, var(--cds-border-strong-01));
-    span { @include type-style('label-01'); color:var(--cds-text-secondary); }
-    strong { @include type-style('productive-heading-05'); font-variant-numeric:tabular-nums; }
-    small { @include type-style('helper-text-01'); color:var(--cds-text-secondary); }
-    &--blue { --signal-color:var(--cds-support-info); }
-    &--green { --signal-color:var(--cds-support-success); }
-    &--purple { --signal-color:#8a3ffc; }
-    &--teal { --signal-color:#009d9a; }
-    &--orange { --signal-color:var(--cds-support-warning); }
-    &--magenta { --signal-color:#d02670; }
-  }
   &__overview { display:grid; grid-template-columns:minmax(0,1.45fr) minmax(19rem,1fr); gap:$spacing-05; min-width:0; }
   &__overview-side { display:grid; grid-template-columns:minmax(0,1fr); gap:$spacing-05; min-width:0; }
   &__panel {
@@ -116,12 +98,10 @@
   .cds--tabs { min-width:0; }
   .cds--tab-content { padding: $spacing-05 0 0; }
   @media(max-width:1200px) {
-    &__signal-strip { grid-template-columns:repeat(3,minmax(0,1fr)); }
     &__overview { grid-template-columns:minmax(0,1fr); }
     &__overview-side { grid-template-columns:repeat(2,minmax(0,1fr)); }
   }
   @media(max-width:800px) {
-    &__signal-strip { grid-template-columns:repeat(2,minmax(0,1fr)); }
     &__overview-side { grid-template-columns:minmax(0,1fr); }
     &__filters { grid-template-columns:repeat(2,minmax(0,1fr)); }
   }
@@ -129,8 +109,6 @@
     &__header { align-items:stretch; }
     &__actions { display:grid; grid-template-columns:1fr 1fr; }
     &__actions .cds--btn:last-child { grid-column:1/-1; }
-    &__signal { padding:$spacing-03; }
-    &__signal strong { font-size:1.5rem; }
     &__rank-list { grid-template-columns:minmax(0,1fr); }
     &__filters { grid-template-columns:minmax(0,1fr); }
     &__trend,&__dimensions,&__all { padding:$spacing-04; }
