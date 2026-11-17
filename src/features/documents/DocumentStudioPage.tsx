@@ -8,6 +8,7 @@ type Json = Record<string, any>;
 type DocType = 'quotation' | 'proforma_invoice' | 'sales_contract' | 'commercial_invoice' | 'packing_list' | 'shipping_instructions';
 type SourceOrder = { id: string; order_number: string; title: string; order_type: string; status: string; currency_code: string; locked_at?: string | null };
 type Shipment = { id: string; shipment_no: string; status: string; planned_ship_date?: string; actual_ship_date?: string };
+type QuoteDoc = { id: string; document_number: string; order_id: string; status: string };
 type ElementKind = 'text' | 'field' | 'table' | 'image' | 'shape';
 type StudioElement = { id: string; type: ElementKind; name: string; x: number; y: number; width: number; height: number; text?: string; binding?: string; fontSize?: number; fontWeight?: string; fontFamily?: string; color?: string; background?: string; align?: string; border?: string; imageUrl?: string; locked?: boolean };
 type Template = { id: string; name: string; document_type: string; locale: string; template_config: Json; is_default: boolean; is_active: boolean };
@@ -60,6 +61,9 @@ export function DocumentStudioPage() {
   const [shipmentId, setShipmentId] = useState('');
   const [orders, setOrders] = useState<SourceOrder[]>([]);
   const [shipments, setShipments] = useState<Shipment[]>([]);
+  const [quotes, setQuotes] = useState<QuoteDoc[]>([]);
+  const [sourceMode, setSourceMode] = useState<'sales_order' | 'quotation'>('sales_order');
+  const [sourceDocumentId, setSourceDocumentId] = useState('');
   const [templates, setTemplates] = useState<Template[]>([]);
   const [templateId, setTemplateId] = useState('');
   const [templateName, setTemplateName] = useState('我的外贸单据模板');
@@ -76,6 +80,7 @@ export function DocumentStudioPage() {
   const selected = elements.find(item => item.id === selectedId) ?? elements[0];
   const selectedType = DOC_TYPES.find(item => item.value === documentType)!;
   const selectedOrder = orders.find(item => item.id === orderId);
+  const selectedQuote = quotes.find(item => item.id === sourceDocumentId);
   const isShipment = selectedType.source === 'shipment';
   const templateConfig = useMemo(() => ({ layoutEngine: 'free-canvas-v1', pageSize: 'A4', orientation: 'portrait', unit: 'mm', locale, elements }), [elements, locale]);
 
@@ -95,12 +100,15 @@ export function DocumentStudioPage() {
       const client = await getSupabaseClient();
       const { data: { session } } = await client.auth.getSession();
       if (!session?.user.id) throw new Error('登录状态已失效，请重新登录。');
-      const [orderResult, templateResult] = await Promise.all([
+      const [orderResult, templateResult, quoteResult] = await Promise.all([
         client.from('trade_orders').select('id,order_number,title,order_type,status,currency_code,locked_at').eq('owner_id', session.user.id).eq('order_type', 'sales').order('updated_at', { ascending: false }).limit(200),
         request('templates'),
+        client.from('trade_documents').select('id,document_number,order_id,status').eq('owner_id', session.user.id).eq('document_type', 'quotation').not('order_id', 'is', null).order('created_at', { ascending: false }).limit(200),
       ]);
       if (orderResult.error) throw orderResult.error;
+      if (quoteResult.error) throw quoteResult.error;
       setOrders((orderResult.data ?? []) as SourceOrder[]);
+      setQuotes((quoteResult.data ?? []) as QuoteDoc[]);
       setTemplates(Array.isArray(templateResult) ? templateResult as Template[] : []);
     } catch (cause) { setError(cause instanceof Error ? cause.message : '单据数据加载失败。'); }
     finally { setLoading(false); }
@@ -110,7 +118,7 @@ export function DocumentStudioPage() {
   useEffect(() => {
     setElements(initialElements(documentType));
     setCreatedDoc(null); setPreviewContent({}); setPreviewTotals({}); setSelectedId('title');
-    setTemplateId('');
+    setTemplateId(''); setSourceMode('sales_order'); setSourceDocumentId('');
   }, [documentType]);
 
   useEffect(() => {
@@ -165,7 +173,7 @@ export function DocumentStudioPage() {
   };
 
   const loadBusinessData = async () => {
-    if (!orderId || (isShipment && !shipmentId)) { setError(isShipment ? '请选择订单和发运批次。' : '请选择销售订单。'); return; }
+    if (!orderId || (isShipment && !shipmentId) || (sourceMode === 'quotation' && !sourceDocumentId)) { setError(isShipment ? '请选择订单和发运批次。' : sourceMode === 'quotation' ? '请选择报价单。' : '请选择销售订单。'); return; }
     setSaving(true); setError(''); setNotice('');
     try {
       let savedTemplateId = templateId;
@@ -173,7 +181,7 @@ export function DocumentStudioPage() {
         const createdTemplate = await request('templates', { method: 'POST', body: JSON.stringify({ name: templateName, document_type: documentType, locale, description: 'TradePilot 自由画布模板', is_default: false, is_active: true, template_config: templateConfig }) });
         savedTemplateId = createdTemplate.id; setTemplateId(savedTemplateId); setTemplates(items => [...items, createdTemplate as Template]);
       } else await request('templates/' + encodeURIComponent(savedTemplateId), { method: 'PATCH', body: JSON.stringify({ template_config: templateConfig, name: templateName, locale, document_type: documentType }) });
-      const doc = await request('documents', { method: 'POST', body: JSON.stringify({ order_id: orderId, shipment_id: isShipment ? shipmentId : undefined, document_type: documentType, title: titleFor(documentType), template_id: savedTemplateId, locale, currency_code: selectedOrder?.currency_code || 'USD', totals: {} }) });
+      const doc = await request('documents', { method: 'POST', body: JSON.stringify({ order_id: orderId, shipment_id: isShipment ? shipmentId : undefined, document_type: documentType, title: titleFor(documentType), template_id: savedTemplateId, source_document_id: sourceMode === 'quotation' ? sourceDocumentId : undefined, locale, currency_code: selectedOrder?.currency_code || 'USD', totals: {} }) });
       setCreatedDoc(doc as CreatedDoc); setPreviewContent(doc.content ?? {}); setPreviewTotals(doc.totals ?? {});
       setNotice('业务数据已载入，单据草稿已创建。你现在可以在画布中调整每个元素。');
     } catch (cause) { setError(cause instanceof Error ? cause.message : '业务数据载入失败。'); }
