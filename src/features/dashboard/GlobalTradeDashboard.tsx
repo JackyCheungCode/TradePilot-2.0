@@ -7,7 +7,7 @@ import {
   Button, InlineLoading, InlineNotification, Tile, Tag, Select, SelectItem,
   Tabs, TabList, Tab, TabPanels, TabPanel, MultiSelect, Search, DataTable,
   Table, TableHead, TableRow, TableHeader, TableBody, TableCell, TableContainer,
-  CarbonIcons,
+  CarbonIcons, Theme,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import worldAtlas from 'world-atlas/countries-110m.json';
@@ -89,7 +89,6 @@ const barOptions = { ...chartBase, height: '250px', axes: {
 const areaOptions = { ...chartBase, height: '300px', axes: {
   bottom: { mapsTo: 'date', scaleType: 'time' }, left: { mapsTo: 'value', scaleType: 'linear' },
 }, curve: 'curveMonotoneX', points: { enabled: false } };
-const currencyLabel: Record<string, string> = { USD: '美元', EUR: '欧元', CNY: '人民币' };
 
 const TAB_LABELS = ['经营总览', '线索转化', '商机预测', '客户经营', '市场产品', '订单回款', '跟进风险'];
 
@@ -316,7 +315,7 @@ export function GlobalTradeDashboard() {
   const metricSet = metricsByTab[activeTab] || metricsByTab[0];
   const chartThemeOptions = { ...themeOptions, theme: 'white' };
 
-  return <main className="tp-global-dashboard">
+  return <Theme theme="g10"><main className="tp-global-dashboard">
     <div className="tp-gt-breadcrumb">首页 <CarbonIcons.ChevronRight size={12}/> 全球贸易经营驾驶舱</div>
     <header className="tp-gt-header">
       <div><h1>全球贸易经营驾驶舱</h1><p>从客户开发到订单回款，掌握全球贸易经营表现与关键风险。</p></div>
@@ -417,7 +416,7 @@ export function GlobalTradeDashboard() {
       </TabPanels>
     </Tabs>
     <footer className="tp-gt-footnote">币种说明：金额按记录原币或已保存的基础币金额快照汇总，不进行未经配置汇率的币种换算。数据更新时间：{data ? new Date(data.updatedAt).toLocaleString('zh-CN') : '—'}。</footer>
-  </main>;
+  </main></Theme>;
 }
 
 function EmptyState({ message }: { message: string }) {
