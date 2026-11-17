@@ -91,6 +91,44 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
 
+  const loadGlobalConfig = async () => {
+    const token = await getSettingsToken();
+    const response = await fetch('/api/v1/settings/prospect-guardrails', {
+      headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' },
+    });
+    const payload = await response.json().catch(() => ({})) as { data?: { config?: Record<string, unknown> | null }; error?: { message?: string } };
+    if (!response.ok) throw new Error(payload.error?.message || '读取全局护盾配置失败（HTTP ' + response.status + '）');
+    const config = payload.data?.config;
+    if (!config) return false;
+    if (config.enabled && typeof config.enabled === 'object') setEnabled(config.enabled as Record<string, boolean>);
+    if (config.rules && typeof config.rules === 'object') setRules({ ...emptyRules, ...(config.rules as RuleSet) });
+    if (Array.isArray(config.websiteRows)) setWebsiteRows(config.websiteRows as Array<{ type: string; value: string }>);
+    if (Array.isArray(config.selectedDimensions)) setSelectedDimensions(config.selectedDimensions as Array<{ id: string; text: string }>);
+    if (Array.isArray(config.selectedPositions)) setSelectedPositions(config.selectedPositions as typeof positions);
+    if (Array.isArray(config.selectedModes)) setSelectedModes(config.selectedModes as typeof matchModes);
+    if (Array.isArray(config.selectedWebsiteTypes)) setSelectedWebsiteTypes(config.selectedWebsiteTypes as Array<{ id: string; text: string }>);
+    if (Array.isArray(config.excludedCountries)) setExcludedCountries(config.excludedCountries as Array<{ id: string; text: string }>);
+    if (config.contactEntries && typeof config.contactEntries === 'object') setContactEntries(config.contactEntries as typeof contactEntries);
+    setKeywordAction('result');
+    for (const key of ['doNotContact', 'excludeInternalStaff', 'excludeCompetitorStaff', 'excludeNonDecisionRoles', 'matchCompanyAliases', 'matchGroupEntities', 'requireIndependentSite'] as const) {
+      if (typeof config[key] === 'boolean') {
+        if (key === 'doNotContact') setDoNotContact(config[key] as boolean);
+        else if (key === 'excludeInternalStaff') setExcludeInternalStaff(config[key] as boolean);
+        else if (key === 'excludeCompetitorStaff') setExcludeCompetitorStaff(config[key] as boolean);
+        else if (key === 'excludeNonDecisionRoles') setExcludeNonDecisionRoles(config[key] as boolean);
+        else if (key === 'matchCompanyAliases') setMatchCompanyAliases(config[key] as boolean);
+        else if (key === 'matchGroupEntities') setMatchGroupEntities(config[key] as boolean);
+        else setRequireIndependentSite(config[key] as boolean);
+      }
+    }
+    if (config.employeeFloor !== undefined) setEmployeeFloor(String(config.employeeFloor));
+    if (typeof config.unknownPolicy === 'string') setUnknownPolicy(config.unknownPolicy);
+    if (typeof config.duplicatePolicy === 'string') setDuplicatePolicy(config.duplicatePolicy);
+    if (typeof config.template === 'string') setTemplate(config.template);
+    setNotice('已从服务器加载当前账户的全局护盾配置。');
+    return true;
+  };
+
   useEffect(() => {
     try {
       const saved = localStorage.getItem('tradepilot.guardrails.frontend.v1');
@@ -385,7 +423,7 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
           <Select id="tp-guardrails-template" labelText="预设模板" value={template} onChange={event => loadPreset(event.currentTarget.value)}>
             <SelectItem value="relaxed" text="宽松型" /><SelectItem value="standard" text="标准型（推荐）" /><SelectItem value="strict" text="严格型" />
           </Select>
-          <Select id="tp-guardrails-scope" labelText="规则作用范围" value={scope} onChange={event => setScope(event.currentTarget.value)}>
+          <Select id="tp-guardrails-scope" labelText="规则作用范围" value={scope} onChange={event => { const nextScope = event.currentTarget.value; setScope(nextScope); if (nextScope === 'global' || nextScope === 'both') loadGlobalConfig().catch(error => setError(error instanceof Error ? error.message : '读取全局护盾配置失败。')); }}>
             <SelectItem value="task" text="仅当前任务" /><SelectItem value="global" text="全局规则（保存后用于后续任务）" /><SelectItem value="both" text="全局规则 + 当前任务覆盖" />
           </Select>
         </div>
