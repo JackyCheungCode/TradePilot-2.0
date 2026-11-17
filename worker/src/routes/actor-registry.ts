@@ -191,10 +191,21 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
       return successResponse(request, { id: run.id, taskCode: code, channel: "actor_discovery", status: "queued", progress: 0, message: "数据源任务已排队", actorCount: actors.length }, 202);
     }
     if (request.method === "POST" && parts[3] === "test") {
-      const body = await request.json().catch(() => ({})) as { actorId?: string; input?: Record<string, unknown>; expectedFieldCount?: number };
+      const body = await request.json().catch(() => ({})) as { actorId?: string; input?: Record<string, unknown>; expectedFieldCount?: number; profile?: { coreNoun?: string; country?: string; countryName?: string; city?: string } };
       const actorId = safeText(body.actorId, 240);
       if (!actorId) return errorResponse(request, "ACTOR_ID_REQUIRED", "缺少待测试的数据源标识。", 400);
-      const input = body.input && typeof body.input === "object" && !Array.isArray(body.input) ? body.input : {};
+      const input = body.input && typeof body.input === "object" && !Array.isArray(body.input) ? { ...body.input } : {};
+      const schemas = await db<Array<{ input_schema: Record<string, unknown> }>>(env,
+        "actor_schema_versions?owner_id=eq." + ownerId + "&actor_id=eq." + encodeURIComponent(actorId) + "&select=input_schema&order=fetched_at.desc&limit=1");
+      const properties = schemas?.[0]?.input_schema?.properties && typeof schemas[0].input_schema.properties === "object"
+        ? schemas[0].input_schema.properties as Record<string, unknown> : {};
+      const profile = body.profile ?? {};
+      const noun = safeText(profile.coreNoun, 240), country = safeText(profile.country, 2);
+      const intent: Record<string, unknown> = { query: noun, searchQuery: noun, keyword: noun, keywords: noun ? [noun] : [], country, countryCode: country, country_code: country, countryName: safeText(profile.countryName, 120), city: safeText(profile.city, 120), location: safeText(profile.city || profile.countryName, 120) };
+      for (const key of Object.keys(properties)) {
+        if (!(key in input) && key in intent && intent[key] !== "") input[key] = intent[key];
+        if (["maxItems", "maxResults", "maxResultsPerQuery", "resultsLimit", "maxItemsPerRun", "limit"].includes(key)) input[key] = 1;
+      }
       const serializedInput = JSON.stringify(input);
       if (serializedInput.length > 20000) return errorResponse(request, "ACTOR_INPUT_TOO_LARGE", "测试参数超出大小限制。", 400);
       const existing = await db<Array<{ id: string; source_metadata: Record<string, unknown> }>>(env,
