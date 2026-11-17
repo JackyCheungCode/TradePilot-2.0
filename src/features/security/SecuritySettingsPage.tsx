@@ -25,6 +25,8 @@ type Enrollment = {
   secret: string;
 };
 
+type RecoveryStatus = { total: number; remaining: number };
+
 function formatDate(value?: string | null) {
   if (!value) return '尚未使用';
   const date = new Date(value);
@@ -51,14 +53,17 @@ export function SecuritySettingsPage() {
     setError('');
     try {
       const client = await getSupabaseClient();
-      const [passkeyResult, factorResult] = await Promise.all([
+      const [passkeyResult, factorResult, recoveryResult] = await Promise.all([
         client.auth.passkey.list(),
         client.auth.mfa.listFactors(),
+        client.auth.mfa.recoveryCodes.getStatus(),
       ]);
       if (passkeyResult.error) throw passkeyResult.error;
       if (factorResult.error) throw factorResult.error;
+      if (recoveryResult.error) throw recoveryResult.error;
       setPasskeys((passkeyResult.data ?? []) as PasskeyRecord[]);
       setTotpFactors((factorResult.data?.totp ?? []) as TotpFactor[]);
+      setRecoveryStatus((recoveryResult.data ?? { total: 0, remaining: 0 }) as RecoveryStatus);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : '无法读取安全设置。');
     } finally {
