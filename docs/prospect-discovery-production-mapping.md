@@ -73,3 +73,10 @@
 - Worker dry-run validates the bundle only; it does not deploy.
 - No controlled end-to-end provider run has been performed as part of this code-only work. Provider credentials, external API quotas, actor behavior, and production result quality remain unverified.
 - No production database rows or credentials were changed by this implementation.
+
+## Read-only production environment audit (2026-11-17)
+- `discovery_runs` currently contains five old non-terminal runs: two `queued` map runs, one `running` agent run, one `running` Facebook run, and one `running` map run. Their timestamps are from Nov 13–14. They were inspected only; no status, workflow instance, or row was changed because cancellation/reconciliation could discard in-flight or historical work.
+- Supabase health advisor returned no findings.
+- The security advisor reports pre-existing project-wide findings: 17 RLS-enabled tables without policies (including settings/service tables), two mutable `search_path` functions, five `SECURITY DEFINER` RPCs executable by authenticated users, and leaked-password protection disabled. The core discovery tables were not among the listed RLS-without-policy findings. These findings were not changed because they extend beyond this PR and need a separate permission/security review.
+- The performance advisor reports 49 unindexed foreign keys and four duplicate-index warnings. Two identical partial indexes exist on `discovery_records(entity_id, owner_id)`; no index was dropped because that is a production schema change requiring query-plan review and a migration/rollback plan.
+- These advisor findings are project-wide and pre-existing; this PR did not mutate the database schema or data.
