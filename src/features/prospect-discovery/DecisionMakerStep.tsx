@@ -93,6 +93,7 @@ export function DecisionMakerStep({ profile }: Props) {
   const jobStorageKey = 'tradepilot.prospect-discovery.contact-enrichment-job.' + queueSignature;
 
   useEffect(() => {
+    setJobId(''); setRunning(false); setProgress(0);
     try {
       const savedJobId = localStorage.getItem(jobStorageKey);
       if (savedJobId) {
@@ -102,7 +103,7 @@ export function DecisionMakerStep({ profile }: Props) {
         setLog('[SYSTEM] 已恢复联系人补全任务引用，正在同步后端状态。');
       }
     } catch { /* The persisted backend job remains available even if browser storage is unavailable. */ }
-  }, []);
+  }, [jobStorageKey]);
 
   const loadRecords = async () => {
     const queue = JSON.parse(localStorage.getItem('tradepilot.prospect-discovery.crm-queue.v1') || '[]') as Array<{ id?: string }>;
