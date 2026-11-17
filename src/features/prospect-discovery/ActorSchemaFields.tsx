@@ -44,7 +44,7 @@ export function ActorSchemaFields({ sources, onValuesChange }: Props) {
 
   useEffect(() => {
     let active = true;
-    if (!sources.length) { setItems([]); setError(''); setLoading(false); return; }
+    if (!sources.length) { setItems([]); setValues({}); setExpandedHelp({}); setError(''); setLoading(false); onValuesChange({ fields: {}, actors: [] }); return; }
     setLoading(true); setError(''); setItems([]); setValues({}); setExpandedHelp({});
     void (async () => {
       try {
