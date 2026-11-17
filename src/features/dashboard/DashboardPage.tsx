@@ -410,9 +410,9 @@ export function DashboardPage() {
             <ChoroplethChart
               data={(globalMapData.length ? globalMapData : [{
                 name: String(worldGeoData?.objects?.countries?.geometries?.[0]?.properties?.NAME || 'Afghanistan'),
-                id: String(worldGeoData?.objects?.countries?.geometries?.[0]?.id || ''),
+                group: String(worldGeoData?.objects?.countries?.geometries?.[0]?.id || ''),
                 value: null,
-              }]).map(item => ({ name: item.name, id: String(item.group ?? item.id), value: item.value }))}
+              }]).map(item => ({ name: item.name, id: String(item.group), value: item.value }))}
               options={choroplethOptions as any}
             />
           </div>
