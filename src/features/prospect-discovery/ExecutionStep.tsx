@@ -62,7 +62,6 @@ const seedRows = (channels: Channel[], country: string, query: string): Lead[] =
     };
   });
 };
-const buyerIdentity = (buyers: string[]) => buyers.map(item => buyerLabels[item] ?? item).join('、') || '未指定';
 const nowTime = () => new Date().toLocaleTimeString('en-GB', { hour12: false });
 
 export function ExecutionStep({ profile, sources, onEditStep, onContinueToScoring }: Props) {
@@ -271,7 +270,7 @@ export function ExecutionStep({ profile, sources, onEditStep, onContinueToScorin
             <TableBatchAction tabIndex={0} renderIcon={CarbonIcons.MagicWand} onClick={sendToScoring}>送入第五步 AI 打分</TableBatchAction>
           </TableBatchActions>
           <TableToolbarContent>
-            <TableToolbarSearch persistent value={search} onChange={(event: ChangeEvent<HTMLInputElement>) => { setSearch(event.target.value); setPage(1); }} placeholder="搜索企业名称或域名" />
+            <TableToolbarSearch persistent value={search} onChange={(_event, value) => { setSearch(value ?? ''); setPage(1); }} placeholder="搜索企业名称或域名" />
             <Dropdown id="execution-source-filter" titleText="获客来源" label="全部来源" items={[{ id: 'all', text: '全部来源' }, ...sourceList.map(item => ({ id: item.id, text: item.name }))]} itemToString={item => item?.text ?? ''} selectedItem={[{ id: 'all', text: '全部来源' }, ...sourceList.map(item => ({ id: item.id, text: item.name }))].find(item => item.id === sourceFilter) ?? { id: 'all', text: '全部来源' }} onChange={({ selectedItem }) => { setSourceFilter(selectedItem?.id ?? 'all'); setPage(1); }} />
           </TableToolbarContent>
         </TableToolbar>
@@ -283,7 +282,7 @@ export function ExecutionStep({ profile, sources, onEditStep, onContinueToScorin
             </TableRow></TableHead>
             <TableBody>
               {visibleLeads.map(lead => <TableRow key={lead.id}>
-                <TableSelectRow id={'select-' + lead.id} checked={selectedIds.includes(lead.id)} onSelect={() => toggleOne(lead.id)} />
+                <TableSelectRow id={'select-' + lead.id} name={'select-' + lead.id} checked={selectedIds.includes(lead.id)} onSelect={() => toggleOne(lead.id)} />
                 <TableCell><Button kind="ghost" size="sm" className="tp-execution__company-button" onClick={() => setDetail(lead)}>{lead.name}</Button></TableCell>
                 <TableCell><a href={'https://' + lead.domain} target="_blank" rel="noreferrer">{lead.domain} <CarbonIcons.ArrowUpRight size={12}/></a></TableCell>
                 <TableCell><Tag type="blue">{lead.country}</Tag></TableCell>
