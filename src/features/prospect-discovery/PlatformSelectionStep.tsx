@@ -192,7 +192,9 @@ export function PlatformSelectionStep({
       .map(country => country.cca2));
     const term = searchTerm.trim().toLocaleLowerCase();
     return allPlatforms.filter(source => {
-      const geographyMatch = source.markets.includes('*')
+      const hasGeographyFilter = countryCodes.length > 0 || selectedContinents.length > 0;
+      const geographyMatch = !hasGeographyFilter
+        || source.markets.includes('*')
         || (countryCodes.length > 0 && countryCodes.some(code => source.markets.includes(code)))
         || (countryCodes.length === 0 && selectedContinents.length > 0 && source.markets.some(code => continentCountryCodes.has(code)));
       const categoryMatch = selectedCategories.length === 0 || selectedCategories.includes(source.category);
