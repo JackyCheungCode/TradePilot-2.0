@@ -377,8 +377,8 @@ export function ProspectDiscoveryPage() {
         </div>
         <div className="tp-prospect-discovery__header-actions">
           <div className="tp-prospect-discovery__header-meta">
-            <span>STEP {String(selectedIndex + 1).padStart(2, '0')} / 06</span>
-            <strong>{selectedIndex === 0 ? 'Target Profiling' : selectedIndex === 1 ? 'Platform & Source Selection' : steps[selectedIndex]}</strong>
+            <Tag type="blue">步骤 / STEP {String(selectedIndex + 1).padStart(2, '0')} / 06</Tag>
+            <strong>{steps[selectedIndex]}</strong>
           </div>
           <div className="tp-prospect-discovery__hub-actions">
             <Button kind="secondary" size="md" renderIcon={CarbonIcons.DocumentMultiple_01} onClick={() => navigate('/prospect-history')}>历史任务</Button>
@@ -441,7 +441,7 @@ export function ProspectDiscoveryPage() {
                 <div className="tp-prospect-discovery__suggestions">
                   {suggestionLoading && <InlineLoading description="正在获取 Google 搜索建议…" />}
                   {suggestionError && <span className="tp-prospect-discovery__field-error">{suggestionError}</span>}
-                  {suggestions.map(item => <button type="button" key={item} onClick={() => update('coreNoun', item)}>{item}<CarbonIcons.ArrowUpRight size={14} /></button>)}
+                  {suggestions.map(item => <Button kind="ghost" size="md" className="tp-prospect-discovery__suggestion" key={item} onClick={() => update('coreNoun', item)}>{item}<CarbonIcons.ArrowUpRight size={14} /></Button>)}
                 </div>
               )}
             </div>
