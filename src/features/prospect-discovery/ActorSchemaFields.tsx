@@ -85,9 +85,10 @@ export function ActorSchemaFields({ sources, onValuesChange }: Props) {
           } else input[fieldKey] = value;
         }
       }
-      return { sourceId: item.source.id, sourceName: item.source.name, actorId: item.actorId, actorTitle: item.actorTitle, input };
+      const test = testResults[item.source.id + ':' + item.actorId];
+      return { sourceId: item.source.id, sourceName: item.source.name, actorId: item.actorId, actorTitle: item.actorTitle, status: test?.passed ? 'enabled' : item.actorStatus, input };
     }),
-  }), [values, items]);
+  }), [values, items, testResults]);
   useEffect(() => { onValuesChange(actorParameters); }, [actorParameters, onValuesChange]);
 
   const setField = (key: string, value: unknown) => setValues(current => ({ ...current, [key]: value }));
