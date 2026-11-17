@@ -8,7 +8,7 @@ type SchemaField = {
   enum?: unknown[]; default?: unknown; minimum?: number; maximum?: number; required?: boolean;
 };
 type ActorSchema = { properties?: Record<string, SchemaField>; required?: string[]; translatedProperties?: Record<string, { titleZh?: string; descriptionZh?: string; usageZh?: string; translationStatus?: string }> };
-type LoadedSchema = { source: Source; actorId: string; actorTitle: string; actorStatus?: string; actorQualityScore?: number | null; actorInputFingerprint?: string; schema: ActorSchema };
+type LoadedSchema = { source: Source; actorId: string; actorTitle: string; schemaVersion: string; actorStatus?: string; actorQualityScore?: number | null; actorInputFingerprint?: string; schema: ActorSchema };
 type Props = { sources: Source[]; profile: { coreNoun: string; country: string; countryName: string; city: string }; onValuesChange: (values: Record<string, unknown>) => void };
 
 async function api(path: string, token: string, init: RequestInit = {}) {
@@ -55,10 +55,10 @@ function buildActorInput(item: LoadedSchema, values: Record<string, unknown>, pr
   }
   return input;
 }
-function fingerprint(input: Record<string, unknown>) {
+function fingerprint(input: Record<string, unknown>, schemaVersion: string) {
   const normalized = { ...input };
   for (const key of ['maxItems', 'maxResults', 'maxResultsPerQuery', 'resultsLimit', 'maxItemsPerRun', 'limit']) if (key in normalized) normalized[key] = 1;
-  const serialized = JSON.stringify(normalized);
+  const serialized = JSON.stringify({ schemaVersion, input: normalized });
   let hash = 2166136261;
   for (let index = 0; index < serialized.length; index++) { hash ^= serialized.charCodeAt(index); hash = Math.imul(hash, 16777619); }
   return (hash >>> 0).toString(16).padStart(8, '0');
@@ -104,7 +104,7 @@ export function ActorSchemaFields({ sources, profile, onValuesChange }: Props) {
             const actorId = String(actor.actor_id);
             const result = await api('/api/v1/actor-registry/schema/' + encodeURIComponent(actorId), token) as { schema?: ActorSchema; actor?: { status?: string; quality_score?: number | null; last_test_input_fingerprint?: string } };
             if (!result.schema) return null;
-            return { source, actorId, actorTitle: String(actor.title || actor.actor_name || actorId), actorStatus: result.actor?.status, actorQualityScore: result.actor?.quality_score, actorInputFingerprint: result.actor?.last_test_input_fingerprint, schema: result.schema } as LoadedSchema;
+            return { source, actorId, actorTitle: String(actor.title || actor.actor_name || actorId), schemaVersion: String(result.version || 'latest'), actorStatus: result.actor?.status, actorQualityScore: result.actor?.quality_score, actorInputFingerprint: result.actor?.last_test_input_fingerprint, schema: result.schema } as LoadedSchema;
           } catch (sourceError) {
             failures.push(source.name + '：' + (sourceError instanceof Error ? sourceError.message : String(sourceError)));
             return null;
@@ -128,7 +128,7 @@ export function ActorSchemaFields({ sources, profile, onValuesChange }: Props) {
     fields: values,
     actors: items.map(item => {
       const input = buildActorInput(item, values, profile);
-      const currentFingerprint = fingerprint(input);
+      const currentFingerprint = fingerprint(input, item.schemaVersion);
       const key = item.source.id + ':' + item.actorId;
       const test = testResults[key];
       const localTestPassed = test?.passed === true && test.inputFingerprint === currentFingerprint;
@@ -155,7 +155,7 @@ export function ActorSchemaFields({ sources, profile, onValuesChange }: Props) {
       const currentFingerprint = fingerprint(input);
       const result = await api('/api/v1/actor-registry/test', token, {
         method: 'POST',
-        body: JSON.stringify({ actorId: item.actorId, input, profile, expectedFieldCount: Object.keys(item.schema.properties ?? {}).length }),
+        body: JSON.stringify({ actorId: item.actorId, input, profile, expectedFieldCount: Object.keys(item.schema.properties ?? {}).length, schemaVersion: item.schemaVersion }),
       }) as { passed?: boolean; qualityScore?: number; inputFingerprint?: string; message?: string };
       setTestResults(current => ({ ...current, [testKey]: { passed: result.passed === true, qualityScore: result.qualityScore, inputFingerprint: result.inputFingerprint || currentFingerprint, message: result.message || '测试完成' } }));
     } catch (e) {
@@ -177,7 +177,7 @@ export function ActorSchemaFields({ sources, profile, onValuesChange }: Props) {
       const required = new Set(item.schema.required ?? []);
       const testKey = item.source.id + ':' + item.actorId;
       const localTest = testResults[testKey];
-      const currentFingerprint = fingerprint(buildActorInput(item, values, profile));
+      const currentFingerprint = fingerprint(buildActorInput(item, values, profile), item.schemaVersion);
       const isEnabled = (localTest?.passed === true && localTest.inputFingerprint === currentFingerprint)
         || (item.actorStatus === 'enabled' && item.actorInputFingerprint === currentFingerprint);
       const needsRetest = Boolean(localTest && (!localTest.passed || localTest.inputFingerprint !== currentFingerprint))
