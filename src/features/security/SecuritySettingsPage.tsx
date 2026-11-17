@@ -46,7 +46,8 @@ export function SecuritySettingsPage() {
   const [disableCode, setDisableCode] = useState('');
   const [showDisable, setShowDisable] = useState(false);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');\n  const [recoveryStatus, setRecoveryStatus] = useState<RecoveryStatus>({ total: 0, remaining: 0 });\n  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
+  const [notice, setNotice] = useState('');
+  const [recoveryStatus, setRecoveryStatus] = useState<RecoveryStatus>({ total: 0, remaining: 0 });\n  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
 
   const loadSecurity = useCallback(async () => {
     setLoading(true);
@@ -224,7 +225,7 @@ export function SecuritySettingsPage() {
 
   const copyRecoveryCodes = async () => {
     try {
-      await navigator.clipboard.writeText(recoveryCodes.join('\\n'));
+      await navigator.clipboard.writeText(recoveryCodes.join('\n'));
       setNotice('恢复代码已复制。请将其保存在密码管理器等安全位置。');
     } catch {
       setError('无法访问剪贴板，请手动复制恢复代码。');
