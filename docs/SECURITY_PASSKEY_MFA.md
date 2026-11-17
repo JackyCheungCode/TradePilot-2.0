@@ -24,8 +24,8 @@ Do not change the production hostname or RP ID after users register credentials 
 
 ## Authentication behavior
 
-- Password sign-in: if Supabase TOTP MFA is enrolled, complete the TOTP or recovery-code step first. If independent WebAuthn MFA is enabled, complete a separate WebAuthn assertion before entering the protected workspace.
-- Passkey sign-in: Supabase Auth performs the passwordless WebAuthn ceremony. If TOTP MFA is enrolled, the TOTP/recovery-code step remains required. If the TradePilot WebAuthn factor is enabled, the session must also obtain a session-bound Worker grant before protected data access.
+- Password sign-in: when independent WebAuthn MFA is enabled, complete the separate WebAuthn assertion before entering the protected workspace. If WebAuthn MFA is disabled and Supabase TOTP MFA is enrolled, complete the TOTP or recovery-code step.
+- Passkey sign-in: Supabase Auth performs the passwordless WebAuthn ceremony. If TradePilot WebAuthn MFA is enabled, the session must also obtain a separate session-bound Worker grant. If WebAuthn MFA is disabled, enrolled TOTP remains the Supabase second factor.
 - Device verification: the authenticator may use Face ID, Touch ID, Windows Hello, Android biometrics, device PIN, or an external security key. TradePilot receives the WebAuthn assertion and public-key verification result, never raw fingerprint or face data.
 - Passkey passwordless sign-in and the separate WebAuthn second-factor ceremony are distinct flows. Do not treat a Supabase Passkey session as an already verified TradePilot WebAuthn grant.
 
