@@ -19,15 +19,17 @@ interface SettingsEnv {
   CLOUDFLARE_WORKER_NAME?: string;
   AI?: { run(model:string,input:Record<string,unknown>): Promise<unknown> };
 }
-async function authenticated(request: Request, env: SettingsEnv): Promise<boolean> {
+async function authenticatedUserId(request: Request, env: SettingsEnv): Promise<string | null> {
   const authorization = request.headers.get("Authorization");
-  const bearerMatch = authorization?.match(/^Bearer\s+(\S+)$/i);
+  const bearerMatch = authorization?.match(/^Bearer\\s+(\\S+)$/i);
   const token = bearerMatch?.[1];
-  if (!token) return false;
+  if (!token) return null;
   const response = await fetch(env.SUPABASE_URL + "/auth/v1/user", {
     headers: { apikey: env.SUPABASE_ANON_KEY, Authorization: "Bearer " + token },
   });
-  return response.ok;
+  if (!response.ok) return null;
+  const user = await response.json() as { id?: string };
+  return typeof user.id === "string" && /^[0-9a-f-]{36}$/i.test(user.id) ? user.id : null;
 }
 
 type AIProtocol = "openai" | "anthropic" | "gemini" | "workers-ai";
