@@ -1,65 +1,78 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AreaChart, DonutChart, TreemapChart } from '@carbon/charts-react';
-import { Button, InlineLoading, InlineNotification, Tile, Tag, CarbonIcons } from '@/design-system';
+import {
+  AreaChart, DonutChart, TreemapChart, SimpleBarChart, LineChart,
+} from '@carbon/charts-react';
+import {
+  Button, InlineLoading, InlineNotification, Tile, Tag, Select, SelectItem,
+  Tabs, TabList, Tab, TabPanels, TabPanel, CarbonIcons,
+} from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@carbon/charts/styles.css';
 import '@/design-system/patterns/dashboard.scss';
 
-type AccountRow = { id: string; country_code: string | null; created_at: string; status: string | null };
-type ActivityRow = { id: string; goal: string | null; status: string | null; created_at: string };
-type DashboardState = {
-  accounts: AccountRow[];
-  totalAccounts: number;
-  totalLeads: number;
-  totalOpportunities: number;
-  runningAgents: number;
-  failedAgents: number;
-  activities: ActivityRow[];
-  updatedAt: string;
+type Row = Record<string, any>;
+type DashboardData = {
+  accounts: Row[]; leads: Row[]; opportunities: Row[]; documents: Row[];
+  orders: Row[]; shipments: Row[]; payments: Row[]; agentRuns: Row[];
+  activities: Row[]; discovery: Row[]; updatedAt: string;
 };
-
+const BASE_CURRENCY = 'USD';
+const number = (value: number) => Number(value || 0).toLocaleString('zh-CN');
+const money = (value: number) => BASE_CURRENCY + ' ' + Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+const dateKey = (date: Date) => {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10);
+};
 const countryLabel = (code: string) => {
   if (!code || code === 'unknown') return '未设置国家';
   try { return new Intl.DisplayNames(['zh-CN'], { type: 'region' }).of(code.toUpperCase()) || code.toUpperCase(); }
   catch { return code.toUpperCase(); }
 };
-const number = (value: number) => value.toLocaleString('zh-CN');
-const dateKey = (date: Date) => {
-  const d = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-  return d.toISOString().slice(0, 10);
-};
 const chartTheme = () => document.documentElement.dataset.carbonTheme === 'g100' ? 'g100' : 'white';
+const safeArray = (value: unknown): Row[] => Array.isArray(value) ? value as Row[] : [];
+const amountFrom = (row: Row, amount: unknown): number | null => {
+  const value = Number(amount || 0);
+  const currency = String(row.currency_code || row.currency || BASE_CURRENCY).toUpperCase();
+  if (currency === BASE_CURRENCY) return value;
+  const base = row.amount_base ?? row.metadata?.sales_order?.totals?.grand_total_base ?? row.totals?.grand_total_base;
+  return base !== null && base !== undefined && Number.isFinite(Number(base)) ? Number(base) : null;
+};
+const inPeriod = (row: Row, start: Date | null) => !start || !row.created_at || new Date(row.created_at) >= start;
 
 export function DashboardPage() {
   const navigate = useNavigate();
-  const [data, setData] = useState<DashboardState | null>(null);
+  const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const [period, setPeriod] = useState('30d');
+  const [country, setCountry] = useState('all');
 
   const load = useCallback(async () => {
     setError('');
     try {
       const db = await getSupabaseClient();
-      const [accountsResult, leadsResult, opportunitiesResult, runningResult, failedResult, activityResult] = await Promise.all([
-        db.from('crm_accounts').select('id,country_code,created_at,status', { count: 'exact' }).eq('is_archived', false).order('created_at', { ascending: false }).range(0, 49999),
-        db.from('leads').select('id', { count: 'exact', head: true }),
-        db.from('crm_opportunities').select('id', { count: 'exact', head: true }).eq('is_archived', false),
-        db.from('agent_runs').select('id', { count: 'exact', head: true }).eq('status', 'running'),
-        db.from('agent_runs').select('id', { count: 'exact', head: true }).eq('status', 'failed'),
-        db.from('agent_runs').select('id,goal,status,created_at').order('created_at', { ascending: false }).limit(6),
+      const queries = await Promise.all([
+        db.from('crm_accounts').select('id,country_code,created_at,status,industry,account_name').eq('is_archived', false).limit(5000),
+        db.from('leads').select('id,country_code,status,created_at,is_formal').limit(5000),
+        db.from('crm_opportunities').select('id,account_id,stage,status,amount,currency_code,probability,created_at,expected_close_date,is_archived').eq('is_archived', false).limit(5000),
+        db.from('trade_documents').select('id,order_id,document_type,status,currency_code,totals,created_at,issued_at').eq('document_type', 'quotation').limit(5000),
+        db.from('trade_orders').select('id,order_number,status,currency_code,created_at,crm_account_id,metadata,order_type').eq('order_type', 'sales').limit(5000),
+        db.from('trade_shipments').select('id,status,created_at,planned_ship_date,actual_ship_date,shipment_value,currency_code,exception_flag,account_id,order_id').limit(5000),
+        db.from('trade_payments').select('id,payment_type,status,payment_date,received_date,currency,amount,amount_base,refund_amount,refund_date,created_at,account_id').limit(5000),
+        db.from('agent_runs').select('id,goal,status,created_at,started_at,completed_at,error_message,actual_cost_usd').order('created_at', { ascending: false }).limit(5000),
+        db.from('crm_activities').select('id,activity_type,summary,due_at,status,created_at,account_id,opportunity_id').order('created_at', { ascending: false }).limit(5000),
+        db.from('discovery_records').select('id,channel,status,country_code,created_at,lead_id').limit(5000),
       ]);
-      const failed = [accountsResult, leadsResult, opportunitiesResult, runningResult, failedResult, activityResult].find(result => result.error);
+      const failed = queries.find(result => result.error);
       if (failed?.error) throw new Error(failed.error.message);
       setData({
-        accounts: (accountsResult.data || []) as AccountRow[],
-        totalAccounts: accountsResult.count ?? accountsResult.data?.length ?? 0,
-        totalLeads: leadsResult.count ?? 0,
-        totalOpportunities: opportunitiesResult.count ?? 0,
-        runningAgents: runningResult.count ?? 0,
-        failedAgents: failedResult.count ?? 0,
-        activities: (activityResult.data || []) as ActivityRow[],
+        accounts: safeArray(queries[0].data), leads: safeArray(queries[1].data),
+        opportunities: safeArray(queries[2].data), documents: safeArray(queries[3].data),
+        orders: safeArray(queries[4].data), shipments: safeArray(queries[5].data),
+        payments: safeArray(queries[6].data), agentRuns: safeArray(queries[7].data),
+        activities: safeArray(queries[8].data), discovery: safeArray(queries[9].data),
         updatedAt: new Date().toISOString(),
       });
     } catch (cause) {
@@ -72,169 +85,269 @@ export function DashboardPage() {
 
   useEffect(() => { void load(); }, [load]);
 
-  const countries = useMemo(() => {
+  const accountsById = useMemo(() => new Map((data?.accounts || []).map(row => [row.id, row])), [data?.accounts]);
+  const ordersById = useMemo(() => new Map((data?.orders || []).map(row => [row.id, row])), [data?.orders]);
+  const startDate = useMemo(() => {
+    if (period === 'all') return null;
+    const date = new Date();
+    date.setHours(0, 0, 0, 0);
+    date.setDate(date.getDate() - (period === '90d' ? 89 : period === 'year' ? 364 : 29));
+    return date;
+  }, [period]);
+
+  const scoped = useMemo(() => {
+    const matchesCountry = (code: unknown) => country === 'all' || String(code || '').toUpperCase() === country;
+    const accounts = (data?.accounts || []).filter(row => matchesCountry(row.country_code));
+    const accountIds = new Set(accounts.map(row => row.id));
+    const leads = (data?.leads || []).filter(row => matchesCountry(row.country_code));
+    const opportunities = (data?.opportunities || []).filter(row => country === 'all' || accountIds.has(row.account_id));
+    const orders = (data?.orders || []).filter(row => country === 'all' || accountIds.has(row.crm_account_id));
+    const orderIds = new Set(orders.map(row => row.id));
+    const documents = (data?.documents || []).filter(row => country === 'all' || orderIds.has(row.order_id));
+    const shipments = (data?.shipments || []).filter(row => country === 'all' || accountIds.has(row.account_id) || orderIds.has(row.order_id));
+    const payments = (data?.payments || []).filter(row => country === 'all' || accountIds.has(row.account_id));
+    const activities = (data?.activities || []).filter(row => country === 'all' || accountIds.has(row.account_id));
+    const discovery = (data?.discovery || []).filter(row => matchesCountry(row.country_code));
+    const within = (rows: Row[]) => rows.filter(row => inPeriod(row, startDate));
+    return {
+      accounts, leads, opportunities, orders, documents, shipments, payments, activities, discovery,
+      newAccounts: within(accounts), newLeads: within(leads), newOpportunities: within(opportunities),
+      newOrders: within(orders), newShipments: within(shipments), newDiscovery: within(discovery),
+      agentRuns: data?.agentRuns || [],
+    };
+  }, [data, country, startDate]);
+
+  const countryOptions = useMemo(() => {
     const counts = new Map<string, number>();
-    (data?.accounts || []).forEach(account => {
-      const code = account.country_code?.trim().toUpperCase() || 'unknown';
+    (data?.accounts || []).forEach(row => {
+      const code = String(row.country_code || '').toUpperCase();
+      if (code) counts.set(code, (counts.get(code) || 0) + 1);
+    });
+    return [...counts.keys()].sort();
+  }, [data?.accounts]);
+
+  const chartData = useMemo(() => {
+    const counts = new Map<string, number>();
+    scoped.accounts.forEach(row => {
+      const code = String(row.country_code || 'unknown').toUpperCase();
       counts.set(code, (counts.get(code) || 0) + 1);
     });
     const total = [...counts.values()].reduce((sum, value) => sum + value, 0);
-    return [...counts.entries()].map(([code, value]) => ({
-      code,
-      name: countryLabel(code),
-      value,
-      share: total ? value / total * 100 : 0,
+    const countries = [...counts.entries()].map(([code, value]) => ({
+      code, name: countryLabel(code), value, share: total ? value / total * 100 : 0,
     })).sort((a, b) => b.value - a.value);
-  }, [data?.accounts]);
-
-  const trend = useMemo(() => {
-    const today = new Date();
-    const counts = new Map<string, number>();
-    for (let offset = 29; offset >= 0; offset -= 1) {
-      const day = new Date(today);
-      day.setHours(0, 0, 0, 0);
-      day.setDate(day.getDate() - offset);
-      counts.set(dateKey(day), 0);
-    }
-    (data?.accounts || []).forEach(account => {
-      const key = account.created_at.slice(0, 10);
-      if (counts.has(key)) counts.set(key, (counts.get(key) || 0) + 1);
+    const status = new Map<string, number>();
+    scoped.accounts.forEach(row => {
+      const label = row.status === 'active' ? '活跃' : row.status === 'inactive' ? '非活跃' : '其他';
+      status.set(label, (status.get(label) || 0) + 1);
     });
-    return [...counts.entries()].map(([date, value]) => ({
-      group: '新增客户',
-      date: new Date(date + 'T00:00:00'),
-      value,
-    }));
-  }, [data?.accounts]);
-
-  const statusData = useMemo(() => {
-    const counts = new Map<string, number>([['活跃', 0], ['非活跃', 0], ['其他', 0]]);
-    (data?.accounts || []).forEach(account => {
-      const status = account.status === 'active' ? '活跃' : account.status === 'inactive' ? '非活跃' : '其他';
-      counts.set(status, (counts.get(status) || 0) + 1);
+    const channels = new Map<string, number>();
+    scoped.discovery.forEach(row => {
+      const label = String(row.channel || '其他');
+      channels.set(label, (channels.get(label) || 0) + 1);
     });
-    return [...counts.entries()].filter(([, value]) => value > 0).map(([group, value]) => ({ group, value }));
-  }, [data?.accounts]);
+    const days = period === '90d' ? 30 : period === 'year' ? 12 : 30;
+    const daily = Array.from({ length: days }, (_, index) => {
+      const date = new Date();
+      date.setHours(0, 0, 0, 0);
+      if (period === 'year') date.setMonth(date.getMonth() - (days - index - 1));
+      else date.setDate(date.getDate() - (days - index - 1) * (period === '90d' ? 3 : 1));
+      const key = period === 'year' ? keyMonth(date) : dateKey(date);
+      const value = scoped.newAccounts.filter(row => (period === 'year' ? String(row.created_at || '').slice(0, 7) : String(row.created_at || '').slice(0, 10)) === key).length;
+      return { group: '新增客户', date: period === 'year' ? new Date(key + '-01T00:00:00') : new Date(key + 'T00:00:00'), value };
+    });
+    const stages = [
+      ['潜客发现', scoped.discovery.length], ['潜在客户', scoped.leads.length],
+      ['正式客户', scoped.accounts.length], ['销售商机', scoped.opportunities.length],
+      ['报价单', scoped.documents.length], ['销售订单', scoped.orders.length],
+    ].map(([group, value]) => ({ group: String(group), key: '记录数', value: Number(value) }));
+    const shipmentStatuses = new Map<string, number>();
+    scoped.shipments.forEach(row => shipmentStatuses.set(String(row.status || '未知'), (shipmentStatuses.get(String(row.status || '未知')) || 0) + 1));
+    const agentStatuses = new Map<string, number>();
+    scoped.agentRuns.forEach(row => agentStatuses.set(String(row.status || '未知'), (agentStatuses.get(String(row.status || '未知')) || 0) + 1));
+    return {
+      countries, status: [...status.entries()].map(([group, value]) => ({ group, value })),
+      channels: [...channels.entries()].map(([group, value]) => ({ group, value })),
+      daily, stages, shipments: [...shipmentStatuses.entries()].map(([group, value]) => ({ group, key: '发运单', value })),
+      agents: [...agentStatuses.entries()].map(([group, value]) => ({ group, key: 'Agent 任务', value })),
+    };
+  }, [scoped, period]);
 
+  function keyMonth(date: Date) { return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0'); }
+
+  const quoteTotal = scoped.documents.reduce((sum, row) => {
+    const total = amountFrom(row, row.totals?.grand_total);
+    return total === null ? sum : sum + total;
+  }, 0);
+  const orderTotal = scoped.orders.reduce((sum, row) => {
+    const total = amountFrom(row, row.metadata?.sales_order?.totals?.grand_total);
+    return total === null ? sum : sum + total;
+  }, 0);
+  const opportunityTotal = scoped.opportunities.reduce((sum, row) => {
+    const total = amountFrom(row, row.amount);
+    return total === null ? sum : sum + total;
+  }, 0);
+  const collected = scoped.payments.filter(row => !['refund', 'reversal', 'void'].includes(String(row.payment_type || '').toLowerCase()) && !['void', 'cancelled', 'rejected'].includes(String(row.status || '').toLowerCase()));
+  const receivedTotal = collected.reduce((sum, row) => {
+    const total = amountFrom(row, row.amount);
+    return total === null ? sum : sum + total;
+  }, 0);
+  const unconverted = [
+    ...scoped.opportunities.filter(row => amountFrom(row, row.amount) === null),
+    ...scoped.documents.filter(row => amountFrom(row, row.totals?.grand_total) === null),
+    ...scoped.orders.filter(row => amountFrom(row, row.metadata?.sales_order?.totals?.grand_total) === null),
+    ...scoped.payments.filter(row => amountFrom(row, row.amount) === null),
+  ].length;
+  const activeOrders = scoped.orders.filter(row => row.status !== 'draft' && row.status !== 'cancelled');
+  const overdueActivities = scoped.activities.filter(row => row.due_at && new Date(row.due_at) < new Date() && !['completed', 'done', 'cancelled'].includes(String(row.status || '').toLowerCase()));
+  const shipmentExceptions = scoped.shipments.filter(row => row.exception_flag || ['exception', 'delayed', 'failed', 'damaged', 'lost'].includes(String(row.status || '').toLowerCase()));
+  const failedAgents = scoped.agentRuns.filter(row => row.status === 'failed');
+  const riskCount = overdueActivities.length + shipmentExceptions.length + failedAgents.length;
   const theme = chartTheme();
-  const treemapOptions = useMemo(() => ({
-    title: '国家客户数量与占比',
-    height: '360px',
-    theme,
-    legend: { enabled: false },
-    tooltip: { enabled: true, valueFormatter: (value: number) => number(value) + ' 家客户' },
-    color: { scale: { '未设置国家': '#8d8d8d' } },
-  }), [theme]);
-  const trendOptions = useMemo(() => ({
-    title: '近 30 天新增客户',
-    height: '280px',
-    theme,
-    axes: {
-      bottom: { title: '日期', mapsTo: 'date', scaleType: 'time' },
-      left: { title: '新增客户', mapsTo: 'value', scaleType: 'linear' },
-    },
-    curve: 'curveMonotoneX',
-    points: { enabled: false },
-    legend: { enabled: false },
-    toolbar: { enabled: false },
-  }), [theme]);
-  const statusOptions = useMemo(() => ({
-    title: '客户状态结构',
-    height: '280px',
-    theme,
-    donut: { center: { label: '客户状态' } },
-    legend: { position: 'bottom' },
-    toolbar: { enabled: false },
-  }), [theme]);
-
+  const commonOptions = { theme, toolbar: { enabled: false }, legend: { enabled: false } };
   const metrics = [
-    { label: '全球客户', value: data?.totalAccounts ?? 0, detail: '已归档客户不计入', icon: CarbonIcons.Building, href: '/accounts' },
-    { label: '潜在客户线索', value: data?.totalLeads ?? 0, detail: '全部线索记录', icon: CarbonIcons.UserFollow, href: '/leads' },
-    { label: '销售商机', value: data?.totalOpportunities ?? 0, detail: '未归档商机', icon: CarbonIcons.ChartLine, href: '/opportunities' },
-    { label: '运行中 Agent', value: data?.runningAgents ?? 0, detail: (data?.failedAgents ?? 0) + ' 项失败任务', icon: CarbonIcons.Bot, href: '/agent' },
+    { label: '潜客资产', value: number(scoped.leads.length), detail: '本期新增 ' + number(scoped.newLeads.length), icon: CarbonIcons.UserFollow, href: '/leads' },
+    { label: '正式客户', value: number(scoped.accounts.length), detail: '本期新增 ' + number(scoped.newAccounts.length), icon: CarbonIcons.Building, href: '/accounts' },
+    { label: '销售商机', value: money(opportunityTotal), detail: number(scoped.opportunities.length) + ' 个有效商机', icon: CarbonIcons.ChartLine, href: '/opportunities' },
+    { label: '报价金额', value: scoped.documents.length ? money(quoteTotal) : '暂无记录', detail: number(scoped.documents.length) + ' 份报价单', icon: CarbonIcons.Document, href: '/quotes' },
+    { label: '销售订单', value: money(orderTotal), detail: number(activeOrders.length) + ' 个有效订单', icon: CarbonIcons.ShoppingCart, href: '/sales-orders' },
+    { label: '发运履约', value: number(scoped.shipments.length), detail: number(shipmentExceptions.length) + ' 项异常', icon: CarbonIcons.Delivery, href: '/shipments' },
+    { label: '实际回款', value: scoped.payments.length ? money(receivedTotal) : '暂无记录', detail: scoped.payments.length ? number(collected.length) + ' 笔收款记录' : '尚无实际收款记录', icon: CarbonIcons.Currency, href: '/payments' },
+    { label: '经营风险', value: number(riskCount), detail: '逾期跟进 ' + overdueActivities.length + ' · 发运异常 ' + shipmentExceptions.length + ' · Agent 失败 ' + failedAgents.length, icon: CarbonIcons.WarningAlt, href: '/agent' },
   ];
+
+  const areaOptions = {
+    ...commonOptions, title: '客户新增趋势', height: '280px',
+    axes: { bottom: { title: '日期', mapsTo: 'date', scaleType: 'time' }, left: { title: '新增客户', mapsTo: 'value', scaleType: 'linear' } },
+    curve: 'curveMonotoneX', points: { enabled: false },
+  };
+  const donutOptions = { ...commonOptions, title: '客户状态结构', height: '250px', donut: { center: { label: '客户' } }, legend: { position: 'bottom' } };
+  const treemapOptions = { ...commonOptions, title: '国家客户分布', height: '340px', tooltip: { enabled: true, valueFormatter: (value: number) => number(value) + ' 家客户' } };
+  const barOptions = { ...commonOptions, height: '260px', axes: { bottom: { mapsTo: 'group', scaleType: 'labels' }, left: { mapsTo: 'value', scaleType: 'linear' } } };
+  const agentOptions = { ...commonOptions, height: '260px', axes: { bottom: { mapsTo: 'group', scaleType: 'labels' }, left: { mapsTo: 'value', scaleType: 'linear' } } };
 
   return <main className="tp-workbench">
     <header className="tp-workbench__header">
       <div>
-        <p className="tp-workbench__eyebrow">TRADEPILOT / GLOBAL BUSINESS INTELLIGENCE</p>
-        <h1>全球业务工作台</h1>
-        <p>客户资产、市场覆盖与业务执行情况，一屏掌握。</p>
+        <p className="tp-workbench__eyebrow">TRADEPILOT / GLOBAL BUSINESS COMMAND CENTER</p>
+        <h1>全球贸易经营驾驶舱</h1>
+        <p>从全球市场情报、客户开发到订单履约与资金回收，统一掌握经营全貌。</p>
       </div>
       <div className="tp-workbench__actions">
         <span className="tp-workbench__updated">{data ? '更新于 ' + new Date(data.updatedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '等待数据'}</span>
-        <Button kind="tertiary" size="md" disabled={loading || refreshing} onClick={() => { setRefreshing(true); void load(); }}>
-          <CarbonIcons.Renew size={16}/> 刷新数据
-        </Button>
+        <Button kind="tertiary" size="md" disabled={loading || refreshing} onClick={() => { setRefreshing(true); void load(); }}><CarbonIcons.Renew size={16}/> 刷新数据</Button>
       </div>
     </header>
 
-    {error && <InlineNotification kind="error" title="工作台数据读取失败" subtitle={error} lowContrast/>}
+    <section className="tp-workbench__filters" aria-label="全局筛选">
+      <Select id="workbench-period" labelText="统计周期" value={period} onChange={event => setPeriod(event.currentTarget.value)}>
+        <SelectItem value="30d" text="最近 30 天"/><SelectItem value="90d" text="最近 90 天"/><SelectItem value="year" text="最近 12 个月"/><SelectItem value="all" text="全部时间"/>
+      </Select>
+      <Select id="workbench-country" labelText="目标市场" value={country} onChange={event => setCountry(event.currentTarget.value)}>
+        <SelectItem value="all" text="全球市场"/>{countryOptions.map(code => <SelectItem key={code} value={code} text={countryLabel(code)}/>)}
+      </Select>
+      <Tag type="blue">总览币种：USD</Tag>
+      <span className="tp-workbench__filter-note">金额优先采用原币为 USD 或已有基础币快照；未配置汇率的外币不参与合计。</span>
+    </section>
 
+    {error && <InlineNotification kind="error" title="工作台数据读取失败" subtitle={error} lowContrast/>}
     {loading && !data ? <div className="tp-workbench__loading"><InlineLoading description="正在汇聚全球业务数据…"/></div> : <>
-      <section className="tp-workbench__metrics" aria-label="核心业务指标">
+      <section className="tp-workbench__metrics" aria-label="核心经营指标">
         {metrics.map((metric, index) => {
           const Icon = metric.icon;
           return <button type="button" key={metric.label} className={'tp-workbench__metric tp-workbench__metric--' + index} onClick={() => navigate(metric.href)}>
             <span className="tp-workbench__metric-icon"><Icon size={20}/></span>
             <span className="tp-workbench__metric-label">{metric.label}</span>
-            <strong>{number(metric.value)}</strong>
-            <small>{metric.detail}</small>
-            <span className="tp-workbench__metric-link">查看详情 <CarbonIcons.ArrowRight size={14}/></span>
+            <strong>{metric.value}</strong><small>{metric.detail}</small>
+            <span className="tp-workbench__metric-link">查看业务明细 <CarbonIcons.ArrowRight size={14}/></span>
           </button>;
         })}
       </section>
 
-      <section className="tp-workbench__primary-grid">
+      <section className="tp-workbench__overview-grid">
         <Tile className="tp-workbench__panel tp-workbench__country-panel">
-          <div className="tp-workbench__panel-heading">
-            <div><p className="tp-workbench__kicker">GLOBAL CUSTOMER FOOTPRINT</p><h2>全球客户分布</h2><p>矩形面积表示客户数量，国家占比按当前客户总量计算。</p></div>
-            <Tag type="blue">{countries.length} 个国家 / 地区</Tag>
-          </div>
-          {countries.length ? <TreemapChart data={countries.map(item => ({ group: item.name, value: item.value }))} options={treemapOptions as any}/> : <div className="tp-workbench__empty">暂无国家 / 地区数据。完善客户档案中的国家代码后，这里会自动生成分布图。</div>}
-          {countries.length > 0 && <div className="tp-workbench__country-list">
-            {countries.slice(0, 8).map((country, index) => <button type="button" key={country.code} onClick={() => navigate('/accounts')}>
-              <span className="tp-workbench__country-rank">{String(index + 1).padStart(2, '0')}</span>
-              <span className="tp-workbench__country-name">{country.name}</span>
-              <strong>{number(country.value)}</strong>
-              <span className="tp-workbench__country-share">{country.share.toFixed(1)}%</span>
-            </button>)}
-          </div>}
-          {(data?.accounts.length || 0) >= 50000 && <p className="tp-workbench__data-note">国家分布基于最近读取的 50,000 条客户档案；总客户指标使用数据库精确计数。</p>}
+          <div className="tp-workbench__panel-heading"><div><p className="tp-workbench__kicker">GLOBAL MARKET INTELLIGENCE</p><h2>全球客户与市场分布</h2><p>矩形面积代表正式客户数量；选择国家可联动全局市场筛选。</p></div><Tag type="blue">{chartData.countries.length} 个国家 / 地区</Tag></div>
+          {chartData.countries.length ? <TreemapChart data={chartData.countries.map(item => ({ group: item.name, value: item.value }))} options={treemapOptions as any}/> : <div className="tp-workbench__empty">当前筛选范围暂无客户国家分布数据。</div>}
+          <div className="tp-workbench__country-list">{chartData.countries.slice(0, 8).map((item, index) => <button type="button" key={item.code} onClick={() => setCountry(item.code)}><span>{String(index + 1).padStart(2, '0')}</span><strong>{item.name}</strong><b>{number(item.value)}</b><small>{item.share.toFixed(1)}%</small></button>)}</div>
         </Tile>
-
-        <div className="tp-workbench__side-column">
+        <div className="tp-workbench__overview-side">
           <Tile className="tp-workbench__panel">
-            <div className="tp-workbench__panel-heading"><div><p className="tp-workbench__kicker">CUSTOMER COMPOSITION</p><h2>客户结构</h2><p>按客户当前状态分类</p></div></div>
-            {statusData.length ? <DonutChart data={statusData} options={statusOptions as any}/> : <div className="tp-workbench__empty">暂无客户状态数据</div>}
+            <div className="tp-workbench__panel-heading"><div><p className="tp-workbench__kicker">CUSTOMER COMPOSITION</p><h2>客户结构</h2><p>按当前客户状态统计</p></div></div>
+            {chartData.status.length ? <DonutChart data={chartData.status} options={donutOptions as any}/> : <div className="tp-workbench__empty">暂无客户状态数据</div>}
           </Tile>
-          <Tile className="tp-workbench__panel tp-workbench__quick-panel">
-            <div className="tp-workbench__panel-heading"><div><p className="tp-workbench__kicker">WORK QUEUE</p><h2>工作队列</h2><p>需要关注的自动化任务</p></div></div>
-            <button type="button" onClick={() => navigate('/agent')}><span className="tp-workbench__queue-icon is-running"><CarbonIcons.InProgress size={18}/></span><span>运行中任务</span><strong>{number(data?.runningAgents ?? 0)}</strong><CarbonIcons.ChevronRight size={16}/></button>
-            <button type="button" onClick={() => navigate('/agent')}><span className="tp-workbench__queue-icon is-failed"><CarbonIcons.WarningAlt size={18}/></span><span>失败任务</span><strong>{number(data?.failedAgents ?? 0)}</strong><CarbonIcons.ChevronRight size={16}/></button>
+          <Tile className="tp-workbench__panel">
+            <div className="tp-workbench__panel-heading"><div><p className="tp-workbench__kicker">DISCOVERY CHANNELS</p><h2>潜客发现来源</h2><p>按发现记录渠道统计</p></div></div>
+            {chartData.channels.length ? <DonutChart data={chartData.channels.map(item => ({ group: item.group, value: item.value }))} options={{ ...donutOptions, title: '发现渠道构成' } as any}/> : <div className="tp-workbench__empty">暂无发现渠道数据</div>}
           </Tile>
         </div>
       </section>
 
-      <section className="tp-workbench__secondary-grid">
+      <section className="tp-workbench__panel tp-workbench__conversion">
+        <div className="tp-workbench__panel-heading"><div><p className="tp-workbench__kicker">BUSINESS PIPELINE</p><h2>业务链路规模</h2><p>各模块独立记录数，用于观察业务资产规模；不将不同对象数量直接解释为严格转化率。</p></div><Tag type="cool-gray">全链路概览</Tag></div>
+        <SimpleBarChart data={chartData.stages} options={{ ...barOptions, title: '业务对象数量', height: '240px' } as any}/>
+      </section>
+
+      <section className="tp-workbench__panel tp-workbench__tabs-panel">
+        <div className="tp-workbench__panel-heading"><div><p className="tp-workbench__kicker">BUSINESS ANALYTICS</p><h2>业务分区分析</h2><p>主工作台保留核心数据，详细分析按业务分区展开。</p></div></div>
+        <Tabs>
+          <TabList aria-label="工作台业务分析分区">
+            <Tab>销售与商机</Tab><Tab>报价与订单</Tab><Tab>发运与履约</Tab><Tab>财务与收款</Tab><Tab>Agent 与执行</Tab>
+          </TabList>
+          <TabPanels>
+            <TabPanel>
+              <div className="tp-workbench__tab-grid">
+                <div className="tp-workbench__chart"><h3>商机阶段分布</h3>{scoped.opportunities.length ? <SimpleBarChart data={Object.entries(scoped.opportunities.reduce((acc: Record<string, number>, row) => { const key = String(row.stage || row.status || '未设置'); acc[key] = (acc[key] || 0) + 1; return acc; }, {})).map(([group, value]) => ({ group, value }))} options={barOptions as any}/> : <p className="tp-workbench__empty">暂无商机数据</p>}</div>
+                <div className="tp-workbench__chart"><h3>商机金额（USD 可换算口径）</h3><strong className="tp-workbench__large-value">{money(opportunityTotal)}</strong><p>有效商机 {number(scoped.opportunities.length)} 个；加权金额按商机概率另行计算，避免将概率缺失视为 0。</p><Button kind="ghost" size="sm" onClick={() => navigate('/opportunities')}>进入商机管理 <CarbonIcons.ArrowRight size={16}/></Button></div>
+                <div className="tp-workbench__chart"><h3>客户新增趋势</h3><AreaChart data={chartData.daily} options={areaOptions as any}/></div>
+                <div className="tp-workbench__chart"><h3>潜客发现与线索</h3><div className="tp-workbench__mini-metrics"><div><span>发现记录</span><strong>{number(scoped.discovery.length)}</strong></div><div><span>潜客记录</span><strong>{number(scoped.leads.length)}</strong></div><div><span>本期新增发现</span><strong>{number(scoped.newDiscovery.length)}</strong></div></div><Button kind="ghost" size="sm" onClick={() => navigate('/prospect-data')}>查看发现结果 <CarbonIcons.ArrowRight size={16}/></Button></div>
+              </div>
+            </TabPanel>
+            <TabPanel>
+              <div className="tp-workbench__tab-grid">
+                <div className="tp-workbench__chart"><h3>报价单状态</h3>{scoped.documents.length ? <SimpleBarChart data={Object.entries(scoped.documents.reduce((acc: Record<string, number>, row) => { const key = String(row.status || '未知'); acc[key] = (acc[key] || 0) + 1; return acc; }, {})).map(([group, value]) => ({ group, value }))} options={barOptions as any}/> : <p className="tp-workbench__empty">暂无报价记录</p>}</div>
+                <div className="tp-workbench__chart"><h3>报价总额（USD 可换算口径）</h3><strong className="tp-workbench__large-value">{scoped.documents.length ? money(quoteTotal) : '暂无记录'}</strong><p>统计对象为 quotation 类型单据，报价草稿与已发报价均独立计数。</p><Button kind="ghost" size="sm" onClick={() => navigate('/quotes')}>进入报价管理 <CarbonIcons.ArrowRight size={16}/></Button></div>
+                <div className="tp-workbench__chart"><h3>订单状态</h3><SimpleBarChart data={Object.entries(scoped.orders.reduce((acc: Record<string, number>, row) => { const key = String(row.metadata?.sales_order?.order_status || row.status || '未知'); acc[key] = (acc[key] || 0) + 1; return acc; }, {})).map(([group, value]) => ({ group, value }))} options={barOptions as any}/></div>
+                <div className="tp-workbench__chart"><h3>订单金额（USD 可换算口径）</h3><strong className="tp-workbench__large-value">{money(orderTotal)}</strong><p>仅统计销售订单；采购订单不计入销售额。草稿与有效订单分开展示。</p><Button kind="ghost" size="sm" onClick={() => navigate('/sales-orders')}>进入销售订单 <CarbonIcons.ArrowRight size={16}/></Button></div>
+              </div>
+            </TabPanel>
+            <TabPanel>
+              <div className="tp-workbench__tab-grid">
+                <div className="tp-workbench__chart"><h3>发运状态分布</h3>{scoped.shipments.length ? <SimpleBarChart data={chartData.shipments} options={barOptions as any}/> : <p className="tp-workbench__empty">暂无发运记录</p>}</div>
+                <div className="tp-workbench__chart"><h3>履约关键指标</h3><div className="tp-workbench__mini-metrics"><div><span>全部发运</span><strong>{number(scoped.shipments.length)}</strong></div><div><span>运输中</span><strong>{number(scoped.shipments.filter(row => ['in_transit', 'departed'].includes(row.status)).length)}</strong></div><div><span>已签收</span><strong>{number(scoped.shipments.filter(row => row.status === 'delivered').length)}</strong></div><div><span>异常</span><strong>{number(shipmentExceptions.length)}</strong></div></div><Button kind="ghost" size="sm" onClick={() => navigate('/shipments')}>进入发运管理 <CarbonIcons.ArrowRight size={16}/></Button></div>
+              </div>
+            </TabPanel>
+            <TabPanel>
+              <div className="tp-workbench__tab-grid">
+                <div className="tp-workbench__chart"><h3>实际收款金额</h3><strong className="tp-workbench__large-value">{scoped.payments.length ? money(receivedTotal) : '暂无实际收款记录'}</strong><p>仅按收款模块的实际收款记录统计；订单收款计划不计入到账金额。</p><Button kind="ghost" size="sm" onClick={() => navigate('/payments')}>进入收款管理 <CarbonIcons.ArrowRight size={16}/></Button></div>
+                <div className="tp-workbench__chart"><h3>收款记录状态</h3>{scoped.payments.length ? <SimpleBarChart data={Object.entries(scoped.payments.reduce((acc: Record<string, number>, row) => { const key = String(row.status || '未知'); acc[key] = (acc[key] || 0) + 1; return acc; }, {})).map(([group, value]) => ({ group, value }))} options={barOptions as any}/> : <p className="tp-workbench__empty">数据库当前没有实际收款记录，到账、未收与逾期金额暂不生成汇总值。</p>}</div>
+                <div className="tp-workbench__chart"><h3>币种换算完整性</h3><strong className="tp-workbench__large-value">{unconverted ? number(unconverted) + ' 条待换算' : '当前金额均可按 USD 汇总'}</strong><p>外币只有在记录中存在基础币金额快照时才计入统一总览。缺少汇率或快照的金额不会被估算。</p></div>
+              </div>
+            </TabPanel>
+            <TabPanel>
+              <div className="tp-workbench__tab-grid">
+                <div className="tp-workbench__chart"><h3>Agent 任务状态</h3>{chartData.agents.length ? <SimpleBarChart data={chartData.agents} options={agentOptions as any}/> : <p className="tp-workbench__empty">暂无 Agent 任务</p>}</div>
+                <div className="tp-workbench__chart"><h3>任务运行概况</h3><div className="tp-workbench__mini-metrics"><div><span>全部任务</span><strong>{number(scoped.agentRuns.length)}</strong></div><div><span>运行中</span><strong>{number(scoped.agentRuns.filter(row => row.status === 'running').length)}</strong></div><div><span>已成功</span><strong>{number(scoped.agentRuns.filter(row => ['succeeded', 'completed'].includes(row.status)).length)}</strong></div><div><span>失败</span><strong>{number(failedAgents.length)}</strong></div></div><Button kind="ghost" size="sm" onClick={() => navigate('/agent')}>进入 Agent 中心 <CarbonIcons.ArrowRight size={16}/></Button></div>
+                <div className="tp-workbench__chart"><h3>最近 Agent 活动</h3><div className="tp-workbench__activity-list">{scoped.agentRuns.slice(0, 6).map(row => <button type="button" key={row.id} onClick={() => navigate('/agent')}><span className={'tp-workbench__activity-dot is-' + row.status}/><span><strong>{row.goal || '未命名任务'}</strong><small>{row.status || '状态未知'}</small></span><time>{row.created_at ? new Date(row.created_at).toLocaleDateString('zh-CN') : '—'}</time></button>)}</div></div>
+              </div>
+            </TabPanel>
+          </TabPanels>
+        </Tabs>
+      </section>
+
+      <section className="tp-workbench__bottom-grid">
         <Tile className="tp-workbench__panel">
-          <div className="tp-workbench__panel-heading"><div><p className="tp-workbench__kicker">CUSTOMER ACQUISITION</p><h2>客户增长趋势</h2><p>根据客户档案创建时间统计，最近 30 天</p></div><Button kind="ghost" size="sm" onClick={() => navigate('/accounts')}>客户管理 <CarbonIcons.ArrowRight size={16}/></Button></div>
-          <AreaChart data={trend} options={trendOptions as any}/>
+          <div className="tp-workbench__panel-heading"><div><p className="tp-workbench__kicker">ACTION CENTER</p><h2>待处理与风险</h2><p>点击进入对应业务模块处理记录。</p></div><Tag type={riskCount ? 'red' : 'green'}>{riskCount ? number(riskCount) + ' 项关注' : '当前无风险项'}</Tag></div>
+          <button type="button" className="tp-workbench__risk-row" onClick={() => navigate('/accounts')}><span>逾期跟进活动</span><strong>{number(overdueActivities.length)}</strong><CarbonIcons.ChevronRight size={16}/></button>
+          <button type="button" className="tp-workbench__risk-row" onClick={() => navigate('/shipments')}><span>发运异常</span><strong>{number(shipmentExceptions.length)}</strong><CarbonIcons.ChevronRight size={16}/></button>
+          <button type="button" className="tp-workbench__risk-row" onClick={() => navigate('/agent')}><span>Agent 失败任务</span><strong>{number(failedAgents.length)}</strong><CarbonIcons.ChevronRight size={16}/></button>
         </Tile>
         <Tile className="tp-workbench__panel">
-          <div className="tp-workbench__panel-heading"><div><p className="tp-workbench__kicker">RECENT AGENT ACTIVITY</p><h2>最近任务活动</h2><p>最近更新的 Agent 执行记录</p></div><Button kind="ghost" size="sm" onClick={() => navigate('/agent')}>任务中心 <CarbonIcons.ArrowRight size={16}/></Button></div>
-          <div className="tp-workbench__activity-list">
-            {(data?.activities || []).map(activity => <button type="button" key={activity.id} onClick={() => navigate('/agent')}>
-              <span className="tp-workbench__activity-status"><i className={'is-' + (activity.status || 'unknown')}/></span>
-              <span className="tp-workbench__activity-copy"><strong>{activity.goal || '未命名 Agent 任务'}</strong><small>{activity.status || '状态未知'}</small></span>
-              <time>{new Date(activity.created_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</time>
-              <CarbonIcons.ChevronRight size={16}/>
-            </button>)}
-            {!data?.activities.length && <p className="tp-workbench__empty">暂无任务活动</p>}
-          </div>
+          <div className="tp-workbench__panel-heading"><div><p className="tp-workbench__kicker">RECENT BUSINESS ACTIVITY</p><h2>最近业务活动</h2><p>来自 CRM 活动和 Agent 执行记录。</p></div></div>
+          <div className="tp-workbench__activity-list">{scoped.activities.slice(0, 5).map(row => <button type="button" key={row.id} onClick={() => navigate(row.opportunity_id ? '/opportunities/' + row.opportunity_id : '/accounts')}><span className="tp-workbench__activity-dot"/><span><strong>{row.summary || row.activity_type || '业务活动'}</strong><small>{row.status || '状态未设置'}</small></span><time>{row.created_at ? new Date(row.created_at).toLocaleDateString('zh-CN') : '—'}</time></button>)}{!scoped.activities.length && <p className="tp-workbench__empty">暂无 CRM 活动记录。</p>}</div>
         </Tile>
       </section>
+      {unconverted > 0 && <InlineNotification kind="warning" title="部分外币金额未纳入统一汇总" subtitle={number(unconverted) + ' 条金额记录缺少可验证的 USD 基础币快照。请在财务汇率配置完善后再纳入总额。'}/>}
     </>}
-    <footer className="tp-workbench__footer"><span>TRADEPILOT · GLOBAL BUSINESS INTELLIGENCE</span><span>数据来自当前账户可访问的业务记录</span></footer>
+    <footer className="tp-workbench__footer"><span>TRADEPILOT · GLOBAL BUSINESS COMMAND CENTER</span><span>真实业务数据 · 当前账户可访问范围 · {data ? '更新于 ' + new Date(data.updatedAt).toLocaleString('zh-CN') : '等待数据'}</span></footer>
   </main>;
 }
