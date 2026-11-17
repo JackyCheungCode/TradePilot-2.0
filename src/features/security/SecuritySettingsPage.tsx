@@ -78,7 +78,7 @@ export function SecuritySettingsPage() {
       await callWebAuthn(client, '/api/v1/webauthn/registration/verify', {
         challengeId: challenge.challengeId, response: credential, friendlyName: 'TradePilot 生物识别设备',
       });
-      setNotice('生物识别凭证注册成功。请至少注册两台独立设备，再开启生物识别 MFA，避免单设备丢失导致无法登录。');
+      setNotice('生物识别凭证注册成功。请至少注册两个独立凭证（建议分布在两台设备上），再开启生物识别 MFA，避免单设备丢失导致无法登录。');
     } else if (action === 'revoke') {
       if (!credentialId) throw new Error('缺少要撤销的生物识别凭证。');
       const result = await callWebAuthn<{ revoked: boolean }>(client, '/api/v1/webauthn/credential/revoke', { credentialId });
@@ -397,8 +397,8 @@ export function SecuritySettingsPage() {
                 </div>
                 {webAuthnStatus.credentials.length > 0 ? (
                   <ul className="tp-security__passkey-list">{webAuthnStatus.credentials.map((credential) => <li key={credential.id}><div><strong>{credential.name}</strong><span>WebAuthn 生物识别凭证</span></div><div className="tp-security__actions"><Tag type="green">已注册</Tag><Button kind="danger--tertiary" size="sm" disabled={busy} onClick={() => { if (window.confirm("确定撤销此生物识别设备吗？")) void beginWebAuthnAction("revoke", credential.id); }}>撤销</Button></div></li>)}</ul>
-                ) : <p className="tp-security__muted">尚未注册 WebAuthn 生物识别设备。启用 MFA 前必须注册至少两台设备（一台主设备、一台备用设备）。</p>}
-                {webAuthnStatus.credentials.length === 1 && <InlineNotification kind="warning" lowContrast title="还需要一台备用设备" subtitle="请再注册一台独立设备后，才能启用生物识别 MFA。" />}
+                ) : <p className="tp-security__muted">尚未注册 WebAuthn 生物识别设备。启用 MFA 前必须注册至少两个凭证（建议一台主设备、一台备用设备）。</p>}
+                {webAuthnStatus.credentials.length === 1 && <InlineNotification kind="warning" lowContrast title="还需要一台备用设备" subtitle="请再注册一个凭证（建议使用另一台设备）后，才能启用生物识别 MFA。" />}
                 {webAuthnStepUp && (
                   <div className="tp-security__enrollment">
                     <h3>确认身份</h3><p>此安全操作需要 TOTP 二次验证。</p>
