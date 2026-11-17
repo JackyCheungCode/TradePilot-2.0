@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState, useEffect } from 'react';
+import { getSupabaseClient } from '@/lib/supabase';
 import {
   communicationCustomers,
   communicationConversations,
@@ -12,6 +13,12 @@ import '@/design-system/styles/customer-communications-window.scss';
 const initials = (name: string) => name.split(/\s+/).map((part) => part[0]).slice(0, 2).join('').toUpperCase();
 const timeLabel = (time: number) => new Intl.DateTimeFormat('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false }).format(time);
 const dateLabel = (time: number) => new Intl.DateTimeFormat('zh-TW', { month: 'long', day: 'numeric' }).format(time);
+
+function PersonAvatar({ name, src, className = 'tp-wa-avatar' }: { name: string; src?: string | null; className?: string }) {
+  const [failed, setFailed] = useState(false);
+  if (src && !failed) return <img className={className + ' tp-wa-avatar-image'} src={src} alt={name + '头像'} onError={() => setFailed(true)} />;
+  return <span className={className} aria-label={name + '头像'}>{initials(name || '用户')}</span>;
+}
 type ChatTheme = 'whatsapp' | 'wechat' | 'messenger' | 'outlook';
 const chatThemes: { id: ChatTheme; label: string; description: string }[] = [
   { id: 'whatsapp', label: 'WhatsApp UI', description: 'WhatsApp Web 风格' },
@@ -34,7 +41,20 @@ export function CustomerCommunicationsWindowPage() {
     try { const saved = window.localStorage.getItem('tp-customer-communications-theme'); return chatThemes.some((item) => item.id === saved) ? saved as ChatTheme : 'whatsapp'; } catch { return 'whatsapp'; }
   });
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState({ name: '当前用户', avatarUrl: '' });
   useEffect(() => { try { window.localStorage.setItem('tp-customer-communications-theme', theme); } catch { /* storage may be unavailable */ } }, [theme]);
+  useEffect(() => {
+    let active = true;
+    void getSupabaseClient().then((client) => client.auth.getUser()).then(({ data }) => {
+      if (!active || !data.user) return;
+      const metadata = data.user.user_metadata ?? {};
+      setCurrentUser({
+        name: String(metadata.full_name || metadata.name || data.user.email || '当前用户'),
+        avatarUrl: String(metadata.avatar_url || metadata.picture || ''),
+      });
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, []);
   const activeTheme = chatThemes.find((item) => item.id === theme) ?? chatThemes[0];
   const timelineRef = useRef<HTMLDivElement>(null);
 
@@ -91,7 +111,7 @@ export function CustomerCommunicationsWindowPage() {
       <section className={"tp-wa-app" + (profileOpen ? " has-profile" : "")}>
         <aside className={'tp-wa-sidebar' + (mobileList ? ' is-mobile-visible' : '')}>
           <header className="tp-wa-sidebar-head">
-            <div className="tp-wa-profile-avatar">TP</div>
+            <PersonAvatar name={currentUser.name} src={currentUser.avatarUrl} className="tp-wa-profile-avatar" />
             <div className="tp-wa-head-actions">
               <button type="button" aria-label="新建聊天" title="新建聊天" onClick={() => setSearch('')}><span>＋</span></button>
               <button type="button" aria-label="更多选项" title="更多选项" onClick={() => setMenuOpen((value) => !value)}>⋮</button>
@@ -112,7 +132,7 @@ export function CustomerCommunicationsWindowPage() {
               const person = communicationCustomers.find((item) => item.id === conversation.customerId)!;
               return (
                 <button type="button" key={conversation.id} className={'tp-wa-conversation' + (activeId === conversation.id ? ' is-selected' : '')} onClick={() => select(conversation)}>
-                  <span className="tp-wa-avatar">{initials(person.contact)}</span>
+                  <PersonAvatar name={person.contact} src={person.avatarUrl} />
                   <span className="tp-wa-conversation-content">
                     <span className="tp-wa-conversation-top"><strong>{person.contact}</strong><time>{timeLabel(conversation.updatedAt)}</time></span>
                     <span className="tp-wa-conversation-bottom"><span>{conversation.preview}</span>{conversation.unread > 0 && <i>{conversation.unread}</i>}</span>
@@ -131,7 +151,7 @@ export function CustomerCommunicationsWindowPage() {
             <header className="tp-wa-chat-head">
               <button className="tp-wa-back" onClick={() => setMobileList(true)} aria-label="返回会话列表">‹</button>
               <button className="tp-wa-chat-person" onClick={() => setProfileOpen((value) => !value)}>
-                <span className="tp-wa-avatar">{initials(customer.contact)}</span>
+                <PersonAvatar name={customer.contact} src={customer.avatarUrl} />
                 <span><strong>{customer.contact}</strong><small>{customer.company}</small></span>
               </button>
               <div className="tp-wa-chat-tools">
@@ -146,13 +166,17 @@ export function CustomerCommunicationsWindowPage() {
               <div className="tp-wa-date-divider"><span>{dateLabel(activeMessages[0]?.time ?? Date.now())}</span></div>
               {activeMessages.map((message) => (
                 <article key={message.id} className={'tp-wa-message ' + (message.direction === 'outbound' ? 'is-outbound' : message.direction === 'system' ? 'is-system' : 'is-inbound')}>
-                  <div className="tp-wa-bubble">
+                  <div className="tp-wa-message-row">
+                    {message.direction === 'inbound' && <PersonAvatar name={customer.contact} src={customer.avatarUrl} className="tp-wa-avatar tp-wa-avatar--message" />}
+                    <div className="tp-wa-bubble">
                     {message.kind === 'email' && <div className="tp-wa-email-label">电子邮件 · {message.subject}</div>}
                     {message.kind === 'file' && <div className="tp-wa-file"><span>▤</span><span><strong>{message.filename ?? '附件'}</strong><small>{message.fileSize}</small></span></div>}
                     <p>{message.body}</p>
                     <div className="tp-wa-message-meta"><time>{timeLabel(message.time)}</time>{message.direction === 'outbound' && <span className="tp-wa-ticks">✓✓</span>}</div>
+                    </div>
+                    {message.direction === 'outbound' && <PersonAvatar name={currentUser.name} src={currentUser.avatarUrl} className="tp-wa-avatar tp-wa-avatar--message" />}
                   </div>
-                  {message.direction === 'inbound' && <span className="tp-wa-source">{communicationChannelLabels[message.channel]}</span>}
+                  <div className={'tp-wa-message-source tp-wa-message-source--' + message.channel} title={'消息来源：' + communicationChannelLabels[message.channel]}><span aria-hidden="true">●</span>{communicationChannelLabels[message.channel]}</div>
                 </article>
               ))}
             </div>
@@ -173,7 +197,7 @@ export function CustomerCommunicationsWindowPage() {
           <aside className="tp-wa-contact-panel">
             <header><strong>客户资料</strong><button onClick={() => setProfileOpen(false)} aria-label="关闭客户资料">×</button></header>
             <div className="tp-wa-contact-main">
-              <span className="tp-wa-avatar tp-wa-avatar--large">{initials(customer.contact)}</span>
+              <PersonAvatar name={customer.contact} src={customer.avatarUrl} className="tp-wa-avatar tp-wa-avatar--large" />
               <strong>{customer.contact}</strong><span>{customer.company}</span>
               <small>{customer.role}</small>
             </div>
