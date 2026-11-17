@@ -78,8 +78,25 @@ export function ExecutionStep({ profile, sources, onEditStep, onContinueToScorin
     } catch { return 0; }
   });
   const appendLog = (message: string) => setLogs(current => [...current.slice(-79), '[' + nowTime() + '] ' + message]);
+  const runStorageKey = 'tradepilot.prospectDiscovery.runs.' + planTaskCode;
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(runStorageKey);
+      if (!saved) return;
+      const restored = JSON.parse(saved) as RunRef[];
+      if (!Array.isArray(restored) || !restored.length || restored.some(item => !item || typeof item.id !== 'string' || typeof item.sourceId !== 'string' || typeof item.name !== 'string')) return;
+      setRuns(restored);
+      setStatus('running');
+      setStartedAt(Date.now());
+      setLogs(['[' + nowTime() + '] [SYSTEM] 已恢复当前方案的后端任务引用，正在同步真实任务状态。']);
+    } catch {
+      localStorage.removeItem(runStorageKey);
+    }
+  }, [runStorageKey]);
 
   const resetTask = () => {
+    localStorage.removeItem(runStorageKey);
     setStatus('idle'); setProgress(0); setElapsed(0); setCaptured(0);
     setRuns([]); setSnapshots({}); setRecordIds([]); setStartedAt(null);
     setLogs(['[' + nowTime() + '] [SYSTEM] 已清空当前页面任务引用；历史后端任务不会被删除。']);
@@ -151,6 +168,7 @@ export function ExecutionStep({ profile, sources, onEditStep, onContinueToScorin
       await Promise.all(tasks);
       if (!created.length) throw new Error(failures.length ? failures.join('；') : '当前所选渠道没有可执行的后端任务入口。');
       setRuns(created);
+      try { localStorage.setItem(runStorageKey, JSON.stringify(created)); } catch { appendLog('[WARNING] 浏览器无法保存任务引用；离开页面后需从任务列表恢复。'); }
       setStatus('running');
       setLogs(current => [...current, '[' + nowTime() + '] [SYSTEM] 已创建 ' + created.length + ' 个真实任务。画像与护盾配置快照已写入各任务。' + (failures.length ? '另有 ' + failures.length + ' 个渠道创建失败。' : '')]);
       if (failures.length) setNotice('部分渠道创建失败，已成功启动的任务会继续运行：' + failures.join('；'));
