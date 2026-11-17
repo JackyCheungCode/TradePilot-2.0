@@ -16,6 +16,7 @@ export function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [verificationCode, setVerificationCode] = useState('');
+  const [useRecoveryCode, setUseRecoveryCode] = useState(false);
   const [factorId, setFactorId] = useState('');
   const [challengeId, setChallengeId] = useState('');
   const [step, setStep] = useState<LoginStep>('credentials');
@@ -109,19 +110,25 @@ export function LoginPage() {
   const verifySecondFactor = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!client || !factorId || !challengeId) return;
-    if (!/^\d{6,8}$/.test(verificationCode.trim())) {
+    if (!useRecoveryCode && !/^\d{6,8}$/.test(verificationCode.trim())) {
       setError('请输入身份验证器当前显示的 6–8 位验证码。');
+      return;
+    }
+    if (useRecoveryCode && !/^[A-Z0-9-]{12,32}$/i.test(verificationCode.trim())) {
+      setError('请输入有效的备用恢复代码。');
       return;
     }
     setBusy(true);
     setError('');
     try {
-      const { error: verifyError } = await client.auth.mfa.verify({
-        factorId,
-        challengeId,
-        code: verificationCode.trim(),
-      });
-      if (verifyError) throw verifyError;
+      const verification = useRecoveryCode
+        ? await client.auth.mfa.recoveryCodes.verify({ code: verificationCode.trim() })
+        : await client.auth.mfa.verify({
+            factorId,
+            challengeId,
+            code: verificationCode.trim(),
+          });
+      if (verification.error) throw verification.error;
       const { data: assurance, error: assuranceError } = await client.auth.mfa.getAuthenticatorAssuranceLevel();
       if (assuranceError) throw assuranceError;
       if (assurance.currentLevel !== 'aal2') throw new Error('第二因子验证未能提升当前会话安全等级。');
@@ -180,15 +187,24 @@ export function LoginPage() {
           <form className="tp-login__form" onSubmit={verifySecondFactor}>
             <TextInput
               id="tradepilot-login-totp"
-              labelText="身份验证器验证码"
+              labelText={useRecoveryCode ? '备用恢复代码' : '身份验证器验证码'}
               value={verificationCode}
-              onChange={(event) => setVerificationCode(event.currentTarget.value.replace(/\D/g, '').slice(0, 8))}
+              onChange={(event) => setVerificationCode(useRecoveryCode
+                ? event.currentTarget.value.toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 32)
+                : event.currentTarget.value.replace(/\D/g, '').slice(0, 8))}
               inputMode="numeric"
               autoComplete="one-time-code"
               required
             />
-            <Button type="submit" disabled={!client || busy || verificationCode.length < 6}>
+            <Button type="submit" disabled={!client || busy || verificationCode.length < (useRecoveryCode ? 12 : 6)}>
               {busy ? '正在验证…' : '验证并进入系统'}
+            </Button>
+            <Button kind="ghost" onClick={() => {
+              setUseRecoveryCode((current) => !current);
+              setVerificationCode('');
+              setError('');
+            }}>
+              {useRecoveryCode ? '改用身份验证器' : '使用备用恢复代码'}
             </Button>
             <Button kind="ghost" onClick={async () => {
               await client?.auth.signOut();
