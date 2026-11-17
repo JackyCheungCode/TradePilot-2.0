@@ -4,7 +4,7 @@ import type { WorkflowEvent, WorkflowStep } from "cloudflare:workers";
 import type { FacebookInput } from "../routes/facebook-discovery";
 import { discoveryRunQuery } from "../lib/owner-scoped-query";
 import { readIntegrationSecret } from "../lib/integrations";
-import { evaluateGuardrails } from "../lib/guardrails";
+import { evaluateGuardrails, getDuplicatePolicy } from "../lib/guardrails";
 interface Env { SUPABASE_URL:string; SUPABASE_SERVICE_ROLE_KEY:string; APIFY_API_TOKEN?:string; }
 interface Params { runId:string; ownerId:string; input:FacebookInput; }
 interface ActorRun { id:string; status:string; defaultDatasetId?:string; }
@@ -35,13 +35,19 @@ async function persistItem(env:Env,ownerId:string,runId:string,query:string,coun
  const facebook={objectType:type,actorId,query,url:url||null,facebookId:id||null,description:text(item.description||item.subtitle),text:text(item.text||item.caption||item.message),authorName:text(item.authorName||item.author_name||item.ownerName),authorUrl:text(item.authorUrl||item.author_url||item.ownerUrl),category:text(item.category||item.pageCategory||item.eventCategory),isVerified:item.isVerified??item.verified??null,profilePicture:text(item.profilePicture||item.profile_picture||item.imageUrl||item.image_url||item.thumbnailUrl||item.thumbnail_url)||null,followers:item.followers??item.followersCount??item.followerCount??null,friends:item.friends??item.friendsCount??item.friendCount??null,likes:item.likes??item.likeCount??null,attending:item.attending??item.going??item.attendingCount??null,interested:item.interested??item.interestedCount??null,members:item.memberCount??item.member_count??item.membersCount??item.members_count??item.members??null,reactions:item.reactionCount??item.reaction_count??item.reactions??null,comments:item.commentCount??item.comment_count??item.commentsCount??null,shares:item.shareCount??item.share_count??item.shares??null,views:item.viewCount??item.view_count??item.views??item.viewCountText??null,durationSeconds:item.durationSeconds??null,contentType:text(item.contentType)||null,publishedAt:text(item.createdAt||item.created_at||item.publishedAt||item.published_at||item.date||item.publishedText)||null,publishedText:text(item.publishedText)||null,eventStart:text(item.startTime||item.startDate||item.eventStartTime)||null,eventEnd:text(item.endTime||item.endDate||item.eventEndTime)||null,location:text(item.location)||null,position:item.position??null,phone:phone||null,email:email||null,website:website||null,address:address||null,whatsapp:text(item.whatsapp||item.whatsappUrl)||null,privacy:text(item.privacy||item.groupPrivacy)||null,socialLinks:item.socialLinks??item.socialMediaLinks??null,raw:item};
  const existingRows=await db<Array<{id:string;raw_data?:unknown;phone?:string|null;email?:string|null;website?:string|null;address?:string|null}>>(env,"discovery_records?owner_id=eq."+ownerId+"&channel=eq.facebook&dedupe_key=eq."+encodeURIComponent(dedupeKey)+"&select=id,raw_data,phone,email,website,address");
  const existing=existingRows[0];
+ const duplicatePolicy=getDuplicatePolicy(input.guardrailsSnapshot);
  let recordId=existing?.id;
  if(existing){
-  const existingRaw=existing.raw_data&&typeof existing.raw_data==="object"?existing.raw_data as Record<string,unknown>:{};
-  const existingFacebook=existingRaw.facebook&&typeof existingRaw.facebook==="object"?existingRaw.facebook as Record<string,unknown>:{};
-  const patch:Record<string,unknown>={record_type:type,name,country_code:country,raw_data:{...existingRaw,facebook:{...existingFacebook,...facebook}},updated_at:new Date().toISOString()};
-  if(website)patch.website=website;if(phone)patch.phone=phone;if(email)patch.email=email;if(address)patch.address=address;if(facebook.category)patch.business_type=facebook.category;
-  await db(env,"discovery_records?id=eq."+recordId+"&owner_id=eq."+ownerId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify(patch)});
+  if(duplicatePolicy==="merge"){
+   const existingRaw=existing.raw_data&&typeof existing.raw_data==="object"?existing.raw_data as Record<string,unknown>:{};
+   const existingFacebook=existingRaw.facebook&&typeof existingRaw.facebook==="object"?existingRaw.facebook as Record<string,unknown>:{};
+   const patch:Record<string,unknown>={record_type:type,name,country_code:country,raw_data:{...existingRaw,facebook:{...existingFacebook,...facebook}},updated_at:new Date().toISOString()};
+   if(website)patch.website=website;if(phone)patch.phone=phone;if(email)patch.email=email;if(address)patch.address=address;if(facebook.category)patch.business_type=facebook.category;
+   await db(env,"discovery_records?id=eq."+recordId+"&owner_id=eq."+ownerId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify(patch)});
+  }else if(duplicatePolicy==="review"){
+   const existingRaw=existing.raw_data&&typeof existing.raw_data==="object"?existing.raw_data as Record<string,unknown>:{};
+   await db(env,"discovery_records?id=eq."+recordId+"&owner_id=eq."+ownerId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({raw_data:{...existingRaw,duplicate_review_required:true},updated_at:new Date().toISOString()})});
+  }
  }else{
   const body:Record<string,unknown>={owner_id:ownerId,channel:"facebook",record_type:type,name,country_code:country,dedupe_key:dedupeKey,raw_data:{facebook}};
   if(website)body.website=website;if(phone)body.phone=phone;if(email)body.email=email;if(address)body.address=address;if(facebook.category)body.business_type=facebook.category;
@@ -50,7 +56,7 @@ async function persistItem(env:Env,ownerId:string,runId:string,query:string,coun
   if(!recordId)recordId=(await db<Array<{id:string}>>(env,"discovery_records?owner_id=eq."+ownerId+"&channel=eq.facebook&dedupe_key=eq."+encodeURIComponent(dedupeKey)+"&select=id"))[0]?.id;
  }
  if(!recordId)throw new Error("FACEBOOK_RECORD_SAVE_FAILED");
- await db(env,"discovery_record_occurrences?on_conflict=owner_id,run_id,provider,external_id",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({owner_id:ownerId,record_id:recordId,run_id:runId,provider:"apify",keyword:query,external_id:actorId+":"+type+":"+(id||url||identity)+":"+query,source_url:url||null,raw_data:{actorId,objectType:type,facebook}})});
+ await db(env,"discovery_record_occurrences?on_conflict=owner_id,run_id,provider,external_id",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({owner_id:ownerId,record_id:recordId,run_id:runId,provider:"apify",keyword:query,external_id:actorId+":"+type+":"+(id||url||identity)+":"+query,source_url:url||null,raw_data:{actorId,objectType:type,facebook,duplicate_review_required:Boolean(existing&&duplicatePolicy==="review")}})});
  return {id:recordId,type,url,key:dedupeKey};
 }
 async function attachDetails(env:Env,ownerId:string,recordId:string,details:Record<string,unknown>,kind:string){const rows=await db<Array<Record<string,unknown>>>(env,"discovery_records?id=eq."+recordId+"&owner_id=eq."+ownerId+"&select=raw_data");const raw=rows[0]?.raw_data&&typeof rows[0].raw_data==="object"?rows[0].raw_data as Record<string,unknown>:{};const facebook=raw.facebook&&typeof raw.facebook==="object"?raw.facebook as Record<string,unknown>:{};const patch:Record<string,unknown>={raw_data:{...raw,facebook:{...facebook,[kind]:details}},updated_at:new Date().toISOString()};const phone=text(details.phone||details.phoneNumber),email=text(details.email||details.emailAddress),website=text(details.website||details.websiteUrl||details.website_url),address=text(details.address||details.streetAddress||details.street_address);if(phone)patch.phone=phone;if(email)patch.email=email;if(website)patch.website=website;if(address)patch.address=address;await db(env,"discovery_records?id=eq."+recordId+"&owner_id=eq."+ownerId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify(patch)});}
