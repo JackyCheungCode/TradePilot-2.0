@@ -223,10 +223,10 @@ export async function handleSettings(request: Request, env: SettingsEnv): Promis
   if (!ownerId) return errorResponse(request, "UNAUTHORIZED", "请先登录后再管理集成密钥。", 401);
   const url = new URL(request.url);
   if (url.pathname === "/api/v1/settings/prospect-guardrails" && (request.method === "GET" || request.method === "PUT")) {
-    const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY ?? "";
-    if (!serviceKey) return errorResponse(request, "SETTINGS_STORAGE_UNAVAILABLE", "服务端配置存储暂不可用。", 503);
     const endpoint = env.SUPABASE_URL + "/rest/v1/trade_business_settings";
-    const headers = { apikey: serviceKey, Authorization: "Bearer " + serviceKey, Accept: "application/json" };
+    // Use the verified user's JWT so Postgres RLS and auth.uid()-based audit triggers
+    // run as the owner instead of bypassing them with the service-role key.
+    const headers = { apikey: env.SUPABASE_ANON_KEY, Authorization: request.headers.get("Authorization") ?? "", Accept: "application/json" };
     try {
       if (request.method === "GET") {
         const query = new URLSearchParams({ owner_id: "eq." + ownerId, scope_key: "eq.prospect_guardrails", select: "config,config_version,updated_at" });
