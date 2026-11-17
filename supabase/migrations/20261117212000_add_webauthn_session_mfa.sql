@@ -302,3 +302,56 @@ begin
   end if;
 end;
 $$;
+
+-- RLS is bypassed inside SECURITY DEFINER routines. A write trigger closes that
+-- alternate path for authenticated sessions while leaving service-role and
+-- direct administrative database operations unchanged.
+create or replace function private.tradepilot_webauthn_enforce_write_gate()
+returns trigger language plpgsql security definer set search_path = ''
+as $$
+declare
+  v_role text := auth.jwt()->>'role';
+begin
+  if v_role is distinct from 'authenticated' then
+    if tg_op = 'DELETE' then return old; else return new; end if;
+  end if;
+  if not private.tradepilot_webauthn_session_authorized() then
+    raise exception 'WebAuthn MFA verification required for this session'
+      using errcode = '42501';
+  end if;
+  if tg_op = 'DELETE' then return old; else return new; end if;
+end;
+$$;
+revoke all on function private.tradepilot_webauthn_enforce_write_gate() from public, anon, authenticated;
+
+do $$
+declare r record;
+begin
+  for r in
+    select distinct t.tablename
+    from pg_tables t
+    where t.schemaname='public'
+      and exists (
+        select 1 from pg_policies p
+        where p.schemaname=t.schemaname and p.tablename=t.tablename
+          and ('authenticated'=any(p.roles) or 'public'=any(p.roles))
+      )
+  loop
+    execute format('drop trigger if exists tradepilot_webauthn_write_gate on public.%I', r.tablename);
+    execute format(
+      'create trigger tradepilot_webauthn_write_gate before insert or update or delete on public.%I for each row execute function private.tradepilot_webauthn_enforce_write_gate()',
+      r.tablename
+    );
+  end loop;
+
+  if to_regclass('storage.objects') is not null
+     and exists (
+       select 1 from pg_policies p
+       where p.schemaname='storage' and p.tablename='objects'
+         and ('authenticated'=any(p.roles) or 'public'=any(p.roles))
+     ) then
+    execute 'drop trigger if exists tradepilot_webauthn_write_gate on storage.objects';
+    execute 'create trigger tradepilot_webauthn_write_gate before insert or update or delete on storage.objects for each row execute function private.tradepilot_webauthn_enforce_write_gate()';
+  end if;
+end;
+$$;
