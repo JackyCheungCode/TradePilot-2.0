@@ -68,7 +68,7 @@ export function CustomerCommunicationsWindowPage() {
 
   return (
     <main className="tp-wa-page" aria-label="客户沟通工作台">
-      <section className="tp-wa-app">
+      <section className={"tp-wa-app" + (profileOpen ? " has-profile" : "")}>
         <aside className={'tp-wa-sidebar' + (mobileList ? ' is-mobile-visible' : '')}>
           <header className="tp-wa-sidebar-head">
             <div className="tp-wa-profile-avatar">TP</div>
