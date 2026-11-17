@@ -255,7 +255,7 @@ export function ExecutionStep({ profile, sources, onEditStep, onContinueToScorin
               <Tile className="tp-execution__summary-tile">
                 <div className="tp-execution__tile-heading"><strong>拦截护盾</strong><Button kind="ghost" size="sm" renderIcon={CarbonIcons.Edit} onClick={() => onEditStep(2)}>返回修改</Button></div>
                 <p><Tag type="green">已配置 {guardrailCount} 项规则</Tag></p>
-                <small>当前配置仅用于展示；规则尚未传入后端执行链。</small>
+                <small>任务配置快照已提交；已接入渠道在结果入库前执行服务端护盾。</small>
               </Tile>
             </Column>
           </Grid>
