@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { strToU8, zipSync } from 'fflate';
 import {
-  Accordion, AccordionItem, Button, Column, Dropdown, Grid, InlineNotification, OverflowMenu,
+  Button, Column, Dropdown, Grid, InlineNotification, Link, OverflowMenu,
   OverflowMenuItem, Pagination, Table, TableBody,
   TableCell, TableHead, TableHeader, TableRow, TableSelectAll, TableSelectRow,
   TableToolbar, TableToolbarContent, TableToolbarSearch, Tag, Tile, CarbonIcons,
@@ -216,30 +216,39 @@ export function ScoringStep({ profile, onContinueToEnrichment }: Props) {
 
       {notice && <InlineNotification kind="info" lowContrast title="操作反馈" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
 
-      <Accordion className="tp-scoring__methodology">
-        <AccordionItem open title={<span className="tp-scoring__accordion-title"><CarbonIcons.MachineLearningModel size={16} />AI 模型、清洗方法与评分依据</span>}>
-          <Grid narrow>
-            <Column sm={4} md={4} lg={5}>
-              <Tile className="tp-scoring__info-tile"><div className="tp-scoring__info-title"><CarbonIcons.ModelBuilder size={18} /><strong>所用清洗与大模型</strong></div>
-                <dl><dt>评分模型</dt><dd>由 AI 与 API 集成中的 prospect_scoring 任务配置决定</dd><dt>向量模型</dt><dd>当前评分链路未调用向量检索</dd></dl>
-                <p>模型根据目标画像、企业基础字段、公开资料摘要和来源证据生成结构化评分。</p>
-              </Tile>
-            </Column>
-            <Column sm={4} md={4} lg={5}>
-              <Tile className="tp-scoring__info-tile"><div className="tp-scoring__info-title"><CarbonIcons.Filter size={18} /><strong>清洗与过滤方法</strong></div>
-                <ul><li><strong>真实记录：</strong>读取后端持久化的企业与渠道来源记录</li><li><strong>证据输入：</strong>提交企业字段、公开资料摘要及来源出现记录</li><li><strong>结构化输出：</strong>保存四项维度分数、证据、风险和模型信息</li></ul>
-              </Tile>
-            </Column>
-            <Column sm={4} md={8} lg={6}>
-              <Tile className="tp-scoring__info-tile"><div className="tp-scoring__info-title"><CarbonIcons.ChartLine size={18} /><strong>综合评分公式</strong></div>
-                <div className="tp-scoring__formula">Score = (Fit × 40%) + (Persona × 30%) + (Scale × 20%) + (Intent × 10%)</div>
-                <ul className="tp-scoring__weights"><li><span>Fit · 产品契合度</span><strong>40%</strong></li><li><span>Persona · 身位匹配度</span><strong>30%</strong></li><li><span>Scale · 规模实力</span><strong>20%</strong></li><li><span>Intent · 采购意图</span><strong>10%</strong></li></ul>
-              </Tile>
-            </Column>
-          </Grid>
-          <p className="tp-scoring__method-note">模型名称与评分权重按产品方案展示。使用 AI 与 API 集成中为潜客评分配置的模型。评分维度、证据、风险、模型版本与评分时间会持久化到潜客记录。</p>
-        </AccordionItem>
-      </Accordion>
+      <Tile className="tp-scoring__snapshot">
+        <div className="tp-scoring__method-heading"><CarbonIcons.DocumentView size={18} /><strong>前序搜索条件快照 / Previous Search Snapshot</strong></div>
+        <div className="tp-scoring__snapshot-grid">
+          <div><span>目标市场 / Target Market</span><strong>{profile.countryName || '未指定'}</strong></div>
+          <div><span>核心产品 / Core Product</span><strong>{profile.coreNoun || '未指定'}</strong></div>
+          <div><span>目标买家 / Target Buyers</span><strong>{profile.buyers.length ? profile.buyers.map(id => ({ importer: '进口商', distributor: '分销商 / 批发商', brand: '品牌方', contractor: '工程商 / 零售商' }[id] ?? id)).join('、') : '未指定'}</strong></div>
+          <div><span>检索记录 / Retrieved Records</span><strong>{rows.length} 条 · {sourceOptions.length} 个来源</strong></div>
+        </div>
+      </Tile>
+
+      <Tile className="tp-scoring__methodology">
+        <div className="tp-scoring__method-heading"><CarbonIcons.MachineLearningModel size={18} /><strong>AI 模型、清洗方法与评分依据 / AI Model, Cleaning & Scoring</strong></div>
+        <Grid narrow>
+          <Column sm={4} md={4} lg={5}>
+            <Tile className="tp-scoring__info-tile"><div className="tp-scoring__info-title"><CarbonIcons.ModelBuilder size={18} /><strong>所用清洗与大模型</strong></div>
+              <dl><dt>评分模型</dt><dd>由 AI 与 API 集成中的 prospect_scoring 任务配置决定</dd><dt>向量模型</dt><dd>当前评分链路未调用向量检索</dd></dl>
+              <p>模型根据目标画像、企业基础字段、公开资料摘要和来源证据生成结构化评分。</p>
+            </Tile>
+          </Column>
+          <Column sm={4} md={4} lg={5}>
+            <Tile className="tp-scoring__info-tile"><div className="tp-scoring__info-title"><CarbonIcons.Filter size={18} /><strong>清洗与过滤方法</strong></div>
+              <ul><li><strong>真实记录：</strong>读取后端持久化的企业与渠道来源记录</li><li><strong>证据输入：</strong>提交企业字段、公开资料摘要及来源出现记录</li><li><strong>结构化输出：</strong>保存四项维度分数、证据、风险和模型信息</li></ul>
+            </Tile>
+          </Column>
+          <Column sm={4} md={8} lg={6}>
+            <Tile className="tp-scoring__info-tile"><div className="tp-scoring__info-title"><CarbonIcons.ChartLine size={18} /><strong>综合评分公式</strong></div>
+              <div className="tp-scoring__formula">Score = (Fit × 40%) + (Persona × 30%) + (Scale × 20%) + (Intent × 10%)</div>
+              <ul className="tp-scoring__weights"><li><span>Fit · 产品契合度</span><strong>40%</strong></li><li><span>Persona · 身位匹配度</span><strong>30%</strong></li><li><span>Scale · 规模实力</span><strong>20%</strong></li><li><span>Intent · 采购意图</span><strong>10%</strong></li></ul>
+            </Tile>
+          </Column>
+        </Grid>
+        <p className="tp-scoring__method-note">模型名称与评分权重按产品方案展示。使用 AI 与 API 集成中为潜客评分配置的模型。评分维度、证据、风险、模型版本与评分时间会持久化到潜客记录。</p>
+      </Tile>
 
       <div className="tp-scoring__summary">
         <div><span>当前原始记录</span><strong>{rows.length}</strong></div>
@@ -276,9 +285,9 @@ export function ScoringStep({ profile, onContinueToEnrichment }: Props) {
               {visible.map(row => <TableRow key={row.id}>
                 <TableSelectRow id={'scoring-' + row.id} name={'scoring-' + row.id} checked={selected.includes(row.id)} onSelect={() => toggleOne(row.id)} />
                 <TableCell><div className="tp-scoring__company"><strong>{row.name}</strong>{scoreTag(row.score)}{row.guardrailReview && <Tag type="warm-gray">护盾待审核</Tag>}{row.duplicateReview && <Tag type="warm-gray">重复待复核</Tag>}</div></TableCell>
-                <TableCell>{row.domain ? <a href={row.domain.startsWith('http') ? row.domain : 'https://' + row.domain} target="_blank" rel="noreferrer">{row.domain}<CarbonIcons.ArrowUpRight size={12} /></a> : <span>暂无官网</span>}<small>{row.email}</small></TableCell>
+                <TableCell>{row.domain ? <Link href={row.domain.startsWith('http') ? row.domain : 'https://' + row.domain} target="_blank" rel="noreferrer">{row.domain}<CarbonIcons.ArrowUpRight size={12} /></Link> : <span>暂无官网</span>}<small>{row.email}</small></TableCell>
                 <TableCell><Tag type="blue">{row.source}</Tag></TableCell>
-                <TableCell>{row.score === undefined ? <span className="tp-scoring__score-empty">—</span> : <button type="button" className="tp-scoring__score" title={'Fit ' + row.fit + ' · Persona ' + row.persona + ' · Scale ' + row.scale + ' · Intent ' + row.intent} onClick={() => setNotice('评分明细：Fit ' + row.fit + ' · Persona ' + row.persona + ' · Scale ' + row.scale + ' · Intent ' + row.intent)}>{row.score} 分</button>}</TableCell>
+                <TableCell>{row.score === undefined ? <span className="tp-scoring__score-empty">—</span> : <Button kind="ghost" size="sm" className="tp-scoring__score" title={'Fit ' + row.fit + ' · Persona ' + row.persona + ' · Scale ' + row.scale + ' · Intent ' + row.intent} onClick={() => setNotice('评分明细：Fit ' + row.fit + ' · Persona ' + row.persona + ' · Scale ' + row.scale + ' · Intent ' + row.intent)}>{row.score} 分</Button>}</TableCell>
                 <TableCell><span className="tp-scoring__comment">{row.comment || '尚未评分；选择记录后可调用已配置的评分模型。'}</span></TableCell>
                 <TableCell><OverflowMenu ariaLabel={'记录操作：' + row.name} flipped><OverflowMenuItem itemText="单条执行 AI 清洗与打分" onClick={() => scoreRows([row.id])} /><OverflowMenuItem itemText="移除记录" onClick={() => { setRows(current => current.filter(item => item.id !== row.id)); setSelected(current => current.filter(id => id !== row.id)); setNotice('已移除 ' + row.name + '。'); }} /><OverflowMenuItem itemText="复制网址" onClick={() => { void navigator.clipboard?.writeText('https://' + row.domain); setNotice('网址已复制。'); }} /></OverflowMenu></TableCell>
               </TableRow>)}
