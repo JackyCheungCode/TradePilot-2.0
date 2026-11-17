@@ -99,7 +99,7 @@ export function ActorSchemaFields({ sources, profile, onValuesChange }: Props) {
             const discovery = await api('/api/v1/actor-registry/discover', token, { method: 'POST', body: JSON.stringify({ platform: source.id, query: source.name }) }) as { items?: Array<Record<string, unknown>> };
             const candidates = (discovery.items ?? []).filter(actor => typeof actor.actor_id === 'string');
             candidates.sort((a, b) => suitability(b, source) - suitability(a, source));
-            if (!candidates.length) return null;
+            if (!candidates.length) { failures.push(source.name + '：暂未发现可用的数据源。'); return null; }
             for (const actor of candidates.slice(0, 5)) {
               const actorId = String(actor.actor_id);
               try {
