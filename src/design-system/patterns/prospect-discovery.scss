@@ -956,3 +956,11 @@
     padding: .75rem;
   }
 }
+
+.tp-prospect-discovery__actor-schema-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: .5rem;
+}
