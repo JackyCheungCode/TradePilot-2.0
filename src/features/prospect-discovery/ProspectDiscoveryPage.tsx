@@ -283,6 +283,12 @@ export function ProspectDiscoveryPage() {
   };
   const strategy = compileStrategy(profile, countryTld, [...aiSynonyms, ...localizedTerms, ...buyerKeywords, ...synonyms]);
 
+  useEffect(() => {
+    if (previewOpen && !advancedMode) {
+      setGoogleQueries(compileStrategy(profile, countryTld, [...aiSynonyms, ...localizedTerms, ...buyerKeywords, ...synonyms]).google);
+    }
+  }, [previewOpen, advancedMode, profile, countryTld, aiSynonyms, localizedTerms, buyerKeywords, synonyms]);
+
   const updateGoogleQuery = (index: number, value: string) => setGoogleQueries(current => current.map((item, i) => i === index ? value : item));
   const addSynonym = () => {
     const value = synonymInput.trim();
