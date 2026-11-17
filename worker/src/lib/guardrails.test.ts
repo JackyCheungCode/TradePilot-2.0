@@ -151,7 +151,7 @@ test("website platform exclusion checks provider technology metadata", () => {
 });
 
 test("all-results view keeps legacy records with no occurrence but hides fully removed records", () => {
-  const rows = [
+  const rows: Array<Record<string, unknown>> = [
     { id: "legacy", discovery_record_occurrences: [] },
     { id: "active", discovery_record_occurrences: [{ id: "o1", run_id: "run-a", is_removed: false }] },
     { id: "removed", discovery_record_occurrences: [{ id: "o2", run_id: "run-a", is_removed: true }] },
@@ -163,7 +163,7 @@ test("all-results view keeps legacy records with no occurrence but hides fully r
 });
 
 test("task-scoped result view includes only visible occurrences from the requested run", () => {
-  const rows = [
+  const rows: Array<Record<string, unknown>> = [
     { id: "legacy", discovery_record_occurrences: [] },
     { id: "run-a", discovery_record_occurrences: [{ id: "a", run_id: "run-a", is_removed: false }] },
     { id: "run-b", discovery_record_occurrences: [{ id: "b", run_id: "run-b", is_removed: false }] },
