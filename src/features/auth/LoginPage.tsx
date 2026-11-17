@@ -18,6 +18,7 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [verificationCode, setVerificationCode] = useState('');
   const [useRecoveryCode, setUseRecoveryCode] = useState(false);
+  const [totpFallbackActive, setTotpFallbackActive] = useState(false);
   const [factorId, setFactorId] = useState('');
   const [challengeId, setChallengeId] = useState('');
   const [step, setStep] = useState<LoginStep>('credentials');
@@ -155,6 +156,29 @@ export function LoginPage() {
     }
   };
 
+  const startTotpFallback = async () => {
+    if (!client) return;
+    setBusy(true);
+    setError('');
+    try {
+      const { data: factors, error: factorsError } = await client.auth.mfa.listFactors();
+      if (factorsError) throw factorsError;
+      const factor = factors.totp.find((item) => item.status === 'verified');
+      if (!factor) throw new Error('当前账户没有已验证的 TOTP 备用因子，请使用另一台已注册的 WebAuthn 设备。');
+      const { data: challenge, error: challengeError } = await client.auth.mfa.challenge({ factorId: factor.id });
+      if (challengeError) throw challengeError;
+      setFactorId(factor.id);
+      setChallengeId(challenge.id);
+      setVerificationCode('');
+      setUseRecoveryCode(false);
+      setTotpFallbackActive(true);
+      setStep('mfa');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '无法启动 TOTP 备用验证。');
+    } finally {
+      setBusy(false);
+    }
+  };
   const verifySecondFactor = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!client || !factorId || !challengeId) return;
@@ -180,7 +204,12 @@ export function LoginPage() {
       const { data: assurance, error: assuranceError } = await client.auth.mfa.getAuthenticatorAssuranceLevel();
       if (assuranceError) throw assuranceError;
       if (assurance.currentLevel !== 'aal2') throw new Error('第二因子验证未能提升当前会话安全等级。');
-      await verifyWebAuthnIfRequired(client);
+      if (totpFallbackActive) {
+        setTotpFallbackActive(false);
+        navigate(destination, { replace: true });
+      } else {
+        await verifyWebAuthnIfRequired(client);
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : '二次验证失败，请重试。');
     } finally {
@@ -197,7 +226,7 @@ export function LoginPage() {
           {step === 'mfa'
             ? '请输入身份验证器生成的一次性验证码。'
             : step === 'webauthn'
-              ? '请使用已注册设备完成指纹、面部或设备 PIN 验证。'
+              ? '请使用已注册设备完成指纹、面部或设备 PIN 验证，也可以选择 TOTP 备用验证。'
               : '使用邮箱密码或已注册的 Passkey 安全登录工作区。'}
         </p>
         {!clientReady && <InlineLoading description="正在连接登录服务…" />}
@@ -269,8 +298,10 @@ export function LoginPage() {
         ) : (
           <div className="tp-login__form">
             <InlineLoading description="正在等待设备完成 WebAuthn 生物识别验证…" />
+            <Button kind="secondary" disabled={busy} onClick={() => void startTotpFallback()}>使用 TOTP 备用验证</Button>
             <Button kind="ghost" onClick={async () => {
               await client?.auth.signOut();
+              setTotpFallbackActive(false);
               setStep('credentials');
               setVerificationCode('');
             }}>取消并返回登录</Button>
