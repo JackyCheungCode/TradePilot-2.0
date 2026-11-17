@@ -3,6 +3,7 @@ import { DEFAULT_SEARCH_EXCLUSIONS } from "./search-exclusions";
 import { discoveryRunQuery } from "../lib/owner-scoped-query";
 import { readIntegrationSecret } from "../lib/integrations";
 import { evaluateGuardrails, getDuplicatePolicy } from "../lib/guardrails";
+import { normalizeMerchantDomain, searchResultIdentity, searchResultExclusionTarget } from "./search-result-normalization.ts";
 type Engine="serper"|"serpapi"; type Vertical="web"|"shopping"|"images"|"news"|"videos"|"scholar"|"patents";
 type Result={title:string;url:string;snippet:string;raw:Record<string,unknown>};
 const serper:Record<Vertical,string>={web:"search",shopping:"shopping",images:"images",news:"news",videos:"videos",scholar:"scholar",patents:"patents"};
@@ -24,29 +25,6 @@ async function search(engine:Engine,type:Vertical,q:string,country:string,hl:str
  }return out.slice(0,limit);
 }
 function excluded(url:string,rules:string[]){try{const u=new URL(url),host=u.hostname.toLowerCase(),path=u.pathname.toLowerCase();return rules.some(rule=>{const [domain,...rest]=rule.toLowerCase().split("/");const prefix=rest.length?"/"+rest.join("/"):"";return(host===domain||host.endsWith("."+domain))&&(!prefix||path.startsWith(prefix));});}catch{return true;}}
-export function normalizeMerchantDomain(value: string): string {
- const candidate = value.trim().toLowerCase().replace(/^www\./, "");
- return /^[a-z0-9.-]+\.[a-z]{2,}$/.test(candidate) ? candidate : "";
-}
-export function searchResultIdentity(row: { url: string; type: string; title: string; raw: Record<string, unknown> }): string {
- if (row.type === "shopping") {
-  const source = String(row.raw.source ?? row.raw.merchant ?? row.raw.seller ?? "").trim();
-  const merchant = normalizeMerchantDomain(source) || source.toLowerCase();
-  const product = String(row.raw.product_id ?? row.title).trim().toLowerCase();
-  return "shopping:" + merchant + ":" + product;
- }
- const host = new URL(row.url).hostname.replace(/^www\./, "").toLowerCase();
- return "website:" + host;
-}
-export function searchResultExclusionTarget(row: { url: string; type: string; raw: Record<string, unknown> }): string {
- if (row.type === "shopping") {
-  const source = String(row.raw.source ?? row.raw.merchant ?? row.raw.seller ?? "").trim();
-  const domain = normalizeMerchantDomain(source);
-  if (domain) return "https://" + domain;
- }
- return row.url;
-}
-
 async function persist(env:DiscoveryEnv,owner:string,run:string,input:DiscoveryRunInput,engine:Engine,type:Vertical,item:Result){
  const parsed=new URL(item.url),shopping=type==="shopping",googleShoppingLink=parsed.hostname.toLowerCase().endsWith("google.com"),source=String(item.raw.source??item.raw.merchant??item.raw.seller??"").trim();
  const sourceDomain=normalizeMerchantDomain(source);
