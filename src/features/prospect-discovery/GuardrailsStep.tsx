@@ -82,11 +82,24 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
     try {
       const saved = localStorage.getItem('tradepilot.guardrails.frontend.v1');
       if (saved) {
-        const value = JSON.parse(saved) as { enabled?: Record<string, boolean>; rules?: RuleSet; websiteRows?: Array<{ type: string; value: string }>; scope?: string };
+        const value = JSON.parse(saved) as { enabled?: Record<string, boolean>; rules?: RuleSet; websiteRows?: Array<{ type: string; value: string }>; scope?: string; selectedDimensions?: Array<{ id: string; text: string }>; selectedPositions?: typeof positions; selectedModes?: typeof matchModes; selectedWebsiteTypes?: Array<{ id: string; text: string }>; excludedCountries?: Array<{ id: string; text: string }>; contactEntries?: typeof contactEntries; keywordAction?: string; doNotContact?: boolean; employeeFloor?: string; requireIndependentSite?: boolean; unknownPolicy?: string; duplicatePolicy?: string; template?: string };
         if (value.enabled) setEnabled(value.enabled);
         if (value.rules) setRules({ ...emptyRules, ...value.rules });
         if (value.websiteRows) setWebsiteRows(value.websiteRows);
         if (value.scope) setScope(value.scope);
+        if (value.selectedDimensions) setSelectedDimensions(value.selectedDimensions);
+        if (value.selectedPositions) setSelectedPositions(value.selectedPositions);
+        if (value.selectedModes) setSelectedModes(value.selectedModes);
+        if (value.selectedWebsiteTypes) setSelectedWebsiteTypes(value.selectedWebsiteTypes);
+        if (value.excludedCountries) setExcludedCountries(value.excludedCountries);
+        if (value.contactEntries) setContactEntries(value.contactEntries);
+        if (value.keywordAction) setKeywordAction(value.keywordAction);
+        if (typeof value.doNotContact === 'boolean') setDoNotContact(value.doNotContact);
+        if (value.employeeFloor !== undefined) setEmployeeFloor(value.employeeFloor);
+        if (typeof value.requireIndependentSite === 'boolean') setRequireIndependentSite(value.requireIndependentSite);
+        if (value.unknownPolicy) setUnknownPolicy(value.unknownPolicy);
+        if (value.duplicatePolicy) setDuplicatePolicy(value.duplicatePolicy);
+        if (value.template) setTemplate(value.template);
       }
     } catch { /* Keep the default local-only configuration. */ }
   }, []);
@@ -122,7 +135,7 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
   };
   const saveLocal = () => {
     try {
-      localStorage.setItem('tradepilot.guardrails.frontend.v1', JSON.stringify({ enabled, rules: { ...rules, contacts: Object.values(contactEntries).join('\\n') }, websiteRows, scope, contactEntries, excludedCountries, keywordAction, doNotContact }));
+      localStorage.setItem('tradepilot.guardrails.frontend.v1', JSON.stringify({ enabled, rules, websiteRows, scope, contactEntries, excludedCountries, keywordAction, doNotContact, selectedDimensions, selectedPositions, selectedModes, selectedWebsiteTypes, employeeFloor, requireIndependentSite, unknownPolicy, duplicatePolicy, template }));
       setNotice('护盾配置已保存在当前浏览器。尚未写入服务器或任务。');
       setError('');
     } catch { setError('浏览器本地保存失败，请检查存储空间。'); }
