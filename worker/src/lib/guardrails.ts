@@ -15,11 +15,11 @@ function keywordMatches(haystack: string, keyword: string, modes: string[]): boo
     try { if (value.length <= 120 && new RegExp(value, "i").test(target)) return true; } catch { /* Ignore invalid user regex safely. */ }
   }
   if (modes.includes("whole")) {
-    const escaped = value.replace(/[.*+?^\${}()|[\]\\]/g, "\\$&");
+    const escaped = value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     if (new RegExp("(^|[^\\p{L}\\p{N}])" + escaped + "($|[^\\p{L}\\p{N}])", "iu").test(target)) return true;
   }
   if ((modes.includes("phrase") || modes.includes("contains")) && target.includes(value)) return true;
-  if (modes.includes("prefix") && target.split(/[^\\p{L}\\p{N}]+/u).some(token => token.startsWith(value))) return true;
+  if (modes.includes("prefix") && target.split(/[^\p{L}\p{N}]+/u).some(token => token.startsWith(value))) return true;
   return false;
 }
 function websiteMatches(website: string, rules: Array<Record<string, unknown>>): string[] {
