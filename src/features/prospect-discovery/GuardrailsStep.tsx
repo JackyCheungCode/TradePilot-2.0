@@ -119,7 +119,7 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
     const reader = new FileReader();
     reader.onload = () => {
       if (file.name.toLowerCase().endsWith('.xlsx')) { setImportPreview([]); setNotice('已选择 XLSX 文件。当前前端版本暂只解析 CSV / TXT 文本，XLSX 字段预览将在独立导入模块阶段补齐；文件未上传。'); return; }
-      const lines = String(reader.result ?? '').split(/\\r?\\n/).map(line => line.trim()).filter(Boolean);
+      const lines = String(reader.result ?? '').split(/\r?\n/).map(line => line.trim()).filter(Boolean);
       setImportPreview(lines.slice(0, 8));
       setNotice('已读取文件并生成前端预览。确认后可将识别内容加入当前规则；当前版本不会上传文件。');
       setError('');
@@ -130,7 +130,7 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
   const applyImportPreview = () => {
     const imported = importPreview.filter(line => !websiteRows.some(row => row.value.toLowerCase() === line.toLowerCase()));
     const classify = (value: string) => {
-      if (/^https?:\\/\\//i.test(value)) return 'exact_url';
+      if (/^https?:\/\//i.test(value)) return 'exact_url';
       if (value.startsWith('.')) return 'suffix';
       if (value.startsWith('/')) return 'path';
       if (value.includes('*') || value.includes('?')) return 'pattern';
@@ -200,7 +200,7 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
           </div>)}
         </div>
         <div className="tp-guardrails__field">
-          <TextArea id="tp-guardrails-keywords-list" labelText="排除关键词（每行一个）" placeholder={'personal use\\nconsumer only\\njob vacancy\\npersonal blog'} rows={5} value={rules.keywords} onChange={event => updateRule('keywords', event.currentTarget.value)} />
+          <TextArea id="tp-guardrails-keywords-list" labelText="排除关键词（每行一个）" placeholder={'personal use\nconsumer only\njob vacancy\npersonal blog'} rows={5} value={rules.keywords} onChange={event => updateRule('keywords', event.currentTarget.value)} />
         </div>
         <div className="tp-guardrails__two-col">
           <MultiSelect id="tp-guardrails-keyword-positions" titleText="匹配位置" label="选择匹配位置" items={positions} itemToString={item => item?.text ?? ''} selectedItems={selectedPositions} onChange={({ selectedItems }) => setSelectedPositions(selectedItems ?? [])} />
@@ -254,7 +254,7 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
           <div><span className="tp-guardrails__index">03</span><div><h2>企业主体排除</h2><p>排除企业全称、简称、别名、品牌及已确认的集团主体</p></div></div>
           <Toggle id="tp-guardrails-companies" labelText="启用企业排除" toggled={enabled.companies} onToggle={value => toggleEnabled('companies', value)} />
         </div>
-        <TextArea id="tp-guardrails-companies-list" labelText="企业名称 / 品牌 / 别名（每行一个）" placeholder={'企业全称\\n企业简称\\n品牌名称\\n集团名称'} rows={4} value={rules.companies} onChange={event => updateRule('companies', event.currentTarget.value)} />
+        <TextArea id="tp-guardrails-companies-list" labelText="企业名称 / 品牌 / 别名（每行一个）" placeholder={'企业全称\n企业简称\n品牌名称\n集团名称'} rows={4} value={rules.companies} onChange={event => updateRule('companies', event.currentTarget.value)} />
         <div className="tp-guardrails__choice-row">
           <Checkbox id="tp-guardrails-company-alias" labelText="同时匹配已确认的企业别名" defaultChecked />
           <Checkbox id="tp-guardrails-company-group" labelText="匹配已验证的集团关联主体" />
@@ -269,7 +269,7 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
         <div className="tp-guardrails__field">
           <MultiSelect id="tp-guardrails-country-exclusion" titleText="排除国家 / 地区" label="选择需要排除的国家或地区" items={countries.map(item => ({ id: item.cca2, text: item.name.common + ' (' + item.cca2 + ')' }))} itemToString={item => item?.text ?? ''} selectedItems={excludedCountries} onChange={({ selectedItems }) => setExcludedCountries(selectedItems ?? [])} />
         </div>
-        <TextArea id="tp-guardrails-subregions" labelText="省州 / 城市 / 邮政编码（每行一个）" placeholder={'California\\nOntario\\nDubai\\n10001'} rows={3} value={rules.geography} onChange={event => updateRule('geography', event.currentTarget.value)} />
+        <TextArea id="tp-guardrails-subregions" labelText="省州 / 城市 / 邮政编码（每行一个）" placeholder={'California\nOntario\nDubai\n10001'} rows={3} value={rules.geography} onChange={event => updateRule('geography', event.currentTarget.value)} />
         <p className="tp-guardrails__helper">地域判定优先依据企业注册地与实际经营地址；IP 和服务器位置仅作辅助证据。</p>
       </div>
 
@@ -283,7 +283,7 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
           {profile.buyers?.map(item => <Tag key={item} type="blue">目标身份：{item}</Tag>)}
           {!profile.coreNoun && <span>完成第一步画像后，这里将展示目标产品与买家身份。</span>}
         </div>
-        <TextArea id="tp-guardrails-product-exclusions" labelText="排除产品品类 / 业务模式（每行一个）" placeholder={'clothing\\nfurniture\\ncosmetics\\nrepair-only service\\nconsulting-only'} rows={4} value={rules.products} onChange={event => updateRule('products', event.currentTarget.value)} />
+        <TextArea id="tp-guardrails-product-exclusions" labelText="排除产品品类 / 业务模式（每行一个）" placeholder={'clothing\nfurniture\ncosmetics\nrepair-only service\nconsulting-only'} rows={4} value={rules.products} onChange={event => updateRule('products', event.currentTarget.value)} />
       </div>
 
       <div className="tp-guardrails__panel">
@@ -292,9 +292,9 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
           <Toggle id="tp-guardrails-contacts" labelText="启用联系方式排除" toggled={enabled.contacts} onToggle={value => toggleEnabled('contacts', value)} />
         </div>
         <div className="tp-guardrails__two-col">
-          <TextArea id="tp-guardrails-emails" labelText="邮箱 / 邮箱域名" placeholder={'name@example.com\\nexample.org'} rows={3} value={contactEntries.emails} onChange={event => setContactEntries(current => ({ ...current, emails: event.currentTarget.value }))} />
-          <TextArea id="tp-guardrails-phones" labelText="电话 / WhatsApp 号码" placeholder={'+1 202 555 0100\\n+886 912 345 678'} rows={3} value={contactEntries.phones} onChange={event => setContactEntries(current => ({ ...current, phones: event.currentTarget.value }))} />
-          <TextArea id="tp-guardrails-social" labelText="社交账号 / 个人主页链接" placeholder={'LinkedIn URL\\nFacebook URL\\nInstagram handle'} rows={3} value={contactEntries.social} onChange={event => setContactEntries(current => ({ ...current, social: event.currentTarget.value }))} />
+          <TextArea id="tp-guardrails-emails" labelText="邮箱 / 邮箱域名" placeholder={'name@example.com\nexample.org'} rows={3} value={contactEntries.emails} onChange={event => setContactEntries(current => ({ ...current, emails: event.currentTarget.value }))} />
+          <TextArea id="tp-guardrails-phones" labelText="电话 / WhatsApp 号码" placeholder={'+1 202 555 0100\n+886 912 345 678'} rows={3} value={contactEntries.phones} onChange={event => setContactEntries(current => ({ ...current, phones: event.currentTarget.value }))} />
+          <TextArea id="tp-guardrails-social" labelText="社交账号 / 个人主页链接" placeholder={'LinkedIn URL\nFacebook URL\nInstagram handle'} rows={3} value={contactEntries.social} onChange={event => setContactEntries(current => ({ ...current, social: event.currentTarget.value }))} />
           <TextArea id="tp-guardrails-addresses" labelText="地址 / 其他联系方式" placeholder="输入需要排除的地址或联系方式" rows={3} value={contactEntries.addresses} onChange={event => setContactEntries(current => ({ ...current, addresses: event.currentTarget.value }))} />
         </div>
         <Toggle id="tp-guardrails-dnc" labelText="启用禁止联系名单（Do Not Contact）" labelA="关闭" labelB="开启" toggled={doNotContact} onToggle={setDoNotContact} />
@@ -307,7 +307,7 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
         </div>
         <div className="tp-guardrails__two-col">
           <TextArea id="tp-guardrails-person-names" labelText="联系人姓名 / 账号" placeholder="每行一个姓名或账号" rows={3} value={rules.people} onChange={event => updateRule('people', event.currentTarget.value)} />
-          <TextArea id="tp-guardrails-job-titles" labelText="排除职位 / 岗位" placeholder={'intern\\nassistant\\nnon-purchasing role'} rows={3} />
+          <TextArea id="tp-guardrails-job-titles" labelText="排除职位 / 岗位" placeholder={'intern\nassistant\nnon-purchasing role'} rows={3} />
         </div>
         <div className="tp-guardrails__choice-row">
           <Checkbox id="tp-guardrails-internal-staff" labelText="排除内部员工" />
@@ -337,7 +337,7 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
           <TextInput id="tp-guardrails-employee-floor" labelText="最低员工人数门槛" type="number" min={1} placeholder="例如 10；留空表示不限" value={employeeFloor} onChange={event => setEmployeeFloor(event.currentTarget.value)} />
           <Toggle id="tp-guardrails-independent-site" labelText="要求独立企业官网" labelA="关闭" labelB="开启" toggled={requireIndependentSite} onToggle={setRequireIndependentSite} />
         </div>
-        <TextArea id="tp-guardrails-quality-rules" labelText="其他质量排除备注" placeholder={'confirmed closed\\nparked domain\\ninvalid contact data'} rows={3} value={rules.quality} onChange={event => updateRule('quality', event.currentTarget.value)} />
+        <TextArea id="tp-guardrails-quality-rules" labelText="其他质量排除备注" placeholder={'confirmed closed\nparked domain\ninvalid contact data'} rows={3} value={rules.quality} onChange={event => updateRule('quality', event.currentTarget.value)} />
       </div>
 
       <div className="tp-guardrails__panel tp-guardrails__template">
