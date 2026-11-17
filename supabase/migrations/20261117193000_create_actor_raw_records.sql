@@ -1,7 +1,7 @@
 create table if not exists public.actor_raw_records (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid not null references auth.users(id) on delete cascade,
-  run_id uuid not null references public.discovery_runs(id) on delete cascade,
+  run_id uuid not null references public.discovery_runs(id) on delete restrict,
   actor_id text not null,
   source_id text not null,
   actor_run_id text not null,
