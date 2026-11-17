@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  AreaChart, DonutChart, TreemapChart, SimpleBarChart,
+  AreaChart, SimpleBarChart, ChoroplethChart, WordCloudChart, BubbleChart,
 } from '@carbon/charts-react';
 import {
   Button, InlineLoading, InlineNotification, Tile, Tag, Select, SelectItem,
   Tabs, TabList, Tab, TabPanels, TabPanel, CarbonIcons,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
+import worldAtlas from 'world-atlas/countries-110m.json';
 import '@carbon/charts/styles.css';
 import '@/design-system/patterns/dashboard.scss';
 
@@ -15,7 +16,7 @@ type Row = Record<string, any>;
 type DashboardData = {
   accounts: Row[]; contacts: Row[]; leads: Row[]; opportunities: Row[]; documents: Row[];
   orders: Row[]; shipments: Row[]; payments: Row[]; products: Row[]; agentRuns: Row[];
-  activities: Row[]; discovery: Row[]; updatedAt: string;
+  activities: Row[]; discovery: Row[]; discoveryRuns: Row[]; updatedAt: string;
 };
 const BASE_CURRENCY = 'USD';
 const number = (value: number) => Number(value || 0).toLocaleString('zh-CN');
@@ -23,6 +24,24 @@ const money = (value: number) => BASE_CURRENCY + ' ' + Number(value || 0).toLoca
 const dateKey = (date: Date) => {
   const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
   return local.toISOString().slice(0, 10);
+};
+const countryLabelEnglish = (code: string) => {
+  if (!code || code === 'unknown') return 'Unknown';
+  try { return new Intl.DisplayNames(['en'], { type: 'region' }).of(code.toUpperCase()) || code.toUpperCase(); }
+  catch { return code.toUpperCase(); }
+};
+const countryGeoId = (code: string) => {
+  const geometries = (worldAtlas as any)?.objects?.countries?.geometries || [];
+  const aliases: Record<string, string> = {
+    US: 'United States of America', KR: 'South Korea', RU: 'Russia', CZ: 'Czechia',
+    CD: 'Democratic Republic of the Congo', CG: 'Republic of the Congo',
+    CI: 'Ivory Coast', BO: 'Bolivia', VE: 'Venezuela', TZ: 'Tanzania',
+    SY: 'Syria', LA: 'Laos', MD: 'Moldova', VN: 'Vietnam', IR: 'Iran',
+    KP: 'North Korea', PS: 'Palestine', BN: 'Brunei', TL: 'Timor-Leste',
+  };
+  const target = (aliases[code.toUpperCase()] || countryLabelEnglish(code)).toLowerCase();
+  const match = geometries.find((item: any) => String(item.properties?.name || '').toLowerCase() === target);
+  return match?.id === undefined || match?.id === null ? null : String(match.id);
 };
 const countryLabel = (code: string) => {
   if (!code || code === 'unknown') return '未设置国家';
@@ -67,6 +86,7 @@ export function DashboardPage() {
         db.from('discovery_records').select('id,channel,status,country_code,created_at,lead_id').limit(5000),
         db.from('crm_contacts').select('id,account_id,created_at,is_active,is_archived').eq('is_archived', false).limit(5000),
         db.from('trade_products').select('id,sku,name,category,brand,is_active,is_archived,created_at').eq('is_archived', false).limit(5000),
+        db.from('discovery_runs').select('id,query,search_config,channel,created_at,countries').order('created_at', { ascending: false }).limit(5000),
       ]);
       const failed = queries.find(result => result.error);
       if (failed?.error) throw new Error(failed.error.message);
@@ -75,7 +95,7 @@ export function DashboardPage() {
         opportunities: safeArray(queries[2].data), documents: safeArray(queries[3].data),
         orders: safeArray(queries[4].data), shipments: safeArray(queries[5].data),
         payments: safeArray(queries[6].data), products: safeArray(queries[11].data), agentRuns: safeArray(queries[7].data),
-        activities: safeArray(queries[8].data), discovery: safeArray(queries[9].data),
+        activities: safeArray(queries[8].data), discovery: safeArray(queries[9].data), discoveryRuns: safeArray(queries[12].data),
         updatedAt: new Date().toISOString(),
       });
     } catch (cause) {
@@ -184,6 +204,59 @@ export function DashboardPage() {
   }, [scoped, period, marketMetric]);
 
 
+  const globalMapData = useMemo(() => {
+    const counts = new Map<string, number>();
+    const add = (code: unknown) => {
+      const normalized = String(code || '').trim().toUpperCase();
+      if (!normalized || normalized === 'UNKNOWN') return;
+      counts.set(normalized, (counts.get(normalized) || 0) + 1);
+    };
+    if (marketMetric === 'prospects') scoped.discovery.filter(row => !row.lead_id && !['removed', 'discarded'].includes(String(row.status || '').toLowerCase())).forEach(row => add(row.country_code));
+    if (marketMetric === 'leads') scoped.leads.forEach(row => add(row.country_code));
+    if (marketMetric === 'customers') scoped.accounts.forEach(row => add(row.country_code));
+    if (marketMetric === 'opportunities') {
+      const accountCountries = new Map(scoped.accounts.map(row => [String(row.id), row.country_code]));
+      scoped.opportunities.forEach(row => add(accountCountries.get(String(row.account_id))));
+    }
+    return [...counts.entries()].map(([code, value]) => ({
+      group: countryGeoId(code), code, name: countryLabel(code), value,
+    })).filter(item => item.group !== null).sort((a, b) => b.value - a.value);
+  }, [marketMetric, scoped]);
+
+  const searchKeywords = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const run of data?.discoveryRuns || []) {
+      const config = run.search_config && typeof run.search_config === 'object' ? run.search_config as Row : {};
+      const keyword = String(config.originalQuery || run.query || config.translatedQuery || '').trim();
+      if (!keyword || keyword.length > 100) continue;
+      counts.set(keyword, (counts.get(keyword) || 0) + 1);
+    }
+    return [...counts.entries()].map(([word, count]) => ({ word, count, value: count, group: count >= 5 ? '高频关键词' : count >= 2 ? '中频关键词' : '低频关键词' })).sort((a, b) => b.count - a.count).slice(0, 80);
+  }, [data?.discoveryRuns]);
+
+  const marketBubbles = useMemo(() => {
+    const prospects = new Map<string, number>();
+    const leads = new Map<string, number>();
+    const opportunities = new Map<string, number>();
+    const accountCountries = new Map((data?.accounts || []).map(row => [String(row.id), String(row.country_code || '').toUpperCase()]));
+    const add = (map: Map<string, number>, code: unknown) => {
+      const normalized = String(code || '').trim().toUpperCase();
+      if (normalized && normalized !== 'UNKNOWN') map.set(normalized, (map.get(normalized) || 0) + 1);
+    };
+    (data?.discovery || []).filter(row => !row.lead_id && !['removed', 'discarded'].includes(String(row.status || '').toLowerCase())).forEach(row => add(prospects, row.country_code));
+    (data?.leads || []).forEach(row => add(leads, row.country_code));
+    (data?.opportunities || []).forEach(row => add(opportunities, accountCountries.get(String(row.account_id))));
+    return [...prospects.entries()].map(([code, prospectCount]) => {
+      const leadCount = leads.get(code) || 0;
+      const opportunityCount = opportunities.get(code) || 0;
+      return {
+        group: countryLabelEnglish(code), country: countryLabel(code), x: prospectCount,
+        y: prospectCount ? Number((leadCount / prospectCount * 100).toFixed(1)) : 0,
+        opportunityCount, bubbleSize: Math.max(1, opportunityCount),
+      };
+    }).filter(row => row.x > 0).sort((a, b) => b.x - a.x).slice(0, 40);
+  }, [data?.accounts, data?.discovery, data?.leads, data?.opportunities]);
+
   const effectiveQuotes = scoped.documents.filter(row => ['sent', 'viewed', 'accepted'].includes(String(row.status || '').toLowerCase()));
   const quoteTotal = effectiveQuotes.reduce((sum, row) => {
     const total = amountFrom(row, row.totals?.grand_total);
@@ -244,8 +317,26 @@ export function DashboardPage() {
     axes: { bottom: { title: '日期', mapsTo: 'date', scaleType: 'time' }, left: { title: '新增客户', mapsTo: 'value', scaleType: 'linear' } },
     curve: 'curveMonotoneX', points: { enabled: false },
   };
-  const donutOptions = { ...commonOptions, title: '客户状态结构', height: '250px', donut: { center: { label: '客户' } }, legend: { position: 'bottom' } };
-  const treemapOptions = { ...commonOptions, title: '国家客户分布', height: '340px', tooltip: { enabled: true, valueFormatter: (value: number) => number(value) + ' 家客户' } };
+  const choroplethOptions = {
+    ...commonOptions, title: '全球业务资产分布', height: '430px',
+    geoData: worldAtlas as any, thematic: { projection: 'geoNaturalEarth1' },
+    choropleth: { colorLegend: { title: '记录数量', type: 'linear' } },
+    color: { gradient: { enabled: true, colors: ['#edf5ff', '#78a9ff', '#4589ff', '#0f62fe', '#002d9c'] } },
+  };
+  const wordCloudOptions = {
+    ...commonOptions, height: '340px',
+    wordCloud: { wordMapsTo: 'word', fontSizeMapsTo: 'count' },
+    tooltip: { enabled: true, wordLabel: '搜索关键词', valueLabel: '使用次数' },
+  };
+  const bubbleOptions = {
+    ...commonOptions, title: '全球市场开发潜力', height: '340px',
+    axes: {
+      bottom: { title: '潜客数量', mapsTo: 'x', scaleType: 'linear' },
+      left: { title: '潜客转线索率 (%)', mapsTo: 'y', scaleType: 'linear' },
+    },
+    bubble: { radiusMapsTo: 'bubbleSize', radiusLabel: '商机数量' },
+    tooltip: { enabled: true },
+  };
   const barOptions = { ...commonOptions, height: '260px', axes: { bottom: { mapsTo: 'group', scaleType: 'labels' }, left: { mapsTo: 'value', scaleType: 'linear' } } };
   const agentOptions = { ...commonOptions, height: '260px', axes: { bottom: { mapsTo: 'group', scaleType: 'labels' }, left: { mapsTo: 'value', scaleType: 'linear' } } };
 
@@ -276,6 +367,40 @@ export function DashboardPage() {
 
     {error && <InlineNotification kind="error" title="工作台数据读取失败" subtitle={error} lowContrast/>}
     {loading && !data ? <div className="tp-workbench__loading"><InlineLoading description="正在汇聚全球业务数据…"/></div> : <>
+      <section className="tp-workbench__global-map tp-workbench__panel" aria-label="全球业务资产分布">
+        <div className="tp-workbench__panel-heading">
+          <div><p className="tp-workbench__kicker">GLOBAL BUSINESS GEOGRAPHY</p><h2>全球业务资产分布</h2><p>按国家 / 地区查看四类业务资产数量；切换指标后地图即时更新。</p></div>
+          <Tag type="blue">{globalMapData.length} 个国家 / 地区</Tag>
+        </div>
+        <div className="tp-workbench__global-map-layout">
+          <div className="tp-workbench__global-map-chart">
+            {globalMapData.length ? <ChoroplethChart data={globalMapData.map(item => ({ name: item.name, id: String(item.group), value: item.value }))} options={choroplethOptions as any}/> : <div className="tp-workbench__empty">当前维度暂无可定位的国家 / 地区数据。</div>}
+          </div>
+          <div className="tp-workbench__global-map-switch" role="group" aria-label="地图数据维度">
+            <span>查看维度</span>
+            {[
+              ['prospects', '潜客', '发现记录'],
+              ['leads', '线索', 'CRM 线索'],
+              ['opportunities', '商机', '有效商机'],
+              ['customers', '客户', '正式客户'],
+            ].map(([value, label, detail]) => <Button key={value} kind={marketMetric === value ? 'primary' : 'tertiary'} size="md" onClick={() => setMarketMetric(value)}>{label}<small>{detail}</small></Button>)}
+          </div>
+        </div>
+        <div className="tp-workbench__global-map-ranking">{globalMapData.slice(0, 8).map((item, index) => <div key={item.code}><span>{String(index + 1).padStart(2, '0')}</span><strong>{item.name}</strong><b>{number(item.value)}</b></div>)}</div>
+      </section>
+
+      <section className="tp-workbench__intelligence-grid" aria-label="市场情报分析">
+        <Tile className="tp-workbench__panel tp-workbench__wordcloud">
+          <div className="tp-workbench__panel-heading"><div><p className="tp-workbench__kicker">DISCOVERY SEARCH INTELLIGENCE</p><h2>潜客发现关键词</h2><p>按历史发现任务中的原始搜索关键词统计使用频次。</p></div><Tag type="purple">{searchKeywords.length} 个关键词</Tag></div>
+          {searchKeywords.length ? <WordCloudChart data={searchKeywords} options={wordCloudOptions as any}/> : <div className="tp-workbench__empty">暂无可统计的搜索关键词。创建潜客发现任务后，这里会自动汇总关键词频次。</div>}
+        </Tile>
+        <Tile className="tp-workbench__panel tp-workbench__bubble">
+          <div className="tp-workbench__panel-heading"><div><p className="tp-workbench__kicker">MARKET DEVELOPMENT OPPORTUNITY</p><h2>全球市场开发潜力</h2><p>横轴为潜客数量，纵轴为潜客转线索率，气泡大小代表商机数量。</p></div><Tag type="teal">{marketBubbles.length} 个市场</Tag></div>
+          {marketBubbles.length ? <BubbleChart data={marketBubbles.map(row => ({ group: row.group, x: row.x, y: row.y, opportunityCount: row.opportunityCount, bubbleSize: row.bubbleSize }))} options={bubbleOptions as any}/> : <div className="tp-workbench__empty">需要有国家信息的潜客记录，才能计算各市场开发潜力。</div>}
+          <div className="tp-workbench__bubble-legend"><span>气泡越大 = 商机越多</span><span>转化率 = 线索数 ÷ 潜客数</span></div>
+        </Tile>
+      </section>
+
       <section className="tp-workbench__metrics" aria-label="核心经营指标">
         {metrics.map((metric, index) => {
           const Icon = metric.icon;
@@ -286,24 +411,6 @@ export function DashboardPage() {
             <span className="tp-workbench__metric-link">查看业务明细 <CarbonIcons.ArrowRight size={14}/></span>
           </button>;
         })}
-      </section>
-
-      <section className="tp-workbench__overview-grid">
-        <Tile className="tp-workbench__panel tp-workbench__country-panel">
-          <div className="tp-workbench__panel-heading"><div><p className="tp-workbench__kicker">GLOBAL MARKET INTELLIGENCE</p><h2>全球市场分布</h2><p>按客户、潜客或已转化客户切换国家分布；选择国家可联动全局市场筛选。</p></div><div className="tp-workbench__market-controls"><Select id="workbench-market-metric" labelText="分布指标" value={marketMetric} onChange={event => setMarketMetric(event.currentTarget.value)}><SelectItem value="customers" text="正式客户"/><SelectItem value="leads" text="潜客"/><SelectItem value="converted" text="已转化客户"/></Select><Tag type="blue">{chartData.countries.length} 个国家 / 地区</Tag></div></div>
-          {chartData.countries.length ? <TreemapChart data={chartData.countries.map(item => ({ group: item.name, value: item.value }))} options={treemapOptions as any}/> : <div className="tp-workbench__empty">当前筛选范围暂无客户国家分布数据。</div>}
-          <div className="tp-workbench__country-list">{chartData.countries.slice(0, 8).map((item, index) => <button type="button" key={item.code} onClick={() => setCountry(item.code)}><span>{String(index + 1).padStart(2, '0')}</span><strong>{item.name}</strong><b>{number(item.value)}</b><small>{item.share.toFixed(1)}%</small></button>)}</div>
-        </Tile>
-        <div className="tp-workbench__overview-side">
-          <Tile className="tp-workbench__panel">
-            <div className="tp-workbench__panel-heading"><div><p className="tp-workbench__kicker">CUSTOMER COMPOSITION</p><h2>客户结构</h2><p>按当前客户状态统计</p></div></div>
-            {chartData.status.length ? <DonutChart data={chartData.status} options={donutOptions as any}/> : <div className="tp-workbench__empty">暂无客户状态数据</div>}
-          </Tile>
-          <Tile className="tp-workbench__panel">
-            <div className="tp-workbench__panel-heading"><div><p className="tp-workbench__kicker">DISCOVERY CHANNELS</p><h2>潜客发现来源</h2><p>按发现记录渠道统计</p></div></div>
-            {chartData.channels.length ? <DonutChart data={chartData.channels.map(item => ({ group: item.group, value: item.value }))} options={{ ...donutOptions, title: '发现渠道构成' } as any}/> : <div className="tp-workbench__empty">暂无发现渠道数据</div>}
-          </Tile>
-        </div>
       </section>
 
       <section className="tp-workbench__panel tp-workbench__conversion">
