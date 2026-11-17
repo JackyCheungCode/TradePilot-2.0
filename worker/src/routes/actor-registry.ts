@@ -58,7 +58,7 @@ function inputFingerprint(value: Record<string, unknown>, schemaVersion: string)
   return (hash >>> 0).toString(16).padStart(8, "0");
 }
 
-async function translateSchema(actorId: string, schema: Record<string, unknown>, env: ActorRegistryEnv): Promise<Record<string, unknown>> {
+async function translateSchema(schema: Record<string, unknown>, env: ActorRegistryEnv): Promise<Record<string, unknown>> {
   const properties = schema.properties && typeof schema.properties === "object" ? schema.properties as Record<string, unknown> : {};
   const entries = Object.entries(properties).slice(0, 120).map(([key, value]) => {
     const field = value && typeof value === "object" ? value as Record<string, unknown> : {};
@@ -283,7 +283,7 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
       if (!actorId || actorId.length > 240) return errorResponse(request, "INVALID_ACTOR_ID", "数据源标识无效。", 400);
       const result = await gatewayFetch("acts/" + encodeURIComponent(actorId) + "/input-schema", token);
       const schema = (result.data && typeof result.data === "object" ? result.data : result) as Record<string, unknown>;
-      const localized = await translateSchema(actorId, schema, env);
+      const localized = await translateSchema(schema, env);
       const sourceVersion = safeText((schema.version as string) || "latest", 80);
       const snapshotBytes = new TextEncoder().encode(JSON.stringify({ schema, localized }));
       const snapshotDigest = await crypto.subtle.digest("SHA-256", snapshotBytes);
