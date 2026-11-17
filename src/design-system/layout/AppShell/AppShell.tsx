@@ -7,6 +7,7 @@ import {
 import { getSupabaseClient } from '@/lib/supabase';
 import { XiaoyaAvatar } from '@/features/agent/XiaoyaAvatar';
 import { XiaoyaSidePanel } from '@/features/agent/XiaoyaSidePanel';
+import { CustomerCommunicationsWidget } from '@/features/customer-communications/CustomerCommunicationsWidget';
 
 /**
  * Shared Carbon application frame.
@@ -15,6 +16,8 @@ import { XiaoyaSidePanel } from '@/features/agent/XiaoyaSidePanel';
 export function AppShell() {
   const [sideNavExpanded, setSideNavExpanded] = useState(false);
   const [xiaoyaOpen, setXiaoyaOpen] = useState(false);
+  const [communicationsOpen, setCommunicationsOpen] = useState(false);
+  const [communicationsMinimized, setCommunicationsMinimized] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState('');
   const navigate = useNavigate();
@@ -49,6 +52,16 @@ export function AppShell() {
           <img src="/tradepilot-wordmark.svg" alt="TradePilot" />
         </HeaderName>
         <HeaderGlobalBar>
+          <button
+            type="button"
+            className="tp-communications-trigger"
+            aria-label="打开客户沟通工作台"
+            aria-haspopup="dialog"
+            onClick={() => { setCommunicationsOpen(true); setCommunicationsMinimized(false); }}
+          >
+            <span aria-hidden="true">✉</span>
+            <span>客户沟通</span>
+          </button>
           <HeaderGlobalAction
             aria-label={xiaoyaOpen ? "关闭小雅 AI 助手" : "打开小雅 AI 助手"}
             tooltipAlignment="end"
@@ -87,7 +100,6 @@ export function AppShell() {
           <div className="tp-sidenav__group-label">工作台（Workspace）</div>
           <SideNavItems>
             <SideNavLink href="/dashboard" isActive={location.pathname === '/dashboard' || location.pathname === '/'} title="概览（Overview）" renderIcon={CarbonIcons.Dashboard}>概览（Overview）</SideNavLink>
-            <SideNavLink href="/Omnichannel-inbox" isActive={location.pathname.toLowerCase() === '/omnichannel-inbox'} title="混合聊天（Omnichannel Inbox）" renderIcon={CarbonIcons.Chat}>混合聊天（Omnichannel Inbox）</SideNavLink>
           </SideNavItems>
         </div>
         <div className="tp-sidenav__group">
@@ -139,6 +151,13 @@ export function AppShell() {
         </div>
       </Content>
       <XiaoyaSidePanel isOpen={xiaoyaOpen} onClose={() => setXiaoyaOpen(false)} pathname={location.pathname} />
+      <CustomerCommunicationsWidget
+        open={communicationsOpen}
+        minimized={communicationsMinimized}
+        onClose={() => { setCommunicationsOpen(false); setCommunicationsMinimized(false); }}
+        onMinimize={() => setCommunicationsMinimized(true)}
+        onRestore={() => setCommunicationsMinimized(false)}
+      />
     </>
   );
 }
