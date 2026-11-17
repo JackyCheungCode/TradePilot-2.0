@@ -132,7 +132,9 @@ const defaults: Record<string, string[]> = {
   NZ: ['trade-me','finda','seek-au','google-maps'],
 };
 const recommendedFor = (code: string) => defaults[code] ?? ['google-maps','linkedin','shopify','europages','kompass'];
-const continentOrder = ['Americas','Europe','Asia','Africa','Oceania'];
+const continentOrder = ['North America','South America','Europe','Asia','Africa','Oceania'];
+const northAmericaCodes = new Set('AG AI AW BB BL BM BQ BS BZ CA CR CU CW DM DO GD GL GP GT HN HT JM KN KY LC MF MQ MS MX NI PA PR SV SX TC TT US VC VG VI'.split(' '));
+const directoryContinent = (country: Country) => country.region === 'Americas' ? (northAmericaCodes.has(country.cca2) ? 'North America' : 'South America') : country.region;
 
 export function PlatformSelectionStep({
   countryCode, countryName, continentLabel, countries, onChangeCountry, onSelectionCountChange,
@@ -205,10 +207,11 @@ export function PlatformSelectionStep({
       </section>
 
       {continentOrder.map(continent => {
-        const continentCountries = orderedCountries.filter(country => country.region === continent);
-        const continentSources = regionalSources.filter(source => source.continent === continent);
-        return <section className={'tp-prospect-discovery__source-group' + (continentLabel.includes(continent) ? ' is-current-continent' : '')} key={continent}>
-          <div className="tp-prospect-discovery__source-group-heading"><div><h3>{continent === 'Americas' ? '美洲' : continent === 'Europe' ? '欧洲' : continent === 'Asia' ? '亚洲' : continent === 'Africa' ? '非洲' : '大洋洲'}</h3><p>该区域的本土企业目录、电商、商业网络与行业平台。</p></div><Tag type={continentLabel.includes(continent) ? 'green' : 'gray'}>{continentCountries.length} 个国家</Tag></div>
+        const continentCountries = orderedCountries.filter(country => directoryContinent(country) === continent);
+        const activeContinent = continentCountries.some(country => country.cca2 === countryCode);
+        const continentSources = regionalSources.filter(source => source.continent === (continent === 'North America' || continent === 'South America' ? 'Americas' : continent));
+        return <section className={'tp-prospect-discovery__source-group' + (activeContinent ? ' is-current-continent' : '')} key={continent}>
+          <div className="tp-prospect-discovery__source-group-heading"><div><h3>{continent === 'North America' ? '北美洲' : continent === 'South America' ? '南美洲' : continent === 'Europe' ? '欧洲' : continent === 'Asia' ? '亚洲' : continent === 'Africa' ? '非洲' : '大洋洲'}</h3><p>该区域的本土企业目录、电商、商业网络与行业平台。</p></div><Tag type={activeContinent ? 'green' : 'gray'}>{continentCountries.length} 个国家</Tag></div>
           <Accordion>
             {continentCountries.map(country => {
               const countrySources = continentSources.filter(source => source.markets.includes('*') || source.markets.includes(country.cca2));
