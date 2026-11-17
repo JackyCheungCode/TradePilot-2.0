@@ -48,19 +48,20 @@ export function DashboardPage() {
   const [error, setError] = useState('');
   const [period, setPeriod] = useState('30d');
   const [country, setCountry] = useState('all');
+  const [marketMetric, setMarketMetric] = useState('customers');
 
   const load = useCallback(async () => {
     setError('');
     try {
       const db = await getSupabaseClient();
       const queries = await Promise.all([
-        db.from('crm_accounts').select('id,country_code,created_at,status,industry,account_name').eq('is_archived', false).limit(5000),
+        db.from('crm_accounts').select('id,country_code,created_at,status,industry,account_name,source_lead_id').eq('is_archived', false).limit(5000),
         db.from('leads').select('id,country_code,status,created_at,is_formal').limit(5000),
         db.from('crm_opportunities').select('id,account_id,stage,status,amount,currency_code,probability,created_at,expected_close_date,is_archived').eq('is_archived', false).limit(5000),
         db.from('trade_documents').select('id,order_id,document_type,status,currency_code,totals,created_at,issued_at').eq('document_type', 'quotation').limit(5000),
         db.from('trade_orders').select('id,order_number,status,currency_code,created_at,crm_account_id,metadata,order_type').eq('order_type', 'sales').limit(5000),
         db.from('trade_shipments').select('id,status,created_at,planned_ship_date,actual_ship_date,shipment_value,currency_code,exception_flag,account_id,order_id').limit(5000),
-        db.from('trade_payments').select('id,payment_type,status,payment_date,received_date,currency,amount,amount_base,refund_amount,refund_date,created_at,account_id').limit(5000),
+        db.from('trade_payments').select('id,payment_type,status,payment_date,received_date,currency,amount,net_received,amount_base,refund_amount,refund_date,created_at,account_id').limit(5000),
         db.from('agent_runs').select('id,goal,status,created_at,started_at,completed_at,error_message,actual_cost_usd').order('created_at', { ascending: false }).limit(5000),
         db.from('crm_activities').select('id,activity_type,summary,due_at,status,created_at,account_id,opportunity_id').order('created_at', { ascending: false }).limit(5000),
         db.from('discovery_records').select('id,channel,status,country_code,created_at,lead_id').limit(5000),
@@ -128,7 +129,8 @@ export function DashboardPage() {
 
   const chartData = useMemo(() => {
     const counts = new Map<string, number>();
-    scoped.accounts.forEach(row => {
+    const distributionRows = marketMetric === 'leads' ? scoped.leads : marketMetric === 'converted' ? scoped.accounts.filter(row => Boolean(row.source_lead_id)) : scoped.accounts;
+    distributionRows.forEach(row => {
       const code = String(row.country_code || 'unknown').toUpperCase();
       counts.set(code, (counts.get(code) || 0) + 1);
     });
@@ -171,15 +173,17 @@ export function DashboardPage() {
       daily, stages, shipments: [...shipmentStatuses.entries()].map(([group, value]) => ({ group, key: '发运单', value })),
       agents: [...agentStatuses.entries()].map(([group, value]) => ({ group, key: 'Agent 任务', value })),
     };
-  }, [scoped, period]);
+  }, [scoped, period, marketMetric]);
 
   function keyMonth(date: Date) { return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0'); }
 
-  const quoteTotal = scoped.documents.reduce((sum, row) => {
+  const effectiveQuotes = scoped.documents.filter(row => ['sent', 'viewed', 'accepted'].includes(String(row.status || '').toLowerCase()));
+  const quoteTotal = effectiveQuotes.reduce((sum, row) => {
     const total = amountFrom(row, row.totals?.grand_total);
     return total === null ? sum : sum + total;
   }, 0);
-  const orderTotal = scoped.orders.reduce((sum, row) => {
+  const confirmedSalesOrders = scoped.orders.filter(row => row.status === 'active');
+  const orderTotal = confirmedSalesOrders.reduce((sum, row) => {
     const total = amountFrom(row, row.metadata?.sales_order?.totals?.grand_total);
     return total === null ? sum : sum + total;
   }, 0);
@@ -187,9 +191,13 @@ export function DashboardPage() {
     const total = amountFrom(row, row.amount);
     return total === null ? sum : sum + total;
   }, 0);
-  const collected = scoped.payments.filter(row => !['refund', 'reversal', 'void'].includes(String(row.payment_type || '').toLowerCase()) && !['void', 'cancelled', 'rejected'].includes(String(row.status || '').toLowerCase()));
+  const collected = scoped.payments.filter(row => row.payment_type === 'receipt' && ['confirmed', 'partially_reconciled', 'reconciled', 'returned'].includes(String(row.status || '').toLowerCase()));
+  const refunds = scoped.payments.filter(row => row.payment_type === 'refund' && row.status === 'returned');
   const receivedTotal = collected.reduce((sum, row) => {
-    const total = amountFrom(row, row.amount);
+    const total = amountFrom(row, row.net_received ?? row.amount);
+    return total === null ? sum : sum + total;
+  }, 0) - refunds.reduce((sum, row) => {
+    const total = amountFrom(row, row.refund_amount ?? row.amount);
     return total === null ? sum : sum + total;
   }, 0);
   const unconverted = [
@@ -200,20 +208,22 @@ export function DashboardPage() {
   ].length;
   const activeOrders = scoped.orders.filter(row => row.status !== 'draft' && row.status !== 'cancelled');
   const overdueActivities = scoped.activities.filter(row => row.due_at && new Date(row.due_at) < new Date() && !['completed', 'done', 'cancelled'].includes(String(row.status || '').toLowerCase()));
+  const overdueReceivables = scoped.orders.flatMap(row => safeArray(row.metadata?.sales_order?.payment_schedule).filter(step => step.due_date && step.due_date < dateKey(new Date()) && Number(step.paid_amount || 0) + 0.005 < Number(step.amount || 0)).map(step => ({ order: row.order_number, step })));
+  const overdueReceivableCount = overdueReceivables.length;
   const shipmentExceptions = scoped.shipments.filter(row => row.exception_flag || ['exception', 'delayed', 'failed', 'damaged', 'lost'].includes(String(row.status || '').toLowerCase()));
   const failedAgents = scoped.agentRuns.filter(row => row.status === 'failed');
-  const riskCount = overdueActivities.length + shipmentExceptions.length + failedAgents.length;
+  const riskCount = overdueActivities.length + overdueReceivableCount + shipmentExceptions.length + failedAgents.length;
   const theme = chartTheme();
   const commonOptions = { theme, toolbar: { enabled: false }, legend: { enabled: false } };
   const metrics = [
     { label: '潜客资产', value: number(scoped.leads.length), detail: '本期新增 ' + number(scoped.newLeads.length), icon: CarbonIcons.UserFollow, href: '/leads' },
     { label: '正式客户', value: number(scoped.accounts.length), detail: '本期新增 ' + number(scoped.newAccounts.length), icon: CarbonIcons.Building, href: '/accounts' },
     { label: '销售商机', value: money(opportunityTotal), detail: number(scoped.opportunities.length) + ' 个有效商机', icon: CarbonIcons.ChartLine, href: '/opportunities' },
-    { label: '报价金额', value: scoped.documents.length ? money(quoteTotal) : '暂无记录', detail: number(scoped.documents.length) + ' 份报价单', icon: CarbonIcons.Document, href: '/quotes' },
-    { label: '销售订单', value: money(orderTotal), detail: number(activeOrders.length) + ' 个有效订单', icon: CarbonIcons.ShoppingCart, href: '/sales-orders' },
+    { label: '有效报价金额', value: effectiveQuotes.length ? money(quoteTotal) : '暂无有效报价', detail: number(effectiveQuotes.length) + ' 份已发送 / 已查看 / 已接受报价', icon: CarbonIcons.Document, href: '/quotes' },
+    { label: '销售订单', value: confirmedSalesOrders.length ? money(orderTotal) : '暂无有效订单', detail: number(confirmedSalesOrders.length) + ' 个已启用销售订单', icon: CarbonIcons.ShoppingCart, href: '/sales-orders' },
     { label: '发运履约', value: number(scoped.shipments.length), detail: number(shipmentExceptions.length) + ' 项异常', icon: CarbonIcons.Delivery, href: '/shipments' },
-    { label: '实际回款', value: scoped.payments.length ? money(receivedTotal) : '暂无记录', detail: scoped.payments.length ? number(collected.length) + ' 笔收款记录' : '尚无实际收款记录', icon: CarbonIcons.Currency, href: '/payments' },
-    { label: '经营风险', value: number(riskCount), detail: '逾期跟进 ' + overdueActivities.length + ' · 发运异常 ' + shipmentExceptions.length + ' · Agent 失败 ' + failedAgents.length, icon: CarbonIcons.WarningAlt, href: '/agent' },
+    { label: '实际回款', value: scoped.payments.length ? money(receivedTotal) : '暂无记录', detail: scoped.payments.length ? number(collected.length) + ' 笔收款记录' : '尚无实际收款记录', icon: CarbonIcons.CurrencyDollar, href: '/payments' },
+    { label: '经营风险', value: number(riskCount), detail: '逾期跟进 ' + overdueActivities.length + ' · 逾期应收 ' + overdueReceivableCount + ' · 发运异常 ' + shipmentExceptions.length + ' · Agent 失败 ' + failedAgents.length, icon: CarbonIcons.WarningAlt, href: '/agent' },
   ];
 
   const areaOptions = {
@@ -266,7 +276,7 @@ export function DashboardPage() {
 
       <section className="tp-workbench__overview-grid">
         <Tile className="tp-workbench__panel tp-workbench__country-panel">
-          <div className="tp-workbench__panel-heading"><div><p className="tp-workbench__kicker">GLOBAL MARKET INTELLIGENCE</p><h2>全球客户与市场分布</h2><p>矩形面积代表正式客户数量；选择国家可联动全局市场筛选。</p></div><Tag type="blue">{chartData.countries.length} 个国家 / 地区</Tag></div>
+          <div className="tp-workbench__panel-heading"><div><p className="tp-workbench__kicker">GLOBAL MARKET INTELLIGENCE</p><h2>全球市场分布</h2><p>按客户、潜客或已转化客户切换国家分布；选择国家可联动全局市场筛选。</p></div><div className="tp-workbench__market-controls"><Select id="workbench-market-metric" labelText="分布指标" value={marketMetric} onChange={event => setMarketMetric(event.currentTarget.value)}><SelectItem value="customers" text="正式客户"/><SelectItem value="leads" text="潜客"/><SelectItem value="converted" text="已转化客户"/></Select><Tag type="blue">{chartData.countries.length} 个国家 / 地区</Tag></div></div>
           {chartData.countries.length ? <TreemapChart data={chartData.countries.map(item => ({ group: item.name, value: item.value }))} options={treemapOptions as any}/> : <div className="tp-workbench__empty">当前筛选范围暂无客户国家分布数据。</div>}
           <div className="tp-workbench__country-list">{chartData.countries.slice(0, 8).map((item, index) => <button type="button" key={item.code} onClick={() => setCountry(item.code)}><span>{String(index + 1).padStart(2, '0')}</span><strong>{item.name}</strong><b>{number(item.value)}</b><small>{item.share.toFixed(1)}%</small></button>)}</div>
         </Tile>
@@ -305,7 +315,7 @@ export function DashboardPage() {
             <TabPanel>
               <div className="tp-workbench__tab-grid">
                 <div className="tp-workbench__chart"><h3>报价单状态</h3>{scoped.documents.length ? <SimpleBarChart data={Object.entries(scoped.documents.reduce((acc: Record<string, number>, row) => { const key = String(row.status || '未知'); acc[key] = (acc[key] || 0) + 1; return acc; }, {})).map(([group, value]) => ({ group, value }))} options={barOptions as any}/> : <p className="tp-workbench__empty">暂无报价记录</p>}</div>
-                <div className="tp-workbench__chart"><h3>报价总额（USD 可换算口径）</h3><strong className="tp-workbench__large-value">{scoped.documents.length ? money(quoteTotal) : '暂无记录'}</strong><p>统计对象为 quotation 类型单据，报价草稿与已发报价均独立计数。</p><Button kind="ghost" size="sm" onClick={() => navigate('/quotes')}>进入报价管理 <CarbonIcons.ArrowRight size={16}/></Button></div>
+                <div className="tp-workbench__chart"><h3>有效报价总额（USD 可换算口径）</h3><strong className="tp-workbench__large-value">{effectiveQuotes.length ? money(quoteTotal) : '暂无有效报价'}</strong><p>金额只汇总已发送、已查看或已接受报价；草稿、拒绝和过期报价单独保留在状态分布中。</p><Button kind="ghost" size="sm" onClick={() => navigate('/quotes')}>进入报价管理 <CarbonIcons.ArrowRight size={16}/></Button></div>
                 <div className="tp-workbench__chart"><h3>订单状态</h3><SimpleBarChart data={Object.entries(scoped.orders.reduce((acc: Record<string, number>, row) => { const key = String(row.metadata?.sales_order?.order_status || row.status || '未知'); acc[key] = (acc[key] || 0) + 1; return acc; }, {})).map(([group, value]) => ({ group, value }))} options={barOptions as any}/></div>
                 <div className="tp-workbench__chart"><h3>订单金额（USD 可换算口径）</h3><strong className="tp-workbench__large-value">{money(orderTotal)}</strong><p>仅统计销售订单；采购订单不计入销售额。草稿与有效订单分开展示。</p><Button kind="ghost" size="sm" onClick={() => navigate('/sales-orders')}>进入销售订单 <CarbonIcons.ArrowRight size={16}/></Button></div>
               </div>
@@ -338,6 +348,7 @@ export function DashboardPage() {
         <Tile className="tp-workbench__panel">
           <div className="tp-workbench__panel-heading"><div><p className="tp-workbench__kicker">ACTION CENTER</p><h2>待处理与风险</h2><p>点击进入对应业务模块处理记录。</p></div><Tag type={riskCount ? 'red' : 'green'}>{riskCount ? number(riskCount) + ' 项关注' : '当前无风险项'}</Tag></div>
           <button type="button" className="tp-workbench__risk-row" onClick={() => navigate('/accounts')}><span>逾期跟进活动</span><strong>{number(overdueActivities.length)}</strong><CarbonIcons.ChevronRight size={16}/></button>
+          <button type="button" className="tp-workbench__risk-row" onClick={() => navigate('/payments')}><span>逾期应收节点</span><strong>{number(overdueReceivableCount)}</strong><CarbonIcons.ChevronRight size={16}/></button>
           <button type="button" className="tp-workbench__risk-row" onClick={() => navigate('/shipments')}><span>发运异常</span><strong>{number(shipmentExceptions.length)}</strong><CarbonIcons.ChevronRight size={16}/></button>
           <button type="button" className="tp-workbench__risk-row" onClick={() => navigate('/agent')}><span>Agent 失败任务</span><strong>{number(failedAgents.length)}</strong><CarbonIcons.ChevronRight size={16}/></button>
         </Tile>
