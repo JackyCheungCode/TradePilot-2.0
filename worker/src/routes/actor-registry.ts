@@ -213,7 +213,7 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
       const actorId = safeText(body.actorId, 240);
       if (!actorId) return errorResponse(request, "ACTOR_ID_REQUIRED", "缺少待测试的数据源标识。", 400);
       const input = body.input && typeof body.input === "object" && !Array.isArray(body.input) ? { ...body.input } : {};
-      const schemas = await db<Array<{ input_schema: Record<string, unknown> }>>(env,
+      const schemas = await db<Array<{ version: string; input_schema: Record<string, unknown> }>>(env,
         "actor_schema_versions?owner_id=eq." + ownerId + "&actor_id=eq." + encodeURIComponent(actorId) + "&select=version,input_schema&order=fetched_at.desc&limit=1");
       if (!schemas?.[0] || (body.schemaVersion && body.schemaVersion !== schemas[0].version)) {
         return errorResponse(request, "ACTOR_SCHEMA_VERSION_STALE", "数据源输入结构已更新，请刷新字段后重新测试。", 409);
