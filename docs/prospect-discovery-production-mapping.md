@@ -69,7 +69,7 @@
 - LinkedIn, TikTok, Amazon, Alibaba.com, eBay, Walmart, YouTube, Reddit, Pinterest and other catalog entries still do not have verified independent execution chains in this branch.
 
 ## Current validation boundary
-- A dedicated Node test suite now covers keyword boundaries, website-type exclusions, personnel rules, company alias/group matching, DNC behavior, unknown-evidence handling, and duplicate-policy selection. CI runs this suite before the design-system and build checks.
+- A dedicated Node test suite now covers keyword boundaries, website-type/platform exclusions, personnel rules, company alias/group matching, DNC behavior, unknown-evidence handling, duplicate-policy selection, and result visibility for legacy records without occurrences. CI runs this suite before the design-system and build checks.
 - Worker dry-run validates the bundle only; it does not deploy.
 - No controlled end-to-end provider run has been performed as part of this code-only work. Provider credentials, external API quotas, actor behavior, and production result quality remain unverified.
 - No production database rows or credentials were changed by this implementation.
