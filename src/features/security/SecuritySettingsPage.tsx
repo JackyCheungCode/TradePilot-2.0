@@ -93,6 +93,9 @@ export function SecuritySettingsPage() {
     const status = await callWebAuthn<WebAuthnStatus>(client, '/api/v1/webauthn/status');
     setWebAuthnStatus(status);
     setWebAuthnAvailable(true);
+    if (action === 'revoke' && status.enabled && !status.granted) {
+      setNotice('凭证已撤销；当前会话授权也已失效。请重新登录，并使用另一台已注册设备完成验证。');
+    }
   };
 
   const beginWebAuthnAction = async (action: WebAuthnAction, credentialId?: string) => {
