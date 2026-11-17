@@ -152,7 +152,7 @@ export function DocumentStudioPage() {
   useEffect(() => {
     setElements(initialElements(documentType, locale));
     setCreatedDoc(null); setPreviewContent({}); setPreviewTotals({}); setSelectedId('title');
-    setTemplateId(''); setSourceMode('sales_order'); setSourceDocumentId('');
+    setTemplateId(''); setSourceMode(current => current === 'blank' ? 'blank' : 'sales_order'); setSourceDocumentId('');
   }, [documentType]);
 
   useEffect(() => {
@@ -220,7 +220,7 @@ export function DocumentStudioPage() {
         const createdTemplate = await request('templates', { method: 'POST', body: JSON.stringify({ name: templateName, document_type: documentType, locale, description: 'TradePilot 自由画布模板', is_default: false, is_active: true, template_config: templateConfig }) });
         savedTemplateId = createdTemplate.id; setTemplateId(savedTemplateId); setTemplates(items => [...items, createdTemplate as Template]);
       } else await request('templates/' + encodeURIComponent(savedTemplateId), { method: 'PATCH', body: JSON.stringify({ template_config: templateConfig, name: templateName, locale, document_type: documentType }) });
-      const doc = await request('documents', { method: 'POST', body: JSON.stringify({ order_id: sourceMode === 'blank' ? undefined : orderId, shipment_id: isShipment && sourceMode !== 'blank' ? shipmentId : undefined, document_type: documentType, title: titleFor(documentType), template_id: savedTemplateId, source_document_id: sourceMode === 'quotation' ? sourceDocumentId : undefined, locale, currency_code: selectedOrder?.currency_code || 'USD', content: sourceMode === 'blank' ? { ...blankContent, items: [], charges: [], payment_schedule: [], bank_accounts: [] } : undefined, totals: {} }) });
+      const doc = await request('documents', { method: 'POST', body: JSON.stringify({ order_id: sourceMode === 'blank' ? undefined : orderId, shipment_id: isShipment && sourceMode !== 'blank' ? shipmentId : undefined, document_type: documentType, title: titleFor(documentType), template_id: savedTemplateId, source_document_id: sourceMode === 'quotation' ? sourceDocumentId : undefined, locale, currency_code: selectedOrder?.currency_code || 'USD', content: sourceMode === 'blank' ? { ...Object.fromEntries(Object.entries(blankContent).filter(([, value]) => value.trim())), items: [], charges: [], payment_schedule: [], bank_accounts: [] } : undefined, totals: {} }) });
       setCreatedDoc(doc as CreatedDoc); setPreviewContent(doc.content ?? {}); setPreviewTotals(doc.totals ?? {});
       setNotice('业务数据已载入，单据草稿已创建。你现在可以在画布中调整每个元素。');
     } catch (cause) { setError(cause instanceof Error ? cause.message : '业务数据载入失败。'); }
