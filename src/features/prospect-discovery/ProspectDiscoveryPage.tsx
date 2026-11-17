@@ -398,6 +398,7 @@ export function ProspectDiscoveryPage() {
       </Tabs>
 
       {selectedIndex === 1 ? (
+        <>
         <section className="tp-prospect-discovery__step">
           {(notice || error) && (
             <div className="tp-prospect-discovery__notifications">
@@ -623,6 +624,7 @@ export function ProspectDiscoveryPage() {
           )}
         </section>
           <ActorSchemaFields sources={selectedSources ?? []} onValuesChange={setActorParameters} />
+        </>
        ) : selectedIndex === 0 ? (
         <PlatformSelectionStep countryCode={profile.country} countryName={profile.countryName} continentLabel={continents.find(item => item.value === profile.continent)?.label ?? ''} countries={countries} onChangeCountry={() => setSelectedIndex(1)} onCountryChange={country => setProfile(current => ({ ...current, country: country.cca2, countryName: country.name.common, continent: country.region }))} onSelectionCountChange={setSelectedSourceCount} selectedIds={selectedSources?.map(item => item.id)} onSelectionChange={setSelectedSources} />
       ) : selectedIndex === 2 ? (
