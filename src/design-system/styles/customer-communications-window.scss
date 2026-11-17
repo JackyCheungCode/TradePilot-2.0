@@ -141,3 +141,77 @@
   .tp-wa-composer button { width: 34px; height: 38px; }
   .tp-wa-contact-panel { position: absolute; z-index: 4; inset: 0 0 0 auto; width: min(88vw, 320px); height: 100%; }
 }
+
+
+
+/* Standalone workspace header + isolated platform themes */
+.tp-communications-titlebar{position:relative;z-index:8;display:flex;align-items:center;justify-content:space-between;min-height:66px;padding:9px 22px;background:#fff;border-bottom:1px solid #e5e7eb;color:#17212b;font-family:Arial,Helvetica,sans-serif}
+.tp-communications-title{display:flex;align-items:center;gap:13px;min-width:0}
+.tp-communications-title strong{font-size:17px;font-weight:700;letter-spacing:-.2px}
+.tp-communications-title span{padding-left:13px;border-left:1px solid #d8dde3;color:#52606d;font-size:14px}
+.tp-theme-picker{position:relative}
+.tp-theme-picker-trigger{display:flex;align-items:center;justify-content:space-between;gap:24px;min-width:218px;padding:8px 12px;border:1px solid #d6dbe1;border-radius:6px;background:#fff;color:#17212b;text-align:left}
+.tp-theme-picker-trigger:hover{background:#f7f9fb;border-color:#98a2ad}
+.tp-theme-picker-trigger>span:first-child{display:flex;flex-direction:column;gap:2px}
+.tp-theme-picker-trigger small{color:#667481;font-size:10px}
+.tp-theme-picker-trigger strong{font-size:13px;font-weight:600}
+.tp-theme-chevron{color:#52606d;font-size:18px}
+.tp-theme-picker-menu{position:absolute;top:calc(100% + 6px);right:0;z-index:20;width:260px;padding:5px;border:1px solid #e0e4e8;border-radius:7px;background:#fff;box-shadow:0 8px 28px #15202b24}
+.tp-theme-picker-menu button{position:relative;display:flex;flex-direction:column;width:100%;gap:3px;padding:10px 34px 10px 11px;border:0;border-radius:4px;background:#fff;color:#17212b;text-align:left;cursor:pointer}
+.tp-theme-picker-menu button:hover,.tp-theme-picker-menu button.is-selected{background:#f0f4f8}
+.tp-theme-picker-menu button strong{font-size:13px;font-weight:600}
+.tp-theme-picker-menu button small{color:#697783;font-size:11px}
+.tp-theme-picker-menu button>span{position:absolute;top:12px;right:12px;color:#0f62fe}
+.tp-wa-page{height:calc(100dvh - 7rem);min-height:480px;display:flex;flex-direction:column;background:#fff}
+.tp-wa-app{flex:1;min-height:0}
+.tp-wa-theme--wechat{--tp-wa-bg:#f5f5f5;--tp-wa-header:#ededed;--tp-wa-green:#07c160;--tp-wa-line:#e7e7e7}
+.tp-wa-theme--wechat .tp-wa-sidebar-head{background:#ededed}
+.tp-wa-theme--wechat .tp-wa-profile-avatar{background:#d9f3e4;color:#07a64f;border-radius:5px}
+.tp-wa-theme--wechat .tp-wa-conversation.is-selected{background:#e6e6e6}
+.tp-wa-theme--wechat .tp-wa-chat{background:#f5f5f5;background-image:none}
+.tp-wa-theme--wechat .tp-wa-bubble{border-radius:5px;box-shadow:none}
+.tp-wa-theme--wechat .tp-wa-message.is-outbound .tp-wa-bubble{background:#95ec69}
+.tp-wa-theme--wechat .tp-wa-message.is-inbound .tp-wa-bubble,.tp-wa-theme--wechat .tp-wa-message.is-outbound .tp-wa-bubble{border-top-left-radius:5px;border-top-right-radius:5px}
+.tp-wa-theme--wechat .tp-wa-composer{background:#f7f7f7;border-top:1px solid #e5e5e5}
+.tp-wa-theme--wechat .tp-wa-composer textarea{border-radius:4px}
+.tp-wa-theme--wechat .tp-wa-composer .tp-wa-send{background:#07c160;border-radius:4px}
+.tp-wa-theme--messenger{--tp-wa-bg:#f0f2f5;--tp-wa-header:#fff;--tp-wa-green:#0866ff;--tp-wa-line:#e4e6eb}
+.tp-wa-theme--messenger .tp-wa-chat{background:#f0f2f5;background-image:none}
+.tp-wa-theme--messenger .tp-wa-sidebar-head{background:#fff}
+.tp-wa-theme--messenger .tp-wa-profile-avatar{background:#e7f0ff;color:#0866ff}
+.tp-wa-theme--messenger .tp-wa-conversation.is-selected{background:#eaf2ff}
+.tp-wa-theme--messenger .tp-wa-filters button.is-active{background:#e7f0ff;color:#0866ff}
+.tp-wa-theme--messenger .tp-wa-bubble{border-radius:18px;padding:10px 13px 7px;box-shadow:none}
+.tp-wa-theme--messenger .tp-wa-message.is-inbound .tp-wa-bubble{border-top-left-radius:5px}
+.tp-wa-theme--messenger .tp-wa-message.is-outbound .tp-wa-bubble{border-top-right-radius:5px;background:#0866ff;color:#fff}
+.tp-wa-theme--messenger .tp-wa-message.is-outbound .tp-wa-message-meta{color:#dbe8ff}
+.tp-wa-theme--messenger .tp-wa-composer{background:#fff}
+.tp-wa-theme--messenger .tp-wa-composer textarea{border-radius:22px;background:#f0f2f5}
+.tp-wa-theme--messenger .tp-wa-composer .tp-wa-send{background:#0866ff}
+.tp-wa-theme--messenger .tp-wa-channel{background:#e7f0ff;color:#0866ff}
+.tp-wa-theme--outlook{--tp-wa-bg:#f3f2f1;--tp-wa-header:#fff;--tp-wa-green:#0078d4;--tp-wa-line:#e1dfdd;--tp-wa-text:#323130;--tp-wa-muted:#605e5c}
+.tp-wa-theme--outlook .tp-wa-sidebar{background:#faf9f8}
+.tp-wa-theme--outlook .tp-wa-sidebar-head{background:#f3f2f1}
+.tp-wa-theme--outlook .tp-wa-list-title h1{font-size:20px;color:#323130}
+.tp-wa-theme--outlook .tp-wa-search{border:1px solid #d2d0ce;border-radius:3px;background:#fff}
+.tp-wa-theme--outlook .tp-wa-filters{padding:8px 12px;background:#faf9f8}
+.tp-wa-theme--outlook .tp-wa-filters button{border-radius:3px;background:transparent}
+.tp-wa-theme--outlook .tp-wa-filters button.is-active{background:#e5f1fb;color:#005a9e;box-shadow:inset 0 -2px #0078d4}
+.tp-wa-theme--outlook .tp-wa-conversation{min-height:86px;border-bottom:1px solid #edebe9}
+.tp-wa-theme--outlook .tp-wa-conversation.is-selected{background:#e5f1fb;box-shadow:inset 3px 0 #0078d4}
+.tp-wa-theme--outlook .tp-wa-avatar{border-radius:4px}
+.tp-wa-theme--outlook .tp-wa-chat{background:#f3f2f1;background-image:none}
+.tp-wa-theme--outlook .tp-wa-chat-head{border-bottom:1px solid #e1dfdd}
+.tp-wa-theme--outlook .tp-wa-chat-person strong{font-size:16px}
+.tp-wa-theme--outlook .tp-wa-encryption{align-self:stretch;max-width:none;margin:0;padding:10px 20px;border-bottom:1px solid #e1dfdd;border-radius:0;background:#fff;color:#605e5c;text-align:left;box-shadow:none}
+.tp-wa-theme--outlook .tp-wa-timeline{gap:12px;padding:20px clamp(16px,3vw,42px)}
+.tp-wa-theme--outlook .tp-wa-date-divider span{border:1px solid #e1dfdd;border-radius:3px;box-shadow:none}
+.tp-wa-theme--outlook .tp-wa-bubble{min-width:min(100%,420px);padding:14px 16px 9px;border:1px solid #e1dfdd;border-radius:4px;box-shadow:0 1px 2px #0000000d}
+.tp-wa-theme--outlook .tp-wa-message.is-outbound .tp-wa-bubble{background:#fff;border-color:#c7e0f4}
+.tp-wa-theme--outlook .tp-wa-bubble p{margin-right:0;font-size:14px;line-height:1.55}
+.tp-wa-theme--outlook .tp-wa-message-meta{margin-top:8px;justify-content:flex-start}
+.tp-wa-theme--outlook .tp-wa-composer{align-items:stretch;background:#fff;border-top:1px solid #e1dfdd}
+.tp-wa-theme--outlook .tp-wa-composer textarea{min-height:74px;border:1px solid #d2d0ce;border-radius:3px}
+.tp-wa-theme--outlook .tp-wa-composer .tp-wa-send{align-self:flex-end;border-radius:3px;background:#0078d4}
+.tp-wa-theme--outlook .tp-wa-contact-panel h3{color:#0078d4}
+@media(max-width:767px){.tp-communications-titlebar{min-height:58px;padding:7px 10px}.tp-communications-title{gap:7px}.tp-communications-title strong{font-size:14px}.tp-communications-title span{padding-left:7px;font-size:12px}.tp-theme-picker-trigger{min-width:148px;gap:8px;padding:6px 8px}.tp-theme-picker-trigger small{font-size:9px}.tp-theme-picker-trigger strong{font-size:11px}.tp-theme-picker-menu{width:230px}.tp-wa-page{height:calc(100dvh - 6.5rem);min-height:360px}}
