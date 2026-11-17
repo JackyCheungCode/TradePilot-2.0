@@ -105,8 +105,6 @@ export function GlobalTradeDashboard() {
   const [activeTab, setActiveTab] = useState(0);
   const [tableSearch, setTableSearch] = useState('');
   const [tablePage, setTablePage] = useState(1);
-  const [sortKey, setSortKey] = useState('date');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   const load = useCallback(async () => {
     setError('');
@@ -293,7 +291,7 @@ export function GlobalTradeDashboard() {
   const visibleRows = useMemo(() => {
     const query = tableSearch.trim().toLocaleLowerCase();
     const filtered = tableRows.filter(row => !query || Object.values(row).some(value => String(value).toLocaleLowerCase().includes(query)));
-    return [...filtered].sort((a, b) => String(a[sortKey] || '').localeCompare(String(b[sortKey] || ''), 'zh-CN', { numeric: true }) * (sortDirection === 'asc' ? 1 : -1));
+    return [...filtered].sort((a, b) => String(b.date || '').localeCompare(String(a.date || ''), 'zh-CN', { numeric: true }));
   }, [tableRows, tableSearch, sortKey, sortDirection]);
   const pageSize = 8;
   const pageRows = visibleRows.slice((tablePage - 1) * pageSize, tablePage * pageSize);
@@ -367,7 +365,7 @@ export function GlobalTradeDashboard() {
                 <Tile className="tp-gt-card tp-gt-card--wide"><div className="tp-gt-card__heading"><h3>线索状态分布</h3></div>{commonBar('线索状态', countBy(scoped.leads, row => String(row.status || (row.is_formal ? '正式线索' : '新建'))))}</Tile>
                 <Tile className="tp-gt-card"><div className="tp-gt-card__heading"><h3>发现渠道</h3></div>{commonBar('来源渠道', countBy(scoped.discovery, row => String(row.channel || '其他')))}</Tile>
                 <Tile className="tp-gt-card"><div className="tp-gt-card__heading"><h3>线索国家</h3></div>{commonBar('线索国家排名', countBy(scoped.leads, row => countryName(String(row.country_code || ''))).slice(0, 8))}</Tile>
-                <Tile className="tp-gt-card tp-gt-card--wide"><div className="tp-gt-card__heading"><h3>线索转化链路</h3><Tag type="cool-gray">记录规模，不等同于队列转化率</Tag></div><div className="tp-gt-funnel">{[['潜客发现', scoped.discovery.length], ['线索', scoped.leads.length], ['正式客户', scoped.accounts.length], ['商机', scoped.opportunities.length], ['报价', scoped.documents.length], ['订单', scoped.orders.length]].map(([stage, value], i, all) => <div className="tp-gt-funnel__row" key={String(stage)}><span>{stage}</span><div><i style={{ width: Math.max(3, Number(value) / Math.max(1, ...all.map(item => Number(item[1]))) * 100) + '%' }}/></div><strong>{n(Number(value))}</strong></div>)}</div></Tile>
+                <Tile className="tp-gt-card tp-gt-card--wide"><div className="tp-gt-card__heading"><h3>线索转化链路</h3><Tag type="cool-gray">记录规模，不等同于队列转化率</Tag></div><div className="tp-gt-funnel">{[['潜客发现', scoped.discovery.length], ['线索', scoped.leads.length], ['正式客户', scoped.accounts.length], ['商机', scoped.opportunities.length], ['报价', scoped.documents.length], ['订单', scoped.orders.length]].map(([stage, value], i, all) => <div className="tp-gt-funnel__row" key={String(stage)}><span>{stage}</span><div><i className={'tp-gt-funnel__bar--' + Math.max(5, Math.round(Number(value) / Math.max(1, ...all.map(item => Number(item[1]))) * 20) * 5)}/></div><strong>{n(Number(value))}</strong></div>)}</div></Tile>
               </div>}
 
               {index === 2 && <div className="tp-gt-grid">
