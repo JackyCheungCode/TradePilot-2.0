@@ -72,6 +72,13 @@ async function authenticate(request: Request, env: WebAuthnEnv): Promise<AuthCon
   ) return null;
   return { userId: user.id, sessionId, email: user.email ?? user.id, aal: String(claims.aal ?? "aal1") };
 }
+async function hasStepUp(auth: AuthContext, env: WebAuthnEnv): Promise<boolean> {
+  if (auth.aal === "aal2") return true;
+  return rpc<boolean>(env, "tradepilot_webauthn_has_grant", {
+    p_user_id: auth.userId,
+    p_session_id: auth.sessionId,
+  });
+}
 async function rpc<T>(env: WebAuthnEnv, name: string, args: Record<string, unknown>): Promise<T> {
   const response = await fetch(env.SUPABASE_URL + "/rest/v1/rpc/" + name, {
     method: "POST",
@@ -150,7 +157,7 @@ export async function handleWebAuthn(request: Request, env: WebAuthnEnv): Promis
     }
 
     if (path === "/api/v1/webauthn/registration/options") {
-      if (auth.aal !== "aal2") return fail(request, "STEP_UP_REQUIRED", "添加生物识别凭证前，请先完成 TOTP 二次验证。", 403);
+      if (!(await hasStepUp(auth, env))) return fail(request, "STEP_UP_REQUIRED", "添加生物识别凭证前，请完成 TOTP 或本次会话的生物识别验证。", 403);
       const options = await generateRegistrationOptions({
         rpName: RP_NAME,
         rpID: RP_ID,
@@ -176,7 +183,7 @@ export async function handleWebAuthn(request: Request, env: WebAuthnEnv): Promis
       const challengeId = String(body.challengeId ?? "");
       const response = body.response as Parameters<typeof verifyRegistrationResponse>[0]["response"];
       if (!challengeId || !response || typeof response !== "object") return fail(request, "INVALID_REQUEST", "注册验证参数不完整。", 400);
-      if (auth.aal !== "aal2") return fail(request, "STEP_UP_REQUIRED", "请先完成 TOTP 二次验证。", 403);
+      if (!(await hasStepUp(auth, env))) return fail(request, "STEP_UP_REQUIRED", "请先完成 TOTP 或本次会话的生物识别验证。", 403);
       const expectedChallenge = await consumeChallenge(env, auth, challengeId, "registration");
       if (!expectedChallenge) return fail(request, "CHALLENGE_INVALID", "注册挑战已过期、已使用或不属于当前会话。", 409);
       const verification = await verifyRegistrationResponse({
@@ -205,7 +212,7 @@ export async function handleWebAuthn(request: Request, env: WebAuthnEnv): Promis
 
     if (path === "/api/v1/webauthn/enable") {
       const enabled = body.enabled === true;
-      if (auth.aal !== "aal2") return fail(request, "STEP_UP_REQUIRED", "修改生物识别 MFA 状态前，请先完成 TOTP 二次验证。", 403);
+      if (!(await hasStepUp(auth, env))) return fail(request, "STEP_UP_REQUIRED", "修改生物识别 MFA 状态前，请先完成 TOTP 或本次会话的生物识别验证。", 403);
       await rpc(env, "tradepilot_webauthn_set_enabled", { p_user_id: auth.userId, p_enabled: enabled });
       return successResponse(request, { enabled });
     }
@@ -269,7 +276,7 @@ export async function handleWebAuthn(request: Request, env: WebAuthnEnv): Promis
     if (path === "/api/v1/webauthn/credential/revoke") {
       const credentialId = String(body.credentialId ?? "");
       if (!credentialId) return fail(request, "INVALID_REQUEST", "缺少凭证 ID。", 400);
-      if (auth.aal !== "aal2") return fail(request, "STEP_UP_REQUIRED", "撤销凭证前，请先完成 TOTP 二次验证。", 403);
+      if (!(await hasStepUp(auth, env))) return fail(request, "STEP_UP_REQUIRED", "撤销凭证前，请先完成 TOTP 或本次会话的生物识别验证。", 403);
       const revoked = await rpc<boolean>(env, "tradepilot_webauthn_revoke_credential", {
         p_user_id: auth.userId, p_credential_id: credentialId,
       });
