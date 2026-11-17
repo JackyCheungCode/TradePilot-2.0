@@ -1,46 +1,75 @@
-# TradePilot Passkey and MFA implementation
+# TradePilot Passkey and WebAuthn MFA
 
 ## Scope
 
-This feature branch adds:
-- Passwordless Passkey sign-in through Supabase Auth WebAuthn APIs.
-- Passkey enrollment, listing, and revocation in the Security settings page.
-- Optional TOTP MFA enrollment and AAL2 verification after either password or Passkey sign-in.
-- One-time recovery-code generation, status, regeneration, and verification.
-- A protected-route check that redirects sessions at AAL1 to the MFA challenge when a verified factor is enrolled.
+This branch contains three separate authentication capabilities:
 
-The Supabase JS SDK is pinned to 2.119.0. Passkey APIs are still documented as experimental and must be enabled in the Supabase Auth project configuration. Recovery-code APIs require the client experimental flag.
+- Supabase Auth Passkey passwordless sign-in.
+- Optional TOTP MFA and one-time recovery codes, using Supabase AAL2.
+- A separate TradePilot Worker WebAuthn ceremony for biometric/user-verification as an additional factor on a Supabase session.
 
-## Supabase Auth configuration required before production enablement
+The independent WebAuthn factor is not represented as Supabase AAL2. The Worker verifies the assertion and grants a short-lived authorization tied to the exact Supabase `session_id`. A new login session must prove the factor again.
 
-In Supabase Dashboard → Authentication → Passkeys:
-1. Enable Passkey authentication.
-2. Set the relying-party display name to TradePilot.
-3. Set the RP ID to the stable registrable domain that will host TradePilot (bare hostname only; no scheme, port, or path).
-4. Add the exact HTTPS production origin and any approved preview/local origins (up to the platform limit).
-5. Keep the RP ID stable after the first user registers a credential. Changing it invalidates existing Passkeys.
+## Production WebAuthn relying party
 
-Do not enable Passkeys in production until the canonical custom domain and any supported preview origins have been confirmed. The current Wrangler configuration does not declare a production custom-domain route, so the final RP ID must not be guessed from the Worker name.
+The confirmed production origin and relying-party ID are:
+
+- Origin: `https://tradepilot.xg-y.workers.dev`
+- RP ID: `tradepilot.xg-y.workers.dev`
+- RP display name: `TradePilot`
+
+The Worker requires an exact Origin match, the configured RP ID, and user verification. Registration and authentication challenges are single-use, expire after five minutes, and are bound to the authenticated user and Supabase session.
+
+Do not change the production hostname or RP ID after users register credentials without a planned credential migration. WebAuthn credentials are origin/RP scoped.
 
 ## Authentication behavior
 
-- Password sign-in: password is the first factor. If Supabase reports current AAL1 and next AAL2, the app requires a verified TOTP factor or a one-time recovery code before entering protected routes.
-- Passkey sign-in: the browser runs the platform WebAuthn ceremony. The authenticator may request biometrics, device PIN, or a security key. If TOTP MFA is enrolled, the app also requires the TOTP/recovery-code step.
-- Passkey is currently a passwordless sign-in credential, not a native Supabase JavaScript AAL2 factor.
-- The JavaScript Supabase MFA API documents TOTP and phone as second factors. Supabase's hosted Auth currently does not expose WebAuthn MFA enrollment/verification for projects (the hosted Management API rejects enabling it); WebAuthn MFA configuration exists for self-hosted Auth. This implementation deliberately does not claim that a Passkey assertion itself upgrades a session to AAL2. A passkey sign-in session remains AAL1 even when the authenticator prompts for local biometrics.
-- A dedicated biometric/WebAuthn-as-second-factor flow remains a separate security workstream. It requires either a supported hosted WebAuthn MFA API (not currently available) or a separately reviewed server-side WebAuthn factor implementation with user-verification required, replay protection, session binding, and backend/RLS enforcement. Do not implement it by trusting frontend state or by treating a second Passkey login session as proof for a different session.
+- Password sign-in: if Supabase TOTP MFA is enrolled, complete the TOTP or recovery-code step first. If independent WebAuthn MFA is enabled, complete a separate WebAuthn assertion before entering the protected workspace.
+- Passkey sign-in: Supabase Auth performs the passwordless WebAuthn ceremony. If TOTP MFA is enrolled, the TOTP/recovery-code step remains required. If the TradePilot WebAuthn factor is enabled, the session must also obtain a session-bound Worker grant before protected data access.
+- Device verification: the authenticator may use Face ID, Touch ID, Windows Hello, Android biometrics, device PIN, or an external security key. TradePilot receives the WebAuthn assertion and public-key verification result, never raw fingerprint or face data.
+- Passkey passwordless sign-in and the separate WebAuthn second-factor ceremony are distinct flows. Do not treat a Supabase Passkey session as an already verified TradePilot WebAuthn grant.
 
-## Security requirements before production release
+## Data and authorization enforcement
 
-1. Confirm Supabase Passkey RP ID/origins and enablement in the project dashboard.
-2. Verify that recovery-code APIs are enabled by the hosted Auth service and test generation, one-time verification, and regeneration against a non-production account.
-3. Add AAL-aware authorization to all protected data access paths. The current React route guard is a UX/access boundary, not a replacement for RLS or Worker authorization.
-4. Review every exposed public table's RLS policies. For users with enrolled MFA, database policies must enforce the intended AAL requirement without locking out users who have not opted into MFA.
-5. Review Worker API routes and any service-role operations so an AAL1 token cannot bypass an enabled MFA policy.
-6. Test lost-device recovery, last-Passkey deletion, TOTP disablement, session revocation, browser refresh, and multi-tab behavior.
-7. Run Carbon/design-system checks, TypeScript checks, Worker type checks, tests, and a production build before merge.
-8. Deploy only through the separately approved release process. This feature branch must not be used as an automatic production deployment source.
+The migration creates private credential, challenge, preference, and session-grant tables. The Worker uses service-role-only RPC functions for credential and challenge operations.
 
-## Current limitation
+For authenticated users, the migration adds:
+- Restrictive RLS policies to existing public tables with authenticated access policies.
+- A restrictive policy on `storage.objects` where authenticated storage policies exist.
+- A write trigger on those tables and Storage objects to enforce the session gate even when a permitted SECURITY DEFINER routine would otherwise bypass RLS.
+- A private authorization function that checks the current `auth.uid()`, JWT `session_id`, active credential, and unexpired grant.
 
-The settings and login flows provide Passkey sign-in plus TOTP-based MFA. They do not yet provide Passkey as the second AAL2 factor in the hosted JavaScript Supabase Auth service. The feature must not be marked complete for the original biometric-MFA requirement until that gap and backend AAL enforcement have been resolved and tested.
+Users who have not enabled WebAuthn MFA remain unaffected by the session gate. Service-role operations and direct administrative database operations are not blocked by the trigger. Worker routes must still validate the user's bearer token and enforce the grant before using service-role data access.
+
+**Public Storage exception:** the existing `crm-assets` bucket is configured as public. Public object downloads are intentionally accessible by URL and cannot be made session-bound by Storage RLS. Do not store confidential documents in that bucket; sensitive documents must use private buckets and authenticated/signed access.
+
+## Required production release order
+
+1. Confirm Cloudflare Worker has the `SUPABASE_SERVICE_ROLE_KEY` secret configured. Never expose it in browser code or Wrangler public vars.
+2. Review the migration and its effect on current RLS policies. Back up the production database and prepare a rollback migration before applying it.
+3. Apply `supabase/migrations/20261117212000_add_webauthn_session_mfa.sql` to Supabase.
+4. Deploy the Worker and frontend from the reviewed release commit.
+5. Verify status, registration, authentication, grant expiry, revocation, and direct Data API/Storage denial from a real browser session.
+6. Test supported desktop and mobile browsers, including platform authenticators and external security keys.
+7. Only then enable WebAuthn MFA for the user account.
+
+Do not deploy the Worker before the database migration: authenticated API calls will fail closed while the WebAuthn RPC functions are unavailable. Do not enable the feature before the new Worker and RLS enforcement are live.
+
+## Security test checklist
+
+- Wrong Origin and RP ID are rejected.
+- Missing user verification is rejected.
+- Challenges expire, are one-time, and cannot be consumed from another user or session.
+- Invalid signatures and unknown/revoked credentials are rejected.
+- Credential counters cannot roll back when the authenticator provides a non-zero counter.
+- Session grants are bound to one Supabase `session_id`, expire, and are revoked when a credential is revoked or MFA is disabled.
+- Direct Supabase Data API reads/writes and Storage object operations are blocked without a valid grant for enabled users.
+- SECURITY DEFINER write paths cannot bypass the session gate.
+- Users who have not opted into WebAuthn MFA retain the existing access behavior.
+- Lost-device recovery and last-credential revocation are tested.
+
+## Current release status
+
+The feature implementation and SQL migration are on `feature/security-passkey-mfa`. The migration has been syntax-checked and its session-gate behavior has been exercised inside a transaction that was rolled back. No production schema changes or production deployment have been performed.
+
+The pull request is draft pending CI results, full integration/device testing, and review of the production rollout and rollback plan.
