@@ -1,7 +1,6 @@
 import { errorResponse, successResponse } from "./lib/http";
 import { handleHealth } from "./routes/health";
 import { handleWebAuthn } from "./routes/webauthn";
-import { handleActorRegistry } from "./routes/actor-registry";
 import { handleDiscovery, type DiscoveryRunInput } from "./routes/discovery";
 import { handleSettings } from "./routes/settings";
 import { handleTranslation } from "./routes/translation";
@@ -19,6 +18,7 @@ import { handleMasterData } from "./routes/master-data";
 import { handleProspectConsole } from "./routes/prospect-console";
 import { handleProspectProfiling, handleProspectStrategy, handleProspectCities, handleProspectCountries } from "./routes/prospect-profiling";
 import { handleContactValidation } from "./routes/contact-validation";
+import { handleActorRegistry } from "./routes/actor-registry";
 import { handleInbox } from "./routes/inbox";
 import { handleInboxWebhook } from "./routes/inbox-webhooks";
 import { handleInboxAttachment } from "./routes/inbox-attachments";
