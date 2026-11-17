@@ -66,6 +66,21 @@ const emptyProfile: Profile = {
   competitors: [''],
 };
 
+const languageAliases: Record<string, string> = {
+  deu: 'de', fra: 'fr', spa: 'es', ita: 'it', por: 'pt', nld: 'nl', zho: 'zh',
+  jpn: 'ja', kor: 'ko', rus: 'ru', ara: 'ar', hin: 'hi', tur: 'tr', vie: 'vi',
+  tha: 'th', pol: 'pl', ces: 'cs', swe: 'sv', dan: 'da', fin: 'fi', nor: 'no',
+  ell: 'el', heb: 'he', ukr: 'uk', ind: 'id', msa: 'ms', ron: 'ro', hun: 'hu',
+  bul: 'bg', hrv: 'hr', slk: 'sk', slv: 'sl', cat: 'ca', fas: 'fa', urd: 'ur',
+  ben: 'bn', tam: 'ta', tel: 'te', mar: 'mr', nep: 'ne', mya: 'my', khm: 'km',
+  lao: 'lo', sqi: 'sq', srp: 'sr', bos: 'bs', mkd: 'mk', lit: 'lt', lav: 'lv',
+  est: 'et', isl: 'is', gle: 'ga', eus: 'eu', glg: 'gl',
+};
+function primaryLanguage(country?: Country): string {
+  const code = country?.languages ? Object.keys(country.languages)[0] : 'en';
+  return code ? languageAliases[code] ?? (code.length === 2 ? code : 'en') : 'en';
+}
+
 function compileStrategy(profile: Profile, tld: string, keywords: string[] = []): Strategy {
   const noun = profile.coreNoun.trim();
   if (!noun) return { google: [], maps: [], social: [] };
@@ -149,7 +164,7 @@ export function ProspectDiscoveryPage() {
       setSuggestionError('');
       try {
         const country = countries.find(item => item.cca2 === profile.country);
-        const language = country?.languages ? Object.keys(country.languages)[0] : 'en';
+        const language = primaryLanguage(country);
         const db = await getSupabaseClient();
         const { data } = await db.auth.getSession();
         const token = data.session?.access_token;
