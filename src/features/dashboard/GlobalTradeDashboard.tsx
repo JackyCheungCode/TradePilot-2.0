@@ -141,6 +141,7 @@ export function GlobalTradeDashboard() {
 
   useEffect(() => { void load(); }, [load]);
   useEffect(() => { setTablePage(1); setTableSearch(''); }, [activeTab, period, countries, currency]);
+  useEffect(() => { setTablePage(1); }, [tableSearch]);
 
   const start = useMemo(() => periodStart(period), [period]);
   const scoped = useMemo(() => {
@@ -270,7 +271,7 @@ export function GlobalTradeDashboard() {
     ],
   ];
 
-  const tableRows = useMemo(() => {
+  const tableRows = useMemo<Row[]>(() => {
     const iso = (value: unknown) => value ? new Date(String(value)).toLocaleDateString('zh-CN') : '—';
     if (activeTab === 1) return scoped.leads.map(row => ({ id: row.id, name: row.company_name || row.name || row.id, status: row.status || (row.is_formal ? '正式线索' : '新建'), country: countryName(String(row.country_code || '')), date: iso(row.created_at) }));
     if (activeTab === 2) return scoped.opportunities.map(row => ({ id: row.id, name: row.name || row.title || row.id, status: row.stage || row.status || '未设置', country: '—', amount: amountIn(row, row.amount, currency) === null ? '—' : money(amountIn(row, row.amount, currency) || 0, currency), date: iso(row.expected_close_date || row.created_at) }));
