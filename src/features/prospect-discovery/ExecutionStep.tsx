@@ -198,6 +198,19 @@ export function ExecutionStep({ profile, sources, actorParameters = {}, onEditSt
           minFollowers: 0, maxFollowers: 100000000, recentDays: 365, requireContact: true, limit: instagramLimitValue, planSnapshot, guardrailsSnapshot,
         });
       }
+      const actorPlans = Array.isArray(actorParameters.actors) ? actorParameters.actors as Array<Record<string, unknown>> : [];
+      const nativeChannels = new Set(["google-maps", "google-search", "facebook", "instagram"]);
+      const enabledActorPlans = actorPlans.filter(actor => actor.status === "enabled" && typeof actor.actorId === "string" && !nativeChannels.has(String(actor.sourceId)));
+      const pendingActorPlans = actorPlans.filter(actor => !nativeChannels.has(String(actor.sourceId)) && actor.status !== "enabled");
+      if (pendingActorPlans.length) appendLog("[ACTOR GATE] " + pendingActorPlans.length + " 个候选来源尚未通过质量门禁，本次不会启动。");
+      if (enabledActorPlans.length) {
+        addTask("actor-discovery", "Actor 智能采集（" + enabledActorPlans.length + " 个来源）", "/api/v1/actor-registry/execute", {
+          actors: enabledActorPlans,
+          profile: { coreNoun: profile.coreNoun, country: profile.country, countryName: profile.countryName, city: profile.city },
+          limitPerCountry: clampLimit(webLimit, 5),
+          planSnapshot, guardrailsSnapshot,
+        });
+      }
       await Promise.all(tasks);
       if (!created.length) throw new Error(failures.length ? failures.join('；') : '当前所选渠道没有可执行的后端任务入口。');
       setRuns(created);
