@@ -181,7 +181,7 @@ export function DocumentsCenterPage() {
   return <main className="tp-documents">
     <header className="tp-documents__header">
       <div><p className="tp-documents__eyebrow">TRADE OPERATIONS / DOCUMENTS</p><h1>单据中心</h1><p>从销售订单、采购订单导入业务数据，也可以完全从空白开始制作单据。</p></div>
-      <div className="tp-documents__actions"><Button kind="primary" onClick={() => { setCreated(null); setStep(1); setError(''); setNotice(''); }}>新建单据</Button><Button kind="secondary" onClick={() => navigate('/documents/generated')}>已生成单据</Button></div>
+      <div className="tp-documents__actions"><Button kind="primary" onClick={() => navigate('/documents/studio')}>自由设计制作</Button><Button kind="secondary" onClick={() => { setCreated(null); setStep(1); setError(''); setNotice(''); }}>传统制作</Button><Button kind="secondary" onClick={() => navigate('/documents/generated')}>已生成单据</Button></div>
     </header>
 
     {loading && <InlineLoading description="正在加载订单与模板…" />}
