@@ -123,7 +123,11 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
       const result = await gatewayFetch("acts/" + encodeURIComponent(actorId) + "/input-schema", token);
       const schema = (result.data && typeof result.data === "object" ? result.data : result) as Record<string, unknown>;
       const localized = await translateSchema(actorId, schema, env);
-      const version = safeText((schema.version as string) || "latest", 80);
+      const sourceVersion = safeText((schema.version as string) || "latest", 80);
+      const snapshotBytes = new TextEncoder().encode(JSON.stringify({ schema, localized }));
+      const snapshotDigest = await crypto.subtle.digest("SHA-256", snapshotBytes);
+      const fingerprint = [...new Uint8Array(snapshotDigest)].map(byte => byte.toString(16).padStart(2, "0")).join("").slice(0, 16);
+      const version = sourceVersion + "@" + fingerprint;
       await db(env, "actor_schema_versions?on_conflict=owner_id,actor_id,version", {
         method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
         body: JSON.stringify({ owner_id: ownerId, actor_id: actorId, version, input_schema: schema, localized_schema: localized, fetched_at: new Date().toISOString() }),
