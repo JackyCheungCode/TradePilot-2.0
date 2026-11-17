@@ -1,6 +1,7 @@
 import { errorResponse, successResponse } from "./lib/http";
 import { handleHealth } from "./routes/health";
 import { handleWebAuthn } from "./routes/webauthn";
+import { handleActorRegistry } from "./routes/actor-registry";
 import { handleDiscovery, type DiscoveryRunInput } from "./routes/discovery";
 import { handleSettings } from "./routes/settings";
 import { handleTranslation } from "./routes/translation";
@@ -25,6 +26,7 @@ import { processInboxMediaJobs } from "./routes/inbox-media-worker";
 import { AgentOrchestrationWorkflow } from "./workflows/agent-orchestration";
 
 export interface WorkerEnv {
+ ACTOR_GATEWAY_API_TOKEN?: string;
  BROWSER: { quickAction(action: 'pdf', input: Record<string, unknown>): Promise<Response> };
  ASSETS: { fetch(request: Request): Promise<Response> };
  SUPABASE_URL: string;
@@ -130,6 +132,7 @@ export default {
     const mfaFailure = await enforceWebAuthnSession(request, env);
     if (mfaFailure) return mfaFailure;
    }
+   if (url.pathname.startsWith("/api/v1/actor-registry")) return await handleActorRegistry(request, env);
    if (url.pathname.startsWith("/api/v1/trade-tools/")) return await handleTradeTools(request, env);
    if (url.pathname.startsWith("/api/v1/agent/")) return await handleAgentCenter(request, env);
    if (url.pathname.startsWith("/api/v1/trade/")) return await handleTradeDocuments(request, env);
