@@ -194,6 +194,49 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
       }, existing.length ? 200 : 201);
     }
 
+    const attachmentSignedUrlMatch = url.pathname.match(/^\\/api\\/v1\\/inbox\\/attachments\\/([0-9a-f-]{36})\\/signed-url$/i);
+    if (attachmentSignedUrlMatch && request.method === "GET") {
+      // Attachment metadata and objects are service-role-only. Never fall back to caller JWT for this lookup.
+      const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY;
+      if (!serviceRoleKey) {
+        return errorResponse(request, "ATTACHMENT_STORAGE_NOT_CONFIGURED", "当前环境未配置私有附件服务凭证。", 503);
+      }
+      const attachmentId = attachmentSignedUrlMatch[1];
+      const attachments = await db<Row[]>(env,
+        "inbox_attachments?select=id,storage_bucket,storage_path,scan_status&owner_id=eq." + ownerId +
+        "&id=eq." + attachmentId + "&limit=1");
+      const attachment = attachments[0];
+      if (!attachment) return errorResponse(request, "ATTACHMENT_NOT_FOUND", "附件不存在或无权访问。", 404);
+      if (attachment.scan_status !== "clean") {
+        return errorResponse(request, "ATTACHMENT_NOT_CLEARED", "附件尚未通过安全检查，暂不可下载。", 409);
+      }
+      if (attachment.storage_bucket !== "inbox-attachments" ||
+          typeof attachment.storage_path !== "string" || !attachment.storage_path ||
+          attachment.storage_path.startsWith("/") || attachment.storage_path.split("/").some((part: string) => !part || part === "." || part === "..")) {
+        return errorResponse(request, "ATTACHMENT_STORAGE_PATH_INVALID", "附件存储路径无效。", 500);
+      }
+      const objectPath = attachment.storage_path.split("/").map((part: string) => encodeURIComponent(part)).join("/");
+      const storageResponse = await fetch(
+        env.SUPABASE_URL.replace(/\\/$/, "") + "/storage/v1/object/sign/inbox-attachments/" + objectPath,
+        {
+          method: "POST",
+          headers: { apikey: serviceRoleKey, Authorization: "Bearer " + serviceRoleKey, "Content-Type": "application/json" },
+          body: JSON.stringify({ expiresIn: 300 }),
+          signal: AbortSignal.timeout(10000),
+        },
+      );
+      const storagePayload = await storageResponse.json().catch(() => ({})) as { signedURL?: string; error?: string; message?: string };
+      if (!storageResponse.ok || typeof storagePayload.signedURL !== "string") {
+        return errorResponse(request, "ATTACHMENT_SIGNING_FAILED", "无法生成附件安全下载链接，请稍后重试。", 502);
+      }
+      const signedUrl = /^https?:\\/\\//i.test(storagePayload.signedURL)
+        ? storagePayload.signedURL
+        : new URL(storagePayload.signedURL.startsWith("/")
+          ? "/storage/v1" + storagePayload.signedURL
+          : "/storage/v1/" + storagePayload.signedURL, env.SUPABASE_URL).toString();
+      return successResponse(request, { url: signedUrl, expires_in: 300 });
+    }
+
     if (url.pathname === "/api/v1/inbox/search" && request.method === "GET") {
       const query = (url.searchParams.get("q") ?? "").replace(/[(),.*%_]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
       if (query.length < 2) return successResponse(request, { conversation_ids: [], matches: [] });

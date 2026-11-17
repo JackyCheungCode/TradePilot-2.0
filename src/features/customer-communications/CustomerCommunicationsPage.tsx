@@ -76,7 +76,7 @@ function mapInboxMessage(row: InboxMessage): CommunicationMessage {
     : bytes >= 1024 ? Math.round(bytes / 1024) + ' KB' : bytes ? bytes + ' B' : '附件';
   return {
     id: row.id, conversationId: row.conversation_id,
-    channel: row.channel_type ? row.channel_type as CommunicationChannel : 'email',
+    channel: row.channel_type ? row.channel_type as CommunicationChannel : undefined,
     direction: isNote ? 'system' : row.direction === 'outbound' ? 'outbound' : 'inbound',
     kind, body: row.content || row.media_url || '（此消息没有文本内容）',
     translatedBody: row.translated_content || undefined,
