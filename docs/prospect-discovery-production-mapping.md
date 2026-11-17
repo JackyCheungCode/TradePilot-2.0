@@ -19,12 +19,12 @@
 
 | Step | Frontend | Verified production gap |
 |---|---|---|
-| 1. Intent / profile | `ProspectDiscoveryPage.tsx` | Profile is held in React state; it is not yet persisted as a durable immutable run snapshot before execution. |
-| 2. Platform selection | `PlatformSelectionStep.tsx` | Catalog entries outnumber verified executors. Status dots now distinguish connected executor, connection/credential verification required, and no verified executor. Selection still needs capability validation before task creation. |
-| 3. Guardrails | `GuardrailsStep.tsx` | Rules are stored in browser local storage. The complete rule snapshot is not yet enforced by the backend execution pipeline. |
-| 4. Execution | `ExecutionStep.tsx` | Current implementation generates timer-based progress, sample counts, fabricated log events, and synthetic lead IDs. It must be replaced by real per-channel run creation and polling. |
-| 5. AI scoring | `ScoringStep.tsx` | Uses seeded sample companies and local timer-based scoring; no durable AI scoring result is created. |
-| 6. Decision-maker enrichment / CRM | `DecisionMakerStep.tsx` | Uses seeded contacts and simulated enrichment / CRM sync; existing contact enrichment and CRM APIs are not wired to this step. |
+| 1. Intent / profile | `ProspectDiscoveryPage.tsx`, `ExecutionStep.tsx` | Profile snapshot and plan session code are now copied into each channel run's existing `search_config` JSONB. A durable parent plan/run relation is still absent. |
+| 2. Platform selection | `PlatformSelectionStep.tsx` | Carbon semantic status dots distinguish wired executor, credential/connection verification, and catalog-only sources. Step 4 currently executes only the four wired IDs: Google Maps, Google Search, Facebook, Instagram. |
+| 3. Guardrails | `GuardrailsStep.tsx`, channel routes | Full browser rule configuration is now copied into each run's `search_config.guardrailsSnapshot`. Backend enforcement is not yet consistent across all channel executors. |
+| 4. Execution | `ExecutionStep.tsx`, channel routes | Real per-channel task creation, persisted run IDs, status/progress/count/log polling, and real record UUID handoff are wired. Pause/cancel is intentionally not shown because no corresponding backend control API was verified. |
+| 5. AI scoring | `ScoringStep.tsx`, `POST /api/v1/discovery-records/score`, `callAgentChatModel` | Loads real records, calls the configured `prospect_scoring` task model, and persists score, dimensions, evidence, risks, model, and timestamp in `raw_data.ai_scoring`. Provider-output validation and partial-save retries still need acceptance testing. |
+| 6. Decision-maker enrichment / CRM | `DecisionMakerStep.tsx`, `ContactEnrichmentWorkflow`, `/api/v1/discovery-contact-candidates/convert` | Uses existing contact-enrichment jobs, polls real job state, reloads candidate data, and submits selected candidate keys for human-confirmed CRM account/contact/lead conversion. Website-only enrichment may return contact details without named candidates; Apollo/ZoomInfo credentials may be required for named contacts. |
 
 ## Task status and result read model
 
