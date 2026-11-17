@@ -24,8 +24,18 @@
  * reserved rail width at the matching Carbon md breakpoint.
  */
 @media (max-width: map.get(breakpoints.$tp-breakpoints, md)) {
+  /*
+   * Carbon SideNav uses its non-persistent UX variant at this breakpoint.
+   * Keep Content full-width while the SideNav opens as a fixed overlay above it.
+   */
   .tp-content.cds--content {
+    width: 100%;
     margin-inline-start: 0;
+  }
+
+  .tp-sidenav.cds--side-nav {
+    position: fixed;
+    inset-inline-start: 0;
   }
 }
 
@@ -42,23 +52,18 @@
 }
 
 .tp-header__brand {
-  /* Remove Carbon HeaderName's default left offset so the wordmark sits
-     immediately beside the menu button without changing the button itself. */
+  /* Text-only product name, aligned beside Carbon's menu button. */
   margin-left: 0;
   display: inline-flex;
   align-items: center;
   justify-content: flex-start;
-  min-width: 8rem;
-  width: 8rem;
+  min-width: auto;
+  width: auto;
   padding-inline: 0;
-}
-
-.tp-header__brand img {
-  display: block;
-  width: 7.75rem;
-  height: auto;
-  max-height: 1.5rem;
-  object-fit: contain;
+  color: var(--cds-text-on-color);
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .tp-account-menu .cds--overflow-menu {
