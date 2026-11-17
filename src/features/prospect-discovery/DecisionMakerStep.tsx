@@ -81,7 +81,16 @@ export function DecisionMakerStep({ profile }: Props) {
   const [notice, setNotice] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const jobStorageKey = 'tradepilot.prospect-discovery.contact-enrichment-job.v1';
+  const queueSignature = (() => {
+    try {
+      const queue = JSON.parse(localStorage.getItem('tradepilot.prospect-discovery.crm-queue.v1') || '[]') as Array<{ id?: string }>;
+      const ids = queue.map(item => String(item.id ?? '')).filter(Boolean).sort();
+      let hash = 2166136261;
+      for (const char of ids.join('|')) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619);
+      return ids.length + '-' + (hash >>> 0).toString(36);
+    } catch { return 'unavailable'; }
+  })();
+  const jobStorageKey = 'tradepilot.prospect-discovery.contact-enrichment-job.' + queueSignature;
 
   useEffect(() => {
     try {
