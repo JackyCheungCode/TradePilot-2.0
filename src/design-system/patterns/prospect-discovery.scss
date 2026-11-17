@@ -625,11 +625,19 @@
 /* Step 5 responsive toolbar and batch action layout */
 .tp-scoring {
   &__heading-actions { display:flex; align-items:center; flex-wrap:wrap; justify-content:flex-end; gap:$spacing-03; min-width:0; }
-  &__table-controls { display:flex; flex-direction:column; gap:$spacing-04; min-width:0; }
-  &__table-controls .cds--table-toolbar { display:block; width:100%; min-width:0; margin:0; padding:0; }
-  &__table-controls .cds--table-toolbar-content { display:block; width:100%; min-width:0; }
-  &__toolbar { margin-bottom:$spacing-05; }
-  &__source-filter { padding-bottom:$spacing-02; }
+  &__table-controls { display:flex; flex-direction:column; gap:$spacing-05; min-width:0; }
+  &__toolbar {
+    display:grid;
+    grid-template-columns:minmax(240px,1fr) minmax(200px,280px);
+    align-items:end;
+    gap:$spacing-04;
+    width:100%;
+    min-width:0;
+    margin:0;
+  }
+  &__toolbar > * { min-width:0; }
+  &__toolbar .cds--form-item { min-width:0; }
+  &__source-filter { display:flex; flex-direction:column; gap:$spacing-02; min-width:0; }
   &__table-scroll { margin-top:$spacing-02; }
   &__batch-actions { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:$spacing-03; width:100%; min-width:0; padding:$spacing-03 $spacing-04; background:var(--cds-layer-selected-01); }
   &__batch-actions > span { @include type-style('label-01'); color:var(--cds-text-primary); }
@@ -637,8 +645,7 @@
   @media(max-width:672px) {
     &__heading-actions { width:100%; justify-content:flex-start; }
     &__heading-actions .cds--btn { width:100%; max-width:none; }
-    &__toolbar { grid-template-columns:minmax(0,1fr); gap:$spacing-04; }
-    &__source-filter { padding:0; }
+    &__toolbar { grid-template-columns:minmax(0,1fr); gap:$spacing-05; }
     &__batch-actions { align-items:stretch; flex-direction:column; }
     &__batch-actions > div { display:grid; grid-template-columns:minmax(0,1fr); width:100%; }
     &__batch-actions .cds--btn { width:100%; max-width:none; }
@@ -826,9 +833,10 @@
     overflow: visible;
   }
   &__table-scroll {
-    position: relative;
-    clear: both;
-    margin-top: $spacing-04;
+    width:100%;
+    min-width:0;
+    overflow-x:auto;
+    margin:0;
   }
   &__score.cds--btn {
     min-height: 0;
@@ -858,5 +866,22 @@
     &__table-scroll {
       margin-top: $spacing-03;
     }
+  }
+}
+
+/* Mobile-first spacing correction for the prospect discovery workspace. */
+@media (max-width: 672px) {
+  .tp-content__main {
+    padding-top: var(--tp-space-03);
+  }
+
+  .tp-prospect-discovery__page-header {
+    padding-top: $spacing-03;
+    padding-bottom: $spacing-04;
+    margin-bottom: $spacing-04;
+  }
+
+  .tp-prospect-discovery .cds--tabs {
+    margin-bottom: $spacing-04;
   }
 }

@@ -4,7 +4,7 @@ import {
   Button, Column, Dropdown, Grid, InlineNotification, Link, OverflowMenu,
   OverflowMenuItem, Pagination, Table, TableBody,
   TableCell, TableHead, TableHeader, TableRow, TableSelectAll, TableSelectRow,
-  TableToolbar, TableToolbarContent, TableToolbarSearch, Tag, Tile, CarbonIcons,
+  TextInput, Tag, Tile, CarbonIcons,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 
@@ -261,16 +261,18 @@ export function ScoringStep({ profile, onContinueToEnrichment }: Props) {
         <div className="tp-execution__section-heading"><div><h3>原始检索结果</h3><p>人工复核企业主体、官网与来源，再决定是否纳入 AI 清洗打分</p></div><Tag type="blue">{filtered.length} 条匹配</Tag></div>
         <div className="tp-scoring__table-controls">
           {selected.length > 0 && <div className="tp-scoring__batch-actions"><span>已勾选 {selected.length} / {rows.length} 条记录</span><div><Button kind="primary" size="md" renderIcon={CarbonIcons.MagicWand} onClick={() => scoreRows(selected)}>AI 清洗与打分</Button><Button kind="tertiary" size="md" renderIcon={CarbonIcons.TrashCan} onClick={removeSelected}>批量移除</Button><Button kind="tertiary" size="md" renderIcon={CarbonIcons.Download} onClick={exportSelected}>导出 XLSX</Button><Button kind="ghost" size="md" onClick={() => setSelected([])}>取消选择</Button></div></div>}
-          <TableToolbar>
-          <TableToolbarContent>
-            <div className="tp-scoring__toolbar">
-              <TableToolbarSearch persistent value={search} onChange={(_event, value) => { setSearch(value ?? ''); setPage(1); }} placeholder="搜索企业名称或域名" />
-              <div className="tp-scoring__source-filter">
-                <Dropdown id="tp-scoring-source" titleText="获客来源" label="全部来源" items={[{ id: 'all', text: '全部来源' }, ...sourceOptions.map(item => ({ id: item, text: item }))]} itemToString={item => item?.text ?? ''} selectedItem={[{ id: 'all', text: '全部来源' }, ...sourceOptions.map(item => ({ id: item, text: item }))].find(item => item.id === source) ?? { id: 'all', text: '全部来源' }} onChange={({ selectedItem }) => { setSource(selectedItem?.id ?? 'all'); setPage(1); }} />
-              </div>
+          <div className="tp-scoring__toolbar">
+            <TextInput
+              id="tp-scoring-search"
+              labelText="搜索企业"
+              placeholder="搜索企业名称或域名"
+              value={search}
+              onChange={(event) => { setSearch(event.currentTarget.value); setPage(1); }}
+            />
+            <div className="tp-scoring__source-filter">
+              <Dropdown id="tp-scoring-source" titleText="获客来源" label="全部来源" items={[{ id: 'all', text: '全部来源' }, ...sourceOptions.map(item => ({ id: item, text: item }))]} itemToString={item => item?.text ?? ''} selectedItem={[{ id: 'all', text: '全部来源' }, ...sourceOptions.map(item => ({ id: item, text: item }))].find(item => item.id === source) ?? { id: 'all', text: '全部来源' }} onChange={({ selectedItem }) => { setSource(selectedItem?.id ?? 'all'); setPage(1); }} />
             </div>
-          </TableToolbarContent>
-          </TableToolbar>
+          </div>
         </div>
         {loading && <InlineNotification kind="info" lowContrast title="正在读取真实检索记录" subtitle="从潜客发现结果接口加载本轮任务的记录。" />}
         {loadError && <InlineNotification kind="error" lowContrast title="检索结果读取失败" subtitle={loadError} />}
