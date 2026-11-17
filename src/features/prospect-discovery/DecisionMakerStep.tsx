@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   Button, Checkbox, CodeSnippet, InlineNotification, Pagination, ProgressBar, Table, TableBody,
   TableCell, TableHead, TableHeader, TableRow, TableSelectAll, TableSelectRow,
-  TableToolbar, TableToolbarContent, TableToolbarSearch, Tag, Tile, CarbonIcons,
+  TableToolbar, TableToolbarContent, TableToolbarSearch, Link, Tag, Tile, CarbonIcons,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 
@@ -282,8 +282,8 @@ export function DecisionMakerStep({ profile }: Props) {
                 <TableSelectRow id={'decision-' + row.id} name={'decision-' + row.id} checked={selected.includes(row.id)} onSelect={() => toggleOne(row.id)} />
                 <TableCell><div className="tp-decision__company"><strong>{row.company}</strong><Tag type="blue">{row.source || row.country}</Tag></div><small>{row.domain || '暂无官网'}</small></TableCell>
                 <TableCell>{row.contacts.length ? <div className="tp-decision__person">{row.contacts.map((contact, index) => <div key={contact.key || index}><Checkbox id={'tp-contact-candidate-' + row.id + '-' + index} labelText={contact.name || '姓名待核验'} checked={(selectedCandidateKeys[row.id] ?? []).includes(contact.key)} onChange={event => { const checked = event.currentTarget.checked; setSelectedCandidateKeys(current => ({ ...current, [row.id]: checked ? [...new Set([...(current[row.id] ?? []), contact.key])] : (current[row.id] ?? []).filter(key => key !== contact.key) })); setSelected(current => checked ? [...new Set([...current, row.id])] : current); }} /><span>{contact.title || '职位待核验'}</span>{contact.email && <small>{contact.email}</small>}</div>)}</div> : row.person ? <div className="tp-decision__person"><strong>{row.person}</strong><span>{row.title || '职位待核验'}</span></div> : <Tag type="gray">暂无候选</Tag>}</TableCell>
-                <TableCell><div className="tp-decision__email">{row.email ? <a href={'mailto:' + row.email}>{row.email}</a> : <Tag type="gray">待采集</Tag>}{emailTag(row)}{row.phone && <small>{row.phone}</small>}{row.whatsapp && <small>WhatsApp：{row.whatsapp}</small>}</div></TableCell>
-                <TableCell>{row.linkedin ? <a href={row.linkedin} target="_blank" rel="noreferrer">LinkedIn <CarbonIcons.ArrowUpRight size={12} /></a> : <Tag type="gray">暂无公开账号</Tag>}</TableCell>
+                <TableCell><div className="tp-decision__email">{row.email ? <Link href={'mailto:' + row.email}>{row.email}</Link> : <Tag type="gray">待采集</Tag>}{emailTag(row)}{row.phone && <small>{row.phone}</small>}{row.whatsapp && <small>WhatsApp：{row.whatsapp}</small>}</div></TableCell>
+                <TableCell>{row.linkedin ? <Link href={row.linkedin} target="_blank" rel="noreferrer">LinkedIn <CarbonIcons.ArrowUpRight size={12} /></Link> : <Tag type="gray">暂无公开账号</Tag>}</TableCell>
                 <TableCell><div className="tp-decision__status">{crmTag(row)}{row.crmId && <small>{row.crmId}</small>}</div></TableCell>
               </TableRow>)}
               {visible.length === 0 && <TableRow><TableCell colSpan={6}>{loading ? '正在加载…' : '没有可显示的真实企业记录。'}</TableCell></TableRow>}
