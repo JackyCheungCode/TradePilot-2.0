@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Button, Checkbox, MultiSelect, Pagination, Search, Select, SelectItem, Tag, CarbonIcons } from '@/design-system';
+import { Button, Checkbox, MultiSelect, Pagination, Search, Tag } from '@/design-system';
 
 type Country = { name: { common: string }; cca2: string; region: string };
 type Source = { id: string; name: string; description: string; markets: string[] };
@@ -179,14 +179,14 @@ const platformStatusLabels: Record<PlatformExecutionStatus, string> = {
 };
 
 export function PlatformSelectionStep({
-  countryCode, countryName, continentLabel, countries, onChangeCountry, onCountryChange, onSelectionCountChange, selectedIds, onSelectionChange,
+  countryCode, countries, onSelectionCountChange, selectedIds, onSelectionChange,
 }: {
-  countryCode: string; countryName: string; continentLabel: string; countries: Country[];
-  onChangeCountry: () => void; onCountryChange: (country: Country) => void; onSelectionCountChange: (count: number) => void;
+  countryCode: string; countries: Country[];
+  onSelectionCountChange: (count: number) => void;
   selectedIds?: string[]; onSelectionChange?: (sources: Array<{ id: string; name: string; category?: string }>) => void;
 }) {
   const recommended = useMemo(() => recommendedFor(countryCode).filter(isRunnablePlatform), [countryCode]);
-  const [selected, setSelected] = useState<string[]>(() => countryCode ? (selectedIds !== undefined ? selectedIds.filter(isRunnablePlatform) : recommendedFor(countryCode).filter(isRunnablePlatform)) : []);
+  const [selected, setSelected] = useState<string[]>(() => selectedIds !== undefined ? selectedIds.filter(isRunnablePlatform) : []);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedContinents, setSelectedContinents] = useState<string[]>([]);
   const [selectedCountries, setSelectedCountries] = useState<Country[]>([]);
@@ -196,7 +196,6 @@ export function PlatformSelectionStep({
   const [selectionWarning, setSelectionWarning] = useState('');
   const maxSelectedSources = 20;
 
-  useEffect(() => { setSelected(countryCode ? recommendedFor(countryCode).filter(isRunnablePlatform) : []); }, [countryCode]);
 
   useEffect(() => { onSelectionCountChange(selected.length); onSelectionChange?.(allPlatforms.filter(source => selected.includes(source.id)).map(source => ({ id: source.id, name: source.name, category: source.category }))); }, [selected, onSelectionCountChange, onSelectionChange]);
 
@@ -268,25 +267,6 @@ export function PlatformSelectionStep({
   };
 
   return <section className="tp-prospect-discovery__step tp-prospect-discovery__step-two">
-    <div className="tp-prospect-discovery__market-context">
-      <span className="tp-prospect-discovery__market-pin"><CarbonIcons.Map size={20}/></span>
-      <div className="tp-prospect-discovery__market-copy">
-        <span>先确定目标市场，再匹配可用数据源</span>
-        <strong>{continentLabel || '请选择目标国家'}{countryName ? ' → ' + countryName + ' (' + countryCode + ')' : ' → 目标市场尚未确定'}</strong>
-        <p>国家选择会影响本土平台推荐、覆盖范围和后续采集参数。</p>
-      </div>
-      <div className="tp-prospect-discovery__market-country">
-        <Select id="tp-source-market-country" labelText="目标国家 / 地区" value={countryCode} onChange={event => {
-          const selectedCountry = countries.find(country => country.cca2 === event.currentTarget.value);
-          if (selectedCountry) onCountryChange(selectedCountry);
-        }}>
-          <SelectItem value="" text="选择目标国家 / 地区" />
-          {countries.map(country => <SelectItem key={country.cca2} value={country.cca2} text={country.name.common} />)}
-        </Select>
-        <Button kind="ghost" size="sm" renderIcon={CarbonIcons.Edit} onClick={onChangeCountry}>完善市场画像</Button>
-      </div>
-    </div>
-
     <section className="tp-prospect-discovery__platform-browser">
       <div className="tp-prospect-discovery__platform-browser-heading">
         <div><h3>全球平台筛选与选择</h3><p>同一筛选维度内为“或”关系，不同维度之间为“且”关系。</p>
@@ -301,7 +281,7 @@ export function PlatformSelectionStep({
           <MultiSelect id="platform-continent-filter" titleText="大洲" label="全部大洲" items={continentLabels.map(item => item.value)} itemToString={(item) => item ? continentName(item) : ''} selectedItems={selectedContinents} onChange={({ selectedItems }) => { const nextItems = selectedItems ?? []; setSelectedContinents(nextItems); setSelectedCountries(current => current.filter(country => nextItems.length === 0 || nextItems.includes(continentLabelForCountry(country)))); }} />
         </div>
         <div className="tp-prospect-discovery__platform-filter">
-          <MultiSelect id="platform-country-filter" titleText="国家 / 地区" label="全部国家 / 地区" items={countryOptions} itemToString={(item) => item ? item.name.common : ''} selectedItems={selectedCountries} onChange={({ selectedItems }) => setSelectedCountries(selectedItems ?? [])} />
+          <MultiSelect id="platform-country-filter" titleText="平台覆盖国家" label="全部覆盖国家" items={countryOptions} itemToString={(item) => item ? item.name.common : ''} selectedItems={selectedCountries} onChange={({ selectedItems }) => setSelectedCountries(selectedItems ?? [])} />
         </div>
         <div className="tp-prospect-discovery__platform-filter">
           <MultiSelect id="platform-category-filter" titleText="平台分类" label="全部分类" items={categoryLabels} itemToString={(item) => item ?? ''} selectedItems={selectedCategories} onChange={({ selectedItems }) => setSelectedCategories(selectedItems ?? [])} />

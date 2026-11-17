@@ -149,7 +149,7 @@ function limitActorInput(input: Record<string, unknown>, limit: number): Record<
 export async function processActorDiscoveryRun(env: DiscoveryEnv, runId: string, ownerId: string, input: DiscoveryRunInput) {
   const actors = input.actorExecutions ?? [];
   if (!actors.length) throw new Error("ACTOR_EXECUTIONS_REQUIRED");
-  const token = await readIntegrationSecret(env, "tradepilot_api_" + String.fromCharCode(97, 112, 105, 102, 121), "ACTOR_GATEWAY_API_TOKEN");
+  const token = await readIntegrationSecret(env, "tradepilot_api_" + String.fromCharCode(97, 112, 105, 102, 121)) || env.ACTOR_GATEWAY_API_TOKEN || env.APIFY_API_TOKEN || "";
   if (!token) throw new Error("ACTOR_GATEWAY_NOT_CONFIGURED");
   const countryCode = input.countries[0] ?? "";
   let discovered = 0, created = 0, failedActors = 0;

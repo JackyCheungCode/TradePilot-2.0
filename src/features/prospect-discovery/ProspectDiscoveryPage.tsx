@@ -1,5 +1,5 @@
 // Release trigger only; no runtime behavior. Approved platform catalog release 2026-11-17. Final build gate after catalog cleanup. Includes initial all-platform visibility fix.
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Accordion, AccordionItem, Button, Checkbox, ComboBox, Dropdown, MultiSelect, InlineLoading, InlineNotification,
@@ -178,6 +178,9 @@ export function ProspectDiscoveryPage() {
   const [localizedTerms, setLocalizedTerms] = useState<string[]>([]);
   const [buyerKeywords, setBuyerKeywords] = useState<string[]>([]);
   const [strategyLoading, setStrategyLoading] = useState(false);
+
+  const handleSelectionCountChange = useCallback((count: number) => setSelectedSourceCount(count), []);
+  const handleSelectionChange = useCallback((sources: Array<{ id: string; name: string; category?: string }>) => setSelectedSources(sources), []);
 
   const [googleQueries, setGoogleQueries] = useState<string[]>([]);
   const [notice, setNotice] = useState('');
@@ -626,7 +629,7 @@ export function ProspectDiscoveryPage() {
           <ActorSchemaFields sources={selectedSources ?? []} profile={{ coreNoun: profile.coreNoun, country: profile.country, countryName: profile.countryName, city: profile.city }} onValuesChange={setActorParameters} />
         </>
        ) : selectedIndex === 0 ? (
-        <PlatformSelectionStep countryCode={profile.country} countryName={profile.countryName} continentLabel={continents.find(item => item.value === profile.continent)?.label ?? ''} countries={countries} onChangeCountry={() => setSelectedIndex(1)} onCountryChange={country => setProfile(current => ({ ...current, country: country.cca2, countryName: country.name.common, continent: country.region }))} onSelectionCountChange={setSelectedSourceCount} selectedIds={selectedSources?.map(item => item.id)} onSelectionChange={setSelectedSources} />
+        <PlatformSelectionStep countryCode={profile.country} countries={countries} onSelectionCountChange={handleSelectionCountChange} selectedIds={selectedSources?.map(item => item.id)} onSelectionChange={handleSelectionChange} />
       ) : selectedIndex === 2 ? (
         <GuardrailsStep countries={countries} profile={{ coreNoun: profile.coreNoun, country: profile.country, countryName: profile.countryName, buyers: profile.buyers }} />
       ) : selectedIndex === 3 ? (

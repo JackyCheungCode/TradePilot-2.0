@@ -8,6 +8,7 @@ interface ActorRegistryEnv {
   SUPABASE_ANON_KEY: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
   ACTOR_GATEWAY_API_TOKEN?: string;
+  APIFY_API_TOKEN?: string;
   AI?: { run(model: string, input: Record<string, unknown>): Promise<unknown> };
   LEAD_DISCOVERY_WORKFLOW: { create(options: { id: string; params: { runId: string; ownerId: string; input: DiscoveryRunInput } }): Promise<{ id: string }> };
 }
@@ -110,7 +111,7 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
   const ownerId = await authenticate(request, env);
   if (!ownerId) return errorResponse(request, "UNAUTHORIZED", "请先登录后管理数据源。", 401);
   try {
-    const token = await readIntegrationSecret(env, "tradepilot_api_" + String.fromCharCode(97, 112, 105, 102, 121), "ACTOR_GATEWAY_API_TOKEN");
+    const token = await readIntegrationSecret(env, "tradepilot_api_" + String.fromCharCode(97, 112, 105, 102, 121)) || env.ACTOR_GATEWAY_API_TOKEN || env.APIFY_API_TOKEN || "";
     if (!token) return errorResponse(request, "ACTOR_GATEWAY_NOT_CONFIGURED", "请先在 AI 与 API 集成中配置数据采集平台访问令牌。", 400);
     const url = new URL(request.url);
     const parts = url.pathname.split("/").filter(Boolean);
