@@ -73,9 +73,9 @@ const messageSeed: Message[] = [
 function ChannelBadge({ channel, compact = false }: { channel: Channel; compact?: boolean }) {
   return <span className={'cc-channel cc-channel--' + channel}><span aria-hidden="true">{channelGlyphs[channel]}</span>{!compact && channelNames[channel]}</span>;
 }
-function Avatar({ name, size = 'normal' }: { name: string; size?: 'normal' | 'small' }) {
+function Avatar({ name, size = 'normal', placeholder = false }: { name: string; size?: 'normal' | 'small'; placeholder?: boolean }) {
   const initials = name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
-  return <span className={'cc-avatar cc-avatar--' + size}>{initials}</span>;
+  return <span className={'cc-avatar cc-avatar--' + size + (placeholder ? ' cc-avatar--placeholder' : '')} aria-label={name} role="img">{placeholder ? <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4.25 4.25 0 1 0 0-8.5 4.25 4.25 0 0 0 0 8.5Zm0 2c-4.2 0-7.5 2.15-7.5 4.85V21h15v-2.15C19.5 16.15 16.2 14 12 14Z" fill="currentColor"/></svg> : initials}</span>;
 }
 function IconButton({ label, children, onClick }: { label: string; children: string; onClick: () => void }) {
   return <button className="cc-icon-button" type="button" aria-label={label} title={label} onClick={onClick}>{children}</button>;
@@ -93,12 +93,14 @@ export function CustomerCommunicationsWidget({
   onClose,
   onMinimize,
   onRestore,
+  navigationExpanded,
 }: {
   open: boolean;
   minimized: boolean;
   onClose: () => void;
   onMinimize: () => void;
   onRestore: () => void;
+  navigationExpanded: boolean;
 }) {
   const [customers, setCustomers] = useState(customerSeed);
   const [identities, setIdentities] = useState(identitySeed);
@@ -188,10 +190,10 @@ export function CustomerCommunicationsWidget({
   }
 
   return (
-    <div className="cc-floating-root">
+    <div className={"cc-floating-root" + (navigationExpanded ? " cc-floating-root--nav-expanded" : "")}>
       <section className={'cc-window cc-theme-' + theme + (maximized ? ' cc-window--maximized' : '')} role="dialog" aria-label="客户沟通工作台" aria-modal="false">
         <header className="cc-window-header">
-          <div className="cc-window-brand"><span className="cc-brand-mark">TP</span><div><strong>客户沟通</strong><small>统一收件箱 · 本地演示</small></div></div>
+          <div className="cc-window-brand"><span className="cc-brand-mark">TP</span><div><strong>客户沟通</strong><small>统一收件箱 · 本地演示</small><span className="cc-mobile-app-label">聊天 App</span></div></div>
           <div className="cc-window-tools">
             <div className="cc-theme-switcher" aria-label="切换聊天界面主题">
               {(['whatsapp', 'wechat', 'messenger', 'outlook'] as Theme[]).map((item) => <button key={item} type="button" className={theme === item ? 'is-active' : ''} onClick={() => setTheme(item)}>{({ whatsapp: 'WhatsApp', wechat: 'WeChat', messenger: 'Messenger', outlook: 'Outlook' })[item]}</button>)}
@@ -238,10 +240,13 @@ export function CustomerCommunicationsWidget({
                 return <div key={message.id} className={'cc-message-group ' + (message.direction === 'outbound' ? 'is-outbound' : 'is-inbound')}>
                   {showDate && <div className="cc-date-divider"><span>{new Date(message.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</span></div>}
                   <div className="cc-message-meta"><ChannelBadge channel={message.channel}/><time>{formatTime(message.timestamp)}</time><span>{message.direction === 'inbound' ? activeCustomer.name : '我方'}</span></div>
-                  <div className={'cc-message-bubble' + (message.channel === 'email' ? ' is-email' : '')}>
-                    {message.subject && <strong className="cc-email-subject">{message.subject}</strong>}
-                    <p>{message.body}</p>
-                    {message.attachment && <span className="cc-attachment">▤ {message.attachment}</span>}
+                  <div className="cc-message-line">
+                    <Avatar name={message.direction === 'inbound' ? activeCustomer.name : 'TradePilot'} size="small" placeholder/>
+                    <div className={'cc-message-bubble' + (message.channel === 'email' ? ' is-email' : '')}>
+                      {message.subject && <strong className="cc-email-subject">{message.subject}</strong>}
+                      <p>{message.body}</p>
+                      {message.attachment && <span className="cc-attachment">▤ {message.attachment}</span>}
+                    </div>
                   </div>
                   {message.direction === 'outbound' && <span className="cc-message-status">{message.status === 'local' ? '本地演示 · 未发送' : message.status === 'delivered' ? '已送达' : '已发送'}</span>}
                 </div>;
