@@ -118,7 +118,7 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
-      if (file.name.toLowerCase().endsWith('.xlsx')) { setImportPreview([file.name]); setNotice('已选择 XLSX 文件。当前前端预览仅读取 CSV / TXT 文本；XLSX 字段解析将在后端/导入模块阶段接入。'); return; }
+      if (file.name.toLowerCase().endsWith('.xlsx')) { setImportPreview([]); setNotice('已选择 XLSX 文件。当前前端版本暂只解析 CSV / TXT 文本，XLSX 字段预览将在独立导入模块阶段补齐；文件未上传。'); return; }
       const lines = String(reader.result ?? '').split(/\\r?\\n/).map(line => line.trim()).filter(Boolean);
       setImportPreview(lines.slice(0, 8));
       setNotice('已读取文件并生成前端预览。确认后可将识别内容加入当前规则；当前版本不会上传文件。');
@@ -129,7 +129,14 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
   };
   const applyImportPreview = () => {
     const imported = importPreview.filter(line => !websiteRows.some(row => row.value.toLowerCase() === line.toLowerCase()));
-    setWebsiteRows(current => [...current, ...imported.map(value => ({ type: 'domain', value }))]);
+    const classify = (value: string) => {
+      if (/^https?:\\/\\//i.test(value)) return 'exact_url';
+      if (value.startsWith('.')) return 'suffix';
+      if (value.startsWith('/')) return 'path';
+      if (value.includes('*') || value.includes('?')) return 'pattern';
+      return 'domain';
+    };
+    setWebsiteRows(current => [...current, ...imported.map(value => ({ type: classify(value), value }))]);
     setImportPreview([]);
     setNotice('已将预览中的项目加入本地网站排除规则。');
   };
