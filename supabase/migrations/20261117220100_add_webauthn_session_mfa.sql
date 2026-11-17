@@ -60,12 +60,12 @@ $$;
 
 create or replace function public.tradepilot_webauthn_has_verified_totp(p_user_id uuid)
 returns boolean language sql stable security definer set search_path = ''
-as $
+as $totp$
   select exists (
     select 1 from auth.mfa_factors f
     where f.user_id=p_user_id and f.factor_type='totp' and f.status='verified'
   );
-$;
+$totp$;
 
 create or replace function public.tradepilot_webauthn_get_credentials(p_user_id uuid)
 returns table(credential_id text, public_key text, counter bigint, transports text[], friendly_name text)
