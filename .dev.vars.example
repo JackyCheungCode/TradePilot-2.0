@@ -2,7 +2,7 @@
 # Keep real values out of Git. This example contains placeholders only.
 AGENT_ENCRYPTION_KEY=replace-with-local-development-key
 AI_PROVIDER_OPENROUTER_API_KEY=replace-with-local-openrouter-key
-APIFY_API_TOKEN=replace-with-local-apify-token
+ACTOR_GATEWAY_API_TOKEN=replace-with-local-actor-gateway-token
 CLOUDFLARE_API_TOKEN=replace-with-local-cloudflare-token
 DEEPL_API_KEY=replace-with-local-deepl-key
 GOOGLE_MAPS_API_KEY=replace-with-local-google-maps-key
