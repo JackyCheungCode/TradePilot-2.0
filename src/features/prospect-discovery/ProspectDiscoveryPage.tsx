@@ -145,7 +145,7 @@ function compileStrategy(profile: Profile, tld: string, keywords: string[] = [])
 export function ProspectDiscoveryPage() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [selectedSourceCount, setSelectedSourceCount] = useState(0);
-  const [selectedSources, setSelectedSources] = useState<Array<{ id: string; name: string; category?: string }>>([]);
+  const [selectedSources, setSelectedSources] = useState<Array<{ id: string; name: string; category?: string }> | null>(null);
   const [profile, setProfile] = useState<Profile>(emptyProfile);
   const [countries, setCountries] = useState<Country[]>([]);
   const [countryLoading, setCountryLoading] = useState(true);
@@ -606,11 +606,11 @@ export function ProspectDiscoveryPage() {
           )}
         </section>
       ) : selectedIndex === 1 ? (
-        <PlatformSelectionStep countryCode={profile.country} countryName={profile.countryName} continentLabel={continents.find(item => item.value === profile.continent)?.label ?? ''} countries={countries} onChangeCountry={() => setSelectedIndex(0)} onSelectionCountChange={setSelectedSourceCount} selectedIds={selectedSources.map(item => item.id)} onSelectionChange={setSelectedSources} />
+        <PlatformSelectionStep countryCode={profile.country} countryName={profile.countryName} continentLabel={continents.find(item => item.value === profile.continent)?.label ?? ''} countries={countries} onChangeCountry={() => setSelectedIndex(0)} onSelectionCountChange={setSelectedSourceCount} selectedIds={selectedSources?.map(item => item.id)} onSelectionChange={setSelectedSources} />
       ) : selectedIndex === 2 ? (
         <GuardrailsStep countries={countries} profile={{ coreNoun: profile.coreNoun, country: profile.country, countryName: profile.countryName, buyers: profile.buyers }} />
       ) : selectedIndex === 3 ? (
-        <ExecutionStep profile={{ coreNoun: profile.coreNoun, buyers: profile.buyers, continent: continents.find(item => item.value === profile.continent)?.label ?? profile.continent, country: profile.country, countryName: profile.countryName, city: profile.city }} sources={selectedSources} onEditStep={setSelectedIndex} onContinueToScoring={ids => { try { localStorage.setItem('tradepilot.prospect-scoring.queue.v1', JSON.stringify(ids)); } catch { /* Keep navigation available if local storage is full. */ } setSelectedIndex(4); }} />
+        <ExecutionStep profile={{ coreNoun: profile.coreNoun, buyers: profile.buyers, continent: continents.find(item => item.value === profile.continent)?.label ?? profile.continent, country: profile.country, countryName: profile.countryName, city: profile.city }} sources={selectedSources ?? []} onEditStep={setSelectedIndex} onContinueToScoring={ids => { try { localStorage.setItem('tradepilot.prospect-scoring.queue.v1', JSON.stringify(ids)); } catch { /* Keep navigation available if local storage is full. */ } setSelectedIndex(4); }} />
       ) : (
         <div className="tp-prospect-discovery__future-step" aria-label="后续步骤暂未开放"><h2>{steps[selectedIndex]}</h2><p>此步骤将在前序配置确认后启用。</p></div>
       )}
