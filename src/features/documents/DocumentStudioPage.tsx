@@ -10,7 +10,7 @@ type SourceOrder = { id: string; order_number: string; title: string; order_type
 type Shipment = { id: string; shipment_no: string; status: string; planned_ship_date?: string; actual_ship_date?: string };
 type QuoteDoc = { id: string; document_number: string; order_id: string; status: string };
 type ElementKind = 'text' | 'field' | 'table' | 'image' | 'shape';
-type StudioElement = { id: string; type: ElementKind; name: string; x: number; y: number; width: number; height: number; text?: string; binding?: string; fontSize?: number; fontWeight?: string; fontFamily?: string; color?: string; background?: string; align?: string; border?: string; imageUrl?: string; locked?: boolean };
+type StudioElement = { id: string; type: ElementKind; name: string; x: number; y: number; width: number; height: number; text?: string; translationKey?: string; binding?: string; fontSize?: number; fontWeight?: string; fontFamily?: string; color?: string; background?: string; align?: string; border?: string; imageUrl?: string; locked?: boolean };
 type Template = { id: string; name: string; document_type: string; locale: string; template_config: Json; is_default: boolean; is_active: boolean };
 type CreatedDoc = { id: string; document_number: string; document_type: string; content: Json; totals: Json; template_id?: string; current_version: number };
 
@@ -22,7 +22,7 @@ const DOC_TYPES: { value: DocType; label: string; source: 'order' | 'shipment'; 
   { value: 'packing_list', label: '装箱单', source: 'shipment', detail: '读取本次发运的包装、箱数、重量和货品' },
   { value: 'shipping_instructions', label: '装运指示', source: 'shipment', detail: '读取发运批次和运输信息' },
 ];
-const LOCALES = [{ value: 'en', label: 'English' }, { value: 'zh-CN', label: '简体中文' }, { value: 'zh-TW', label: '繁體中文' }, { value: 'es', label: 'Español' }, { value: 'fr', label: 'Français' }, { value: 'de', label: 'Deutsch' }];
+const LOCALES = [{ value: 'en', label: 'English' }, { value: 'zh-CN', label: '简体中文' }, { value: 'zh-TW', label: '繁體中文' }, { value: 'es', label: 'Español' }, { value: 'fr', label: 'Français' }, { value: 'de', label: 'Deutsch' }, { value: 'ja', label: '日本語' }];
 const FIELD_OPTIONS = [
   ['seller_name', '卖方名称'], ['seller_address', '卖方地址'], ['buyer_name', '买方名称'], ['buyer_address', '买方地址'],
   ['buyer_shipping_address', '收货地址'], ['order_number', '订单编号'], ['customer_reference', '客户参考号'],
@@ -33,21 +33,35 @@ const FIELD_OPTIONS = [
   ['totals.grand_total', '总金额'], ['document.document_number', '单据编号'],
 ] as const;
 const titleFor = (type: string) => DOC_TYPES.find(x => x.value === type)?.label ?? type;
-const initialElements = (type: DocType): StudioElement[] => [
-  { id: 'title', type: 'text', name: '单据标题', x: 25, y: 16, width: 160, height: 14, text: titleFor(type).toUpperCase(), fontSize: 20, fontWeight: '700', align: 'center', color: '#161616' },
-  { id: 'seller-label', type: 'text', name: '卖方标签', x: 16, y: 42, width: 80, height: 7, text: 'SELLER', fontSize: 9, fontWeight: '700' },
+const TEMPLATE_LABELS: Record<string, Record<string, string>> = {
+  en: { quotation: 'QUOTATION', proforma_invoice: 'PRO FORMA INVOICE', sales_contract: 'SALES CONTRACT', commercial_invoice: 'COMMERCIAL INVOICE', packing_list: 'PACKING LIST', shipping_instructions: 'SHIPPING INSTRUCTIONS', seller: 'SELLER', buyer: 'BUYER', order: 'ORDER NO.', terms: 'PAYMENT TERMS', total: 'TOTAL', signature: 'AUTHORIZED SIGNATURE' },
+  'zh-CN': { quotation: '报价单', proforma_invoice: '形式发票', sales_contract: '销售合同', commercial_invoice: '商业发票', packing_list: '装箱单', shipping_instructions: '装运指示', seller: '卖方', buyer: '买方', order: '订单编号', terms: '付款条件', total: '总金额', signature: '授权签字' },
+  'zh-TW': { quotation: '報價單', proforma_invoice: '形式發票', sales_contract: '銷售合約', commercial_invoice: '商業發票', packing_list: '裝箱單', shipping_instructions: '裝運指示', seller: '賣方', buyer: '買方', order: '訂單編號', terms: '付款條件', total: '總金額', signature: '授權簽署' },
+  es: { quotation: 'COTIZACIÓN', proforma_invoice: 'FACTURA PROFORMA', sales_contract: 'CONTRATO DE VENTA', commercial_invoice: 'FACTURA COMERCIAL', packing_list: 'LISTA DE EMPAQUE', shipping_instructions: 'INSTRUCCIONES DE EMBARQUE', seller: 'VENDEDOR', buyer: 'COMPRADOR', order: 'N.º DE PEDIDO', terms: 'CONDICIONES DE PAGO', total: 'TOTAL', signature: 'FIRMA AUTORIZADA' },
+  fr: { quotation: 'DEVIS', proforma_invoice: 'FACTURE PRO FORMA', sales_contract: 'CONTRAT DE VENTE', commercial_invoice: 'FACTURE COMMERCIALE', packing_list: 'LISTE DE COLISAGE', shipping_instructions: 'INSTRUCTIONS D’EXPÉDITION', seller: 'VENDEUR', buyer: 'ACHETEUR', order: 'N° DE COMMANDE', terms: 'CONDITIONS DE PAIEMENT', total: 'TOTAL', signature: 'SIGNATURE AUTORISÉE' },
+  de: { quotation: 'ANGEBOT', proforma_invoice: 'PROFORMARECHNUNG', sales_contract: 'KAUFVERTRAG', commercial_invoice: 'HANDELSRECHNUNG', packing_list: 'PACKLISTE', shipping_instructions: 'VERSANDANWEISUNGEN', seller: 'VERKÄUFER', buyer: 'KÄUFER', order: 'BESTELLNUMMER', terms: 'ZAHLUNGSBEDINGUNGEN', total: 'GESAMT', signature: 'AUTORISIERTE UNTERSCHRIFT' },
+  ja: { quotation: '見積書', proforma_invoice: 'プロフォーマインボイス', sales_contract: '売買契約書', commercial_invoice: '商業送り状', packing_list: '梱包明細書', shipping_instructions: '船積指示書', seller: '売主', buyer: '買主', order: '注文番号', terms: '支払条件', total: '合計', signature: '署名' },
+};
+const initialElements = (type: DocType, locale = 'en'): StudioElement[] => {
+  const labels = TEMPLATE_LABELS[locale] ?? TEMPLATE_LABELS.en;
+  return [
+  { id: 'title', type: 'text', name: '单据标题', translationKey: type, x: 25, y: 16, width: 160, height: 14, text: labels[type], fontSize: 20, fontWeight: '700', align: 'center', color: '#161616' },
+  { id: 'seller-label', type: 'text', name: '卖方标签', translationKey: 'seller', x: 16, y: 42, width: 80, height: 7, text: labels.seller, fontSize: 9, fontWeight: '700' },
   { id: 'seller', type: 'field', name: '卖方名称', x: 16, y: 50, width: 82, height: 12, binding: 'seller_name', fontSize: 10, fontWeight: '600' },
   { id: 'seller-address', type: 'field', name: '卖方地址', x: 16, y: 63, width: 82, height: 18, binding: 'seller_address', fontSize: 8 },
-  { id: 'buyer-label', type: 'text', name: '买方标签', x: 112, y: 42, width: 80, height: 7, text: 'BUYER', fontSize: 9, fontWeight: '700' },
+  { id: 'buyer-label', type: 'text', name: '买方标签', translationKey: 'buyer', x: 112, y: 42, width: 80, height: 7, text: labels.buyer, fontSize: 9, fontWeight: '700' },
   { id: 'buyer', type: 'field', name: '买方名称', x: 112, y: 50, width: 82, height: 12, binding: 'buyer_name', fontSize: 10, fontWeight: '600' },
   { id: 'buyer-address', type: 'field', name: '买方地址', x: 112, y: 63, width: 82, height: 18, binding: 'buyer_address', fontSize: 8 },
-  { id: 'order-no', type: 'field', name: '订单编号', x: 16, y: 92, width: 85, height: 8, binding: 'order_number', fontSize: 9 },
-  { id: 'terms', type: 'field', name: '付款条件', x: 112, y: 92, width: 82, height: 8, binding: 'payment_terms', fontSize: 9 },
+  { id: 'order-label', type: 'text', name: '订单编号标签', translationKey: 'order', x: 16, y: 87, width: 85, height: 6, text: labels.order, fontSize: 7, fontWeight: '600' },
+  { id: 'order-no', type: 'field', name: '订单编号', x: 16, y: 94, width: 85, height: 8, binding: 'order_number', fontSize: 9 },
+  { id: 'terms-label', type: 'text', name: '付款条件标签', translationKey: 'terms', x: 112, y: 87, width: 82, height: 6, text: labels.terms, fontSize: 7, fontWeight: '600' },
+  { id: 'terms', type: 'field', name: '付款条件', x: 112, y: 94, width: 82, height: 8, binding: 'payment_terms', fontSize: 9 },
   { id: 'items', type: 'table', name: '产品明细表', x: 16, y: 112, width: 178, height: 72, fontSize: 8, border: '#a8a8a8' },
-  { id: 'total-label', type: 'text', name: '总金额标签', x: 116, y: 198, width: 38, height: 9, text: 'TOTAL', fontSize: 10, fontWeight: '700', align: 'right' },
+  { id: 'total-label', type: 'text', name: '总金额标签', translationKey: 'total', x: 116, y: 198, width: 38, height: 9, text: labels.total, fontSize: 10, fontWeight: '700', align: 'right' },
   { id: 'total', type: 'field', name: '总金额', x: 156, y: 198, width: 38, height: 9, binding: 'totals.grand_total', fontSize: 11, fontWeight: '700', align: 'right' },
-  { id: 'footer', type: 'text', name: '页脚文字', x: 16, y: 270, width: 178, height: 8, text: 'AUTHORIZED SIGNATURE', fontSize: 8, color: '#525252', align: 'right' },
-];
+  { id: 'footer', type: 'text', name: '页脚文字', translationKey: 'signature', x: 16, y: 270, width: 178, height: 8, text: labels.signature, fontSize: 8, color: '#525252', align: 'right' },
+  ];
+};
 const readPath = (root: Json, path?: string) => (path || '').split('.').filter(Boolean).reduce<any>((value, key) => value?.[key], root);
 const formatValue = (value: any) => value == null || value === '' ? '—' : typeof value === 'object' ? Object.values(value).filter(Boolean).join(', ') : String(value);
 
@@ -118,7 +132,7 @@ export function DocumentStudioPage() {
 
   useEffect(() => { void loadBase(); }, [loadBase]);
   useEffect(() => {
-    setElements(initialElements(documentType));
+    setElements(initialElements(documentType, locale));
     setCreatedDoc(null); setPreviewContent({}); setPreviewTotals({}); setSelectedId('title');
     setTemplateId(''); setSourceMode('sales_order'); setSourceDocumentId('');
   }, [documentType]);
@@ -135,7 +149,7 @@ export function DocumentStudioPage() {
     return () => { active = false; };
   }, [isShipment, orderId]);
 
-  useEffect(() => { setTemplateId(''); }, [locale]);
+  useEffect(() => { setTemplateId(''); const labels = TEMPLATE_LABELS[locale] ?? TEMPLATE_LABELS.en; setElements(items => items.map(item => item.translationKey ? { ...item, text: labels[item.translationKey] ?? item.text } : item)); }, [locale]);
 
   useEffect(() => {
     const template = templates.find(item => item.id === templateId);
@@ -146,7 +160,7 @@ export function DocumentStudioPage() {
     if (config.orientation === 'portrait' || config.orientation === 'landscape') setOrientation(config.orientation);
   }, [templateId, templates]);
 
-  const updateElement = (id: string, patch: Partial<StudioElement>) => setElements(items => items.map(item => item.id === id ? { ...item, ...patch } : item));
+  const updateElement = (id: string, patch: Partial<StudioElement>) => setElements(items => items.map(item => { if (item.id !== id) return item; const next = { ...item, ...patch }; if ('text' in patch) delete next.translationKey; return next; }));
   const addElement = (type: ElementKind) => {
     const id = 'el-' + crypto.randomUUID().slice(0, 8);
     const item: StudioElement = { id, type, name: type === 'field' ? '数据字段' : type === 'table' ? '产品明细表' : type === 'image' ? '图片' : type === 'shape' ? '形状' : '文本', x: 32, y: 220, width: type === 'table' ? 170 : 70, height: type === 'table' ? 50 : 12, text: type === 'text' ? '双击属性修改文字' : undefined, binding: type === 'field' ? 'buyer_name' : undefined, fontSize: 9, color: '#161616', background: type === 'shape' ? '#e8f1ff' : 'transparent', align: 'left' };
