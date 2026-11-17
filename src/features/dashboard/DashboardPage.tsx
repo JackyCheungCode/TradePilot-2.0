@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  AreaChart, DonutChart, TreemapChart, SimpleBarChart, ChoroplethChart, WordCloudChart, BubbleChart,
+  AreaChart, DonutChart, SimpleBarChart, ChoroplethChart, WordCloudChart, BubbleChart,
 } from '@carbon/charts-react';
 import {
   Button, InlineLoading, InlineNotification, Tile, Tag, Select, SelectItem,
@@ -29,6 +29,19 @@ const countryLabelEnglish = (code: string) => {
   if (!code || code === 'unknown') return 'Unknown';
   try { return new Intl.DisplayNames(['en'], { type: 'region' }).of(code.toUpperCase()) || code.toUpperCase(); }
   catch { return code.toUpperCase(); }
+};
+const countryGeoId = (code: string) => {
+  const geometries = (worldAtlas as any)?.objects?.countries?.geometries || [];
+  const aliases: Record<string, string> = {
+    US: 'United States of America', KR: 'South Korea', RU: 'Russia', CZ: 'Czechia',
+    CD: 'Democratic Republic of the Congo', CG: 'Republic of the Congo',
+    CI: 'Ivory Coast', BO: 'Bolivia', VE: 'Venezuela', TZ: 'Tanzania',
+    SY: 'Syria', LA: 'Laos', MD: 'Moldova', VN: 'Vietnam', IR: 'Iran',
+    KP: 'North Korea', PS: 'Palestine', BN: 'Brunei', TL: 'Timor-Leste',
+  };
+  const target = (aliases[code.toUpperCase()] || countryLabelEnglish(code)).toLowerCase();
+  const match = geometries.find((item: any) => String(item.properties?.name || '').toLowerCase() === target);
+  return match?.id === undefined || match?.id === null ? null : String(match.id);
 };
 const countryLabel = (code: string) => {
   if (!code || code === 'unknown') return '未设置国家';
@@ -147,7 +160,7 @@ export function DashboardPage() {
     const total = [...counts.values()].reduce((sum, value) => sum + value, 0);
     const countries = [...counts.entries()].map(([code, value]) => ({
       code, name: countryLabel(code), value, share: total ? value / total * 100 : 0,
-    })).sort((a, b) => b.value - a.value);
+    })).filter(item => item.group !== null).sort((a, b) => b.value - a.value);
     const status = new Map<string, number>();
     scoped.accounts.forEach(row => {
       const label = row.status === 'active' ? '活跃' : row.status === 'inactive' ? '非活跃' : '其他';
@@ -206,7 +219,7 @@ export function DashboardPage() {
       scoped.opportunities.forEach(row => add(accountCountries.get(String(row.account_id))));
     }
     return [...counts.entries()].map(([code, value]) => ({
-      group: countryLabelEnglish(code), code, name: countryLabel(code), value,
+      group: countryGeoId(code), code, name: countryLabel(code), value,
     })).sort((a, b) => b.value - a.value);
   }, [marketMetric, scoped]);
 
@@ -239,7 +252,7 @@ export function DashboardPage() {
       return {
         group: countryLabelEnglish(code), country: countryLabel(code), x: prospectCount,
         y: prospectCount ? Number((leadCount / prospectCount * 100).toFixed(1)) : 0,
-        opportunityCount,
+        opportunityCount, bubbleSize: Math.max(1, opportunityCount),
       };
     }).filter(row => row.x > 0).sort((a, b) => b.x - a.x).slice(0, 40);
   }, [data?.accounts, data?.discovery, data?.leads, data?.opportunities]);
@@ -305,7 +318,6 @@ export function DashboardPage() {
     curve: 'curveMonotoneX', points: { enabled: false },
   };
   const donutOptions = { ...commonOptions, title: '客户状态结构', height: '250px', donut: { center: { label: '客户' } }, legend: { position: 'bottom' } };
-  const treemapOptions = { ...commonOptions, title: '国家客户分布', height: '340px', tooltip: { enabled: true, valueFormatter: (value: number) => number(value) + ' 家客户' } };
   const choroplethOptions = {
     ...commonOptions, title: '全球业务资产分布', height: '430px',
     geoData: worldAtlas as any, thematic: { projection: 'naturalEarth' },
@@ -324,7 +336,7 @@ export function DashboardPage() {
       bottom: { title: '潜客数量', mapsTo: 'x', scaleType: 'linear' },
       left: { title: '潜客转线索率 (%)', mapsTo: 'y', scaleType: 'linear' },
     },
-    bubble: { curve: 'opportunityCount' },
+    bubble: { curve: 'bubbleSize' },
     tooltip: { enabled: true },
   };
   const barOptions = { ...commonOptions, height: '260px', axes: { bottom: { mapsTo: 'group', scaleType: 'labels' }, left: { mapsTo: 'value', scaleType: 'linear' } } };
@@ -386,7 +398,7 @@ export function DashboardPage() {
         </Tile>
         <Tile className="tp-workbench__panel tp-workbench__bubble">
           <div className="tp-workbench__panel-heading"><div><p className="tp-workbench__kicker">MARKET DEVELOPMENT OPPORTUNITY</p><h2>全球市场开发潜力</h2><p>横轴为潜客数量，纵轴为潜客转线索率，气泡大小代表商机数量。</p></div><Tag type="teal">{marketBubbles.length} 个市场</Tag></div>
-          {marketBubbles.length ? <BubbleChart data={marketBubbles.map(row => ({ group: row.group, x: row.x, y: row.y, opportunityCount: row.opportunityCount }))} options={bubbleOptions as any}/> : <div className="tp-workbench__empty">需要有国家信息的潜客记录，才能计算各市场开发潜力。</div>}
+          {marketBubbles.length ? <BubbleChart data={marketBubbles.map(row => ({ group: row.group, x: row.x, y: row.y, opportunityCount: row.opportunityCount, bubbleSize: row.bubbleSize }))} options={bubbleOptions as any}/> : <div className="tp-workbench__empty">需要有国家信息的潜客记录，才能计算各市场开发潜力。</div>}
           <div className="tp-workbench__bubble-legend"><span>气泡越大 = 商机越多</span><span>转化率 = 线索数 ÷ 潜客数</span></div>
         </Tile>
       </section>
