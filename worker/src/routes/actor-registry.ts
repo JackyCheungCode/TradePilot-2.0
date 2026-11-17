@@ -129,7 +129,7 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
       if (!selected.length) return errorResponse(request, "ACTOR_EXECUTIONS_REQUIRED", "没有可执行的数据源。", 400);
       const verified = await Promise.all(selected.map(async actor => {
         const rows = await db<Array<{ status: string }>>(env, "actor_registry?owner_id=eq." + ownerId + "&actor_id=eq." + encodeURIComponent(String(actor.actorId)) + "&select=status&limit=1");
-        return { actor, enabled: rows?.[0]?.status === "enabled" };
+        return { actor, enabled: actor.status === "enabled" && rows?.[0]?.status === "enabled" };
       }));
       const actors = verified.filter(item => item.enabled).map(({ actor }) => {
         const schemaKeys = Array.isArray(actor.schemaKeys) ? actor.schemaKeys : [];
