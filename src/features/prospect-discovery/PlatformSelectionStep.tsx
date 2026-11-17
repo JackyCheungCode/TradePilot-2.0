@@ -132,7 +132,6 @@ const defaults: Record<string, string[]> = {
   NZ: ['trade-me','finda','seek-au','google-maps'],
 };
 const recommendedFor = (code: string) => defaults[code] ?? ['google-maps','linkedin','shopify','europages','kompass'];
-const continentOrder = ['North America','South America','Europe','Asia','Africa','Oceania'];
 const northAmericaCodes = new Set('AG AI AW BB BL BM BQ BS BZ CA CR CU CW DM DO GD GL GP GT HN HT JM KN KY LC MF MQ MS MX NI PA PR SV SX TC TT US VC VG VI'.split(' '));
 const directoryContinent = (country: Country) => country.region === 'Americas' ? (northAmericaCodes.has(country.cca2) ? 'North America' : 'South America') : country.region;
 
@@ -220,7 +219,6 @@ export function PlatformSelectionStep({
     const filteredIds = new Set(filtered.map(source => source.id));
     setSelected(current => current.filter(id => !filteredIds.has(id)));
   };
-  const availableCount = allPlatforms.filter(source => source.markets.includes('*') || source.markets.includes(countryCode)).length;
   const clearFilters = () => {
     setSearchTerm('');
     setSelectedContinents([]);
