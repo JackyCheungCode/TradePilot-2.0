@@ -2,6 +2,6 @@
 @use '@carbon/react/scss/themes' as carbon-themes;
 @use '@carbon/react/scss/theme' as carbon-theme;
 
-.tp-design-system[data-carbon-theme='g100'] {
+:root[data-carbon-theme='g100'] {
   @include carbon-theme.theme(carbon-themes.$g100);
 }
