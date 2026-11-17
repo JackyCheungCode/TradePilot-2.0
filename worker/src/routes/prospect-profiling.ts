@@ -121,7 +121,6 @@ export async function handleProspectCities(request: Request, env: Env): Promise<
   const url = new URL(request.url);
   const query = (url.searchParams.get("q") ?? "").trim().slice(0, 80);
   const country = (url.searchParams.get("country") ?? "").trim().slice(0, 2).toUpperCase();
-  const countryName = (url.searchParams.get("countryName") ?? "").trim().slice(0, 80);
   const language = (url.searchParams.get("language") ?? "en").trim().slice(0, 8);
   if (!/^[A-Z]{2}$/.test(country)) return successResponse(request, { cities: [] });
   try {
