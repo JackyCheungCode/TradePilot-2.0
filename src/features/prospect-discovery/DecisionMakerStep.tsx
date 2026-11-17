@@ -166,8 +166,9 @@ export function DecisionMakerStep({ profile }: Props) {
   const syncSelected = async () => {
     const candidates = selectedRows.filter(row => row.enrichment === 'complete' && row.candidateKeys.length > 0);
     if (!candidates.length) { setNotice('所选企业尚无可转换的真实联系人候选。请先执行联系人穿透。'); return; }
-    setNotice('正在逐家企业提交已勾选的联系人，成功与失败结果将分别保留。');
-    const token = await tokenOrThrow();
+    try {
+      setNotice('正在逐家企业提交已勾选的联系人，成功与失败结果将分别保留。');
+      const token = await tokenOrThrow();
     const results = await Promise.all(candidates.map(async row => {
       try {
         const result = await api('/api/v1/discovery-contact-candidates/convert', token, {
@@ -186,7 +187,10 @@ export function DecisionMakerStep({ profile }: Props) {
     const failed = results.length - success;
     setNotice('CRM 转换完成：成功 ' + success + ' 家，失败 ' + failed + ' 家。失败原因已写入下方日志。');
     setLog(current => current + results.filter(item => !item.ok).map(item => '\n[CRM FAILED] ' + item.id + ' · ' + item.message).join(''));
-    setSelected([]);
+      setSelected([]);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'CRM 转换失败');
+    }
   };
 
   const allReady = rows.some(row => row.enrichment === 'complete' && row.candidateCount > 0);
