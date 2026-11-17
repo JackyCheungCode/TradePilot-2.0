@@ -164,16 +164,17 @@ const allPlatforms: Array<Source & { category: string; global: boolean }> = [
 const continentLabelForCountry = (country: Country) => directoryContinent(country);
 const continentName = (value: string) => continentLabels.find(item => item.value === value)?.label ?? value;
 
-type PlatformExecutionStatus = 'connected' | 'verify' | 'unavailable';
+type PlatformExecutionStatus = 'connected' | 'verify' | 'actor' | 'unavailable';
 const getPlatformExecutionStatus = (id: string): PlatformExecutionStatus => {
   if (id === 'google-maps') return 'connected';
   if (id === 'facebook' || id === 'instagram' || id === 'google-search') return 'verify';
-  return 'unavailable';
+  return 'actor';
 };
-const isRunnablePlatform = (id: string) => ['google-maps', 'google-search', 'facebook', 'instagram'].includes(id);
+const isRunnablePlatform = (id: string) => allPlatforms.some(source => source.id === id);
 const platformStatusLabels: Record<PlatformExecutionStatus, string> = {
   connected: '执行链已接入',
   verify: '需验证连接 / 凭证',
+  actor: '需通过数据源质量门禁',
   unavailable: '尚未接入执行器',
 };
 
@@ -192,6 +193,8 @@ export function PlatformSelectionStep({
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(defaultPlatformPageSize);
+  const [selectionWarning, setSelectionWarning] = useState('');
+  const maxSelectedSources = 20;
 
   useEffect(() => { setSelected(countryCode ? recommendedFor(countryCode).filter(isRunnablePlatform) : []); }, [countryCode]);
 
@@ -228,14 +231,34 @@ export function PlatformSelectionStep({
   const visibleIds = visiblePlatforms.filter(source => isRunnablePlatform(source.id)).map(source => source.id);
   const allVisibleSelected = visibleIds.length > 0 && visibleIds.every(id => selected.includes(id));
   const selectedOnPage = visibleIds.filter(id => selected.includes(id)).length;
-  const toggle = (id: string) => { if (!isRunnablePlatform(id)) return; setSelected(current => current.includes(id) ? current.filter(value => value !== id) : [...current, id]); };
-  const togglePage = () => setSelected(current => allVisibleSelected
-    ? current.filter(id => !visibleIds.includes(id))
-    : [...new Set([...current, ...visibleIds])]);
-  const selectAllFiltered = () => setSelected(current => [...new Set([...current, ...filtered.filter(source => isRunnablePlatform(source.id)).map(source => source.id)])]);
+  const toggle = (id: string) => {
+    if (!isRunnablePlatform(id)) return;
+    setSelected(current => {
+      if (current.includes(id)) return current.filter(value => value !== id);
+      if (current.length >= maxSelectedSources) { setSelectionWarning('每次方案最多选择 ' + maxSelectedSources + ' 个平台，请分批执行。'); return current; }
+      setSelectionWarning('');
+      return [...current, id];
+    });
+  };
+  const togglePage = () => setSelected(current => {
+    if (allVisibleSelected) return current.filter(id => !visibleIds.includes(id));
+    const additions = visibleIds.filter(id => !current.includes(id));
+    const remaining = Math.max(0, maxSelectedSources - current.length);
+    if (additions.length > remaining) setSelectionWarning('本页还有 ' + (additions.length - remaining) + ' 个平台未选中；每次方案最多选择 ' + maxSelectedSources + ' 个。');
+    else setSelectionWarning('');
+    return [...current, ...additions.slice(0, remaining)];
+  });
+  const selectAllFiltered = () => setSelected(current => {
+    const additions = filtered.filter(source => isRunnablePlatform(source.id) && !current.includes(source.id)).map(source => source.id);
+    const remaining = Math.max(0, maxSelectedSources - current.length);
+    if (additions.length > remaining) setSelectionWarning('已达到本次方案上限，未选中的平台可在下一批任务中选择。');
+    else setSelectionWarning('');
+    return [...current, ...additions.slice(0, remaining)];
+  });
   const clearAllFiltered = () => {
     const filteredIds = new Set(filtered.map(source => source.id));
     setSelected(current => current.filter(id => !filteredIds.has(id)));
+    setSelectionWarning('');
   };
   const clearFilters = () => {
     setSearchTerm('');
