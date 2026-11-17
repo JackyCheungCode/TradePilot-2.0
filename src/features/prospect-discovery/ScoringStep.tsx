@@ -92,10 +92,25 @@ export function ScoringStep({ profile, onContinueToEnrichment }: Props) {
   const scoreRows = (_ids: string[]) => {
     setNotice('当前版本已切换为真实检索记录，但后端 AI 评分接口尚未接入；为避免虚假评分，本步骤暂不生成分数。');
   };
-  const removeSelected = () => {
-    setRows(current => current.filter(row => !selected.includes(row.id)));
-    setNotice('已从当前工作台移除 ' + selected.length + ' 条记录；未写入全局黑名单。');
-    setSelected([]);
+  const removeSelected = async () => {
+    if (!selected.length) return;
+    try {
+      const db = await getSupabaseClient();
+      const { data } = await db.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) throw new Error('登录状态已失效，请重新登录。');
+      const results = await Promise.all(selected.map(async id => {
+        const response = await fetch('/api/v1/discovery-records/' + id + '/action', {
+          method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ action: 'remove' }),
+        });
+        if (!response.ok) throw new Error('移除记录失败（HTTP ' + response.status + '）');
+        return id;
+      }));
+      setRows(current => current.filter(row => !results.includes(row.id)));
+      setNotice('已从潜客发现结果中移除 ' + results.length + ' 条记录（软移除，原始数据仍保留）。');
+      setSelected([]);
+    } catch (error) { setNotice(error instanceof Error ? error.message : '移除记录失败'); }
   };
   const exportSelected = () => {
     const headers = ['企业名称', '官方网站', '国家', '获客来源', '邮箱', '清洗状态', 'AI 综合评分', 'AI 评语'];
@@ -118,10 +133,28 @@ export function ScoringStep({ profile, onContinueToEnrichment }: Props) {
     const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'tradepilot-raw-leads.xlsx'; anchor.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
-  const sendToEnrichment = () => {
+  const sendToEnrichment = async () => {
     if (!selectedRows.length) return;
-    try { localStorage.setItem('tradepilot.prospect-discovery.crm-queue.v1', JSON.stringify(selectedRows)); } catch { /* Keep the current workbench available if browser storage is full. */ }
-    onContinueToEnrichment();
+    try {
+      const db = await getSupabaseClient();
+      const { data } = await db.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) throw new Error('登录状态已失效，请重新登录。');
+      const results = await Promise.all(selectedRows.map(async row => {
+        const response = await fetch('/api/v1/discovery-records/' + row.id + '/action', {
+          method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ action: 'review' }),
+        });
+        const payload = await response.json().catch(() => ({})) as { error?: { message?: string } };
+        if (!response.ok) throw new Error(row.name + '：' + (payload.error?.message || '审核未通过'));
+        return row;
+      }));
+      localStorage.setItem('tradepilot.prospect-discovery.crm-queue.v1', JSON.stringify(results));
+      setNotice('已审核通过 ' + results.length + ' 条真实潜客记录，正在进入联系人穿透步骤。');
+      onContinueToEnrichment();
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : '潜客审核失败；未进入联系人穿透步骤。');
+    }
   };
   const scoreTag = (score?: number) => score === undefined ? <Tag type="gray">待清洗</Tag> : <Tag type={score >= 90 ? 'green' : score >= 80 ? 'blue' : 'warm-gray'}>{score >= 90 ? 'Tier A' : score >= 80 ? 'Tier B' : 'Tier C'}</Tag>;
 
