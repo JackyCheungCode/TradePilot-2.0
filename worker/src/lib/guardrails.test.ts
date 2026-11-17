@@ -140,3 +140,11 @@ test("duplicate policy defaults safely and accepts the three supported modes", (
   assert.equal(getDuplicatePolicy({ duplicatePolicy: "review" }), "review");
   assert.equal(getDuplicatePolicy({ duplicatePolicy: "unexpected" }), "merge");
 });
+
+test("website platform exclusion checks provider technology metadata", () => {
+  const result = evaluateGuardrails(
+    { name: "Store", website: "https://example-store.com", raw: { cms: "Shopify" } },
+    snapshot({ enabled: { websites: true }, websiteRows: [{ type: "platform", value: "shopify" }] }),
+  );
+  assert.equal(result.blocked, true);
+});
