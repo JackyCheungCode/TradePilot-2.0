@@ -79,6 +79,7 @@ begin
      or length(p_challenge) < 20 or length(p_challenge) > 256 then
     raise exception 'invalid WebAuthn challenge parameters';
   end if;
+  delete from private.webauthn_challenges where expires_at < now() or consumed_at is not null;
   insert into private.webauthn_challenges(user_id,session_id,purpose,challenge,expires_at)
   values(p_user_id,p_session_id,p_purpose,p_challenge,p_expires_at)
   returning id into v_id;
@@ -237,7 +238,6 @@ revoke all on function public.tradepilot_webauthn_has_grant(uuid,uuid) from publ
 revoke all on function public.tradepilot_webauthn_revoke_credential(uuid,text) from public, anon, authenticated;
 revoke all on function public.tradepilot_webauthn_is_enabled(uuid) from public, anon, authenticated;
 revoke all on function public.tradepilot_webauthn_has_grant(uuid,uuid) from public, anon, authenticated;
-grant execute on function public.tradepilot_webauthn_is_enabled(uuid) to service_role;
 grant execute on function public.tradepilot_webauthn_get_credentials(uuid) to service_role;
 grant execute on function public.tradepilot_webauthn_store_challenge(uuid,uuid,text,text,timestamptz) to service_role;
 grant execute on function public.tradepilot_webauthn_consume_challenge(uuid,uuid,uuid,text) to service_role;
@@ -245,10 +245,7 @@ grant execute on function public.tradepilot_webauthn_save_credential(uuid,text,t
 grant execute on function public.tradepilot_webauthn_set_enabled(uuid,boolean) to service_role;
 grant execute on function public.tradepilot_webauthn_update_counter(uuid,text,bigint) to service_role;
 grant execute on function public.tradepilot_webauthn_grant_session(uuid,uuid,text,timestamptz) to service_role;
-grant execute on function public.tradepilot_webauthn_has_grant(uuid,uuid) to service_role;
 grant execute on function public.tradepilot_webauthn_revoke_credential(uuid,text) to service_role;
-grant execute on function public.tradepilot_webauthn_is_enabled(uuid) to service_role;
-grant execute on function public.tradepilot_webauthn_has_grant(uuid,uuid) to service_role;
 
 revoke all on function private.tradepilot_webauthn_session_authorized() from public, anon;
 grant execute on function private.tradepilot_webauthn_session_authorized() to authenticated;
