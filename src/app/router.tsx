@@ -3,7 +3,7 @@ import { AppShell } from '../design-system/layout/AppShell';
 import { RequireAuth } from './RequireAuth';
 import { LoginPage } from '../features/auth/LoginPage';
 import { AgentWorkspacePage } from '../features/agent/AgentWorkspacePage';
-import { ProspectDiscoveryPage, ProspectConsolePage, RecentTasksPage } from '../features/prospect-discovery';
+import { ProspectDiscoveryPage } from '../features/prospect-discovery';
 import { LeadCreatePage } from '../features/leads/LeadCreatePage';
 import { LeadConsolePage } from '../features/leads/LeadConsolePage';
 import { ContactConsolePage, ContactDetailPage, ContactFormPage } from '../features/contacts/ContactPages';
@@ -37,7 +37,6 @@ export const router = createBrowserRouter([
           { path: 'Omnichannel-inbox', element: <OmnichannelInboxPage /> },
           { path: 'agent', element: <AgentWorkspacePage /> },
           { path: 'prospect-discovery', element: <ProspectDiscoveryPage /> },
-          { path: 'prospect-console', element: <ProspectConsolePage /> },
           { path: 'leads', element: <LeadConsolePage /> },
           { path: 'leads/new', element: <LeadCreatePage /> },
           { path: 'opportunities', element: <OpportunityConsolePage /> },
@@ -79,7 +78,6 @@ export const router = createBrowserRouter([
           { path: 'accounts/new', element: <AccountFormPage /> },
           { path: 'accounts/:id/edit', element: <AccountFormPage /> },
           { path: 'accounts/:id', element: <AccountDetailPage /> },
-          { path: 'recent-tasks', element: <RecentTasksPage /> },
         ],
       },
     ],
