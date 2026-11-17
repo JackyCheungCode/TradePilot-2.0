@@ -1,6 +1,7 @@
 import { errorResponse, successResponse } from "../lib/http";
+import { runConfiguredAI } from "./settings";
 
-interface Env { SUPABASE_URL: string; SUPABASE_ANON_KEY: string; }
+interface Env { SUPABASE_URL: string; SUPABASE_ANON_KEY: string; SUPABASE_SERVICE_ROLE_KEY: string; AI: { run(model: string, input: Record<string, unknown>): Promise<unknown> }; }
 
 async function authenticated(request: Request, env: Env): Promise<boolean> {
   const token = request.headers.get("Authorization")?.match(/^Bearer\s+(\S+)$/i)?.[1];
@@ -34,5 +35,58 @@ export async function handleProspectProfiling(request: Request, env: Env): Promi
   } catch (error) {
     console.error("PROSPECT_AUTOCOMPLETE_FAILED", String(error).slice(0, 240));
     return errorResponse(request, "AUTOCOMPLETE_UNAVAILABLE", "Google 搜索联想暂时不可用，请稍后重试。", 502);
+  }
+}
+
+
+function cleanTerms(value: unknown, limit = 12): string[] {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.filter((item): item is string => typeof item === "string")
+    .map(item => item.trim().slice(0, 100)).filter(Boolean))].slice(0, limit);
+}
+
+export async function handleProspectStrategy(request: Request, env: Env): Promise<Response> {
+  if (request.method !== "POST") return errorResponse(request, "METHOD_NOT_ALLOWED", "不支持的请求方法。", 405);
+  if (!await authenticated(request, env)) return errorResponse(request, "UNAUTHORIZED", "请先登录 TradePilot。", 401);
+  let body: Record<string, unknown>;
+  try { body = await request.json() as Record<string, unknown>; }
+  catch { return errorResponse(request, "INVALID_JSON", "请求内容格式无效。", 400); }
+  const product = typeof body.coreNoun === "string" ? body.coreNoun.trim().slice(0, 120) : "";
+  if (!product) return errorResponse(request, "PRODUCT_REQUIRED", "请先填写核心产品名词。", 400);
+  const profile = {
+    product,
+    buyers: cleanTerms(body.buyers, 8),
+    country: typeof body.country === "string" ? body.country.slice(0, 80) : "",
+    city: typeof body.city === "string" ? body.city.slice(0, 80) : "",
+    materials: cleanTerms(body.materials, 12),
+    specifications: typeof body.specifications === "string" ? body.specifications.slice(0, 160) : "",
+    hsCode: typeof body.hsCode === "string" ? body.hsCode.slice(0, 20) : "",
+    certifications: cleanTerms(body.certifications, 12),
+    competitors: cleanTerms(body.competitors, 3),
+  };
+  const prompt = [
+    "You are a B2B export market research terminology specialist.",
+    "Generate buyer-intent search vocabulary for the structured product profile below.",
+    "Return only valid JSON with exactly these keys: synonyms (array of up to 10 English product synonyms and close commercial variants), localizedTerms (array of up to 10 relevant local-language product or buyer terms for the target market), buyerKeywords (array of up to 8 buyer-side commercial role and sourcing terms).",
+    "Do not invent certifications, HS codes, companies, facts, or translations you are unsure about. Prefer precise procurement language over broad generic words. Keep each item short. If target market is blank, use globally understood English.",
+    "Profile: " + JSON.stringify(profile),
+  ].join("\n");
+  try {
+    const raw = await runConfiguredAI("prospect-profiling", prompt, env);
+    const normalized = raw.replace(/^\s*```(?:json)?/i, "").replace(/```\s*$/, "").trim();
+    const start = normalized.indexOf("{");
+    const end = normalized.lastIndexOf("}");
+    if (start < 0 || end <= start) throw new Error("AI 返回格式无法解析");
+    const parsed = JSON.parse(normalized.slice(start, end + 1)) as Record<string, unknown>;
+    return successResponse(request, {
+      synonyms: cleanTerms(parsed.synonyms),
+      localizedTerms: cleanTerms(parsed.localizedTerms),
+      buyerKeywords: cleanTerms(parsed.buyerKeywords, 8),
+      generatedAt: new Date().toISOString(),
+      modelTask: "prospect-profiling",
+    });
+  } catch (error) {
+    console.error("PROSPECT_STRATEGY_AI_FAILED", String(error).slice(0, 300));
+    return errorResponse(request, "AI_STRATEGY_UNAVAILABLE", error instanceof Error ? error.message.slice(0, 180) : "AI 获客策略生成失败，请检查模型配置。", 502);
   }
 }
