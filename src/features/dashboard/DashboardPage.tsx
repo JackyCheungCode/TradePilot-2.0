@@ -57,7 +57,7 @@ export function DashboardPage() {
       const queries = await Promise.all([
         db.from('crm_accounts').select('id,country_code,created_at,status,industry,account_name,source_lead_id').eq('is_archived', false).limit(5000),
         db.from('leads').select('id,country_code,status,created_at,is_formal').limit(5000),
-        db.from('crm_opportunities').select('id,account_id,stage,status,amount,currency_code,probability,created_at,expected_close_date,is_archived').eq('is_archived', false).limit(5000),
+        db.from('crm_opportunities').select('id,account_id,stage,status,amount,currency_code,probability,forecast_probability,created_at,expected_close_date,is_archived').eq('is_archived', false).limit(5000),
         db.from('trade_documents').select('id,order_id,document_type,status,currency_code,totals,created_at,issued_at').eq('document_type', 'quotation').limit(5000),
         db.from('trade_orders').select('id,order_number,status,currency_code,created_at,crm_account_id,metadata,order_type').eq('order_type', 'sales').limit(5000),
         db.from('trade_shipments').select('id,status,created_at,planned_ship_date,actual_ship_date,shipment_value,currency_code,exception_flag,account_id,order_id').limit(5000),
