@@ -118,3 +118,15 @@
 - All 15 automated tests passed, including the four owner-scoped global guardrail settings API tests.
 - Design-system boundary, Worker secret scan, generated Worker types, TypeScript checks, frontend build, Cloudflare Worker dry-run validation, and deployment bundle packaging passed.
 - This is build/package verification only. No deployment or production database migration was executed.
+
+## Actor-based channel expansion decision (2026-11-17)
+- The user confirmed that catalog-only channels will not receive mock demonstrations, simulated execution, or placeholder results in this phase.
+- LinkedIn, TikTok, Amazon, Alibaba.com, eBay, Walmart, YouTube, Reddit, Pinterest and other currently unconnected catalog entries remain deferred. The user will configure the appropriate Actor integrations per channel in a later phase.
+- Do not create fake provider adapters, demo tasks, simulated progress, synthetic result records, or imply these channels are operational. Keep their catalog status explicitly non-executable until a real Actor configuration and independently verified execution chain exist.
+- Current acceptance scope remains the four existing execution paths only: Google Maps / OSM, Web Search, Facebook, and Instagram. The four channels still require controlled real-provider acceptance; no live collection was run as part of this code-only phase.
+
+## Latest CI confirmation (2026-11-17)
+- Feature branch head a06948ce8f37276081c03a98c4934c5166efc512 has CI run 44053502728 completed successfully.
+- Job build completed all steps successfully: dependency install, private scanner validation, guardrail tests, design-system boundary, typecheck/build, Worker dry-run, and deployment bundle packaging.
+- The paired Preview workflow run 44053502779 was skipped; no Preview or production deployment occurred.
+- Production migration, live provider collection, and historical task reconciliation remain unexecuted.
