@@ -48,6 +48,7 @@ type Profile = {
   buyers: string[];
   continent: string;
   country: string;
+  countryName: string;
   city: string;
   materials: string[];
   specifications: string;
@@ -60,31 +61,32 @@ type Profile = {
 type Strategy = { google: string[]; maps: string[]; social: string[] };
 
 const emptyProfile: Profile = {
-  name: '', coreNoun: '', buyers: [], continent: '', country: '', city: '', materials: [],
+  name: '', coreNoun: '', buyers: [], continent: '', country: '', countryName: '', city: '', materials: [],
   specifications: '', hsCode: '', certifications: [], employeeScale: '', activity: '',
   competitors: ['', '', ''],
 };
 
-function compileStrategy(profile: Profile, tld: string): Strategy {
+function compileStrategy(profile: Profile, tld: string, keywords: string[] = []): Strategy {
   const noun = profile.coreNoun.trim();
   if (!noun) return { google: [], maps: [], social: [] };
   const buyerTerms = profile.buyers.map(id => buyerOptions.find(item => item.id === id)?.title ?? '').filter(Boolean);
   const buyerClause = buyerTerms.length ? '(' + buyerTerms.map(item => '"' + item + '"').join(' OR ') + ')' : '';
-  const market = profile.country ? ' "' + profile.country + '"' : '';
+  const market = profile.countryName ? ' "' + profile.countryName + '"' : '';
   const site = tld ? ' site:' + tld : '';
   const exclusions = excludedTerms.map(term => '-' + term).join(' ');
   const base = '"' + noun + '"';
+  const expanded = keywords.length ? '(' + [noun, ...keywords].map(term => '"' + term + '"').join(' OR ') + ')' : base;
   const specs = [profile.specifications, ...profile.materials].filter(Boolean).join(' ');
   const specClause = specs ? ' (' + specs + ')' : '';
   const hs = profile.hsCode.trim() ? ' "' + profile.hsCode.trim() + '"' : '';
   const google = [
-    [base, buyerClause, market, site, exclusions].filter(Boolean).join(' '),
-    [base, specClause, hs, buyerClause, market, exclusions].filter(Boolean).join(' '),
-    [base, '(supplier OR sourcing OR procurement OR wholesale)', market, site, exclusions].filter(Boolean).join(' '),
+    [expanded, buyerClause, market, site, exclusions].filter(Boolean).join(' '),
+    [expanded, specClause, hs, buyerClause, market, exclusions].filter(Boolean).join(' '),
+    [expanded, '(supplier OR sourcing OR procurement OR wholesale)', market, site, exclusions].filter(Boolean).join(' '),
   ];
   const area = profile.city.trim() || profile.country || 'target market';
   const mapTerms = [
-    noun, noun + ' importer', noun + ' distributor', noun + ' wholesaler',
+    noun, ...keywords.slice(0, 2), noun + ' importer', noun + ' distributor', noun + ' wholesaler',
     noun + ' supplier', noun + ' retailer', noun + ' trading company', noun + ' procurement',
   ];
   const maps = mapTerms.map(term => term + ' near ' + area);
@@ -111,6 +113,10 @@ export function ProspectDiscoveryPage() {
   const [advancedMode, setAdvancedMode] = useState(false);
   const [synonymInput, setSynonymInput] = useState('');
   const [synonyms, setSynonyms] = useState<string[]>([]);
+  const [aiSynonyms, setAiSynonyms] = useState<string[]>([]);
+  const [localizedTerms, setLocalizedTerms] = useState<string[]>([]);
+  const [buyerKeywords, setBuyerKeywords] = useState<string[]>([]);
+  const [strategyLoading, setStrategyLoading] = useState(false);
   const [googleQueries, setGoogleQueries] = useState<string[]>([]);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
@@ -299,7 +305,7 @@ export function ProspectDiscoveryPage() {
                   <SelectItem value="" text="选择大洲" />
                   {continents.map(item => <SelectItem key={item.value} value={item.value} text={item.label} />)}
                 </Select>
-                <Select id="tp-country" labelText="目标国家" value={profile.country} disabled={!profile.continent || countryLoading} onChange={event => setProfile(current => ({ ...current, country: event.currentTarget.value, city: '' }))}>
+                <Select id="tp-country" labelText="目标国家" value={profile.country} disabled={!profile.continent || countryLoading} onChange={event => { const code = event.currentTarget.value; const country = countries.find(item => item.cca2 === code); setProfile(current => ({ ...current, country: code, countryName: country?.name.common ?? '', city: '' })); }}>
                   <SelectItem value="" text={countryLoading ? '正在加载国家…' : '选择国家'} />
                   {filteredCountries.map(item => <SelectItem key={item.cca2} value={item.cca2} text={item.name.common} />)}
                 </Select>
@@ -328,7 +334,7 @@ export function ProspectDiscoveryPage() {
                 </div>
                 <div className="tp-prospect-discovery__two-col">
                   <TextInput id="tp-specifications" labelText="核心规格 / 尺寸 / 功率" placeholder="例如 18-inch、100W、IP67" value={profile.specifications} onChange={event => update('specifications', event.currentTarget.value)} />
-                  <TextInput id="tp-hs-code" labelText="海关编码（HS Code）" placeholder="输入 HS Code" value={profile.hsCode} onChange={event => update('hsCode', event.currentTarget.value)} />
+                  <ComboBox id="tp-hs-code" titleText="海关编码（HS Code）" placeholder="输入 HS Code" items={[]} selectedItem={profile.hsCode} itemToString={item => typeof item === 'string' ? item : ''} onInputChange={value => update('hsCode', value)} onChange={({ selectedItem }) => { if (typeof selectedItem === 'string') update('hsCode', selectedItem); }} />
                 </div>
                 <div className="tp-prospect-discovery__field">
                   <span className="tp-prospect-discovery__field-label">目标市场强制认证</span>
