@@ -29,8 +29,28 @@ export function RequireAuth() {
         if (error) throw error;
         if (!alive) return;
         const needsSecondFactor = data.currentLevel === 'aal1' && data.nextLevel === 'aal2';
-        setMfaRequired(needsSecondFactor);
-        setSession(needsSecondFactor ? null : nextSession);
+        if (needsSecondFactor) {
+          setMfaRequired(true);
+          setSession(null);
+          setReady(true);
+          return;
+        }
+        const biometricResponse = await fetch('/api/v1/webauthn/status', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${nextSession.access_token}`,
+          },
+          body: '{}',
+        });
+        if (!biometricResponse.ok) throw new Error('无法确认生物识别 MFA 状态。');
+        const biometricPayload = await biometricResponse.json() as {
+          data?: { enabled?: boolean; granted?: boolean };
+        };
+        if (!biometricPayload.data) throw new Error('生物识别 MFA 状态响应无效。');
+        const biometricRequired = biometricPayload.data.enabled === true && biometricPayload.data.granted !== true;
+        setMfaRequired(biometricRequired);
+        setSession(biometricRequired ? null : nextSession);
         setReady(true);
       } catch {
         if (!alive) return;
