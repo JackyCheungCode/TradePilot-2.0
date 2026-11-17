@@ -121,6 +121,7 @@ export function AppShell() {
           <SideNavItems>
             <SideNavLink href="/trade-tools" isActive={location.pathname.startsWith('/trade-tools')} title="外贸工具（Trade tools）" renderIcon={CarbonIcons.Calculator}>外贸工具（Trade tools）</SideNavLink>
             <SideNavLink href="/settings" isActive={location.pathname.startsWith('/settings')} title="设置（Setting）" renderIcon={CarbonIcons.Settings}>设置（Setting）</SideNavLink>
+            <SideNavLink href="/security" isActive={location.pathname.startsWith('/security')} title="安全与身份认证（Security）" renderIcon={CarbonIcons.Security}>安全与身份认证（Security）</SideNavLink>
           </SideNavItems>
         </div>
         <div className="tp-sidenav__footer">

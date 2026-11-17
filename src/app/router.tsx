@@ -15,6 +15,7 @@ import { QuoteConsolePage, QuoteDetailPage, QuoteFormPage } from '../features/qu
 import { SalesOrderConsolePage, SalesOrderDetailPage, SalesOrderFormPage } from '../features/sales-orders/SalesOrderPages';
 import { ProductConsolePage, ProductDetailPage, ProductFormPage } from '../features/products/ProductPages';
 import { SettingsCenterPage } from '../features/settings/SettingsCenterPage';
+import { SecuritySettingsPage } from '../features/security/SecuritySettingsPage';
 import { TradeToolsPage } from '../features/trade-tools/TradeToolsPage';
 import { TradeToolsHubPage } from '../features/trade-tools/TradeToolsHubPage';
 import { ShipmentConsolePage, ShipmentDetailPage, ShipmentFormPage } from '../features/shipments/ShipmentPages';
@@ -75,6 +76,7 @@ export const router = createBrowserRouter([
           { path: 'trade-tools', element: <TradeToolsHubPage /> },
           { path: 'trade-tools/legacy', element: <TradeToolsPage /> },
           { path: 'settings', element: <SettingsCenterPage /> },
+          { path: 'security', element: <SecuritySettingsPage /> },
           { path: 'contacts', element: <ContactConsolePage /> },
           { path: 'contacts/new', element: <ContactFormPage /> },
           { path: 'contacts/:id/edit', element: <ContactFormPage /> },

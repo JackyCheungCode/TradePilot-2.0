@@ -24,11 +24,13 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.28.1",
-    "@supabase/supabase-js": "2.58.0",
+    "@supabase/supabase-js": "2.119.0",
     "@carbon/charts": "^1.26.0",
     "@carbon/charts-react": "^1.26.0",
     "@carbon/ai-chat": "^1.22.0",
-    "fflate": "^0.8.2"
+    "fflate": "^0.8.2",
+    "@simplewebauthn/server": "13.2.2",
+    "@simplewebauthn/browser": "13.2.2"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.69.1",

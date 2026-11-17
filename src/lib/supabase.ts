@@ -18,7 +18,12 @@ export function getSupabaseClient(): Promise<SupabaseClient> {
           throw new Error('Supabase 公共连接配置不完整。');
         }
         return createClient(config.supabaseUrl, config.supabasePublishableKey, {
-          auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+          auth: {
+            persistSession: true,
+            autoRefreshToken: true,
+            detectSessionInUrl: true,
+            experimental: { recoveryCodes: true },
+          },
         });
       })
       .catch((error) => {
