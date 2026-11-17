@@ -123,7 +123,7 @@ export function ProspectDataPage() {
       <Tile className="tp-prospect-hub__panel">
         <div className="tp-prospect-hub__section-heading"><div><h2>获客来源分布</h2><p>按企业所关联的发现平台统计，可同时拥有多个来源。</p></div><Tag type="blue">{sources.length} 个来源平台</Tag></div>
         {loading ? <InlineLoading description="正在汇总来源平台…" /> : sourceCounts.length ? <div className="tp-prospect-hub__source-chart">
-          {sourceCounts.map(item => <div key={item.label} className="tp-prospect-hub__source-row"><span>{item.label}</span><div><i style={{ width: (item.count / maxSource * 100) + '%' }} /></div><strong>{item.count.toLocaleString()}</strong></div>)}
+          {sourceCounts.map(item => <div key={item.label} className="tp-prospect-hub__source-row"><span>{item.label}</span><div><svg viewBox="0 0 100 12" preserveAspectRatio="none" aria-hidden="true"><rect x="0" y="0" width={item.count / maxSource * 100} height="12" /></svg></div><strong>{item.count.toLocaleString()}</strong></div>)}
         </div> : <p className="tp-prospect-hub__empty">暂无来源统计数据。</p>}
       </Tile>
       <Tile className="tp-prospect-hub__panel">
