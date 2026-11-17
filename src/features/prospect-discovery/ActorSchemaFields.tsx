@@ -99,12 +99,19 @@ export function ActorSchemaFields({ sources, profile, onValuesChange }: Props) {
             const discovery = await api('/api/v1/actor-registry/discover', token, { method: 'POST', body: JSON.stringify({ platform: source.id, query: source.name }) }) as { items?: Array<Record<string, unknown>> };
             const candidates = (discovery.items ?? []).filter(actor => typeof actor.actor_id === 'string');
             candidates.sort((a, b) => suitability(b, source) - suitability(a, source));
-            const actor = candidates[0];
-            if (!actor) return null;
-            const actorId = String(actor.actor_id);
-            const result = await api('/api/v1/actor-registry/schema/' + encodeURIComponent(actorId), token) as { version?: string; schema?: ActorSchema; actor?: { status?: string; quality_score?: number | null; last_test_input_fingerprint?: string } };
-            if (!result.schema) return null;
-            return { source, actorId, actorTitle: String(actor.title || actor.actor_name || '平台专用采集器'), schemaVersion: String(result.version || 'latest'), actorStatus: result.actor?.status, actorQualityScore: result.actor?.quality_score, actorInputFingerprint: result.actor?.last_test_input_fingerprint, schema: result.schema } as LoadedSchema;
+            if (!candidates.length) return null;
+            for (const actor of candidates.slice(0, 5)) {
+              const actorId = String(actor.actor_id);
+              try {
+                const result = await api('/api/v1/actor-registry/schema/' + encodeURIComponent(actorId), token) as { version?: string; schema?: ActorSchema; actor?: { status?: string; quality_score?: number | null; last_test_input_fingerprint?: string } };
+                if (!result.schema || !Object.keys(result.schema.properties ?? {}).length) continue;
+                return { source, actorId, actorTitle: String(actor.title || actor.actor_name || '平台专用采集器'), schemaVersion: String(result.version || 'latest'), actorStatus: result.actor?.status, actorQualityScore: result.actor?.quality_score, actorInputFingerprint: result.actor?.last_test_input_fingerprint, schema: result.schema } as LoadedSchema;
+              } catch {
+                continue;
+              }
+            }
+            failures.push(source.name + '：候选数据源均未提供可用的输入结构。');
+            return null;
           } catch (sourceError) {
             failures.push(source.name + '：' + (sourceError instanceof Error ? sourceError.message : String(sourceError)));
             return null;
