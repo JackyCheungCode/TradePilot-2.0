@@ -6,6 +6,7 @@ export interface CommunicationCustomer {
   id: string;
   company: string;
   contact: string;
+  avatarUrl?: string;
   role: string;
   email: string;
   phone: string;
