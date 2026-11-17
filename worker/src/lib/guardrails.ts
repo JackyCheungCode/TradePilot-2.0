@@ -83,7 +83,7 @@ export function evaluateGuardrails(record: {
     if (regions.some(value => (text(record.address) + " " + rawText).toLowerCase().includes(value.toLowerCase()))) reasons.push("命中排除地区");
   }
   if (enabled.products === true && lines(rules.products).some(value => (text(record.businessType) + " " + text(record.description) + " " + rawText).toLowerCase().includes(value.toLowerCase()))) reasons.push("命中产品或业务排除规则");
-  if (enabled.contacts === true && snapshot.doNotContact !== false) {
+  if (enabled.contacts === true) {
     const contacts = object(snapshot.contactEntries);
     const contactValues = [record.email, record.phone, record.social, record.address].map(text).join("\n").toLowerCase();
     if (Object.values(contacts).some(value => lines(value).some(item => contactValues.includes(item.toLowerCase())))) reasons.push("命中联系方式排除名单");
