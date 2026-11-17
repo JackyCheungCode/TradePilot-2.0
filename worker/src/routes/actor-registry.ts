@@ -1,6 +1,7 @@
 import { errorResponse, successResponse } from "../lib/http";
 import { readIntegrationSecret } from "../lib/integrations";
 import { runConfiguredAI } from "./settings";
+import type { DiscoveryRunInput } from "./discovery";
 
 interface ActorRegistryEnv {
   SUPABASE_URL: string;
@@ -8,6 +9,7 @@ interface ActorRegistryEnv {
   SUPABASE_SERVICE_ROLE_KEY: string;
   ACTOR_GATEWAY_API_TOKEN?: string;
   AI?: { run(model: string, input: Record<string, unknown>): Promise<unknown> };
+  LEAD_DISCOVERY_WORKFLOW: { create(options: { id: string; params: { runId: string; ownerId: string; input: DiscoveryRunInput } }): Promise<{ id: string }> };
 }
 type ActorRecord = { id: string; username?: string; name?: string; title?: string; description?: string; modifiedAt?: string; stats?: Record<string, unknown>; };
 
@@ -116,6 +118,77 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
         method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify(items),
       });
       return successResponse(request, { discovered: items.length, items });
+    }
+    if (request.method === "POST" && parts[3] === "execute") {
+      const body = await request.json().catch(() => ({})) as {
+        actors?: Array<{ actorId?: string; sourceId?: string; sourceName?: string; actorTitle?: string; status?: string; schemaKeys?: string[]; input?: Record<string, unknown> }>;
+        profile?: { coreNoun?: string; country?: string; countryName?: string; city?: string };
+        limitPerCountry?: number; planSnapshot?: Record<string, unknown>; guardrailsSnapshot?: Record<string, unknown>;
+      };
+      const selected = (body.actors ?? []).filter(actor => actor && typeof actor.actorId === "string").slice(0, 20);
+      if (!selected.length) return errorResponse(request, "ACTOR_EXECUTIONS_REQUIRED", "没有可执行的数据源。", 400);
+      const verified = await Promise.all(selected.map(async actor => {
+        const rows = await db<Array<{ status: string }>>(env, "actor_registry?owner_id=eq." + ownerId + "&actor_id=eq." + encodeURIComponent(String(actor.actorId)) + "&select=status&limit=1");
+        return { actor, enabled: rows?.[0]?.status === "enabled" };
+      }));
+      const actors = verified.filter(item => item.enabled).map(({ actor }) => {
+        const schemaKeys = Array.isArray(actor.schemaKeys) ? actor.schemaKeys : [];
+        const input = actor.input && typeof actor.input === "object" ? { ...actor.input } : {};
+        const profile = body.profile ?? {};
+        const country = safeText(profile.country, 2);
+        const city = safeText(profile.city, 120);
+        const countryName = safeText(profile.countryName, 120);
+        const noun = safeText(profile.coreNoun, 240);
+        const intent: Record<string, unknown> = {
+          query: noun, searchQuery: noun, keyword: noun, keywords: noun ? [noun] : [],
+          country, countryCode: country, country_code: country, countryName,
+          location: city || countryName, city,
+        };
+        for (const key of schemaKeys) {
+          if (!(key in input) && key in intent && intent[key] !== "") input[key] = intent[key];
+          if (!(key in input) && ["limit", "maxItems", "maxResults", "resultsLimit"].includes(key)) input[key] = Math.max(1, Math.min(100, Number(body.limitPerCountry) || 20));
+        }
+        return {
+          actorId: String(actor.actorId), sourceId: safeText(actor.sourceId, 100),
+          sourceName: safeText(actor.sourceName, 160), actorTitle: safeText(actor.actorTitle, 200), input,
+        };
+      });
+      if (!actors.length) return errorResponse(request, "ACTOR_QUALITY_GATE_REQUIRED", "所选数据源尚未通过质量门禁，不能正式执行。", 400);
+      const country = safeText(body.profile?.country, 2);
+      const noun = safeText(body.profile?.coreNoun, 240);
+      if (!/^[A-Z]{2}$/.test(country) || !noun) return errorResponse(request, "INVALID_ACTOR_TASK_PROFILE", "请先完成目标国家与核心产品画像。", 400);
+      const limit = Math.max(1, Math.min(100, Number(body.limitPerCountry) || 20));
+      const code = "ACT-" + country + "-" + new Date().toISOString().slice(0, 10).replace(/-/g, "") + "-" + crypto.randomUUID().replace(/-/g, "").slice(0, 6).toUpperCase();
+      const input: DiscoveryRunInput = {
+        countries: [country], query: noun, limitPerCountry: limit, providers: [], channel: "actor_discovery",
+        actorExecutions: actors, planSnapshot: body.planSnapshot, guardrailsSnapshot: body.guardrailsSnapshot,
+      };
+      const config = { actorExecutions: actors.map(actor => ({ actorId: actor.actorId, sourceId: actor.sourceId, sourceName: actor.sourceName })), planSnapshot: body.planSnapshot ?? null, guardrailsSnapshot: body.guardrailsSnapshot ?? null };
+      const rows = await db<Array<{ id: string }>>(env, "discovery_runs", {
+        method: "POST", headers: { Prefer: "return=representation" },
+        body: JSON.stringify({
+          owner_id: ownerId, query: noun, countries: [country], limit_per_country: limit,
+          providers: ["actor_gateway"], channel: "actor_discovery", search_config: config,
+          status: "queued", progress: 0, discovered_count: 0, created_lead_count: 0,
+          message: "数据源任务已排队", task_code: code,
+        }),
+      });
+      const run = rows?.[0];
+      if (!run?.id) return errorResponse(request, "ACTOR_RUN_CREATE_FAILED", "无法创建数据源任务。", 500);
+      await db(env, "discovery_run_logs", {
+        method: "POST", headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({ run_id: run.id, owner_id: ownerId, level: "info", message: "任务编号：" + code + "；已启用数据源：" + actors.map(actor => actor.sourceName).join("、") }),
+      });
+      try {
+        await env.LEAD_DISCOVERY_WORKFLOW.create({ id: run.id, params: { runId: run.id, ownerId, input } });
+      } catch (error) {
+        await db(env, "discovery_runs?id=eq." + run.id + "&owner_id=eq." + ownerId, {
+          method: "PATCH", headers: { Prefer: "return=minimal" },
+          body: JSON.stringify({ status: "failed", message: "后台工作流启动失败：" + String(error).slice(0, 160) }),
+        });
+        return errorResponse(request, "ACTOR_WORKFLOW_START_FAILED", "任务已创建，但后台工作流启动失败。", 503);
+      }
+      return successResponse(request, { id: run.id, taskCode: code, channel: "actor_discovery", status: "queued", progress: 0, message: "数据源任务已排队", actorCount: actors.length }, 202);
     }
     if (request.method === "POST" && parts[3] === "test") {
       const body = await request.json().catch(() => ({})) as { actorId?: string; input?: Record<string, unknown>; expectedFieldCount?: number };
