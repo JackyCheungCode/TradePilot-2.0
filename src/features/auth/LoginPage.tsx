@@ -4,7 +4,7 @@ import {
   Button, InlineLoading, InlineNotification, TextInput,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
-import '@/design-system/patterns/prospect-discovery.scss';
+import '@/design-system/patterns/login.scss';
 
 export function LoginPage() {
   const location = useLocation();
@@ -63,7 +63,7 @@ export function LoginPage() {
   return (
     <main className="tp-login">
       <section className="tp-login__surface" aria-labelledby="tp-login-title">
-        <p className="tp-discovery__eyebrow">TRADEPILOT / SECURE ACCESS</p>
+        <p className="tp-login__eyebrow">TRADEPILOT / SECURE ACCESS</p>
         <h1 id="tp-login-title">登录 TradePilot</h1>
         <p className="tp-login__description">使用已创建的 TradePilot 账户登录工作区。</p>
         {!clientReady && <InlineLoading description="正在连接登录服务…" />}
