@@ -71,7 +71,6 @@ function compileStrategy(profile: Profile, tld: string): Strategy {
   const buyerTerms = profile.buyers.map(id => buyerOptions.find(item => item.id === id)?.title ?? '').filter(Boolean);
   const buyerClause = buyerTerms.length ? '(' + buyerTerms.map(item => '"' + item + '"').join(' OR ') + ')' : '';
   const market = profile.country ? ' "' + profile.country + '"' : '';
-  const city = profile.city.trim() ? ' "' + profile.city.trim() + '"' : '';
   const site = tld ? ' site:' + tld : '';
   const exclusions = excludedTerms.map(term => '-' + term).join(' ');
   const base = '"' + noun + '"';
