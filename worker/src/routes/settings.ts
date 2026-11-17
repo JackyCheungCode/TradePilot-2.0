@@ -217,8 +217,40 @@ export async function runConfiguredAI(task: string, prompt: string, env: Setting
 }
 
 export async function handleSettings(request: Request, env: SettingsEnv): Promise<Response> {
-  if (!(await authenticated(request, env))) return errorResponse(request, "UNAUTHORIZED", "请先登录后再管理集成密钥。", 401);
+  const ownerId = await authenticatedUserId(request, env);
+  if (!ownerId) return errorResponse(request, "UNAUTHORIZED", "请先登录后再管理集成密钥。", 401);
   const url = new URL(request.url);
+  if (url.pathname === "/api/v1/settings/prospect-guardrails" && (request.method === "GET" || request.method === "PUT")) {
+    const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+    if (!serviceKey) return errorResponse(request, "SETTINGS_STORAGE_UNAVAILABLE", "服务端配置存储暂不可用。", 503);
+    const endpoint = env.SUPABASE_URL + "/rest/v1/trade_business_settings";
+    const headers = { apikey: serviceKey, Authorization: "Bearer " + serviceKey, Accept: "application/json" };
+    try {
+      if (request.method === "GET") {
+        const query = new URLSearchParams({ owner_id: "eq." + ownerId, scope_key: "eq.prospect_guardrails", select: "config,config_version,updated_at" });
+        const response = await fetch(endpoint + "?" + query.toString(), { headers });
+        if (!response.ok) throw new Error("读取全局护盾配置失败（HTTP " + response.status + "）");
+        const rows = await response.json() as Array<{ config?: Record<string, unknown>; config_version?: number; updated_at?: string }>;
+        return successResponse(request, { config: rows[0]?.config ?? null, configVersion: rows[0]?.config_version ?? 0, updatedAt: rows[0]?.updated_at ?? null });
+      }
+      const body = await request.json() as { config?: unknown };
+      if (!body.config || typeof body.config !== "object" || Array.isArray(body.config)) return errorResponse(request, "INVALID_GUARDRAIL_CONFIG", "护盾配置格式无效。", 400);
+      const allowedKeys = new Set(["enabled", "rules", "websiteRows", "selectedDimensions", "selectedPositions", "selectedModes", "selectedWebsiteTypes", "contactEntries", "excludedCountries", "keywordAction", "doNotContact", "excludeInternalStaff", "excludeCompetitorStaff", "excludeNonDecisionRoles", "matchCompanyAliases", "matchGroupEntities", "employeeFloor", "requireIndependentSite", "unknownPolicy", "duplicatePolicy", "template"]);
+      const source = body.config as Record<string, unknown>;
+      const config = Object.fromEntries(Object.entries(source).filter(([key]) => allowedKeys.has(key)));
+      if (new TextEncoder().encode(JSON.stringify(config)).byteLength > 100000) return errorResponse(request, "GUARDRAIL_CONFIG_TOO_LARGE", "护盾配置不能超过 100 KB。", 413);
+      const response = await fetch(endpoint + "?on_conflict=owner_id,scope_key", {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=representation" },
+        body: JSON.stringify({ owner_id: ownerId, scope_key: "prospect_guardrails", config, config_version: 1, updated_by: ownerId }),
+      });
+      if (!response.ok) throw new Error("保存全局护盾配置失败（HTTP " + response.status + "）");
+      const rows = await response.json() as Array<{ config_version?: number; updated_at?: string }>;
+      return successResponse(request, { saved: true, configVersion: rows[0]?.config_version ?? 1, updatedAt: rows[0]?.updated_at ?? null });
+    } catch (error) {
+      return errorResponse(request, "PROSPECT_GUARDRAILS_SETTINGS_FAILED", error instanceof Error ? error.message : "全局护盾配置操作失败", 502);
+    }
+  }
   const instagramDefaults={hashtagActor:"apify~instagram-hashtag-scraper",searchActor:"apify~instagram-search-scraper",profilePrimaryActor:"transparent_meteorite~instagram-public-profile-scraper",profileFallbackActor:"dami_studio~instagram-profile-scraper",discoveryCostPer1000:0,profileCostPer1000:0,actorVersion:"latest"};
   if(url.pathname==="/api/v1/settings/instagram-discovery"&&request.method==="GET"){try{const key=env.SUPABASE_SERVICE_ROLE_KEY??"";const r=await fetch(env.SUPABASE_URL+"/rest/v1/instagram_discovery_settings?id=eq.true&select=config",{headers:{apikey:key,Authorization:"Bearer "+key}});if(!r.ok)throw new Error("读取 Instagram 配置失败");const rows=await r.json() as Array<{config:Record<string,unknown>}>;return successResponse(request,{...instagramDefaults,...(rows[0]?.config??{})});}catch(e){return errorResponse(request,"INSTAGRAM_CONFIG_READ_FAILED",e instanceof Error?e.message:"读取 Instagram 配置失败",502);}}
   if(url.pathname==="/api/v1/settings/instagram-discovery"&&request.method==="PUT"){try{const body=await request.json() as Record<string,unknown>;const actorKeys=["hashtagActor","searchActor","profilePrimaryActor","profileFallbackActor"];const next:Record<string,unknown>={};for(const key of actorKeys){const value=String(body[key]??instagramDefaults[key as keyof typeof instagramDefaults]).trim();if(!/^[A-Za-z0-9_~-]{3,120}$/.test(value))return errorResponse(request,"INVALID_ACTOR_ID","Actor ID 格式无效："+key,400);next[key]=value;}for(const key of ["discoveryCostPer1000","profileCostPer1000"]){const value=Number(body[key]??0);if(!Number.isFinite(value)||value<0||value>10000)return errorResponse(request,"INVALID_ACTOR_COST","Actor 单价必须为 0 到 10,000 USD。",400);next[key]=value;}next.actorVersion=String(body.actorVersion??"latest").slice(0,80);const serviceKey=env.SUPABASE_SERVICE_ROLE_KEY??"";const r=await fetch(env.SUPABASE_URL+"/rest/v1/instagram_discovery_settings?on_conflict=id",{method:"POST",headers:{apikey:serviceKey,Authorization:"Bearer "+serviceKey,"Content-Type":"application/json",Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({id:true,config:next,updated_at:new Date().toISOString()})});if(!r.ok)throw new Error("保存 Instagram Actor 配置失败");return successResponse(request,{saved:true});}catch(e){return errorResponse(request,"INSTAGRAM_CONFIG_SAVE_FAILED",e instanceof Error?e.message:"保存 Instagram 配置失败",502);}}
