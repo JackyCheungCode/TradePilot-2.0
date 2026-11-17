@@ -15,7 +15,7 @@ import { handleTradeTools } from "./routes/trade-tools";
 import { handleTradeDocuments } from "./routes/trade-documents";
 import { handleMasterData } from "./routes/master-data";
 import { handleProspectConsole } from "./routes/prospect-console";
-import { handleProspectProfiling, handleProspectStrategy, handleProspectCities } from "./routes/prospect-profiling";
+import { handleProspectProfiling, handleProspectStrategy, handleProspectCities, handleProspectCountries } from "./routes/prospect-profiling";
 import { handleContactValidation } from "./routes/contact-validation";
 import { handleInbox } from "./routes/inbox";
 import { handleInboxWebhook } from "./routes/inbox-webhooks";
@@ -75,6 +75,7 @@ export default {
    if (url.pathname === "/api/v1/prospect-profiling/autocomplete") return await handleProspectProfiling(request, env);
    if (url.pathname === "/api/v1/prospect-profiling/strategy") return await handleProspectStrategy(request, env);
    if (url.pathname === "/api/v1/prospect-profiling/cities") return await handleProspectCities(request, env);
+   if (url.pathname === "/api/v1/prospect-profiling/countries") return await handleProspectCountries(request, env);
    if (url.pathname === "/api/v1/contact-validation") return await handleContactValidation(request, env);
    if (url.pathname.startsWith("/api/v1/inbox/webhooks/")) return await handleInboxWebhook(request, env);
    if (url.pathname.startsWith("/api/v1/inbox/attachments/")) return await handleInboxAttachment(request, env);

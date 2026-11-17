@@ -5,6 +5,7 @@ import {
   Toggle, Tabs, TabList, Tab, Grid, Column, CarbonIcons,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
+import { PlatformSelectionStep } from './PlatformSelectionStep';
 import '@/design-system/patterns/prospect-discovery.scss';
 
 const steps = [
@@ -17,11 +18,11 @@ const steps = [
 ] as const;
 
 const continents: Array<{ value: string; label: string; path: string }> = [
-  { value: 'Africa', label: '非洲（Africa）', path: 'M49 5 67 14 73 31 66 46 58 70 45 91 34 78 29 58 17 43 23 22 36 10Z' },
-  { value: 'Americas', label: '美洲（Americas）', path: 'M27 4 46 8 54 21 47 34 52 48 43 58 40 78 30 94 23 76 26 60 14 45 19 28 10 16Z' },
-  { value: 'Asia', label: '亚洲（Asia）', path: 'M7 20 20 8 41 5 56 12 75 9 94 22 87 38 71 43 62 57 44 51 33 63 18 52 9 37Z' },
-  { value: 'Europe', label: '欧洲（Europe）', path: 'M12 26 24 12 42 9 55 17 70 12 84 24 76 38 62 36 52 48 37 42 24 52 14 41Z' },
-  { value: 'Oceania', label: '大洋洲（Oceania）', path: 'M12 28 25 18 40 22 48 34 39 47 24 45Z M64 58 76 52 91 60 86 75 70 78 60 68Z' },
+  { value: 'Africa', label: '非洲（Africa）', path: 'M43 5 58 9 68 20 65 34 73 45 64 59 59 78 48 94 38 83 34 67 24 57 27 43 19 31 25 16 35 10Z' },
+  { value: 'Americas', label: '美洲（Americas）', path: 'M23 5 39 9 48 20 43 31 51 42 44 52 42 66 34 80 28 96 20 84 23 69 14 57 18 44 10 31 15 17Z M66 56 76 59 82 70 77 83 70 78 67 67Z' },
+  { value: 'Asia', label: '亚洲（Asia）', path: 'M8 22 19 11 34 8 45 13 58 8 74 13 91 24 87 37 76 42 70 54 57 52 48 62 35 56 26 62 16 50 10 38Z' },
+  { value: 'Europe', label: '欧洲（Europe）', path: 'M13 25 22 14 34 11 43 17 53 13 63 18 74 16 85 26 78 36 67 35 60 44 49 40 42 48 31 42 22 49 14 40Z' },
+  { value: 'Oceania', label: '大洋洲（Oceania）', path: 'M12 29 24 20 38 22 48 32 42 44 28 48 18 41Z M61 60 73 54 88 61 86 74 75 81 63 73Z M47 80 51 77 54 82 50 86Z' },
 ];
 
 const buyerOptions = [
@@ -117,6 +118,7 @@ function compileStrategy(profile: Profile, tld: string, keywords: string[] = [])
 
 export function ProspectDiscoveryPage() {
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [selectedSourceCount, setSelectedSourceCount] = useState(0);
   const [profile, setProfile] = useState<Profile>(emptyProfile);
   const [countries, setCountries] = useState<Country[]>([]);
   const [countryLoading, setCountryLoading] = useState(true);
@@ -147,8 +149,7 @@ export function ProspectDiscoveryPage() {
 
   useEffect(() => {
     let active = true;
-    fetch('https://restcountries.com/v3.1/all?fields=name,cca2,region,tld,languages')
-      .then(response => { if (!response.ok) throw new Error('国家主数据暂时不可用'); return response.json() as Promise<Country[]>; })
+    getSupabaseClient().then(async db => { const { data } = await db.auth.getSession(); const token = data.session?.access_token; if (!token) throw new Error('登录状态已失效，请重新登录。'); const response = await fetch('/api/v1/prospect-profiling/countries', { headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' } }); const payload = await response.json() as { data?: { countries?: Country[] }; error?: { message?: string } }; if (!response.ok) throw new Error(payload.error?.message || '国家列表暂时不可用'); return payload.data?.countries ?? []; })
       .then(data => { if (active) setCountries(data.filter(item => item.cca2 && item.name?.common).sort((a, b) => a.name.common.localeCompare(b.name.common))); })
       .catch(cause => { if (active) setCountryError(cause instanceof Error ? cause.message : '国家主数据加载失败'); })
       .finally(() => { if (active) setCountryLoading(false); });
@@ -332,8 +333,8 @@ export function ProspectDiscoveryPage() {
           <p>将商业意图转化为可执行的全球获客搜索策略。</p>
         </div>
         <div className="tp-prospect-discovery__header-meta">
-          <span>STEP 01 / 06</span>
-          <strong>Target Profiling</strong>
+          <span>STEP {String(selectedIndex + 1).padStart(2, '0')} / 06</span>
+          <strong>{selectedIndex === 0 ? 'Target Profiling' : selectedIndex === 1 ? 'Platform & Source Selection' : steps[selectedIndex]}</strong>
         </div>
       </header>
 
@@ -568,9 +569,16 @@ export function ProspectDiscoveryPage() {
             </section>
           )}
         </section>
+      ) : selectedIndex === 1 ? (
+        <PlatformSelectionStep countryCode={profile.country} countryName={profile.countryName} continentLabel={continents.find(item => item.value === profile.continent)?.label ?? ''} onChangeCountry={() => setSelectedIndex(0)} onSelectionCountChange={setSelectedSourceCount} />
       ) : (
-        <div className="tp-prospect-discovery__future-step" aria-label="后续步骤暂未开放" />
+        <div className="tp-prospect-discovery__future-step" aria-label="后续步骤暂未开放"><h2>{steps[selectedIndex]}</h2><p>此步骤将在前序配置确认后启用。</p></div>
       )}
+      <div className="tp-prospect-discovery__step-navigation">
+        <Button kind="secondary" renderIcon={CarbonIcons.ArrowLeft} onClick={() => setSelectedIndex(index => Math.max(0, index - 1))} disabled={selectedIndex === 0}>上一步</Button>
+        <span>第 {selectedIndex + 1} 步，共 6 步</span>
+        <Button kind="primary" renderIcon={CarbonIcons.ArrowRight} onClick={() => setSelectedIndex(index => Math.min(5, index + 1))} disabled={selectedIndex === 5 || (selectedIndex === 0 && !profile.country) || (selectedIndex === 1 && selectedSourceCount === 0)}>下一步</Button>
+      </div>
     </main>
   );
 }

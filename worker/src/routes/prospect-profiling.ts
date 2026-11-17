@@ -94,29 +94,36 @@ export async function handleProspectStrategy(request: Request, env: Env): Promis
 }
 
 
+export async function handleProspectCountries(request: Request, env: Env): Promise<Response> {
+  if (request.method !== "GET") return errorResponse(request, "METHOD_NOT_ALLOWED", "不支持的请求方法。", 405);
+  if (!await authenticated(request, env)) return errorResponse(request, "UNAUTHORIZED", "请先登录 TradePilot。", 401);
+  try {
+    const response = await fetch("https://api.worldbank.org/v2/country?format=json", { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(10000) });
+    if (!response.ok) throw new Error("WORLD_BANK_COUNTRIES_" + response.status);
+    const payload = await response.json() as [unknown, Array<{ id?: string; name?: string; region?: { value?: string } }>];
+    const rows = Array.isArray(payload?.[1]) ? payload[1] : [];
+    const countries = rows.filter(item => /^[A-Z]{2}$/.test(item.id ?? "") && item.name && item.region?.value && item.region.value !== "Aggregates")
+      .map(item => {
+        const region = item.region?.value ?? "";
+        const continent = region.includes("America") ? "Americas" : region.includes("Europe") ? "Europe" : region.includes("Africa") || region.includes("Middle East") ? "Africa" : region.includes("East Asia") || region.includes("South Asia") || region.includes("Central Asia") ? "Asia" : "Oceania";
+        return { name: { common: item.name as string }, cca2: item.id as string, region: continent };
+      }).sort((a,b) => a.name.common.localeCompare(b.name.common));
+    return successResponse(request, { countries, source: "World Bank country catalog" });
+  } catch (error) {
+    console.error("PROSPECT_COUNTRY_LOOKUP_FAILED", String(error).slice(0, 240));
+    return errorResponse(request, "COUNTRY_LOOKUP_UNAVAILABLE", "国家列表暂时不可用，请稍后重试。", 502);
+  }
+}
+
 export async function handleProspectCities(request: Request, env: Env): Promise<Response> {
   if (request.method !== "GET") return errorResponse(request, "METHOD_NOT_ALLOWED", "不支持的请求方法。", 405);
   if (!await authenticated(request, env)) return errorResponse(request, "UNAUTHORIZED", "请先登录 TradePilot。", 401);
   const url = new URL(request.url);
   const query = (url.searchParams.get("q") ?? "").trim().slice(0, 80);
   const country = (url.searchParams.get("country") ?? "").trim().slice(0, 2).toUpperCase();
-  const countryName = (url.searchParams.get("countryName") ?? "").trim().slice(0, 80);
   const language = (url.searchParams.get("language") ?? "en").trim().slice(0, 8);
   if (!/^[A-Z]{2}$/.test(country)) return successResponse(request, { cities: [] });
   try {
-    if (query.length < 2 && countryName) {
-      const catalogResponse = await fetch("https://countriesnow.space/api/v0.1/countries/cities", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ country: countryName }),
-        signal: AbortSignal.timeout(10000),
-      });
-      if (catalogResponse.ok) {
-        const catalog = await catalogResponse.json() as { data?: string[]; error?: boolean };
-        const cities = [...new Set((catalog.data ?? []).filter((item): item is string => typeof item === "string" && item.trim().length > 0).map(item => item.trim()))].sort((a, b) => a.localeCompare(b)).slice(0, 500);
-        if (cities.length) return successResponse(request, { cities, source: "country-city-catalog" });
-      }
-    }
     if (query.length < 2) return successResponse(request, { cities: [] });
     const endpoint = new URL("https://geocoding-api.open-meteo.com/v1/search");
     endpoint.searchParams.set("name", query);
