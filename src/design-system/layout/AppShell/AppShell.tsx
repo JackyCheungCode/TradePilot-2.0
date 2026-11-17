@@ -52,16 +52,15 @@ export function AppShell() {
           <img src="/tradepilot-wordmark.svg" alt="TradePilot" />
         </HeaderName>
         <HeaderGlobalBar>
-          <button
-            type="button"
-            className="tp-communications-trigger"
-            aria-label="打开客户沟通工作台"
-            aria-haspopup="dialog"
+          <HeaderGlobalAction
+            aria-label="客户沟通"
+            tooltipAlignment="end"
+            isActive={communicationsOpen && !communicationsMinimized}
+            aria-expanded={communicationsOpen && !communicationsMinimized}
             onClick={() => { setCommunicationsOpen(true); setCommunicationsMinimized(false); }}
           >
-            <span aria-hidden="true">✉</span>
-            <span>客户沟通</span>
-          </button>
+            <CarbonIcons.Chat size={20} />
+          </HeaderGlobalAction>
           <HeaderGlobalAction
             aria-label={xiaoyaOpen ? "关闭小雅 AI 助手" : "打开小雅 AI 助手"}
             tooltipAlignment="end"
