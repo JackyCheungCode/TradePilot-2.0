@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import * as XLSX from 'xlsx';
+import { strToU8, zipSync } from 'fflate';
 import {
   Accordion, AccordionItem, Column, Dropdown, Grid, InlineNotification, OverflowMenu,
   OverflowMenuItem, Pagination, Table, TableBatchAction, TableBatchActions, TableBody,
@@ -86,13 +86,25 @@ export function ScoringStep({ profile }: Props) {
     setSelected([]);
   };
   const exportSelected = () => {
-    const worksheet = XLSX.utils.json_to_sheet(selectedRows.map(row => ({
-      '企业名称': row.name, '官方网站': row.domain, '国家': row.country, '获客来源': row.source,
-      '邮箱': row.email, '清洗状态': row.status, 'AI 综合评分': row.score ?? '', 'AI 评语': row.comment ?? '',
-    })));
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, '原始线索');
-    XLSX.writeFile(workbook, 'tradepilot-raw-leads.xlsx');
+    const headers = ['企业名称', '官方网站', '国家', '获客来源', '邮箱', '清洗状态', 'AI 综合评分', 'AI 评语'];
+    const data = selectedRows.map(row => [row.name, row.domain, row.country, row.source, row.email, row.status, row.score ?? '', row.comment ?? '']);
+    const xmlEscape = (value: unknown) => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+    const columnName = (index: number) => String.fromCharCode(65 + index);
+    const sheetRows = [headers, ...data].map((values, rowIndex) => '<row r="' + (rowIndex + 1) + '">' + values.map((value, colIndex) => {
+      const ref = columnName(colIndex) + (rowIndex + 1);
+      return '<c r="' + ref + '" t="inlineStr"><is><t xml:space="preserve">' + xmlEscape(value) + '</t></is></c>';
+    }).join('') + '</row>').join('');
+    const files = {
+      '[Content_Types].xml': strToU8('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>'),
+      '_rels/.rels': strToU8('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'),
+      'xl/workbook.xml': strToU8('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="原始线索" sheetId="1" r:id="rId1"/></sheets></workbook>'),
+      'xl/_rels/workbook.xml.rels': strToU8('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>'),
+      'xl/worksheets/sheet1.xml': strToU8('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>' + sheetRows + '</sheetData></worksheet>'),
+    };
+    const workbook = zipSync(files, { level: 0 });
+    const url = URL.createObjectURL(new Blob([workbook], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+    const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'tradepilot-raw-leads.xlsx'; anchor.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
   const scoreTag = (score?: number) => score === undefined ? <Tag type="gray">待清洗</Tag> : <Tag type={score >= 90 ? 'green' : score >= 80 ? 'blue' : 'warm-gray'}>{score >= 90 ? 'Tier A' : score >= 80 ? 'Tier B' : 'Tier C'}</Tag>;
 

@@ -27,7 +27,7 @@
     "@carbon/charts": "^1.26.0",
     "@carbon/charts-react": "^1.26.0",
     "@carbon/ai-chat": "^1.22.0",
-    "xlsx": "^0.18.5"
+    "fflate": "^0.8.2"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.69.1",
