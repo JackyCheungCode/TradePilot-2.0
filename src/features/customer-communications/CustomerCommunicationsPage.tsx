@@ -459,6 +459,7 @@ export function CustomerCommunicationsPage() {
           <p>统一处理跨渠道客户消息与跟进</p>
         </div>
         <div className="cc-page-header-actions">
+          <Button kind="secondary" size="sm" onClick={() => window.open('/customer-communications/window', 'tradepilot-customer-communications', 'popup=yes,width=1440,height=900,resizable=yes,scrollbars=yes')}>独立窗口</Button>
           <Button kind="secondary" size="sm" disabled={backendMode !== 'connected'} onClick={() => setChannelModalOpen(true)}>渠道接入</Button>
           <Button kind="primary" size="sm" disabled={backendMode !== 'connected'} onClick={() => setNewConversationOpen(true)}>新建会话</Button>
         </div>
