@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { getSupabaseClient } from '@/lib/supabase';
 
@@ -164,7 +164,7 @@ export function DesignSystemProvider({ children }: DesignSystemProviderProps) {
       ? 'white'
       : systemDark ? 'g100' : 'white';
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     document.documentElement.setAttribute('data-carbon-theme', resolvedTheme);
     const metaThemeColor = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
     if (metaThemeColor) {
