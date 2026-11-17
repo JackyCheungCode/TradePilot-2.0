@@ -92,7 +92,8 @@ export function DashboardPage() {
     if (period === 'all') return null;
     const date = new Date();
     date.setHours(0, 0, 0, 0);
-    date.setDate(date.getDate() - (period === '90d' ? 89 : period === 'year' ? 364 : 29));
+    if (period === 'year') { date.setDate(1); date.setMonth(date.getMonth() - 11); }
+    else date.setDate(date.getDate() - (period === '90d' ? 89 : 29));
     return date;
   }, [period]);
 
@@ -154,7 +155,7 @@ export function DashboardPage() {
     const daily = Array.from({ length: days }, (_, index) => {
       const date = new Date();
       date.setHours(0, 0, 0, 0);
-      if (period === 'year') date.setMonth(date.getMonth() - (days - index - 1));
+      if (period === 'year') { date.setDate(1); date.setMonth(date.getMonth() - (days - index - 1)); }
       else date.setDate(date.getDate() - (period === '90d' ? 89 - index * 3 : days - index - 1));
       const key = period === 'year' ? keyMonth(date) : dateKey(date);
       const next = new Date(date);
@@ -198,6 +199,13 @@ export function DashboardPage() {
   const opportunityTotal = scoped.opportunities.reduce((sum, row) => {
     const total = amountFrom(row, row.amount);
     return total === null ? sum : sum + total;
+  }, 0);
+  const weightedOpportunityTotal = scoped.opportunities.reduce((sum, row) => {
+    const total = amountFrom(row, row.amount);
+    const probability = row.forecast_probability ?? row.probability;
+    if (total === null || probability === null || probability === undefined) return sum;
+    const rate = Number(probability) > 1 ? Number(probability) / 100 : Number(probability);
+    return Number.isFinite(rate) && rate >= 0 && rate <= 1 ? sum + total * rate : sum;
   }, 0);
   const collected = scoped.payments.filter(row => row.payment_type === 'receipt' && ['confirmed', 'partially_reconciled', 'reconciled', 'returned'].includes(String(row.status || '').toLowerCase()));
   const refunds = scoped.payments.filter(row => row.payment_type === 'refund' && row.status === 'returned');
@@ -314,7 +322,7 @@ export function DashboardPage() {
             <TabPanel>
               <div className="tp-workbench__tab-grid">
                 <div className="tp-workbench__chart"><h3>商机阶段分布</h3>{scoped.opportunities.length ? <SimpleBarChart data={Object.entries(scoped.opportunities.reduce((acc: Record<string, number>, row) => { const key = String(row.stage || row.status || '未设置'); acc[key] = (acc[key] || 0) + 1; return acc; }, {})).map(([group, value]) => ({ group, value }))} options={barOptions as any}/> : <p className="tp-workbench__empty">暂无商机数据</p>}</div>
-                <div className="tp-workbench__chart"><h3>商机金额（USD 可换算口径）</h3><strong className="tp-workbench__large-value">{money(opportunityTotal)}</strong><p>有效商机 {number(scoped.opportunities.length)} 个；加权金额按商机概率另行计算，避免将概率缺失视为 0。</p><Button kind="ghost" size="sm" onClick={() => navigate('/opportunities')}>进入商机管理 <CarbonIcons.ArrowRight size={16}/></Button></div>
+                <div className="tp-workbench__chart"><h3>商机金额（USD 可换算口径）</h3><strong className="tp-workbench__large-value">{money(opportunityTotal)}</strong><p>有效商机 {number(scoped.opportunities.length)} 个；按已填写的成交概率计算加权金额：{money(weightedOpportunityTotal)}。概率缺失的商机不参与加权。</p><Button kind="ghost" size="sm" onClick={() => navigate('/opportunities')}>进入商机管理 <CarbonIcons.ArrowRight size={16}/></Button></div>
                 <div className="tp-workbench__chart"><h3>客户新增趋势</h3><AreaChart data={chartData.daily} options={areaOptions as any}/></div>
                 <div className="tp-workbench__chart"><h3>潜客发现与线索</h3><div className="tp-workbench__mini-metrics"><div><span>发现记录</span><strong>{number(scoped.discovery.length)}</strong></div><div><span>潜客记录</span><strong>{number(scoped.leads.length)}</strong></div><div><span>本期新增发现</span><strong>{number(scoped.newDiscovery.length)}</strong></div><div><span>客户联系人</span><strong>{number(scoped.contacts.length)}</strong></div></div><Button kind="ghost" size="sm" onClick={() => navigate('/prospect-data')}>查看发现结果 <CarbonIcons.ArrowRight size={16}/></Button></div>
               </div>
