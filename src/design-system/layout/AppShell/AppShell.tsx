@@ -2,13 +2,12 @@ import { useState } from 'react';
 import { useLocation, useNavigate, Outlet } from 'react-router-dom';
 import {
   Header, HeaderName, HeaderMenuButton, HeaderGlobalBar, HeaderGlobalAction,
-  SideNav, SideNavItems, SideNavLink, Content, CarbonIcons, InlineNotification, OverflowMenu, OverflowMenuItem,
+  SideNav, SideNavItems, SideNavLink, Content, CarbonIcons, InlineNotification, OverflowMenu, OverflowMenuItem, useThemePreference,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import { XiaoyaAvatar } from '@/features/agent/XiaoyaAvatar';
 import { XiaoyaSidePanel } from '@/features/agent/XiaoyaSidePanel';
 import { CustomerCommunicationsWidget } from '@/features/customer-communications/CustomerCommunicationsWidget';
-import { useThemePreference } from '@/design-system/providers';
 
 /**
  * Shared Carbon application frame.
