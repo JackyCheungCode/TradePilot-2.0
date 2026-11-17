@@ -45,9 +45,9 @@ export function LoginPage() {
     return payload.data;
   };
 
-  const verifyWebAuthnIfRequired = async (supabase: NonNullable<typeof client>) => {
-    const status = await requestWebAuthn<{ enabled: boolean; granted: boolean }>(supabase, '/api/v1/webauthn/status');
-    if (!status.enabled || status.granted) {
+  const verifyWebAuthnIfRequired = async (supabase: NonNullable<typeof client>, status?: { enabled: boolean; granted: boolean }) => {
+    const biometricStatus = status ?? await requestWebAuthn<{ enabled: boolean; granted: boolean }>(supabase, '/api/v1/webauthn/status');
+    if (!biometricStatus.enabled || biometricStatus.granted) {
       navigate(destination, { replace: true });
       return;
     }
@@ -71,6 +71,12 @@ export function LoginPage() {
     : '/prospect-discovery';
 
   const beginSecondFactorIfRequired = async (supabase: NonNullable<typeof client>) => {
+    const biometricStatus = await requestWebAuthn<{ enabled: boolean; granted: boolean }>(supabase, '/api/v1/webauthn/status');
+    if (biometricStatus.enabled) {
+      await verifyWebAuthnIfRequired(supabase, biometricStatus);
+      return;
+    }
+
     const { data: assurance, error: assuranceError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
     if (assuranceError) throw assuranceError;
 
@@ -89,7 +95,7 @@ export function LoginPage() {
       return;
     }
 
-    await verifyWebAuthnIfRequired(supabase);
+    navigate(destination, { replace: true });
   };
 
   useEffect(() => {
