@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import {
-  Accordion, AccordionItem, Button, Checkbox, FileUploaderButton, InlineNotification,
+  Button, Checkbox, FileUploaderButton, InlineNotification,
   MultiSelect, RadioButton, RadioButtonGroup, Select, SelectItem, Tag, TextArea, TextInput, Toggle,
 } from '@/design-system';
 
