@@ -127,7 +127,7 @@ export async function handleProspectCities(request: Request, env: Env): Promise<
     if (!response.ok) throw new Error("CITY_LOOKUP_" + response.status);
     const payload = await response.json() as { results?: Array<{ name?: string; admin1?: string; country_code?: string }> };
     const cities = [...new Set((payload.results ?? [])
-      .filter(item => item.name && item.country_code?.toUpperCase() === country)
+      .filter(item => typeof item.name === "string" && item.country_code?.toUpperCase() === country)
       .map(item => item.admin1 && item.admin1 !== item.name ? item.name + ", " + item.admin1 : item.name as string))].slice(0, 20);
     return successResponse(request, { cities, source: "open-meteo" });
   } catch (error) {
