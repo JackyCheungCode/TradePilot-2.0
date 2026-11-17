@@ -256,6 +256,20 @@ export function DashboardPage() {
     }).sort((a, b) => b.value - a.value);
   }, [marketMetric, scoped]);
 
+  // Send every geography to Carbon, including zero-count countries, so the base map
+  // is always complete and the quantize color scale has a valid numeric domain.
+  const choroplethData = useMemo(() => {
+    const valuesByName = new Map(globalMapData.map(item => [normalizeGeoName(item.name), item.value]));
+    return (worldGeoData?.objects?.countries?.geometries || []).map((geometry: any) => {
+      const name = String(geometry.properties?.NAME || '');
+      return {
+        id: String(geometry.id),
+        name,
+        value: valuesByName.get(normalizeGeoName(name)) ?? 0,
+      };
+    }).filter((item: any) => item.name);
+  }, [globalMapData]);
+
   const searchKeywords = useMemo(() => {
     const counts = new Map<string, number>();
     for (const run of data?.discoveryRuns || []) {
@@ -407,16 +421,7 @@ export function DashboardPage() {
         </div>
         <div className="tp-workbench__global-map-layout">
           <div className="tp-workbench__global-map-chart">
-            <ChoroplethChart
-              data={(globalMapData.length ? globalMapData : [{
-                name: String(worldGeoData?.objects?.countries?.geometries?.[0]?.properties?.NAME || 'Afghanistan'),
-                group: String(worldGeoData?.objects?.countries?.geometries?.[0]?.id || ''),
-                code: '',
-                label: '',
-                value: 0,
-              }]).map(item => ({ name: item.name, id: String(item.group), value: item.value }))}
-              options={choroplethOptions as any}
-            />
+            <ChoroplethChart data={choroplethData} options={choroplethOptions as any}/>
           </div>
           <div className="tp-workbench__global-map-switch" role="group" aria-label="地图数据维度">
             <span>查看维度</span>
