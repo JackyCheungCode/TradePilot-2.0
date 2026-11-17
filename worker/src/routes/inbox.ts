@@ -194,7 +194,7 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
       }, existing.length ? 200 : 201);
     }
 
-    const attachmentSignedUrlMatch = url.pathname.match(/^\\/api\\/v1\\/inbox\\/attachments\\/([0-9a-f-]{36})\\/signed-url$/i);
+    const attachmentSignedUrlMatch = url.pathname.match(/^\/api\/v1\/inbox\/attachments\/([0-9a-f-]{36})\/signed-url$/i);
     if (attachmentSignedUrlMatch && request.method === "GET") {
       // Attachment metadata and objects are service-role-only. Never fall back to caller JWT for this lookup.
       const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY;
@@ -217,7 +217,7 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
       }
       const objectPath = attachment.storage_path.split("/").map((part: string) => encodeURIComponent(part)).join("/");
       const storageResponse = await fetch(
-        env.SUPABASE_URL.replace(/\\/$/, "") + "/storage/v1/object/sign/inbox-attachments/" + objectPath,
+        env.SUPABASE_URL.replace(/\/$/, "") + "/storage/v1/object/sign/inbox-attachments/" + objectPath,
         {
           method: "POST",
           headers: { apikey: serviceRoleKey, Authorization: "Bearer " + serviceRoleKey, "Content-Type": "application/json" },
@@ -229,7 +229,7 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
       if (!storageResponse.ok || typeof storagePayload.signedURL !== "string") {
         return errorResponse(request, "ATTACHMENT_SIGNING_FAILED", "无法生成附件安全下载链接，请稍后重试。", 502);
       }
-      const signedUrl = /^https?:\\/\\//i.test(storagePayload.signedURL)
+      const signedUrl = /^https?:\/\//i.test(storagePayload.signedURL)
         ? storagePayload.signedURL
         : new URL(storagePayload.signedURL.startsWith("/")
           ? "/storage/v1" + storagePayload.signedURL
