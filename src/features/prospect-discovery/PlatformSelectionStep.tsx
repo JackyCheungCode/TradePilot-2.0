@@ -256,9 +256,6 @@ export function PlatformSelectionStep({
     <section className="tp-prospect-discovery__platform-browser">
       <div className="tp-prospect-discovery__platform-browser-heading">
         <div><h3>全球平台筛选与选择</h3><p>同一筛选维度内为“或”关系，不同维度之间为“且”关系。</p>
-          <div className="tp-prospect-discovery__platform-status-legend" aria-label="平台执行状态说明">
-
-          </div>
         </div>
         <Tag type="blue">{allPlatforms.length} 个平台</Tag>
       </div>
