@@ -21,7 +21,7 @@ interface SettingsEnv {
 }
 async function authenticatedUserId(request: Request, env: SettingsEnv): Promise<string | null> {
   const authorization = request.headers.get("Authorization");
-  const bearerMatch = authorization?.match(/^Bearer\\s+(\\S+)$/i);
+  const bearerMatch = authorization?.match(/^Bearer\s+(\S+)$/i);
   const token = bearerMatch?.[1];
   if (!token) return null;
   const response = await fetch(env.SUPABASE_URL + "/auth/v1/user", {
