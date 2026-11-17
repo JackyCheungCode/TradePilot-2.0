@@ -11,7 +11,7 @@ import '@carbon/charts/styles.css';
 import '@/design-system/patterns/prospect-hub.scss';
 
 type RecordRow = {
-  id: string; name?: string; status?: string; lifecycle_stage?: string; country_code?: string;
+  id: string; name?: string; status?: string; country_code?: string;
   address?: string; phone?: string; email?: string; website?: string; confidence_score?: number;
   lead_id?: string | null; raw_data?: Record<string, unknown> | null; created_at?: string;
 };
@@ -82,7 +82,7 @@ export function ProspectDataPage() {
     try {
       const db = await getSupabaseClient();
       const { data, error: queryError } = await db.from('discovery_record_occurrences')
-        .select('id,is_removed,provider,captured_at,record:discovery_records!discovery_record_occurrences_record_id_owner_id_fkey(id,name,status,lifecycle_stage,country_code,address,phone,email,website,confidence_score,lead_id,raw_data,created_at),run:discovery_runs!discovery_record_occurrences_run_id_owner_id_fkey(channel,task_code)')
+        .select('id,is_removed,provider,captured_at,record:discovery_records!discovery_record_occurrences_record_id_owner_id_fkey(id,name,status,country_code,address,phone,email,website,confidence_score,lead_id,raw_data,created_at),run:discovery_runs!discovery_record_occurrences_run_id_owner_id_fkey(channel,task_code)')
         .order('captured_at', { ascending: false }).limit(10000);
       if (queryError) throw queryError;
       const occurrences = (data ?? []) as unknown as Occurrence[];
