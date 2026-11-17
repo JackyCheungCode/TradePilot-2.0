@@ -240,7 +240,7 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
         </div>
         <div className="tp-guardrails__import">
           <div><strong>批量导入网站排除清单</strong><span>支持 CSV / TXT 文本预览；当前只在浏览器读取，不上传文件。</span></div>
-          <FileUploaderButton accept={['.csv', '.txt', '.xlsx']} buttonKind="tertiary" buttonLabel="选择文件" name="tp-guardrails-import" onChange={importFile} />
+          <FileUploaderButton accept={['.csv', '.txt', '.xlsx']} buttonKind="tertiary" labelText="选择文件" name="tp-guardrails-import" onChange={importFile} />
         </div>
         {importPreview.length > 0 && <div className="tp-guardrails__import-preview">
           <strong>导入预览（最多显示前 8 条）</strong>
