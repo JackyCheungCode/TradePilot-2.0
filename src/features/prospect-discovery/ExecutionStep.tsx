@@ -45,7 +45,7 @@ async function requestApi(path: string, token: string, init: RequestInit = {}) {
     headers: { Authorization: 'Bearer ' + token, Accept: 'application/json', ...(init.body ? { 'Content-Type': 'application/json' } : {}), ...init.headers },
   });
   const payload = await response.json().catch(() => ({})) as { data?: unknown; error?: { message?: string }; message?: string };
-  if (!response.ok) throw new Error((payload.error?.message || payload.message || '请求失败（HTTP ' + response.status + '）').replace(/Apify/gi, '外部数据采集服务'));
+  if (!response.ok) throw new Error((payload.error?.message || payload.message || '请求失败（HTTP ' + response.status + '）'));
   return payload.data ?? payload;
 }
 
