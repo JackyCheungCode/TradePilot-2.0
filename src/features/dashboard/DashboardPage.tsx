@@ -321,7 +321,6 @@ export function DashboardPage() {
   const choroplethOptions = {
     ...commonOptions, title: '全球业务资产分布', height: '430px',
     geoData: worldAtlas as any, thematic: { projection: 'naturalEarth' },
-    data: { groupMapsTo: 'group' },
     choropleth: { colorLegend: { title: '记录数量', type: 'linear' } },
     color: { gradient: { enabled: true, colors: ['#edf5ff', '#78a9ff', '#4589ff', '#0f62fe', '#002d9c'] } },
   };
@@ -336,7 +335,7 @@ export function DashboardPage() {
       bottom: { title: '潜客数量', mapsTo: 'x', scaleType: 'linear' },
       left: { title: '潜客转线索率 (%)', mapsTo: 'y', scaleType: 'linear' },
     },
-    bubble: { curve: 'bubbleSize' },
+    bubble: { radiusMapsTo: 'bubbleSize', radiusLabel: '商机数量' },
     tooltip: { enabled: true },
   };
   const barOptions = { ...commonOptions, height: '260px', axes: { bottom: { mapsTo: 'group', scaleType: 'labels' }, left: { mapsTo: 'value', scaleType: 'linear' } } };
@@ -376,7 +375,7 @@ export function DashboardPage() {
         </div>
         <div className="tp-workbench__global-map-layout">
           <div className="tp-workbench__global-map-chart">
-            {globalMapData.length ? <ChoroplethChart data={globalMapData.map(item => ({ group: item.group, value: item.value }))} options={choroplethOptions as any}/> : <div className="tp-workbench__empty">当前维度暂无可定位的国家 / 地区数据。</div>}
+            {globalMapData.length ? <ChoroplethChart data={globalMapData.map(item => ({ name: item.name, id: String(item.group), value: item.value }))} options={choroplethOptions as any}/> : <div className="tp-workbench__empty">当前维度暂无可定位的国家 / 地区数据。</div>}
           </div>
           <div className="tp-workbench__global-map-switch" role="group" aria-label="地图数据维度">
             <span>查看维度</span>
