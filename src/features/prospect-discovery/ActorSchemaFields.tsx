@@ -34,6 +34,18 @@ function suitability(actor: Record<string, unknown>, source: Source) {
   return match * 40 + Math.log10(Math.max(0, users) + 1) * 12 + Math.log10(Math.max(0, runs) + 1) * 16 + rating * 8;
 }
 
+async function mapLimit<T, R>(items: T[], limit: number, mapper: (item: T, index: number) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let cursor = 0;
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (cursor < items.length) {
+      const index = cursor++;
+      results[index] = await mapper(items[index], index);
+    }
+  }));
+  return results;
+}
+
 export function ActorSchemaFields({ sources, profile, onValuesChange }: Props) {
   const [items, setItems] = useState<LoadedSchema[]>([]);
   const [values, setValues] = useState<Record<string, unknown>>({});
@@ -51,18 +63,28 @@ export function ActorSchemaFields({ sources, profile, onValuesChange }: Props) {
     void (async () => {
       try {
         const token = await accessToken();
-        const loaded = await Promise.all(sources.map(async source => {
-          const discovery = await api('/api/v1/actor-registry/discover', token, { method: 'POST', body: JSON.stringify({ platform: source.id, query: source.name }) }) as { items?: Array<Record<string, unknown>> };
-          const candidates = (discovery.items ?? []).filter(actor => typeof actor.actor_id === 'string');
-          candidates.sort((a, b) => suitability(b, source) - suitability(a, source));
-          const actor = candidates[0];
-          if (!actor) return null;
-          const actorId = String(actor.actor_id);
-          const result = await api('/api/v1/actor-registry/schema/' + encodeURIComponent(actorId), token) as { schema?: ActorSchema; actor?: { status?: string; quality_score?: number | null } };
-          if (!result.schema) return null;
-          return { source, actorId, actorTitle: String(actor.title || actor.actor_name || actorId), actorStatus: result.actor?.status, actorQualityScore: result.actor?.quality_score, schema: result.schema } as LoadedSchema;
-        }));
-        if (active) setItems(loaded.filter((item): item is LoadedSchema => Boolean(item)));
+        const failures: string[] = [];
+        const loaded = await mapLimit(sources, 4, async source => {
+          try {
+            const discovery = await api('/api/v1/actor-registry/discover', token, { method: 'POST', body: JSON.stringify({ platform: source.id, query: source.name }) }) as { items?: Array<Record<string, unknown>> };
+            const candidates = (discovery.items ?? []).filter(actor => typeof actor.actor_id === 'string');
+            candidates.sort((a, b) => suitability(b, source) - suitability(a, source));
+            const actor = candidates[0];
+            if (!actor) return null;
+            const actorId = String(actor.actor_id);
+            const result = await api('/api/v1/actor-registry/schema/' + encodeURIComponent(actorId), token) as { schema?: ActorSchema; actor?: { status?: string; quality_score?: number | null } };
+            if (!result.schema) return null;
+            return { source, actorId, actorTitle: String(actor.title || actor.actor_name || actorId), actorStatus: result.actor?.status, actorQualityScore: result.actor?.quality_score, schema: result.schema } as LoadedSchema;
+          } catch (sourceError) {
+            failures.push(source.name + '：' + (sourceError instanceof Error ? sourceError.message : String(sourceError)));
+            return null;
+          }
+        });
+        if (active) {
+          const available = loaded.filter((item): item is LoadedSchema => Boolean(item));
+          setItems(available);
+          if (failures.length) setError(available.length ? failures.length + ' 个平台未能读取 Schema；已成功加载的平台仍可配置。' : failures[0]);
+        }
       } catch (e) {
         if (active) setError(e instanceof Error ? e.message : '读取数据源参数失败。');
       } finally {
