@@ -73,6 +73,7 @@
 - Worker dry-run validates the bundle only; it does not deploy.
 - No controlled end-to-end provider run has been performed as part of this code-only work. Provider credentials, external API quotas, actor behavior, and production result quality remain unverified.
 - No production database rows or credentials were changed by this implementation.
+- A read-only audit found one historical `search_engine` record with no visible occurrence row. The records API now uses a left join for the all-results view and retains records with no occurrence history, while excluding records whose occurrences are all removed; run-specific queries retain the efficient inner join and run filter.
 
 ## Read-only production environment audit (2026-11-17)
 - `discovery_runs` currently contains five old non-terminal runs: two `queued` map runs, one `running` agent run, one `running` Facebook run, and one `running` map run. Their timestamps are from Nov 13–14. A read-only Cloudflare Workflows audit found no currently queued/running instances for any TradePilot workflow; the agent workflow has one errored instance, and the latest Facebook/lead instances are complete. The stale database rows have no matching active workflow instance and their logs stop mid-run. They were not rewritten or cancelled because this is historical production data and needs an explicit reconciliation policy.
