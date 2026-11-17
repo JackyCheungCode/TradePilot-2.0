@@ -18,7 +18,7 @@ type Customer = {
   lastPreview: string;
   lastChannel?: Channel;
 };
-type Identity = { customerId: string; channel: Channel; handle: string; account: string; connected: boolean };
+type Identity = { id: string; customerId: string; channel: Channel; handle: string; account: string; connected: boolean };
 type Message = {
   id: string;
   customerId: string;
@@ -70,7 +70,7 @@ type MessageDbRow = {
   status: string | null; created_at: string;
 };
 const channelAliases: Record<string, Channel> = {
-  whatsapp: 'whatsapp', messenger: 'messenger', facebook_messenger: 'messenger',
+  whatsapp: 'whatsapp', messenger: 'messenger', facebook_messenger: 'messenger', facebook: 'messenger',
   instagram: 'instagram', email: 'email', telegram: 'telegram', wechat: 'wechat',
 };
 function normalizeChannel(value: string | null | undefined): Channel {
@@ -149,7 +149,7 @@ export function CustomerCommunicationsWidget({
   const loadInbox = useCallback(async () => {
     try {
       const client = await getSupabaseClient();
-      const [contactsResult, conversationsResult, identitiesResult, connectionsResult, messagesResult] = await Promise.all([
+      const [contactsResult, conversationsResult, identitiesResult, connectionsResult] = await Promise.all([
         client.from('crm_contacts')
           .select('id,first_name,last_name,full_name,job_title,decision_role,email,phone,mobile,is_active,is_archived,updated_at,custom_fields,crm_accounts(account_name,country_code)')
           .eq('is_archived', false).order('updated_at', { ascending: false }),
@@ -160,17 +160,21 @@ export function CustomerCommunicationsWidget({
           .select('id,contact_id,channel_connection_id,channel_type,external_user_id,external_display_name,external_username,is_primary'),
         client.from('inbox_channel_connections')
           .select('id,channel_type,display_name,external_account_id,connection_status'),
-        client.from('inbox_messages')
-          .select('id,conversation_id,channel_type,direction,content_type,content,email_subject,media_url,attachments,status,created_at')
-          .order('created_at', { ascending: true }),
       ]);
-      const failure = contactsResult.error || conversationsResult.error || identitiesResult.error || connectionsResult.error || messagesResult.error;
+      const failure = contactsResult.error || conversationsResult.error || identitiesResult.error || connectionsResult.error;
       if (failure) throw failure;
 
       const contacts = (contactsResult.data ?? []) as unknown as ContactDbRow[];
       const conversations = (conversationsResult.data ?? []) as unknown as ConversationDbRow[];
       const rawIdentities = (identitiesResult.data ?? []) as unknown as IdentityDbRow[];
       const connections = (connectionsResult.data ?? []) as unknown as ConnectionDbRow[];
+      const messagesResult = conversations.length
+        ? await client.from('inbox_messages')
+          .select('id,conversation_id,channel_type,direction,content_type,content,email_subject,media_url,attachments,status,created_at')
+          .in('conversation_id', conversations.map((conversation) => conversation.id))
+          .order('created_at', { ascending: true })
+        : { data: [], error: null };
+      if (messagesResult.error) throw messagesResult.error;
       const rawMessages = (messagesResult.data ?? []) as unknown as MessageDbRow[];
       const connectionById = new Map(connections.map((item) => [item.id, item]));
       const conversationsByContact = new Map<string, ConversationDbRow[]>();
@@ -210,6 +214,7 @@ export function CustomerCommunicationsWidget({
         const connection = identity.channel_connection_id ? connectionById.get(identity.channel_connection_id) : undefined;
         const channel = normalizeChannel(identity.channel_type);
         return {
+          id: identity.id,
           customerId: identity.contact_id,
           channel,
           handle: identity.external_display_name || identity.external_username || identity.external_user_id,
@@ -397,7 +402,7 @@ export function CustomerCommunicationsWidget({
                 <span>回复渠道</span>
                 <div className="cc-channel-picker">
                 <button type="button" className="cc-channel-trigger" aria-expanded={channelPickerOpen} onClick={() => setChannelPickerOpen((value) => !value)}><ChannelBadge channel={replyChannel}/><span>⌄</span></button>
-                {channelPickerOpen && <div className="cc-channel-menu">{customerIdentities.map((identity) => <button key={identity.channel} type="button" onClick={() => { setChannelOverride(identity.channel); setChannelPickerOpen(false); }}><ChannelBadge channel={identity.channel}/><small>{identity.handle}</small></button>)}</div>}
+                {channelPickerOpen && <div className="cc-channel-menu">{customerIdentities.map((identity) => <button key={identity.id} type="button" onClick={() => { setChannelOverride(identity.channel); setChannelPickerOpen(false); }}><ChannelBadge channel={identity.channel}/><small>{identity.handle}</small></button>)}</div>}
               </div>
               <span className="cc-route-hint">{channelOverride ? '已手动切换' : '跟随客户最后一条入站消息'}</span>
               </div>
