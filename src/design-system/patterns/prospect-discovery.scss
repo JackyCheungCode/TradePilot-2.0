@@ -457,7 +457,7 @@
   &__pipeline .cds--structured-list { margin-bottom: 0; }
   &__pipeline .cds--structured-list-td, &__pipeline .cds--structured-list-th { vertical-align: middle; }
   &__console { display: flex; flex-direction: column; }
-  &__console .cds--snippet--multi { height: 240px; max-height: 240px; overflow-y: auto; background: #161616; color: #f4f4f4; }
+  &__console .cds--snippet--multi { height: 240px; max-height: 240px; overflow-y: auto; background: var(--cds-background-inverse); color: var(--cds-text-inverse); }
   &__console .cds--snippet-container { min-height: 240px; }
   &__results { display: flex; flex-direction: column; gap: $spacing-04; }
   &__table-scroll { width: 100%; overflow-x: auto; }
