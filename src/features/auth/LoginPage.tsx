@@ -52,10 +52,10 @@ export function LoginPage() {
       navigate(destination, { replace: true });
       return;
     }
-    if (!window.PublicKeyCredential || !navigator.credentials) {
-      throw new Error('当前浏览器不支持 WebAuthn 生物识别验证，请使用支持 Passkey 的最新版浏览器。');
-    }
     setStep('webauthn');
+    if (!window.PublicKeyCredential || !navigator.credentials) {
+      throw new Error('当前浏览器不支持 WebAuthn 生物识别验证；你仍可使用 TOTP 备用验证。');
+    }
     const challenge = await requestWebAuthn<{ challengeId: string; options: Parameters<typeof startAuthentication>[0]['optionsJSON'] }>(
       supabase, '/api/v1/webauthn/authentication/options',
     );
