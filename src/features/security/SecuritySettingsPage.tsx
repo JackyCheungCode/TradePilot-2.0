@@ -30,6 +30,20 @@ type RecoveryStatus = { total: number; remaining: number };
 type WebAuthnStatus = { enabled: boolean; granted: boolean; credentials: Array<{ id: string; name: string }> };
 type WebAuthnAction = 'register' | 'enable' | 'disable' | 'revoke';
 
+function getPasskeyErrorMessage(error: unknown): string {
+  if (!(error instanceof Error)) return 'Passkey 注册失败，请检查浏览器支持后重试。';
+  const detail = error as Error & { originalError?: unknown; cause?: unknown; code?: string };
+  const nested = detail.originalError ?? detail.cause;
+  if (nested instanceof Error && nested.message && nested.message !== error.message) {
+    return `${error.message}（底层原因：${nested.name}: ${nested.message}）`;
+  }
+  if (nested && typeof nested === 'object' && 'message' in nested) {
+    const message = String((nested as { message?: unknown }).message ?? '');
+    if (message && message !== error.message) return `${error.message}（底层原因：${message}）`;
+  }
+  return error.message;
+}
+
 function formatDate(value?: string | null) {
   if (!value) return '尚未使用';
   const date = new Date(value);
@@ -179,6 +193,12 @@ export function SecuritySettingsPage() {
     setError('');
     setNotice('');
     try {
+      if (!window.isSecureContext) {
+        throw new Error('Passkey 只能在 HTTPS 安全网页中注册。请使用 https://tradepilot.xg-y.workers.dev 打开 TradePilot。');
+      }
+      if (!('PublicKeyCredential' in window) || !navigator.credentials?.create) {
+        throw new Error('当前浏览器或应用内嵌网页不支持 Passkey。请复制 TradePilot 地址，改用最新版 Google Chrome 浏览器打开后重试。');
+      }
       const client = await getSupabaseClient();
       const { data, error: passkeyError } = await client.auth.registerPasskey();
       if (passkeyError) throw passkeyError;
@@ -186,7 +206,7 @@ export function SecuritySettingsPage() {
       await loadSecurity();
       if (!data?.id) setNotice('Passkey 注册已完成。');
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Passkey 注册失败。');
+      setError(getPasskeyErrorMessage(cause));
     } finally {
       setBusy(false);
     }
