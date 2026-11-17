@@ -1,5 +1,11 @@
 export type GuardrailSnapshot = Record<string, unknown>;
 export type GuardrailDecision = { blocked: boolean; review: boolean; reasons: string[] };
+export type DuplicatePolicy = "merge" | "skip" | "review";
+
+export function getDuplicatePolicy(snapshotValue: unknown): DuplicatePolicy {
+  const value = text(object(snapshotValue).duplicatePolicy);
+  return value === "skip" || value === "review" ? value : "merge";
+}
 
 const object = (value: unknown): Record<string, unknown> =>
   value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
