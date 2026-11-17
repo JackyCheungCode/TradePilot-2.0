@@ -1,5 +1,11 @@
-import { useState } from 'react';
-import { Tabs, TabList, Tab } from '@/design-system';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  Accordion, AccordionItem, Button, Checkbox, ComboBox, InlineLoading, InlineNotification,
+  RadioButton, RadioButtonGroup, Select, SelectItem, SelectableTile, Tag, TextArea, TextInput,
+  Toggle, Tabs, TabList, Tab, Grid, Column, CarbonIcons,
+} from '@/design-system';
+import { getSupabaseClient } from '@/lib/supabase';
+import '@/design-system/patterns/prospect-discovery.scss';
 
 const steps = [
   '意图与画像锚定（Target Profiling）',
@@ -10,21 +16,520 @@ const steps = [
   '决策人穿透与入库（Decision-Maker Enrichment & CRM Sync）',
 ] as const;
 
+const continents = [
+  { value: 'Africa', label: '非洲（Africa）' },
+  { value: 'Americas', label: '美洲（Americas）' },
+  { value: 'Asia', label: '亚洲（Asia）' },
+  { value: 'Europe', label: '欧洲（Europe）' },
+  { value: 'Oceania', label: '大洋洲（Oceania）' },
+] as const;
+
+const buyerOptions = [
+  { id: 'importer', title: 'Importer', detail: '大型进口商', description: '跨境采购、进口与供应链采购主体' },
+  { id: 'distributor', title: 'Distributor / Wholesaler', detail: '区域分销商 / 批发商', description: '区域渠道、批发网络与经销体系' },
+  { id: 'brand', title: 'Brand Owner / DTC', detail: '品牌方 / 独立站', description: '自有品牌、贴牌采购与 DTC 商家' },
+  { id: 'contractor', title: 'Contractor / Retailer', detail: '工程商 / 零售连锁', description: '项目采购、线下零售与连锁门店' },
+] as const;
+
+const materials = ['Forged', 'CNC Machined', 'Silicone', 'Aluminum', 'Stainless Steel', 'ABS', 'Die Casting', 'Injection Molded'];
+const certifications = ['CE', 'RoHS', 'FCC', 'UKCA', 'REACH', 'IATF 16949'];
+const excludedTerms = ['jobs', 'careers', '招聘', 'DIY', 'used'];
+
+type Country = {
+  name: { common: string };
+  cca2: string;
+  region: string;
+  tld?: string[];
+  languages?: Record<string, string>;
+};
+type Profile = {
+  name: string;
+  coreNoun: string;
+  buyers: string[];
+  continent: string;
+  country: string;
+  countryName: string;
+  city: string;
+  materials: string[];
+  specifications: string;
+  hsCode: string;
+  certifications: string[];
+  employeeScale: string;
+  activity: string;
+  competitors: string[];
+};
+type Strategy = { google: string[]; maps: string[]; social: string[] };
+
+const emptyProfile: Profile = {
+  name: '', coreNoun: '', buyers: [], continent: '', country: '', countryName: '', city: '', materials: [],
+  specifications: '', hsCode: '', certifications: [], employeeScale: '', activity: '',
+  competitors: [''],
+};
+
+const languageAliases: Record<string, string> = {
+  deu: 'de', fra: 'fr', spa: 'es', ita: 'it', por: 'pt', nld: 'nl', zho: 'zh',
+  jpn: 'ja', kor: 'ko', rus: 'ru', ara: 'ar', hin: 'hi', tur: 'tr', vie: 'vi',
+  tha: 'th', pol: 'pl', ces: 'cs', swe: 'sv', dan: 'da', fin: 'fi', nor: 'no',
+  ell: 'el', heb: 'he', ukr: 'uk', ind: 'id', msa: 'ms', ron: 'ro', hun: 'hu',
+  bul: 'bg', hrv: 'hr', slk: 'sk', slv: 'sl', cat: 'ca', fas: 'fa', urd: 'ur',
+  ben: 'bn', tam: 'ta', tel: 'te', mar: 'mr', nep: 'ne', mya: 'my', khm: 'km',
+  lao: 'lo', sqi: 'sq', srp: 'sr', bos: 'bs', mkd: 'mk', lit: 'lt', lav: 'lv',
+  est: 'et', isl: 'is', gle: 'ga', eus: 'eu', glg: 'gl',
+};
+function primaryLanguage(country?: Country): string {
+  const code = country?.languages ? Object.keys(country.languages)[0] : 'en';
+  return code ? languageAliases[code] ?? (code.length === 2 ? code : 'en') : 'en';
+}
+
+function compileStrategy(profile: Profile, tld: string, keywords: string[] = []): Strategy {
+  const noun = profile.coreNoun.trim();
+  if (!noun) return { google: [], maps: [], social: [] };
+  const buyerTerms = profile.buyers.map(id => buyerOptions.find(item => item.id === id)?.title ?? '').filter(Boolean);
+  const buyerClause = buyerTerms.length ? '(' + buyerTerms.map(item => '"' + item + '"').join(' OR ') + ')' : '';
+  const market = profile.countryName ? ' "' + profile.countryName + '"' : '';
+  const site = tld ? ' site:' + tld : '';
+  const exclusions = excludedTerms.map(term => '-' + term).join(' ');
+  const base = '"' + noun + '"';
+  const expanded = keywords.length ? '(' + [noun, ...keywords].map(term => '"' + term + '"').join(' OR ') + ')' : base;
+  const specs = [profile.specifications, ...profile.materials].filter(Boolean).join(' ');
+  const specClause = specs ? ' (' + specs + ')' : '';
+  const hs = profile.hsCode.trim() ? ' "' + profile.hsCode.trim() + '"' : '';
+  const google = [
+    [expanded, buyerClause, market, site, exclusions].filter(Boolean).join(' '),
+    [expanded, specClause, hs, buyerClause, market, exclusions].filter(Boolean).join(' '),
+    [expanded, '(supplier OR sourcing OR procurement OR wholesale)', market, site, exclusions].filter(Boolean).join(' '),
+    ...profile.competitors.filter(Boolean).map(competitor => '"' + competitor.trim() + '" (distributor OR dealer OR reseller OR stockist)'),
+  ];
+  const area = profile.city.trim() || profile.countryName || 'target market';
+  const mapTerms = [
+    noun, ...keywords.slice(0, 2), noun + ' importer', noun + ' distributor', noun + ' wholesaler',
+    noun + ' supplier', noun + ' retailer', noun + ' trading company', noun + ' procurement',
+  ];
+  const maps = mapTerms.map(term => term + ' near ' + area);
+  const social = [
+    'site:linkedin.com/company ' + expanded + (buyerClause ? ' ' + buyerClause : '') + market,
+    'site:myshopify.com ' + expanded + ' ' + '(brand OR store)' + market,
+  ];
+  return { google, maps, social };
+}
+
 export function ProspectDiscoveryPage() {
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [profile, setProfile] = useState<Profile>(emptyProfile);
+  const [countries, setCountries] = useState<Country[]>([]);
+  const [countryLoading, setCountryLoading] = useState(true);
+  const [countryError, setCountryError] = useState('');
+  const [citySuggestions, setCitySuggestions] = useState<string[]>([]);
+  const [cityLoading, setCityLoading] = useState(false);
+  const [cityError, setCityError] = useState('');
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [suggestionLoading, setSuggestionLoading] = useState(false);
+  const [suggestionError, setSuggestionError] = useState('');
+  const [templateName, setTemplateName] = useState('');
+  const [templateList, setTemplateList] = useState<Array<{ name: string; profile: Profile }>>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState('');
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [advancedMode, setAdvancedMode] = useState(false);
+  const [synonymInput, setSynonymInput] = useState('');
+  const [synonyms, setSynonyms] = useState<string[]>([]);
+  const [aiSynonyms, setAiSynonyms] = useState<string[]>([]);
+  const [localizedTerms, setLocalizedTerms] = useState<string[]>([]);
+  const [buyerKeywords, setBuyerKeywords] = useState<string[]>([]);
+  const [strategyLoading, setStrategyLoading] = useState(false);
+
+  const [googleQueries, setGoogleQueries] = useState<string[]>([]);
+  const [notice, setNotice] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    fetch('https://restcountries.com/v3.1/all?fields=name,cca2,region,tld,languages')
+      .then(response => { if (!response.ok) throw new Error('国家主数据暂时不可用'); return response.json() as Promise<Country[]>; })
+      .then(data => { if (active) setCountries(data.filter(item => item.cca2 && item.name?.common).sort((a, b) => a.name.common.localeCompare(b.name.common))); })
+      .catch(cause => { if (active) setCountryError(cause instanceof Error ? cause.message : '国家主数据加载失败'); })
+      .finally(() => { if (active) setCountryLoading(false); });
+    try {
+      const saved = localStorage.getItem('tradepilot.prospect-profiling.templates.v1');
+      if (saved) setTemplateList(JSON.parse(saved) as Array<{ name: string; profile: Profile }>);
+    } catch { /* Ignore malformed local template cache. */ }
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    const query = profile.coreNoun.trim();
+    if (query.length < 2) { setSuggestions([]); setSuggestionError(''); return; }
+    let active = true;
+    const timer = window.setTimeout(async () => {
+      setSuggestionLoading(true);
+      setSuggestionError('');
+      try {
+        const country = countries.find(item => item.cca2 === profile.country);
+        const language = primaryLanguage(country);
+        const db = await getSupabaseClient();
+        const { data } = await db.auth.getSession();
+        const token = data.session?.access_token;
+        if (!token) throw new Error('登录状态已失效，请重新登录。');
+        const params = new URLSearchParams({ q: query, gl: (profile.country || 'US').toLowerCase(), hl: language || 'en' });
+        const response = await fetch('/api/v1/prospect-profiling/autocomplete?' + params.toString(), {
+          headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' },
+        });
+        const payload = await response.json() as { data?: { suggestions?: string[] }; suggestions?: string[]; message?: string };
+        if (!response.ok) throw new Error(payload.message || 'Google 搜索联想暂时不可用');
+        if (active) setSuggestions(payload.data?.suggestions ?? payload.suggestions ?? []);
+      } catch (cause) {
+        if (active) setSuggestionError(cause instanceof Error ? cause.message : '搜索联想失败');
+      } finally {
+        if (active) setSuggestionLoading(false);
+      }
+    }, 350);
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [profile.coreNoun, profile.country, countries]);
+
+  useEffect(() => {
+    const query = profile.city.trim();
+    if (query.length < 2 || !profile.country) { setCitySuggestions([]); setCityError(''); return; }
+    let active = true;
+    const timer = window.setTimeout(async () => {
+      setCityLoading(true);
+      setCityError('');
+      try {
+        const db = await getSupabaseClient();
+        const { data } = await db.auth.getSession();
+        const token = data.session?.access_token;
+        if (!token) throw new Error('登录状态已失效，请重新登录。');
+        const country = countries.find(item => item.cca2 === profile.country);
+        const language = country?.languages ? Object.keys(country.languages)[0] : 'en';
+        const params = new URLSearchParams({ q: query, country: profile.country, language: language || 'en' });
+        const response = await fetch('/api/v1/prospect-profiling/cities?' + params.toString(), {
+          headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' },
+        });
+        const payload = await response.json() as { data?: { cities?: string[] }; error?: { message?: string } };
+        if (!response.ok) throw new Error(payload.error?.message || '城市联想暂时不可用');
+        if (active) setCitySuggestions(payload.data?.cities ?? []);
+      } catch (cause) {
+        if (active) setCityError(cause instanceof Error ? cause.message : '城市联想失败');
+      } finally {
+        if (active) setCityLoading(false);
+      }
+    }, 350);
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [profile.city, profile.country, countries]);
+
+  const filteredCountries = useMemo(
+    () => countries.filter(item => !profile.continent || item.region === profile.continent),
+    [countries, profile.continent],
+  );
+  const selectedCountry = countries.find(item => item.cca2 === profile.country);
+  const countryTld = selectedCountry?.tld?.[0] ?? '';
+  const countryLanguage = selectedCountry?.languages ? Object.values(selectedCountry.languages).join(', ') : '';
+
+  const update = <K extends keyof Profile>(key: K, value: Profile[K]) => setProfile(current => ({ ...current, [key]: value }));
+  const toggleArray = (key: 'buyers' | 'materials' | 'certifications', value: string) => {
+    setProfile(current => {
+      const values = current[key];
+      return { ...current, [key]: values.includes(value) ? values.filter(item => item !== value) : [...values, value] };
+    });
+  };
+  const updateCompetitor = (index: number, value: string) => setProfile(current => ({
+    ...current, competitors: current.competitors.map((item, i) => i === index ? value : item),
+  }));
+
+  const saveTemplate = () => {
+    const name = templateName.trim();
+    if (!name) { setError('请先填写画像模板名称。'); return; }
+    const next = [...templateList.filter(item => item.name !== name), { name, profile: structuredClone(profile) }];
+    try {
+      localStorage.setItem('tradepilot.prospect-profiling.templates.v1', JSON.stringify(next));
+      setTemplateList(next); setSelectedTemplate(name); setNotice('画像模板已保存在当前浏览器。'); setError('');
+    } catch { setError('模板保存失败，请检查浏览器存储空间。'); }
+  };
+  const loadTemplate = () => {
+    const item = templateList.find(entry => entry.name === selectedTemplate);
+    if (item) { setProfile(structuredClone(item.profile)); setNotice('已加载画像模板：' + item.name); setError(''); }
+  };
+  const generateStrategy = async () => {
+    if (!profile.coreNoun.trim()) { setError('请先填写核心产品名词，再生成获客策略。'); return; }
+    setStrategyLoading(true);
+    setError('');
+    setPreviewOpen(true);
+    try {
+      const db = await getSupabaseClient();
+      const { data } = await db.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) throw new Error('登录状态已失效，请重新登录。');
+      const response = await fetch('/api/v1/prospect-profiling/strategy', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          coreNoun: profile.coreNoun,
+          buyers: profile.buyers.map(id => buyerOptions.find(item => item.id === id)?.title ?? id),
+          country: profile.countryName,
+          city: profile.city,
+          materials: profile.materials,
+          specifications: profile.specifications,
+          hsCode: profile.hsCode,
+          certifications: profile.certifications,
+          employeeScale: profile.employeeScale,
+          activity: profile.activity,
+          competitors: profile.competitors.filter(Boolean),
+        }),
+      });
+      const payload = await response.json() as { data?: { synonyms?: string[]; localizedTerms?: string[]; buyerKeywords?: string[] }; error?: { message?: string } };
+      if (!response.ok) throw new Error(payload.error?.message || 'AI 词库生成失败');
+      const generated = payload.data ?? {};
+      setAiSynonyms(generated.synonyms ?? []);
+      setLocalizedTerms(generated.localizedTerms ?? []);
+      setBuyerKeywords(generated.buyerKeywords ?? []);
+      const allKeywords = [...(generated.synonyms ?? []), ...(generated.localizedTerms ?? []), ...(generated.buyerKeywords ?? []), ...synonyms];
+      const result = compileStrategy(profile, countryTld, allKeywords);
+      setGoogleQueries(result.google);
+      setNotice('AI 词库裂变与本地规则搜索矩阵已生成。请检查词汇和查询指令。');
+    } catch (cause) {
+      setAiSynonyms([]); setLocalizedTerms([]); setBuyerKeywords([]);
+      const result = compileStrategy(profile, countryTld, synonyms);
+      setGoogleQueries(result.google);
+      setError(cause instanceof Error ? cause.message + '；已保留本地规则搜索矩阵。' : 'AI 服务暂不可用；已保留本地规则搜索矩阵。');
+    } finally {
+      setStrategyLoading(false);
+    }
+  };
+  const strategy = compileStrategy(profile, countryTld, [...aiSynonyms, ...localizedTerms, ...buyerKeywords, ...synonyms]);
+
+  useEffect(() => {
+    if (previewOpen && !advancedMode) {
+      setGoogleQueries(compileStrategy(profile, countryTld, [...aiSynonyms, ...localizedTerms, ...buyerKeywords, ...synonyms]).google);
+    }
+  }, [previewOpen, advancedMode, profile, countryTld, aiSynonyms, localizedTerms, buyerKeywords, synonyms]);
+
+  const updateGoogleQuery = (index: number, value: string) => setGoogleQueries(current => current.map((item, i) => i === index ? value : item));
+  const addSynonym = () => {
+    const value = synonymInput.trim();
+    if (value && !synonyms.includes(value)) setSynonyms(current => [...current, value]);
+    setSynonymInput('');
+  };
 
   return (
     <main className="tp-prospect-discovery">
-      <Tabs
-        selectedIndex={selectedIndex}
-        onChange={({ selectedIndex: nextIndex }) => setSelectedIndex(nextIndex)}
-      >
+      <header className="tp-prospect-discovery__page-header">
+        <div>
+          <p className="tp-prospect-discovery__eyebrow">PROSPECT DISCOVERY / WORKFLOW</p>
+          <h1>全球外贸智能潜客发现</h1>
+          <p>将商业意图转化为可执行的全球获客搜索策略。</p>
+        </div>
+        <div className="tp-prospect-discovery__header-meta">
+          <span>STEP 01 / 06</span>
+          <strong>Target Profiling</strong>
+        </div>
+      </header>
+
+      <Tabs selectedIndex={selectedIndex} onChange={({ selectedIndex: nextIndex }) => setSelectedIndex(nextIndex)}>
         <TabList aria-label="潜客发现六步流程" contained>
-          {steps.map((step) => (
-            <Tab key={step}>{step}</Tab>
-          ))}
+          {steps.map(step => <Tab key={step}>{step}</Tab>)}
         </TabList>
       </Tabs>
+
+      {selectedIndex === 0 ? (
+        <section className="tp-prospect-discovery__step">
+          {(notice || error) && (
+            <div className="tp-prospect-discovery__notifications">
+              {notice && <InlineNotification kind="success" lowContrast title="操作完成" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
+              {error && <InlineNotification kind="error" lowContrast title="需要处理" subtitle={error} onCloseButtonClick={() => setError('')} />}
+            </div>
+          )}
+
+          <div className="tp-prospect-discovery__template-bar">
+            <div className="tp-prospect-discovery__template-title">
+              <CarbonIcons.Bookmark size={20} />
+              <div><strong>画像模板</strong><span>保存常用获客画像，快速复用</span></div>
+            </div>
+            <div className="tp-prospect-discovery__template-controls">
+              <TextInput id="tp-template-name" labelText="模板名称" hideLabel value={templateName} placeholder="输入模板名称" onChange={event => setTemplateName(event.currentTarget.value)} />
+              <Button kind="secondary" size="md" renderIcon={CarbonIcons.Save} onClick={saveTemplate}>保存模板</Button>
+              <Select id="tp-template-select" labelText="选择模板" hideLabel value={selectedTemplate} onChange={event => setSelectedTemplate(event.currentTarget.value)}>
+                <SelectItem value="" text="选择已保存模板" />
+                {templateList.map(item => <SelectItem key={item.name} value={item.name} text={item.name} />)}
+              </Select>
+              <Button kind="ghost" size="md" disabled={!selectedTemplate} onClick={loadTemplate}>加载</Button>
+            </div>
+          </div>
+
+          <section className="tp-prospect-discovery__section">
+            <div className="tp-prospect-discovery__section-heading">
+              <div><span className="tp-prospect-discovery__section-index">01</span><div><h2>基础定位</h2><p>定义核心产品、目标买家与目标市场</p></div></div>
+              <Tag type="red">核心必填</Tag>
+            </div>
+            <div className="tp-prospect-discovery__field">
+              <ComboBox
+                id="tp-core-noun"
+                titleText="核心产品名词（Core Noun）"
+                placeholder="输入英文产品名词，例如 Industrial air compressor"
+                items={suggestions}
+                selectedItem={profile.coreNoun}
+                itemToString={item => typeof item === 'string' ? item : ''}
+                onInputChange={value => update('coreNoun', value)}
+                onChange={({ selectedItem }) => { if (typeof selectedItem === 'string') update('coreNoun', selectedItem); }}
+                helperText="输入至少 2 个字符，系统将按目标国家与语言请求 Google 搜索联想。"
+              />
+              {(suggestionLoading || suggestionError || suggestions.length > 0) && (
+                <div className="tp-prospect-discovery__suggestions">
+                  {suggestionLoading && <InlineLoading description="正在获取 Google 搜索建议…" />}
+                  {suggestionError && <span className="tp-prospect-discovery__field-error">{suggestionError}</span>}
+                  {suggestions.map(item => <button type="button" key={item} onClick={() => update('coreNoun', item)}>{item}<CarbonIcons.ArrowUpRight size={14} /></button>)}
+                </div>
+              )}
+            </div>
+
+            <div className="tp-prospect-discovery__field">
+              <span className="tp-prospect-discovery__field-label">供应链身位锚定（Buyer Persona）</span>
+              <Grid className="tp-prospect-discovery__buyer-grid" narrow>
+                {buyerOptions.map(item => (
+                  <Column key={item.id} sm={4} md={4} lg={4}>
+                    <SelectableTile id={'tp-buyer-' + item.id} value={item.id} selected={profile.buyers.includes(item.id)} onChange={() => toggleArray('buyers', item.id)}>
+                      <div className="tp-prospect-discovery__buyer-tile">
+                        <strong>{item.title}</strong><b>{item.detail}</b><span>{item.description}</span>
+                      </div>
+                    </SelectableTile>
+                  </Column>
+                ))}
+              </Grid>
+            </div>
+
+            <div className="tp-prospect-discovery__field">
+              <span className="tp-prospect-discovery__field-label">目标市场与语言锚定（Geo & Language）</span>
+              <Grid className="tp-prospect-discovery__geo-grid" narrow>
+                <Column sm={4} md={4} lg={5}>
+                  <Select id="tp-continent" labelText="大洲 / 地区" value={profile.continent} onChange={event => setProfile(current => ({ ...current, continent: event.currentTarget.value, country: '', countryName: '', city: '' }))}>
+                    <SelectItem value="" text="选择大洲" />
+                    {continents.map(item => <SelectItem key={item.value} value={item.value} text={item.label} />)}
+                  </Select>
+                </Column>
+                <Column sm={4} md={4} lg={5}>
+                  <Select id="tp-country" labelText="目标国家" value={profile.country} disabled={!profile.continent || countryLoading} onChange={event => { const code = event.currentTarget.value; const country = countries.find(item => item.cca2 === code); setProfile(current => ({ ...current, country: code, countryName: country?.name.common ?? '', city: '' })); }}>
+                    <SelectItem value="" text={countryLoading ? '正在加载国家…' : '选择国家'} />
+                    {filteredCountries.map(item => <SelectItem key={item.cca2} value={item.cca2} text={item.name.common} />)}
+                  </Select>
+                </Column>
+                <Column sm={4} md={8} lg={6}>
+                  <ComboBox id="tp-city" titleText="目标城市" placeholder="输入城市名称并选择（可选）" items={citySuggestions} selectedItem={profile.city} itemToString={item => typeof item === 'string' ? item : ''} disabled={!profile.country} onInputChange={value => update('city', value)} onChange={({ selectedItem }) => { if (typeof selectedItem === 'string') update('city', selectedItem); }} />
+                </Column>
+              </Grid>
+              {countryError && <span className="tp-prospect-discovery__field-error">{countryError}</span>}
+              {cityLoading && <InlineLoading description="正在查找目标城市…" />}
+              {cityError && <span className="tp-prospect-discovery__field-error">{cityError}</span>}
+              {selectedCountry && (
+                <div className="tp-prospect-discovery__geo-meta">
+                  <span>国家代码：{selectedCountry.cca2}</span><span>顶级域名：{countryTld || '暂无'}</span><span>商业语言：{countryLanguage || '待确认'}</span>
+                </div>
+              )}
+            </div>
+          </section>
+
+          <section className="tp-prospect-discovery__section tp-prospect-discovery__advanced">
+            <div className="tp-prospect-discovery__section-heading">
+              <div><span className="tp-prospect-discovery__section-index">02</span><div><h2>进阶筛选</h2><p>收纳产品规格、企业体量与竞品约束</p></div></div>
+            </div>
+            <Accordion>
+              <AccordionItem title="A. 材质工艺与规格锚定（Specs & Compliance）">
+                <div className="tp-prospect-discovery__field">
+                  <span className="tp-prospect-discovery__field-label">材质与工艺属性</span>
+                  <div className="tp-prospect-discovery__tag-list">
+                    {materials.map(item => <Checkbox key={item} id={'tp-material-' + item.replace(/[^a-z0-9]/gi, '-')} labelText={item} checked={profile.materials.includes(item)} onChange={() => toggleArray('materials', item)} />)}
+                  </div>
+                </div>
+                <div className="tp-prospect-discovery__two-col">
+                  <TextInput id="tp-specifications" labelText="核心规格 / 尺寸 / 功率" placeholder="例如 18-inch、100W、IP67" value={profile.specifications} onChange={event => update('specifications', event.currentTarget.value)} />
+                  <ComboBox id="tp-hs-code" titleText="海关编码（HS Code）" placeholder="输入 HS Code" items={[]} selectedItem={profile.hsCode} itemToString={item => typeof item === 'string' ? item : ''} onInputChange={value => update('hsCode', value)} onChange={({ selectedItem }) => { if (typeof selectedItem === 'string') update('hsCode', selectedItem); }} />
+                </div>
+                <div className="tp-prospect-discovery__field">
+                  <span className="tp-prospect-discovery__field-label">目标市场强制认证</span>
+                  <div className="tp-prospect-discovery__tag-list">
+                    {certifications.map(item => <Checkbox key={item} id={'tp-cert-' + item.replace(/[^a-z0-9]/gi, '-')} labelText={item} checked={profile.certifications.includes(item)} onChange={() => toggleArray('certifications', item)} />)}
+                  </div>
+                </div>
+              </AccordionItem>
+              <AccordionItem title="B. 买家体量与活跃度锚定（Scale & Activity）">
+                <div className="tp-prospect-discovery__two-col">
+                  <Select id="tp-employee-scale" labelText="员工规模区间" value={profile.employeeScale} onChange={event => update('employeeScale', event.currentTarget.value)}>
+                    <SelectItem value="" text="不限" /><SelectItem value="1-10" text="1–10 人" /><SelectItem value="11-50" text="11–50 人" /><SelectItem value="51-200" text="51–200 人" /><SelectItem value="201-500" text="201–500 人" /><SelectItem value="500+" text="500 人以上" />
+                  </Select>
+                  <div className="tp-prospect-discovery__field">
+                    <span className="tp-prospect-discovery__field-label">海关交易活跃窗口</span>
+                    <RadioButtonGroup legendText="采购活跃度" name="tp-activity" valueSelected={profile.activity} onChange={value => update('activity', String(value))}>
+                      <RadioButton id="tp-activity-6m" value="6m" labelText="近 6 个月活跃" />
+                      <RadioButton id="tp-activity-1y" value="1y" labelText="近 1 年稳定采购" />
+                    </RadioButtonGroup>
+                  </div>
+                </div>
+              </AccordionItem>
+              <AccordionItem title="C. 竞品逆向锚定（Competitor Benchmark）">
+                <p className="tp-prospect-discovery__helper">录入 1–3 个竞争对手英文名或独立站域名，用于后续逆向挖掘分销网络。</p>
+                <div className="tp-prospect-discovery__competitors">
+                  {profile.competitors.map((value, index) => (
+                    <div className="tp-prospect-discovery__competitor-row" key={index}>
+                      <TextInput id={'tp-competitor-' + index} labelText={'竞争对手 ' + (index + 1)} placeholder="例如 competitor.com 或 Brand Name" value={value} onChange={event => updateCompetitor(index, event.currentTarget.value)} />
+                      {profile.competitors.length > 1 && <Button kind="ghost" size="sm" onClick={() => setProfile(current => ({ ...current, competitors: current.competitors.filter((_, i) => i !== index) }))}>移除</Button>}
+                    </div>
+                  ))}
+                  {profile.competitors.length < 3 && <Button kind="tertiary" size="sm" renderIcon={CarbonIcons.Add} onClick={() => setProfile(current => ({ ...current, competitors: [...current.competitors, ''] }))}>添加竞争对手</Button>}
+                </div>
+              </AccordionItem>
+            </Accordion>
+          </section>
+
+          <div className="tp-prospect-discovery__actions">
+            <Button kind="primary" renderIcon={CarbonIcons.MagicWand} onClick={generateStrategy} disabled={strategyLoading}>{strategyLoading ? '正在生成策略…' : '生成获客策略'}</Button>
+          </div>
+
+          {previewOpen && (
+            <section className="tp-prospect-discovery__preview">
+              <div className="tp-prospect-discovery__section-heading">
+                <div><span className="tp-prospect-discovery__section-index">03</span><div><h2>获客策略预览</h2><p>由当前画像编译的搜索指令，可检查并手动调整</p></div></div>
+              </div>
+              <div className="tp-prospect-discovery__preview-summary">
+                <div><strong>{googleQueries.length}</strong><span>条搜索引擎指令</span></div>
+                <div><strong>{strategy.maps.length}</strong><span>条地图搜索组合</span></div>
+                <div><strong>{strategy.social.length}</strong><span>条社媒 / 独立站指令</span></div>
+              </div>
+              <div className="tp-prospect-discovery__preview-block">
+                <h3>词库与本土化裂变</h3>
+                <p>AI 自动生成的同义词、本土商业词汇与买家采购词可在此检查；也可手动补充或移除。</p>
+                <div className="tp-prospect-discovery__synonyms">
+                  {aiSynonyms.map(item => <Tag key={'ai-' + item} type="blue" filter onClose={() => setAiSynonyms(current => current.filter(value => value !== item))}>{item}</Tag>)}
+                  {localizedTerms.map(item => <Tag key={'local-' + item} type="teal" filter onClose={() => setLocalizedTerms(current => current.filter(value => value !== item))}>{item}</Tag>)}
+                  {buyerKeywords.map(item => <Tag key={'buyer-' + item} type="purple" filter onClose={() => setBuyerKeywords(current => current.filter(value => value !== item))}>{item}</Tag>)}
+                  {synonyms.map(item => <Tag key={'manual-' + item} type="blue" filter onClose={() => setSynonyms(current => current.filter(value => value !== item))}>{item}</Tag>)}
+                  <TextInput id="tp-synonym-input" labelText="补充行业词汇" hideLabel placeholder="输入同义词或本土商业词汇" value={synonymInput} onChange={event => setSynonymInput(event.currentTarget.value)} />
+                  <Button kind="tertiary" size="sm" renderIcon={CarbonIcons.Add} onClick={addSynonym}>添加词汇</Button>
+                </div>
+              </div>
+              <div className="tp-prospect-discovery__preview-block">
+                <div className="tp-prospect-discovery__preview-heading"><h3>黄金搜索矩阵（Golden Dork Matrix）</h3><Toggle id="tp-advanced-mode" labelText="高级模式" labelA="关闭" labelB="开启" toggled={advancedMode} onToggle={setAdvancedMode} /></div>
+                <Accordion>
+                  <AccordionItem title={'Google Dorks（' + googleQueries.length + ' 条）'}>
+                    <div className="tp-prospect-discovery__query-list">
+                      {googleQueries.map((query, index) => advancedMode
+                        ? <TextArea key={index} id={'tp-google-query-' + index} labelText={'搜索指令 ' + (index + 1)} rows={3} value={query} onChange={event => updateGoogleQuery(index, event.currentTarget.value)} />
+                        : <code key={index}>{query}</code>)}
+                    </div>
+                  </AccordionItem>
+                  <AccordionItem title={'地图扫街矩阵（' + strategy.maps.length + ' 条）'}>
+                    <ul>{strategy.maps.map(item => <li key={item}><code>{item}</code></li>)}</ul>
+                  </AccordionItem>
+                  <AccordionItem title={'社媒与独立站专项（' + strategy.social.length + ' 条）'}>
+                    <ul>{strategy.social.map(item => <li key={item}><code>{item}</code></li>)}</ul>
+                  </AccordionItem>
+                </Accordion>
+              </div>
+              <div className="tp-prospect-discovery__preview-footer">
+                <span>Google 与地图矩阵当前由本地规则编译；地图数据抓取和后续步骤数据传递将在对应步骤启用。</span>
+                <Button kind="secondary" renderIcon={CarbonIcons.Checkmark} onClick={() => setNotice('第一步策略已在当前页面确认。')}>确认当前策略</Button>
+              </div>
+            </section>
+          )}
+        </section>
+      ) : (
+        <div className="tp-prospect-discovery__future-step" aria-label="后续步骤暂未开放" />
+      )}
     </main>
   );
 }
