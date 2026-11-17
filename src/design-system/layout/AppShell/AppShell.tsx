@@ -59,7 +59,7 @@ export function AppShell() {
   return (
     <>
       <SkipToContent href="#main-content" />
-      <Header aria-label="TradePilot">
+      <Header aria-label="TradePilot" className="cds--g100">
         <HeaderMenuButton
           aria-label={sideNavExpanded ? '收起导航菜单' : '展开导航菜单'}
           aria-expanded={sideNavExpanded}
@@ -67,7 +67,7 @@ export function AppShell() {
           onClick={() => setSideNavExpanded((expanded) => !expanded)}
         />
         <HeaderName href="/" prefix="" className="tp-header__brand" aria-label="TradePilot 首页">
-          <img src="/tradepilot-wordmark.svg" alt="TradePilot" />
+          TradePilot
         </HeaderName>
         <HeaderGlobalBar>
           <HeaderGlobalAction
@@ -130,7 +130,7 @@ export function AppShell() {
       </Header>
       <SideNav
         aria-label="TradePilot 主导航"
-        className={sideNavExpanded ? 'tp-sidenav--expanded' : 'tp-sidenav--rail'}
+        className={`cds--g100 ${sideNavExpanded ? 'tp-sidenav--expanded' : 'tp-sidenav--rail'}`}
         expanded={sideNavExpanded}
         isPersistent={!isCompactViewport}
         isRail={!isCompactViewport && !sideNavExpanded}
