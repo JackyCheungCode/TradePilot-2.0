@@ -8,6 +8,7 @@ import {
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import { PlatformSelectionStep } from './PlatformSelectionStep';
+import { ActorSchemaFields } from './ActorSchemaFields';
 import { GuardrailsStep } from './GuardrailsStep';
 import { ExecutionStep } from './ExecutionStep';
 import { ScoringStep } from './ScoringStep';
@@ -153,6 +154,7 @@ export function ProspectDiscoveryPage() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [selectedSourceCount, setSelectedSourceCount] = useState(0);
   const [selectedSources, setSelectedSources] = useState<Array<{ id: string; name: string; category?: string }> | null>(null);
+  const [actorParameters, setActorParameters] = useState<Record<string, unknown>>({});
   const [profile, setProfile] = useState<Profile>(emptyProfile);
   const [countries, setCountries] = useState<Country[]>([]);
   const [countryLoading, setCountryLoading] = useState(true);
@@ -620,12 +622,13 @@ export function ProspectDiscoveryPage() {
             </section>
           )}
         </section>
+          <ActorSchemaFields sources={selectedSources ?? []} onValuesChange={setActorParameters} />
        ) : selectedIndex === 0 ? (
         <PlatformSelectionStep countryCode={profile.country} countryName={profile.countryName} continentLabel={continents.find(item => item.value === profile.continent)?.label ?? ''} countries={countries} onChangeCountry={() => setSelectedIndex(1)} onCountryChange={country => setProfile(current => ({ ...current, country: country.cca2, countryName: country.name.common, continent: country.region }))} onSelectionCountChange={setSelectedSourceCount} selectedIds={selectedSources?.map(item => item.id)} onSelectionChange={setSelectedSources} />
       ) : selectedIndex === 2 ? (
         <GuardrailsStep countries={countries} profile={{ coreNoun: profile.coreNoun, country: profile.country, countryName: profile.countryName, buyers: profile.buyers }} />
       ) : selectedIndex === 3 ? (
-        <ExecutionStep profile={{ coreNoun: profile.coreNoun, buyers: profile.buyers, continent: continents.find(item => item.value === profile.continent)?.label ?? profile.continent, country: profile.country, countryName: profile.countryName, city: profile.city }} sources={selectedSources ?? []} planTaskCode={planTaskCode} onEditStep={setSelectedIndex} onContinueToScoring={ids => { try { localStorage.setItem('tradepilot.prospect-scoring.queue.v1', JSON.stringify(ids)); } catch { /* Keep navigation available if local storage is full. */ } setSelectedIndex(4); }} />
+        <ExecutionStep profile={{ coreNoun: profile.coreNoun, buyers: profile.buyers, continent: continents.find(item => item.value === profile.continent)?.label ?? profile.continent, country: profile.country, countryName: profile.countryName, city: profile.city }} sources={selectedSources ?? []} actorParameters={actorParameters} planTaskCode={planTaskCode} onEditStep={setSelectedIndex} onContinueToScoring={ids => { try { localStorage.setItem('tradepilot.prospect-scoring.queue.v1', JSON.stringify(ids)); } catch { /* Keep navigation available if local storage is full. */ } setSelectedIndex(4); }} />
       ) : selectedIndex === 4 ? (
         <ScoringStep profile={{ coreNoun: profile.coreNoun, countryName: profile.countryName, buyers: profile.buyers }} onContinueToEnrichment={() => setSelectedIndex(5)} />
       ) : selectedIndex === 5 ? (
