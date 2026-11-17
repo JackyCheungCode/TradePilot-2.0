@@ -83,6 +83,7 @@ function compileStrategy(profile: Profile, tld: string, keywords: string[] = [])
     [expanded, buyerClause, market, site, exclusions].filter(Boolean).join(' '),
     [expanded, specClause, hs, buyerClause, market, exclusions].filter(Boolean).join(' '),
     [expanded, '(supplier OR sourcing OR procurement OR wholesale)', market, site, exclusions].filter(Boolean).join(' '),
+    ...profile.competitors.filter(Boolean).map(competitor => '"' + competitor.trim() + '" (distributor OR dealer OR reseller OR stockist)'),
   ];
   const area = profile.city.trim() || profile.countryName || 'target market';
   const mapTerms = [
@@ -256,6 +257,8 @@ export function ProspectDiscoveryPage() {
           specifications: profile.specifications,
           hsCode: profile.hsCode,
           certifications: profile.certifications,
+          employeeScale: profile.employeeScale,
+          activity: profile.activity,
           competitors: profile.competitors.filter(Boolean),
         }),
       });
