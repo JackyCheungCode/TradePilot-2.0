@@ -322,6 +322,8 @@ export function PlatformSelectionStep({
         </div>
       </div>
 
+      {selectionWarning && <div className="tp-prospect-discovery__selection-warning"><Tag type="red">选择上限</Tag><span>{selectionWarning}</span></div>}
+
       <div className="tp-prospect-discovery__platform-list" aria-live="polite">
         {visiblePlatforms.map(source => {
           const checked = selected.includes(source.id);
@@ -348,7 +350,7 @@ export function PlatformSelectionStep({
     </section>
 
     <div className="tp-prospect-discovery__source-selection-note">
-      <span>已选择 {selected.length} 个已接入平台。目录中的其他平台仅供浏览，未通过执行能力验证前不会启动任务。</span>
+      <span>已选择 {selected.length} 个平台；每次方案最多 20 个。未通过数据源质量门禁的来源不会启动正式采集。</span>
       <Button kind="secondary" onClick={() => setSelected(recommended)} disabled={!countryCode}>恢复当前市场智能推荐</Button>
     </div>
   </section>;
