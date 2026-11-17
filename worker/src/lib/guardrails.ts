@@ -92,7 +92,8 @@ export function evaluateGuardrails(record: {
   if (enabled.quality === true) {
     if (lines(rules.quality).some(value => fields.toLowerCase().includes(value.toLowerCase()))) reasons.push("命中数据质量排除规则");
     const floor = Number(snapshot.employeeFloor);
-    const employeeValue = record.employeeCount ?? raw.employee_count ?? raw.employees ?? raw.company_size;\n    const employees = employeeValue === null || employeeValue === undefined || employeeValue === "" ? Number.NaN : Number(employeeValue);
+    const employeeValue = record.employeeCount ?? raw.employee_count ?? raw.employees ?? raw.company_size;
+    const employees = employeeValue === null || employeeValue === undefined || employeeValue === "" ? Number.NaN : Number(employeeValue);
     if (Number.isFinite(floor) && floor > 0 && (!Number.isFinite(employees) || employees < floor)) {
       if (!Number.isFinite(employees) && snapshot.unknownPolicy === "pending") review = true;
       else if (!Number.isFinite(employees) && snapshot.unknownPolicy === "block") reasons.push("员工规模未知，按严格策略拦截");
