@@ -220,7 +220,7 @@ export function DashboardPage() {
     }
     return [...counts.entries()].map(([code, value]) => ({
       group: countryGeoId(code), code, name: countryLabel(code), value,
-    })).sort((a, b) => b.value - a.value);
+    })).filter(item => item.group !== null).sort((a, b) => b.value - a.value);
   }, [marketMetric, scoped]);
 
   const searchKeywords = useMemo(() => {
