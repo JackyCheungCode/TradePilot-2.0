@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { evaluateGuardrails } from "./guardrails.ts";
+import { evaluateGuardrails, getDuplicatePolicy } from "./guardrails.ts";
 
 const snapshot = (overrides: Record<string, unknown> = {}) => ({
   enabled: {
@@ -132,4 +132,11 @@ test("unknown employee evidence follows the pending policy", () => {
   );
   assert.equal(result.blocked, false);
   assert.equal(result.review, true);
+});
+
+test("duplicate policy defaults safely and accepts the three supported modes", () => {
+  assert.equal(getDuplicatePolicy({}), "merge");
+  assert.equal(getDuplicatePolicy({ duplicatePolicy: "skip" }), "skip");
+  assert.equal(getDuplicatePolicy({ duplicatePolicy: "review" }), "review");
+  assert.equal(getDuplicatePolicy({ duplicatePolicy: "unexpected" }), "merge");
 });
