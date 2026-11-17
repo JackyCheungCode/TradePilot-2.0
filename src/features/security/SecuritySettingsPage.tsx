@@ -56,6 +56,7 @@ export function SecuritySettingsPage() {
   const [webAuthnAvailable, setWebAuthnAvailable] = useState(false);
   const [webAuthnStepUp, setWebAuthnStepUp] = useState<{ factorId: string; challengeId: string; action: WebAuthnAction; credentialId?: string } | null>(null);
   const [webAuthnStepUpCode, setWebAuthnStepUpCode] = useState('');
+  const [pendingWebAuthnRevokeId, setPendingWebAuthnRevokeId] = useState<string | null>(null);
 
   const callWebAuthn = async <T,>(client: Awaited<ReturnType<typeof getSupabaseClient>>, path: string, body: Record<string, unknown> = {}): Promise<T> => {
     const { data, error: sessionError } = await client.auth.getSession();
@@ -83,6 +84,7 @@ export function SecuritySettingsPage() {
       if (!credentialId) throw new Error('缺少要撤销的生物识别凭证。');
       const result = await callWebAuthn<{ revoked: boolean }>(client, '/api/v1/webauthn/credential/revoke', { credentialId });
       if (!result.revoked) throw new Error('凭证可能已撤销或不存在。');
+      setPendingWebAuthnRevokeId(null);
       setNotice('生物识别凭证已撤销。');
     } else {
       await callWebAuthn(client, '/api/v1/webauthn/enable', { enabled: action === 'enable' });
@@ -396,7 +398,7 @@ export function SecuritySettingsPage() {
                   <Button kind="secondary" disabled={busy} onClick={() => void beginWebAuthnAction("register")}>注册生物识别设备</Button>
                 </div>
                 {webAuthnStatus.credentials.length > 0 ? (
-                  <ul className="tp-security__passkey-list">{webAuthnStatus.credentials.map((credential) => <li key={credential.id}><div><strong>{credential.name}</strong><span>WebAuthn 生物识别凭证</span></div><div className="tp-security__actions"><Tag type="green">已注册</Tag><Button kind="danger--tertiary" size="sm" disabled={busy} onClick={() => { if (window.confirm("确定撤销此生物识别设备吗？")) void beginWebAuthnAction("revoke", credential.id); }}>撤销</Button></div></li>)}</ul>
+                  <ul className="tp-security__passkey-list">{webAuthnStatus.credentials.map((credential) => <li key={credential.id}><div><strong>{credential.name}</strong><span>WebAuthn 生物识别凭证</span></div><div className="tp-security__actions"><Tag type="green">已注册</Tag>{pendingWebAuthnRevokeId === credential.id ? <><Button kind="danger--tertiary" size="sm" disabled={busy} onClick={() => void beginWebAuthnAction("revoke", credential.id)}>确认撤销</Button><Button kind="ghost" size="sm" onClick={() => setPendingWebAuthnRevokeId(null)}>取消</Button></> : <Button kind="danger--tertiary" size="sm" disabled={busy} onClick={() => setPendingWebAuthnRevokeId(credential.id)}>撤销</Button>}</div></li>)}</ul>
                 ) : <p className="tp-security__muted">尚未注册 WebAuthn 生物识别设备。启用 MFA 前必须注册至少两个凭证（建议一台主设备、一台备用设备）。</p>}
                 {webAuthnStatus.credentials.length === 1 && <InlineNotification kind="warning" lowContrast title="还需要一台备用设备" subtitle="请再注册一个凭证（建议使用另一台设备）后，才能启用生物识别 MFA。" />}
                 {webAuthnStepUp && (
