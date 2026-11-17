@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Accordion, AccordionItem, Button, CodeSnippet, Column, CopyButton, Grid,
-  InlineNotification, ProgressBar, StructuredListBody, StructuredListCell,
+  InlineNotification, Modal, ProgressBar, StructuredListBody, StructuredListCell,
   StructuredListHead, StructuredListRow, StructuredListWrapper, Tag, Tile, CarbonIcons,
 } from '@/design-system';
 
@@ -136,7 +136,7 @@ export function ExecutionStep({ profile, sources, onEditStep, onContinueToScorin
           <Tile className="tp-execution__metric-tile"><div className="tp-execution__metric-label"><CarbonIcons.DataBase size={20} /><span>已捕获原始线索数</span></div><strong>{captured}</strong><small>条原始记录 · 不展示明细</small></Tile>
         </Column>
         <Column sm={4} md={4} lg={5}>
-          <Tile className="tp-execution__metric-tile"><div className="tp-execution__metric-label"><CarbonIcons.ShieldCheck size={20} /><span>护盾拦截垃圾数</span></div><strong>{blocked}</strong><small>条无效或命中规则的记录</small></Tile>
+          <Tile className="tp-execution__metric-tile"><div className="tp-execution__metric-label"><CarbonIcons.Security size={20} /><span>护盾拦截垃圾数</span></div><strong>{blocked}</strong><small>条无效或命中规则的记录</small></Tile>
         </Column>
         <Column sm={4} md={8} lg={6}>
           <Tile className="tp-execution__metric-tile"><div className="tp-execution__metric-label"><CarbonIcons.Time size={20} /><span>运行耗时与任务状态</span></div><strong className="tp-execution__metric-time">{elapsedText}</strong><small>{status === 'running' ? '全网探测中 · 增量捕获' : status === 'completed' ? '任务已完成' : status === 'paused' ? '任务已暂停' : '等待启动'}</small></Tile>

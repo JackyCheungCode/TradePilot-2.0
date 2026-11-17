@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
 import {
-  Accordion, AccordionItem, Button, Column, Dropdown, Grid, InlineNotification, OverflowMenu,
+  Accordion, AccordionItem, Column, Dropdown, Grid, InlineNotification, OverflowMenu,
   OverflowMenuItem, Pagination, Table, TableBatchAction, TableBatchActions, TableBody,
   TableCell, TableHead, TableHeader, TableRow, TableSelectAll, TableSelectRow,
   TableToolbar, TableToolbarContent, TableToolbarSearch, Tag, Tile, CarbonIcons,
@@ -99,7 +99,7 @@ export function ScoringStep({ profile }: Props) {
   return (
     <section className="tp-prospect-discovery__step tp-scoring">
       <div className="tp-scoring__heading">
-        <div><span className="tp-execution__eyebrow">AI FILTERING & SCORING</span><h2>AI 智能清洗与打分工作台</h2><p>集中审阅全网搜索捕获的原始企业记录，人工选择后再触发清洗与评分</p></div>
+        <div><span className="tp-execution__eyebrow">AI FILTERING & SCORING</span><h2>AI 智能清洗与打分工作台</h2><p>目标市场：{profile.countryName || '未指定'} · 核心产品：{profile.coreNoun || '未指定'} · 目标买家：{profile.buyers.length} 类</p></div>
         <Tag type="blue">{rows.length} 条待处理记录</Tag>
       </div>
 
