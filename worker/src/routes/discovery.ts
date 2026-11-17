@@ -4,6 +4,7 @@ import { discoveryRunQuery } from "../lib/owner-scoped-query";
 import { readIntegrationSecret } from "../lib/integrations";
 import { callAgentChatModel, type Env as AgentEnv } from "./agent-center";
 import { evaluateGuardrails, getDuplicatePolicy } from "../lib/guardrails";
+import { filterVisibleDiscoveryRecords } from "../lib/discovery-record-visibility";
 
 export interface DiscoveryEnv {
   SUPABASE_URL: string;
@@ -614,14 +615,7 @@ export async function handleDiscovery(request: Request, env: DiscoveryEnv): Prom
     if(status) filters.push("status=eq."+encodeURIComponent(status));
     else filters.push("status=not.in.(removed,discarded)");
     const rows=await db<Array<Record<string,unknown>>>(env,"discovery_records?"+filters.join("&"));
-    const visible=(rows??[]).flatMap(record=>{
-      const occurrences=Array.isArray(record.discovery_record_occurrences)?record.discovery_record_occurrences as Array<Record<string,unknown>>:[];
-      const activeOccurrences=occurrences.filter(item=>item.is_removed!==true&&(!runId||String(item.run_id)===runId));
-      if(runId&&!activeOccurrences.length)return [];
-      if(!runId&&occurrences.length>0&&!activeOccurrences.length)return [];
-      return [{...record,discovery_record_occurrences:activeOccurrences}];
-    });
-    return successResponse(request,visible);
+    return successResponse(request,filterVisibleDiscoveryRecords(rows??[],runId));
   }
 
   const actionMatch=url.pathname.match(/^\/api\/v1\/discovery-records\/([0-9a-f-]+)\/action$/i);
