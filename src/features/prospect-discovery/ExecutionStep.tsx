@@ -81,6 +81,7 @@ export function ExecutionStep({ profile, sources, onEditStep, onContinueToScorin
   const runStorageKey = 'tradepilot.prospectDiscovery.runs.' + planTaskCode;
 
   useEffect(() => {
+    setRuns([]); setSnapshots({}); setRecordIds([]); setStatus('idle'); setStartedAt(null);
     try {
       const saved = localStorage.getItem(runStorageKey);
       if (!saved) return;
@@ -91,12 +92,12 @@ export function ExecutionStep({ profile, sources, onEditStep, onContinueToScorin
       setStartedAt(Date.now());
       setLogs(['[' + nowTime() + '] [SYSTEM] 已恢复当前方案的后端任务引用，正在同步真实任务状态。']);
     } catch {
-      localStorage.removeItem(runStorageKey);
+      try { localStorage.removeItem(runStorageKey); } catch { /* Storage can be unavailable in restricted browser contexts. */ }
     }
   }, [runStorageKey]);
 
   const resetTask = () => {
-    localStorage.removeItem(runStorageKey);
+    try { localStorage.removeItem(runStorageKey); } catch { /* Backend history remains untouched. */ }
     setStatus('idle'); setProgress(0); setElapsed(0); setCaptured(0);
     setRuns([]); setSnapshots({}); setRecordIds([]); setStartedAt(null);
     setLogs(['[' + nowTime() + '] [SYSTEM] 已清空当前页面任务引用；历史后端任务不会被删除。']);
