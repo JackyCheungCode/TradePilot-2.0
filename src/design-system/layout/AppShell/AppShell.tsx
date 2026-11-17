@@ -156,6 +156,7 @@ export function AppShell() {
         onClose={() => { setCommunicationsOpen(false); setCommunicationsMinimized(false); }}
         onMinimize={() => setCommunicationsMinimized(true)}
         onRestore={() => setCommunicationsMinimized(false)}
+        navigationExpanded={sideNavExpanded}
       />
     </>
   );
