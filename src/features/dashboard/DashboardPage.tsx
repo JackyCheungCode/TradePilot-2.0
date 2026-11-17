@@ -320,7 +320,7 @@ export function DashboardPage() {
   const donutOptions = { ...commonOptions, title: '客户状态结构', height: '250px', donut: { center: { label: '客户' } }, legend: { position: 'bottom' } };
   const choroplethOptions = {
     ...commonOptions, title: '全球业务资产分布', height: '430px',
-    geoData: worldAtlas as any, thematic: { projection: 'naturalEarth' },
+    geoData: worldAtlas as any, thematic: { projection: 'geoNaturalEarth1' },
     choropleth: { colorLegend: { title: '记录数量', type: 'linear' } },
     color: { gradient: { enabled: true, colors: ['#edf5ff', '#78a9ff', '#4589ff', '#0f62fe', '#002d9c'] } },
   };
