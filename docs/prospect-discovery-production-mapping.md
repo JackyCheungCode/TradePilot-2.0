@@ -86,12 +86,12 @@
 ## Scope decision update (2026-11-17)
 - The user explicitly deferred independent execution-chain integrations for LinkedIn, TikTok, Amazon, Alibaba.com, eBay, Walmart, YouTube, Reddit, Pinterest and other catalog-only channels. They remain visible as catalog-only / no verified executor, but are excluded from the current release acceptance scope.
 - Current release channel scope remains Google Maps / OSM, Web Search, Facebook and Instagram.
-- Global guardrail settings now have an owner-scoped API backed by the existing audited settings table. The schema migration is included in this branch only; production schema was not changed.
+- Global guardrail settings now have an owner-scoped API backed by the existing audited settings table. The API uses the caller's JWT and existing owner RLS policies. The schema migration is included in this branch only; production schema was not changed.
 - The keyword action UI now enables only “skip current search result”. Company-wide and page-specific actions are disabled rather than represented as implemented.
 
 
 ## Follow-up hardening in feature branch (2026-11-17)
-- Global guardrails use `trade_business_settings` with owner_id scoping, the existing authenticated owner RLS policies, unique (owner_id, scope_key), and the existing audit trigger/history table. The API resolves the caller through Supabase Auth and always filters by the verified owner ID while using service-role credentials server-side.
+- Global guardrails use `trade_business_settings` with owner_id scoping, the existing authenticated owner RLS policies, unique (owner_id, scope_key), and the existing audit trigger/history table. The API resolves the caller through Supabase Auth, filters by the verified owner ID, and forwards the user's JWT with the anon API key so existing owner RLS policies and auth.uid()-based audit triggers remain active; it does not use service-role bypass for these per-user settings.
 - The additive migration `20261117090000_add_prospect_guardrails_settings_scope.sql` extends only the settings/history scope checks to permit `prospect_guardrails`. Existing rows and policies are not rewritten.
 - The settings API accepts a bounded allow-list of guardrail configuration keys and rejects payloads over 100 KB. Task creation fetches global config only when the selected scope is global/both; global-only requires a saved global config; both merges global defaults with task overrides.
 - The UI now exposes only the current-result keyword action. Company-wide and page-level options are disabled because they require separate identity/page-crawl semantics.
