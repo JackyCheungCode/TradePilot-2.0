@@ -133,13 +133,13 @@ test("theme preference PUT persists only an allow-listed preference for the auth
     const response = await handleSettings(new Request("https://worker.test/api/v1/settings/theme-preference", {
       method: "PUT",
       headers: { Authorization: "Bearer user-access-token", "Content-Type": "application/json" },
-      body: JSON.stringify({ preference: "dark", unexpected: "must-not-persist" }),
+      body: JSON.stringify({ preference: "g90", unexpected: "must-not-persist" }),
     }), env);
     assert.equal(response.status, 200);
     assert.ok(stored);
     assert.equal(stored.owner_id, ownerId);
     assert.equal(stored.scope_key, "theme_preference");
-    assert.deepEqual(stored.config, { preference: "dark" });
+    assert.deepEqual(stored.config, { preference: "g90" });
     assert.equal("unexpected" in stored, false);
     assert.equal(storageHeaders?.get("apikey"), env.SUPABASE_ANON_KEY);
     assert.equal(storageHeaders?.get("authorization"), "Bearer user-access-token");
