@@ -58,10 +58,18 @@ export function evaluateGuardrails(record: {
   const raw = object(record.raw);
   const rawText = JSON.stringify(raw).slice(0, 12000);
   const fields = [record.name, record.address, record.website, record.phone, record.email, record.businessType, record.title, record.description, record.content, record.social, rawText].map(text).join("\n");
+  const positionValues: Record<string, string> = {
+    title: text(record.title), snippet: text(record.description), url: text(record.website),
+    meta: [raw.metaTitle, raw.metaDescription, raw.meta_title, raw.meta_description].map(text).join("\n"),
+    content: [record.content, record.description, raw.content, raw.text, raw.biography].map(text).join("\n"),
+    company: text(record.name),
+  };
+  const selectedPositions = Array.isArray(snapshot.selectedPositions) ? snapshot.selectedPositions.map(item => text(object(item).id)).filter(Boolean) : [];
+  const keywordText = selectedPositions.length ? selectedPositions.map(key => positionValues[key] ?? "").join("\n") : fields;
   const keywordList = lines(rules.keywords);
   if (enabled.keywords === true && keywordList.length) {
     const modes = Array.isArray(snapshot.selectedModes) ? snapshot.selectedModes.map(item => text(object(item).id)) : ["whole", "phrase"];
-    if (keywordList.some(keyword => keywordMatches(fields, keyword, modes))) reasons.push("命中关键词排除规则");
+    if (keywordList.some(keyword => keywordMatches(keywordText, keyword, modes))) reasons.push("命中关键词排除规则");
   }
   if (enabled.websites === true) {
     const websiteRules = Array.isArray(snapshot.websiteRows) ? snapshot.websiteRows.map(object) : [];
