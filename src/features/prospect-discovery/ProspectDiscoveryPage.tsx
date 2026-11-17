@@ -441,7 +441,7 @@ export function ProspectDiscoveryPage() {
                 <div className="tp-prospect-discovery__suggestions">
                   {suggestionLoading && <InlineLoading description="正在获取 Google 搜索建议…" />}
                   {suggestionError && <span className="tp-prospect-discovery__field-error">{suggestionError}</span>}
-                  {suggestions.map(item => <button type="button" key={item} onClick={() => update('coreNoun', item)}>{item}<CarbonIcons.ArrowUpRight size={14} /></button>)}
+                  {suggestions.map(item => <Button kind="ghost" size="md" className="tp-prospect-discovery__suggestion" key={item} onClick={() => update('coreNoun', item)}>{item}<CarbonIcons.ArrowUpRight size={14} /></Button>)}
                 </div>
               )}
             </div>
