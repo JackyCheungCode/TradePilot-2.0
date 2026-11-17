@@ -91,7 +91,7 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
         if (value.enabled) setEnabled(value.enabled);
         if (value.rules) setRules({ ...emptyRules, ...value.rules });
         if (value.websiteRows) setWebsiteRows(value.websiteRows);
-        if (value.scope) setScope(value.scope);
+        setScope('task');
         if (value.selectedDimensions) setSelectedDimensions(value.selectedDimensions);
         if (value.selectedPositions) setSelectedPositions(value.selectedPositions);
         if (value.selectedModes) setSelectedModes(value.selectedModes);
@@ -362,7 +362,7 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
             <SelectItem value="relaxed" text="宽松型" /><SelectItem value="standard" text="标准型（推荐）" /><SelectItem value="strict" text="严格型" />
           </Select>
           <Select id="tp-guardrails-scope" labelText="规则作用范围" value={scope} onChange={event => setScope(event.currentTarget.value)}>
-            <SelectItem value="task" text="当前任务" /><SelectItem value="global" text="全局规则" /><SelectItem value="both" text="全局 + 当前任务" />
+            <SelectItem value="task" text="当前任务（已启用）" /><SelectItem value="global" text="全局规则（服务端持久化未接入）" disabled /><SelectItem value="both" text="全局 + 当前任务（服务端持久化未接入）" disabled />
           </Select>
         </div>
         <div className="tp-guardrails__rule-summary">
