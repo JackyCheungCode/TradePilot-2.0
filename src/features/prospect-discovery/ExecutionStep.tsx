@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Accordion, AccordionItem, Button, CodeSnippet, Column, CopyButton, Grid,
+  Accordion, AccordionItem, Button, Checkbox, CodeSnippet, Column, CopyButton, Grid,
   InlineNotification, ProgressBar, StructuredListBody, StructuredListCell,
-  StructuredListHead, StructuredListRow, StructuredListWrapper, Tag, Tile, CarbonIcons,
+  StructuredListHead, StructuredListRow, StructuredListWrapper, Tag, TextInput, Tile, CarbonIcons,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 
@@ -24,6 +24,7 @@ type Props = {
   planTaskCode: string;
 };
 
+const clampLimit = (value: string, fallback: number) => { const parsed = Number.parseInt(value, 10); return Number.isFinite(parsed) ? Math.min(100, Math.max(1, parsed)) : fallback; };
 const buyerLabels: Record<string, string> = {
   importer: '进口商', distributor: '分销商 / 批发商', brand: '品牌方', contractor: '工程商 / 零售商',
 };
@@ -71,6 +72,11 @@ export function ExecutionStep({ profile, sources, onEditStep, onContinueToScorin
   const [notice, setNotice] = useState('');
   const [starting, setStarting] = useState(false);
   const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [mapLimit, setMapLimit] = useState('2');
+  const [webLimit, setWebLimit] = useState('5');
+  const [facebookLimit, setFacebookLimit] = useState('5');
+  const [instagramLimit, setInstagramLimit] = useState('5');
+  const [confirmedExecution, setConfirmedExecution] = useState(false);
   const [guardrailCount] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('tradepilot.guardrails.frontend.v1') || '{}');
@@ -98,7 +104,7 @@ export function ExecutionStep({ profile, sources, onEditStep, onContinueToScorin
 
   const resetTask = () => {
     try { localStorage.removeItem(runStorageKey); } catch { /* Backend history remains untouched. */ }
-    setStatus('idle'); setProgress(0); setElapsed(0); setCaptured(0);
+    setStatus('idle'); setProgress(0); setElapsed(0); setCaptured(0); setConfirmedExecution(false);
     setRuns([]); setSnapshots({}); setRecordIds([]); setStartedAt(null);
     setLogs(['[' + nowTime() + '] [SYSTEM] 已清空当前页面任务引用；历史后端任务不会被删除。']);
     setNotice('');
@@ -106,6 +112,7 @@ export function ExecutionStep({ profile, sources, onEditStep, onContinueToScorin
 
   const startTask = async () => {
     if (starting || status === 'running') return;
+    if (!confirmedExecution) { setNotice('请先核对本次渠道和数量上限，并勾选执行确认。'); return; }
     setStarting(true); setNotice(''); setSnapshots({}); setRuns([]); setRecordIds([]);
     setProgress(0); setCaptured(0); setElapsed(0); setStartedAt(Date.now());
     setLogs(['[' + nowTime() + '] [SYSTEM] 正在校验渠道并创建真实后端任务…']);
@@ -160,7 +167,12 @@ export function ExecutionStep({ profile, sources, onEditStep, onContinueToScorin
 
       if (channels.some(item => item.id === 'google-maps')) {
         addTask('google-maps', 'Google Maps', '/api/v1/discovery-runs', {
-          countries: [profile.country], query: profile.coreNoun.trim(), limitPerCountry: 100,
+          countries: [profile.country], query: profile.coreNoun.trim(), limitPerCountry: mapLimitValue, osmTags: [
+            { key: 'shop', value: 'electronics' }, { key: 'shop', value: 'computer' },
+            { key: 'shop', value: 'mobile_phone' }, { key: 'shop', value: 'telecommunication' },
+            { key: 'shop', value: 'trade' }, { key: 'shop', value: 'wholesale' },
+            { key: 'office', value: 'company' },
+          ],
           providers: ['google_maps', 'openstreetmap'], city: profile.city || undefined,
           businessTypes: [], filters: {}, planSnapshot, guardrailsSnapshot,
         });
@@ -168,20 +180,20 @@ export function ExecutionStep({ profile, sources, onEditStep, onContinueToScorin
       if (channels.some(item => item.id === 'google-search')) {
         addTask('google-search', 'Google Search', '/api/v1/search-discovery-runs', {
           country: profile.country, city: profile.city || undefined, query: profile.coreNoun.trim(),
-          advancedQuery: '"' + profile.coreNoun.trim() + '"', limitPerCountry: 100,
+          advancedQuery: '"' + profile.coreNoun.trim() + '"', limitPerCountry: webLimitValue,
           searchEngines: ['serper'], searchTypes: ['web'], searchLanguage: 'en', planSnapshot, guardrailsSnapshot,
         });
       }
       if (channels.some(item => item.id === 'facebook')) {
         addTask('facebook', 'Facebook', '/api/v1/facebook-discovery-runs', {
           country: profile.country, city: profile.city || undefined, query: profile.coreNoun.trim(),
-          objectTypes: ['page', 'person', 'post'], limitPerType: 50, planSnapshot, guardrailsSnapshot,
+          objectTypes: ['page'], limitPerType: facebookLimitValue, planSnapshot, guardrailsSnapshot,
         });
       }
       if (channels.some(item => item.id === 'instagram')) {
         addTask('instagram', 'Instagram', '/api/v1/instagram-discovery-runs', {
           countries: [profile.country], keywords: [profile.coreNoun.trim()], accountTypes: ['business', 'creator'],
-          minFollowers: 0, maxFollowers: 100000000, recentDays: 365, requireContact: true, limit: 100, planSnapshot, guardrailsSnapshot,
+          minFollowers: 0, maxFollowers: 100000000, recentDays: 365, requireContact: true, limit: instagramLimitValue, planSnapshot, guardrailsSnapshot,
         });
       }
       await Promise.all(tasks);
@@ -263,6 +275,16 @@ export function ExecutionStep({ profile, sources, onEditStep, onContinueToScorin
   });
   const elapsedText = '00:' + String(Math.floor(elapsed / 60)).padStart(2, '0') + ':' + String(elapsed % 60).padStart(2, '0');
   const hasRunnableSource = channels.some(item => ['google-maps', 'google-search', 'facebook', 'instagram'].includes(item.id));
+  const mapLimitValue = clampLimit(mapLimit, 2);
+  const webLimitValue = clampLimit(webLimit, 5);
+  const facebookLimitValue = clampLimit(facebookLimit, 5);
+  const instagramLimitValue = clampLimit(instagramLimit, 5);
+  const configuredChannels = [
+    ...(channels.some(item => item.id === 'google-maps') ? [{ name: 'Google Maps + OpenStreetMap', limit: mapLimitValue, detail: '每个数据源上限' }] : []),
+    ...(channels.some(item => item.id === 'google-search') ? [{ name: 'Web Search', limit: webLimitValue, detail: '结果上限' }] : []),
+    ...(channels.some(item => item.id === 'facebook') ? [{ name: 'Facebook 主页', limit: facebookLimitValue, detail: '主页结果上限' }] : []),
+    ...(channels.some(item => item.id === 'instagram') ? [{ name: 'Instagram 公开商业账号', limit: instagramLimitValue, detail: '账号结果上限' }] : []),
+  ];
   const allFinished = status === 'completed' || status === 'failed';
 
   return (
@@ -300,6 +322,17 @@ export function ExecutionStep({ profile, sources, onEditStep, onContinueToScorin
       </Accordion>
 
       {notice && <InlineNotification kind="info" lowContrast title="任务反馈" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
+      <Tile className="tp-execution__configuration">
+        <div className="tp-execution__section-heading"><div><h3>执行参数</h3><p>只配置当前已接入的真实渠道；数量为每个目标国家或渠道的结果上限。</p></div><Tag type="blue">{configuredChannels.length} 个可执行渠道</Tag></div>
+        <div className="tp-execution__configuration-grid">
+          {channels.some(item => item.id === 'google-maps') && <div><TextInput id="tp-execution-map-limit" type="number" min={1} max={100} labelText="Google Maps + OSM：每个数据源结果上限" helperText="Google Maps 与 OSM 分别使用此上限。" value={mapLimit} onChange={event => { setMapLimit(event.currentTarget.value); setConfirmedExecution(false); }} /></div>}
+          {channels.some(item => item.id === 'google-search') && <div><TextInput id="tp-execution-web-limit" type="number" min={1} max={100} labelText="Web Search：结果上限" value={webLimit} onChange={event => { setWebLimit(event.currentTarget.value); setConfirmedExecution(false); }} /></div>}
+          {channels.some(item => item.id === 'facebook') && <div><TextInput id="tp-execution-facebook-limit" type="number" min={1} max={100} labelText="Facebook：主页结果上限" helperText="本轮仅执行公开主页，不启动个人或帖子检索。" value={facebookLimit} onChange={event => { setFacebookLimit(event.currentTarget.value); setConfirmedExecution(false); }} /></div>}
+          {channels.some(item => item.id === 'instagram') && <div><TextInput id="tp-execution-instagram-limit" type="number" min={1} max={100} labelText="Instagram：公开商业账号结果上限" helperText="仅检索公开商业 / 创作者账号。" value={instagramLimit} onChange={event => { setInstagramLimit(event.currentTarget.value); setConfirmedExecution(false); }} /></div>}
+        </div>
+        <div className="tp-execution__confirmation-summary"><strong>本次执行预览</strong>{configuredChannels.length ? configuredChannels.map(item => <span key={item.name}>{item.name}：{item.limit} 条（{item.detail}）</span>) : <span>尚未选择可执行渠道。</span>}</div>
+        <Checkbox id="tp-execution-confirm" labelText="我已核对本次执行渠道、目标市场和数量上限，确认创建真实采集任务。" checked={confirmedExecution} disabled={!hasRunnableSource || status !== 'idle'} onChange={event => setConfirmedExecution(event.currentTarget.checked)} />
+      </Tile>
       <div className="tp-execution__dashboard-heading">
         <div><span className="tp-execution__eyebrow">MULTI-CHANNEL EXECUTION</span><h2>全网搜索大盘</h2><p>显示后端任务真实状态、进度、结果数量与运行日志</p></div>
         <Tag type={status === 'completed' ? 'green' : status === 'running' ? 'blue' : status === 'failed' ? 'red' : 'gray'}>{status === 'completed' ? '任务已结束' : status === 'running' ? '后端任务运行中' : status === 'failed' ? '任务启动失败' : '待启动'}</Tag>
@@ -321,7 +354,7 @@ export function ExecutionStep({ profile, sources, onEditStep, onContinueToScorin
         <div className="tp-execution__control-heading"><div><span className="tp-execution__eyebrow">GLOBAL PROGRESS</span><h2>全局任务进度</h2><p>汇总各渠道后端任务返回的进度（未接入渠道不计入）</p></div><strong className="tp-execution__percent">{progress}%</strong></div>
         <ProgressBar label="任务总进度" helperText={status === 'completed' ? '所有已创建渠道任务均已结束' : status === 'failed' ? '没有成功启动可执行渠道任务' : status === 'idle' ? '确认配置后启动真实后端任务' : '每 5 秒同步一次后端任务状态'} max={100} value={progress} status="active" />
         <div className="tp-execution__actions">
-          {status === 'idle' && <Button kind="primary" renderIcon={CarbonIcons.Play} disabled={starting || !hasRunnableSource} onClick={startTask}>{starting ? '正在创建任务…' : '开始执行全网搜索'}</Button>}
+          {status === 'idle' && <Button kind="primary" renderIcon={CarbonIcons.Play} disabled={starting || !hasRunnableSource || !confirmedExecution} onClick={startTask}>{starting ? '正在创建任务…' : '开始执行全网搜索'}</Button>}
           {status === 'running' && <Button kind="secondary" renderIcon={CarbonIcons.Reset} onClick={() => appendLog('[SYSTEM] 状态将在下一次轮询时刷新。')}>刷新状态（自动轮询中）</Button>}
           {allFinished && <Button kind="secondary" renderIcon={CarbonIcons.Reset} onClick={resetTask}>开始新一轮任务</Button>}
           {status === 'completed' && <Button kind="primary" renderIcon={CarbonIcons.ArrowRight} disabled={!recordIds.length} onClick={() => onContinueToScoring(recordIds)}>进入第五步：处理 {recordIds.length} 条真实检索结果</Button>}

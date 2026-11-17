@@ -170,6 +170,7 @@ const getPlatformExecutionStatus = (id: string): PlatformExecutionStatus => {
   if (id === 'facebook' || id === 'instagram' || id === 'google-search') return 'verify';
   return 'unavailable';
 };
+const isRunnablePlatform = (id: string) => ['google-maps', 'google-search', 'facebook', 'instagram'].includes(id);
 const platformStatusLabels: Record<PlatformExecutionStatus, string> = {
   connected: '执行链已接入',
   verify: '需验证连接 / 凭证',
@@ -183,8 +184,8 @@ export function PlatformSelectionStep({
   onChangeCountry: () => void; onSelectionCountChange: (count: number) => void;
   selectedIds?: string[]; onSelectionChange?: (sources: Array<{ id: string; name: string; category?: string }>) => void;
 }) {
-  const recommended = useMemo(() => recommendedFor(countryCode), [countryCode]);
-  const [selected, setSelected] = useState<string[]>(() => selectedIds !== undefined ? selectedIds : recommendedFor(countryCode));
+  const recommended = useMemo(() => recommendedFor(countryCode).filter(isRunnablePlatform), [countryCode]);
+  const [selected, setSelected] = useState<string[]>(() => selectedIds !== undefined ? selectedIds.filter(isRunnablePlatform) : recommendedFor(countryCode).filter(isRunnablePlatform));
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedContinents, setSelectedContinents] = useState<string[]>([]);
   const [selectedCountries, setSelectedCountries] = useState<Country[]>([]);
@@ -222,14 +223,14 @@ export function PlatformSelectionStep({
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const visiblePlatforms = filtered.slice((page - 1) * pageSize, page * pageSize);
-  const visibleIds = visiblePlatforms.map(source => source.id);
+  const visibleIds = visiblePlatforms.filter(source => isRunnablePlatform(source.id)).map(source => source.id);
   const allVisibleSelected = visibleIds.length > 0 && visibleIds.every(id => selected.includes(id));
   const selectedOnPage = visibleIds.filter(id => selected.includes(id)).length;
-  const toggle = (id: string) => setSelected(current => current.includes(id) ? current.filter(value => value !== id) : [...current, id]);
+  const toggle = (id: string) => { if (!isRunnablePlatform(id)) return; setSelected(current => current.includes(id) ? current.filter(value => value !== id) : [...current, id]); };
   const togglePage = () => setSelected(current => allVisibleSelected
     ? current.filter(id => !visibleIds.includes(id))
     : [...new Set([...current, ...visibleIds])]);
-  const selectAllFiltered = () => setSelected(current => [...new Set([...current, ...filtered.map(source => source.id)])]);
+  const selectAllFiltered = () => setSelected(current => [...new Set([...current, ...filtered.filter(source => isRunnablePlatform(source.id)).map(source => source.id)])]);
   const clearAllFiltered = () => {
     const filteredIds = new Set(filtered.map(source => source.id));
     setSelected(current => current.filter(id => !filteredIds.has(id)));
@@ -255,9 +256,6 @@ export function PlatformSelectionStep({
     <section className="tp-prospect-discovery__platform-browser">
       <div className="tp-prospect-discovery__platform-browser-heading">
         <div><h3>全球平台筛选与选择</h3><p>同一筛选维度内为“或”关系，不同维度之间为“且”关系。</p>
-          <div className="tp-prospect-discovery__platform-status-legend" aria-label="平台执行状态说明">
-            {(['connected', 'verify', 'unavailable'] as const).map(state => <span key={state} className={`tp-prospect-discovery__platform-status is-${state}`}><i aria-hidden="true" />{platformStatusLabels[state]}</span>)}
-          </div>
         </div>
         <Tag type="blue">{allPlatforms.length} 个平台</Tag>
       </div>
@@ -295,10 +293,10 @@ export function PlatformSelectionStep({
           const checked = selected.includes(source.id);
           const isRecommended = recommended.includes(source.id);
           return <div className={'tp-prospect-discovery__platform-row' + (checked ? ' is-selected' : '')} key={source.id}>
-            <Checkbox id={'tp-platform-' + source.id} labelText={source.name} hideLabel checked={checked} onChange={() => toggle(source.id)} />
+            <Checkbox id={'tp-platform-' + source.id} labelText={source.name} hideLabel checked={checked} disabled={!isRunnablePlatform(source.id)} onChange={() => toggle(source.id)} />
             <div className="tp-prospect-discovery__platform-copy">
               <div className="tp-prospect-discovery__platform-name">
-                <span className={`tp-prospect-discovery__platform-status is-${getPlatformExecutionStatus(source.id)}`}><i aria-hidden="true" />{platformStatusLabels[getPlatformExecutionStatus(source.id)]}</span>
+                <span className={`tp-prospect-discovery__platform-status is-${getPlatformExecutionStatus(source.id)}`} role="img" aria-label={platformStatusLabels[getPlatformExecutionStatus(source.id)]} title={platformStatusLabels[getPlatformExecutionStatus(source.id)]}><i aria-hidden="true" /></span>
                 <strong>{source.name}</strong>{isRecommended && <Tag type="green">智能推荐</Tag>}{source.global && <Tag type="blue">全球通用</Tag>}
               </div>
               <p>{source.description}</p>
