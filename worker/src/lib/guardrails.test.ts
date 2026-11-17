@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { evaluateGuardrails, getDuplicatePolicy } from "./guardrails.ts";
+import { filterVisibleDiscoveryRecords } from "./discovery-record-visibility.ts";
 
 const snapshot = (overrides: Record<string, unknown> = {}) => ({
   enabled: {
@@ -147,4 +148,27 @@ test("website platform exclusion checks provider technology metadata", () => {
     snapshot({ enabled: { websites: true }, websiteRows: [{ type: "platform", value: "shopify" }] }),
   );
   assert.equal(result.blocked, true);
+});
+
+test("all-results view keeps legacy records with no occurrence but hides fully removed records", () => {
+  const rows = [
+    { id: "legacy", discovery_record_occurrences: [] },
+    { id: "active", discovery_record_occurrences: [{ id: "o1", run_id: "run-a", is_removed: false }] },
+    { id: "removed", discovery_record_occurrences: [{ id: "o2", run_id: "run-a", is_removed: true }] },
+    { id: "mixed", discovery_record_occurrences: [{ id: "o3", run_id: "run-a", is_removed: true }, { id: "o4", run_id: "run-b", is_removed: false }] },
+  ];
+  const visible = filterVisibleDiscoveryRecords(rows);
+  assert.deepEqual(visible.map(row => row.id), ["legacy", "active", "mixed"]);
+  assert.equal((visible[2].discovery_record_occurrences as Array<{ id: string }>).length, 1);
+});
+
+test("task-scoped result view includes only visible occurrences from the requested run", () => {
+  const rows = [
+    { id: "legacy", discovery_record_occurrences: [] },
+    { id: "run-a", discovery_record_occurrences: [{ id: "a", run_id: "run-a", is_removed: false }] },
+    { id: "run-b", discovery_record_occurrences: [{ id: "b", run_id: "run-b", is_removed: false }] },
+    { id: "removed", discovery_record_occurrences: [{ id: "c", run_id: "run-a", is_removed: true }] },
+  ];
+  const visible = filterVisibleDiscoveryRecords(rows, "run-a");
+  assert.deepEqual(visible.map(row => row.id), ["run-a"]);
 });
