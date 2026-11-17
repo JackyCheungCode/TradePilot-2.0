@@ -112,6 +112,8 @@
 .tp-workbench__panel-heading h2 { margin: 0; font-size: 1.125rem; font-weight: 600; line-height: 1.4; }
 .tp-workbench__panel-heading p:last-child { margin: .35rem 0 0; color: var(--cds-text-secondary); font-size: .75rem; }
 .tp-workbench__country-panel { overflow: hidden; }
+.tp-workbench__market-controls { display: flex; align-items: flex-end; gap: .75rem; }
+.tp-workbench__market-controls .cds--select { width: 10rem; }
 .tp-workbench__country-panel .cds--chart-holder { margin-top: .25rem; }
 .tp-workbench__country-list { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 0 1.5rem; margin-top: .5rem; }
 .tp-workbench__country-list button {
@@ -242,6 +244,8 @@
   .tp-workbench__filters { align-items: stretch; flex-direction: column; gap: .75rem; }
   .tp-workbench__filters .cds--select { width: 100%; }
   .tp-workbench__filter-note { padding: 0; }
+  .tp-workbench__market-controls { align-items: stretch; flex-direction: column; }
+  .tp-workbench__market-controls .cds--select { width: 100%; }
   .tp-workbench__metrics { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .tp-workbench__metric { min-height: 9.25rem; padding: .9rem; }
   .tp-workbench__metric strong { font-size: 1.25rem; }
