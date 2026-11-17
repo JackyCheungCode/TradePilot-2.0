@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { getSupabaseClient } from '@/lib/supabase';
 import {
   Button, IconButton, Search, TextInput, TextArea, Dropdown, Tag, InlineNotification, Heading, Modal, CarbonIcons,
@@ -16,11 +16,12 @@ import {
 import {
   getInboxSessionToken, getInboxConversations, getInboxConnections, getInboxMessages,
   sendInboxMessage, updateInboxConversation, searchInboxCrmContacts, createInboxConversation, createInboxChannelConnection,
+  createInboxNote, generateInboxSummary, translateInboxMessage, getInboxAttachmentSignedUrl, searchInboxMessages,
   type InboxChannel, type InboxConversation, type InboxMessage, type InboxConnection, type InboxCrmContact,
 } from './api';
 import '@/design-system/styles/customer-communications.scss';
 
-type ConversationFilter = 'all' | 'unread' | 'pending' | 'resolved';
+type ConversationFilter = 'all' | 'unread' | 'open' | 'pending' | 'resolved';
 type ChannelOption = { id: CommunicationChannel; text: string };
 
 const channelOptions: ChannelOption[] = Object.entries(communicationChannelLabels).map(([id, text]) => ({
@@ -65,24 +66,23 @@ function mapInboxConversation(row: InboxConversation): { conversation: Communica
 
 function mapInboxMessage(row: InboxMessage): CommunicationMessage {
   const attachment = row.attachments?.[0];
-  const kind: CommunicationMessage['kind'] = row.content_type === 'email_card'
-    ? 'email'
-    : ['file', 'image', 'audio', 'video'].includes(row.content_type) ? 'file' : 'text';
+  const isNote = row.timeline_type === 'internal_note' || row.direction === 'internal';
+  const kind: CommunicationMessage['kind'] = isNote ? 'system' : row.content_type === 'email_card'
+    ? 'email' : ['file', 'image', 'audio', 'video'].includes(row.content_type || '') ? 'file' : 'text';
   const bytes = attachment?.file_size_bytes ?? 0;
   const fileSize = bytes >= 1024 * 1024 ? (bytes / (1024 * 1024)).toFixed(1) + ' MB'
     : bytes >= 1024 ? Math.round(bytes / 1024) + ' KB' : bytes ? bytes + ' B' : '附件';
   return {
-    id: row.id,
-    conversationId: row.conversation_id,
-    channel: row.channel_type as CommunicationChannel,
-    direction: row.direction === 'outbound' ? 'outbound' : 'inbound',
-    kind,
-    body: row.content || row.media_url || '（此消息没有文本内容）',
+    id: row.id, conversationId: row.conversation_id,
+    channel: row.channel_type ? row.channel_type as CommunicationChannel : undefined,
+    direction: isNote ? 'system' : row.direction === 'outbound' ? 'outbound' : 'inbound',
+    kind, body: row.content || row.media_url || '（此消息没有文本内容）',
+    translatedBody: row.translated_content || undefined,
     time: Date.parse(row.created_at) || Date.now(),
-    status: row.status === 'received' ? 'received' : row.status === 'sending' || row.status === 'queued' ? 'sent' : row.status,
-    subject: row.email_subject || undefined,
-    filename: attachment?.original_file_name || undefined,
+    status: isNote ? undefined : row.status,
+    subject: row.email_subject || undefined, filename: attachment?.original_file_name || undefined,
     fileSize: attachment ? fileSize : undefined,
+    attachments: row.attachments?.map(item => ({ id: item.id, filename: item.original_file_name, contentType: item.content_type, scanStatus: item.scan_status })),
   };
 }
 
@@ -100,6 +100,7 @@ const conversationStateLabels: Record<CommunicationConversation['state'], string
 const statusLabels: Record<ConversationFilter, string> = {
   all: '全部',
   unread: '未读',
+  open: '处理中',
   pending: '待处理',
   resolved: '已解决',
 };
@@ -144,9 +145,11 @@ function UserAvatar({ name, src }: { name: string; src?: string }) {
 
 function MessageStatus({ status }: { status?: CommunicationMessage['status'] }) {
   if (status === 'failed') return <Tag type="red">发送失败</Tag>;
+  if (status === 'sending' || status === 'queued') return <Tag type="blue">发送中</Tag>;
   if (status === 'read') return <Tag type="green">已读</Tag>;
   if (status === 'delivered') return <Tag type="blue">已送达</Tag>;
   if (status === 'sent') return <Tag type="cool-gray">已发送</Tag>;
+  if (status === 'received') return <Tag type="cool-gray">已接收</Tag>;
   return null;
 }
 
@@ -161,6 +164,15 @@ export function CustomerCommunicationsPage() {
   const [replyChannel, setReplyChannel] = useState<CommunicationChannel>('whatsapp');
   const [draft, setDraft] = useState('');
   const [notice, setNotice] = useState('');
+  const [isInternalNote, setIsInternalNote] = useState(false);
+  const [sendFailed, setSendFailed] = useState(false);
+  const [aiSummary, setAiSummary] = useState('');
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [messageSearchIds, setMessageSearchIds] = useState<string[]>([]);
+  const previousUnreadRef = useRef<Record<string, number>>({});
+  const notificationSnapshotRef = useRef(false);
+  const sendReplyRef = useRef<() => Promise<void>>(async () => undefined);
   const [currentUser, setCurrentUser] = useState({ name: '当前用户', avatarUrl: '' });
   const [mobileChat, setMobileChat] = useState(false);
   const [profileOpen, setProfileOpen] = useState(() => typeof window === 'undefined' ? true : window.matchMedia('(min-width: 768px)').matches);
@@ -337,13 +349,15 @@ export function CustomerCommunicationsPage() {
   const visibleConversations = useMemo(() => conversations.filter((conversation) => {
     const customer = customers.find((item) => item.id === conversation.customerId);
     if (!customer) return false;
-    const matchesQuery = [customer.company, customer.contact, customer.role, ...customer.tags]
-      .join(' ').toLowerCase().includes(query.trim().toLowerCase());
+    const conversationMessages = messages.filter(message => message.conversationId === conversation.id);
+    const matchesQuery = [customer.company, customer.contact, customer.role, customer.email, customer.phone, conversation.preview,
+      ...customer.tags, ...conversationMessages.map(message => message.body)]
+      .join(' ').toLowerCase().includes(query.trim().toLowerCase()) || messageSearchIds.includes(conversation.id);
     const matchesStatus = filter === 'all'
       || (filter === 'unread' ? conversation.unread > 0 : conversation.state === filter);
     const matchesChannel = channelFilter === 'all' || conversation.channel === channelFilter;
     return matchesQuery && matchesStatus && matchesChannel;
-  }), [conversations, customers, filter, channelFilter, query]);
+  }), [conversations, customers, messages, messageSearchIds, filter, channelFilter, query]);
 
   const activeMessages = activeConversation ? messages
     .filter((message) => message.conversationId === activeConversation.id)
@@ -353,6 +367,9 @@ export function CustomerCommunicationsPage() {
     setActiveId(conversation.id);
     setMobileChat(true);
     setReplyChannel(conversation.channel);
+    setIsInternalNote(false);
+    setAiSummary('');
+    try { setDraft(window.localStorage.getItem('tradepilot.inbox.draft.' + conversation.id) || ''); } catch { setDraft(''); }
     setConversations((current) => current.map((item) => item.id === conversation.id ? { ...item, unread: 0 } : item));
     if (backendMode !== 'connected') setNotice('');
   };
@@ -424,40 +441,111 @@ export function CustomerCommunicationsPage() {
     const body = draft.trim();
     if (!body || !activeConversation || isSending) return;
     if (backendMode === 'connected') {
-      if (!sessionToken || !replyOptions.length) {
-        setNotice('该客户尚未绑定已连接的 WhatsApp、Messenger、Telegram 或 LINE 身份，暂时无法真实发送。');
-        return;
-      }
+      if (!sessionToken) { setNotice('登录会话已失效，请重新连接收件箱。'); return; }
+      if (!isInternalNote && !replyOptions.length) { setNotice('该客户尚未绑定已连接的客户渠道身份，暂时无法真实发送。'); return; }
       setIsSending(true);
+      setSendFailed(false);
       try {
-        const result = await sendInboxMessage(sessionToken, activeConversation.id, replyChannel as InboxChannel, body);
-        const message = result.message;
-        if (message) setMessages((current) => [...current, mapInboxMessage(message)]);
-        const time = message?.created_at ? Date.parse(message.created_at) : Date.now();
-        setConversations((current) => current.map((item) => item.id === activeConversation.id
-          ? { ...item, channel: replyChannel, preview: body, updatedAt: time, state: 'open' }
-          : item));
+        if (isInternalNote) {
+          const result = await createInboxNote(sessionToken, activeConversation.id, body);
+          if (result.note) setMessages(current => [...current, { id: result.note.id, conversationId: activeConversation.id, direction: 'system', kind: 'system', body: result.note.content, time: Date.parse(result.note.created_at) || Date.now() }]);
+          setNotice('内部备注已保存，仅在 TradePilot 工作台内可见。');
+        } else {
+          const result = await sendInboxMessage(sessionToken, activeConversation.id, replyChannel as InboxChannel, body);
+          const message = result.message;
+          if (message) setMessages(current => [...current, mapInboxMessage(message)]);
+          const time = message?.created_at ? Date.parse(message.created_at) : Date.now();
+          setConversations(current => current.map(item => item.id === activeConversation.id ? { ...item, channel: replyChannel, preview: body, updatedAt: time, state: 'open' } : item));
+          setNotice('消息已提交至 ' + communicationChannelLabels[replyChannel] + '，送达状态以平台回执为准。');
+        }
         setDraft('');
-        setNotice('消息已提交至 ' + communicationChannelLabels[replyChannel] + '，后续送达状态以平台回执为准。');
+        try { window.localStorage.removeItem('tradepilot.inbox.draft.' + activeConversation.id); } catch { /* ignore */ }
       } catch (error) {
-        setNotice(error instanceof Error ? '发送失败：' + error.message : '发送失败，请检查渠道连接。');
-      } finally {
-        setIsSending(false);
-      }
+        setSendFailed(true);
+        setNotice(error instanceof Error ? '操作失败：' + error.message + '。草稿已保留，可检查状态后重试。' : '操作失败，草稿已保留，可稍后重试。');
+      } finally { setIsSending(false); }
       return;
     }
+    if (isInternalNote) { setNotice('演示模式不保存真实内部备注；请先连接真实收件箱。'); return; }
     const time = Date.now();
-    const message: CommunicationMessage = {
-      id: 'local-' + time, conversationId: activeConversation.id, channel: replyChannel,
-      direction: 'outbound', kind: 'text', body, time, status: 'sent',
-    };
-    setMessages((current) => [...current, message]);
-    setConversations((current) => current.map((item) => item.id === activeConversation.id
-      ? { ...item, channel: replyChannel, preview: body, updatedAt: time, state: 'open' }
-      : item));
+    const message: CommunicationMessage = { id: 'local-' + time, conversationId: activeConversation.id, channel: replyChannel, direction: 'outbound', kind: 'text', body, time, status: 'sent' };
+    setMessages(current => [...current, message]);
+    setConversations(current => current.map(item => item.id === activeConversation.id ? { ...item, channel: replyChannel, preview: body, updatedAt: time, state: 'open' } : item));
     setDraft('');
     setNotice('本地演示：消息已加入时间线并保存在当前浏览器，尚未发送到外部平台。');
   };
+
+  const requestSummary = async () => {
+    if (!sessionToken || !activeConversation || summaryLoading) return;
+    setSummaryLoading(true);
+    try { setAiSummary(await generateInboxSummary(sessionToken, activeConversation.id)); setNotice('AI 已生成会话摘要，请核对原始消息后再采取行动。'); }
+    catch (error) { setNotice(error instanceof Error ? '生成摘要失败：' + error.message : 'AI 摘要暂不可用。'); }
+    finally { setSummaryLoading(false); }
+  };
+
+  const translateMessage = async (message: CommunicationMessage) => {
+    if (!sessionToken || message.direction !== 'inbound') return;
+    try {
+      const result = await translateInboxMessage(sessionToken, message.id);
+      setMessages(current => current.map(item => item.id === message.id ? { ...item, translatedBody: result.translated_content } : item));
+    } catch (error) { setNotice(error instanceof Error ? '翻译失败：' + error.message : '翻译服务暂不可用。'); }
+  };
+
+  const openAttachment = async (attachmentId: string) => {
+    if (!sessionToken) return;
+    const popup = window.open('about:blank', '_blank');
+    if (!popup) { setNotice('浏览器阻止附件窗口，请允许弹出窗口后重试。'); return; }
+    try { popup.location.href = await getInboxAttachmentSignedUrl(sessionToken, attachmentId); }
+    catch (error) { popup.close(); setNotice(error instanceof Error ? '附件暂不可用：' + error.message : '附件暂不可用。'); }
+  };
+
+  const enableNotifications = async () => {
+    if (!('Notification' in window)) { setNotice('当前浏览器不支持桌面通知。'); return; }
+    const permission = Notification.permission === 'default' ? await Notification.requestPermission() : Notification.permission;
+    setNotificationsEnabled(permission === 'granted');
+    setNotice(permission === 'granted' ? '桌面消息通知已开启。' : '未获得桌面通知权限，请在浏览器设置中开启。');
+  };
+
+  sendReplyRef.current = sendReply;
+
+  useEffect(() => {
+    if (backendMode !== 'connected') return;
+    const snapshot = Object.fromEntries(conversations.map(item => [item.id, item.unread]));
+    if (!notificationSnapshotRef.current) { notificationSnapshotRef.current = true; previousUnreadRef.current = snapshot; return; }
+    if (notificationsEnabled && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      for (const item of conversations) if (item.id !== activeId && item.unread > (previousUnreadRef.current[item.id] ?? 0)) {
+        const customer = customers.find(person => person.id === item.customerId);
+        new Notification(customer?.company || '新客户消息', { body: item.preview || '收到一条新消息', tag: item.id });
+      }
+    }
+    previousUnreadRef.current = snapshot;
+  }, [conversations, customers, activeId, backendMode, notificationsEnabled]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const modifier = event.metaKey || event.ctrlKey;
+      if (modifier && event.key.toLowerCase() === 'k') { event.preventDefault(); document.querySelector<HTMLInputElement>('.cc-list-controls input')?.focus(); }
+      else if (modifier && event.key === 'Enter') { event.preventDefault(); void sendReplyRef.current(); }
+      else if (event.key === 'Escape' && document.activeElement instanceof HTMLTextAreaElement) { setDraft(''); setSendFailed(false); }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
+  useEffect(() => {
+    if (!activeId) return;
+    try { setDraft(window.localStorage.getItem('tradepilot.inbox.draft.' + activeId) || ''); } catch { setDraft(''); }
+  }, [activeId]);
+
+  useEffect(() => {
+    if (backendMode !== 'connected' || !sessionToken || query.trim().length < 2) { setMessageSearchIds([]); return; }
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void searchInboxMessages(sessionToken, query.trim()).then(ids => { if (!cancelled) setMessageSearchIds(ids); })
+        .catch(error => { if (!cancelled) setNotice(error instanceof Error ? '消息搜索失败：' + error.message : '消息搜索暂不可用。'); });
+    }, 300);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [backendMode, sessionToken, query]);
 
   if (!activeConversation || !activeCustomer) {
     return (
@@ -465,6 +553,7 @@ export function CustomerCommunicationsPage() {
         <header className="cc-page-header"><div className="cc-page-heading"><Heading>客户沟通工作台</Heading><p>统一处理跨渠道客户消息与跟进</p></div></header>
         {notice && <InlineNotification kind="warning" lowContrast title="收件箱状态" subtitle={notice} />}
         <div className="cc-empty-state" role="status">{backendMode === 'loading' ? '正在读取真实会话…' : '目前没有会话。请先连接渠道并等待客户消息，或创建 CRM 联系人的会话。'}</div>
+        {backendMode === 'unavailable' && <Button kind="secondary" onClick={() => window.location.reload()}>重新连接收件箱</Button>}
       </main>
     );
   }
@@ -477,6 +566,8 @@ export function CustomerCommunicationsPage() {
           <p>统一处理跨渠道客户消息与跟进</p>
         </div>
         <div className="cc-page-header-actions">
+          <Button kind="secondary" size="sm" onClick={enableNotifications}>{notificationsEnabled ? '通知已开启' : '开启通知'}</Button>
+          {backendMode === 'unavailable' && <Button kind="secondary" size="sm" onClick={() => window.location.reload()}>重新连接</Button>}
           <Button kind="secondary" size="sm" onClick={() => window.open('/customer-communications/window', 'tradepilot-customer-communications', 'popup=yes,width=1440,height=900,resizable=yes,scrollbars=yes')}>独立窗口</Button>
           <Button kind="secondary" size="sm" disabled={backendMode !== 'connected'} onClick={() => setChannelModalOpen(true)}>渠道接入</Button>
           <Button kind="primary" size="sm" disabled={backendMode !== 'connected'} onClick={() => setNewConversationOpen(true)}>新建会话</Button>
@@ -612,7 +703,7 @@ export function CustomerCommunicationsPage() {
             <Search
               size="lg"
               labelText="搜索会话"
-              placeholder="搜索公司、联系人或标签"
+              placeholder="搜索客户、公司、消息内容或联系方式"
               value={query}
               onChange={(event: React.ChangeEvent<HTMLInputElement>) => setQuery(event.currentTarget.value)}
             />
@@ -693,6 +784,7 @@ export function CustomerCommunicationsPage() {
               <Button kind="tertiary" size="sm" onClick={updateConversationState}>
                 {activeConversation.state === 'open' ? '待处理' : activeConversation.state === 'pending' ? '解决' : '重开'}
               </Button>
+              <Button kind="tertiary" size="sm" disabled={backendMode !== 'connected' || summaryLoading} onClick={requestSummary}>{summaryLoading ? '生成中…' : 'AI 摘要'}</Button>
               <Button kind="tertiary" size="sm" onClick={() => setProfileOpen((open) => !open)}>
                 {profileOpen ? '收起客户资料' : '客户资料'}
               </Button>
@@ -711,13 +803,11 @@ export function CustomerCommunicationsPage() {
                 <div className="cc-message-meta">
                   <time>{formatDate(message.time)}</time>
                 </div>
-                <span className="cc-message-source" aria-label={'来源平台：' + communicationChannelLabels[message.channel]} title={'来源平台：' + communicationChannelLabels[message.channel]}>
-                  <ChannelLogo channel={message.channel} size="sm" />
-                </span>
+                {message.channel && <span className="cc-message-source" aria-label={'来源平台：' + communicationChannelLabels[message.channel]} title={'来源平台：' + communicationChannelLabels[message.channel]}><ChannelLogo channel={message.channel} size="sm" /></span>}
                 <div className="cc-message-row">
                   {message.direction === 'inbound' && <CustomerAvatar customer={activeCustomer} />}
                   <div className="cc-message-content">
-                    {message.kind === 'email' ? (
+                    {message.kind === 'system' ? <div className="cc-internal-note"><strong>内部备注 · 仅团队可见</strong><p>{message.body}</p></div> : message.kind === 'email' ? (
                       <div className="cc-email-message">
                         <strong>{message.subject}</strong>
                         <p>{message.body}</p>
@@ -733,15 +823,20 @@ export function CustomerCommunicationsPage() {
                   </div>
                   {message.direction === 'outbound' && <UserAvatar name={currentUser.name} src={currentUser.avatarUrl} />}
                 </div>
+                {message.translatedBody && <div className="cc-message-translation"><strong>翻译</strong><p>{message.translatedBody}</p></div>}
+                {message.attachments?.map(attachment => <div className="cc-attachment-action" key={attachment.id}><span>{attachment.filename}</span>{attachment.scanStatus === 'clean' ? <Button kind="ghost" size="sm" onClick={() => void openAttachment(attachment.id)}>打开附件</Button> : <Tag type="warm-gray">安全检查中</Tag>}</div>)}
                 <div className="cc-message-footer">
                   {message.direction === 'outbound' && <MessageStatus status={message.status} />}
+                  {message.direction !== 'system' && <Button kind="ghost" size="sm" onClick={() => void navigator.clipboard.writeText(message.body).then(() => setNotice('消息内容已复制。')).catch(() => setNotice('复制失败，请手动选择消息内容。'))}>复制</Button>}
+                  {message.direction === 'inbound' && backendMode === 'connected' && !message.translatedBody && <Button kind="ghost" size="sm" onClick={() => void translateMessage(message)}>翻译</Button>}
                 </div>
               </article>
             ))}
           </div>
 
           <footer className="cc-composer">
-            <div className="cc-composer-channel">
+            <div className="cc-composer-mode"><Button kind={isInternalNote ? 'primary' : 'secondary'} size="sm" onClick={() => setIsInternalNote(value => !value)}>{isInternalNote ? '正在写内部备注' : '切换内部备注'}</Button>{isInternalNote && <span>仅 TradePilot 内部可见，不会发送给客户</span>}</div>
+            {!isInternalNote && <div className="cc-composer-channel">
               <div className="cc-reply-channel-control">
               <ChannelLogo channel={replyOptions.length ? replyChannel : activeConversation.channel} size="md" />
               <Dropdown
@@ -758,15 +853,15 @@ export function CustomerCommunicationsPage() {
                 }}
               />
               </div>
-            </div>
+            </div>}
             <TextArea
               id="cc-reply-draft"
               labelText="回复内容"
               hideLabel
-              placeholder="输入消息内容…（Enter 发送，Shift + Enter 换行）"
+              placeholder={isInternalNote ? '输入仅内部可见的备注…（Enter 保存，Shift + Enter 换行）' : '输入消息内容…（Enter 发送，Shift + Enter 换行）'}
               rows={3}
               value={draft}
-              onChange={(event: React.ChangeEvent<HTMLTextAreaElement>) => setDraft(event.currentTarget.value)}
+              onChange={(event: React.ChangeEvent<HTMLTextAreaElement>) => { const value = event.currentTarget.value; setDraft(value); if (activeConversation) { try { window.localStorage.setItem('tradepilot.inbox.draft.' + activeConversation.id, value); } catch { /* ignore */ } } }}
               onKeyDown={(event: React.KeyboardEvent<HTMLTextAreaElement>) => {
                 if (event.key === 'Enter' && !event.shiftKey) {
                   event.preventDefault();
@@ -775,8 +870,9 @@ export function CustomerCommunicationsPage() {
               }}
             />
             <div className="cc-composer-actions">
-              <span className="cc-demo-hint">{backendMode === 'connected' ? (replyOptions.length ? '真实渠道发送 · 状态以平台回执为准' : '尚未绑定已连接的客户渠道身份') : '本地演示 · 不会发送真实消息'}</span>
-              <Button kind="primary" size="md" renderIcon={CarbonIcons.Send} disabled={!draft.trim() || isSending || (backendMode === 'connected' && !replyOptions.length)} onClick={sendReply}>{isSending ? '发送中' : '发送'}</Button>
+              <span className="cc-demo-hint">{isInternalNote ? '内部备注 · 不会发送给客户' : backendMode === 'connected' ? (replyOptions.length ? '真实渠道发送 · 状态以平台回执为准' : '尚未绑定已连接的客户渠道身份') : '本地演示 · 不会发送真实消息'}</span>
+              {sendFailed && <Button kind="secondary" size="sm" disabled={isSending} onClick={() => void sendReply()}>重试</Button>}
+              <Button kind="primary" size="md" renderIcon={CarbonIcons.Send} disabled={!draft.trim() || isSending || (!isInternalNote && backendMode === 'connected' && !replyOptions.length)} onClick={sendReply}>{isSending ? '处理中…' : isInternalNote ? '保存备注' : '发送'}</Button>
             </div>
           </footer>
         </section>
@@ -800,6 +896,9 @@ export function CustomerCommunicationsPage() {
                   <dt>电话</dt><dd>{activeCustomer.phone}</dd>
                 </dl>
               </section>
+              {activeCustomer.industry && <section className="cc-profile-section"><Heading className="cc-profile-section-title">客户行业</Heading><p>{activeCustomer.industry}</p></section>}
+              {activeCustomer.website && <section className="cc-profile-section"><Heading className="cc-profile-section-title">企业网站</Heading><a href={activeCustomer.website} target="_blank" rel="noreferrer">{activeCustomer.website}</a></section>}
+              {aiSummary && <section className="cc-profile-section"><Heading className="cc-profile-section-title">AI 沟通摘要</Heading><div className="cc-ai-summary">{aiSummary}</div></section>}
               <section className="cc-profile-section">
                 <Heading className="cc-profile-section-title">渠道身份</Heading>
                 {activeCustomer.identities.map((identity) => (
@@ -818,7 +917,7 @@ export function CustomerCommunicationsPage() {
                 <dl className="cc-details">
                   <dt>会话状态</dt><dd>{conversationStateLabels[activeConversation.state]}</dd>
                   <dt>最近沟通</dt><dd>{formatDate(activeConversation.updatedAt)}</dd>
-                  <dt>负责人</dt><dd>当前用户</dd>
+                  <dt>负责人</dt><dd>{currentUser.name}（单用户工作区）</dd>
                 </dl>
               </section>
             </div>

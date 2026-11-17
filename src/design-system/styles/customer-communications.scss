@@ -485,3 +485,15 @@
 .cc-message--outbound .cc-message-content { order: 0; }
 .cc-message--outbound .cc-message-avatar { order: 1; }
 .cc-message--system .cc-message-row { justify-content: center; }
+
+/* Professional inbox interaction layer */
+.cc-message-translation, .cc-ai-summary { padding: var(--tp-space-03); background: var(--cds-layer-02); color: var(--cds-text-primary); font-size: .8125rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+.cc-message-translation p { margin: var(--tp-space-02) 0 0; }
+.cc-attachment-action { display: flex; align-items: center; justify-content: space-between; gap: var(--tp-space-03); min-width: 0; padding: var(--tp-space-02) var(--tp-space-03); background: var(--cds-layer-01); }
+.cc-attachment-action > span { overflow-wrap: anywhere; }
+.cc-internal-note { padding: var(--tp-space-04); background: var(--cds-layer-accent-02); color: var(--cds-text-primary); }
+.cc-internal-note strong { display: block; font-size: .75rem; margin-block-end: var(--tp-space-02); }
+.cc-internal-note p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.cc-composer-mode { display: flex; align-items: center; flex-wrap: wrap; gap: var(--tp-space-03); }
+.cc-composer-mode span { color: var(--cds-text-secondary); font-size: .75rem; }
+@media (max-width: 767px) { .cc-page-header-actions, .cc-chat-actions { flex-wrap: wrap; } }

@@ -43,14 +43,14 @@ export interface InboxConversation {
 export interface InboxMessage {
   id: string;
   conversation_id: string;
-  channel_type: InboxChannel;
+  channel_type?: InboxChannel;
   direction: 'inbound' | 'outbound' | 'internal';
-  content_type: 'text' | 'image' | 'file' | 'audio' | 'video' | 'template' | 'email_card';
+  content_type?: 'text' | 'image' | 'file' | 'audio' | 'video' | 'template' | 'email_card';
   content: string;
   email_subject?: string | null;
   media_url?: string | null;
   attachments?: Array<{ id: string; original_file_name: string; content_type: string; file_size_bytes: number; scan_status: string }>;
-  status: 'queued' | 'sending' | 'sent' | 'delivered' | 'read' | 'received' | 'failed';
+  status?: 'queued' | 'sending' | 'sent' | 'delivered' | 'read' | 'received' | 'failed';
   created_at: string;
   sent_at?: string | null;
   delivered_at?: string | null;
@@ -108,7 +108,7 @@ export async function getInboxMessages(token: string, conversationId: string): P
   const result = await request<{ items: InboxMessage[] }>(
     `/api/v1/inbox/conversations/${encodeURIComponent(conversationId)}/messages?limit=100`, token,
   );
-  return (result.items ?? []).filter((item) => item.timeline_type !== 'internal_note');
+  return result.items ?? [];
 }
 
 export function sendInboxMessage(token: string, conversationId: string, channelType: InboxChannel, content: string): Promise<{ message: InboxMessage }> {
@@ -158,4 +158,36 @@ export async function createInboxChannelConnection(
     '/api/v1/inbox/channel-connections', token,
     { method: 'POST', body: JSON.stringify({ channelType, displayName, externalAccountId }) },
   );
+}
+
+export async function createInboxNote(token: string, conversationId: string, content: string): Promise<{ note: { id: string; conversation_id: string; author_id: string; content: string; created_at: string } }> {
+  return request<{ note: { id: string; conversation_id: string; author_id: string; content: string; created_at: string } }>(
+    `/api/v1/inbox/conversations/${encodeURIComponent(conversationId)}/notes`, token,
+    { method: 'POST', body: JSON.stringify({ content }) },
+  );
+}
+export async function generateInboxSummary(token: string, conversationId: string): Promise<string> {
+  const result = await request<{ ai_summary: string }>(
+    `/api/v1/inbox/conversations/${encodeURIComponent(conversationId)}/summary`, token,
+    { method: 'POST', body: JSON.stringify({}) },
+  );
+  return result.ai_summary;
+}
+export async function translateInboxMessage(token: string, messageId: string): Promise<{ translated_content: string; target_language: string }> {
+  return request<{ translated_content: string; target_language: string }>(
+    `/api/v1/inbox/messages/${encodeURIComponent(messageId)}/translate`, token,
+    { method: 'POST', body: JSON.stringify({}) },
+  );
+}
+export async function getInboxAttachmentSignedUrl(token: string, attachmentId: string): Promise<string> {
+  const result = await request<{ url: string }>(
+    `/api/v1/inbox/attachments/${encodeURIComponent(attachmentId)}/signed-url`, token,
+  );
+  return result.url;
+}
+export async function searchInboxMessages(token: string, query: string): Promise<string[]> {
+  const result = await request<{ conversation_ids: string[] }>(
+    `/api/v1/inbox/search?q=${encodeURIComponent(query)}`, token,
+  );
+  return result.conversation_ids ?? [];
 }

@@ -11,6 +11,8 @@ export interface CommunicationCustomer {
   email: string;
   phone: string;
   region: string;
+  industry?: string;
+  website?: string;
   tags: string[];
   identities: { channel: CommunicationChannel; account: string }[];
 }
@@ -26,15 +28,17 @@ export interface CommunicationConversation {
 export interface CommunicationMessage {
   id: string;
   conversationId: string;
-  channel: CommunicationChannel;
+  channel?: CommunicationChannel;
   direction: 'inbound' | 'outbound' | 'system';
   kind: MessageKind;
   body: string;
   time: number;
-  status?: 'sent' | 'delivered' | 'read' | 'received' | 'failed';
+  status?: 'queued' | 'sending' | 'sent' | 'delivered' | 'read' | 'received' | 'failed';
   subject?: string;
   filename?: string;
   fileSize?: string;
+  translatedBody?: string;
+  attachments?: { id: string; filename: string; contentType: string; scanStatus: string }[];
 }
 
 const minutesAgo = (minutes: number) => Date.now() - minutes * 60_000;

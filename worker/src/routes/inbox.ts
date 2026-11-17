@@ -116,7 +116,7 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
           ? db<Row[]>(dbEnv, "crm_contacts?select=id,account_id,first_name,last_name,full_name,job_title,department,email,phone,mobile,preferred_language,preferred_channel&id=in.(" + contactIds.join(",") + ")&owner_id=eq." + ownerId)
           : Promise.resolve([]),
         accountIds.length
-          ? db<Row[]>(dbEnv, "crm_accounts?select=id,account_name,legal_name,logo_url&id=in.(" + accountIds.join(",") + ")&owner_id=eq." + ownerId)
+          ? db<Row[]>(dbEnv, "crm_accounts?select=id,account_name,legal_name,logo_url,industry,website&id=in.(" + accountIds.join(",") + ")&owner_id=eq." + ownerId)
           : Promise.resolve([]),
         contactIds.length
           ? db<Row[]>(dbEnv, "inbox_customer_identities?select=id,contact_id,channel_type,external_user_id,external_display_name,external_username,is_primary,last_seen_at,channel_connection_id&owner_id=eq." + ownerId + "&contact_id=in.(" + contactIds.join(",") + ")&order=is_primary.desc,last_seen_at.desc.nullslast")
@@ -192,6 +192,17 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
         webhook_url: url.origin + "/api/v1/inbox/webhooks/" + channel + "/" + String(connection.id),
         webhook_status: "pending",
       }, existing.length ? 200 : 201);
+    }
+
+    if (url.pathname === "/api/v1/inbox/search" && request.method === "GET") {
+      const query = (url.searchParams.get("q") ?? "").replace(/[(),.*%_]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
+      if (query.length < 2) return successResponse(request, { conversation_ids: [], matches: [] });
+      const pattern = "*" + query + "*";
+      const matches = await db<Row[]>(dbEnv,
+        "inbox_messages?select=conversation_id,channel_type,content,created_at&owner_id=eq." + ownerId +
+        "&content=ilike." + encodeURIComponent(pattern) + "&order=created_at.desc&limit=100");
+      const conversationIds = unique(matches.map(row => row.conversation_id));
+      return successResponse(request, { conversation_ids: conversationIds, matches: matches.slice(0, 50) });
     }
 
     if (url.pathname === "/api/v1/inbox/crm-contacts" && request.method === "GET") {
