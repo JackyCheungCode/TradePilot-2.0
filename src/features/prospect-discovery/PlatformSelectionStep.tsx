@@ -137,6 +137,8 @@ const northAmericaCodes = new Set('AG AI AW BB BL BM BQ BS BZ CA CR CU CW DM DO 
 const directoryContinent = (country: Country) => country.region === 'Americas' ? (northAmericaCodes.has(country.cca2) ? 'North America' : 'South America') : country.region;
 
 const categoryLabels = [...globalCatalog.map(group => group.title), '全球通用与全域穿透渠道', '企业名录与本地商业目录'];
+const defaultPlatformPageSize = 10;
+const platformPageSizes = [10, 20, 30];
 const continentLabels = [
   { value: 'North America', label: '北美洲' },
   { value: 'South America', label: '南美洲' },
@@ -176,7 +178,7 @@ export function PlatformSelectionStep({
   const [selectedCountries, setSelectedCountries] = useState<Country[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(defaultPlatformPageSize);
 
   useEffect(() => { onSelectionCountChange(selected.length); }, [selected, onSelectionCountChange]);
 
@@ -294,7 +296,7 @@ export function PlatformSelectionStep({
       </div>
 
       <div className="tp-prospect-discovery__platform-pagination">
-        <Pagination id="platform-catalog-pagination" page={page} pageSize={pageSize} pageSizes={[10, 20, 30]} totalItems={filtered.length} onChange={({ page: nextPage, pageSize: nextPageSize }) => { setPage(nextPage); setPageSize(nextPageSize); }} />
+        <Pagination id="platform-catalog-pagination" page={page} pageSize={pageSize} pageSizes={platformPageSizes} totalItems={filtered.length} onChange={({ page: nextPage, pageSize: nextPageSize }) => { setPage(nextPage); setPageSize(nextPageSize); }} />
         <span>每页显示 {pageSize} 条 · 共 {pageCount} 页</span>
       </div>
     </section>
