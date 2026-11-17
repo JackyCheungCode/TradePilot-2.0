@@ -2,8 +2,8 @@ import { createContext, useCallback, useContext, useEffect, useLayoutEffect, use
 import type { Session } from '@supabase/supabase-js';
 import { getSupabaseClient } from '@/lib/supabase';
 
-export type ThemePreference = 'system' | 'white' | 'dark';
-export type DesignSystemTheme = 'white' | 'g100';
+export type ThemePreference = 'system' | 'white' | 'g10' | 'g90' | 'dark';
+export type DesignSystemTheme = 'white' | 'g10' | 'g90' | 'g100';
 
 interface DesignSystemThemeContextValue {
   preference: ThemePreference;
@@ -22,7 +22,7 @@ interface DesignSystemProviderProps {
 }
 
 const isThemePreference = (value: unknown): value is ThemePreference =>
-  value === 'system' || value === 'white' || value === 'dark';
+  value === 'system' || value === 'white' || value === 'g10' || value === 'g90' || value === 'dark';
 
 const cacheKey = (userId: string) => 'tradepilot:theme-preference:' + userId;
 
@@ -161,9 +161,13 @@ export function DesignSystemProvider({ children }: DesignSystemProviderProps) {
 
   const resolvedTheme: DesignSystemTheme = preference === 'dark'
     ? 'g100'
-    : preference === 'white'
-      ? 'white'
-      : systemDark ? 'g100' : 'white';
+    : preference === 'g90'
+      ? 'g90'
+      : preference === 'g10'
+        ? 'g10'
+        : preference === 'white'
+          ? 'white'
+          : systemDark ? 'g100' : 'white';
 
   useLayoutEffect(() => {
     document.documentElement.setAttribute('data-carbon-theme', resolvedTheme);

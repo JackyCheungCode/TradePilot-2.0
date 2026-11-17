@@ -1,7 +1,7 @@
-/** The single approved application theme: IBM Carbon White. */
+/** IBM Carbon White theme. */
 @use '@carbon/react/scss/themes' as carbon-themes;
 @use '@carbon/react/scss/theme' as carbon-theme;
 
-:root {
+:root[data-carbon-theme='white'] {
   @include carbon-theme.theme(carbon-themes.$white);
 }
