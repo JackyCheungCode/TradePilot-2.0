@@ -167,7 +167,7 @@ const continentName = (value: string) => continentLabels.find(item => item.value
 type PlatformExecutionStatus = 'connected' | 'verify' | 'unavailable';
 const getPlatformExecutionStatus = (id: string): PlatformExecutionStatus => {
   if (id === 'google-maps') return 'connected';
-  if (id === 'facebook' || id === 'instagram' || id === 'google-search' || id === 'bing-search' || id === 'yahoo-search' || id === 'duckduckgo' || id === 'brave-search' || id === 'baidu' || id === 'naver-search' || id === 'yandex') return 'verify';
+  if (id === 'facebook' || id === 'instagram' || id === 'google-search') return 'verify';
   return 'unavailable';
 };
 const platformStatusLabels: Record<PlatformExecutionStatus, string> = {
