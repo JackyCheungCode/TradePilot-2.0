@@ -1,5 +1,5 @@
 /** Semantic color aliases resolve against the active Carbon theme boundary. */
-.tp-design-system {
+:root {
   --tp-color-background: var(--cds-background);
   --tp-color-background-inverse: var(--cds-background-inverse);
   --tp-color-layer: var(--cds-layer);
