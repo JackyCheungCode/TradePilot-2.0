@@ -1,242 +1,263 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
-  Button, Checkbox, CodeSnippet, InlineNotification, OverflowMenu,
-  OverflowMenuItem, ProgressBar, RadioButton, RadioButtonGroup, Table, TableBody,
+  Button, Checkbox, CodeSnippet, InlineNotification, ProgressBar, Table, TableBody,
   TableCell, TableHead, TableHeader, TableRow, TableSelectAll, TableSelectRow,
   TableToolbar, TableToolbarContent, TableToolbarSearch, Tag, Tile, CarbonIcons,
 } from '@/design-system';
+import { getSupabaseClient } from '@/lib/supabase';
 
-type Contact = {
-  id: string;
-  company: string;
-  domain: string;
-  tier: 'Tier A' | 'Tier B' | 'Tier C';
-  score: number;
-  source: string;
-  person: string;
-  title: string;
-  linkedin: string;
-  email: string;
-  emailStatus: 'valid' | 'pending' | 'unknown';
-  enrichment: 'pending' | 'complete';
-  crm: 'not-synced' | 'synced' | 'failed';
-  crmId?: string;
+type ContactRow = {
+  id: string; company: string; domain: string; country: string; source: string;
+  person: string; title: string; linkedin: string; email: string; phone: string; whatsapp: string;
+  emailStatus: 'valid' | 'pending' | 'unknown'; enrichment: 'pending' | 'complete';
+  crm: 'not-synced' | 'synced' | 'failed'; crmId?: string; candidateKey?: string;
+  candidateCount: number;
 };
-
+type Candidate = Record<string, unknown>;
 type Props = { profile: { coreNoun: string; countryName: string } };
+type ApiPayload = { data?: unknown; error?: { message?: string }; message?: string };
 
-const positions = [
-  { id: 'purchasing', label: 'Purchasing Director / Manager（采购总监/经理）' },
-  { id: 'sourcing', label: 'Category / Sourcing Manager（品类/寻源经理）' },
-  { id: 'supply', label: 'Supply Chain VP / Director（供应链副总裁/总监）' },
-  { id: 'ceo', label: 'CEO / Founder / Managing Director（创始人/总经理）' },
-];
+const candidateKey = (candidate: Candidate) => String(candidate.provider ?? '') + '：' + String(candidate.provider_person_id ?? candidate.email ?? candidate.linkedin_url ?? candidate.full_name ?? '');
+const asObject = (value: unknown): Record<string, unknown> => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+const asStrings = (value: unknown): string[] => Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
 
-const sampleCompanies = [
-  ['SolarTech Deutschland GmbH','solartech-de.com','Tier A',94,'WLW 工业黄页'],
-  ['EcoPower Systems GmbH','eco-power.de','Tier A',92,'Google Maps 德国网格'],
-  ['Nordic Energy Solutions','nordic-energy.eu','Tier B',86,'SERP 搜索引擎矩阵'],
-  ['Bavaria Industrial Supply','bavaria-supply.de','Tier A',91,'WLW 工业黄页'],
-  ['GreenVolt Europe GmbH','greenvolt-eu.com','Tier B',84,'Google Maps 德国网格'],
-  ['Rheinland Power Components','rheinland-power.de','Tier A',90,'SERP 搜索引擎矩阵'],
-  ['Alpine Battery Trading AG','alpine-battery.ch','Tier B',83,'WLW 工业黄页'],
-  ['Hanover Smart Energy','hanover-energy.de','Tier A',93,'Google Maps 德国网格'],
-  ['Westfalen Solarhandel','westfalen-solar.de','Tier C',77,'SERP 搜索引擎矩阵'],
-  ['Berlin Power Distribution','berlin-power.eu','Tier A',92,'WLW 工业黄页'],
-  ['EnergieWerk Solutions','energiewerk.de','Tier B',85,'Google Maps 德国网格'],
-  ['Central Europe Battery GmbH','ce-battery.com','Tier A',91,'SERP 搜索引擎矩阵'],
-  ['BrightGrid Technologies','brightgrid.eu','Tier B',87,'WLW 工业黄页'],
-  ['Hansa Renewable Systems','hansa-renewable.de','Tier A',90,'Google Maps 德国网格'],
-  ['Frankfurt Energy Trading','frankfurt-energy.de','Tier B',82,'SERP 搜索引擎矩阵'],
-  ['VoltHaus Deutschland','volthaus.de','Tier A',95,'WLW 工业黄页'],
-] as const;
-
-const seedContacts = (): Contact[] => Array.from({ length: 25 }, (_, index) => {
-  const company = sampleCompanies[index % sampleCompanies.length];
-  const hasPerson = index % 4 !== 0;
-  const domain = company[1];
+async function tokenOrThrow() {
+  const db = await getSupabaseClient();
+  const { data } = await db.auth.getSession();
+  if (!data.session?.access_token) throw new Error('登录状态已失效，请重新登录。');
+  return data.session.access_token;
+}
+async function api(path: string, token: string, init: RequestInit = {}) {
+  const response = await fetch(path, {
+    ...init,
+    headers: { Authorization: 'Bearer ' + token, Accept: 'application/json', ...(init.body ? { 'Content-Type': 'application/json' } : {}), ...init.headers },
+  });
+  const payload = await response.json().catch(() => ({})) as ApiPayload;
+  if (!response.ok) throw new Error((payload.error?.message || payload.message || '请求失败（HTTP ' + response.status + '）').replace(/Apify/gi, '外部数据采集服务'));
+  return payload.data ?? payload;
+}
+function mapRecord(record: Record<string, unknown>): ContactRow {
+  const raw = asObject(record.raw_data);
+  const enrichment = asObject(raw.contact_enrichment);
+  const intelligence = asObject(raw.contact_intelligence);
+  const candidates = Array.isArray(intelligence.candidates) ? intelligence.candidates as Candidate[] : [];
+  const candidate = candidates[0] ?? {};
+  const social = asObject(enrichment.social);
+  const occurrences = Array.isArray(record.discovery_record_occurrences) ? record.discovery_record_occurrences as Array<Record<string, unknown>> : [];
+  const website = String(record.website ?? '');
+  let domain = website;
+  try { domain = website ? new URL(website).hostname.replace(/^www\\./i, '') : ''; } catch { /* Keep the source value for inspection. */ }
+  const emails = asStrings(enrichment.emails);
+  const phones = asStrings(enrichment.phones);
+  const email = String(candidate.email ?? emails[0] ?? '');
+  const person = String(candidate.full_name ?? '');
+  const isEnriched = Boolean(raw.contact_enrichment || raw.contact_intelligence);
   return {
-    id: 'crm-lead-' + (index + 1),
-    company: index < sampleCompanies.length ? company[0] : company[0] + ' ' + (Math.floor(index / sampleCompanies.length) + 1),
-    domain, tier: company[2] as Contact['tier'], score: Number(company[3]), source: company[4],
-    person: hasPerson ? ['Michael Schmidt','Anna Weber','Thomas Müller','Laura Fischer'][index % 4] : '',
-    title: hasPerson ? ['Head of Purchasing','Sourcing Manager','Supply Chain Director','Managing Director'][index % 4] : '',
-    linkedin: hasPerson ? 'https://www.linkedin.com/search/results/people/?keywords=' + encodeURIComponent(company[0]) : '',
-    email: hasPerson ? ['m.schmidt@','a.weber@','t.mueller@','l.fischer@'][index % 4] + domain : '',
-    emailStatus: hasPerson ? (index % 5 === 0 ? 'unknown' : 'valid') : 'pending',
-    enrichment: hasPerson ? 'complete' : 'pending',
-    crm: 'not-synced',
+    id: String(record.id), company: String(record.name ?? '未命名企业'), domain,
+    country: String(record.country_code ?? ''), source: String(occurrences[0]?.provider ?? record.channel ?? ''),
+    person, title: String(candidate.job_title ?? ''), linkedin: String(candidate.linkedin_url ?? asStrings(social.linkedin)[0] ?? ''),
+    email, phone: String(candidate.phone ?? phones[0] ?? ''),
+    whatsapp: String(candidate.whatsapp ?? asStrings(social.whatsapp)[0] ?? ''),
+    emailStatus: email ? 'unknown' : 'pending', enrichment: isEnriched ? 'complete' : 'pending',
+    crm: raw.lifecycle_stage === 'converted' || Boolean(record.lead_id) ? 'synced' : 'not-synced',
+    crmId: String(asObject(raw.contact_intelligence).crm_account_id ?? '') || undefined,
+    candidateKey: candidates[0] ? candidateKey(candidates[0]) : undefined, candidateCount: candidates.length,
   };
-});
-
-const emailTag = (status: Contact['emailStatus']) => status === 'valid'
-  ? <Tag type="green">Valid · SMTP 验证通过</Tag>
-  : status === 'pending' ? <Tag type="gray">待验证</Tag> : <Tag type="warm-gray">未确认</Tag>;
-
-const crmTag = (row: Contact) => row.crm === 'synced'
-  ? <Tag type="green">已同步至 CRM</Tag>
-  : row.crm === 'failed' ? <Tag type="red">同步失败</Tag> : row.enrichment === 'complete'
-    ? <Tag type="blue">已穿透 / 待入库</Tag> : <Tag type="gray">待穿透</Tag>;
+}
 
 export function DecisionMakerStep({ profile }: Props) {
-  const [rows, setRows] = useState<Contact[]>(() => {
-    try {
-      const queue = JSON.parse(localStorage.getItem('tradepilot.prospect-discovery.crm-queue.v1') || '[]') as Array<{id?: string; name?: string; domain?: string; source?: string; score?: number}>;
-      if (!queue.length) return seedContacts();
-      return queue.map((item, index) => {
-        const fallback = sampleCompanies[index % sampleCompanies.length];
-        return {
-          ...seedContacts()[index % 25],
-          id: item.id || 'crm-lead-' + (index + 1),
-          company: item.name || fallback[0],
-          domain: item.domain || fallback[1],
-          source: item.source || fallback[4],
-          score: item.score ?? Number(fallback[3]),
-          tier: item.score && item.score >= 90 ? 'Tier A' : item.score && item.score >= 80 ? 'Tier B' : 'Tier C',
-        };
-      });
-    } catch { return seedContacts(); }
-  });
-  const [selectedRoles, setSelectedRoles] = useState<string[]>(['purchasing','sourcing','supply']);
-  const [emailLevel, setEmailLevel] = useState('verified');
+  const [rows, setRows] = useState<ContactRow[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [search, setSearch] = useState('');
+  const [providers, setProviders] = useState<string[]>(['website']);
+  const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
+  const [jobId, setJobId] = useState('');
   const [progress, setProgress] = useState(0);
-  const [log, setLog] = useState('[SYSTEM] Decision-maker enrichment workspace ready.\n[CONTEXT] CRM handoff queue loaded. Frontend demonstration mode.');
+  const [jobMessage, setJobMessage] = useState('');
+  const [log, setLog] = useState('[SYSTEM] 联系人穿透工作台已就绪。\n[CONTEXT] 等待加载已审核的真实潜客记录。');
   const [notice, setNotice] = useState('');
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
+
+  const loadRecords = async () => {
+    const queue = JSON.parse(localStorage.getItem('tradepilot.prospect-discovery.crm-queue.v1') || '[]') as Array<{ id?: string }>;
+    const ids = queue.map(item => item.id).filter((id): id is string => Boolean(id));
+    if (!ids.length) { setRows([]); setSelected([]); return; }
+    const token = await tokenOrThrow();
+    const records = await api('/api/v1/discovery-records?limit=500', token) as Array<Record<string, unknown>>;
+    const mapped = records.filter(record => ids.includes(String(record.id))).map(mapRecord);
+    setRows(mapped);
+    setSelected(mapped.filter(row => row.enrichment === 'complete' && row.candidateCount > 0).map(row => row.id));
+  };
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      setLoading(true);
+      try { await loadRecords(); }
+      catch (error) { if (active) setNotice(error instanceof Error ? error.message : '读取潜客记录失败'); }
+      finally { if (active) setLoading(false); }
+    })();
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!running || !jobId) return;
+    let active = true;
+    const poll = async () => {
+      try {
+        const token = await tokenOrThrow();
+        const job = await api('/api/v1/discovery-contact-enrichments/' + jobId, token) as {
+          status: string; progress: number; completedCount: number; failedCount: number; message: string;
+        };
+        if (!active) return;
+        setProgress(Number(job.progress) || 0);
+        setJobMessage(job.message || job.status);
+        setLog(current => current + '\n[' + new Date().toLocaleTimeString('en-GB') + '] ' + (job.message || job.status));
+        if (['completed', 'partial', 'failed', 'cancelled', 'timed_out'].includes(job.status)) {
+          setRunning(false);
+          await loadRecords();
+          setNotice('联系人采集任务已结束：完成 ' + job.completedCount + ' 条，失败 ' + job.failedCount + ' 条。');
+        }
+      } catch (error) {
+        if (active) setNotice(error instanceof Error ? error.message : '读取联系人采集状态失败');
+      }
+    };
+    void poll();
+    const timer = window.setInterval(() => { void poll(); }, 5000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, [running, jobId]);
 
   const filtered = useMemo(() => rows.filter(row => {
     const term = search.trim().toLowerCase();
     return !term || row.company.toLowerCase().includes(term) || row.person.toLowerCase().includes(term) || row.email.toLowerCase().includes(term);
   }), [rows, search]);
+  const visible = filtered.slice((page - 1) * pageSize, page * pageSize);
+  const selectedRows = rows.filter(row => selected.includes(row.id));
+  const enrichedCount = rows.filter(row => row.enrichment === 'complete').length;
+  const candidateCount = rows.reduce((sum, row) => sum + row.candidateCount, 0);
   const toggleOne = (id: string) => setSelected(current => current.includes(id) ? current.filter(item => item !== id) : [...current, id]);
-  const toggleAll = () => setSelected(current => filtered.length > 0 && filtered.every(row => current.includes(row.id))
-    ? current.filter(id => !filtered.some(row => row.id === id))
-    : [...new Set([...current, ...filtered.map(row => row.id)])]);
+  const toggleAll = () => setSelected(current => visible.length > 0 && visible.every(row => current.includes(row.id))
+    ? current.filter(id => !visible.some(row => row.id === id))
+    : [...new Set([...current, ...visible.map(row => row.id)])]);
 
-  const startEnrichment = () => {
-    if (!rows.length || !selectedRoles.length) return;
-    setRunning(true);
-    setProgress(0);
-    setLog('[14:10:01] [ENRICH] Starting organization and decision-maker discovery...\n[14:10:02] [PREFERENCE] Target roles: ' + selectedRoles.join(', ') + '\n[14:10:03] [VERIFY] Email policy: ' + emailLevel + '\n[14:10:04] [MODE] Frontend demonstration; no external enrichment request sent.');
-    let step = 0;
-    const timer = window.setInterval(() => {
-      step += 1;
-      const next = Math.min(100, step * 4);
-      setProgress(next);
-      setRows(current => current.map((row, index) => index < Math.ceil(next / 4) ? {
-        ...row,
-        enrichment: 'complete',
-        person: row.person || ['Michael Schmidt','Anna Weber','Thomas Müller','Laura Fischer'][index % 4],
-        title: row.title || ['Head of Purchasing','Sourcing Manager','Supply Chain Director','Managing Director'][index % 4],
-        linkedin: row.linkedin || 'https://www.linkedin.com/search/results/people/?keywords=' + encodeURIComponent(row.company),
-        email: row.email || 'procurement@' + row.domain,
-        emailStatus: row.emailStatus === 'pending' ? 'valid' : row.emailStatus,
-      } : row));
-      if (step % 5 === 0) setLog(current => current + '\n[14:10:' + String(4 + step).padStart(2,'0') + '] [ENRICH] Processed ' + Math.ceil(next / 4) + '/' + rows.length + ' companies.');
-      if (next >= 100) {
-        window.clearInterval(timer);
-        setRunning(false);
-        setLog(current => current + '\n[14:11:01] [COMPLETE] Decision-maker discovery finished. ' + rows.length + ' company records updated.');
-        setNotice('演示穿透完成。当前姓名、邮箱与验证状态为演示数据，尚未调用真实数据源。');
-      }
-    }, 180);
+  const startEnrichment = async () => {
+    const target = selected.length ? selectedRows : rows;
+    if (!target.length || running) return;
+    if (target.length > 50) { setNotice('现有联系人补全接口每批最多处理 50 家企业，请分批选择。'); return; }
+    setRunning(true); setProgress(0); setNotice('');
+    setLog('[SYSTEM] 正在创建真实联系人补全任务…\n[TARGET] ' + target.length + ' 家企业');
+    try {
+      const token = await tokenOrThrow();
+      const result = await api('/api/v1/discovery-contact-enrichments', token, {
+        method: 'POST', body: JSON.stringify({ recordIds: target.map(row => row.id), providers }),
+      }) as { id: string; status: string; message?: string };
+      if (!result.id) throw new Error('服务端未返回联系人补全任务 ID');
+      setJobId(result.id); setJobMessage(result.message ?? '联系人补全任务已排队');
+      setLog(current => current + '\n[TASK CREATED] ' + result.id);
+    } catch (error) {
+      setRunning(false);
+      setNotice(error instanceof Error ? error.message : '联系人补全任务启动失败');
+    }
   };
 
-  const syncSelected = () => {
-    if (!selected.length) return;
-    const chosen = [...selected];
-    setRows(current => current.map((row, index) => chosen.includes(row.id)
-      ? { ...row, crm: index % 7 === 0 ? 'failed' : 'synced', crmId: index % 7 === 0 ? undefined : 'CRM-' + String(10000 + index) }
-      : row));
-    setNotice('已模拟同步 ' + chosen.length + ' 条记录；当前未写入真实 CRM。失败记录可通过单条操作重试。');
+  const syncSelected = async () => {
+    const candidates = selectedRows.filter(row => row.enrichment === 'complete' && row.candidateKey);
+    if (!candidates.length) { setNotice('所选企业尚无可转换的真实联系人候选。请先执行联系人穿透。'); return; }
+    setNotice('正在逐家企业提交已勾选的联系人，成功与失败结果将分别保留。');
+    const token = await tokenOrThrow();
+    const results = await Promise.all(candidates.map(async row => {
+      try {
+        const result = await api('/api/v1/discovery-contact-candidates/convert', token, {
+          method: 'POST', body: JSON.stringify({ recordId: row.id, candidateKeys: [row.candidateKey] }),
+        }) as { leadId?: string; accountId?: string; accountName?: string; createdContacts?: number; linkedContacts?: number };
+        return { id: row.id, ok: true, crmId: result.accountId ?? result.leadId ?? '' };
+      } catch (error) {
+        return { id: row.id, ok: false, message: error instanceof Error ? error.message : String(error) };
+      }
+    }));
+    setRows(current => current.map(row => {
+      const result = results.find(item => item.id === row.id);
+      return result ? { ...row, crm: result.ok ? 'synced' : 'failed', crmId: result.crmId } : row;
+    }));
+    const success = results.filter(item => item.ok).length;
+    const failed = results.length - success;
+    setNotice('CRM 转换完成：成功 ' + success + ' 家，失败 ' + failed + ' 家。失败原因已写入下方日志。');
+    setLog(current => current + results.filter(item => !item.ok).map(item => '\n[CRM FAILED] ' + item.id + ' · ' + item.message).join(''));
     setSelected([]);
   };
 
-  const retryOne = (id: string) => {
-    setRows(current => current.map((row, index) => row.id === id ? { ...row, crm: 'synced', crmId: 'CRM-' + String(10000 + index) } : row));
-    setNotice('已模拟重试 CRM 同步。');
-  };
-
-  const copyCard = (row: Contact) => {
-    const card = [row.company, row.person, row.title, row.email, row.linkedin, 'https://' + row.domain].filter(Boolean).join('\n');
-    void navigator.clipboard?.writeText(card);
-    setNotice('完整名片已复制。');
-  };
-
-  const [page, setPage] = useState(1);
-  const pageSize = 10;
-  const visible = filtered.slice((page - 1) * pageSize, page * pageSize);
-  const allReady = rows.length > 0 && rows.every(row => row.enrichment === 'complete');
+  const allReady = rows.some(row => row.enrichment === 'complete' && row.candidateCount > 0);
+  const emailTag = (row: ContactRow) => row.email
+    ? <Tag type={row.emailStatus === 'valid' ? 'green' : 'warm-gray'}>{row.emailStatus === 'valid' ? '已验证' : '待核验'}</Tag>
+    : <Tag type="gray">待采集</Tag>;
+  const crmTag = (row: ContactRow) => row.crm === 'synced'
+    ? <Tag type="green">已同步至 CRM</Tag>
+    : row.crm === 'failed' ? <Tag type="red">转换失败</Tag>
+      : row.candidateCount > 0 ? <Tag type="blue">待人工确认</Tag> : row.enrichment === 'complete' ? <Tag type="warm-gray">未发现候选</Tag> : <Tag type="gray">待穿透</Tag>;
 
   return (
     <section className="tp-prospect-discovery__step tp-decision">
       <div className="tp-decision__heading">
         <div><span className="tp-decision__eyebrow">DECISION-MAKER ENRICHMENT & CRM SYNC</span><h2>决策人穿透与 CRM 同步</h2><p>目标市场：{profile.countryName || '未指定'} · 核心产品：{profile.coreNoun || '未指定'}</p></div>
-        <Tag type="blue">{rows.length} 家待处理企业</Tag>
+        <Tag type="blue">{rows.length} 家真实企业</Tag>
       </div>
-
       {notice && <InlineNotification kind="info" lowContrast title="操作反馈" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
+      {loading && <InlineNotification kind="info" lowContrast title="正在读取真实潜客记录" subtitle="读取第五步已审核并交接的企业。" />}
 
       <Tile className="tp-decision__preferences">
-        <div className="tp-decision__preferences-heading"><div><h3>穿透偏好与全局总控</h3><p>配置优先挖掘的决策人职位与邮箱验证等级</p></div><Tag type="blue">已从第五步接收 {rows.length} 家企业</Tag></div>
+        <div className="tp-decision__preferences-heading"><div><h3>联系方式采集配置</h3><p>仅调用已配置的现有补全服务；当前批次最多 50 家企业</p></div><Tag type="blue">已选 {selected.length} 家</Tag></div>
         <div className="tp-decision__preference-grid">
           <fieldset className="tp-decision__role-group">
-            <legend>决策人目标职位</legend>
-            {positions.map(position => <Checkbox key={position.id} id={'tp-decision-role-' + position.id} labelText={position.label} checked={selectedRoles.includes(position.id)} onChange={() => setSelectedRoles(current => current.includes(position.id) ? current.filter(item => item !== position.id) : [...current, position.id])} />)}
+            <legend>补全数据源</legend>
+            {[
+              { id: 'website', label: '企业官网公开信息' },
+              { id: 'apollo', label: 'Apollo（需配置服务凭证）' },
+              { id: 'zoominfo', label: 'ZoomInfo（需配置服务凭证）' },
+            ].map(item => <Checkbox key={item.id} id={'tp-contact-provider-' + item.id} labelText={item.label} checked={providers.includes(item.id)} onChange={() => setProviders(current => current.includes(item.id) ? current.filter(value => value !== item.id) : [...current, item.id])} />)}
           </fieldset>
-          <div className="tp-decision__email-policy">
-            <span className="tp-decision__field-label">联络方式验证等级</span>
-            <RadioButtonGroup legendText="邮箱验证策略" name="tp-decision-email-level" valueSelected={emailLevel} onChange={value => setEmailLevel(String(value))}>
-              <RadioButton id="tp-decision-verified" value="verified" labelText="仅抓取高置信度企业商务邮箱" />
-            </RadioButtonGroup>
-            <p>仅将通过验证策略的商务邮箱标记为可用。</p>
-          </div>
+          <div className="tp-decision__email-policy"><span className="tp-decision__field-label">数据使用规则</span><p>联系人候选来自后端补全工作流；姓名、职位、邮箱和社交资料保留来源与核验信息。CRM 写入必须由你勾选确认。</p></div>
         </div>
         <div className="tp-decision__actions">
-          <Button kind="primary" renderIcon={CarbonIcons.SearchLocate} disabled={running || !selectedRoles.length || !rows.length} onClick={startEnrichment}>{running ? '正在穿透组织架构…' : '开始执行决策人穿透'}</Button>
-          <Button kind="secondary" renderIcon={CarbonIcons.CloudUpload} disabled={!selected.length || !allReady || running} onClick={syncSelected}>一键确认并同步至 CRM（公司 / 联系人 / 线索）</Button>
-          <span>需完成穿透并人工勾选后，方可同步入库</span>
+          <Button kind="primary" renderIcon={CarbonIcons.SearchLocate} disabled={running || loading || !rows.length || !providers.length} onClick={startEnrichment}>{running ? '正在穿透组织架构…' : '开始执行联系人穿透'}</Button>
+          <Button kind="secondary" renderIcon={CarbonIcons.CloudUpload} disabled={!selected.length || !allReady || running} onClick={syncSelected}>确认所选联系人并同步至 CRM</Button>
+          <span>先执行补全，再人工确认联系人候选</span>
         </div>
       </Tile>
 
       <Tile className="tp-decision__runtime">
-        <div className="tp-decision__runtime-heading"><div><h3>穿透执行状态</h3><p>企业组织架构发现、决策人识别与商务邮箱验证日志</p></div><Tag type={running ? 'blue' : allReady ? 'green' : 'gray'}>{running ? '正在深度穿透组织架构…' : allReady ? '穿透已完成' : '等待执行'}</Tag></div>
-        <div className="tp-decision__progress-meta"><span>正在穿透企业（{Math.round(progress / 100 * rows.length)} / {rows.length}）</span><strong>已锁定决策人：{rows.filter(row => row.person).length} 位</strong></div>
-        <ProgressBar label="决策人穿透进度" value={progress} max={100} helperText={progress + '%'} />
+        <div className="tp-decision__runtime-heading"><div><h3>穿透执行状态</h3><p>真实任务状态、完成数量与服务端返回信息</p></div><Tag type={running ? 'blue' : allReady ? 'green' : 'gray'}>{running ? '正在执行' : allReady ? '已获取联系人候选' : '等待执行'}</Tag></div>
+        <div className="tp-decision__progress-meta"><span>已补全企业（{enrichedCount} / {rows.length}）</span><strong>发现联系人候选：{candidateCount} 位</strong></div>
+        <ProgressBar label="联系人补全进度" value={progress} max={100} helperText={jobMessage || (progress + '%')} />
         <CodeSnippet type="multi" feedback="复制日志" className="tp-decision__console">{log}</CodeSnippet>
       </Tile>
 
       <Tile className="tp-decision__table-panel">
-        <div className="tp-decision__table-heading"><div><h3>企业与决策人主表</h3><p>企业资产、AI 评分、决策人名片、邮箱验证及 CRM 状态集中在同一张表格</p></div><Tag type="blue">{filtered.length} 条记录</Tag></div>
+        <div className="tp-decision__table-heading"><div><h3>企业与决策人主表</h3><p>真实企业记录、联系人候选及 CRM 转换状态</p></div><Tag type="blue">{filtered.length} 条记录</Tag></div>
         <div className="tp-decision__table-toolbar">
-          <TableToolbar>
-            {selected.length > 0 && <div className="tp-decision__batch-actions"><span>已勾选 {selected.length} / {rows.length} 条</span><div><Button kind="primary" size="md" renderIcon={CarbonIcons.CloudUpload} disabled={!allReady} onClick={syncSelected}>同步至 CRM</Button><Button kind="tertiary" size="md" renderIcon={CarbonIcons.Download} onClick={() => setNotice('导出功能将在 CRM 正式接入时启用。')}>导出名片</Button></div></div>}
-            <TableToolbarContent><TableToolbarSearch persistent value={search} onChange={(_event, value) => { setSearch(value ?? ''); setPage(1); }} placeholder="搜索公司、决策人或邮箱" /></TableToolbarContent>
-          </TableToolbar>
+          <TableToolbar><TableToolbarContent><TableToolbarSearch persistent value={search} onChange={(_event, value) => { setSearch(value ?? ''); setPage(1); }} placeholder="搜索公司、决策人或邮箱" /></TableToolbarContent></TableToolbar>
         </div>
         <div className="tp-decision__table-scroll">
           <Table size="lg" useZebraStyles={false}>
             <TableHead><TableRow>
               <TableSelectAll id="decision-select-all" name="decision-select-all" checked={visible.length > 0 && visible.every(row => selected.includes(row.id))} indeterminate={visible.some(row => selected.includes(row.id)) && !visible.every(row => selected.includes(row.id))} onSelect={toggleAll} />
-              {['目标企业 / AI 分级','核心决策人与职称','商务邮箱 / 验证状态','获客溯源路径','穿透 / CRM 状态','操作'].map(label => <TableHeader key={label}>{label}</TableHeader>)}
+              {['目标企业 / 来源','核心决策人 / 职位','商务邮箱 / 电话','社交账号','穿透 / CRM 状态'].map(label => <TableHeader key={label}>{label}</TableHeader>)}
             </TableRow></TableHead>
             <TableBody>
               {visible.map(row => <TableRow key={row.id}>
                 <TableSelectRow id={'decision-' + row.id} name={'decision-' + row.id} checked={selected.includes(row.id)} onSelect={() => toggleOne(row.id)} />
-                <TableCell><div className="tp-decision__company"><strong>{row.company}</strong><Tag type={row.tier === 'Tier A' ? 'green' : row.tier === 'Tier B' ? 'blue' : 'gray'}>{row.tier} · {row.score}</Tag></div><small>{row.domain}</small></TableCell>
-                <TableCell>{row.person ? <div className="tp-decision__person"><strong>{row.person}</strong><span>{row.title}</span><a href={row.linkedin} target="_blank" rel="noreferrer">LinkedIn <CarbonIcons.ArrowUpRight size={12} /></a></div> : <Tag type="gray">待穿透</Tag>}</TableCell>
-                <TableCell>{row.email ? <div className="tp-decision__email"><a href={'mailto:' + row.email}>{row.email}</a>{emailTag(row.emailStatus)}</div> : <Tag type="gray">待采集</Tag>}</TableCell>
-                <TableCell><Tag type="blue">{row.source}</Tag><small>AI 评分 {row.score}</small></TableCell>
-                <TableCell><div className="tp-decision__status">{crmTag(row)}{row.crm === 'synced' && <small title={'CRM 关联 ID：' + row.crmId}>{row.crmId}</small>}{row.crm === 'failed' && <Button kind="ghost" size="sm" onClick={() => retryOne(row.id)}>重试</Button>}</div></TableCell>
-                <TableCell><OverflowMenu ariaLabel={'企业操作：' + row.company} flipped><OverflowMenuItem itemText="单条入库 CRM" onClick={() => { setSelected([row.id]); if (row.enrichment === 'complete') retryOne(row.id); else setNotice('请先完成决策人穿透。'); }} /><OverflowMenuItem itemText="重新挖掘决策人" onClick={startEnrichment} /><OverflowMenuItem itemText="复制完整名片" onClick={() => copyCard(row)} /></OverflowMenu></TableCell>
+                <TableCell><div className="tp-decision__company"><strong>{row.company}</strong><Tag type="blue">{row.source || row.country}</Tag></div><small>{row.domain || '暂无官网'}</small></TableCell>
+                <TableCell>{row.person ? <div className="tp-decision__person"><strong>{row.person}</strong><span>{row.title || '职位待核验'}</span></div> : <Tag type="gray">暂无候选</Tag>}</TableCell>
+                <TableCell><div className="tp-decision__email">{row.email ? <a href={'mailto:' + row.email}>{row.email}</a> : <Tag type="gray">待采集</Tag>}{emailTag(row)}{row.phone && <small>{row.phone}</small>}{row.whatsapp && <small>WhatsApp：{row.whatsapp}</small>}</div></TableCell>
+                <TableCell>{row.linkedin ? <a href={row.linkedin} target="_blank" rel="noreferrer">LinkedIn <CarbonIcons.ArrowUpRight size={12} /></a> : <Tag type="gray">暂无公开账号</Tag>}</TableCell>
+                <TableCell><div className="tp-decision__status">{crmTag(row)}{row.crmId && <small>{row.crmId}</small>}</div></TableCell>
               </TableRow>)}
-              {visible.length === 0 && <TableRow><TableCell colSpan={7}>没有符合当前筛选条件的记录。</TableCell></TableRow>}
+              {visible.length === 0 && <TableRow><TableCell colSpan={6}>{loading ? '正在加载…' : '没有可显示的真实企业记录。'}</TableCell></TableRow>}
             </TableBody>
           </Table>
         </div>
-        <div className="tp-decision__footer"><span>当前主表共 {rows.length} 家企业 · 已穿透 {rows.filter(row => row.enrichment === 'complete').length} 家 · 已同步 {rows.filter(row => row.crm === 'synced').length} 家</span><Button kind="ghost" size="sm" renderIcon={CarbonIcons.ArrowUp} onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>返回顶部</Button></div>
+        <div className="tp-decision__footer"><span>当前 {rows.length} 家企业 · 已补全 {enrichedCount} 家 · 联系人候选 {candidateCount} 位 · 已同步 {rows.filter(row => row.crm === 'synced').length} 家</span><Button kind="ghost" size="sm" renderIcon={CarbonIcons.ArrowUp} onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>返回顶部</Button></div>
       </Tile>
     </section>
   );
