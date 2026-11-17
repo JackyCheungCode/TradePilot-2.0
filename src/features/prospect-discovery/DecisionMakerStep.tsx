@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
-  Button, Checkbox, CodeSnippet, Column, Grid, InlineNotification, OverflowMenu,
+  Button, Checkbox, CodeSnippet, InlineNotification, OverflowMenu,
   OverflowMenuItem, ProgressBar, RadioButton, RadioButtonGroup, Table, TableBody,
   TableCell, TableHead, TableHeader, TableRow, TableSelectAll, TableSelectRow,
   TableToolbar, TableToolbarContent, TableToolbarSearch, Tag, Tile, CarbonIcons,
@@ -49,7 +49,7 @@ const sampleCompanies = [
   ['Hansa Renewable Systems','hansa-renewable.de','Tier A',90,'Google Maps 德国网格'],
   ['Frankfurt Energy Trading','frankfurt-energy.de','Tier B',82,'SERP 搜索引擎矩阵'],
   ['VoltHaus Deutschland','volthaus.de','Tier A',95,'WLW 工业黄页'],
-];
+] as const;
 
 const seedContacts = (): Contact[] => Array.from({ length: 25 }, (_, index) => {
   const company = sampleCompanies[index % sampleCompanies.length];
