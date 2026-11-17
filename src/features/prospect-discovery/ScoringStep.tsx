@@ -12,7 +12,7 @@ const asObject = (value: unknown): Record<string, unknown> => value && typeof va
 
 type Lead = {
   id: string; name: string; domain: string; country: string; source: string; email: string;
-  address?: string; phone?: string; runId?: string; confidence?: number; reviewed?: boolean;
+  address?: string; phone?: string; runId?: string; confidence?: number; reviewed?: boolean; guardrailReview?: boolean; duplicateReview?: boolean;
   status: 'pending' | 'scored'; score?: number; fit?: number; persona?: number; scale?: number; intent?: number; comment?: string;
 };
 type Props = { profile: { coreNoun: string; countryName: string; buyers: string[] }; onContinueToEnrichment: () => void };
@@ -66,6 +66,8 @@ export function ScoringStep({ profile, onContinueToEnrichment }: Props) {
             phone: String(record.phone ?? ''), runId: String(occurrence.run_id ?? ''),
             confidence: typeof record.confidence_score === 'number' ? record.confidence_score : undefined,
             reviewed: ['reviewed', 'collected', 'converted'].includes(String(asObject(record.raw_data).lifecycle_stage ?? '')),
+            guardrailReview: asObject(record.raw_data).guardrail_review_required === true,
+            duplicateReview: asObject(record.raw_data).duplicate_review_required === true,
             status: asObject(record.raw_data).ai_scoring ? 'scored' as const : 'pending' as const,
             score: typeof asObject(asObject(record.raw_data).ai_scoring).score === 'number' ? Number(asObject(asObject(record.raw_data).ai_scoring).score) : undefined,
             fit: Number(asObject(asObject(asObject(record.raw_data).ai_scoring).dimensions).fit) || undefined,
@@ -273,7 +275,7 @@ export function ScoringStep({ profile, onContinueToEnrichment }: Props) {
             <TableBody>
               {visible.map(row => <TableRow key={row.id}>
                 <TableSelectRow id={'scoring-' + row.id} name={'scoring-' + row.id} checked={selected.includes(row.id)} onSelect={() => toggleOne(row.id)} />
-                <TableCell><div className="tp-scoring__company"><strong>{row.name}</strong>{scoreTag(row.score)}</div></TableCell>
+                <TableCell><div className="tp-scoring__company"><strong>{row.name}</strong>{scoreTag(row.score)}{row.guardrailReview && <Tag type="warm-gray">护盾待审核</Tag>}{row.duplicateReview && <Tag type="warm-gray">重复待复核</Tag>}</div></TableCell>
                 <TableCell>{row.domain ? <a href={row.domain.startsWith('http') ? row.domain : 'https://' + row.domain} target="_blank" rel="noreferrer">{row.domain}<CarbonIcons.ArrowUpRight size={12} /></a> : <span>暂无官网</span>}<small>{row.email}</small></TableCell>
                 <TableCell><Tag type="blue">{row.source}</Tag></TableCell>
                 <TableCell>{row.score === undefined ? <span className="tp-scoring__score-empty">—</span> : <button type="button" className="tp-scoring__score" title={'Fit ' + row.fit + ' · Persona ' + row.persona + ' · Scale ' + row.scale + ' · Intent ' + row.intent} onClick={() => setNotice('评分明细：Fit ' + row.fit + ' · Persona ' + row.persona + ' · Scale ' + row.scale + ' · Intent ' + row.intent)}>{row.score} 分</button>}</TableCell>
