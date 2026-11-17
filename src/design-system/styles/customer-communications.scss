@@ -325,15 +325,12 @@
   }
   .cc-window,
   .cc-window--maximized {
-    inset: 0 0 0 3rem;
-    width: auto;
+    position: absolute;
+    inset: 0;
+    width: 100%;
     max-width: none;
-    height: 100dvh;
-    max-height: 100dvh;
-  }
-  .cc-floating-root--nav-expanded .cc-window,
-  .cc-floating-root--nav-expanded .cc-window--maximized {
-    left: 16rem;
+    height: 100%;
+    max-height: 100%;
   }
   .cc-mobile-app-label {
     display: inline;
