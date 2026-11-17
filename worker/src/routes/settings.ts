@@ -5,6 +5,7 @@ interface SettingsEnv {
   SUPABASE_ANON_KEY: string;
   SUPABASE_SERVICE_ROLE_KEY?: string;
   ACTOR_GATEWAY_API_TOKEN?: string;
+  APIFY_API_TOKEN?: string;
   GOOGLE_MAPS_API_KEY?: string;
   DEEPL_API_KEY?: string;
   DHL_API_KEY?: string;
@@ -293,7 +294,7 @@ export async function handleSettings(request: Request, env: SettingsEnv): Promis
     const names=Object.values(apiSecretNames);
     const secrets=await readVaultSecrets(names,env);
     const status:Record<string,boolean>={};
-    for(const [key,name] of Object.entries(apiSecretNames))status[key]=Boolean(secrets[name]||(legacyApiEnv[key]&&envSecret(env,legacyApiEnv[key])));
+    for(const [key,name] of Object.entries(apiSecretNames))status[key]=Boolean(secrets[name]||(legacyApiEnv[key]&&envSecret(env,legacyApiEnv[key]))||(key==="actorGateway"&&envSecret(env,"APIFY_API_TOKEN")));
     return successResponse(request,status);
    }catch(error){return errorResponse(request,"INTEGRATIONS_READ_FAILED",error instanceof Error?error.message:"读取集成状态失败",502);}
   }
@@ -313,7 +314,7 @@ export async function handleSettings(request: Request, env: SettingsEnv): Promis
     const service=String(body.service||"");
     const names=Object.values(apiSecretNames);
     const secrets=await readVaultSecrets(names,env);
-    const secret=(key:string)=>secrets[apiSecretNames[key]]||envSecret(env,legacyApiEnv[key]||"");
+    const secret=(key:string)=>secrets[apiSecretNames[key]]||envSecret(env,legacyApiEnv[key]||"")||(key==="actorGateway"?envSecret(env,"APIFY_API_TOKEN"):"");
     if(service==="whatsappCloud"){
       const token=secret("whatsappAccessToken"),phoneId=secret("whatsappPhoneNumberId");
       if(!token||!phoneId)return successResponse(request,{ok:false,message:"请配置 WhatsApp Access Token 与 Phone Number ID"});
