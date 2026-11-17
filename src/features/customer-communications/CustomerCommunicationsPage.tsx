@@ -450,7 +450,7 @@ export function CustomerCommunicationsPage() {
       try {
         if (isInternalNote) {
           const result = await createInboxNote(sessionToken, activeConversation.id, body);
-          if (result.note) setMessages(current => [...current, { id: result.note.id, conversationId: activeConversation.id, direction: 'system', kind: 'system', body: result.note.content, time: Date.parse(result.note.created_at) || Date.now() }]);
+          if (result.note) setMessages(current => [...current, { id: result.note.id, conversationId: activeConversation.id, channel: activeConversation.channel, direction: 'system', kind: 'system', body: result.note.content, time: Date.parse(result.note.created_at) || Date.now() }]);
           setNotice('内部备注已保存，仅在 TradePilot 工作台内可见。');
         } else {
           const result = await sendInboxMessage(sessionToken, activeConversation.id, replyChannel as InboxChannel, body);
