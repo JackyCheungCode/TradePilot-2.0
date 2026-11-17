@@ -184,7 +184,17 @@ export function ExecutionStep({ profile, sources, onEditStep, onContinueToScorin
   return (
     <section className="tp-prospect-discovery__step tp-execution">
       <Accordion className="tp-execution__context">
-        <AccordionItem title={'📋 前序搜索条件快照：' + (profile.continent || 'Europe') + ' ➔ ' + (profile.countryName || 'Germany') + ' (' + (profile.country || 'DE') + ') | 核心词：' + (profile.coreNoun || 'power station portable 5000w') + ' | 已选 ' + channels.length + ' 个数据源 | 护盾已启用'}>
+        <AccordionItem
+          open
+          title={
+            <span className="tp-execution__context-title">
+              <CarbonIcons.Document size={16} aria-hidden="true" />
+              <span>
+                {'前序搜索条件快照：' + (profile.continent || 'Europe') + ' ➔ ' + (profile.countryName || 'Germany') + ' (' + (profile.country || 'DE') + ') | 核心词：' + (profile.coreNoun || 'power station portable 5000w') + ' | 已选 ' + channels.length + ' 个数据源 | 护盾已启用'}
+              </span>
+            </span>
+          }
+        >
           <Grid narrow>
             <Column sm={4} md={4} lg={5}>
               <Tile className="tp-execution__summary-tile">
@@ -263,15 +273,21 @@ export function ExecutionStep({ profile, sources, onEditStep, onContinueToScorin
 
       <Tile className="tp-execution__results">
         <div className="tp-execution__section-heading"><div><h3>结构化线索结果</h3><p>任务运行期间增量插入 · {leads.length} / 128 条 Mock 线索</p></div><Tag type="blue">{filteredLeads.length} 条匹配</Tag></div>
-        <TableToolbar>
+        <TableToolbar className="tp-execution__table-toolbar">
           <TableBatchActions shouldShowBatchActions={selectedIds.length > 0} totalSelected={selectedIds.length} onCancel={() => setSelectedIds([])}>
             <TableBatchAction tabIndex={0} renderIcon={CarbonIcons.Delete} onClick={addToBlacklist}>批量移出 / 拉黑</TableBatchAction>
             <TableBatchAction tabIndex={0} renderIcon={CarbonIcons.Download} onClick={() => exportCsv(selectedRows)}>导出选中 (.csv)</TableBatchAction>
             <TableBatchAction tabIndex={0} renderIcon={CarbonIcons.MagicWand} onClick={sendToScoring}>送入第五步 AI 打分</TableBatchAction>
           </TableBatchActions>
           <TableToolbarContent>
-            <TableToolbarSearch persistent value={search} onChange={(_event, value) => { setSearch(value ?? ''); setPage(1); }} placeholder="搜索企业名称或域名" />
-            <Dropdown id="execution-source-filter" titleText="获客来源" label="全部来源" items={[{ id: 'all', text: '全部来源' }, ...sourceList.map(item => ({ id: item.id, text: item.name }))]} itemToString={item => item?.text ?? ''} selectedItem={[{ id: 'all', text: '全部来源' }, ...sourceList.map(item => ({ id: item.id, text: item.name }))].find(item => item.id === sourceFilter) ?? { id: 'all', text: '全部来源' }} onChange={({ selectedItem }) => { setSourceFilter(selectedItem?.id ?? 'all'); setPage(1); }} />
+            <div className="tp-execution__toolbar-controls">
+              <div className="tp-execution__toolbar-search">
+                <TableToolbarSearch persistent value={search} onChange={(_event, value) => { setSearch(value ?? ''); setPage(1); }} placeholder="搜索企业名称或域名" />
+              </div>
+              <div className="tp-execution__toolbar-filter">
+                <Dropdown id="execution-source-filter" titleText="获客来源" label="全部来源" items={[{ id: 'all', text: '全部来源' }, ...sourceList.map(item => ({ id: item.id, text: item.name }))]} itemToString={item => item?.text ?? ''} selectedItem={[{ id: 'all', text: '全部来源' }, ...sourceList.map(item => ({ id: item.id, text: item.name }))].find(item => item.id === sourceFilter) ?? { id: 'all', text: '全部来源' }} onChange={({ selectedItem }) => { setSourceFilter(selectedItem?.id ?? 'all'); setPage(1); }} />
+              </div>
+            </div>
           </TableToolbarContent>
         </TableToolbar>
         <div className="tp-execution__table-scroll">
