@@ -38,7 +38,16 @@ export function RequireAuth() {
         };
         if (!biometricPayload.data) throw new Error('生物识别 MFA 状态响应无效。');
         if (biometricPayload.data.enabled === true) {
-          const biometricRequired = biometricPayload.data.granted !== true;
+          if (biometricPayload.data.granted === true) {
+            setMfaRequired(false);
+            setSession(nextSession);
+            setReady(true);
+            return;
+          }
+          const client = await getSupabaseClient();
+          const { data: assurance, error: assuranceError } = await client.auth.mfa.getAuthenticatorAssuranceLevel();
+          if (assuranceError) throw assuranceError;
+          const biometricRequired = assurance.currentLevel !== 'aal2';
           setMfaRequired(biometricRequired);
           setSession(biometricRequired ? null : nextSession);
           setReady(true);
