@@ -215,3 +215,26 @@
 .tp-wa-theme--outlook .tp-wa-composer .tp-wa-send{align-self:flex-end;border-radius:3px;background:#0078d4}
 .tp-wa-theme--outlook .tp-wa-contact-panel h3{color:#0078d4}
 @media(max-width:767px){.tp-communications-titlebar{min-height:58px;padding:7px 10px}.tp-communications-title{gap:7px}.tp-communications-title strong{font-size:14px}.tp-communications-title span{padding-left:7px;font-size:12px}.tp-theme-picker-trigger{min-width:148px;gap:8px;padding:6px 8px}.tp-theme-picker-trigger small{font-size:9px}.tp-theme-picker-trigger strong{font-size:11px}.tp-theme-picker-menu{width:230px}.tp-wa-page{height:calc(100dvh - 6.5rem);min-height:360px}}
+
+
+/* Message provenance and participant identity */
+.tp-wa-avatar-image{display:inline-block;object-fit:cover;overflow:hidden}
+.tp-wa-avatar--message{width:30px;height:30px;margin-top:2px;font-size:10px}
+.tp-wa-profile-avatar{overflow:hidden}
+.tp-wa-message-row{display:flex;align-items:flex-end;gap:8px;max-width:100%}
+.tp-wa-message.is-outbound .tp-wa-message-row{justify-content:flex-end}
+.tp-wa-message.is-system .tp-wa-message-row{justify-content:center}
+.tp-wa-message-row .tp-wa-bubble{min-width:0}
+.tp-wa-message-source{display:inline-flex;align-items:center;gap:5px;align-self:flex-start;margin:4px 0 0 39px;padding:2px 7px;border-radius:10px;background:#ffffffd9;color:#667781;font-size:10px;line-height:1.4}
+.tp-wa-message-source>span{font-size:8px;color:#008069}
+.tp-wa-message.is-outbound .tp-wa-message-source{align-self:flex-end;margin:4px 39px 0 0}
+.tp-wa-message-source--messenger>span{color:#0866ff}
+.tp-wa-message-source--instagram>span{color:#d62976}
+.tp-wa-message-source--email>span{color:#667781}
+.tp-wa-message-source--telegram>span{color:#229ed9}
+.tp-wa-message-source--line>span{color:#06c755}
+.tp-wa-message-source--wecom>span{color:#07a64f}
+.tp-wa-theme--wechat .tp-wa-message-source{background:#ffffffcc}
+.tp-wa-theme--messenger .tp-wa-message-source{background:#ffffffd9}
+.tp-wa-theme--outlook .tp-wa-message-source{border:1px solid #e1dfdd;border-radius:3px;background:#fff}
+@media(max-width:767px){.tp-wa-avatar--message{width:25px;height:25px}.tp-wa-message-row{gap:5px}.tp-wa-message-source{margin-left:30px}.tp-wa-message.is-outbound .tp-wa-message-source{margin-right:30px}}
