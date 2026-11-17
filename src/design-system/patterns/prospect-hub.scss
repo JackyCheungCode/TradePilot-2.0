@@ -31,7 +31,8 @@
   &__source-row { display:grid; grid-template-columns:minmax(9rem,15rem) minmax(5rem,1fr) 4rem; gap:$spacing-04; align-items:center; @include type-style('body-compact-01'); }
   &__source-row>span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   &__source-row>div { height:12px; background:var(--cds-layer-02); }
-  &__source-row i { display:block; height:100%; background:var(--cds-support-info); }
+  &__source-row svg { display:block; width:100%; height:12px; }
+  &__source-row svg rect { fill:var(--cds-support-info); }
   &__source-row strong { text-align:right; font-variant-numeric:tabular-nums; }
   &__loading { min-height:8rem; display:grid; place-items:center; }
   &__empty { @include type-style('body-compact-01'); color:var(--cds-text-secondary); }
