@@ -27,8 +27,8 @@ Do not enable Passkeys in production until the canonical custom domain and any s
 - Password sign-in: password is the first factor. If Supabase reports current AAL1 and next AAL2, the app requires a verified TOTP factor or a one-time recovery code before entering protected routes.
 - Passkey sign-in: the browser runs the platform WebAuthn ceremony. The authenticator may request biometrics, device PIN, or a security key. If TOTP MFA is enrolled, the app also requires the TOTP/recovery-code step.
 - Passkey is currently a passwordless sign-in credential, not a native Supabase JavaScript AAL2 factor.
-- The JavaScript Supabase MFA API documents TOTP and phone as second factors. This implementation deliberately does not claim that a Passkey assertion itself upgrades a session to AAL2.
-- A dedicated Passkey-as-second-factor flow remains a separate security workstream. It must use a supported WebAuthn MFA API or a separately reviewed server-side WebAuthn factor implementation; do not implement it by trusting frontend state or by treating a second Passkey login session as proof for a different session.
+- The JavaScript Supabase MFA API documents TOTP and phone as second factors. Supabase's hosted Auth currently does not expose WebAuthn MFA enrollment/verification for projects (the hosted Management API rejects enabling it); WebAuthn MFA configuration exists for self-hosted Auth. This implementation deliberately does not claim that a Passkey assertion itself upgrades a session to AAL2. A passkey sign-in session remains AAL1 even when the authenticator prompts for local biometrics.
+- A dedicated biometric/WebAuthn-as-second-factor flow remains a separate security workstream. It requires either a supported hosted WebAuthn MFA API (not currently available) or a separately reviewed server-side WebAuthn factor implementation with user-verification required, replay protection, session binding, and backend/RLS enforcement. Do not implement it by trusting frontend state or by treating a second Passkey login session as proof for a different session.
 
 ## Security requirements before production release
 
@@ -43,4 +43,4 @@ Do not enable Passkeys in production until the canonical custom domain and any s
 
 ## Current limitation
 
-The settings and login flows provide Passkey sign-in plus TOTP-based MFA. They do not yet provide Passkey as the second AAL2 factor in the JavaScript Supabase SDK. The feature must not be marked complete for the original biometric-MFA requirement until that gap and backend AAL enforcement have been resolved and tested.
+The settings and login flows provide Passkey sign-in plus TOTP-based MFA. They do not yet provide Passkey as the second AAL2 factor in the hosted JavaScript Supabase Auth service. The feature must not be marked complete for the original biometric-MFA requirement until that gap and backend AAL enforcement have been resolved and tested.
