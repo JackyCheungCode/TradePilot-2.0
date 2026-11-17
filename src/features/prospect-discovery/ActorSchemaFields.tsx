@@ -67,7 +67,19 @@ export function ActorSchemaFields({ sources, onValuesChange }: Props) {
     return () => { active = false; };
   }, [sourceKey]);
 
-  useEffect(() => { onValuesChange(values); }, [values, onValuesChange]);
+  const actorParameters = useMemo(() => ({
+    fields: values,
+    actors: items.map(item => {
+      const input: Record<string, unknown> = {};
+      for (const [fieldKey, field] of Object.entries(item.schema.properties ?? {})) {
+        const valueKey = item.source.id + ':' + item.actorId + ':' + fieldKey;
+        const value = values[valueKey] ?? field.default;
+        if (value !== undefined && value !== '') input[fieldKey] = value;
+      }
+      return { sourceId: item.source.id, sourceName: item.source.name, actorId: item.actorId, actorTitle: item.actorTitle, input };
+    }),
+  }), [values, items]);
+  useEffect(() => { onValuesChange(actorParameters); }, [actorParameters, onValuesChange]);
 
   const setField = (key: string, value: unknown) => setValues(current => ({ ...current, [key]: value }));
   if (!sources.length) return null;
