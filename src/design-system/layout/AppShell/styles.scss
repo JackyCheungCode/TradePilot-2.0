@@ -1,4 +1,4 @@
-/** Shared shell layout. Use centralized Carbon and TradePilot tokens. */
+/** Shared application shell layout. Use centralized Carbon and TradePilot tokens. */
 @use 'sass:map';
 @use '../../tokens/breakpoints' as breakpoints;
 
@@ -15,6 +15,18 @@
   min-height: 100%;
   padding-block: var(--tp-space-07);
   padding-inline: var(--tp-space-06);
+}
+
+/*
+ * Carbon applies a 48px inline-start margin to every Content element that
+ * follows SideNav, including when SideNav has the --hidden class.
+ * AppShell hides SideNav at the compact viewport breakpoint, so remove that
+ * reserved rail width at the matching Carbon md breakpoint.
+ */
+@media (max-width: map.get(breakpoints.$tp-breakpoints, md)) {
+  .tp-content.cds--content {
+    margin-inline-start: 0;
+  }
 }
 
 @media (max-width: map.get(breakpoints.$tp-breakpoints, sm)) {
