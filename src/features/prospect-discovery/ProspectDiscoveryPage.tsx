@@ -1,4 +1,4 @@
-// Release trigger only; no runtime behavior. Approved platform catalog release 2026-11-17. Final build gate after catalog cleanup.
+// Release trigger only; no runtime behavior. Approved platform catalog release 2026-11-17. Final build gate after catalog cleanup. Includes initial all-platform visibility fix.
 import { useEffect, useMemo, useState } from 'react';
 import {
   Accordion, AccordionItem, Button, Checkbox, ComboBox, Dropdown, MultiSelect, InlineLoading, InlineNotification,
