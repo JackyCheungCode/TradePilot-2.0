@@ -224,3 +224,44 @@
     flex-direction: column;
   }
 }
+
+
+.tp-security__recovery {
+  display: grid;
+  gap: var(--cds-spacing-03);
+  padding-block-start: var(--cds-spacing-04);
+  border-block-start: 1px solid var(--cds-border-subtle-01);
+}
+
+.tp-security__recovery > div:first-child {
+  display: grid;
+  gap: var(--cds-spacing-02);
+}
+
+.tp-security__recovery h3 {
+  margin: 0;
+  font-size: .9375rem;
+  font-weight: 600;
+}
+
+.tp-security__recovery p {
+  margin: 0;
+  color: var(--cds-text-secondary);
+  font-size: .8125rem;
+  line-height: 1.5;
+}
+
+.tp-security__recovery-codes {
+  display: grid;
+  gap: var(--cds-spacing-03);
+  padding: var(--cds-spacing-04);
+  background: var(--cds-layer-02);
+}
+
+.tp-security__recovery-codes code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: .8125rem;
+  line-height: 1.8;
+}
