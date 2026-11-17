@@ -31,6 +31,7 @@ export interface WorkerEnv {
  SUPABASE_URL: string;
  SUPABASE_ANON_KEY: string;
  SUPABASE_SERVICE_ROLE_KEY: string;
+ ACTOR_GATEWAY_API_TOKEN?: string;
  INBOX_SCANNER_URL?: string;
  INBOX_SCANNER_HMAC_SECRET?: string;
  GOOGLE_MAPS_API_KEY?: string;
