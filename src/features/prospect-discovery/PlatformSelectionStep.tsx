@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Accordion, AccordionItem, Button, Checkbox, Tag, CarbonIcons } from '@/design-system';
+import { Button, Checkbox, MultiSelect, Pagination, Search, Tag, CarbonIcons } from '@/design-system';
 
 type Country = { name: { common: string }; cca2: string; region: string };
 type Source = { id: string; name: string; description: string; markets: string[] };
@@ -136,6 +136,33 @@ const continentOrder = ['North America','South America','Europe','Asia','Africa'
 const northAmericaCodes = new Set('AG AI AW BB BL BM BQ BS BZ CA CR CU CW DM DO GD GL GP GT HN HT JM KN KY LC MF MQ MS MX NI PA PR SV SX TC TT US VC VG VI'.split(' '));
 const directoryContinent = (country: Country) => country.region === 'Americas' ? (northAmericaCodes.has(country.cca2) ? 'North America' : 'South America') : country.region;
 
+const categoryLabels = globalCatalog.map(group => group.title);
+const continentLabels = [
+  { value: 'North America', label: '北美洲' },
+  { value: 'South America', label: '南美洲' },
+  { value: 'Europe', label: '欧洲' },
+  { value: 'Asia', label: '亚洲' },
+  { value: 'Africa', label: '非洲' },
+  { value: 'Oceania', label: '大洋洲' },
+];
+const regionalCategory = (source: RegionalSource) => {
+  const id = source.id.toLowerCase();
+  if (/amazon|ebay|mercado|marktplaats|allegro|coupang|rakuten|1688|jd|taobao|pchome|momo|carousell|lazada|shopee|tokopedia|trade-me|yapo|jiji/.test(id)) return '电商、零售与商品市场';
+  if (/seek|naukri|xing/.test(id)) return '招聘、人才与企业扩张信号';
+  if (/companies-house|kvk/.test(id)) return '企业、投融资与产品创新';
+  if (/naver|yahoo/.test(id)) return '搜索引擎与网页发现';
+  if (/bbb|yelp/.test(id)) return '评价、口碑与消费者反馈';
+  if (/thomasnet|macraes|europages|kompass|wlw|yellow|gelbe|das-oertliche|11880|section|telelistas|braby|vconnect|justdial|hitta|truelocal|finda|townpage|hktdc/.test(id)) return '企业名录与本地商业目录';
+  return '企业名录与本地商业目录';
+};
+const allPlatforms: Array<Source & { category: string; global: boolean }> = [
+  ...preservedGroups.flatMap(group => group.sources.map(source => ({ ...source, category: '全球通用与全域穿透渠道', global: true }))),
+  ...globalCatalog.flatMap(group => group.sources.map(source => ({ ...source, category: group.title, global: true }))),
+  ...regionalSources.map(source => ({ ...source, category: regionalCategory(source), global: false })),
+];
+const continentLabelForCountry = (country: Country) => directoryContinent(country);
+const continentName = (value: string) => continentLabels.find(item => item.value === value)?.label ?? value;
+
 export function PlatformSelectionStep({
   countryCode, countryName, continentLabel, countries, onChangeCountry, onSelectionCountChange,
 }: {
@@ -143,38 +170,67 @@ export function PlatformSelectionStep({
   onChangeCountry: () => void; onSelectionCountChange: (count: number) => void;
 }) {
   const recommended = useMemo(() => recommendedFor(countryCode), [countryCode]);
-  const [selected, setSelected] = useState<string[]>([]);
-  useEffect(() => { setSelected(recommended); }, [countryCode]);
+  const [selected, setSelected] = useState<string[]>(() => recommendedFor(countryCode));
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedContinents, setSelectedContinents] = useState<string[]>([]);
+  const [selectedCountries, setSelectedCountries] = useState<Country[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
   useEffect(() => { onSelectionCountChange(selected.length); }, [selected, onSelectionCountChange]);
-  const availableCount = regionalSources.filter(source => source.markets.includes('*') || source.markets.includes(countryCode)).length
-    + globalCatalog.reduce((count, group) => count + group.sources.length, 0);
-  const orderedCountries = useMemo(() => [...countries].sort((a,b) => {
-    if (a.cca2 === countryCode) return -1;
-    if (b.cca2 === countryCode) return 1;
-    return a.name.common.localeCompare(b.name.common);
-  }), [countries, countryCode]);
+
+  const countryOptions = useMemo(() => countries.filter(country =>
+    selectedContinents.length === 0 || selectedContinents.includes(continentLabelForCountry(country))
+  ).sort((a, b) => a.name.common.localeCompare(b.name.common)), [countries, selectedContinents]);
+
+  const filtered = useMemo(() => {
+    const countryCodes = selectedCountries.map(country => country.cca2);
+    const continentCountryCodes = new Set(countries
+      .filter(country => selectedContinents.includes(continentLabelForCountry(country)))
+      .map(country => country.cca2));
+    const term = searchTerm.trim().toLocaleLowerCase();
+    return allPlatforms.filter(source => {
+      const geographyMatch = source.markets.includes('*')
+        || (countryCodes.length > 0 && countryCodes.some(code => source.markets.includes(code)))
+        || (countryCodes.length === 0 && selectedContinents.length > 0 && source.markets.some(code => continentCountryCodes.has(code)));
+      const categoryMatch = selectedCategories.length === 0 || selectedCategories.includes(source.category);
+      const searchMatch = !term || source.name.toLocaleLowerCase().includes(term)
+        || source.description.toLocaleLowerCase().includes(term)
+        || source.category.toLocaleLowerCase().includes(term);
+      return geographyMatch && categoryMatch && searchMatch;
+    }).sort((a, b) => Number(recommended.includes(b.id)) - Number(recommended.includes(a.id)) || a.name.localeCompare(b.name));
+  }, [countries, recommended, searchTerm, selectedCategories, selectedContinents, selectedCountries]);
+
+  useEffect(() => { setPage(1); }, [searchTerm, selectedContinents, selectedCountries, selectedCategories, pageSize]);
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const visiblePlatforms = filtered.slice((page - 1) * pageSize, page * pageSize);
+  const visibleIds = visiblePlatforms.map(source => source.id);
+  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every(id => selected.includes(id));
+  const selectedOnPage = visibleIds.filter(id => selected.includes(id)).length;
   const toggle = (id: string) => setSelected(current => current.includes(id) ? current.filter(value => value !== id) : [...current, id]);
-  const renderCards = (sources: Source[]) => (
-    <div className="tp-prospect-discovery__source-grid">
-      {sources.map(source => {
-        const checked = selected.includes(source.id);
-        const isRecommended = recommended.includes(source.id);
-        return <div className={'tp-prospect-discovery__source-card' + (checked ? ' is-selected' : '')} key={source.id}>
-          <div className="tp-prospect-discovery__source-card-top">
-            <span className="tp-prospect-discovery__source-mark" aria-hidden="true">{source.name.split(/[ /]/).filter(Boolean).slice(0,2).map(part=>part[0]).join('').toUpperCase()}</span>
-            <div className="tp-prospect-discovery__source-copy"><strong>{source.name}</strong>{isRecommended && <Tag type="green">智能推荐</Tag>}</div>
-            <Checkbox id={'tp-source-' + source.id} labelText={source.name + '，选择数据源'} hideLabel checked={checked} onChange={() => toggle(source.id)} />
-          </div>
-          <p>{source.description}</p>
-        </div>;
-      })}
-    </div>
-  );
+  const togglePage = () => setSelected(current => allVisibleSelected
+    ? current.filter(id => !visibleIds.includes(id))
+    : [...new Set([...current, ...visibleIds])]);
+  const selectAllFiltered = () => setSelected(current => [...new Set([...current, ...filtered.map(source => source.id)])]);
+  const clearAllFiltered = () => {
+    const filteredIds = new Set(filtered.map(source => source.id));
+    setSelected(current => current.filter(id => !filteredIds.has(id)));
+  };
+  const availableCount = allPlatforms.filter(source => source.markets.includes('*') || source.markets.includes(countryCode)).length;
+  const clearFilters = () => {
+    setSearchTerm('');
+    setSelectedContinents([]);
+    setSelectedCountries([]);
+    setSelectedCategories([]);
+  };
+
   return <section className="tp-prospect-discovery__step tp-prospect-discovery__step-two">
     <div className="tp-prospect-discovery__source-summary tp-prospect-discovery__source-summary-cards">
-      <div className="tp-prospect-discovery__summary-card"><span>数据源</span><strong>{globalCatalog.reduce((n,g)=>n+g.sources.length,0)+regionalSources.length+preservedGroups[0].sources.length}</strong><small>目录收录平台</small></div>
-      <div className="tp-prospect-discovery__summary-card"><span>智能推荐</span><strong>{recommended.length}</strong><small>匹配当前目标市场</small></div>
-      <div className="tp-prospect-discovery__summary-card"><span>当前市场可用选择</span><strong>{availableCount}</strong><small>{countryName || '尚未选择国家'}</small></div>
+      <div className="tp-prospect-discovery__summary-card"><span>平台总数</span><strong>{allPlatforms.length}</strong><small>完整平台目录</small></div>
+      <div className="tp-prospect-discovery__summary-card"><span>当前筛选结果</span><strong>{filtered.length}</strong><small>符合当前筛选条件</small></div>
+      <div className="tp-prospect-discovery__summary-card"><span>已选平台</span><strong>{selected.length}</strong><small>跨页与筛选持续保留</small></div>
     </div>
 
     <div className="tp-prospect-discovery__market-context">
@@ -182,51 +238,69 @@ export function PlatformSelectionStep({
       <div className="tp-prospect-discovery__market-copy">
         <span>当前锁定的目标市场</span>
         <strong>{continentLabel || '尚未选择大洲'}{countryName ? ' → ' + countryName + ' (' + countryCode + ')' : ' → 尚未选择国家'}</strong>
-        <p>完整平台目录始终开放浏览；当前国家的推荐平台优先标记。</p>
+        <p>平台目录统一展示；全球通用渠道与本土平台通过覆盖范围参与筛选。</p>
       </div>
       <Button kind="ghost" size="md" renderIcon={CarbonIcons.Edit} onClick={onChangeCountry}>更改国家</Button>
     </div>
 
-    <div className="tp-prospect-discovery__source-matrix">
-      {preservedGroups.map(group => <section className="tp-prospect-discovery__source-group" key={group.id}>
-        <div className="tp-prospect-discovery__source-group-heading"><div><h3>{group.title}</h3><p>{group.description}</p></div><Tag type="teal">保持现有渠道</Tag></div>
-        {renderCards(group.sources)}
-      </section>)}
-    </div>
+    <section className="tp-prospect-discovery__platform-browser">
+      <div className="tp-prospect-discovery__platform-browser-heading">
+        <div><h3>全球平台筛选与选择</h3><p>同一筛选维度内为“或”关系，不同维度之间为“且”关系。</p></div>
+        <Tag type="blue">{allPlatforms.length} 个平台</Tag>
+      </div>
+      <div className="tp-prospect-discovery__platform-filters">
+        <div className="tp-prospect-discovery__platform-search">
+          <Search id="platform-catalog-search" labelText="搜索平台" placeholder="搜索平台名称或描述" size="lg" value={searchTerm} onChange={(event) => setSearchTerm(event.currentTarget.value)} />
+        </div>
+        <div className="tp-prospect-discovery__platform-filter">
+          <MultiSelect id="platform-continent-filter" titleText="大洲" label="全部大洲" items={continentLabels.map(item => item.value)} itemToString={(item) => item ? continentName(item) : ''} selectedItems={selectedContinents} onChange={({ selectedItems }) => { setSelectedContinents(selectedItems); setSelectedCountries(current => current.filter(country => selectedItems.length === 0 || selectedItems.includes(continentLabelForCountry(country)))); }} />
+        </div>
+        <div className="tp-prospect-discovery__platform-filter">
+          <MultiSelect id="platform-country-filter" titleText="国家 / 地区" label="全部国家 / 地区" items={countryOptions} itemToString={(item) => item ? item.name.common : ''} selectedItems={selectedCountries} onChange={({ selectedItems }) => setSelectedCountries(selectedItems)} />
+        </div>
+        <div className="tp-prospect-discovery__platform-filter">
+          <MultiSelect id="platform-category-filter" titleText="平台分类" label="全部分类" items={categoryLabels} itemToString={(item) => item ?? ''} selectedItems={selectedCategories} onChange={({ selectedItems }) => setSelectedCategories(selectedItems)} />
+        </div>
+      </div>
 
-    <section className="tp-prospect-discovery__catalog">
-      <div className="tp-prospect-discovery__source-group-heading"><div><h3>全球平台目录</h3><p>按全球通用、大洲和国家浏览；所有目录默认可展开查看，当前市场置顶并突出显示。</p></div></div>
-      <section className="tp-prospect-discovery__source-group">
-        <div className="tp-prospect-discovery__source-group-heading"><div><h3>全球通用平台</h3><p>跨地区适用的搜索、社交、电商、评论、网站和商业情报平台。</p></div><Tag type="blue">全球</Tag></div>
-        <Accordion>
-          {globalCatalog.map(group => <AccordionItem key={group.id} title={group.title + ' · ' + group.sources.length + ' 个平台'}>
-            <p className="tp-prospect-discovery__catalog-description">{group.description}</p>
-            {renderCards(group.sources)}
-          </AccordionItem>)}
-        </Accordion>
-      </section>
+      <div className="tp-prospect-discovery__platform-toolbar">
+        <div className="tp-prospect-discovery__platform-result-meta">
+          <strong>{filtered.length}</strong><span>个匹配平台</span>
+          <span className="tp-prospect-discovery__platform-selection-meta">已选 {selected.length} 个</span>
+          {selectedOnPage > 0 && <span>本页已选 {selectedOnPage} 个</span>}
+        </div>
+        <div className="tp-prospect-discovery__platform-actions">
+          <Button kind="ghost" size="sm" onClick={clearFilters}>清除筛选</Button>
+          <Button kind="ghost" size="sm" onClick={togglePage} disabled={visiblePlatforms.length === 0}>{allVisibleSelected ? '取消本页选择' : '选择本页'}</Button>
+          <Button kind="ghost" size="sm" onClick={selectAllFiltered} disabled={filtered.length === 0}>全选筛选结果</Button>
+          <Button kind="ghost" size="sm" onClick={clearAllFiltered} disabled={filtered.length === 0}>取消筛选结果</Button>
+        </div>
+      </div>
 
-      {continentOrder.map(continent => {
-        const continentCountries = orderedCountries.filter(country => directoryContinent(country) === continent);
-        const activeContinent = continentCountries.some(country => country.cca2 === countryCode);
-        const continentSources = regionalSources.filter(source => source.continent === (continent === 'North America' || continent === 'South America' ? 'Americas' : continent));
-        return <section className={'tp-prospect-discovery__source-group' + (activeContinent ? ' is-current-continent' : '')} key={continent}>
-          <div className="tp-prospect-discovery__source-group-heading"><div><h3>{continent === 'North America' ? '北美洲' : continent === 'South America' ? '南美洲' : continent === 'Europe' ? '欧洲' : continent === 'Asia' ? '亚洲' : continent === 'Africa' ? '非洲' : '大洋洲'}</h3><p>该区域的本土企业目录、电商、商业网络与行业平台。</p></div><Tag type={activeContinent ? 'green' : 'gray'}>{continentCountries.length} 个国家</Tag></div>
-          <Accordion>
-            {continentCountries.map(country => {
-              const countrySources = continentSources.filter(source => source.markets.includes('*') || source.markets.includes(country.cca2));
-              const current = country.cca2 === countryCode;
-              return <AccordionItem key={country.cca2} title={(current ? '当前市场 · ' : '') + country.name.common + ' (' + country.cca2 + ') · ' + countrySources.length + ' 个本土平台'}>
-                {current && <p className="tp-prospect-discovery__current-market-note">当前目标国家 · 智能推荐平台已标记并优先选择</p>}
-                {countrySources.length ? renderCards(countrySources) : <p className="tp-prospect-discovery__catalog-description">该国家暂未配置专属本土平台，可使用上方全球通用平台。</p>}
-              </AccordionItem>;
-            })}
-          </Accordion>
-        </section>;
-      })}
+      <div className="tp-prospect-discovery__platform-list" aria-live="polite">
+        {visiblePlatforms.map(source => {
+          const checked = selected.includes(source.id);
+          const isRecommended = recommended.includes(source.id);
+          return <div className={'tp-prospect-discovery__platform-row' + (checked ? ' is-selected' : '')} key={source.id}>
+            <Checkbox id={'tp-platform-' + source.id} labelText={source.name} checked={checked} onChange={() => toggle(source.id)} />
+            <div className="tp-prospect-discovery__platform-copy">
+              <div className="tp-prospect-discovery__platform-name">{source.name}{isRecommended && <Tag type="green">智能推荐</Tag>}{source.global && <Tag type="blue">全球通用</Tag>}</div>
+              <p>{source.description}</p>
+            </div>
+            <div className="tp-prospect-discovery__platform-classification"><Tag type="gray">{source.category}</Tag></div>
+          </div>;
+        })}
+        {visiblePlatforms.length === 0 && <div className="tp-prospect-discovery__platform-empty"><strong>没有找到符合条件的平台</strong><p>请调整大洲、国家、分类或关键词筛选条件。</p><Button kind="ghost" onClick={clearFilters}>清除筛选条件</Button></div>}
+      </div>
+
+      <div className="tp-prospect-discovery__platform-pagination">
+        <Pagination id="platform-catalog-pagination" page={page} pageSize={pageSize} pageSizes={[10, 20, 30]} totalItems={filtered.length} onChange={({ page: nextPage, pageSize: nextPageSize }) => { setPage(nextPage); setPageSize(nextPageSize); }} />
+        <span>每页显示 {pageSize} 条 · 共 {pageCount} 页</span>
+      </div>
     </section>
+
     <div className="tp-prospect-discovery__source-selection-note">
-      <span>已选择 {selected.length} 个平台。此步骤仅配置选择，不启动任何采集任务。</span>
+      <span>已选择 {selected.length} 个平台。翻页和调整筛选不会清除已选项目；此步骤不会启动采集任务。</span>
       <Button kind="secondary" onClick={() => setSelected(recommended)} disabled={!countryCode}>恢复当前市场智能推荐</Button>
     </div>
   </section>;
