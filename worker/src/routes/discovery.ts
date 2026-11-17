@@ -280,6 +280,8 @@ export async function processRun(env: DiscoveryEnv, runId: string, ownerId: stri
       : null;
     const rawOsm = osmResult?.ok ? osmResult.value : [];
     const rawGoogle = googleResult?.ok ? googleResult.value : [];
+    const osmReviewIds = new Set<number>();
+    const googleReviewIds = new Set<string>();
     const osm = rawOsm.filter(element => {
       const tags = element.tags ?? {};
       const decision = evaluateGuardrails({
@@ -290,6 +292,7 @@ export async function processRun(env: DiscoveryEnv, runId: string, ownerId: stri
         businessType: tags.shop ?? tags.office ?? tags.amenity ?? tags.craft ?? tags.industrial,
         description: tags.description, raw: tags,
       }, input.guardrailsSnapshot);
+      if (decision.review) osmReviewIds.add(element.id);
       return !decision.blocked;
     });
     const google = rawGoogle.filter(place => {
@@ -298,6 +301,7 @@ export async function processRun(env: DiscoveryEnv, runId: string, ownerId: stri
         website: place.websiteUri, phone: place.internationalPhoneNumber ?? place.nationalPhoneNumber,
         businessType: place.types?.join(" "), employeeCount: undefined, raw: place,
       }, input.guardrailsSnapshot);
+      if (decision.review && place.id) googleReviewIds.add(place.id);
       return !decision.blocked;
     });
     const blockedByGuardrails = rawOsm.length + rawGoogle.length - osm.length - google.length;
@@ -330,7 +334,7 @@ export async function processRun(env: DiscoveryEnv, runId: string, ownerId: stri
         latitude:lat,longitude:lon,
         sourceUrl:"https://www.openstreetmap.org/"+element.type+"/"+element.id,
         license:"ODbL-1.0",attribution:"© OpenStreetMap contributors",
-        rawData:{osm_type:element.type,osm_id:element.id,tags},dedupeKey,
+        rawData:{osm_type:element.type,osm_id:element.id,tags,guardrail_review_required:osmReviewIds.has(element.id)},dedupeKey,
       });
       osmByName.set(normalizeBusinessName(name),{dedupeKey,lat,lon});
       created++;
@@ -352,7 +356,7 @@ export async function processRun(env: DiscoveryEnv, runId: string, ownerId: stri
         latitude:lat,longitude:lon,
         sourceUrl:"https://www.google.com/maps/search/?api=1&query_place_id="+encodeURIComponent(place.id),
         license:"Google Maps Platform Place ID",attribution:"Google Maps",
-        rawData:{place_id:place.id,formatted_address:address,phone,website,types:place.types??[],rating:place.rating??null,user_rating_count:place.userRatingCount??null,business_status:place.businessStatus??null},dedupeKey,
+        rawData:{place_id:place.id,formatted_address:address,phone,website,types:place.types??[],rating:place.rating??null,user_rating_count:place.userRatingCount??null,business_status:place.businessStatus??null,guardrail_review_required:googleReviewIds.has(place.id)},dedupeKey,
       });
       if (!matched) created++;
     }
