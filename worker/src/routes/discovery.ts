@@ -3,6 +3,7 @@ import { buildLeadDedupeKey, normalizeBusinessName } from "../lib/deduplication"
 import { discoveryRunQuery } from "../lib/owner-scoped-query";
 import { readIntegrationSecret } from "../lib/integrations";
 import { callAgentChatModel, type Env as AgentEnv } from "./agent-center";
+import { evaluateGuardrails } from "../lib/guardrails";
 
 export interface DiscoveryEnv {
   SUPABASE_URL: string;
@@ -277,15 +278,37 @@ export async function processRun(env: DiscoveryEnv, runId: string, ownerId: stri
     const googleResult: ProviderResult<GooglePlace[]> | null = providers.includes("google_maps")
       ? await searchGoogle(code, input.query, input.limitPerCountry, env, input.state, input.city, input.businessTypes ?? [], input.filters).then(value => ({ok:true as const,value})).catch(error => ({ok:false as const,error}))
       : null;
-    const osm = osmResult?.ok ? osmResult.value : [];
-    const google = googleResult?.ok ? googleResult.value : [];
+    const rawOsm = osmResult?.ok ? osmResult.value : [];
+    const rawGoogle = googleResult?.ok ? googleResult.value : [];
+    const osm = rawOsm.filter(element => {
+      const tags = element.tags ?? {};
+      const decision = evaluateGuardrails({
+        name: tags.name, country: code,
+        address: [tags["addr:housenumber"], tags["addr:street"], tags["addr:city"], tags["addr:state"], tags["addr:postcode"]].filter(Boolean).join(", "),
+        website: tags.website ?? tags["contact:website"], phone: tags.phone ?? tags["contact:phone"],
+        email: tags.email ?? tags["contact:email"],
+        businessType: tags.shop ?? tags.office ?? tags.amenity ?? tags.craft ?? tags.industrial,
+        description: tags.description, raw: tags,
+      }, input.guardrailsSnapshot);
+      return !decision.blocked;
+    });
+    const google = rawGoogle.filter(place => {
+      const decision = evaluateGuardrails({
+        name: place.displayName?.text, country: code, address: place.formattedAddress,
+        website: place.websiteUri, phone: place.internationalPhoneNumber ?? place.nationalPhoneNumber,
+        businessType: place.types?.join(" "), employeeCount: undefined, raw: place,
+      }, input.guardrailsSnapshot);
+      return !decision.blocked;
+    });
+    const blockedByGuardrails = rawOsm.length + rawGoogle.length - osm.length - google.length;
+    if (blockedByGuardrails) await log(env, runId, ownerId, "info", scope + " · 护盾已拦截 " + blockedByGuardrails + " 条候选记录。");
     if (osmResult) {
       doneUnits++; if (osmResult.ok) osmCount += osm.length; else { failures++; await log(env, runId, ownerId, "warning", scope + " · OpenStreetMap 查询失败：" + String(osmResult.error).slice(0,180)); }
-      await log(env, runId, ownerId, osmResult.ok ? (osm.length ? "success" : "warning") : "warning", scope + " · OpenStreetMap " + (osmResult.ok ? (osm.length ? "查询完成，返回 " + osm.length + " 条候选" : "查询已执行，但返回 0 条；请检查标签覆盖和地区边界匹配") : "查询失败"));
+      await log(env, runId, ownerId, osmResult.ok ? (osm.length ? "success" : "warning") : "warning", scope + " · OpenStreetMap " + (osmResult.ok ? ("原始候选 " + rawOsm.length + " 条，护盾放行 " + osm.length + " 条") : "查询失败"));
     }
     if (googleResult) {
       doneUnits++; if (googleResult.ok) googleCount += google.length; else { failures++; await log(env, runId, ownerId, "warning", scope + " · Google Maps 查询失败：" + String(googleResult.error).slice(0,180)); }
-      await log(env, runId, ownerId, googleResult.ok ? "success" : "warning", scope + " · Google Maps " + (googleResult.ok ? "返回 " + google.length + " 条候选" : "查询失败"));
+      await log(env, runId, ownerId, googleResult.ok ? (google.length ? "success" : "warning") : "warning", scope + " · Google Maps " + (googleResult.ok ? ("原始候选 " + rawGoogle.length + " 条，护盾放行 " + google.length + " 条") : "查询失败"));
     }
     const osmByName = new Map<string, { dedupeKey: string; lat: number | null; lon: number | null }>();
     for (const element of osm) {
