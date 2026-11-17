@@ -427,3 +427,62 @@
     &__footer-actions { align-items:stretch; flex-direction:column; }
   }
 }
+
+
+.tp-execution {
+  min-width: 0;
+  &__context { background: var(--cds-layer-01); }
+  &__context .cds--accordion__content { padding: $spacing-05; }
+  &__summary-tile { display: flex; flex-direction: column; gap: $spacing-03; min-height: 170px; background: var(--cds-layer-02); }
+  &__summary-tile p { margin: 0; @include type-style('body-compact-01'); }
+  &__summary-tile small { color: var(--cds-text-secondary); @include type-style('helper-text-01'); }
+  &__tile-heading { display: flex; align-items: center; justify-content: space-between; gap: $spacing-03; }
+  &__tile-heading strong { @include type-style('heading-compact-01'); }
+  &__tags { display: flex; flex-wrap: wrap; gap: $spacing-02; }
+  &__control, &__pipeline, &__console, &__results { min-width: 0; background: var(--cds-layer-01); }
+  &__control { display: flex; flex-direction: column; gap: $spacing-05; }
+  &__control-heading, &__section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: $spacing-04; min-width: 0; }
+  &__control-heading h2 { @include type-style('productive-heading-03'); margin: $spacing-02 0; }
+  &__control-heading p, &__section-heading p { @include type-style('body-compact-01'); color: var(--cds-text-secondary); margin: 0; }
+  &__eyebrow { @include type-style('label-01'); color: var(--cds-text-helper); letter-spacing: .08em; }
+  &__progress-row { display: flex; align-items: center; gap: $spacing-05; }
+  &__progress { flex: 1; min-width: 0; }
+  &__percent { @include type-style('productive-heading-03'); min-width: 64px; text-align: right; font-variant-numeric: tabular-nums; }
+  &__timing { margin: -$spacing-03 0 0; color: var(--cds-text-secondary); @include type-style('label-01'); font-variant-numeric: tabular-nums; }
+  &__actions { display: flex; flex-wrap: wrap; gap: $spacing-03; }
+  &__pipeline-grid { width: 100%; align-items: stretch; }
+  &__pipeline, &__console { height: 100%; min-height: 280px; }
+  &__section-heading { margin-bottom: $spacing-04; }
+  &__section-heading h3 { @include type-style('heading-compact-02'); margin: 0 0 $spacing-02; }
+  &__pipeline .cds--structured-list { margin-bottom: 0; }
+  &__pipeline .cds--structured-list-td, &__pipeline .cds--structured-list-th { vertical-align: middle; }
+  &__console { display: flex; flex-direction: column; }
+  &__console .cds--snippet--multi { height: 240px; max-height: 240px; overflow-y: auto; background: var(--cds-background-inverse); color: var(--cds-text-inverse); }
+  &__console .cds--snippet-container { min-height: 240px; }
+  &__results { display: flex; flex-direction: column; gap: $spacing-04; }
+  &__table-scroll { width: 100%; overflow-x: auto; }
+  &__table-scroll .cds--data-table { min-width: 980px; }
+  &__table-scroll .cds--table-header-label { white-space: nowrap; }
+  &__company-button { max-width: 240px; height: auto; min-height: 0; padding: 0; text-align: left; white-space: normal; font-weight: 600; }
+  &__table-scroll a { display: inline-flex; align-items: center; gap: $spacing-02; color: var(--cds-link-primary); text-decoration: none; white-space: nowrap; }
+  &__table-scroll a:hover { text-decoration: underline; }
+  &__table-scroll td small { display: block; max-width: 240px; margin-top: $spacing-02; color: var(--cds-text-secondary); @include type-style('helper-text-01'); overflow-wrap: anywhere; }
+  &__pagination { padding-top: $spacing-04; }
+  &__helper { color: var(--cds-text-secondary); @include type-style('helper-text-01'); margin: 0; }
+  &__detail { display: flex; flex-direction: column; gap: $spacing-04; }
+  &__detail > div { display: flex; align-items: center; flex-wrap: wrap; gap: $spacing-03; }
+  &__detail p { color: var(--cds-text-secondary); @include type-style('body-compact-01'); margin: 0; }
+  .cds--modal-container { max-width: min(720px, calc(100vw - 2rem)); }
+  @media (max-width: 1056px) {
+    &__pipeline-grid .cds--col { width: 100%; max-width: 100%; }
+    &__summary-tile { min-height: 0; }
+  }
+  @media (max-width: 672px) {
+    &__control { padding: $spacing-04; }
+    &__progress-row { align-items: flex-start; }
+    &__actions { align-items: stretch; flex-direction: column; }
+    &__actions .cds--btn { width: 100%; max-width: none; }
+    &__section-heading { align-items: flex-start; }
+    &__console .cds--snippet--multi { height: 220px; max-height: 220px; }
+  }
+}

@@ -165,13 +165,14 @@ const continentLabelForCountry = (country: Country) => directoryContinent(countr
 const continentName = (value: string) => continentLabels.find(item => item.value === value)?.label ?? value;
 
 export function PlatformSelectionStep({
-  countryCode, countryName, continentLabel, countries, onChangeCountry, onSelectionCountChange,
+  countryCode, countryName, continentLabel, countries, onChangeCountry, onSelectionCountChange, selectedIds, onSelectionChange,
 }: {
   countryCode: string; countryName: string; continentLabel: string; countries: Country[];
   onChangeCountry: () => void; onSelectionCountChange: (count: number) => void;
+  selectedIds?: string[]; onSelectionChange?: (sources: Array<{ id: string; name: string; category?: string }>) => void;
 }) {
   const recommended = useMemo(() => recommendedFor(countryCode), [countryCode]);
-  const [selected, setSelected] = useState<string[]>(() => recommendedFor(countryCode));
+  const [selected, setSelected] = useState<string[]>(() => selectedIds !== undefined ? selectedIds : recommendedFor(countryCode));
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedContinents, setSelectedContinents] = useState<string[]>([]);
   const [selectedCountries, setSelectedCountries] = useState<Country[]>([]);
@@ -179,7 +180,7 @@ export function PlatformSelectionStep({
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(defaultPlatformPageSize);
 
-  useEffect(() => { onSelectionCountChange(selected.length); }, [selected, onSelectionCountChange]);
+  useEffect(() => { onSelectionCountChange(selected.length); onSelectionChange?.(allPlatforms.filter(source => selected.includes(source.id)).map(source => ({ id: source.id, name: source.name, category: source.category }))); }, [selected, onSelectionCountChange, onSelectionChange]);
 
   const countryOptions = useMemo(() => countries.filter(country =>
     selectedContinents.length === 0 || selectedContinents.includes(continentLabelForCountry(country))
