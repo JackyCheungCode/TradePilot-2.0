@@ -101,20 +101,23 @@ export function CustomerCommunicationsWidget({
   onRestore: () => void;
 }) {
   const [customers, setCustomers] = useState(customerSeed);
+  const [identities, setIdentities] = useState(identitySeed);
   const [messages, setMessages] = useState(messageSeed);
   const [activeCustomerId, setActiveCustomerId] = useState('customer-1');
   const [filter, setFilter] = useState<Filter>('all');
   const [search, setSearch] = useState('');
   const [theme, setTheme] = useState<Theme>('whatsapp');
-  const [draft, setDraft] = useState('');
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [emailSubject, setEmailSubject] = useState('');
+  const [channelPickerOpen, setChannelPickerOpen] = useState(false);
+  const [mobileChatOpen, setMobileChatOpen] = useState(false);
   const [channelOverride, setChannelOverride] = useState<Channel | null>(null);
   const [profileOpen, setProfileOpen] = useState(true);
   const [notice, setNotice] = useState('');
   const [maximized, setMaximized] = useState(false);
 
-  const identities = identitySeed;
   const activeCustomer = customers.find((customer) => customer.id === activeCustomerId) ?? customers[0];
+  const draft = drafts[activeCustomerId] ?? '';
   const customerMessages = messages.filter((message) => message.customerId === activeCustomerId).sort((a, b) => a.timestamp - b.timestamp);
   const lastInbound = [...customerMessages].reverse().find((message) => message.direction === 'inbound');
   const latestMessage = customerMessages[customerMessages.length - 1];
@@ -141,6 +144,8 @@ export function CustomerCommunicationsWidget({
   const selectCustomer = (customer: Customer) => {
     setActiveCustomerId(customer.id);
     setChannelOverride(null);
+    setChannelPickerOpen(false);
+    setMobileChatOpen(true);
     setCustomers((current) => current.map((item) => item.id === customer.id ? { ...item, unread: 0 } : item));
   };
 
@@ -161,7 +166,7 @@ export function CustomerCommunicationsWidget({
     };
     setMessages((current) => [...current, next]);
     setCustomers((current) => current.map((item) => item.id === activeCustomerId ? { ...item, status: 'pending' } : item));
-    setDraft('');
+    setDrafts((current) => ({ ...current, [activeCustomerId]: '' }));
     setEmailSubject('');
     setNotice('演示模式：消息仅保存在当前页面的本地状态中，没有发送到真实平台。');
   };
@@ -170,8 +175,10 @@ export function CustomerCommunicationsWidget({
     const id = 'customer-' + (customers.length + 1);
     const next: Customer = { id, name: 'New customer', company: 'New company', role: '联系人', country: '—', email: '', phone: '', tags: ['新客户'], status: 'pending', unread: 0 };
     setCustomers((current) => [...current, next]);
+    setIdentities((current) => [...current, { customerId: id, channel: 'email', handle: 'new-customer@example.com', account: 'sales@tradepilot.com', connected: true }]);
     setActiveCustomerId(id);
     setChannelOverride('email');
+    setMobileChatOpen(true);
     setNotice('已创建本地演示客户。真实客户创建功能将在后端接入后启用。');
   };
 
@@ -196,7 +203,7 @@ export function CustomerCommunicationsWidget({
           </div>
         </header>
 
-        <div className={'cc-workspace' + (!profileOpen ? ' cc-workspace--no-profile' : '')}>
+        <div className={'cc-workspace' + (!profileOpen ? ' cc-workspace--no-profile' : '') + (mobileChatOpen ? ' cc-workspace--mobile-chat' : '')}>
           <aside className="cc-inbox">
             <div className="cc-inbox-heading"><div><strong>收件箱</strong><span>{customers.length} 位客户</span></div><button type="button" className="cc-new-button" onClick={createDemoCustomer}>＋ 新建</button></div>
             <label className="cc-search"><span aria-hidden="true">⌕</span><input value={search} onChange={(event) => setSearch(event.currentTarget.value)} placeholder="搜索客户、公司或消息"/></label>
@@ -218,6 +225,7 @@ export function CustomerCommunicationsWidget({
 
           <main className="cc-chat">
             <div className="cc-chat-header">
+              <button type="button" className="cc-mobile-back" onClick={() => setMobileChatOpen(false)} aria-label="返回客户列表">‹</button>
               <Avatar name={activeCustomer.name} size="small"/>
               <div className="cc-chat-title"><strong>{activeCustomer.name}</strong><span>{activeCustomer.company} · {activeCustomer.country}</span></div>
               <div className="cc-chat-header-actions"><span className="cc-online-dot"/> <span>统一客户时间线</span></div>
@@ -244,13 +252,14 @@ export function CustomerCommunicationsWidget({
             <form className="cc-composer" onSubmit={sendMessage}>
               <div className="cc-reply-routing">
                 <span>回复渠道</span>
-                <select aria-label="回复渠道" value={replyChannel} onChange={(event) => setChannelOverride(event.currentTarget.value as Channel)}>
-                  {customerIdentities.map((identity) => <option key={identity.channel} value={identity.channel}>{channelNames[identity.channel]} · {identity.handle}</option>)}
-                </select>
-                <span className="cc-route-hint">{channelOverride ? '已手动切换' : '跟随客户最后一条入站消息'}</span>
+                <div className="cc-channel-picker">
+                <button type="button" className="cc-channel-trigger" aria-expanded={channelPickerOpen} onClick={() => setChannelPickerOpen((value) => !value)}><ChannelBadge channel={replyChannel}/><span>⌄</span></button>
+                {channelPickerOpen && <div className="cc-channel-menu">{customerIdentities.map((identity) => <button key={identity.channel} type="button" onClick={() => { setChannelOverride(identity.channel); setChannelPickerOpen(false); }}><ChannelBadge channel={identity.channel}/><small>{identity.handle}</small></button>)}</div>}
+              </div>
+              <span className="cc-route-hint">{channelOverride ? '已手动切换' : '跟随客户最后一条入站消息'}</span>
               </div>
               {replyChannel === 'email' && <input className="cc-email-subject-input" value={emailSubject} onChange={(event) => setEmailSubject(event.currentTarget.value)} placeholder="邮件主题"/>}
-              <textarea value={draft} onChange={(event) => setDraft(event.currentTarget.value)} placeholder={'通过 ' + channelNames[replyChannel] + ' 回复 ' + activeCustomer.name + '…'} rows={3}/>
+              <textarea value={draft} onChange={(event) => setDrafts((current) => ({ ...current, [activeCustomerId]: event.currentTarget.value }))} placeholder={'通过 ' + channelNames[replyChannel] + ' 回复 ' + activeCustomer.name + '…'} rows={3}/>
               <div className="cc-composer-footer"><span>附件和真实发送将在后端接入阶段启用</span><button type="submit" disabled={!draft.trim() || !replyIdentity?.connected}>发送消息 <span>↗</span></button></div>
             </form>
           </main>
