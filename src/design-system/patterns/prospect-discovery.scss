@@ -654,3 +654,18 @@
     &__progress-meta { align-items:flex-start; flex-direction:column; }
   }
 }
+
+
+/* Discovery workspace identity, plan task code and companion consoles. */
+.tp-prospect-discovery__header-actions{display:flex;flex-direction:column;align-items:flex-end;gap:var(--cds-spacing-04);min-width:0}
+.tp-prospect-discovery__hub-actions{display:flex;align-items:center;flex-wrap:wrap;justify-content:flex-end;gap:var(--cds-spacing-03)}
+.tp-prospect-discovery__task-code{display:flex;align-items:center;flex-wrap:wrap;gap:var(--cds-spacing-03);min-width:0;padding:var(--cds-spacing-03) var(--cds-spacing-04);background:var(--cds-layer-01)}
+.tp-prospect-discovery__task-code>span:first-child{font-size:.75rem;color:var(--cds-text-secondary)}
+.tp-prospect-discovery__task-code strong{font-family:var(--cds-code-01-font-family);font-size:.875rem;font-variant-numeric:tabular-nums}
+.tp-prospect-discovery__task-code-note{font-size:.75rem;color:var(--cds-text-helper)}
+@media(max-width:672px){
+  .tp-prospect-discovery__header-actions{width:100%;align-items:stretch}
+  .tp-prospect-discovery__hub-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}
+  .tp-prospect-discovery__hub-actions .cds--btn{width:100%;max-width:none}
+  .tp-prospect-discovery__task-code{align-items:flex-start;flex-direction:column;gap:var(--cds-spacing-02)}
+}

@@ -4,6 +4,8 @@ import { RequireAuth } from './RequireAuth';
 import { LoginPage } from '../features/auth/LoginPage';
 import { AgentWorkspacePage } from '../features/agent/AgentWorkspacePage';
 import { ProspectDiscoveryPage } from '../features/prospect-discovery';
+import { ProspectHistoryPage } from '../features/prospect-discovery/ProspectHistoryPage';
+import { ProspectDataPage } from '../features/prospect-discovery/ProspectDataPage';
 import { LeadCreatePage } from '../features/leads/LeadCreatePage';
 import { LeadConsolePage } from '../features/leads/LeadConsolePage';
 import { ContactConsolePage, ContactDetailPage, ContactFormPage } from '../features/contacts/ContactPages';
@@ -37,6 +39,9 @@ export const router = createBrowserRouter([
           { path: 'Omnichannel-inbox', element: <OmnichannelInboxPage /> },
           { path: 'agent', element: <AgentWorkspacePage /> },
           { path: 'prospect-discovery', element: <ProspectDiscoveryPage /> },
+          { path: 'prospect-history', element: <ProspectHistoryPage /> },
+          { path: 'prospect-history/:runId', element: <ProspectHistoryPage /> },
+          { path: 'prospect-data', element: <ProspectDataPage /> },
           { path: 'leads', element: <LeadConsolePage /> },
           { path: 'leads/new', element: <LeadCreatePage /> },
           { path: 'opportunities', element: <OpportunityConsolePage /> },
