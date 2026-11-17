@@ -19,6 +19,7 @@ type RunRef = { id: string; sourceId: string; name: string };
 type Props = {
   profile: ProfileSnapshot;
   sources: SourceItem[];
+  actorParameters?: Record<string, unknown>;
   onEditStep: (step: number) => void;
   onContinueToScoring: (recordIds: string[]) => void;
   planTaskCode: string;
@@ -56,7 +57,7 @@ async function getAccessToken() {
   return data.session.access_token;
 }
 
-export function ExecutionStep({ profile, sources, onEditStep, onContinueToScoring, planTaskCode }: Props) {
+export function ExecutionStep({ profile, sources, actorParameters = {}, onEditStep, onContinueToScoring, planTaskCode }: Props) {
   const channels = useMemo(() => sources, [sources]);
   const [status, setStatus] = useState<'idle' | 'running' | 'completed' | 'failed'>('idle');
   const [progress, setProgress] = useState(0);
@@ -146,6 +147,7 @@ export function ExecutionStep({ profile, sources, onEditStep, onContinueToScorin
         planTaskCode,
         profile: { ...profile },
         selectedSources: channels.map(source => ({ id: source.id, name: source.name, category: source.category ?? null })),
+        actorParameters: Object.fromEntries(Object.entries(actorParameters).slice(0, 200)),
         capturedAt: new Date().toISOString(),
       };
       const created: RunRef[] = [];
