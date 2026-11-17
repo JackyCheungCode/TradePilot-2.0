@@ -62,12 +62,19 @@
   &__buyer-tile b { @include type-style('body-compact-01'); font-weight: 600; }
   &__buyer-tile span { @include type-style('label-01'); color: var(--cds-text-secondary); }
   &__geo-grid { width: 100%; }
+  &__continent-option, &__country-option { display: flex; align-items: center; gap: $spacing-03; min-height: 40px; }
+  &__continent-option svg { width: 36px; height: 36px; flex: 0 0 36px; fill: var(--cds-icon-primary); background: var(--cds-layer-02); border-radius: 50%; padding: 3px; }
+  &__country-option img { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; flex: 0 0 24px; box-shadow: 0 0 0 1px var(--cds-border-subtle-01); }
   &__geo-meta { display: flex; flex-wrap: wrap; gap: $spacing-05; padding: $spacing-03 $spacing-04; background: var(--cds-layer-02); color: var(--cds-text-secondary); @include type-style('label-01'); }
   &__advanced .cds--accordion { width: 100%; }
   &__advanced .cds--accordion__content { padding-right: $spacing-05; }
   &__tag-list { display: flex; flex-wrap: wrap; gap: $spacing-04 $spacing-06; }
   &__two-col { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: $spacing-05; margin-bottom: $spacing-05; }
   &__two-col:last-child { margin-bottom: 0; }
+  &__spec-grid, &__scale-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: $spacing-05; margin-bottom: $spacing-05; min-width: 0; }
+  &__custom-entry { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: $spacing-03; align-items: end; }
+  &__custom-spec-list { display: flex; flex-direction: column; gap: $spacing-02; }
+  &__custom-spec { display: flex; justify-content: space-between; align-items: center; gap: $spacing-03; padding: $spacing-02 $spacing-03; background: var(--cds-layer-02); @include type-style('body-compact-01'); }
   &__competitors { display: flex; flex-direction: column; gap: $spacing-04; }
   &__competitor-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: $spacing-03; align-items: end; }
   &__helper { @include type-style('helper-text-01'); color: var(--cds-text-secondary); margin: 0 0 $spacing-04; }
@@ -101,7 +108,9 @@
     &__header-meta { align-items: flex-start; }
     &__section { padding: $spacing-04; }
     &__template-controls { grid-template-columns: minmax(0, 1fr) auto; }
-    &__geo-grid, &__two-col { width: 100%; }
+    &__geo-grid, &__two-col, &__spec-grid, &__scale-grid { width: 100%; grid-template-columns: minmax(0, 1fr); }
+    &__custom-entry { grid-template-columns: minmax(0, 1fr); }
+    &__continent-option svg { width: 32px; height: 32px; flex-basis: 32px; }
     &__buyer-grid .cds--col { min-width: 100%; }
     &__preview-summary { grid-template-columns: minmax(0, 1fr); }
     &__preview-summary > div { border-right: 0; border-bottom: 1px solid var(--cds-border-subtle-01); }

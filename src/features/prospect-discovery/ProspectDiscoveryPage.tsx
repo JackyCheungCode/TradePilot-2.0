@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Accordion, AccordionItem, Button, Checkbox, ComboBox, InlineLoading, InlineNotification,
-  RadioButton, RadioButtonGroup, Select, SelectItem, SelectableTile, Tag, TextArea, TextInput,
+  Accordion, AccordionItem, Button, Checkbox, ComboBox, Dropdown, MultiSelect, InlineLoading, InlineNotification,
+  RadioButton, RadioButtonGroup, Select, SelectItem, Tag, TextArea, TextInput,
   Toggle, Tabs, TabList, Tab, Grid, Column, CarbonIcons,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
@@ -16,13 +16,13 @@ const steps = [
   '决策人穿透与入库（Decision-Maker Enrichment & CRM Sync）',
 ] as const;
 
-const continents = [
-  { value: 'Africa', label: '非洲（Africa）' },
-  { value: 'Americas', label: '美洲（Americas）' },
-  { value: 'Asia', label: '亚洲（Asia）' },
-  { value: 'Europe', label: '欧洲（Europe）' },
-  { value: 'Oceania', label: '大洋洲（Oceania）' },
-] as const;
+const continents: Array<{ value: string; label: string; path: string }> = [
+  { value: 'Africa', label: '非洲（Africa）', path: 'M49 5 67 14 73 31 66 46 58 70 45 91 34 78 29 58 17 43 23 22 36 10Z' },
+  { value: 'Americas', label: '美洲（Americas）', path: 'M27 4 46 8 54 21 47 34 52 48 43 58 40 78 30 94 23 76 26 60 14 45 19 28 10 16Z' },
+  { value: 'Asia', label: '亚洲（Asia）', path: 'M7 20 20 8 41 5 56 12 75 9 94 22 87 38 71 43 62 57 44 51 33 63 18 52 9 37Z' },
+  { value: 'Europe', label: '欧洲（Europe）', path: 'M12 26 24 12 42 9 55 17 70 12 84 24 76 38 62 36 52 48 37 42 24 52 14 41Z' },
+  { value: 'Oceania', label: '大洋洲（Oceania）', path: 'M12 28 25 18 40 22 48 34 39 47 24 45Z M64 58 76 52 91 60 86 75 70 78 60 68Z' },
+];
 
 const buyerOptions = [
   { id: 'importer', title: 'Importer', detail: '大型进口商', description: '跨境采购、进口与供应链采购主体' },
@@ -51,7 +51,9 @@ type Profile = {
   countryName: string;
   city: string;
   materials: string[];
+  customMaterials?: string[];
   specifications: string;
+  customSpecifications?: string[];
   hsCode: string;
   certifications: string[];
   employeeScale: string;
@@ -62,7 +64,7 @@ type Strategy = { google: string[]; maps: string[]; social: string[] };
 
 const emptyProfile: Profile = {
   name: '', coreNoun: '', buyers: [], continent: '', country: '', countryName: '', city: '', materials: [],
-  specifications: '', hsCode: '', certifications: [], employeeScale: '', activity: '',
+  customMaterials: [], specifications: '', customSpecifications: [], hsCode: '', certifications: [], employeeScale: '', activity: '',
   competitors: [''],
 };
 
@@ -91,7 +93,7 @@ function compileStrategy(profile: Profile, tld: string, keywords: string[] = [])
   const exclusions = excludedTerms.map(term => '-' + term).join(' ');
   const base = '"' + noun + '"';
   const expanded = keywords.length ? '(' + [noun, ...keywords].map(term => '"' + term + '"').join(' OR ') + ')' : base;
-  const specs = [profile.specifications, ...profile.materials].filter(Boolean).join(' ');
+  const specs = [profile.specifications, ...profile.materials, ...(profile.customMaterials ?? []), ...(profile.customSpecifications ?? [])].filter(Boolean).join(' ');
   const specClause = specs ? ' (' + specs + ')' : '';
   const hs = profile.hsCode.trim() ? ' "' + profile.hsCode.trim() + '"' : '';
   const google = [
@@ -131,6 +133,8 @@ export function ProspectDiscoveryPage() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [advancedMode, setAdvancedMode] = useState(false);
   const [synonymInput, setSynonymInput] = useState('');
+  const [customMaterialInput, setCustomMaterialInput] = useState('');
+  const [customSpecificationInput, setCustomSpecificationInput] = useState('');
   const [synonyms, setSynonyms] = useState<string[]>([]);
   const [aiSynonyms, setAiSynonyms] = useState<string[]>([]);
   const [localizedTerms, setLocalizedTerms] = useState<string[]>([]);
@@ -187,7 +191,7 @@ export function ProspectDiscoveryPage() {
 
   useEffect(() => {
     const query = profile.city.trim();
-    if (query.length < 2 || !profile.country) { setCitySuggestions([]); setCityError(''); return; }
+    if (!profile.country || !profile.countryName) { setCitySuggestions([]); setCityError(''); return; }
     let active = true;
     const timer = window.setTimeout(async () => {
       setCityLoading(true);
@@ -199,7 +203,8 @@ export function ProspectDiscoveryPage() {
         if (!token) throw new Error('登录状态已失效，请重新登录。');
         const country = countries.find(item => item.cca2 === profile.country);
         const language = country?.languages ? Object.keys(country.languages)[0] : 'en';
-        const params = new URLSearchParams({ q: query, country: profile.country, language: language || 'en' });
+        const params = new URLSearchParams({ country: profile.country, countryName: profile.countryName, language: language || 'en' });
+        if (query.length >= 2) params.set('q', query);
         const response = await fetch('/api/v1/prospect-profiling/cities?' + params.toString(), {
           headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' },
         });
@@ -224,6 +229,16 @@ export function ProspectDiscoveryPage() {
   const countryLanguage = selectedCountry?.languages ? Object.values(selectedCountry.languages).join(', ') : '';
 
   const update = <K extends keyof Profile>(key: K, value: Profile[K]) => setProfile(current => ({ ...current, [key]: value }));
+  const addCustomMaterial = () => {
+    const value = customMaterialInput.trim();
+    if (value && !(profile.customMaterials ?? []).includes(value)) update('customMaterials', [...(profile.customMaterials ?? []), value]);
+    setCustomMaterialInput('');
+  };
+  const addCustomSpecification = () => {
+    const value = customSpecificationInput.trim();
+    if (value && !(profile.customSpecifications ?? []).includes(value)) update('customSpecifications', [...(profile.customSpecifications ?? []), value]);
+    setCustomSpecificationInput('');
+  };
   const toggleArray = (key: 'buyers' | 'materials' | 'certifications', value: string) => {
     setProfile(current => {
       const values = current[key];
@@ -265,8 +280,8 @@ export function ProspectDiscoveryPage() {
           buyers: profile.buyers.map(id => buyerOptions.find(item => item.id === id)?.title ?? id),
           country: profile.countryName,
           city: profile.city,
-          materials: profile.materials,
-          specifications: profile.specifications,
+          materials: [...profile.materials, ...(profile.customMaterials ?? [])],
+          specifications: [profile.specifications, ...(profile.customSpecifications ?? [])].filter(Boolean).join('; '),
           hsCode: profile.hsCode,
           certifications: profile.certifications,
           employeeScale: profile.employeeScale,
@@ -380,37 +395,48 @@ export function ProspectDiscoveryPage() {
             </div>
 
             <div className="tp-prospect-discovery__field">
-              <span className="tp-prospect-discovery__field-label">供应链身位锚定（Buyer Persona）</span>
-              <Grid className="tp-prospect-discovery__buyer-grid" narrow>
-                {buyerOptions.map(item => (
-                  <Column key={item.id} sm={4} md={4} lg={4}>
-                    <SelectableTile id={'tp-buyer-' + item.id} value={item.id} selected={profile.buyers.includes(item.id)} onChange={() => toggleArray('buyers', item.id)}>
-                      <div className="tp-prospect-discovery__buyer-tile">
-                        <strong>{item.title}</strong><b>{item.detail}</b><span>{item.description}</span>
-                      </div>
-                    </SelectableTile>
-                  </Column>
-                ))}
-              </Grid>
+              <MultiSelect
+                id="tp-buyer-persona"
+                titleText="供应链身位锚定（Buyer Persona）"
+                label="选择目标买家类型（可多选）"
+                items={buyerOptions.map(item => ({ id: item.id, text: item.title + ' — ' + item.detail }))}
+                itemToString={item => item?.text ?? ''}
+                selectedItems={buyerOptions.filter(item => profile.buyers.includes(item.id)).map(item => ({ id: item.id, text: item.title + ' — ' + item.detail }))}
+                onChange={({ selectedItems }) => update('buyers', (selectedItems ?? []).map(item => item.id))}
+              />
             </div>
 
             <div className="tp-prospect-discovery__field">
               <span className="tp-prospect-discovery__field-label">目标市场与语言锚定（Geo & Language）</span>
               <Grid className="tp-prospect-discovery__geo-grid" narrow>
                 <Column sm={4} md={4} lg={5}>
-                  <Select id="tp-continent" labelText="大洲 / 地区" value={profile.continent} onChange={event => setProfile(current => ({ ...current, continent: event.currentTarget.value, country: '', countryName: '', city: '' }))}>
-                    <SelectItem value="" text="选择大洲" />
-                    {continents.map(item => <SelectItem key={item.value} value={item.value} text={item.label} />)}
-                  </Select>
+                  <Dropdown
+                    id="tp-continent"
+                    titleText="大洲 / 地区"
+                    label="选择大洲或地区"
+                    items={[...continents]}
+                    itemToString={item => item?.label ?? ''}
+                    itemToElement={item => item ? <div className="tp-prospect-discovery__continent-option"><svg viewBox="0 0 100 100" aria-hidden="true"><path d={item.path} /></svg><span>{item.label}</span></div> : <></>}
+                    selectedItem={continents.find(item => item.value === profile.continent) ?? null}
+                    onChange={({ selectedItem }) => setProfile(current => ({ ...current, continent: selectedItem?.value ?? '', country: '', countryName: '', city: '' }))}
+                  />
                 </Column>
                 <Column sm={4} md={4} lg={5}>
-                  <Select id="tp-country" labelText="目标国家" value={profile.country} disabled={!profile.continent || countryLoading} onChange={event => { const code = event.currentTarget.value; const country = countries.find(item => item.cca2 === code); setProfile(current => ({ ...current, country: code, countryName: country?.name.common ?? '', city: '' })); }}>
-                    <SelectItem value="" text={countryLoading ? '正在加载国家…' : '选择国家'} />
-                    {filteredCountries.map(item => <SelectItem key={item.cca2} value={item.cca2} text={item.name.common} />)}
-                  </Select>
+                  <Dropdown
+                    id="tp-country"
+                    titleText="目标国家 / 地区"
+                    label={countryLoading ? '正在加载国家…' : '选择国家'}
+                    items={filteredCountries}
+                    itemToString={item => item?.name.common ?? ''}
+                    itemToElement={item => item ? <div className="tp-prospect-discovery__country-option"><img src={'https://flagcdn.com/w80/' + item.cca2.toLowerCase() + '.png'} alt="" loading="lazy" /><span>{item.name.common}</span></div> : <></>}
+                    selectedItem={selectedCountry ?? null}
+                    disabled={!profile.continent || countryLoading || filteredCountries.length === 0}
+                    onChange={({ selectedItem }) => setProfile(current => ({ ...current, country: selectedItem?.cca2 ?? '', countryName: selectedItem?.name.common ?? '', city: '' }))}
+                  />
+                  {!countryLoading && profile.continent && filteredCountries.length === 0 && <span className="tp-prospect-discovery__field-error">该地区暂无国家数据，请更换地区或重试。</span>}
                 </Column>
                 <Column sm={4} md={8} lg={6}>
-                  <ComboBox id="tp-city" titleText="目标城市" placeholder="输入城市名称并选择（可选）" items={citySuggestions} selectedItem={profile.city} itemToString={item => typeof item === 'string' ? item : ''} disabled={!profile.country} onInputChange={value => update('city', value)} onChange={({ selectedItem }) => { if (typeof selectedItem === 'string') update('city', selectedItem); }} />
+                  <ComboBox id="tp-city" titleText="目标城市" placeholder={cityLoading ? '正在加载城市…' : '选择城市或输入名称搜索'} items={citySuggestions} selectedItem={profile.city} itemToString={item => typeof item === 'string' ? item : ''} disabled={!profile.country} onInputChange={value => update('city', value)} onChange={({ selectedItem }) => { if (typeof selectedItem === 'string') update('city', selectedItem); }} />
                 </Column>
               </Grid>
               {countryError && <span className="tp-prospect-discovery__field-error">{countryError}</span>}
@@ -434,11 +460,26 @@ export function ProspectDiscoveryPage() {
                   <span className="tp-prospect-discovery__field-label">材质与工艺属性</span>
                   <div className="tp-prospect-discovery__tag-list">
                     {materials.map(item => <Checkbox key={item} id={'tp-material-' + item.replace(/[^a-z0-9]/gi, '-')} labelText={item} checked={profile.materials.includes(item)} onChange={() => toggleArray('materials', item)} />)}
+                    {(profile.customMaterials ?? []).map(item => <Tag key={'custom-material-' + item} type="blue" filter onClose={() => update('customMaterials', (profile.customMaterials ?? []).filter(value => value !== item))}>{item}</Tag>)}
+                  </div>
+                  <div className="tp-prospect-discovery__custom-entry">
+                    <TextInput id="tp-custom-material" labelText="自定义材质 / 工艺" placeholder="例如 Titanium、Anodizing" value={customMaterialInput} onChange={event => setCustomMaterialInput(event.currentTarget.value)} />
+                    <Button kind="tertiary" size="md" renderIcon={CarbonIcons.Add} disabled={!customMaterialInput.trim()} onClick={addCustomMaterial}>添加属性</Button>
                   </div>
                 </div>
-                <div className="tp-prospect-discovery__two-col">
+                <div className="tp-prospect-discovery__spec-grid">
                   <TextInput id="tp-specifications" labelText="核心规格 / 尺寸 / 功率" placeholder="例如 18-inch、100W、IP67" value={profile.specifications} onChange={event => update('specifications', event.currentTarget.value)} />
                   <ComboBox id="tp-hs-code" titleText="海关编码（HS Code）" placeholder="输入 HS Code" items={[]} selectedItem={profile.hsCode} itemToString={item => typeof item === 'string' ? item : ''} onInputChange={value => update('hsCode', value)} onChange={({ selectedItem }) => { if (typeof selectedItem === 'string') update('hsCode', selectedItem); }} />
+                </div>
+                <div className="tp-prospect-discovery__field">
+                  <span className="tp-prospect-discovery__field-label">自定义规格参数</span>
+                  <div className="tp-prospect-discovery__custom-spec-list">
+                    {(profile.customSpecifications ?? []).map((item, index) => <div className="tp-prospect-discovery__custom-spec" key={item}><span>{item}</span><Button kind="ghost" size="sm" onClick={() => update('customSpecifications', (profile.customSpecifications ?? []).filter((_, i) => i !== index))}>移除</Button></div>)}
+                  </div>
+                  <div className="tp-prospect-discovery__custom-entry">
+                    <TextInput id="tp-custom-specification" labelText="添加规格参数" placeholder="例如 IP67、220V、30cm" value={customSpecificationInput} onChange={event => setCustomSpecificationInput(event.currentTarget.value)} />
+                    <Button kind="tertiary" size="md" renderIcon={CarbonIcons.Add} disabled={!customSpecificationInput.trim()} onClick={addCustomSpecification}>添加规格</Button>
+                  </div>
                 </div>
                 <div className="tp-prospect-discovery__field">
                   <span className="tp-prospect-discovery__field-label">目标市场强制认证</span>
@@ -448,7 +489,7 @@ export function ProspectDiscoveryPage() {
                 </div>
               </AccordionItem>
               <AccordionItem title="B. 买家体量与活跃度锚定（Scale & Activity）">
-                <div className="tp-prospect-discovery__two-col">
+                <div className="tp-prospect-discovery__scale-grid">
                   <Select id="tp-employee-scale" labelText="员工规模区间" value={profile.employeeScale} onChange={event => update('employeeScale', event.currentTarget.value)}>
                     <SelectItem value="" text="不限" /><SelectItem value="1-10" text="1–10 人" /><SelectItem value="11-50" text="11–50 人" /><SelectItem value="51-200" text="51–200 人" /><SelectItem value="201-500" text="201–500 人" /><SelectItem value="500+" text="500 人以上" />
                   </Select>
