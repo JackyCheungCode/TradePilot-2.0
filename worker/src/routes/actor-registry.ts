@@ -139,15 +139,27 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
     }
     if (request.method === "POST" && parts[3] === "execute") {
       const body = await request.json().catch(() => ({})) as {
-        actors?: Array<{ actorId?: string; sourceId?: string; sourceName?: string; actorTitle?: string; status?: string; schemaKeys?: string[]; input?: Record<string, unknown> }>;
+        actors?: Array<{ actorId?: string; sourceId?: string; sourceName?: string; actorTitle?: string; schemaVersion?: string; inputFingerprint?: string; status?: string; schemaKeys?: string[]; input?: Record<string, unknown> }>;
         profile?: { coreNoun?: string; country?: string; countryName?: string; city?: string };
         limitPerCountry?: number; planSnapshot?: Record<string, unknown>; guardrailsSnapshot?: Record<string, unknown>;
       };
       const selected = (body.actors ?? []).filter(actor => actor && typeof actor.actorId === "string").slice(0, 20);
       if (!selected.length) return errorResponse(request, "ACTOR_EXECUTIONS_REQUIRED", "没有可执行的数据源。", 400);
       const verified = await Promise.all(selected.map(async actor => {
-        const rows = await db<Array<{ status: string }>>(env, "actor_registry?owner_id=eq." + ownerId + "&actor_id=eq." + encodeURIComponent(String(actor.actorId)) + "&select=status&limit=1");
-        return { actor, enabled: actor.status === "enabled" && rows?.[0]?.status === "enabled" };
+        const actorId = String(actor.actorId);
+        const rows = await db<Array<{ status: string; source_metadata: Record<string, unknown> }>>(env,
+          "actor_registry?owner_id=eq." + ownerId + "&actor_id=eq." + encodeURIComponent(actorId) + "&select=status,source_metadata&limit=1");
+        const schemas = await db<Array<{ version: string }>>(env,
+          "actor_schema_versions?owner_id=eq." + ownerId + "&actor_id=eq." + encodeURIComponent(actorId) + "&select=version&order=fetched_at.desc&limit=1");
+        const savedTest = rows?.[0]?.source_metadata?.lastTest && typeof rows[0].source_metadata.lastTest === "object"
+          ? rows[0].source_metadata.lastTest as Record<string, unknown> : {};
+        const currentFingerprint = actor.schemaVersion && actor.input && typeof actor.input === "object"
+          ? inputFingerprint(actor.input, actor.schemaVersion) : "";
+        const enabled = actor.status === "enabled" && rows?.[0]?.status === "enabled"
+          && Boolean(schemas?.[0]?.version) && schemas[0].version === actor.schemaVersion
+          && Boolean(currentFingerprint) && currentFingerprint === safeText(savedTest.inputFingerprint, 40)
+          && currentFingerprint === safeText(actor.inputFingerprint, 40);
+        return { actor, enabled };
       }));
       const actors = verified.filter(item => item.enabled).map(({ actor }) => {
         const schemaKeys = Array.isArray(actor.schemaKeys) ? actor.schemaKeys : [];
