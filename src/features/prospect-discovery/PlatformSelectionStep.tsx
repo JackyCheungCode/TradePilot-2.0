@@ -193,7 +193,7 @@ export function PlatformSelectionStep({
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(defaultPlatformPageSize);
 
-  useEffect(() => { if (!countryCode) setSelected([]); else if (selectedIds === undefined) setSelected(recommendedFor(countryCode).filter(isRunnablePlatform)); }, [countryCode]);
+  useEffect(() => { setSelected(countryCode ? recommendedFor(countryCode).filter(isRunnablePlatform) : []); }, [countryCode]);
 
   useEffect(() => { onSelectionCountChange(selected.length); onSelectionChange?.(allPlatforms.filter(source => selected.includes(source.id)).map(source => ({ id: source.id, name: source.name, category: source.category }))); }, [selected, onSelectionCountChange, onSelectionChange]);
 
