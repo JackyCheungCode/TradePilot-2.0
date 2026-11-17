@@ -113,7 +113,7 @@ export async function handleProspectCities(request: Request, env: Env): Promise<
       });
       if (catalogResponse.ok) {
         const catalog = await catalogResponse.json() as { data?: string[]; error?: boolean };
-        const cities = [...new Set((catalog.data ?? []).filter((item): item is string => typeof item === "string" && item.trim()).map(item => item.trim()))].sort((a, b) => a.localeCompare(b)).slice(0, 500);
+        const cities = [...new Set((catalog.data ?? []).filter((item): item is string => typeof item === "string" && item.trim().length > 0).map(item => item.trim()))].sort((a, b) => a.localeCompare(b)).slice(0, 500);
         if (cities.length) return successResponse(request, { cities, source: "country-city-catalog" });
       }
     }
