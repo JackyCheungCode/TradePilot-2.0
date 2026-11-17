@@ -21,7 +21,7 @@
 |---|---|---|
 | 1. Intent / profile | `ProspectDiscoveryPage.tsx`, `ExecutionStep.tsx` | Profile snapshot and plan session code are now copied into each channel run's existing `search_config` JSONB. A durable parent plan/run relation is still absent. |
 | 2. Platform selection | `PlatformSelectionStep.tsx` | Carbon semantic status dots distinguish wired executor, credential/connection verification, and catalog-only sources. Step 4 currently executes only the four wired IDs: Google Maps, Google Search, Facebook, Instagram. |
-| 3. Guardrails | `GuardrailsStep.tsx`, `worker/src/lib/guardrails.ts`, channel workflows | The task snapshot is now evaluated server-side before persistence for Google Maps / OSM, web search, Facebook and Instagram. Blocked candidates are excluded and counted in run logs; unknown employee/site evidence under `pending` policy is retained with `guardrail_review_required`. The website-type preset, several untethered checkbox controls and global/both scope are not implemented as server-side rules yet. |
+| 3. Guardrails | `GuardrailsStep.tsx`, `worker/src/lib/guardrails.ts`, channel workflows | The task snapshot is evaluated server-side before persistence for Google Maps / OSM, web search, Facebook and Instagram. Keyword positions/modes, website/domain rules and conservative website-type classification, company names/available aliases/group names, geography, products, DNC contact lists, job titles, configured internal email domains, competitor employer names, non-decision role heuristics, employee floor, and independent-site requirement are applied. Unknown employee/site evidence under `pending` policy is retained with `guardrail_review_required`. Global/both scope, differentiated keyword actions, and duplicate skip/review policy still need implementation. |
 | 4. Execution | `ExecutionStep.tsx`, channel routes | Real per-channel task creation, persisted run IDs, status/progress/count/log polling, and real record UUID handoff are wired. Pause/cancel is intentionally not shown because no corresponding backend control API was verified. |
 | 5. AI scoring | `ScoringStep.tsx`, `POST /api/v1/discovery-records/score`, `callAgentChatModel` | Loads real records, calls the configured `prospect_scoring` task model, and persists score, dimensions, evidence, risks, model, and timestamp in `raw_data.ai_scoring`. Provider-output validation and partial-save retries still need acceptance testing. |
 | 6. Decision-maker enrichment / CRM | `DecisionMakerStep.tsx`, `ContactEnrichmentWorkflow`, `/api/v1/discovery-contact-candidates/convert` | Uses existing contact-enrichment jobs, polls real job state, reloads candidate data, and submits selected candidate keys for human-confirmed CRM account/contact/lead conversion. Website-only enrichment may return contact details without named candidates; Apollo/ZoomInfo credentials may be required for named contacts. |
@@ -50,3 +50,26 @@
 - Do not mark catalog presence as execution capability.
 - Do not expose provider names in end-user labels.
 - Before production rollout: typecheck, design-system boundary check, build, Worker dry-run, CI, deployment verification, then a controlled end-to-end test using a user-approved market and bounded result limit.
+
+## Guardrail execution contract (2026-11-17)
+
+### Implemented in the feature branch
+- Website-type presets are consumed by the server evaluator using the selected Chinese category labels, URL host signals, and available source metadata. This is intentionally conservative: an unknown host/category is not guessed into a website class.
+- Personnel controls are bound to state and included in the task snapshot. Job-title exclusions use supplied job-title text; internal-staff exclusions require the user to provide internal email domains; competitor-staff exclusions require competitor names and a source record that exposes employer/company fields; non-decision exclusions use a small explicit role-term list.
+- Company alias and group matching controls are bound. The evaluator checks alias/former-name/brand and parent/group fields only when those fields exist in the provider payload.
+- The DNC switch is now respected independently: disabling DNC prevents the saved contact-entry list from being applied, even if the general contact rule category remains enabled.
+- Execution task references are stored in browser local storage per plan code. On refresh, the UI restores those references and re-polls persisted backend run state. This is a browser-local recovery aid, not a cross-device task dashboard.
+
+### Still not production-complete
+- `scope` values `global` and `both` do not have an owner-scoped server settings store. Current execution is task-snapshot scoped only. A durable global setting requires a reviewed schema/RLS migration and rollback plan.
+- `keywordAction` values (`company`, `page`, `result`) are not yet semantically distinct in the persistence layer. Current candidate-level rejection removes the matching candidate from the current channel result set.
+- `duplicatePolicy` values (`merge`, `skip`, `review`) are not yet fully enforced across channels. Existing deduplication/merge and source-occurrence preservation remain the active behavior.
+- Website-type detection is evidence-based and cannot classify every unknown domain without a crawl/classification provider.
+- The named-role and employer rules can only act on fields actually returned by a provider. They do not manufacture missing employment history or decision-maker data.
+- LinkedIn, TikTok, Amazon, Alibaba.com, eBay, Walmart, YouTube, Reddit, Pinterest and other catalog entries still do not have verified independent execution chains in this branch.
+
+## Current validation boundary
+- The latest completed CI observed before this appendix was for commit `3c970c65`; subsequent guardrail and refresh-recovery commits have new CI runs and must be checked against the latest head before release.
+- Worker dry-run validates the bundle only; it does not deploy.
+- No controlled end-to-end provider run has been performed as part of this code-only work. Provider credentials, external API quotas, actor behavior, and production result quality remain unverified.
+- No production database rows or credentials were changed by this implementation.
