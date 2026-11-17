@@ -110,6 +110,7 @@ export function DocumentStudioPage() {
   const selected = elements.find(item => item.id === selectedId) ?? elements[0];
   const selectedType = DOC_TYPES.find(item => item.value === documentType)!;
   const selectedOrder = orders.find(item => item.id === orderId);
+  const pageWidthMm = pageSize === 'Letter' ? (orientation === 'portrait' ? 216 : 279) : (orientation === 'portrait' ? 210 : 297);
   const isShipment = selectedType.source === 'shipment';
   const canUseQuotationSource = ['proforma_invoice', 'sales_contract'].includes(documentType);
   const templateConfig = useMemo(() => ({ layoutEngine: 'free-canvas-v1', pageSize, orientation, unit: 'mm', locale, elements }), [elements, locale, pageSize, orientation]);
@@ -185,7 +186,7 @@ export function DocumentStudioPage() {
   const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current; const canvas = canvasRef.current;
     if (!drag || !canvas) return;
-    const scale = canvas.getBoundingClientRect().width / 210;
+    const scale = canvas.getBoundingClientRect().width / pageWidthMm;
     const dx = (event.clientX - drag.startX) / scale; const dy = (event.clientY - drag.startY) / scale;
     updateElement(drag.id, { x: Math.max(0, Math.min(210, drag.x + dx)), y: Math.max(0, Math.min(297, drag.y + dy)) });
   };
