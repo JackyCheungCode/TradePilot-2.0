@@ -24,10 +24,15 @@ async function search(engine:Engine,type:Vertical,q:string,country:string,hl:str
  }return out.slice(0,limit);
 }
 function excluded(url:string,rules:string[]){try{const u=new URL(url),host=u.hostname.toLowerCase(),path=u.pathname.toLowerCase();return rules.some(rule=>{const [domain,...rest]=rule.toLowerCase().split("/");const prefix=rest.length?"/"+rest.join("/"):"";return(host===domain||host.endsWith("."+domain))&&(!prefix||path.startsWith(prefix));});}catch{return true;}}
+export function normalizeMerchantDomain(value: string): string {
+ const candidate = value.trim().toLowerCase().replace(/^www\./, "");
+ return /^[a-z0-9.-]+\.[a-z]{2,}$/.test(candidate) ? candidate : "";
+}
+
 async function persist(env:DiscoveryEnv,owner:string,run:string,input:DiscoveryRunInput,engine:Engine,type:Vertical,item:Result){
  const parsed=new URL(item.url),shopping=type==="shopping",googleShoppingLink=parsed.hostname.toLowerCase().endsWith("google.com"),source=String(item.raw.source??item.raw.merchant??item.raw.seller??"").trim();
- const sourceDomain=/^[a-z0-9.-]+\\.[a-z]{2,}$/i.test(source)?source.toLowerCase().replace(/^www\\./,""):"";
- const domain=googleShoppingLink?sourceDomain:parsed.hostname.replace(/^www\\./,"").toLowerCase();
+ const sourceDomain=normalizeMerchantDomain(source);
+ const domain=googleShoppingLink?sourceDomain:parsed.hostname.replace(/^www\./,"").toLowerCase();
  const productKey=String(item.raw.product_id??item.title).toLowerCase();
  const key=domain?"search-domain:"+domain:shopping?"shopping-product:"+(source.toLowerCase()||"unknown")+":"+productKey:"search-domain:"+parsed.hostname.replace(/^www\\./,"").toLowerCase();
  const name=shopping?(source||item.title):item.title,website=domain?"https://"+domain:null;
