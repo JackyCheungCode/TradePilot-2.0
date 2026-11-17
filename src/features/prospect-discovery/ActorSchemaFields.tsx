@@ -135,21 +135,7 @@ export function ActorSchemaFields({ sources, profile, onValuesChange }: Props) {
   }), [values, items, testResults, profile]);
   useEffect(() => { onValuesChange(actorParameters); }, [actorParameters, onValuesChange]);
 
-  const setField = (key: string, value: unknown) => {
-    setValues(current => ({ ...current, [key]: value }));
-    const actorKey = key.split(':').slice(0, 2).join(':');
-    setTestResults(current => ({ ...current, [actorKey]: { passed: false, message: '参数已修改，请重新测试后再执行。' } }));
-  };
-  useEffect(() => {
-    setTestResults(current => {
-      const next = { ...current };
-      for (const item of items) {
-        const key = item.source.id + ':' + item.actorId;
-        if (next[key]?.passed || item.actorStatus === 'enabled') next[key] = { passed: false, message: '目标画像已变化，请重新测试。' };
-      }
-      return next;
-    });
-  }, [profile.coreNoun, profile.country, profile.countryName, profile.city]);
+  const setField = (key: string, value: unknown) => setValues(current => ({ ...current, [key]: value }));
   const runActorTest = async (item: LoadedSchema) => {
     const testKey = item.source.id + ':' + item.actorId;
     setTestingActor(testKey);
