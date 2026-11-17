@@ -13,8 +13,8 @@ import '@/design-system/patterns/dashboard.scss';
 
 type Row = Record<string, any>;
 type DashboardData = {
-  accounts: Row[]; leads: Row[]; opportunities: Row[]; documents: Row[];
-  orders: Row[]; shipments: Row[]; payments: Row[]; agentRuns: Row[];
+  accounts: Row[]; contacts: Row[]; leads: Row[]; opportunities: Row[]; documents: Row[];
+  orders: Row[]; shipments: Row[]; payments: Row[]; products: Row[]; agentRuns: Row[];
   activities: Row[]; discovery: Row[]; updatedAt: string;
 };
 const BASE_CURRENCY = 'USD';
@@ -65,14 +65,16 @@ export function DashboardPage() {
         db.from('agent_runs').select('id,goal,status,created_at,started_at,completed_at,error_message,actual_cost_usd').order('created_at', { ascending: false }).limit(5000),
         db.from('crm_activities').select('id,activity_type,summary,due_at,status,created_at,account_id,opportunity_id').order('created_at', { ascending: false }).limit(5000),
         db.from('discovery_records').select('id,channel,status,country_code,created_at,lead_id').limit(5000),
+        db.from('crm_contacts').select('id,account_id,created_at,is_active,is_archived').eq('is_archived', false).limit(5000),
+        db.from('trade_products').select('id,sku,name,category,brand,is_active,is_archived,created_at').eq('is_archived', false).limit(5000),
       ]);
       const failed = queries.find(result => result.error);
       if (failed?.error) throw new Error(failed.error.message);
       setData({
-        accounts: safeArray(queries[0].data), leads: safeArray(queries[1].data),
+        accounts: safeArray(queries[0].data), contacts: safeArray(queries[10].data), leads: safeArray(queries[1].data),
         opportunities: safeArray(queries[2].data), documents: safeArray(queries[3].data),
         orders: safeArray(queries[4].data), shipments: safeArray(queries[5].data),
-        payments: safeArray(queries[6].data), agentRuns: safeArray(queries[7].data),
+        payments: safeArray(queries[6].data), products: safeArray(queries[11].data), agentRuns: safeArray(queries[7].data),
         activities: safeArray(queries[8].data), discovery: safeArray(queries[9].data),
         updatedAt: new Date().toISOString(),
       });
@@ -105,11 +107,12 @@ export function DashboardPage() {
     const documents = (data?.documents || []).filter(row => country === 'all' || orderIds.has(row.order_id));
     const shipments = (data?.shipments || []).filter(row => country === 'all' || accountIds.has(row.account_id) || orderIds.has(row.order_id));
     const payments = (data?.payments || []).filter(row => country === 'all' || accountIds.has(row.account_id));
+    const contacts = (data?.contacts || []).filter(row => country === 'all' || accountIds.has(row.account_id));
     const activities = (data?.activities || []).filter(row => country === 'all' || accountIds.has(row.account_id));
     const discovery = (data?.discovery || []).filter(row => matchesCountry(row.country_code));
     const within = (rows: Row[]) => rows.filter(row => inPeriod(row, startDate));
     return {
-      accounts, leads, opportunities, orders, documents, shipments, payments, activities, discovery,
+      accounts, contacts, leads, opportunities, orders, documents, shipments, payments, products: data?.products || [], activities, discovery,
       newAccounts: within(accounts), newLeads: within(leads), newOpportunities: within(opportunities),
       newOrders: within(orders), newShipments: within(shipments), newDiscovery: within(discovery),
       agentRuns: data?.agentRuns || [],
@@ -313,7 +316,7 @@ export function DashboardPage() {
                 <div className="tp-workbench__chart"><h3>商机阶段分布</h3>{scoped.opportunities.length ? <SimpleBarChart data={Object.entries(scoped.opportunities.reduce((acc: Record<string, number>, row) => { const key = String(row.stage || row.status || '未设置'); acc[key] = (acc[key] || 0) + 1; return acc; }, {})).map(([group, value]) => ({ group, value }))} options={barOptions as any}/> : <p className="tp-workbench__empty">暂无商机数据</p>}</div>
                 <div className="tp-workbench__chart"><h3>商机金额（USD 可换算口径）</h3><strong className="tp-workbench__large-value">{money(opportunityTotal)}</strong><p>有效商机 {number(scoped.opportunities.length)} 个；加权金额按商机概率另行计算，避免将概率缺失视为 0。</p><Button kind="ghost" size="sm" onClick={() => navigate('/opportunities')}>进入商机管理 <CarbonIcons.ArrowRight size={16}/></Button></div>
                 <div className="tp-workbench__chart"><h3>客户新增趋势</h3><AreaChart data={chartData.daily} options={areaOptions as any}/></div>
-                <div className="tp-workbench__chart"><h3>潜客发现与线索</h3><div className="tp-workbench__mini-metrics"><div><span>发现记录</span><strong>{number(scoped.discovery.length)}</strong></div><div><span>潜客记录</span><strong>{number(scoped.leads.length)}</strong></div><div><span>本期新增发现</span><strong>{number(scoped.newDiscovery.length)}</strong></div></div><Button kind="ghost" size="sm" onClick={() => navigate('/prospect-data')}>查看发现结果 <CarbonIcons.ArrowRight size={16}/></Button></div>
+                <div className="tp-workbench__chart"><h3>潜客发现与线索</h3><div className="tp-workbench__mini-metrics"><div><span>发现记录</span><strong>{number(scoped.discovery.length)}</strong></div><div><span>潜客记录</span><strong>{number(scoped.leads.length)}</strong></div><div><span>本期新增发现</span><strong>{number(scoped.newDiscovery.length)}</strong></div><div><span>客户联系人</span><strong>{number(scoped.contacts.length)}</strong></div></div><Button kind="ghost" size="sm" onClick={() => navigate('/prospect-data')}>查看发现结果 <CarbonIcons.ArrowRight size={16}/></Button></div>
               </div>
             </TabPanel>
             <TabPanel>
@@ -322,6 +325,7 @@ export function DashboardPage() {
                 <div className="tp-workbench__chart"><h3>有效报价总额（USD 可换算口径）</h3><strong className="tp-workbench__large-value">{effectiveQuotes.length ? money(quoteTotal) : '暂无有效报价'}</strong><p>金额只汇总已发送、已查看或已接受报价；草稿、拒绝和过期报价单独保留在状态分布中。</p><Button kind="ghost" size="sm" onClick={() => navigate('/quotes')}>进入报价管理 <CarbonIcons.ArrowRight size={16}/></Button></div>
                 <div className="tp-workbench__chart"><h3>订单状态</h3><SimpleBarChart data={Object.entries(scoped.orders.reduce((acc: Record<string, number>, row) => { const key = String(row.metadata?.sales_order?.order_status || row.status || '未知'); acc[key] = (acc[key] || 0) + 1; return acc; }, {})).map(([group, value]) => ({ group, value }))} options={barOptions as any}/></div>
                 <div className="tp-workbench__chart"><h3>订单金额（USD 可换算口径）</h3><strong className="tp-workbench__large-value">{money(orderTotal)}</strong><p>仅统计销售订单；采购订单不计入销售额。草稿与有效订单分开展示。</p><Button kind="ghost" size="sm" onClick={() => navigate('/sales-orders')}>进入销售订单 <CarbonIcons.ArrowRight size={16}/></Button></div>
+                <div className="tp-workbench__chart"><h3>产品目录与品类</h3><div className="tp-workbench__mini-metrics"><div><span>有效产品</span><strong>{number(scoped.products.filter(row => row.is_active).length)}</strong></div><div><span>产品品类</span><strong>{number(new Set(scoped.products.map(row => row.category).filter(Boolean)).size)}</strong></div></div><Button kind="ghost" size="sm" onClick={() => navigate('/products')}>进入产品管理 <CarbonIcons.ArrowRight size={16}/></Button></div>
               </div>
             </TabPanel>
             <TabPanel>
@@ -332,7 +336,7 @@ export function DashboardPage() {
             </TabPanel>
             <TabPanel>
               <div className="tp-workbench__tab-grid">
-                <div className="tp-workbench__chart"><h3>实际收款金额</h3><strong className="tp-workbench__large-value">{scoped.payments.length ? money(receivedTotal) : '暂无实际收款记录'}</strong><p>仅按收款模块的实际收款记录统计；订单收款计划不计入到账金额。</p><Button kind="ghost" size="sm" onClick={() => navigate('/payments')}>进入收款管理 <CarbonIcons.ArrowRight size={16}/></Button></div>
+                <div className="tp-workbench__chart"><h3>实际收款金额</h3><strong className="tp-workbench__large-value">{collected.length || refunds.length ? money(receivedTotal) : '暂无实际收款记录'}</strong><p>仅按收款模块的实际收款记录统计；订单收款计划不计入到账金额。</p><Button kind="ghost" size="sm" onClick={() => navigate('/payments')}>进入收款管理 <CarbonIcons.ArrowRight size={16}/></Button></div>
                 <div className="tp-workbench__chart"><h3>收款记录状态</h3>{scoped.payments.length ? <SimpleBarChart data={Object.entries(scoped.payments.reduce((acc: Record<string, number>, row) => { const key = String(row.status || '未知'); acc[key] = (acc[key] || 0) + 1; return acc; }, {})).map(([group, value]) => ({ group, value }))} options={barOptions as any}/> : <p className="tp-workbench__empty">数据库当前没有实际收款记录，到账、未收与逾期金额暂不生成汇总值。</p>}</div>
                 <div className="tp-workbench__chart"><h3>币种换算完整性</h3><strong className="tp-workbench__large-value">{unconverted ? number(unconverted) + ' 条待换算' : '当前金额均可按 USD 汇总'}</strong><p>外币只有在记录中存在基础币金额快照时才计入统一总览。缺少汇率或快照的金额不会被估算。</p></div>
               </div>
