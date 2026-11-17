@@ -131,6 +131,7 @@ export function ProspectDataPage() {
       && (country === 'all' || row.country === country);
   }), [rows, search, source, status, country]);
   const visible = filtered.slice((page - 1) * pageSize, page * pageSize);
+  const countriesCount = new Set(rows.map(row => row.country).filter(value => value !== '—')).size;
 
   const analytics = useMemo(() => {
     const active = rows.filter(row => row.status !== 'removed' && row.status !== 'discarded');
