@@ -8,7 +8,7 @@ type SchemaField = {
   enum?: unknown[]; default?: unknown; minimum?: number; maximum?: number; required?: boolean;
 };
 type ActorSchema = { properties?: Record<string, SchemaField>; required?: string[]; translatedProperties?: Record<string, { titleZh?: string; descriptionZh?: string; usageZh?: string; translationStatus?: string }> };
-type LoadedSchema = { source: Source; actorId: string; actorTitle: string; actorStatus?: string; actorQualityScore?: number | null; schema: ActorSchema };
+type LoadedSchema = { source: Source; actorId: string; actorTitle: string; actorStatus?: string; actorQualityScore?: number | null; actorInputFingerprint?: string; schema: ActorSchema };
 type Props = { sources: Source[]; profile: { coreNoun: string; country: string; countryName: string; city: string }; onValuesChange: (values: Record<string, unknown>) => void };
 
 async function api(path: string, token: string, init: RequestInit = {}) {
@@ -33,6 +33,30 @@ function suitability(actor: Record<string, unknown>, source: Source) {
   const match = new Set(terms).size ? [...new Set(terms)].filter(term => text.includes(term)).length : 0;
   return match * 40 + Math.log10(Math.max(0, users) + 1) * 12 + Math.log10(Math.max(0, runs) + 1) * 16 + rating * 8;
 }
+function buildActorInput(item: LoadedSchema, values: Record<string, unknown>, profile: Props['profile']) {
+  const input: Record<string, unknown> = {};
+  const intent: Record<string, unknown> = {
+    query: profile.coreNoun, searchQuery: profile.coreNoun, keyword: profile.coreNoun, keywords: profile.coreNoun ? [profile.coreNoun] : [],
+    country: profile.country, countryCode: profile.country, country_code: profile.country, countryName: profile.countryName,
+    city: profile.city, location: profile.city || profile.countryName,
+  };
+  for (const [fieldKey, field] of Object.entries(item.schema.properties ?? {})) {
+    const valueKey = item.source.id + ':' + item.actorId + ':' + fieldKey;
+    const value = values[valueKey] ?? field.default ?? intent[fieldKey];
+    if (value !== undefined && value !== '') {
+      if ((field.type === 'object' || field.type === 'array') && typeof value === 'string') {
+        try { input[fieldKey] = JSON.parse(value); } catch { input[fieldKey] = value; }
+      } else input[fieldKey] = value;
+    }
+  }
+  return input;
+}
+function fingerprint(input: Record<string, unknown>) {
+  const serialized = JSON.stringify(input);
+  let hash = 2166136261;
+  for (let index = 0; index < serialized.length; index++) { hash ^= serialized.charCodeAt(index); hash = Math.imul(hash, 16777619); }
+  return (hash >>> 0).toString(16).padStart(8, '0');
+}
 
 async function mapLimit<T, R>(items: T[], limit: number, mapper: (item: T, index: number) => Promise<R>): Promise<R[]> {
   const results = new Array<R>(items.length);
@@ -51,7 +75,7 @@ export function ActorSchemaFields({ sources, profile, onValuesChange }: Props) {
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [expandedHelp, setExpandedHelp] = useState<Record<string, boolean>>({});
   const [testingActor, setTestingActor] = useState('');
-  const [testResults, setTestResults] = useState<Record<string, { passed: boolean; message: string; qualityScore?: number }>>({});
+  const [testResults, setTestResults] = useState<Record<string, { passed: boolean; message: string; qualityScore?: number; inputFingerprint?: string }>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const sourceKey = useMemo(() => sources.map(source => source.id + ':' + source.name).sort().join('|'), [sources]);
@@ -72,9 +96,9 @@ export function ActorSchemaFields({ sources, profile, onValuesChange }: Props) {
             const actor = candidates[0];
             if (!actor) return null;
             const actorId = String(actor.actor_id);
-            const result = await api('/api/v1/actor-registry/schema/' + encodeURIComponent(actorId), token) as { schema?: ActorSchema; actor?: { status?: string; quality_score?: number | null } };
+            const result = await api('/api/v1/actor-registry/schema/' + encodeURIComponent(actorId), token) as { schema?: ActorSchema; actor?: { status?: string; quality_score?: number | null; last_test_input_fingerprint?: string } };
             if (!result.schema) return null;
-            return { source, actorId, actorTitle: String(actor.title || actor.actor_name || actorId), actorStatus: result.actor?.status, actorQualityScore: result.actor?.quality_score, schema: result.schema } as LoadedSchema;
+            return { source, actorId, actorTitle: String(actor.title || actor.actor_name || actorId), actorStatus: result.actor?.status, actorQualityScore: result.actor?.quality_score, actorInputFingerprint: result.actor?.last_test_input_fingerprint, schema: result.schema } as LoadedSchema;
           } catch (sourceError) {
             failures.push(source.name + '：' + (sourceError instanceof Error ? sourceError.message : String(sourceError)));
             return null;
@@ -97,20 +121,16 @@ export function ActorSchemaFields({ sources, profile, onValuesChange }: Props) {
   const actorParameters = useMemo(() => ({
     fields: values,
     actors: items.map(item => {
-      const input: Record<string, unknown> = {};
-      for (const [fieldKey, field] of Object.entries(item.schema.properties ?? {})) {
-        const valueKey = item.source.id + ':' + item.actorId + ':' + fieldKey;
-        const value = values[valueKey] ?? field.default;
-        if (value !== undefined && value !== '') {
-          if ((field.type === 'object' || field.type === 'array') && typeof value === 'string') {
-            try { input[fieldKey] = JSON.parse(value); } catch { input[fieldKey] = value; }
-          } else input[fieldKey] = value;
-        }
-      }
-      const test = testResults[item.source.id + ':' + item.actorId];
-      return { sourceId: item.source.id, sourceName: item.source.name, actorId: item.actorId, actorTitle: item.actorTitle, status: test ? (test.passed ? 'enabled' : 'needs_retest') : item.actorStatus, schemaKeys: Object.keys(item.schema.properties ?? {}), input };
+      const input = buildActorInput(item, values, profile);
+      const currentFingerprint = fingerprint(input);
+      const key = item.source.id + ':' + item.actorId;
+      const test = testResults[key];
+      const localTestPassed = test?.passed === true && test.inputFingerprint === currentFingerprint;
+      const persistedTestPassed = item.actorStatus === 'enabled' && item.actorInputFingerprint === currentFingerprint;
+      const status = localTestPassed || persistedTestPassed ? 'enabled' : test || item.actorStatus === 'enabled' ? 'needs_retest' : item.actorStatus;
+      return { sourceId: item.source.id, sourceName: item.source.name, actorId: item.actorId, actorTitle: item.actorTitle, status, schemaKeys: Object.keys(item.schema.properties ?? {}), input, inputFingerprint: currentFingerprint };
     }),
-  }), [values, items, testResults]);
+  }), [values, items, testResults, profile]);
   useEffect(() => { onValuesChange(actorParameters); }, [actorParameters, onValuesChange]);
 
   const setField = (key: string, value: unknown) => {
@@ -133,32 +153,19 @@ export function ActorSchemaFields({ sources, profile, onValuesChange }: Props) {
     setTestingActor(testKey);
     try {
       const token = await accessToken();
-      const input: Record<string, unknown> = {};
+      const input = buildActorInput(item, values, profile);
       const requiredFields = new Set(item.schema.required ?? []);
-      const intent: Record<string, unknown> = {
-        query: profile.coreNoun, searchQuery: profile.coreNoun, keyword: profile.coreNoun, keywords: profile.coreNoun ? [profile.coreNoun] : [],
-        country: profile.country, countryCode: profile.country, country_code: profile.country, countryName: profile.countryName,
-        city: profile.city, location: profile.city || profile.countryName,
-      };
       const missingFields = Object.entries(item.schema.properties ?? {}).filter(([fieldKey, field]) => {
-        const value = values[item.source.id + ':' + item.actorId + ':' + fieldKey] ?? field.default ?? intent[fieldKey];
-        return (requiredFields.has(fieldKey) || (field as SchemaField).required === true) && (value === undefined || value === null || value === '');
+        const value = input[fieldKey];
+        return (requiredFields.has(fieldKey) || field.required === true) && (value === undefined || value === null || value === '');
       }).map(([fieldKey, field]) => (field.titleZh || field.title || fieldKey));
       if (missingFields.length) throw new Error('请先填写必填字段：' + missingFields.join('、'));
-      for (const [fieldKey, field] of Object.entries(item.schema.properties ?? {})) {
-        const valueKey = item.source.id + ':' + item.actorId + ':' + fieldKey;
-        const value = values[valueKey] ?? field.default;
-        if (value !== undefined && value !== '') {
-          if ((field.type === 'object' || field.type === 'array') && typeof value === 'string') {
-            try { input[fieldKey] = JSON.parse(value); } catch { input[fieldKey] = value; }
-          } else input[fieldKey] = value;
-        }
-      }
+      const currentFingerprint = fingerprint(input);
       const result = await api('/api/v1/actor-registry/test', token, {
         method: 'POST',
         body: JSON.stringify({ actorId: item.actorId, input, profile, expectedFieldCount: Object.keys(item.schema.properties ?? {}).length }),
-      }) as { passed?: boolean; qualityScore?: number; message?: string };
-      setTestResults(current => ({ ...current, [testKey]: { passed: result.passed === true, qualityScore: result.qualityScore, message: result.message || '测试完成' } }));
+      }) as { passed?: boolean; qualityScore?: number; inputFingerprint?: string; message?: string };
+      setTestResults(current => ({ ...current, [testKey]: { passed: result.passed === true, qualityScore: result.qualityScore, inputFingerprint: result.inputFingerprint || currentFingerprint, message: result.message || '测试完成' } }));
     } catch (e) {
       setTestResults(current => ({ ...current, [testKey]: { passed: false, message: e instanceof Error ? e.message : '测试失败' } }));
     } finally {
