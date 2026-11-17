@@ -52,7 +52,9 @@ function buildActorInput(item: LoadedSchema, values: Record<string, unknown>, pr
   return input;
 }
 function fingerprint(input: Record<string, unknown>) {
-  const serialized = JSON.stringify(input);
+  const normalized = { ...input };
+  for (const key of ['maxItems', 'maxResults', 'maxResultsPerQuery', 'resultsLimit', 'maxItemsPerRun', 'limit']) if (key in normalized) normalized[key] = 1;
+  const serialized = JSON.stringify(normalized);
   let hash = 2166136261;
   for (let index = 0; index < serialized.length; index++) { hash ^= serialized.charCodeAt(index); hash = Math.imul(hash, 16777619); }
   return (hash >>> 0).toString(16).padStart(8, '0');
@@ -183,12 +185,19 @@ export function ActorSchemaFields({ sources, profile, onValuesChange }: Props) {
     {items.map(item => {
       const properties = item.schema.properties ?? {};
       const required = new Set(item.schema.required ?? []);
+      const testKey = item.source.id + ':' + item.actorId;
+      const localTest = testResults[testKey];
+      const currentFingerprint = fingerprint(buildActorInput(item, values, profile));
+      const isEnabled = (localTest?.passed === true && localTest.inputFingerprint === currentFingerprint)
+        || (item.actorStatus === 'enabled' && item.actorInputFingerprint === currentFingerprint);
+      const needsRetest = Boolean(localTest && (!localTest.passed || localTest.inputFingerprint !== currentFingerprint))
+        || (item.actorStatus === 'enabled' && !isEnabled);
       return <div className="tp-prospect-discovery__actor-schema-group" key={item.source.id + ':' + item.actorId}>
         <div className="tp-prospect-discovery__actor-schema-heading">
           <div><strong>{item.source.name}</strong><span>{item.actorTitle}</span></div>
           <div className="tp-prospect-discovery__actor-schema-actions">
-            <Tag type={testResults[item.source.id + ':' + item.actorId]?.passed || (!testResults[item.source.id + ':' + item.actorId] && item.actorStatus === 'enabled') ? 'green' : testResults[item.source.id + ':' + item.actorId] || item.actorStatus === 'failed' ? 'red' : 'blue'}>
-              {testResults[item.source.id + ':' + item.actorId]?.passed || (!testResults[item.source.id + ':' + item.actorId] && item.actorStatus === 'enabled') ? '已通过门禁' : testResults[item.source.id + ':' + item.actorId] || item.actorStatus === 'failed' ? '测试未通过' : '已读取 Schema'}
+            <Tag type={isEnabled ? 'green' : needsRetest || item.actorStatus === 'failed' ? 'red' : 'blue'}>
+              {isEnabled ? '已通过门禁' : needsRetest || item.actorStatus === 'failed' ? '需要重新测试' : '已读取 Schema'}
             </Tag>
             <Button kind="secondary" size="sm" disabled={testingActor === item.source.id + ':' + item.actorId} onClick={() => void runActorTest(item)}>
               {testingActor === item.source.id + ':' + item.actorId ? '正在测试…' : '最小化测试并启用'}
