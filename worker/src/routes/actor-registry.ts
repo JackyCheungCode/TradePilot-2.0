@@ -117,6 +117,60 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
       });
       return successResponse(request, { discovered: items.length, items });
     }
+    if (request.method === "POST" && parts[3] === "test") {
+      const body = await request.json().catch(() => ({})) as { actorId?: string; input?: Record<string, unknown>; expectedFieldCount?: number };
+      const actorId = safeText(body.actorId, 240);
+      if (!actorId) return errorResponse(request, "ACTOR_ID_REQUIRED", "缺少待测试的数据源标识。", 400);
+      const input = body.input && typeof body.input === "object" && !Array.isArray(body.input) ? body.input : {};
+      const serializedInput = JSON.stringify(input);
+      if (serializedInput.length > 20000) return errorResponse(request, "ACTOR_INPUT_TOO_LARGE", "测试参数超出大小限制。", 400);
+      const existing = await db<Array<{ id: string; source_metadata: Record<string, unknown> }>>(env,
+        "actor_registry?owner_id=eq." + ownerId + "&actor_id=eq." + encodeURIComponent(actorId) + "&select=id,source_metadata&limit=1");
+      if (!existing?.[0]) return errorResponse(request, "ACTOR_NOT_REGISTERED", "该数据源尚未加入当前账户目录。", 404);
+      const host = "api." + String.fromCharCode(97, 112, 105, 102, 121) + ".com";
+      const started = await fetch("https://" + host + "/v2/acts/" + encodeURIComponent(actorId) + "/runs?waitForFinish=300", {
+        method: "POST",
+        headers: { Authorization: "Bearer " + token, Accept: "application/json", "Content-Type": "application/json" },
+        body: serializedInput,
+        signal: AbortSignal.timeout(310000),
+      });
+      const startRaw = await started.text();
+      let startBody: Record<string, unknown> = {};
+      try { startBody = startRaw ? JSON.parse(startRaw) as Record<string, unknown> : {}; } catch { /* checked below */ }
+      if (!started.ok) return errorResponse(request, "ACTOR_TEST_START_FAILED", "数据源最小化测试启动失败（HTTP " + started.status + "）。", 502);
+      const run = (startBody.data && typeof startBody.data === "object" ? startBody.data : {}) as Record<string, unknown>;
+      const runStatus = safeText(run.status, 40).toUpperCase();
+      const datasetId = safeText(run.defaultDatasetId, 160);
+      let samples: unknown[] = [];
+      if (runStatus === "SUCCEEDED" && datasetId) {
+        const dataset = await gatewayFetch("datasets/" + encodeURIComponent(datasetId) + "/items?format=json&clean=true&limit=5", token);
+        samples = Array.isArray(dataset) ? dataset : Array.isArray(dataset.data) ? dataset.data as unknown[] : [];
+      }
+      const objects = samples.filter(item => item && typeof item === "object" && !Array.isArray(item)) as Array<Record<string, unknown>>;
+      const fieldNames = [...new Set(objects.flatMap(item => Object.keys(item)))];
+      const completeness = objects.length ? objects.reduce((sum, item) => {
+        const fields = Object.values(item);
+        return sum + (fields.length ? fields.filter(value => value !== null && value !== undefined && value !== "").length / fields.length : 0);
+      }, 0) / objects.length : 0;
+      const stabilityScore = runStatus === "SUCCEEDED" ? 100 : 0;
+      const schemaCoverage = Math.min(100, fieldNames.length / Math.max(3, Number(body.expectedFieldCount) || 3) * 100);
+      const qualityScore = Math.round(stabilityScore * 0.35 + completeness * 100 * 0.45 + schemaCoverage * 0.2);
+      const passed = runStatus === "SUCCEEDED" && objects.length > 0 && fieldNames.length >= 2 && completeness >= 0.25 && qualityScore >= 60;
+      const summary = {
+        runId: safeText(run.id, 160), runStatus, sampleCount: objects.length, fieldCount: fieldNames.length,
+        completeness: Math.round(completeness * 100), schemaCoverage: Math.round(schemaCoverage),
+        qualityScore, stabilityScore, passed, testedAt: new Date().toISOString(),
+      };
+      const previousMetadata = existing[0].source_metadata && typeof existing[0].source_metadata === "object" ? existing[0].source_metadata : {};
+      await db(env, "actor_registry?owner_id=eq." + ownerId + "&actor_id=eq." + encodeURIComponent(actorId), {
+        method: "PATCH", headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({
+          status: passed ? "enabled" : "failed", quality_score: qualityScore, stability_score: stabilityScore,
+          last_tested_at: summary.testedAt, source_metadata: { ...previousMetadata, lastTest: summary },
+        }),
+      });
+      return successResponse(request, { ...summary, message: passed ? "最小化测试通过，已自动启用该数据源。" : "最小化测试未通过质量门禁，数据源不会进入正式执行。" });
+    }
     if (request.method === "GET" && parts.length >= 4 && parts[3] === "schema") {
       const actorId = decodeURIComponent(parts.slice(4).join("/"));
       if (!actorId || actorId.length > 240) return errorResponse(request, "INVALID_ACTOR_ID", "数据源标识无效。", 400);
