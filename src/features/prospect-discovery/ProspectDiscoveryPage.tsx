@@ -333,8 +333,8 @@ export function ProspectDiscoveryPage() {
           <p>将商业意图转化为可执行的全球获客搜索策略。</p>
         </div>
         <div className="tp-prospect-discovery__header-meta">
-          <span>STEP 01 / 06</span>
-          <strong>Target Profiling</strong>
+          <span>STEP {String(selectedIndex + 1).padStart(2, '0')} / 06</span>
+          <strong>{selectedIndex === 0 ? 'Target Profiling' : selectedIndex === 1 ? 'Platform & Source Selection' : steps[selectedIndex]}</strong>
         </div>
       </header>
 
