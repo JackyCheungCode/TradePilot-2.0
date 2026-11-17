@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import {
   Accordion, AccordionItem, Button, CodeSnippet, Column, CopyButton, Dropdown, Grid,
   InlineNotification, Modal, OverflowMenu, OverflowMenuItem, Pagination, ProgressBar,
   StructuredListBody, StructuredListCell, StructuredListHead, StructuredListRow,
   StructuredListWrapper, Table, TableBatchAction, TableBatchActions, TableBody, TableCell,
-  TableHead, TableHeader, TableRow, TableSelectRow, TableToolbar, TableToolbarContent,
+  TableHead, TableHeader, TableRow, TableSelectAll, TableSelectRow, TableToolbar, TableToolbarContent,
   TableToolbarSearch, Tag, Tile, CarbonIcons,
 } from '@/design-system';
 
@@ -80,6 +80,8 @@ export function ExecutionStep({ profile, sources, onEditStep, onContinueToScorin
   const [confirmStop, setConfirmStop] = useState(false);
   const [search, setSearch] = useState('');
   const [sourceFilter, setSourceFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [detail, setDetail] = useState<Lead | null>(null);
   const [notice, setNotice] = useState('');
@@ -91,19 +93,20 @@ export function ExecutionStep({ profile, sources, onEditStep, onContinueToScorin
     } catch { return 0; }
   });
   const rowsRef = useRef<Lead[]>([]);
+  const progressRef = useRef(0);
   const sourceList = channels.length ? channels : [{ id: 'google-maps', name: 'Google Maps' }, { id: 'wlw', name: 'WLW 工业黄页' }, { id: 'google-search', name: 'Google Dorks 搜索引擎矩阵' }];
   const allMockRows = useMemo(() => seedRows(sourceList, profile.country || 'DE', profile.coreNoun), [sourceList, profile.country, profile.coreNoun]);
 
   const appendLog = (message: string) => setLogs(current => [...current.slice(-79), '[' + nowTime() + '] ' + message]);
   const resetTask = () => {
-    setStatus('idle'); setProgress(0); setElapsed(0); setCaptured(0); setBlocked(0);
+    setStatus('idle'); progressRef.current = 0; setProgress(0); setElapsed(0); setCaptured(0); setBlocked(0);
     setLeads([]); rowsRef.current = []; setSelectedIds([]); setBlockedIds([]);
     setLogs(['[' + nowTime() + '] [SYSTEM] Execution workspace reset. Ready for a new run.']);
   };
   const startTask = () => {
     if (status === 'completed') resetTask();
     setStatus('running');
-    setProgress(0); setElapsed(0); setCaptured(0); setBlocked(0); setLeads([]); rowsRef.current = [];
+    progressRef.current = 0; setProgress(0); setElapsed(0); setCaptured(0); setBlocked(0); setLeads([]); rowsRef.current = [];
     setSelectedIds([]); setBlockedIds([]);
     setLogs([
       '[' + nowTime() + '] [SYSTEM] Initializing Multi-Channel Execution Engine...',
@@ -115,29 +118,29 @@ export function ExecutionStep({ profile, sources, onEditStep, onContinueToScorin
   useEffect(() => {
     if (status !== 'running') return;
     const timer = window.setInterval(() => {
-      setProgress(current => {
-        const next = Math.min(100, current + 2);
-        const targetCount = Math.floor(next / 100 * allMockRows.length);
-        if (targetCount > rowsRef.current.length) {
-          const additions = allMockRows.slice(rowsRef.current.length, targetCount);
-          rowsRef.current = [...rowsRef.current, ...additions];
-          setLeads(rowsRef.current);
-          setCaptured(targetCount);
-          if (targetCount % 8 < additions.length || targetCount === 128) {
-            const latest = additions[additions.length - 1];
-            if (latest) setLogs(currentLogs => [...currentLogs.slice(-79), '[' + nowTime() + '] [CHANNEL: ' + latest.sourceName + '] Extracted: "' + latest.name + '" (Domain: ' + latest.domain + ')']);
-          }
-          if (targetCount > 0 && targetCount % 16 < additions.length) {
-            setBlocked(value => value + 3);
-            setLogs(currentLogs => [...currentLogs.slice(-79), '[' + nowTime() + '] [GUARDRAIL] Blocked 3 invalid URLs (matched configured exclusion rules).']);
-          }
+      const next = Math.min(100, progressRef.current + 2);
+      progressRef.current = next;
+      setProgress(next);
+      const targetCount = Math.floor(next / 100 * allMockRows.length);
+      if (targetCount > rowsRef.current.length) {
+        const additions = allMockRows.slice(rowsRef.current.length, targetCount);
+        rowsRef.current = [...rowsRef.current, ...additions];
+        setLeads(rowsRef.current);
+        setCaptured(targetCount);
+        if (targetCount % 8 < additions.length || targetCount === 128) {
+          const latest = additions[additions.length - 1];
+          if (latest) setLogs(currentLogs => [...currentLogs.slice(-79), '[' + nowTime() + '] [CHANNEL: ' + latest.sourceName + '] Extracted: "' + latest.name + '" (Domain: ' + latest.domain + ')']);
         }
-        if (next >= 100) {
-          setStatus('completed');
-          setLogs(currentLogs => [...currentLogs.slice(-78), '[' + nowTime() + '] [SYSTEM] All channel workers completed. 128 raw leads captured; 42 invalid links blocked.']);
+        if (targetCount > 0 && targetCount % 16 < additions.length) {
+          setBlocked(value => value + 3);
+          setLogs(currentLogs => [...currentLogs.slice(-79), '[' + nowTime() + '] [GUARDRAIL] Blocked 3 invalid URLs (matched configured exclusion rules).']);
         }
-        return next;
-      });
+      }
+      if (next >= 100) {
+        setBlocked(42);
+        setStatus('completed');
+        setLogs(currentLogs => [...currentLogs.slice(-78), '[' + nowTime() + '] [SYSTEM] All channel workers completed. 128 raw leads captured; 42 invalid links blocked.']);
+      }
       setElapsed(value => value + 1);
     }, 1000);
     return () => window.clearInterval(timer);
@@ -148,7 +151,8 @@ export function ExecutionStep({ profile, sources, onEditStep, onContinueToScorin
     const textMatch = !term || lead.name.toLocaleLowerCase().includes(term) || lead.domain.toLocaleLowerCase().includes(term);
     return textMatch && (sourceFilter === 'all' || lead.sourceId === sourceFilter);
   }), [leads, search, sourceFilter]);
-  const selectedVisible = filteredLeads.filter(lead => selectedIds.includes(lead.id));
+  const selectedRows = leads.filter(lead => selectedIds.includes(lead.id));
+  const visibleLeads = filteredLeads.slice((page - 1) * pageSize, page * pageSize);
   const elapsedText = '00:' + String(Math.floor(elapsed / 60)).padStart(2, '0') + ':' + String(elapsed % 60).padStart(2, '0');
   const remaining = status === 'completed' ? '00:00' : '00:' + String(Math.max(0, Math.ceil((100 - progress) / 2))).padStart(2, '0');
   const progressStatus = status === 'completed' ? 'finished' : status === 'paused' ? 'active' : 'active';
@@ -159,7 +163,7 @@ export function ExecutionStep({ profile, sources, onEditStep, onContinueToScorin
   });
 
   const toggleOne = (id: string) => setSelectedIds(current => current.includes(id) ? current.filter(value => value !== id) : [...current, id]);
-  const toggleVisible = () => setSelectedIds(current => filteredLeads.every(lead => current.includes(lead.id)) ? current.filter(id => !filteredLeads.some(lead => lead.id === id)) : [...new Set([...current, ...filteredLeads.map(lead => lead.id)])]);
+  const toggleVisible = () => setSelectedIds(current => visibleLeads.every(lead => current.includes(lead.id)) ? current.filter(id => !visibleLeads.some(lead => lead.id === id)) : [...new Set([...current, ...visibleLeads.map(lead => lead.id)])]);
   const exportCsv = (items: Lead[]) => {
     const columns = ['name','domain','country','sourceName','query','employees','shield','email','phone','address'];
     const escape = (value: string) => '"' + String(value ?? '').replace(/"/g, '""') + '"';
@@ -263,22 +267,22 @@ export function ExecutionStep({ profile, sources, onEditStep, onContinueToScorin
         <TableToolbar>
           <TableBatchActions shouldShowBatchActions={selectedIds.length > 0} totalSelected={selectedIds.length} onCancel={() => setSelectedIds([])}>
             <TableBatchAction tabIndex={0} renderIcon={CarbonIcons.Delete} onClick={addToBlacklist}>批量移出 / 拉黑</TableBatchAction>
-            <TableBatchAction tabIndex={0} renderIcon={CarbonIcons.Download} onClick={() => exportCsv(selectedVisible)}>导出选中 (.csv)</TableBatchAction>
+            <TableBatchAction tabIndex={0} renderIcon={CarbonIcons.Download} onClick={() => exportCsv(selectedRows)}>导出选中 (.csv)</TableBatchAction>
             <TableBatchAction tabIndex={0} renderIcon={CarbonIcons.MagicWand} onClick={sendToScoring}>送入第五步 AI 打分</TableBatchAction>
           </TableBatchActions>
           <TableToolbarContent>
-            <TableToolbarSearch persistent value={search} onChange={(event: React.ChangeEvent<HTMLInputElement>) => setSearch(event.target.value)} placeholder="搜索企业名称或域名" />
-            <Dropdown id="execution-source-filter" titleText="获客来源" label="全部来源" items={[{ id: 'all', text: '全部来源' }, ...sourceList.map(item => ({ id: item.id, text: item.name }))]} itemToString={item => item?.text ?? ''} selectedItem={[{ id: 'all', text: '全部来源' }, ...sourceList.map(item => ({ id: item.id, text: item.name }))].find(item => item.id === sourceFilter) ?? { id: 'all', text: '全部来源' }} onChange={({ selectedItem }) => setSourceFilter(selectedItem?.id ?? 'all')} />
+            <TableToolbarSearch persistent value={search} onChange={(event: ChangeEvent<HTMLInputElement>) => { setSearch(event.target.value); setPage(1); }} placeholder="搜索企业名称或域名" />
+            <Dropdown id="execution-source-filter" titleText="获客来源" label="全部来源" items={[{ id: 'all', text: '全部来源' }, ...sourceList.map(item => ({ id: item.id, text: item.name }))]} itemToString={item => item?.text ?? ''} selectedItem={[{ id: 'all', text: '全部来源' }, ...sourceList.map(item => ({ id: item.id, text: item.name }))].find(item => item.id === sourceFilter) ?? { id: 'all', text: '全部来源' }} onChange={({ selectedItem }) => { setSourceFilter(selectedItem?.id ?? 'all'); setPage(1); }} />
           </TableToolbarContent>
         </TableToolbar>
         <div className="tp-execution__table-scroll">
           <Table size="lg" useZebraStyles={false}>
             <TableHead><TableRow>
-              <TableSelectRow id="execution-select-all" checked={filteredLeads.length > 0 && filteredLeads.every(lead => selectedIds.includes(lead.id))} indeterminate={filteredLeads.some(lead => selectedIds.includes(lead.id)) && !filteredLeads.every(lead => selectedIds.includes(lead.id))} onChange={toggleVisible} />
+              <TableSelectAll id="execution-select-all" checked={visibleLeads.length > 0 && visibleLeads.every(lead => selectedIds.includes(lead.id))} indeterminate={visibleLeads.some(lead => selectedIds.includes(lead.id)) && !visibleLeads.every(lead => selectedIds.includes(lead.id))} onSelect={toggleVisible} />
               {['企业名称','官方网址','目标国家','获客来源与路径','基础规模','护盾状态','操作'].map(item => <TableHeader key={item}>{item}</TableHeader>)}
             </TableRow></TableHead>
             <TableBody>
-              {filteredLeads.map(lead => <TableRow key={lead.id}>
+              {visibleLeads.map(lead => <TableRow key={lead.id}>
                 <TableSelectRow id={'select-' + lead.id} checked={selectedIds.includes(lead.id)} onChange={() => toggleOne(lead.id)} />
                 <TableCell><Button kind="ghost" size="sm" className="tp-execution__company-button" onClick={() => setDetail(lead)}>{lead.name}</Button></TableCell>
                 <TableCell><a href={'https://' + lead.domain} target="_blank" rel="noreferrer">{lead.domain} <CarbonIcons.ArrowUpRight size={12}/></a></TableCell>
@@ -296,7 +300,7 @@ export function ExecutionStep({ profile, sources, onEditStep, onContinueToScorin
             </TableBody>
           </Table>
         </div>
-        <div className="tp-execution__pagination"><Pagination id="execution-leads-pagination" page={1} pageSize={20} pageSizes={[20]} totalItems={filteredLeads.length} onChange={() => undefined} /></div>
+        <div className="tp-execution__pagination"><Pagination id="execution-leads-pagination" page={page} pageSize={pageSize} pageSizes={[10, 20, 50]} totalItems={filteredLeads.length} onChange={({ page: nextPage, pageSize: nextPageSize }) => { setPage(nextPage); setPageSize(nextPageSize); }} /></div>
         {blockedIds.length > 0 && <p className="tp-execution__helper">当前会话已模拟移出 / 拉黑 {blockedIds.length} 条记录；未写入数据库。</p>}
       </Tile>
 
