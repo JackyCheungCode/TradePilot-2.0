@@ -964,3 +964,17 @@
   flex-wrap: wrap;
   gap: .5rem;
 }
+
+.tp-prospect-discovery__platform-status.is-actor {
+  background: var(--cds-support-info);
+}
+.tp-prospect-discovery__selection-warning {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  padding: .75rem 1rem;
+  margin-block: .75rem;
+  background: var(--cds-layer-accent);
+  color: var(--cds-text-secondary);
+  font-size: .8125rem;
+}
