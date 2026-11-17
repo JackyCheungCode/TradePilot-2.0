@@ -52,7 +52,7 @@ const websiteRuleTypes = [
   { value: 'pattern', text: 'URL 模式（Pattern）' },
 ];
 const exclusionActions = [
-  { value: 'company', text: '拦截企业' }, { value: 'page', text: '跳过页面' }, { value: 'result', text: '跳过搜索结果' },
+  { value: 'company', text: '拦截企业（后续接入）' }, { value: 'page', text: '跳过页面（后续接入）' }, { value: 'result', text: '跳过当前搜索结果（已启用）' },
 ];
 
 const emptyRules: RuleSet = {
@@ -73,7 +73,7 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
   const [websiteValue, setWebsiteValue] = useState('');
   const [websiteRows, setWebsiteRows] = useState<Array<{ type: string; value: string }>>([]);
   const [scope, setScope] = useState('task');
-  const [keywordAction, setKeywordAction] = useState('page');
+  const [keywordAction, setKeywordAction] = useState('result');
   const [doNotContact, setDoNotContact] = useState(true);
   const [excludeInternalStaff, setExcludeInternalStaff] = useState(false);
   const [excludeCompetitorStaff, setExcludeCompetitorStaff] = useState(false);
@@ -106,7 +106,7 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
         if (value.selectedWebsiteTypes) setSelectedWebsiteTypes(value.selectedWebsiteTypes);
         if (value.excludedCountries) setExcludedCountries(value.excludedCountries);
         if (value.contactEntries) setContactEntries(value.contactEntries);
-        if (value.keywordAction) setKeywordAction(value.keywordAction);
+        if (value.keywordAction) setKeywordAction('result');
         if (typeof value.doNotContact === 'boolean') setDoNotContact(value.doNotContact);
         if (typeof value.excludeInternalStaff === 'boolean') setExcludeInternalStaff(value.excludeInternalStaff);
         if (typeof value.excludeCompetitorStaff === 'boolean') setExcludeCompetitorStaff(value.excludeCompetitorStaff);
@@ -243,10 +243,10 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
           <span className="tp-guardrails__field-label">命中后的处理动作</span>
           <div className="tp-guardrails__choice-row">
             <RadioButtonGroup legendText="命中后的处理动作" name="tp-guardrails-keyword-action" valueSelected={keywordAction} onChange={value => setKeywordAction(String(value))}>
-            {exclusionActions.map(item => <RadioButton key={item.value} id={'tp-guardrails-action-' + item.value} value={item.value} labelText={item.text} />)}
+            {exclusionActions.map(item => <RadioButton key={item.value} id={'tp-guardrails-action-' + item.value} value={item.value} labelText={item.text} disabled={item.value !== 'result'} />)}
           </RadioButtonGroup>
           </div>
-          <p className="tp-guardrails__helper">当前已接入渠道按候选记录级别执行拦截；企业级跨记录封锁及页面级、结果级差异化处理尚未接入。</p>
+          <p className="tp-guardrails__helper">当前已接入渠道仅启用“跳过当前搜索结果”。企业级跨记录封锁和页面级处理暂不开放，避免显示未生效的选项。</p>
         </div>
       </div>
 
