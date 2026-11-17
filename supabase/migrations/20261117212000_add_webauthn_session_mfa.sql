@@ -4,12 +4,6 @@ create schema if not exists private;
 revoke all on schema private from public, anon, authenticated;
 grant usage on schema private to authenticated;
 
-create table if not exists private.webauthn_settings (
-  user_id uuid primary key references auth.users(id) on delete cascade,
-  enabled boolean not null default false,
-  updated_at timestamptz not null default now()
-);
-
 create table if not exists private.webauthn_credentials (
   credential_id text primary key,
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -51,7 +45,7 @@ create table if not exists private.webauthn_session_grants (
 create index if not exists webauthn_session_grants_expiry_idx
   on private.webauthn_session_grants(expires_at);
 
-alter table private.webauthn_settings enable row level security;
+alter table private.webauthn_mfa_preferences enable row level security;
 alter table private.webauthn_credentials enable row level security;
 alter table private.webauthn_challenges enable row level security;
 alter table private.webauthn_session_grants enable row level security;
@@ -61,7 +55,7 @@ grant all on all tables in schema private to service_role;
 create or replace function public.tradepilot_webauthn_is_enabled(p_user_id uuid)
 returns boolean language sql stable security definer set search_path = ''
 as $$
-  select coalesce((select s.enabled from private.webauthn_settings s where s.user_id = p_user_id), false);
+  select coalesce((select s.enabled from private.webauthn_mfa_preferences s where s.user_id = p_user_id), false);
 $$;
 
 create or replace function public.tradepilot_webauthn_get_credentials(p_user_id uuid)
@@ -133,7 +127,7 @@ begin
   ) then
     raise exception 'cannot enable WebAuthn MFA without an active credential';
   end if;
-  insert into private.webauthn_settings(user_id,enabled,updated_at)
+  insert into private.webauthn_mfa_preferences(user_id,enabled,updated_at)
   values(p_user_id,p_enabled,now())
   on conflict(user_id) do update set enabled=excluded.enabled, updated_at=now();
   if not p_enabled then
@@ -174,7 +168,7 @@ begin
   insert into private.webauthn_session_grants(user_id,session_id,credential_id,expires_at,revoked_at)
   values(p_user_id,p_session_id,p_credential_id,p_expires_at,null)
   on conflict(user_id,session_id) do update
-    set credential_id=excluded.credential_id,expires_at=excluded.expires_at,revoked_at=null,created_at=now();
+    set credential_id=excluded.credential_id,expires_at=excluded.expires_at,revoked_at=null,granted_at=now();
 end;
 $$;
 
@@ -203,7 +197,7 @@ begin
     update private.webauthn_session_grants set revoked_at=coalesce(revoked_at,now())
     where user_id=p_user_id and credential_id=p_credential_id;
     if not exists (select 1 from private.webauthn_credentials c where c.user_id=p_user_id and c.revoked_at is null) then
-      update private.webauthn_settings set enabled=false,updated_at=now() where user_id=p_user_id;
+      update private.webauthn_mfa_preferences set enabled=false,updated_at=now() where user_id=p_user_id;
       update private.webauthn_session_grants set revoked_at=coalesce(revoked_at,now()) where user_id=p_user_id;
     end if;
   end if;
@@ -217,7 +211,7 @@ as $$
   select case
     when auth.uid() is null then false
     when not coalesce((
-      select s.enabled from private.webauthn_settings s where s.user_id=auth.uid()
+      select s.enabled from private.webauthn_mfa_preferences s where s.user_id=auth.uid()
     ),false) then true
     else exists (
       select 1
@@ -241,6 +235,8 @@ revoke all on function public.tradepilot_webauthn_update_counter(uuid,text,bigin
 revoke all on function public.tradepilot_webauthn_grant_session(uuid,uuid,text,timestamptz) from public, anon, authenticated;
 revoke all on function public.tradepilot_webauthn_has_grant(uuid,uuid) from public, anon, authenticated;
 revoke all on function public.tradepilot_webauthn_revoke_credential(uuid,text) from public, anon, authenticated;
+revoke all on function public.tradepilot_webauthn_is_enabled(uuid) from public, anon, authenticated;
+revoke all on function public.tradepilot_webauthn_has_grant(uuid,uuid) from public, anon, authenticated;
 grant execute on function public.tradepilot_webauthn_is_enabled(uuid) to service_role;
 grant execute on function public.tradepilot_webauthn_get_credentials(uuid) to service_role;
 grant execute on function public.tradepilot_webauthn_store_challenge(uuid,uuid,text,text,timestamptz) to service_role;
@@ -251,37 +247,13 @@ grant execute on function public.tradepilot_webauthn_update_counter(uuid,text,bi
 grant execute on function public.tradepilot_webauthn_grant_session(uuid,uuid,text,timestamptz) to service_role;
 grant execute on function public.tradepilot_webauthn_has_grant(uuid,uuid) to service_role;
 grant execute on function public.tradepilot_webauthn_revoke_credential(uuid,text) to service_role;
+grant execute on function public.tradepilot_webauthn_is_enabled(uuid) to service_role;
+grant execute on function public.tradepilot_webauthn_has_grant(uuid,uuid) to service_role;
 
 revoke all on function private.tradepilot_webauthn_session_authorized() from public, anon;
 grant execute on function private.tradepilot_webauthn_session_authorized() to authenticated;
 
--- Restrictive policies are additive to the existing ownership policies: they can only
--- reduce access, and only apply to authenticated users on tables already using RLS.
-do $$
-declare r record;
-begin
-  for r in
-    select distinct t.tablename
-    from pg_tables t
-    join pg_policies p on p.schemaname=t.schemaname and p.tablename=t.tablename
-    where t.schemaname='public'
-      and exists (
-        select 1 from pg_policies p2
-        where p2.schemaname=t.schemaname and p2.tablename=t.tablename
-          and ('authenticated'=any(p2.roles) or 'public'=any(p2.roles))
-      )
-  loop
-    execute format(
-      'drop policy if exists %I on public.%I',
-      'tradepilot_webauthn_session_gate', r.tablename
-    );
-    execute format(
-      'create policy %I on public.%I as restrictive for all to authenticated using ((select private.tradepilot_webauthn_session_authorized())) with check ((select private.tradepilot_webauthn_session_authorized()))',
-      'tradepilot_webauthn_session_gate', r.tablename
-    );
-  end loop;
-end;
-$$;
+-- The preceding migration already installs the restrictive session policy on all public RLS tables.
 
 -- Storage is a separate exposed API surface; apply the same session gate where
 -- authenticated users already have object policies.
