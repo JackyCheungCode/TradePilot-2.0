@@ -9,7 +9,7 @@ type SchemaField = {
 };
 type ActorSchema = { properties?: Record<string, SchemaField>; required?: string[]; translatedProperties?: Record<string, { titleZh?: string; descriptionZh?: string; usageZh?: string; translationStatus?: string }> };
 type LoadedSchema = { source: Source; actorId: string; actorTitle: string; actorStatus?: string; actorQualityScore?: number | null; schema: ActorSchema };
-type Props = { sources: Source[]; onValuesChange: (values: Record<string, unknown>) => void };
+type Props = { sources: Source[]; profile: { coreNoun: string; country: string; countryName: string; city: string }; onValuesChange: (values: Record<string, unknown>) => void };
 
 async function api(path: string, token: string, init: RequestInit = {}) {
   const response = await fetch(path, { ...init, headers: { Authorization: 'Bearer ' + token, Accept: 'application/json', ...(init.body ? { 'Content-Type': 'application/json' } : {}), ...init.headers } });
@@ -34,7 +34,7 @@ function suitability(actor: Record<string, unknown>, source: Source) {
   return match * 40 + Math.log10(Math.max(0, users) + 1) * 12 + Math.log10(Math.max(0, runs) + 1) * 16 + rating * 8;
 }
 
-export function ActorSchemaFields({ sources, onValuesChange }: Props) {
+export function ActorSchemaFields({ sources, profile, onValuesChange }: Props) {
   const [items, setItems] = useState<LoadedSchema[]>([]);
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [expandedHelp, setExpandedHelp] = useState<Record<string, boolean>>({});
@@ -86,7 +86,7 @@ export function ActorSchemaFields({ sources, onValuesChange }: Props) {
         }
       }
       const test = testResults[item.source.id + ':' + item.actorId];
-      return { sourceId: item.source.id, sourceName: item.source.name, actorId: item.actorId, actorTitle: item.actorTitle, status: test?.passed ? 'enabled' : item.actorStatus, input };
+      return { sourceId: item.source.id, sourceName: item.source.name, actorId: item.actorId, actorTitle: item.actorTitle, status: test?.passed ? 'enabled' : item.actorStatus, schemaKeys: Object.keys(item.schema.properties ?? {}), input };
     }),
   }), [values, items, testResults]);
   useEffect(() => { onValuesChange(actorParameters); }, [actorParameters, onValuesChange]);
@@ -115,7 +115,7 @@ export function ActorSchemaFields({ sources, onValuesChange }: Props) {
       }
       const result = await api('/api/v1/actor-registry/test', token, {
         method: 'POST',
-        body: JSON.stringify({ actorId: item.actorId, input, expectedFieldCount: Object.keys(item.schema.properties ?? {}).length }),
+        body: JSON.stringify({ actorId: item.actorId, input, profile, expectedFieldCount: Object.keys(item.schema.properties ?? {}).length }),
       }) as { passed?: boolean; qualityScore?: number; message?: string };
       setTestResults(current => ({ ...current, [testKey]: { passed: result.passed === true, qualityScore: result.qualityScore, message: result.message || '测试完成' } }));
     } catch (e) {
