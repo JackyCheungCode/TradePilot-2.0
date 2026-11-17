@@ -1,5 +1,6 @@
 import { readIntegrationSecret } from "../lib/integrations";
 import { buildLeadDedupeKey, normalizeWebsiteHost } from "../lib/deduplication";
+import { evaluateGuardrails, getDuplicatePolicy } from "../lib/guardrails";
 import type { DiscoveryEnv, DiscoveryRunInput } from "./discovery";
 
 type ActorExecution = NonNullable<DiscoveryRunInput["actorExecutions"]>[number];
@@ -78,10 +79,19 @@ async function persistRaw(env: DiscoveryEnv, ownerId: string, runId: string, act
     }),
   });
 }
-async function persistCanonical(env: DiscoveryEnv, ownerId: string, runId: string, actor: ActorExecution, actorRunId: string, itemIndex: number, raw: RawItem, countryCode: string): Promise<boolean> {
+async function persistCanonical(env: DiscoveryEnv, ownerId: string, runId: string, actor: ActorExecution, actorRunId: string, itemIndex: number, raw: RawItem, countryCode: string, guardrailsSnapshot: unknown, keyword: string): Promise<boolean> {
   const item = normalizeItem(raw, countryCode);
   if (!item.name) return false;
+  const guardrail = evaluateGuardrails({
+    name: item.name, country: item.countryCode, address: item.address, website: item.website,
+    phone: item.phone, email: item.email, businessType: item.businessType, raw,
+  }, guardrailsSnapshot);
+  if (guardrail.blocked) return false;
   const dedupeKey = buildLeadDedupeKey({ countryCode, name: item.name, website: item.website, phone: item.phone, latitude: item.latitude, longitude: item.longitude });
+  const previousRows = await db<Array<Record<string, unknown>>>(env,
+    "discovery_records?owner_id=eq." + ownerId + "&channel=eq.actor_discovery&dedupe_key=eq." + encodeURIComponent(dedupeKey) + "&select=id,address,phone,email,website,business_type,confidence_score,raw_data&limit=1");
+  const previous = previousRows?.[0] ?? {};
+  const duplicatePolicy = getDuplicatePolicy(guardrailsSnapshot);
   const entities = await db<Array<{ id: string }>>(env, "discovery_entities?on_conflict=owner_id,dedupe_key", {
     method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" },
     body: JSON.stringify({ owner_id: ownerId, entity_type: "business", display_name: item.name, dedupe_key: dedupeKey, attributes: { country_code: countryCode } }),
@@ -92,18 +102,24 @@ async function persistCanonical(env: DiscoveryEnv, ownerId: string, runId: strin
     entityId = existingEntity?.[0]?.id;
   }
   if (!entityId) throw new Error("ACTOR_ENTITY_UPSERT_FAILED");
-  const rawData = { ...raw, _source: { actorId: actor.actorId, actorRunId, sourceId: actor.sourceId, sourceName: actor.sourceName } };
-  const rows = await db<Array<{ id: string }>>(env, "discovery_records?on_conflict=owner_id,channel,dedupe_key", {
+  const rawData = {
+    ...(previous.raw_data && typeof previous.raw_data === "object" ? previous.raw_data as Record<string, unknown> : {}),
+    ...raw, _source: { actorId: actor.actorId, actorRunId, sourceId: actor.sourceId, sourceName: actor.sourceName },
+    ...(guardrail.review ? { guardrail_review_required: true, guardrail_reasons: guardrail.reasons } : {}),
+    ...(duplicatePolicy === "review" && previous.id ? { duplicate_review_required: true } : {}),
+  };
+  let recordId = duplicatePolicy === "skip" && typeof previous.id === "string" ? previous.id : undefined;
+  const rows = recordId ? [] : await db<Array<{ id: string }>>(env, "discovery_records?on_conflict=owner_id,channel,dedupe_key", {
     method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" },
     body: JSON.stringify({
       owner_id: ownerId, channel: "actor_discovery", record_type: "business", entity_id: entityId,
-      name: item.name, country_code: countryCode, address: item.address, phone: item.phone, email: item.email,
-      website: item.website, business_type: item.businessType,
-      confidence_score: Math.min(100, 45 + [item.website, item.email, item.phone, item.address, item.businessType].filter(Boolean).length * 10),
+      name: item.name, country_code: countryCode, address: item.address ?? previous.address ?? null, phone: item.phone ?? previous.phone ?? null, email: item.email ?? previous.email ?? null,
+      website: item.website ?? previous.website ?? null, business_type: item.businessType ?? previous.business_type ?? null,
+      confidence_score: Math.max(Number(previous.confidence_score ?? 0), Math.min(100, 45 + [item.website, item.email, item.phone, item.address, item.businessType].filter(Boolean).length * 10)),
       latitude: item.latitude, longitude: item.longitude, dedupe_key: dedupeKey, raw_data: rawData,
     }),
   });
-  let recordId = rows?.[0]?.id;
+  recordId = recordId ?? rows?.[0]?.id;
   if (!recordId) {
     const existing = await db<Array<{ id: string }>>(env, "discovery_records?owner_id=eq." + ownerId + "&channel=eq.actor_discovery&dedupe_key=eq." + encodeURIComponent(dedupeKey) + "&select=id&limit=1");
     recordId = existing?.[0]?.id;
@@ -113,7 +129,7 @@ async function persistCanonical(env: DiscoveryEnv, ownerId: string, runId: strin
     method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
     body: JSON.stringify({
       owner_id: ownerId, record_id: recordId, run_id: runId, provider: "actor_gateway",
-      keyword: actor.sourceName, external_id: actorRunId + ":" + itemIndex,
+      keyword, external_id: actorRunId + ":" + itemIndex,
       source_url: item.sourceUrl, license: null, attribution: actor.actorTitle ?? actor.actorId, raw_data: rawData,
     }),
   });
@@ -159,7 +175,7 @@ export async function processActorDiscoveryRun(env: DiscoveryEnv, runId: string,
         const raw = asObject(items[itemIndex]);
         await persistRaw(env, ownerId, runId, actor, actorRunId, datasetId, itemIndex, raw);
         discovered++;
-        if (await persistCanonical(env, ownerId, runId, actor, actorRunId, itemIndex, raw, countryCode)) { created++; actorCreated++; }
+        if (await persistCanonical(env, ownerId, runId, actor, actorRunId, itemIndex, raw, countryCode, input.guardrailsSnapshot, input.query)) { created++; actorCreated++; }
       }
       await log(env, runId, ownerId, "info", actor.sourceName + " 完成：读取 " + items.length + " 条原始记录，归一化 " + actorCreated + " 条企业记录。");
     } catch (error) {
