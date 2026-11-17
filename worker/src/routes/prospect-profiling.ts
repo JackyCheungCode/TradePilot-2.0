@@ -90,3 +90,31 @@ export async function handleProspectStrategy(request: Request, env: Env): Promis
     return errorResponse(request, "AI_STRATEGY_UNAVAILABLE", error instanceof Error ? error.message.slice(0, 180) : "AI 获客策略生成失败，请检查模型配置。", 502);
   }
 }
+
+
+export async function handleProspectCities(request: Request, env: Env): Promise<Response> {
+  if (request.method !== "GET") return errorResponse(request, "METHOD_NOT_ALLOWED", "不支持的请求方法。", 405);
+  if (!await authenticated(request, env)) return errorResponse(request, "UNAUTHORIZED", "请先登录 TradePilot。", 401);
+  const url = new URL(request.url);
+  const query = (url.searchParams.get("q") ?? "").trim().slice(0, 80);
+  const country = (url.searchParams.get("country") ?? "").trim().slice(0, 2).toUpperCase();
+  const language = (url.searchParams.get("language") ?? "en").trim().slice(0, 8);
+  if (query.length < 2 || !/^[A-Z]{2}$/.test(country)) return successResponse(request, { cities: [] });
+  try {
+    const endpoint = new URL("https://geocoding-api.open-meteo.com/v1/search");
+    endpoint.searchParams.set("name", query);
+    endpoint.searchParams.set("count", "12");
+    endpoint.searchParams.set("language", language);
+    endpoint.searchParams.set("countryCode", country);
+    const response = await fetch(endpoint, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(8000) });
+    if (!response.ok) throw new Error("CITY_LOOKUP_" + response.status);
+    const payload = await response.json() as { results?: Array<{ name?: string; admin1?: string; country_code?: string }> };
+    const cities = [...new Set((payload.results ?? [])
+      .filter(item => item.name && item.country_code?.toUpperCase() === country)
+      .map(item => item.admin1 && item.admin1 !== item.name ? item.name + ", " + item.admin1 : item.name as string))].slice(0, 12);
+    return successResponse(request, { cities });
+  } catch (error) {
+    console.error("PROSPECT_CITY_LOOKUP_FAILED", String(error).slice(0, 240));
+    return errorResponse(request, "CITY_LOOKUP_UNAVAILABLE", "城市联想暂时不可用，请稍后重试。", 502);
+  }
+}
