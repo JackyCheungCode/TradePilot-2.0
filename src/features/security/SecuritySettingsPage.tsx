@@ -369,7 +369,7 @@ export function SecuritySettingsPage() {
                 {recoveryCodes.length > 0 && (
                   <div className="tp-security__recovery-codes">
                     <p>请立即保存。离开此页面后将无法再次查看：</p>
-                    <code>{recoveryCodes.join('\\n')}</code>
+                    <code>{recoveryCodes.join('\n')}</code>
                     <Button kind="secondary" size="sm" onClick={() => void copyRecoveryCodes()}>复制恢复代码</Button>
                   </div>
                 )}
