@@ -50,7 +50,7 @@ function renderTradeDocumentHtml(document:Json,version:Json,storageBaseUrl:strin
   const tableElement=elements.find(element=>element.type==="table"),rowHeight=8,maxRows=tableElement?Math.max(1,Math.floor(Number(tableElement.height||72)/rowHeight)):18,pageCount=Math.max(1,Math.ceil(items.length/maxRows));
   const renderElement=(element:Json,pageIndex:number)=>{
    const x=Math.max(0,Number(element.x)||0),y=Math.max(0,Number(element.y)||0),width=Math.max(1,Number(element.width)||30),height=Math.max(1,Number(element.height)||8),fontSize=Math.min(72,Math.max(5,Number(element.fontSize)||9)),weight=String(element.fontWeight||"400"),align=["left","center","right"].includes(String(element.align))?String(element.align):"left";
-   const style="left:"+x+"mm;top:"+y+"mm;width:"+width+"mm;min-height:"+height+"mm;font-size:"+fontSize+"pt;font-weight:"+weight+";text-align:"+align+";color:"+htmlEscape(element.color||"#161616")+";background:"+htmlEscape(element.background||"transparent")+";";
+   const style="left:"+x+"mm;top:"+y+"mm;width:"+width+"mm;min-height:"+height+"mm;font-size:"+fontSize+"pt;font-weight:"+weight+";font-family:"+htmlEscape(element.fontFamily||"Arial")+";text-align:"+align+";color:"+htmlEscape(element.color||"#161616")+";background:"+htmlEscape(element.background||"transparent")+";";
    if(element.type==="table"){
     const start=pageIndex*maxRows,part=items.slice(start,start+maxRows);
     const head="<tr><th>#</th><th>SKU / Description</th><th>Quantity</th><th>Unit</th><th>Unit price</th><th>Amount</th></tr>";
