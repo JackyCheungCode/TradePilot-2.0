@@ -277,7 +277,7 @@ export function ExecutionStep({ profile, sources, onEditStep, onContinueToScorin
         <div className="tp-execution__table-scroll">
           <Table size="lg" useZebraStyles={false}>
             <TableHead><TableRow>
-              <TableSelectAll id="execution-select-all" checked={visibleLeads.length > 0 && visibleLeads.every(lead => selectedIds.includes(lead.id))} indeterminate={visibleLeads.some(lead => selectedIds.includes(lead.id)) && !visibleLeads.every(lead => selectedIds.includes(lead.id))} onSelect={toggleVisible} />
+              <TableSelectAll id="execution-select-all" name="execution-select-all" checked={visibleLeads.length > 0 && visibleLeads.every(lead => selectedIds.includes(lead.id))} indeterminate={visibleLeads.some(lead => selectedIds.includes(lead.id)) && !visibleLeads.every(lead => selectedIds.includes(lead.id))} onSelect={toggleVisible} />
               {['企业名称','官方网址','目标国家','获客来源与路径','基础规模','护盾状态','操作'].map(item => <TableHeader key={item}>{item}</TableHeader>)}
             </TableRow></TableHead>
             <TableBody>
