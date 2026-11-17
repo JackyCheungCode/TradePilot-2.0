@@ -27,7 +27,6 @@ export function ScoringStep({ profile, onContinueToEnrichment }: Props) {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [notice, setNotice] = useState('');
-  const [scoring, setScoring] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -84,6 +83,7 @@ export function ScoringStep({ profile, onContinueToEnrichment }: Props) {
   }), [rows, search, source]);
   const visible = filtered.slice((page - 1) * pageSize, page * pageSize);
   const selectedRows = rows.filter(row => selected.includes(row.id));
+  const sourceOptions = useMemo(() => [...new Set(rows.map(row => row.source).filter(Boolean))], [rows]);
   const scoredCount = rows.filter(row => row.status === 'scored').length;
   const toggleOne = (id: string) => setSelected(current => current.includes(id) ? current.filter(value => value !== id) : [...current, id]);
   const togglePage = () => setSelected(current => visible.every(row => current.includes(row.id))
@@ -175,7 +175,7 @@ export function ScoringStep({ profile, onContinueToEnrichment }: Props) {
             <div className="tp-scoring__toolbar">
               <TableToolbarSearch persistent value={search} onChange={(_event, value) => { setSearch(value ?? ''); setPage(1); }} placeholder="搜索企业名称或域名" />
               <div className="tp-scoring__source-filter">
-                <Dropdown id="tp-scoring-source" titleText="获客来源" label="全部来源" items={[{ id: 'all', text: '全部来源' }, ...sourceNames.map(item => ({ id: item, text: item }))]} itemToString={item => item?.text ?? ''} selectedItem={[{ id: 'all', text: '全部来源' }, ...sourceNames.map(item => ({ id: item, text: item }))].find(item => item.id === source) ?? { id: 'all', text: '全部来源' }} onChange={({ selectedItem }) => { setSource(selectedItem?.id ?? 'all'); setPage(1); }} />
+                <Dropdown id="tp-scoring-source" titleText="获客来源" label="全部来源" items={[{ id: 'all', text: '全部来源' }, ...sourceOptions.map(item => ({ id: item, text: item }))]} itemToString={item => item?.text ?? ''} selectedItem={[{ id: 'all', text: '全部来源' }, ...sourceNames.map(item => ({ id: item, text: item }))].find(item => item.id === source) ?? { id: 'all', text: '全部来源' }} onChange={({ selectedItem }) => { setSource(selectedItem?.id ?? 'all'); setPage(1); }} />
               </div>
             </div>
           </TableToolbarContent>
