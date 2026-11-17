@@ -64,7 +64,7 @@ async function enforceWebAuthnSession(request: Request, env: WorkerEnv): Promise
   const userResponse = await fetch(env.SUPABASE_URL + "/auth/v1/user", {
    headers: { apikey: env.SUPABASE_ANON_KEY, Authorization: "Bearer " + token },
   });
-  if (!userResponse.ok) return null;
+  if (!userResponse.ok) return errorResponse(request,"UNAUTHENTICATED","登录会话无效或已过期。",401);
   const user = await userResponse.json() as { id?: string };
   if (!user.id || !/^[0-9a-f-]{36}$/i.test(user.id)) return errorResponse(request,"UNAUTHENTICATED","登录会话无效。",401);
   const jwtPart = token.split(".")[1];
