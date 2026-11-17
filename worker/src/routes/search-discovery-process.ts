@@ -52,7 +52,7 @@ export async function processSearchRun(env:DiscoveryEnv,run:string,owner:string,
  await update(env,run,owner,{status:"running",progress:1,message:"正在连接搜索引擎并执行查询"});
  await log(env,run,owner,"info","关键词："+input.query+"；实际搜索语法："+q+"；国家："+country+"；搜索类型："+types.join("、")+"；搜索引擎："+engines.join("、"));
  for(const job of jobs){try{const found=await search(job.engine,job.type,q,country,hl,input.limitPerCountry,location,env);raw+=found.length;all.push(...found.map(item=>({...job,item})));await log(env,run,owner,found.length?"success":"warning",job.engine+" · "+job.type+" 返回 "+found.length+" 条");}catch(e){failed++;await log(env,run,owner,"warning",job.engine+" · "+job.type+" 失败："+String(e).slice(0,180));}done++;await update(env,run,owner,{progress:Math.max(1,Math.round(done/jobs.length*85)),message:"搜索中 · "+done+"/"+jobs.length+" 个引擎/类型组合"});}
- const unique=new Map<string,{engine:Engine;type:Vertical;item:Result}>();for(const row of all){if(excluded(searchResultExclusionTarget(row),rules))continue;const identity=searchResultIdentity({url:row.item.url,type:row.type,title:row.item.title,raw:row.item.raw});if(!unique.has(identity))unique.set(identity,row);}
+ const unique=new Map<string,{engine:Engine;type:Vertical;item:Result}>();for(const row of all){if(excluded(searchResultExclusionTarget({url:row.item.url,type:row.type,raw:row.item.raw}),rules))continue;const identity=searchResultIdentity({url:row.item.url,type:row.type,title:row.item.title,raw:row.item.raw});if(!unique.has(identity))unique.set(identity,row);}
  const uniqueRows=[...unique.values()];
  let guardrailBlocked=0;
  const allowed=uniqueRows.flatMap(row=>{
