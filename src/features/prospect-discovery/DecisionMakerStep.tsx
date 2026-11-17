@@ -80,6 +80,19 @@ export function DecisionMakerStep({ profile }: Props) {
   const [notice, setNotice] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const jobStorageKey = 'tradepilot.prospect-discovery.contact-enrichment-job.v1';
+
+  useEffect(() => {
+    try {
+      const savedJobId = localStorage.getItem(jobStorageKey);
+      if (savedJobId) {
+        setJobId(savedJobId);
+        setRunning(true);
+        setJobMessage('正在恢复联系人补全任务状态…');
+        setLog('[SYSTEM] 已恢复联系人补全任务引用，正在同步后端状态。');
+      }
+    } catch { /* The persisted backend job remains available even if browser storage is unavailable. */ }
+  }, []);
 
   const loadRecords = async () => {
     const queue = JSON.parse(localStorage.getItem('tradepilot.prospect-discovery.crm-queue.v1') || '[]') as Array<{ id?: string }>;
@@ -118,6 +131,7 @@ export function DecisionMakerStep({ profile }: Props) {
         setLog(current => current + '\n[' + new Date().toLocaleTimeString('en-GB') + '] ' + (job.message || job.status));
         if (['completed', 'partial', 'failed', 'cancelled', 'timed_out'].includes(job.status)) {
           setRunning(false);
+          try { localStorage.removeItem(jobStorageKey); } catch { /* Keep the completed backend job untouched. */ }
           await loadRecords();
           setNotice('联系人采集任务已结束：完成 ' + job.completedCount + ' 条，失败 ' + job.failedCount + ' 条。');
         }
@@ -156,6 +170,7 @@ export function DecisionMakerStep({ profile }: Props) {
       }) as { id: string; status: string; message?: string };
       if (!result.id) throw new Error('服务端未返回联系人补全任务 ID');
       setJobId(result.id); setJobMessage(result.message ?? '联系人补全任务已排队');
+      try { localStorage.setItem(jobStorageKey, result.id); } catch { setNotice('任务已创建，但浏览器无法保存任务引用；请勿关闭页面，任务仍在后端运行。'); }
       setLog(current => current + '\n[TASK CREATED] ' + result.id);
     } catch (error) {
       setRunning(false);
