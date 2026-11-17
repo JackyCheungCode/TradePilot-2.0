@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Button, Checkbox, MultiSelect, Pagination, Search, Tag, CarbonIcons } from '@/design-system';
+import { Button, Checkbox, MultiSelect, Pagination, Search, Select, SelectItem, Tag, CarbonIcons } from '@/design-system';
 
 type Country = { name: { common: string }; cca2: string; region: string };
 type Source = { id: string; name: string; description: string; markets: string[] };
@@ -178,20 +178,22 @@ const platformStatusLabels: Record<PlatformExecutionStatus, string> = {
 };
 
 export function PlatformSelectionStep({
-  countryCode, countryName, continentLabel, countries, onChangeCountry, onSelectionCountChange, selectedIds, onSelectionChange,
+  countryCode, countryName, continentLabel, countries, onChangeCountry, onCountryChange, onSelectionCountChange, selectedIds, onSelectionChange,
 }: {
   countryCode: string; countryName: string; continentLabel: string; countries: Country[];
-  onChangeCountry: () => void; onSelectionCountChange: (count: number) => void;
+  onChangeCountry: () => void; onCountryChange: (country: Country) => void; onSelectionCountChange: (count: number) => void;
   selectedIds?: string[]; onSelectionChange?: (sources: Array<{ id: string; name: string; category?: string }>) => void;
 }) {
   const recommended = useMemo(() => recommendedFor(countryCode).filter(isRunnablePlatform), [countryCode]);
-  const [selected, setSelected] = useState<string[]>(() => selectedIds !== undefined ? selectedIds.filter(isRunnablePlatform) : recommendedFor(countryCode).filter(isRunnablePlatform));
+  const [selected, setSelected] = useState<string[]>(() => countryCode ? (selectedIds !== undefined ? selectedIds.filter(isRunnablePlatform) : recommendedFor(countryCode).filter(isRunnablePlatform)) : []);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedContinents, setSelectedContinents] = useState<string[]>([]);
   const [selectedCountries, setSelectedCountries] = useState<Country[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(defaultPlatformPageSize);
+
+  useEffect(() => { if (!countryCode) setSelected([]); else if (selectedIds === undefined) setSelected(recommendedFor(countryCode).filter(isRunnablePlatform)); }, [countryCode]);
 
   useEffect(() => { onSelectionCountChange(selected.length); onSelectionChange?.(allPlatforms.filter(source => selected.includes(source.id)).map(source => ({ id: source.id, name: source.name, category: source.category }))); }, [selected, onSelectionCountChange, onSelectionChange]);
 
@@ -246,11 +248,20 @@ export function PlatformSelectionStep({
     <div className="tp-prospect-discovery__market-context">
       <span className="tp-prospect-discovery__market-pin"><CarbonIcons.Map size={20}/></span>
       <div className="tp-prospect-discovery__market-copy">
-        <span>当前锁定的目标市场</span>
-        <strong>{continentLabel || '尚未选择大洲'}{countryName ? ' → ' + countryName + ' (' + countryCode + ')' : ' → 尚未选择国家'}</strong>
-        <p>平台目录统一展示；全球通用渠道与本土平台通过覆盖范围参与筛选。</p>
+        <span>先确定目标市场，再匹配可用数据源</span>
+        <strong>{continentLabel || '请选择目标国家'}{countryName ? ' → ' + countryName + ' (' + countryCode + ')' : ' → 目标市场尚未确定'}</strong>
+        <p>国家选择会影响本土平台推荐、覆盖范围和后续采集参数。</p>
       </div>
-      <Button kind="ghost" size="md" renderIcon={CarbonIcons.Edit} onClick={onChangeCountry}>更改国家</Button>
+      <div className="tp-prospect-discovery__market-country">
+        <Select id="tp-source-market-country" labelText="目标国家 / 地区" value={countryCode} onChange={event => {
+          const selectedCountry = countries.find(country => country.cca2 === event.currentTarget.value);
+          if (selectedCountry) onCountryChange(selectedCountry);
+        }}>
+          <SelectItem value="" text="选择目标国家 / 地区" />
+          {countries.map(country => <SelectItem key={country.cca2} value={country.cca2} text={country.name.common} />)}
+        </Select>
+        <Button kind="ghost" size="sm" renderIcon={CarbonIcons.Edit} onClick={onChangeCountry}>完善市场画像</Button>
+      </div>
     </div>
 
     <section className="tp-prospect-discovery__platform-browser">
@@ -314,7 +325,7 @@ export function PlatformSelectionStep({
     </section>
 
     <div className="tp-prospect-discovery__source-selection-note">
-      <span>已选择 {selected.length} 个平台。翻页和调整筛选不会清除已选项目；此步骤不会启动采集任务。</span>
+      <span>已选择 {selected.length} 个已接入平台。目录中的其他平台仅供浏览，未通过执行能力验证前不会启动任务。</span>
       <Button kind="secondary" onClick={() => setSelected(recommended)} disabled={!countryCode}>恢复当前市场智能推荐</Button>
     </div>
   </section>;
