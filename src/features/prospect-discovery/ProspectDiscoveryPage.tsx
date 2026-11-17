@@ -1,3 +1,4 @@
+// Release trigger only; no runtime behavior.
 import { useEffect, useMemo, useState } from 'react';
 import {
   Accordion, AccordionItem, Button, Checkbox, ComboBox, Dropdown, MultiSelect, InlineLoading, InlineNotification,
