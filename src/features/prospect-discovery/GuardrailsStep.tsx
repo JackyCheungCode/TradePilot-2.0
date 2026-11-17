@@ -223,6 +223,7 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
             {exclusionActions.map(item => <RadioButton key={item.value} id={'tp-guardrails-action-' + item.value} value={item.value} labelText={item.text} />)}
           </RadioButtonGroup>
           </div>
+          <p className="tp-guardrails__helper">当前已接入渠道按候选记录级别执行拦截；企业级跨记录封锁及页面级、结果级差异化处理尚未接入。</p>
         </div>
       </div>
 
