@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import type { ChangeEvent } from 'react';
 import {
   Accordion, AccordionItem, Button, Checkbox, FileUploaderButton, InlineNotification,
   MultiSelect, Select, SelectItem, Tag, TextArea, TextInput, Toggle,
@@ -68,6 +69,10 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
   const [websiteValue, setWebsiteValue] = useState('');
   const [websiteRows, setWebsiteRows] = useState<Array<{ type: string; value: string }>>([]);
   const [scope, setScope] = useState('task');
+  const [keywordAction, setKeywordAction] = useState('page');
+  const [doNotContact, setDoNotContact] = useState(true);
+  const [contactEntries, setContactEntries] = useState({ emails: '', phones: '', social: '', addresses: '' });
+  const [excludedCountries, setExcludedCountries] = useState<Array<{ id: string; text: string }>>([]);
   const [employeeFloor, setEmployeeFloor] = useState('');
   const [requireIndependentSite, setRequireIndependentSite] = useState(false);
   const [unknownPolicy, setUnknownPolicy] = useState('pending');
@@ -99,11 +104,12 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
     setWebsiteRows(current => [...current, { type: websiteType, value }]);
     setWebsiteValue('');
   };
-  const importFile = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const importFile = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.currentTarget.files?.[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
+      if (file.name.toLowerCase().endsWith('.xlsx')) { setImportPreview([file.name]); setNotice('已选择 XLSX 文件。当前前端预览仅读取 CSV / TXT 文本；XLSX 字段解析将在后端/导入模块阶段接入。'); return; }
       const lines = String(reader.result ?? '').split(/\\r?\\n/).map(line => line.trim()).filter(Boolean);
       setImportPreview(lines.slice(0, 8));
       setNotice('已读取文件并生成前端预览。确认后可将识别内容加入当前规则；当前版本不会上传文件。');
@@ -120,7 +126,7 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
   };
   const saveLocal = () => {
     try {
-      localStorage.setItem('tradepilot.guardrails.frontend.v1', JSON.stringify({ enabled, rules, websiteRows, scope }));
+      localStorage.setItem('tradepilot.guardrails.frontend.v1', JSON.stringify({ enabled, rules: { ...rules, contacts: Object.values(contactEntries).join('\\n') }, websiteRows, scope, contactEntries, excludedCountries, keywordAction, doNotContact }));
       setNotice('护盾配置已保存在当前浏览器。尚未写入服务器或任务。');
       setError('');
     } catch { setError('浏览器本地保存失败，请检查存储空间。'); }
@@ -183,7 +189,7 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
         <div className="tp-guardrails__field">
           <span className="tp-guardrails__field-label">命中后的处理动作</span>
           <div className="tp-guardrails__choice-row">
-            {exclusionActions.map(action => <Checkbox key={action.value} id={'tp-guardrails-action-' + action.value} labelText={action.text} checked={action.value === 'page'} onChange={() => setNotice('处理动作示意已选中；实际规则执行将在后端阶段接入。')} />)}
+            {exclusionActions.map(item => <Checkbox key={item.value} id={'tp-guardrails-action-' + item.value} labelText={item.text} checked={keywordAction === item.value} onChange={() => setKeywordAction(item.value)} />)}
           </div>
         </div>
       </div>
@@ -212,7 +218,7 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
         </div>
         <div className="tp-guardrails__import">
           <div><strong>批量导入网站排除清单</strong><span>支持 CSV / TXT 文本预览；当前只在浏览器读取，不上传文件。</span></div>
-          <FileUploaderButton accept={['.csv', '.txt']} buttonKind="tertiary" labelText="选择文件" name="tp-guardrails-import" onChange={importFile} />
+          <FileUploaderButton accept={['.csv', '.txt', '.xlsx']} buttonKind="tertiary" buttonLabel="选择文件" name="tp-guardrails-import" onChange={importFile} />
         </div>
         {importPreview.length > 0 && <div className="tp-guardrails__import-preview">
           <strong>导入预览（最多显示前 8 条）</strong>
@@ -239,7 +245,7 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
           <Toggle id="tp-guardrails-geography" labelText="启用地域排除" toggled={enabled.geography} onToggle={value => toggleEnabled('geography', value)} />
         </div>
         <div className="tp-guardrails__field">
-          <MultiSelect id="tp-guardrails-country-exclusion" titleText="排除国家 / 地区" label="选择需要排除的国家或地区" items={countries.map(item => ({ id: item.cca2, text: item.name.common + ' (' + item.cca2 + ')' }))} itemToString={item => item?.text ?? ''} initialSelectedItems={countries.filter(item => item.cca2 === 'CN').map(item => ({ id: item.cca2, text: item.name.common + ' (' + item.cca2 + ')' }))} />
+          <MultiSelect id="tp-guardrails-country-exclusion" titleText="排除国家 / 地区" label="选择需要排除的国家或地区" items={countries.map(item => ({ id: item.cca2, text: item.name.common + ' (' + item.cca2 + ')' }))} itemToString={item => item?.text ?? ''} selectedItems={excludedCountries.length ? excludedCountries : countries.filter(item => item.cca2 === 'CN').map(item => ({ id: item.cca2, text: item.name.common + ' (' + item.cca2 + ')' }))} onChange={({ selectedItems }) => setExcludedCountries(selectedItems ?? [])} />
         </div>
         <TextArea id="tp-guardrails-subregions" labelText="省州 / 城市 / 邮政编码（每行一个）" placeholder={'California\\nOntario\\nDubai\\n10001'} rows={3} value={rules.geography} onChange={event => updateRule('geography', event.currentTarget.value)} />
         <p className="tp-guardrails__helper">地域判定优先依据企业注册地与实际经营地址；IP 和服务器位置仅作辅助证据。</p>
@@ -264,12 +270,12 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
           <Toggle id="tp-guardrails-contacts" labelText="启用联系方式排除" toggled={enabled.contacts} onToggle={value => toggleEnabled('contacts', value)} />
         </div>
         <div className="tp-guardrails__two-col">
-          <TextArea id="tp-guardrails-emails" labelText="邮箱 / 邮箱域名" placeholder={'name@example.com\\nexample.org'} rows={3} />
-          <TextArea id="tp-guardrails-phones" labelText="电话 / WhatsApp 号码" placeholder={'+1 202 555 0100\\n+886 912 345 678'} rows={3} />
-          <TextArea id="tp-guardrails-social" labelText="社交账号 / 个人主页链接" placeholder={'LinkedIn URL\\nFacebook URL\\nInstagram handle'} rows={3} />
-          <TextArea id="tp-guardrails-addresses" labelText="地址 / 其他联系方式" placeholder="输入需要排除的地址或联系方式" rows={3} />
+          <TextArea id="tp-guardrails-emails" labelText="邮箱 / 邮箱域名" placeholder={'name@example.com\\nexample.org'} rows={3} value={contactEntries.emails} onChange={event => setContactEntries(current => ({ ...current, emails: event.currentTarget.value }))} />
+          <TextArea id="tp-guardrails-phones" labelText="电话 / WhatsApp 号码" placeholder={'+1 202 555 0100\\n+886 912 345 678'} rows={3} value={contactEntries.phones} onChange={event => setContactEntries(current => ({ ...current, phones: event.currentTarget.value }))} />
+          <TextArea id="tp-guardrails-social" labelText="社交账号 / 个人主页链接" placeholder={'LinkedIn URL\\nFacebook URL\\nInstagram handle'} rows={3} value={contactEntries.social} onChange={event => setContactEntries(current => ({ ...current, social: event.currentTarget.value }))} />
+          <TextArea id="tp-guardrails-addresses" labelText="地址 / 其他联系方式" placeholder="输入需要排除的地址或联系方式" rows={3} value={contactEntries.addresses} onChange={event => setContactEntries(current => ({ ...current, addresses: event.currentTarget.value }))} />
         </div>
-        <Toggle id="tp-guardrails-dnc" labelText="启用禁止联系名单（Do Not Contact）" labelA="关闭" labelB="开启" toggled onToggle={() => setNotice('禁止联系名单开关为前端示意，后端阶段将接入全局合规名单。')} />
+        <Toggle id="tp-guardrails-dnc" labelText="启用禁止联系名单（Do Not Contact）" labelA="关闭" labelB="开启" toggled={doNotContact} onToggle={setDoNotContact} />
       </div>
 
       <div className="tp-guardrails__panel">
