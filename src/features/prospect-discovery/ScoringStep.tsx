@@ -12,7 +12,7 @@ const asObject = (value: unknown): Record<string, unknown> => value && typeof va
 
 type Lead = {
   id: string; name: string; domain: string; country: string; source: string; email: string;
-  address?: string; phone?: string; runId?: string; confidence?: number;
+  address?: string; phone?: string; runId?: string; confidence?: number; reviewed?: boolean;
   status: 'pending' | 'scored'; score?: number; fit?: number; persona?: number; scale?: number; intent?: number; comment?: string;
 };
 type Props = { profile: { coreNoun: string; countryName: string; buyers: string[] }; onContinueToEnrichment: () => void };
@@ -65,6 +65,7 @@ export function ScoringStep({ profile, onContinueToEnrichment }: Props) {
             email: String(record.email ?? '') || '待补充', address: String(record.address ?? ''),
             phone: String(record.phone ?? ''), runId: String(occurrence.run_id ?? ''),
             confidence: typeof record.confidence_score === 'number' ? record.confidence_score : undefined,
+            reviewed: ['reviewed', 'collected', 'converted'].includes(String(asObject(record.raw_data).lifecycle_stage ?? '')),
             status: asObject(record.raw_data).ai_scoring ? 'scored' as const : 'pending' as const,
             score: typeof asObject(asObject(record.raw_data).ai_scoring).score === 'number' ? Number(asObject(asObject(record.raw_data).ai_scoring).score) : undefined,
             fit: Number(asObject(asObject(asObject(record.raw_data).ai_scoring).dimensions).fit) || undefined,
@@ -179,6 +180,7 @@ export function ScoringStep({ profile, onContinueToEnrichment }: Props) {
       const token = data.session?.access_token;
       if (!token) throw new Error('登录状态已失效，请重新登录。');
       const results = await Promise.all(selectedRows.map(async row => {
+        if (row.reviewed) return row;
         const response = await fetch('/api/v1/discovery-records/' + row.id + '/action', {
           method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', Accept: 'application/json' },
           body: JSON.stringify({ action: 'review' }),
