@@ -28,6 +28,24 @@ export function normalizeMerchantDomain(value: string): string {
  const candidate = value.trim().toLowerCase().replace(/^www\./, "");
  return /^[a-z0-9.-]+\.[a-z]{2,}$/.test(candidate) ? candidate : "";
 }
+export function searchResultIdentity(row: { url: string; type: string; title: string; raw: Record<string, unknown> }): string {
+ if (row.type === "shopping") {
+  const source = String(row.raw.source ?? row.raw.merchant ?? row.raw.seller ?? "").trim();
+  const merchant = normalizeMerchantDomain(source) || source.toLowerCase();
+  const product = String(row.raw.product_id ?? row.title).trim().toLowerCase();
+  return "shopping:" + merchant + ":" + product;
+ }
+ const host = new URL(row.url).hostname.replace(/^www\./, "").toLowerCase();
+ return "website:" + host;
+}
+export function searchResultExclusionTarget(row: { url: string; type: string; raw: Record<string, unknown> }): string {
+ if (row.type === "shopping") {
+  const source = String(row.raw.source ?? row.raw.merchant ?? row.raw.seller ?? "").trim();
+  const domain = normalizeMerchantDomain(source);
+  if (domain) return "https://" + domain;
+ }
+ return row.url;
+}
 
 async function persist(env:DiscoveryEnv,owner:string,run:string,input:DiscoveryRunInput,engine:Engine,type:Vertical,item:Result){
  const parsed=new URL(item.url),shopping=type==="shopping",googleShoppingLink=parsed.hostname.toLowerCase().endsWith("google.com"),source=String(item.raw.source??item.raw.merchant??item.raw.seller??"").trim();
@@ -56,7 +74,7 @@ export async function processSearchRun(env:DiscoveryEnv,run:string,owner:string,
  await update(env,run,owner,{status:"running",progress:1,message:"正在连接搜索引擎并执行查询"});
  await log(env,run,owner,"info","关键词："+input.query+"；实际搜索语法："+q+"；国家："+country+"；搜索类型："+types.join("、")+"；搜索引擎："+engines.join("、"));
  for(const job of jobs){try{const found=await search(job.engine,job.type,q,country,hl,input.limitPerCountry,location,env);raw+=found.length;all.push(...found.map(item=>({...job,item})));await log(env,run,owner,found.length?"success":"warning",job.engine+" · "+job.type+" 返回 "+found.length+" 条");}catch(e){failed++;await log(env,run,owner,"warning",job.engine+" · "+job.type+" 失败："+String(e).slice(0,180));}done++;await update(env,run,owner,{progress:Math.max(1,Math.round(done/jobs.length*85)),message:"搜索中 · "+done+"/"+jobs.length+" 个引擎/类型组合"});}
- const unique=new Map<string,{engine:Engine;type:Vertical;item:Result}>();for(const row of all){if(excluded(row.item.url,rules))continue;const domain=new URL(row.item.url).hostname.replace(/^www\./,"").toLowerCase();if(!unique.has(domain))unique.set(domain,row);}
+ const unique=new Map<string,{engine:Engine;type:Vertical;item:Result}>();for(const row of all){if(excluded(searchResultExclusionTarget(row),rules))continue;const identity=searchResultIdentity({url:row.item.url,type:row.type,title:row.item.title,raw:row.item.raw});if(!unique.has(identity))unique.set(identity,row);}
  const uniqueRows=[...unique.values()];
  let guardrailBlocked=0;
  const allowed=uniqueRows.flatMap(row=>{
