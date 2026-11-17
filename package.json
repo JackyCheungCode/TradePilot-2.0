@@ -30,8 +30,7 @@
     "@carbon/ai-chat": "^1.22.0",
     "fflate": "^0.8.2",
     "@simplewebauthn/server": "13.2.2",
-    "@simplewebauthn/browser": "13.2.2",
-    "@ibm/plex-sans-sc": "^1.1.0"
+    "@simplewebauthn/browser": "13.2.2"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.69.1",

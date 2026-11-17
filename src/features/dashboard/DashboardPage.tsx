@@ -180,7 +180,7 @@ export function DashboardPage() {
             <span className="tp-workbench__metric-label">{metric.label}</span>
             <strong>{number(metric.value)}</strong>
             <small>{metric.detail}</small>
-            <span className="tp-workbench__metric-link">查看详情 <CarbonIcons.ArrowUpRight size={14}/></span>
+            <span className="tp-workbench__metric-link">查看详情 <CarbonIcons.ArrowRight size={14}/></span>
           </button>;
         })}
       </section>
@@ -193,7 +193,7 @@ export function DashboardPage() {
           </div>
           {countries.length ? <TreemapChart data={countries.map(item => ({ group: item.name, value: item.value }))} options={treemapOptions as any}/> : <div className="tp-workbench__empty">暂无国家 / 地区数据。完善客户档案中的国家代码后，这里会自动生成分布图。</div>}
           {countries.length > 0 && <div className="tp-workbench__country-list">
-            {countries.slice(0, 8).map((country, index) => <button type="button" key={country.code} onClick={() => navigate('/accounts?country=' + encodeURIComponent(country.code))}>
+            {countries.slice(0, 8).map((country, index) => <button type="button" key={country.code} onClick={() => navigate('/accounts')}>
               <span className="tp-workbench__country-rank">{String(index + 1).padStart(2, '0')}</span>
               <span className="tp-workbench__country-name">{country.name}</span>
               <strong>{number(country.value)}</strong>
