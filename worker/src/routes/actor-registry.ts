@@ -238,7 +238,7 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
       const intent: Record<string, unknown> = { query: noun, searchQuery: noun, keyword: noun, keywords: noun ? [noun] : [], country, countryCode: country, country_code: country, countryName: safeText(profile.countryName, 120), city: safeText(profile.city, 120), location: safeText(profile.city || profile.countryName, 120) };
       for (const key of Object.keys(properties)) {
         if (!(key in input) && key in intent && intent[key] !== "") input[key] = intent[key];
-        if (["maxItems", "maxResults", "maxResultsPerQuery", "resultsLimit", "maxItemsPerRun", "limit"].includes(key)) input[key] = 1;
+        if (key in input && ["maxItems", "maxResults", "maxResultsPerQuery", "resultsLimit", "maxItemsPerRun", "limit"].includes(key)) input[key] = 1;
       }
       const serializedInput = JSON.stringify(input);
       const testedInputFingerprint = inputFingerprint(input, schemaVersion);
