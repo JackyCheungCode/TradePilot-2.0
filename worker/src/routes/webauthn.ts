@@ -56,7 +56,7 @@ async function authenticate(request: Request, env: WebAuthnEnv): Promise<AuthCon
   });
   if (!response.ok) return null;
   const user = await response.json() as { id?: string; email?: string };
-  if (!user.id || !/^[0-9a-f-]{36}$/i.test(user.id)) return null;
+  if (!user.id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(user.id)) return null;
   const claims = decodeJwtPayload(token);
   const sessionId = typeof claims.session_id === "string" ? claims.session_id : "";
   const subject = typeof claims.sub === "string" ? claims.sub : "";
@@ -64,7 +64,8 @@ async function authenticate(request: Request, env: WebAuthnEnv): Promise<AuthCon
   const expiry = Number(claims.exp ?? 0);
   if (
     subject !== user.id ||
-    !/^[0-9a-f-]{36}$/i.test(sessionId) ||
+    claims.role !== "authenticated" ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(sessionId) ||
     issuer !== env.SUPABASE_URL.replace(/\/$/, "") + "/auth/v1" ||
     !Number.isFinite(expiry) ||
     expiry <= Math.floor(Date.now() / 1000)
