@@ -38,6 +38,8 @@ export function ActorSchemaFields({ sources, onValuesChange }: Props) {
   const [items, setItems] = useState<LoadedSchema[]>([]);
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [expandedHelp, setExpandedHelp] = useState<Record<string, boolean>>({});
+  const [testingActor, setTestingActor] = useState('');
+  const [testResults, setTestResults] = useState<Record<string, { passed: boolean; message: string; qualityScore?: number }>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const sourceKey = useMemo(() => sources.map(source => source.id + ':' + source.name).sort().join('|'), [sources]);
@@ -89,6 +91,32 @@ export function ActorSchemaFields({ sources, onValuesChange }: Props) {
   useEffect(() => { onValuesChange(actorParameters); }, [actorParameters, onValuesChange]);
 
   const setField = (key: string, value: unknown) => setValues(current => ({ ...current, [key]: value }));
+  const runActorTest = async (item: LoadedSchema) => {
+    const testKey = item.source.id + ':' + item.actorId;
+    setTestingActor(testKey);
+    try {
+      const token = await accessToken();
+      const input: Record<string, unknown> = {};
+      for (const [fieldKey, field] of Object.entries(item.schema.properties ?? {})) {
+        const valueKey = item.source.id + ':' + item.actorId + ':' + fieldKey;
+        const value = values[valueKey] ?? field.default;
+        if (value !== undefined && value !== '') {
+          if ((field.type === 'object' || field.type === 'array') && typeof value === 'string') {
+            try { input[fieldKey] = JSON.parse(value); } catch { input[fieldKey] = value; }
+          } else input[fieldKey] = value;
+        }
+      }
+      const result = await api('/api/v1/actor-registry/test', token, {
+        method: 'POST',
+        body: JSON.stringify({ actorId: item.actorId, input, expectedFieldCount: Object.keys(item.schema.properties ?? {}).length }),
+      }) as { passed?: boolean; qualityScore?: number; message?: string };
+      setTestResults(current => ({ ...current, [testKey]: { passed: result.passed === true, qualityScore: result.qualityScore, message: result.message || '测试完成' } }));
+    } catch (e) {
+      setTestResults(current => ({ ...current, [testKey]: { passed: false, message: e instanceof Error ? e.message : '测试失败' } }));
+    } finally {
+      setTestingActor('');
+    }
+  };
   if (!sources.length) return null;
   return <section className="tp-prospect-discovery__section tp-prospect-discovery__actor-schema" aria-label="数据源动态参数">
     <div className="tp-prospect-discovery__section-heading">
@@ -103,8 +131,16 @@ export function ActorSchemaFields({ sources, onValuesChange }: Props) {
       return <div className="tp-prospect-discovery__actor-schema-group" key={item.source.id + ':' + item.actorId}>
         <div className="tp-prospect-discovery__actor-schema-heading">
           <div><strong>{item.source.name}</strong><span>{item.actorTitle}</span></div>
-          <Tag type="green">已读取 Schema</Tag>
+          <div className="tp-prospect-discovery__actor-schema-actions">
+            <Tag type={testResults[item.source.id + ':' + item.actorId]?.passed ? 'green' : testResults[item.source.id + ':' + item.actorId] ? 'red' : 'blue'}>
+              {testResults[item.source.id + ':' + item.actorId]?.passed ? '已通过门禁' : testResults[item.source.id + ':' + item.actorId] ? '测试未通过' : '已读取 Schema'}
+            </Tag>
+            <Button kind="secondary" size="sm" disabled={testingActor === item.source.id + ':' + item.actorId} onClick={() => void runActorTest(item)}>
+              {testingActor === item.source.id + ':' + item.actorId ? '正在测试…' : '最小化测试并启用'}
+            </Button>
+          </div>
         </div>
+        {testResults[item.source.id + ':' + item.actorId] && <InlineNotification kind={testResults[item.source.id + ':' + item.actorId].passed ? 'success' : 'warning'} lowContrast title={testResults[item.source.id + ':' + item.actorId].passed ? '质量门禁通过' : '质量门禁未通过'} subtitle={testResults[item.source.id + ':' + item.actorId].message + (typeof testResults[item.source.id + ':' + item.actorId].qualityScore === 'number' ? ' · 质量评分 ' + testResults[item.source.id + ':' + item.actorId].qualityScore : '')} />}
         <div className="tp-prospect-discovery__actor-schema-fields">
           {Object.entries(properties).map(([fieldKey, field]) => {
             const translated = item.schema.translatedProperties?.[fieldKey];
