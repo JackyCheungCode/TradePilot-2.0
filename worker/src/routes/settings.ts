@@ -1,4 +1,4 @@
-import { errorResponse, successResponse } from "../lib/http";
+import { errorResponse, successResponse } from "../lib/http.ts";
 
 interface SettingsEnv {
   SUPABASE_URL: string;
