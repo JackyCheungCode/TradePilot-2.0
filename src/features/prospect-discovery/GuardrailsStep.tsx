@@ -48,7 +48,7 @@ const exclusionActions = [
 ];
 
 const emptyRules: RuleSet = {
-  keywords: '', websites: '', companies: '', geography: '', products: '', contacts: '', people: '', quality: '',
+  keywords: '', websites: '', companies: '', geography: '', products: '', contacts: '', people: '', quality: '', jobTitles: '', competitorCompanies: '', internalStaffDomains: '',
 };
 
 export function GuardrailsStep({ countries, profile }: { countries: CountryOption[]; profile: ProfileContext }) {
@@ -67,6 +67,9 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
   const [scope, setScope] = useState('task');
   const [keywordAction, setKeywordAction] = useState('page');
   const [doNotContact, setDoNotContact] = useState(true);
+  const [excludeInternalStaff, setExcludeInternalStaff] = useState(false);
+  const [excludeCompetitorStaff, setExcludeCompetitorStaff] = useState(false);
+  const [excludeNonDecisionRoles, setExcludeNonDecisionRoles] = useState(false);
   const [contactEntries, setContactEntries] = useState({ emails: '', phones: '', social: '', addresses: '' });
   const [excludedCountries, setExcludedCountries] = useState<Array<{ id: string; text: string }>>([]);
   const [employeeFloor, setEmployeeFloor] = useState('');
@@ -82,7 +85,7 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
     try {
       const saved = localStorage.getItem('tradepilot.guardrails.frontend.v1');
       if (saved) {
-        const value = JSON.parse(saved) as { enabled?: Record<string, boolean>; rules?: RuleSet; websiteRows?: Array<{ type: string; value: string }>; scope?: string; selectedDimensions?: Array<{ id: string; text: string }>; selectedPositions?: typeof positions; selectedModes?: typeof matchModes; selectedWebsiteTypes?: Array<{ id: string; text: string }>; excludedCountries?: Array<{ id: string; text: string }>; contactEntries?: typeof contactEntries; keywordAction?: string; doNotContact?: boolean; employeeFloor?: string; requireIndependentSite?: boolean; unknownPolicy?: string; duplicatePolicy?: string; template?: string };
+        const value = JSON.parse(saved) as { enabled?: Record<string, boolean>; rules?: RuleSet; websiteRows?: Array<{ type: string; value: string }>; scope?: string; selectedDimensions?: Array<{ id: string; text: string }>; selectedPositions?: typeof positions; selectedModes?: typeof matchModes; selectedWebsiteTypes?: Array<{ id: string; text: string }>; excludedCountries?: Array<{ id: string; text: string }>; contactEntries?: typeof contactEntries; keywordAction?: string; doNotContact?: boolean; excludeInternalStaff?: boolean; excludeCompetitorStaff?: boolean; excludeNonDecisionRoles?: boolean; employeeFloor?: string; requireIndependentSite?: boolean; unknownPolicy?: string; duplicatePolicy?: string; template?: string };
         if (value.enabled) setEnabled(value.enabled);
         if (value.rules) setRules({ ...emptyRules, ...value.rules });
         if (value.websiteRows) setWebsiteRows(value.websiteRows);
@@ -95,6 +98,9 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
         if (value.contactEntries) setContactEntries(value.contactEntries);
         if (value.keywordAction) setKeywordAction(value.keywordAction);
         if (typeof value.doNotContact === 'boolean') setDoNotContact(value.doNotContact);
+        if (typeof value.excludeInternalStaff === 'boolean') setExcludeInternalStaff(value.excludeInternalStaff);
+        if (typeof value.excludeCompetitorStaff === 'boolean') setExcludeCompetitorStaff(value.excludeCompetitorStaff);
+        if (typeof value.excludeNonDecisionRoles === 'boolean') setExcludeNonDecisionRoles(value.excludeNonDecisionRoles);
         if (value.employeeFloor !== undefined) setEmployeeFloor(value.employeeFloor);
         if (typeof value.requireIndependentSite === 'boolean') setRequireIndependentSite(value.requireIndependentSite);
         if (value.unknownPolicy) setUnknownPolicy(value.unknownPolicy);
@@ -142,7 +148,7 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
   };
   const saveLocal = () => {
     try {
-      localStorage.setItem('tradepilot.guardrails.frontend.v1', JSON.stringify({ enabled, rules, websiteRows, scope, contactEntries, excludedCountries, keywordAction, doNotContact, selectedDimensions, selectedPositions, selectedModes, selectedWebsiteTypes, employeeFloor, requireIndependentSite, unknownPolicy, duplicatePolicy, template }));
+      localStorage.setItem('tradepilot.guardrails.frontend.v1', JSON.stringify({ enabled, rules, websiteRows, scope, contactEntries, excludedCountries, keywordAction, doNotContact, excludeInternalStaff, excludeCompetitorStaff, excludeNonDecisionRoles, selectedDimensions, selectedPositions, selectedModes, selectedWebsiteTypes, employeeFloor, requireIndependentSite, unknownPolicy, duplicatePolicy, template }));
       setNotice('护盾配置已保存在当前浏览器；下一次启动任务时会随任务快照提交并执行已接入规则。');
       setError('');
     } catch { setError('浏览器本地保存失败，请检查存储空间。'); }
@@ -307,13 +313,15 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
         </div>
         <div className="tp-guardrails__two-col">
           <TextArea id="tp-guardrails-person-names" labelText="联系人姓名 / 账号" placeholder="每行一个姓名或账号" rows={3} value={rules.people} onChange={event => updateRule('people', event.currentTarget.value)} />
-          <TextArea id="tp-guardrails-job-titles" labelText="排除职位 / 岗位" placeholder={'intern\nassistant\nnon-purchasing role'} rows={3} />
+          <TextArea id="tp-guardrails-job-titles" labelText="排除职位 / 岗位" placeholder={'intern\nassistant\nnon-purchasing role'} rows={3} value={rules.jobTitles} onChange={event => updateRule('jobTitles', event.currentTarget.value)} />
         </div>
         <div className="tp-guardrails__choice-row">
-          <Checkbox id="tp-guardrails-internal-staff" labelText="排除内部员工" />
-          <Checkbox id="tp-guardrails-competitor-staff" labelText="排除竞争对手员工" />
-          <Checkbox id="tp-guardrails-non-decision" labelText="排除非决策岗位" />
+          <Checkbox id="tp-guardrails-internal-staff" labelText="排除内部员工" checked={excludeInternalStaff} onChange={event => setExcludeInternalStaff(event.currentTarget.checked)} />
+          <Checkbox id="tp-guardrails-competitor-staff" labelText="排除竞争对手员工" checked={excludeCompetitorStaff} onChange={event => setExcludeCompetitorStaff(event.currentTarget.checked)} />
+          <Checkbox id="tp-guardrails-non-decision" labelText="排除非决策岗位" checked={excludeNonDecisionRoles} onChange={event => setExcludeNonDecisionRoles(event.currentTarget.checked)} />
         </div>
+        <div className="tp-guardrails__field"><TextArea id="tp-guardrails-competitor-companies" labelText="竞争对手企业名称（每行一个）" placeholder="填写需要排除其员工的竞争对手企业名称" rows={2} value={rules.competitorCompanies} onChange={event => updateRule('competitorCompanies', event.currentTarget.value)} /></div>
+        <div className="tp-guardrails__field"><TextArea id="tp-guardrails-internal-domains" labelText="内部员工邮箱域名（每行一个）" placeholder="例如 yourcompany.com，用于识别本企业内部员工" rows={2} value={rules.internalStaffDomains} onChange={event => updateRule('internalStaffDomains', event.currentTarget.value)} /></div>
       </div>
 
       <div className="tp-guardrails__panel">
