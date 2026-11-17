@@ -179,7 +179,7 @@ export function DecisionMakerStep({ profile }: Props) {
     }));
     setRows(current => current.map(row => {
       const result = results.find(item => item.id === row.id);
-      return result ? { ...row, crm: result.ok ? 'synced' : 'failed', crmId: result.crmId } : row;
+      return result ? { ...row, crm: result.ok ? 'synced' : 'failed', crmId: result.ok ? result.crmId : undefined } : row;
     }));
     const success = results.filter(item => item.ok).length;
     const failed = results.length - success;
