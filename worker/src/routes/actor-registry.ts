@@ -32,7 +32,7 @@ async function db<T>(env: ActorRegistryEnv, path: string, init: RequestInit = {}
 }
 async function gatewayFetch(path: string, token: string): Promise<Record<string, unknown>> {
   const host = "api." + String.fromCharCode(97, 112, 105, 102, 121) + ".com";
-  const response = await fetch("https://" + host + "/v2/" + path.replace(/^\\//, ""), {
+  const response = await fetch("https://" + host + "/v2/" + (path.startsWith("/") ? path.slice(1) : path), {
     headers: { Authorization: "Bearer " + token, Accept: "application/json" },
     signal: AbortSignal.timeout(25000),
   });
