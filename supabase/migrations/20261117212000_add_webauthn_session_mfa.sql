@@ -122,11 +122,11 @@ create or replace function public.tradepilot_webauthn_set_enabled(p_user_id uuid
 returns void language plpgsql security definer set search_path = ''
 as $$
 begin
-  if p_enabled and not exists (
-    select 1 from private.webauthn_credentials c
+  if p_enabled and (
+    select count(*) from private.webauthn_credentials c
     where c.user_id = p_user_id and c.revoked_at is null
-  ) then
-    raise exception 'cannot enable WebAuthn MFA without an active credential';
+  ) < 2 then
+    raise exception 'at least two active WebAuthn credentials are required before enabling MFA';
   end if;
   insert into private.webauthn_mfa_preferences(user_id,enabled,updated_at)
   values(p_user_id,p_enabled,now())
