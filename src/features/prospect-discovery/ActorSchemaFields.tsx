@@ -104,7 +104,7 @@ export function ActorSchemaFields({ sources, profile, onValuesChange }: Props) {
             const actorId = String(actor.actor_id);
             const result = await api('/api/v1/actor-registry/schema/' + encodeURIComponent(actorId), token) as { version?: string; schema?: ActorSchema; actor?: { status?: string; quality_score?: number | null; last_test_input_fingerprint?: string } };
             if (!result.schema) return null;
-            return { source, actorId, actorTitle: String(actor.title || actor.actor_name || actorId), schemaVersion: String(result.version || 'latest'), actorStatus: result.actor?.status, actorQualityScore: result.actor?.quality_score, actorInputFingerprint: result.actor?.last_test_input_fingerprint, schema: result.schema } as LoadedSchema;
+            return { source, actorId, actorTitle: String(actor.title || actor.actor_name || '平台专用采集器'), schemaVersion: String(result.version || 'latest'), actorStatus: result.actor?.status, actorQualityScore: result.actor?.quality_score, actorInputFingerprint: result.actor?.last_test_input_fingerprint, schema: result.schema } as LoadedSchema;
           } catch (sourceError) {
             failures.push(source.name + '：' + (sourceError instanceof Error ? sourceError.message : String(sourceError)));
             return null;
