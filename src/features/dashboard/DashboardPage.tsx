@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  AreaChart, DonutChart, SimpleBarChart, ChoroplethChart, WordCloudChart, BubbleChart,
+  AreaChart, SimpleBarChart, ChoroplethChart, WordCloudChart, BubbleChart,
 } from '@carbon/charts-react';
 import {
   Button, InlineLoading, InlineNotification, Tile, Tag, Select, SelectItem,
@@ -160,7 +160,7 @@ export function DashboardPage() {
     const total = [...counts.values()].reduce((sum, value) => sum + value, 0);
     const countries = [...counts.entries()].map(([code, value]) => ({
       code, name: countryLabel(code), value, share: total ? value / total * 100 : 0,
-    })).filter(item => item.group !== null).sort((a, b) => b.value - a.value);
+    })).sort((a, b) => b.value - a.value);
     const status = new Map<string, number>();
     scoped.accounts.forEach(row => {
       const label = row.status === 'active' ? '活跃' : row.status === 'inactive' ? '非活跃' : '其他';
@@ -317,7 +317,6 @@ export function DashboardPage() {
     axes: { bottom: { title: '日期', mapsTo: 'date', scaleType: 'time' }, left: { title: '新增客户', mapsTo: 'value', scaleType: 'linear' } },
     curve: 'curveMonotoneX', points: { enabled: false },
   };
-  const donutOptions = { ...commonOptions, title: '客户状态结构', height: '250px', donut: { center: { label: '客户' } }, legend: { position: 'bottom' } };
   const choroplethOptions = {
     ...commonOptions, title: '全球业务资产分布', height: '430px',
     geoData: worldAtlas as any, thematic: { projection: 'geoNaturalEarth1' },
