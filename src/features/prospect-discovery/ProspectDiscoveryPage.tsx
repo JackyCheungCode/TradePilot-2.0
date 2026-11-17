@@ -43,6 +43,29 @@ type Country = {
   tld?: string[];
   languages?: Record<string, string>;
 };
+const fallbackContinentCodes: Record<string, string[]> = {
+  Africa: 'AO BF BI BJ BW CD CF CG CI CM CV DJ DZ EG EH ER ET GA GH GM GN GQ GW KE KM LR LS LY MA MG MR MU MW MZ NA NE NG RE RW SC SD SH SL SN SO SS ST SZ TD TF TG TN TZ UG YT ZA ZM ZW'.split(' '),
+  Americas: 'AG AI AR AW BB BL BM BO BQ BR BS BZ CA CL CO CR CU CW DM DO EC FK GD GF GL GP GS GT GY HN HT JM KN KY LC MF MQ MS MX NI PA PE PM PR PY SR SV SX TC TT US UY VC'.split(' '),
+  Asia: 'AE AF AM AZ BD BH BN BT CN GE HK ID IL IN IO IQ IR JO JP KG KH KP KR KW KZ LA LB LK MM MN MO MV MY NP OM PH PK PS QA SA SG SY TH TJ TL TM TR TW UZ VN YE'.split(' '),
+  Europe: 'AD AL AT AX BA BE BG BY CH CY CZ DE DK EE ES FI FO FR GB GG GI GR HR HU IE IM IS IT JE LI LT LU LV MC MD ME MK MT NL NO PL PT RO RS RU SE SI SJ SK SM UA VA XK'.split(' '),
+  Oceania: 'AS AU CC CK CX FJ FM GU KI MH MP NC NF NR NU NZ PF PG PN PW SB TK TO TV UM VU WF WS'.split(' '),
+};
+function buildFallbackCountries(): Country[] {
+  const displayNames = new Intl.DisplayNames(['zh-TW', 'en'], { type: 'region' });
+  const byCode = new Map<string, string>();
+  Object.entries(fallbackContinentCodes).forEach(([continent, codes]) => codes.forEach(code => byCode.set(code, continent)));
+  const rows: Country[] = [];
+  for (let first = 65; first <= 90; first += 1) {
+    for (let second = 65; second <= 90; second += 1) {
+      const code = String.fromCharCode(first, second);
+      const name = displayNames.of(code);
+      const region = byCode.get(code);
+      if (name && name !== code && region) rows.push({ name: { common: name }, cca2: code, region });
+    }
+  }
+  return rows.sort((a, b) => a.name.common.localeCompare(b.name.common, 'zh-TW'));
+}
+
 type Profile = {
   name: string;
   coreNoun: string;
@@ -150,8 +173,17 @@ export function ProspectDiscoveryPage() {
   useEffect(() => {
     let active = true;
     getSupabaseClient().then(async db => { const { data } = await db.auth.getSession(); const token = data.session?.access_token; if (!token) throw new Error('登录状态已失效，请重新登录。'); const response = await fetch('/api/v1/prospect-profiling/countries', { headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' } }); const payload = await response.json() as { data?: { countries?: Country[] }; error?: { message?: string } }; if (!response.ok) throw new Error(payload.error?.message || '国家列表暂时不可用'); return payload.data?.countries ?? []; })
-      .then(data => { if (active) setCountries(data.filter(item => item.cca2 && item.name?.common).sort((a, b) => a.name.common.localeCompare(b.name.common))); })
-      .catch(cause => { if (active) setCountryError(cause instanceof Error ? cause.message : '国家主数据加载失败'); })
+      .then(data => {
+        if (!active) return;
+        const valid = data.filter(item => item.cca2 && item.name?.common);
+        setCountries(valid.length ? valid : buildFallbackCountries());
+        if (!valid.length) setCountryError('已切换至本地国家目录，可继续选择国家。');
+      })
+      .catch(() => {
+        if (!active) return;
+        setCountries(buildFallbackCountries());
+        setCountryError('在线国家目录暂不可用，已切换至本地国家目录。');
+      })
       .finally(() => { if (active) setCountryLoading(false); });
     try {
       const saved = localStorage.getItem('tradepilot.prospect-profiling.templates.v1');
@@ -417,7 +449,7 @@ export function ProspectDiscoveryPage() {
                     label="选择大洲或地区"
                     items={[...continents]}
                     itemToString={item => item?.label ?? ''}
-                    itemToElement={item => item ? <div className="tp-prospect-discovery__continent-option"><svg viewBox="0 0 100 100" aria-hidden="true"><path d={item.path} /></svg><span>{item.label}</span></div> : <></>}
+                    itemToElement={item => item ? <span>{item.label}</span> : <></>}
                     selectedItem={continents.find(item => item.value === profile.continent) ?? null}
                     onChange={({ selectedItem }) => setProfile(current => ({ ...current, continent: selectedItem?.value ?? '', country: '', countryName: '', city: '' }))}
                   />
@@ -570,7 +602,7 @@ export function ProspectDiscoveryPage() {
           )}
         </section>
       ) : selectedIndex === 1 ? (
-        <PlatformSelectionStep countryCode={profile.country} countryName={profile.countryName} continentLabel={continents.find(item => item.value === profile.continent)?.label ?? ''} onChangeCountry={() => setSelectedIndex(0)} onSelectionCountChange={setSelectedSourceCount} />
+        <PlatformSelectionStep countryCode={profile.country} countryName={profile.countryName} continentLabel={continents.find(item => item.value === profile.continent)?.label ?? ''} countries={countries} onChangeCountry={() => setSelectedIndex(0)} onSelectionCountChange={setSelectedSourceCount} />
       ) : (
         <div className="tp-prospect-discovery__future-step" aria-label="后续步骤暂未开放"><h2>{steps[selectedIndex]}</h2><p>此步骤将在前序配置确认后启用。</p></div>
       )}

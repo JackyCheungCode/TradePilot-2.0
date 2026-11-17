@@ -150,3 +150,40 @@
  &__continent-option svg{width:36px;height:36px;flex:0 0 36px;padding:5px;fill:var(--cds-icon-primary);background:var(--cds-layer-02);border:1px solid var(--cds-border-subtle-01);border-radius:50%;}
  @media(max-width:672px){&__step-navigation>span{display:none;}&__market-context{align-items:flex-start;flex-wrap:wrap;}&__market-copy{flex-basis:calc(100% - 60px);}&__market-context>.cds--btn{margin-left:52px;}&__source-summary{grid-template-columns:1fr;}&__source-summary>div{padding:$spacing-03 $spacing-04;}&__source-grid{grid-template-columns:minmax(0,1fr);}&__source-group{padding:$spacing-04;}&__source-selection-note{align-items:flex-start;flex-direction:column;}&__source-card p{margin-left:0;}}
 }
+
+.tp-prospect-discovery {
+  &__source-summary-cards {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: $spacing-04;
+    background: transparent;
+  }
+  &__summary-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: $spacing-02;
+    min-width: 0;
+    min-height: 112px;
+    padding: $spacing-05;
+    background: var(--cds-layer-01);
+    border: 1px solid var(--cds-border-subtle-01);
+  }
+  &__summary-card > span { @include type-style('label-01'); color: var(--cds-text-secondary); }
+  &__summary-card > strong { @include type-style('productive-heading-04'); font-variant-numeric: tabular-nums; }
+  &__summary-card > small { @include type-style('helper-text-01'); color: var(--cds-text-secondary); }
+  &__catalog { display: flex; flex-direction: column; gap: $spacing-05; min-width: 0; }
+  &__catalog .cds--accordion { width: 100%; }
+  &__catalog .cds--accordion__content { padding: $spacing-04; }
+  &__catalog-description { @include type-style('body-compact-01'); color: var(--cds-text-secondary); margin: 0 0 $spacing-04; }
+  &__current-market-note { @include type-style('label-01'); color: var(--cds-support-success); margin: 0 0 $spacing-04; }
+  &__source-group.is-current-continent { box-shadow: inset 3px 0 0 var(--cds-border-interactive); }
+  &__source-group-heading { min-width: 0; }
+  &__source-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (max-width: 672px) {
+    &__source-summary-cards { grid-template-columns: minmax(0, 1fr); }
+    &__summary-card { min-height: 0; }
+    &__source-grid { grid-template-columns: minmax(0, 1fr); }
+    &__catalog .cds--accordion__content { padding: $spacing-03; }
+  }
+}
