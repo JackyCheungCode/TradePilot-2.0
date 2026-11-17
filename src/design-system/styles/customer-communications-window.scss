@@ -1,0 +1,240 @@
+/* Isolated WhatsApp Web-inspired workspace. Intentionally independent of Carbon tokens/components. */
+.tp-wa-page {
+  --tp-wa-bg: #efeae2;
+  --tp-wa-panel: #ffffff;
+  --tp-wa-header: #f0f2f5;
+  --tp-wa-muted: #667781;
+  --tp-wa-text: #111b21;
+  --tp-wa-green: #008069;
+  --tp-wa-line: #e9edef;
+  width: 100%;
+  height: calc(100dvh - 7rem);
+  min-height: 520px;
+  overflow: hidden;
+  background: var(--tp-wa-panel);
+  color: var(--tp-wa-text);
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.tp-wa-page *, .tp-wa-page *::before, .tp-wa-page *::after { box-sizing: border-box; }
+.tp-wa-page button, .tp-wa-page input, .tp-wa-page textarea { font: inherit; }
+.tp-wa-page button { cursor: pointer; }
+.tp-wa-app { display: grid; grid-template-columns: 340px minmax(0, 1fr); width: 100%; height: 100%; overflow: hidden; background: var(--tp-wa-panel); }
+.tp-wa-app.has-profile { grid-template-columns: 340px minmax(0, 1fr) 320px; }
+.tp-wa-sidebar { display: flex; flex-direction: column; min-width: 0; border-right: 1px solid var(--tp-wa-line); background: var(--tp-wa-panel); }
+.tp-wa-sidebar-head { position: relative; display: flex; align-items: center; justify-content: space-between; height: 60px; padding: 10px 16px; background: var(--tp-wa-header); }
+.tp-wa-profile-avatar, .tp-wa-avatar { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 42px; height: 42px; border-radius: 50%; background: #dfe5e7; color: #54656f; font-size: 13px; font-weight: 600; }
+.tp-wa-profile-avatar { background: #d9e7e3; color: #087e69; }
+.tp-wa-head-actions, .tp-wa-chat-tools { display: flex; align-items: center; gap: 8px; }
+.tp-wa-head-actions button, .tp-wa-chat-tools button, .tp-wa-composer button, .tp-wa-contact-panel header button { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border: 0; border-radius: 50%; background: transparent; color: #54656f; font-size: 22px; }
+.tp-wa-head-actions button:hover, .tp-wa-chat-tools button:hover, .tp-wa-composer button:hover { background: #e5e9eb; }
+.tp-wa-menu { position: absolute; z-index: 5; top: 52px; right: 12px; display: grid; min-width: 190px; padding: 8px 0; background: #fff; box-shadow: 0 4px 16px #0002; }
+.tp-wa-menu button { width: 100%; padding: 11px 16px; border: 0; border-radius: 0; text-align: left; font-size: 13px; }
+.tp-wa-menu button:hover { background: #f5f6f6; }
+.tp-wa-list-title { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px 10px; }
+.tp-wa-list-title h1 { margin: 0; font-size: 22px; font-weight: 600; }
+.tp-wa-list-title span { color: var(--tp-wa-muted); font-size: 12px; }
+.tp-wa-search { display: flex; align-items: center; gap: 12px; height: 36px; margin: 0 12px 10px; padding: 0 12px; border-radius: 8px; background: #f0f2f5; }
+.tp-wa-search svg, .tp-wa-chat-tools svg { width: 18px; height: 18px; fill: none; stroke: #54656f; stroke-width: 1.8; }
+.tp-wa-search input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--tp-wa-text); font-size: 13px; }
+.tp-wa-filters { display: flex; gap: 8px; padding: 0 12px 10px; border-bottom: 1px solid var(--tp-wa-line); }
+.tp-wa-filters button { padding: 6px 13px; border: 0; border-radius: 16px; background: #f0f2f5; color: #54656f; font-size: 12px; }
+.tp-wa-filters button.is-active { background: #d9fdd3; color: #087e69; }
+.tp-wa-conversations { flex: 1; min-height: 0; overflow: auto; }
+.tp-wa-conversation { display: flex; align-items: center; gap: 13px; width: 100%; min-height: 78px; padding: 10px 14px; border: 0; border-bottom: 1px solid #f0f2f5; background: #fff; text-align: left; }
+.tp-wa-conversation:hover { background: #f5f6f6; }
+.tp-wa-conversation.is-selected { background: #f0f2f5; }
+.tp-wa-conversation-content { display: flex; flex: 1; flex-direction: column; gap: 3px; min-width: 0; }
+.tp-wa-conversation-top, .tp-wa-conversation-bottom { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+.tp-wa-conversation-top strong { overflow: hidden; color: #111b21; font-size: 15px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.tp-wa-conversation-top time, .tp-wa-conversation-bottom span, .tp-wa-company { color: var(--tp-wa-muted); font-size: 12px; }
+.tp-wa-conversation-bottom span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tp-wa-conversation-bottom i { display: inline-flex; align-items: center; justify-content: center; min-width: 19px; height: 19px; padding: 0 5px; border-radius: 12px; background: #25d366; color: #fff; font-size: 10px; font-style: normal; }
+.tp-wa-company { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.tp-wa-no-results { padding: 30px 16px; color: var(--tp-wa-muted); text-align: center; }
+.tp-wa-sidebar-foot { padding: 10px; border-top: 1px solid var(--tp-wa-line); color: #8696a0; text-align: center; font-size: 10px; }
+.tp-wa-chat { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; background-color: var(--tp-wa-bg); background-image: radial-gradient(#d7d0c5 0.6px, transparent 0.6px); background-size: 18px 18px; }
+.tp-wa-chat-head { z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 60px; padding: 8px 18px; background: var(--tp-wa-header); }
+.tp-wa-chat-person { display: flex; align-items: center; flex: 1; gap: 12px; min-width: 0; padding: 0; border: 0; background: transparent; text-align: left; }
+.tp-wa-chat-person > span:last-child { display: flex; flex-direction: column; min-width: 0; }
+.tp-wa-chat-person strong { overflow: hidden; color: #111b21; font-size: 15px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.tp-wa-chat-person small { overflow: hidden; color: var(--tp-wa-muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.tp-wa-channel { padding: 4px 9px; border-radius: 12px; background: #e7f3ef; color: #087e69; font-size: 11px; white-space: nowrap; }
+.tp-wa-channel--messenger { background: #e8f0ff; color: #0866ff; }
+.tp-wa-channel--instagram { background: #fce8f1; color: #b72c78; }
+.tp-wa-channel--telegram { background: #e5f5fc; color: #1687b8; }
+.tp-wa-channel--email { background: #eceff1; color: #52616a; }
+.tp-wa-channel--line { background: #e5f7e9; color: #078b3e; }
+.tp-wa-encryption { align-self: center; max-width: min(90%, 520px); margin: 14px auto 6px; padding: 7px 12px; border-radius: 7px; background: #fff4c4; color: #54656f; text-align: center; font-size: 11px; box-shadow: 0 1px 1px #0001; }
+.tp-wa-timeline { display: flex; flex: 1; flex-direction: column; gap: 8px; min-height: 0; padding: 16px clamp(18px, 5vw, 76px) 22px; overflow: auto; overscroll-behavior: contain; }
+.tp-wa-date-divider { display: flex; justify-content: center; margin: 8px 0 12px; }
+.tp-wa-date-divider span { padding: 6px 12px; border-radius: 7px; background: #fff; color: #54656f; font-size: 11px; box-shadow: 0 1px 1px #0001; }
+.tp-wa-message { display: flex; flex-direction: column; align-self: flex-start; max-width: min(72%, 620px); }
+.tp-wa-message.is-outbound { align-self: flex-end; }
+.tp-wa-message.is-system { align-self: center; max-width: 90%; }
+.tp-wa-bubble { position: relative; min-width: 100px; padding: 8px 10px 5px; border-radius: 8px; background: #fff; color: #111b21; box-shadow: 0 1px 1px #0002; overflow-wrap: anywhere; }
+.tp-wa-message.is-inbound .tp-wa-bubble { border-top-left-radius: 0; }
+.tp-wa-message.is-outbound .tp-wa-bubble { border-top-right-radius: 0; background: #d9fdd3; }
+.tp-wa-bubble p { margin: 0 54px 3px 0; white-space: pre-wrap; font-size: 13px; line-height: 1.45; }
+.tp-wa-message-meta { display: flex; justify-content: flex-end; align-items: center; gap: 4px; min-height: 14px; color: #667781; font-size: 10px; }
+.tp-wa-ticks { color: #53bdeb; font-size: 12px; letter-spacing: -3px; padding-right: 3px; }
+.tp-wa-source { align-self: flex-start; margin: 3px 0 0 5px; color: #7b8a91; font-size: 10px; }
+.tp-wa-file { display: flex; align-items: center; gap: 10px; min-width: 210px; margin-bottom: 7px; padding: 10px; border-radius: 6px; background: #f0f2f5; }
+.tp-wa-file > span:first-child { font-size: 25px; color: #667781; }
+.tp-wa-file > span:last-child { display: flex; flex-direction: column; gap: 2px; }
+.tp-wa-file strong { font-size: 12px; }
+.tp-wa-file small, .tp-wa-email-label { color: #667781; font-size: 10px; }
+.tp-wa-email-label { margin-bottom: 7px; padding-bottom: 6px; border-bottom: 1px solid #e9edef; }
+.tp-wa-composer { display: flex; align-items: flex-end; gap: 8px; min-height: 64px; padding: 10px 18px; background: #f0f2f5; }
+.tp-wa-composer textarea { flex: 1; min-width: 0; max-height: 120px; min-height: 42px; resize: none; padding: 11px 14px; border: 0; border-radius: 8px; outline: 0; background: #fff; color: #111b21; font-size: 13px; line-height: 20px; }
+.tp-wa-composer .tp-wa-send { width: 42px; height: 42px; background: #008069; color: #fff; }
+.tp-wa-composer .tp-wa-send:disabled { background: #aebac1; cursor: default; }
+.tp-wa-composer .tp-wa-send svg { width: 19px; height: 19px; fill: currentColor; }
+.tp-wa-contact-panel { display: flex; flex-direction: column; width: 320px; min-width: 280px; overflow: auto; border-left: 1px solid var(--tp-wa-line); background: #fff; }
+.tp-wa-contact-panel > header { display: flex; align-items: center; justify-content: space-between; min-height: 60px; padding: 0 18px; background: #f0f2f5; }
+.tp-wa-contact-panel > header strong { font-size: 14px; font-weight: 500; }
+.tp-wa-contact-panel header button { width: 30px; height: 30px; font-size: 24px; }
+.tp-wa-contact-main { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 26px 15px 22px; border-bottom: 8px solid #f0f2f5; }
+.tp-wa-avatar--large { width: 92px; height: 92px; margin-bottom: 8px; font-size: 24px; }
+.tp-wa-contact-main strong { font-size: 18px; font-weight: 500; }
+.tp-wa-contact-main > span:not(.tp-wa-avatar) { color: #667781; }
+.tp-wa-contact-main small { color: #8696a0; }
+.tp-wa-contact-panel section { padding: 17px 18px; border-bottom: 8px solid #f0f2f5; }
+.tp-wa-contact-panel h3 { margin: 0 0 12px; color: #008069; font-size: 12px; font-weight: 500; }
+.tp-wa-contact-panel dl { display: grid; grid-template-columns: 1fr; gap: 4px; margin: 0; }
+.tp-wa-contact-panel dt { margin-top: 8px; color: #8696a0; font-size: 11px; }
+.tp-wa-contact-panel dd { margin: 0; color: #111b21; font-size: 13px; overflow-wrap: anywhere; }
+.tp-wa-identity { display: grid; grid-template-columns: 10px 1fr; align-items: center; gap: 3px 9px; margin: 10px 0; font-size: 12px; }
+.tp-wa-identity small { grid-column: 2; color: #667781; overflow-wrap: anywhere; }
+.tp-wa-channel-dot { width: 9px; height: 9px; border-radius: 50%; background: #25d366; }
+.tp-wa-channel-dot--messenger { background: #0866ff; }.tp-wa-channel-dot--instagram { background: #d62976; }.tp-wa-channel-dot--email { background: #667781; }.tp-wa-channel-dot--telegram { background: #229ed9; }.tp-wa-channel-dot--line { background: #06c755; }
+.tp-wa-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tp-wa-tags span { padding: 5px 9px; border-radius: 14px; background: #f0f2f5; color: #54656f; font-size: 11px; }
+.tp-wa-contact-panel section > p { margin: 0; color: #54656f; font-size: 12px; }
+.tp-wa-welcome { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; color: #667781; text-align: center; }
+.tp-wa-welcome-icon { display: grid; place-items: center; width: 84px; height: 84px; margin-bottom: 20px; border-radius: 50%; background: #d9fdd3; color: #008069; font-size: 42px; }
+.tp-wa-welcome h2 { margin: 0 0 8px; color: #41525d; font-size: 24px; font-weight: 300; }
+.tp-wa-welcome p { margin: 0; font-size: 13px; }
+.tp-wa-back { display: none; border: 0; background: transparent; color: #54656f; font-size: 28px; }
+@media (max-width: 1100px) {
+  .tp-wa-app, .tp-wa-app.has-profile { grid-template-columns: 300px minmax(0, 1fr); }
+  .tp-wa-contact-panel { position: absolute; z-index: 3; top: 0; right: 0; bottom: 0; box-shadow: -8px 0 24px #0002; }
+  .tp-wa-chat { position: relative; }
+}
+@media (max-width: 767px) {
+  .tp-wa-page { height: calc(100dvh - 5.5rem); min-height: 420px; }
+  .tp-wa-app, .tp-wa-app.has-profile { position: relative; display: block; }
+  .tp-wa-sidebar, .tp-wa-chat { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .tp-wa-sidebar { z-index: 2; }
+  .tp-wa-chat { z-index: 1; }
+  .tp-wa-sidebar:not(.is-mobile-visible) { display: none; }
+  .tp-wa-chat.is-mobile-hidden { display: none; }
+  .tp-wa-back { display: inline-flex; align-items: center; justify-content: center; width: 28px; }
+  .tp-wa-chat-head { gap: 5px; padding: 8px 9px; }
+  .tp-wa-chat-tools { gap: 1px; }
+  .tp-wa-chat-tools .tp-wa-channel { display: none; }
+  .tp-wa-chat-tools button { width: 32px; height: 32px; }
+  .tp-wa-timeline { padding: 12px 10px 18px; }
+  .tp-wa-message { max-width: 88%; }
+  .tp-wa-composer { gap: 3px; padding: 8px; }
+  .tp-wa-composer button { width: 34px; height: 38px; }
+  .tp-wa-contact-panel { position: absolute; z-index: 4; inset: 0 0 0 auto; width: min(88vw, 320px); height: 100%; }
+}
+
+
+
+/* Standalone workspace header + isolated platform themes */
+.tp-communications-titlebar{position:relative;z-index:8;display:flex;align-items:center;justify-content:space-between;min-height:66px;padding:9px 22px;background:#fff;border-bottom:1px solid #e5e7eb;color:#17212b;font-family:Arial,Helvetica,sans-serif}
+.tp-communications-title{display:flex;align-items:center;gap:13px;min-width:0}
+.tp-communications-title strong{font-size:17px;font-weight:700;letter-spacing:-.2px}
+.tp-communications-title span{padding-left:13px;border-left:1px solid #d8dde3;color:#52606d;font-size:14px}
+.tp-theme-picker{position:relative}
+.tp-theme-picker-trigger{display:flex;align-items:center;justify-content:space-between;gap:24px;min-width:218px;padding:8px 12px;border:1px solid #d6dbe1;border-radius:6px;background:#fff;color:#17212b;text-align:left}
+.tp-theme-picker-trigger:hover{background:#f7f9fb;border-color:#98a2ad}
+.tp-theme-picker-trigger>span:first-child{display:flex;flex-direction:column;gap:2px}
+.tp-theme-picker-trigger small{color:#667481;font-size:10px}
+.tp-theme-picker-trigger strong{font-size:13px;font-weight:600}
+.tp-theme-chevron{color:#52606d;font-size:18px}
+.tp-theme-picker-menu{position:absolute;top:calc(100% + 6px);right:0;z-index:20;width:260px;padding:5px;border:1px solid #e0e4e8;border-radius:7px;background:#fff;box-shadow:0 8px 28px #15202b24}
+.tp-theme-picker-menu button{position:relative;display:flex;flex-direction:column;width:100%;gap:3px;padding:10px 34px 10px 11px;border:0;border-radius:4px;background:#fff;color:#17212b;text-align:left;cursor:pointer}
+.tp-theme-picker-menu button:hover,.tp-theme-picker-menu button.is-selected{background:#f0f4f8}
+.tp-theme-picker-menu button strong{font-size:13px;font-weight:600}
+.tp-theme-picker-menu button small{color:#697783;font-size:11px}
+.tp-theme-picker-menu button>span{position:absolute;top:12px;right:12px;color:#0f62fe}
+.tp-wa-page{height:calc(100dvh - 7rem);min-height:480px;display:flex;flex-direction:column;background:#fff}
+.tp-wa-app{flex:1;min-height:0}
+.tp-wa-theme--wechat{--tp-wa-bg:#f5f5f5;--tp-wa-header:#ededed;--tp-wa-green:#07c160;--tp-wa-line:#e7e7e7}
+.tp-wa-theme--wechat .tp-wa-sidebar-head{background:#ededed}
+.tp-wa-theme--wechat .tp-wa-profile-avatar{background:#d9f3e4;color:#07a64f;border-radius:5px}
+.tp-wa-theme--wechat .tp-wa-conversation.is-selected{background:#e6e6e6}
+.tp-wa-theme--wechat .tp-wa-chat{background:#f5f5f5;background-image:none}
+.tp-wa-theme--wechat .tp-wa-bubble{border-radius:5px;box-shadow:none}
+.tp-wa-theme--wechat .tp-wa-message.is-outbound .tp-wa-bubble{background:#95ec69}
+.tp-wa-theme--wechat .tp-wa-message.is-inbound .tp-wa-bubble,.tp-wa-theme--wechat .tp-wa-message.is-outbound .tp-wa-bubble{border-top-left-radius:5px;border-top-right-radius:5px}
+.tp-wa-theme--wechat .tp-wa-composer{background:#f7f7f7;border-top:1px solid #e5e5e5}
+.tp-wa-theme--wechat .tp-wa-composer textarea{border-radius:4px}
+.tp-wa-theme--wechat .tp-wa-composer .tp-wa-send{background:#07c160;border-radius:4px}
+.tp-wa-theme--messenger{--tp-wa-bg:#f0f2f5;--tp-wa-header:#fff;--tp-wa-green:#0866ff;--tp-wa-line:#e4e6eb}
+.tp-wa-theme--messenger .tp-wa-chat{background:#f0f2f5;background-image:none}
+.tp-wa-theme--messenger .tp-wa-sidebar-head{background:#fff}
+.tp-wa-theme--messenger .tp-wa-profile-avatar{background:#e7f0ff;color:#0866ff}
+.tp-wa-theme--messenger .tp-wa-conversation.is-selected{background:#eaf2ff}
+.tp-wa-theme--messenger .tp-wa-filters button.is-active{background:#e7f0ff;color:#0866ff}
+.tp-wa-theme--messenger .tp-wa-bubble{border-radius:18px;padding:10px 13px 7px;box-shadow:none}
+.tp-wa-theme--messenger .tp-wa-message.is-inbound .tp-wa-bubble{border-top-left-radius:5px}
+.tp-wa-theme--messenger .tp-wa-message.is-outbound .tp-wa-bubble{border-top-right-radius:5px;background:#0866ff;color:#fff}
+.tp-wa-theme--messenger .tp-wa-message.is-outbound .tp-wa-message-meta{color:#dbe8ff}
+.tp-wa-theme--messenger .tp-wa-composer{background:#fff}
+.tp-wa-theme--messenger .tp-wa-composer textarea{border-radius:22px;background:#f0f2f5}
+.tp-wa-theme--messenger .tp-wa-composer .tp-wa-send{background:#0866ff}
+.tp-wa-theme--messenger .tp-wa-channel{background:#e7f0ff;color:#0866ff}
+.tp-wa-theme--outlook{--tp-wa-bg:#f3f2f1;--tp-wa-header:#fff;--tp-wa-green:#0078d4;--tp-wa-line:#e1dfdd;--tp-wa-text:#323130;--tp-wa-muted:#605e5c}
+.tp-wa-theme--outlook .tp-wa-sidebar{background:#faf9f8}
+.tp-wa-theme--outlook .tp-wa-sidebar-head{background:#f3f2f1}
+.tp-wa-theme--outlook .tp-wa-list-title h1{font-size:20px;color:#323130}
+.tp-wa-theme--outlook .tp-wa-search{border:1px solid #d2d0ce;border-radius:3px;background:#fff}
+.tp-wa-theme--outlook .tp-wa-filters{padding:8px 12px;background:#faf9f8}
+.tp-wa-theme--outlook .tp-wa-filters button{border-radius:3px;background:transparent}
+.tp-wa-theme--outlook .tp-wa-filters button.is-active{background:#e5f1fb;color:#005a9e;box-shadow:inset 0 -2px #0078d4}
+.tp-wa-theme--outlook .tp-wa-conversation{min-height:86px;border-bottom:1px solid #edebe9}
+.tp-wa-theme--outlook .tp-wa-conversation.is-selected{background:#e5f1fb;box-shadow:inset 3px 0 #0078d4}
+.tp-wa-theme--outlook .tp-wa-avatar{border-radius:4px}
+.tp-wa-theme--outlook .tp-wa-chat{background:#f3f2f1;background-image:none}
+.tp-wa-theme--outlook .tp-wa-chat-head{border-bottom:1px solid #e1dfdd}
+.tp-wa-theme--outlook .tp-wa-chat-person strong{font-size:16px}
+.tp-wa-theme--outlook .tp-wa-encryption{align-self:stretch;max-width:none;margin:0;padding:10px 20px;border-bottom:1px solid #e1dfdd;border-radius:0;background:#fff;color:#605e5c;text-align:left;box-shadow:none}
+.tp-wa-theme--outlook .tp-wa-timeline{gap:12px;padding:20px clamp(16px,3vw,42px)}
+.tp-wa-theme--outlook .tp-wa-date-divider span{border:1px solid #e1dfdd;border-radius:3px;box-shadow:none}
+.tp-wa-theme--outlook .tp-wa-bubble{min-width:min(100%,420px);padding:14px 16px 9px;border:1px solid #e1dfdd;border-radius:4px;box-shadow:0 1px 2px #0000000d}
+.tp-wa-theme--outlook .tp-wa-message.is-outbound .tp-wa-bubble{background:#fff;border-color:#c7e0f4}
+.tp-wa-theme--outlook .tp-wa-bubble p{margin-right:0;font-size:14px;line-height:1.55}
+.tp-wa-theme--outlook .tp-wa-message-meta{margin-top:8px;justify-content:flex-start}
+.tp-wa-theme--outlook .tp-wa-composer{align-items:stretch;background:#fff;border-top:1px solid #e1dfdd}
+.tp-wa-theme--outlook .tp-wa-composer textarea{min-height:74px;border:1px solid #d2d0ce;border-radius:3px}
+.tp-wa-theme--outlook .tp-wa-composer .tp-wa-send{align-self:flex-end;border-radius:3px;background:#0078d4}
+.tp-wa-theme--outlook .tp-wa-contact-panel h3{color:#0078d4}
+@media(max-width:767px){.tp-communications-titlebar{min-height:58px;padding:7px 10px}.tp-communications-title{gap:7px}.tp-communications-title strong{font-size:14px}.tp-communications-title span{padding-left:7px;font-size:12px}.tp-theme-picker-trigger{min-width:148px;gap:8px;padding:6px 8px}.tp-theme-picker-trigger small{font-size:9px}.tp-theme-picker-trigger strong{font-size:11px}.tp-theme-picker-menu{width:230px}.tp-wa-page{height:calc(100dvh - 6.5rem);min-height:360px}}
+
+
+/* Message provenance and participant identity */
+.tp-wa-avatar-image{display:inline-block;object-fit:cover;overflow:hidden}
+.tp-wa-avatar--message{width:30px;height:30px;margin-top:2px;font-size:10px}
+.tp-wa-profile-avatar{overflow:hidden}
+.tp-wa-message-row{display:flex;align-items:flex-end;gap:8px;max-width:100%}
+.tp-wa-message.is-outbound .tp-wa-message-row{justify-content:flex-end}
+.tp-wa-message.is-system .tp-wa-message-row{justify-content:center}
+.tp-wa-message-row .tp-wa-bubble{min-width:0}
+.tp-wa-message-source{display:inline-flex;align-items:center;gap:5px;align-self:flex-start;margin:4px 0 0 39px;padding:2px 7px;border-radius:10px;background:#ffffffd9;color:#667781;font-size:10px;line-height:1.4}
+.tp-wa-message-source>span{font-size:8px;color:#008069}
+.tp-wa-message.is-outbound .tp-wa-message-source{align-self:flex-end;margin:4px 39px 0 0}
+.tp-wa-message-source--messenger>span{color:#0866ff}
+.tp-wa-message-source--instagram>span{color:#d62976}
+.tp-wa-message-source--email>span{color:#667781}
+.tp-wa-message-source--telegram>span{color:#229ed9}
+.tp-wa-message-source--line>span{color:#06c755}
+.tp-wa-message-source--wecom>span{color:#07a64f}
+.tp-wa-theme--wechat .tp-wa-message-source{background:#ffffffcc}
+.tp-wa-theme--messenger .tp-wa-message-source{background:#ffffffd9}
+.tp-wa-theme--outlook .tp-wa-message-source{border:1px solid #e1dfdd;border-radius:3px;background:#fff}
+@media(max-width:767px){.tp-wa-avatar--message{width:25px;height:25px}.tp-wa-message-row{gap:5px}.tp-wa-message-source{margin-left:30px}.tp-wa-message.is-outbound .tp-wa-message-source{margin-right:30px}}

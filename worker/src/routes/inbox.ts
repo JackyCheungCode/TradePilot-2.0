@@ -76,7 +76,7 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
   // Preview omits the project-wide service-role key; use the caller JWT so RLS remains the authorization boundary.
   const accessToken = request.headers.get("Authorization")?.match(/^Bearer\s+(\S+)$/i)?.[1];
   const dbEnv: InboxEnv = { ...env, SUPABASE_ACCESS_TOKEN: accessToken };
-  if (request.method !== "GET" && request.method !== "POST") return errorResponse(request, "METHOD_NOT_ALLOWED", "当前消息接口暂不支持此操作。", 405);
+  if (request.method !== "GET" && request.method !== "POST" && request.method !== "PATCH") return errorResponse(request, "METHOD_NOT_ALLOWED", "当前消息接口暂不支持此操作。", 405);
 
   try {
     if (url.pathname === "/api/v1/inbox/conversations" && request.method === "POST") {
@@ -111,16 +111,24 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
       const conversations = await db<Row[]>(dbEnv, "inbox_conversations?" + filters.join("&"));
       const contactIds = unique(conversations.map(row => row.contact_id));
       const accountIds = unique(conversations.map(row => row.account_id));
-      const [contacts, accounts] = await Promise.all([
+      const [contacts, accounts, identities] = await Promise.all([
         contactIds.length
           ? db<Row[]>(dbEnv, "crm_contacts?select=id,account_id,first_name,last_name,full_name,job_title,department,email,phone,mobile,preferred_language,preferred_channel&id=in.(" + contactIds.join(",") + ")&owner_id=eq." + ownerId)
           : Promise.resolve([]),
         accountIds.length
-          ? db<Row[]>(dbEnv, "crm_accounts?select=id,account_name,legal_name,logo_url&id=in.(" + accountIds.join(",") + ")&owner_id=eq." + ownerId)
+          ? db<Row[]>(dbEnv, "crm_accounts?select=id,account_name,legal_name,logo_url,industry,website&id=in.(" + accountIds.join(",") + ")&owner_id=eq." + ownerId)
+          : Promise.resolve([]),
+        contactIds.length
+          ? db<Row[]>(dbEnv, "inbox_customer_identities?select=id,contact_id,channel_type,external_user_id,external_display_name,external_username,is_primary,last_seen_at,channel_connection_id&owner_id=eq." + ownerId + "&contact_id=in.(" + contactIds.join(",") + ")&order=is_primary.desc,last_seen_at.desc.nullslast")
           : Promise.resolve([]),
       ]);
       const contactById = new Map(contacts.map(row => [String(row.id), row]));
       const accountById = new Map(accounts.map(row => [String(row.id), row]));
+      const identitiesByContact = new Map<string, Row[]>();
+      for (const identity of identities) {
+        const key = String(identity.contact_id);
+        identitiesByContact.set(key, [...(identitiesByContact.get(key) ?? []), identity]);
+      }
       const data = conversations.map(row => {
         const contact = contactById.get(String(row.contact_id)) ?? null;
         const account = row.account_id ? accountById.get(String(row.account_id)) ?? null : null;
@@ -131,6 +139,7 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
           ...row,
           contact,
           account,
+          identities: identitiesByContact.get(String(row.contact_id)) ?? [],
           display_name: account?.account_name || contactName || "未命名联系人",
           contact_display_name: contactName,
         };
@@ -183,6 +192,60 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
         webhook_url: url.origin + "/api/v1/inbox/webhooks/" + channel + "/" + String(connection.id),
         webhook_status: "pending",
       }, existing.length ? 200 : 201);
+    }
+
+    const attachmentSignedUrlMatch = url.pathname.match(/^\/api\/v1\/inbox\/attachments\/([0-9a-f-]{36})\/signed-url$/i);
+    if (attachmentSignedUrlMatch && request.method === "GET") {
+      // Attachment metadata and objects are service-role-only. Never fall back to caller JWT for this lookup.
+      const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY;
+      if (!serviceRoleKey) {
+        return errorResponse(request, "ATTACHMENT_STORAGE_NOT_CONFIGURED", "当前环境未配置私有附件服务凭证。", 503);
+      }
+      const attachmentId = attachmentSignedUrlMatch[1];
+      const attachments = await db<Row[]>(env,
+        "inbox_attachments?select=id,storage_bucket,storage_path,scan_status&owner_id=eq." + ownerId +
+        "&id=eq." + attachmentId + "&limit=1");
+      const attachment = attachments[0];
+      if (!attachment) return errorResponse(request, "ATTACHMENT_NOT_FOUND", "附件不存在或无权访问。", 404);
+      if (attachment.scan_status !== "clean") {
+        return errorResponse(request, "ATTACHMENT_NOT_CLEARED", "附件尚未通过安全检查，暂不可下载。", 409);
+      }
+      if (attachment.storage_bucket !== "inbox-attachments" ||
+          typeof attachment.storage_path !== "string" || !attachment.storage_path ||
+          attachment.storage_path.startsWith("/") || attachment.storage_path.split("/").some((part: string) => !part || part === "." || part === "..")) {
+        return errorResponse(request, "ATTACHMENT_STORAGE_PATH_INVALID", "附件存储路径无效。", 500);
+      }
+      const objectPath = attachment.storage_path.split("/").map((part: string) => encodeURIComponent(part)).join("/");
+      const storageResponse = await fetch(
+        env.SUPABASE_URL.replace(/\/$/, "") + "/storage/v1/object/sign/inbox-attachments/" + objectPath,
+        {
+          method: "POST",
+          headers: { apikey: serviceRoleKey, Authorization: "Bearer " + serviceRoleKey, "Content-Type": "application/json" },
+          body: JSON.stringify({ expiresIn: 300 }),
+          signal: AbortSignal.timeout(10000),
+        },
+      );
+      const storagePayload = await storageResponse.json().catch(() => ({})) as { signedURL?: string; error?: string; message?: string };
+      if (!storageResponse.ok || typeof storagePayload.signedURL !== "string") {
+        return errorResponse(request, "ATTACHMENT_SIGNING_FAILED", "无法生成附件安全下载链接，请稍后重试。", 502);
+      }
+      const signedUrl = /^https?:\/\//i.test(storagePayload.signedURL)
+        ? storagePayload.signedURL
+        : new URL(storagePayload.signedURL.startsWith("/")
+          ? "/storage/v1" + storagePayload.signedURL
+          : "/storage/v1/" + storagePayload.signedURL, env.SUPABASE_URL).toString();
+      return successResponse(request, { url: signedUrl, expires_in: 300 });
+    }
+
+    if (url.pathname === "/api/v1/inbox/search" && request.method === "GET") {
+      const query = (url.searchParams.get("q") ?? "").replace(/[(),.*%_]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
+      if (query.length < 2) return successResponse(request, { conversation_ids: [], matches: [] });
+      const pattern = "*" + query + "*";
+      const matches = await db<Row[]>(dbEnv,
+        "inbox_messages?select=conversation_id,channel_type,content,created_at&owner_id=eq." + ownerId +
+        "&content=ilike." + encodeURIComponent(pattern) + "&order=created_at.desc&limit=100");
+      const conversationIds = unique(matches.map(row => row.conversation_id));
+      return successResponse(request, { conversation_ids: conversationIds, matches: matches.slice(0, 50) });
     }
 
     if (url.pathname === "/api/v1/inbox/crm-contacts" && request.method === "GET") {
@@ -480,8 +543,8 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
     const sendMatch = url.pathname.match(/^\/api\/v1\/inbox\/conversations\/([0-9a-f-]{36})\/messages$/i);
     if (sendMatch && request.method === "POST") {
       const conversationId = sendMatch[1];
-      let body: { content?: unknown };
-      try { body = await request.json() as { content?: unknown }; }
+      let body: { content?: unknown; channelType?: unknown };
+      try { body = await request.json() as { content?: unknown; channelType?: unknown }; }
       catch { return errorResponse(request, "INVALID_JSON", "消息内容格式不正确。", 400); }
       const content = typeof body.content === "string" ? body.content.trim() : "";
       if (!content || content.length > 4000) return errorResponse(request, "VALIDATION_ERROR", "消息不能为空，且不能超过 4000 个字符。", 400);
@@ -489,12 +552,16 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
       const conversations = await db<Row[]>(dbEnv, "inbox_conversations?select=id,contact_id,last_channel_type&id=eq." + conversationId + "&owner_id=eq." + ownerId + "&limit=1");
       const conversation = conversations[0];
       if (!conversation) return errorResponse(request, "CONVERSATION_NOT_FOUND", "会话不存在或无权访问。", 404);
-      const channel = String(conversation.last_channel_type ?? "");
+      const requestedChannel = typeof body.channelType === "string" ? body.channelType : String(conversation.last_channel_type ?? "");
+      const channel = requestedChannel;
       if (!["whatsapp", "line", "messenger", "telegram"].includes(channel)) return errorResponse(request, "CHANNEL_NOT_READY", "当前渠道尚未开放真实文本发送。", 409);
 
       const identities = await db<Row[]>(dbEnv, "inbox_customer_identities?select=id,external_user_id,channel_connection_id,is_primary&owner_id=eq." + ownerId + "&contact_id=eq." + String(conversation.contact_id) + "&channel_type=eq." + channel + "&order=is_primary.desc,last_seen_at.desc.nullslast&limit=1");
       const identity = identities[0];
       if (!identity || typeof identity.external_user_id !== "string" || !identity.external_user_id) return errorResponse(request, "CHANNEL_IDENTITY_MISSING", "该联系人尚未绑定此渠道的客户身份，暂时无法发送。", 409);
+      if (typeof identity.channel_connection_id !== "string") return errorResponse(request, "CHANNEL_CONNECTION_NOT_READY", "该客户渠道身份未关联有效渠道连接。", 409);
+      const connection = await db<Row[]>(dbEnv, "inbox_channel_connections?select=id,connection_status&id=eq." + identity.channel_connection_id + "&owner_id=eq." + ownerId + "&limit=1");
+      if (connection[0]?.connection_status !== "connected") return errorResponse(request, "CHANNEL_CONNECTION_NOT_READY", "该渠道尚未完成连接验证，暂时无法发送。", 409);
 
       if (channel === "whatsapp" || channel === "messenger") {
         const recentInbound = await db<Row[]>(dbEnv, "inbox_messages?select=id,created_at&owner_id=eq." + ownerId + "&conversation_id=eq." + conversationId + "&channel_type=eq." + channel + "&direction=eq.inbound&order=created_at.desc&limit=1");
@@ -533,6 +600,28 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
         });
         return errorResponse(request, code, "渠道发送失败，请检查渠道配置或稍后重试。", 502);
       }
+    }
+
+    const conversationUpdateMatch = url.pathname.match(/^\/api\/v1\/inbox\/conversations\/([0-9a-f-]{36})$/i);
+    if (conversationUpdateMatch && request.method === "PATCH") {
+      const conversationId = conversationUpdateMatch[1];
+      let body: { status?: unknown; markRead?: unknown };
+      try { body = await request.json() as { status?: unknown; markRead?: unknown }; }
+      catch { return errorResponse(request, "INVALID_JSON", "会话更新内容格式不正确。", 400); }
+      const patch: Row = {};
+      if (body.status !== undefined) {
+        if (!["open", "pending", "resolved", "closed"].includes(String(body.status))) {
+          return errorResponse(request, "VALIDATION_ERROR", "会话状态无效。", 400);
+        }
+        patch.status = body.status;
+      }
+      if (body.markRead === true) patch.unread_count = 0;
+      if (!Object.keys(patch).length) return errorResponse(request, "VALIDATION_ERROR", "没有可更新的会话字段。", 400);
+      const updated = await db<Row[]>(dbEnv,
+        "inbox_conversations?id=eq." + conversationId + "&owner_id=eq." + ownerId,
+        { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify(patch) });
+      if (!updated[0]) return errorResponse(request, "CONVERSATION_NOT_FOUND", "会话不存在或无权访问。", 404);
+      return successResponse(request, { conversation: updated[0] });
     }
 
     const noteMatch = url.pathname.match(/^\/api\/v1\/inbox\/conversations\/([0-9a-f-]{36})\/notes$/i);
