@@ -84,15 +84,15 @@ function compileStrategy(profile: Profile, tld: string, keywords: string[] = [])
     [expanded, specClause, hs, buyerClause, market, exclusions].filter(Boolean).join(' '),
     [expanded, '(supplier OR sourcing OR procurement OR wholesale)', market, site, exclusions].filter(Boolean).join(' '),
   ];
-  const area = profile.city.trim() || profile.country || 'target market';
+  const area = profile.city.trim() || profile.countryName || 'target market';
   const mapTerms = [
     noun, ...keywords.slice(0, 2), noun + ' importer', noun + ' distributor', noun + ' wholesaler',
     noun + ' supplier', noun + ' retailer', noun + ' trading company', noun + ' procurement',
   ];
   const maps = mapTerms.map(term => term + ' near ' + area);
   const social = [
-    'site:linkedin.com/company ' + base + (buyerClause ? ' ' + buyerClause : '') + market,
-    'site:myshopify.com ' + base + ' ' + '(brand OR store)' + market,
+    'site:linkedin.com/company ' + expanded + (buyerClause ? ' ' + buyerClause : '') + market,
+    'site:myshopify.com ' + expanded + ' ' + '(brand OR store)' + market,
   ];
   return { google, maps, social };
 }
