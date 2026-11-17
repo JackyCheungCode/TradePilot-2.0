@@ -99,8 +99,13 @@ export function ActorSchemaFields({ sources, profile, onValuesChange }: Props) {
       const token = await accessToken();
       const input: Record<string, unknown> = {};
       const requiredFields = new Set(item.schema.required ?? []);
+      const intent: Record<string, unknown> = {
+        query: profile.coreNoun, searchQuery: profile.coreNoun, keyword: profile.coreNoun, keywords: profile.coreNoun ? [profile.coreNoun] : [],
+        country: profile.country, countryCode: profile.country, country_code: profile.country, countryName: profile.countryName,
+        city: profile.city, location: profile.city || profile.countryName,
+      };
       const missingFields = Object.entries(item.schema.properties ?? {}).filter(([fieldKey, field]) => {
-        const value = values[item.source.id + ':' + item.actorId + ':' + fieldKey] ?? field.default;
+        const value = values[item.source.id + ':' + item.actorId + ':' + fieldKey] ?? field.default ?? intent[fieldKey];
         return (requiredFields.has(fieldKey) || (field as SchemaField).required === true) && (value === undefined || value === null || value === '');
       }).map(([fieldKey, field]) => (field.titleZh || field.title || fieldKey));
       if (missingFields.length) throw new Error('请先填写必填字段：' + missingFields.join('、'));
