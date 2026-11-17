@@ -117,6 +117,10 @@ export function ProspectDiscoveryPage() {
   const [localizedTerms, setLocalizedTerms] = useState<string[]>([]);
   const [buyerKeywords, setBuyerKeywords] = useState<string[]>([]);
   const [strategyLoading, setStrategyLoading] = useState(false);
+  const [aiSynonyms, setAiSynonyms] = useState<string[]>([]);
+  const [localizedTerms, setLocalizedTerms] = useState<string[]>([]);
+  const [buyerKeywords, setBuyerKeywords] = useState<string[]>([]);
+  const [strategyLoading, setStrategyLoading] = useState(false);
   const [googleQueries, setGoogleQueries] = useState<string[]>([]);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
@@ -197,15 +201,51 @@ export function ProspectDiscoveryPage() {
     const item = templateList.find(entry => entry.name === selectedTemplate);
     if (item) { setProfile(structuredClone(item.profile)); setNotice('已加载画像模板：' + item.name); setError(''); }
   };
-  const generateStrategy = () => {
+  const generateStrategy = async () => {
     if (!profile.coreNoun.trim()) { setError('请先填写核心产品名词，再生成获客策略。'); return; }
-    const result = compileStrategy(profile, countryTld);
-    setGoogleQueries(result.google);
-    setPreviewOpen(true);
-    setNotice('已根据当前画像编译搜索矩阵。AI 词库裂变尚未执行。');
+    setStrategyLoading(true);
     setError('');
+    setPreviewOpen(true);
+    try {
+      const db = await getSupabaseClient();
+      const { data } = await db.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) throw new Error('登录状态已失效，请重新登录。');
+      const response = await fetch('/api/v1/prospect-profiling/strategy', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          coreNoun: profile.coreNoun,
+          buyers: profile.buyers.map(id => buyerOptions.find(item => item.id === id)?.title ?? id),
+          country: profile.countryName,
+          city: profile.city,
+          materials: profile.materials,
+          specifications: profile.specifications,
+          hsCode: profile.hsCode,
+          certifications: profile.certifications,
+          competitors: profile.competitors.filter(Boolean),
+        }),
+      });
+      const payload = await response.json() as { data?: { synonyms?: string[]; localizedTerms?: string[]; buyerKeywords?: string[] }; error?: { message?: string } };
+      if (!response.ok) throw new Error(payload.error?.message || 'AI 词库生成失败');
+      const generated = payload.data ?? {};
+      setAiSynonyms(generated.synonyms ?? []);
+      setLocalizedTerms(generated.localizedTerms ?? []);
+      setBuyerKeywords(generated.buyerKeywords ?? []);
+      const allKeywords = [...(generated.synonyms ?? []), ...(generated.localizedTerms ?? []), ...(generated.buyerKeywords ?? []), ...synonyms];
+      const result = compileStrategy(profile, countryTld, allKeywords);
+      setGoogleQueries(result.google);
+      setNotice('AI 词库裂变与本地规则搜索矩阵已生成。请检查词汇和查询指令。');
+    } catch (cause) {
+      setAiSynonyms([]); setLocalizedTerms([]); setBuyerKeywords([]);
+      const result = compileStrategy(profile, countryTld, synonyms);
+      setGoogleQueries(result.google);
+      setError(cause instanceof Error ? cause.message + '；已保留本地规则搜索矩阵。' : 'AI 服务暂不可用；已保留本地规则搜索矩阵。');
+    } finally {
+      setStrategyLoading(false);
+    }
   };
-  const strategy = compileStrategy(profile, countryTld);
+  const strategy = compileStrategy(profile, countryTld, [...aiSynonyms, ...localizedTerms, ...buyerKeywords, ...synonyms]);
 
   const updateGoogleQuery = (index: number, value: string) => setGoogleQueries(current => current.map((item, i) => i === index ? value : item));
   const addSynonym = () => {
@@ -367,7 +407,7 @@ export function ProspectDiscoveryPage() {
           </section>
 
           <div className="tp-prospect-discovery__actions">
-            <Button kind="primary" renderIcon={CarbonIcons.MagicWand} onClick={generateStrategy}>生成获客策略</Button>
+            <Button kind="primary" renderIcon={CarbonIcons.MagicWand} onClick={generateStrategy} disabled={strategyLoading}>{strategyLoading ? '正在生成策略…' : '生成获客策略'}</Button>
           </div>
 
           {previewOpen && (
@@ -382,9 +422,12 @@ export function ProspectDiscoveryPage() {
               </div>
               <div className="tp-prospect-discovery__preview-block">
                 <h3>词库与本土化裂变</h3>
-                <p>AI 词库裂变服务尚未接入；以下为手动补充词，当前不会伪造 AI 同义词结果。</p>
+                <p>AI 自动生成的同义词、本土商业词汇与买家采购词可在此检查；也可手动补充或移除。</p>
                 <div className="tp-prospect-discovery__synonyms">
-                  {synonyms.map(item => <Tag key={item} type="blue" filter onClose={() => setSynonyms(current => current.filter(value => value !== item))}>{item}</Tag>)}
+                  {aiSynonyms.map(item => <Tag key={'ai-' + item} type="blue" filter onClose={() => setAiSynonyms(current => current.filter(value => value !== item))}>{item}</Tag>)}
+                  {localizedTerms.map(item => <Tag key={'local-' + item} type="teal" filter onClose={() => setLocalizedTerms(current => current.filter(value => value !== item))}>{item}</Tag>)}
+                  {buyerKeywords.map(item => <Tag key={'buyer-' + item} type="purple" filter onClose={() => setBuyerKeywords(current => current.filter(value => value !== item))}>{item}</Tag>)}
+                  {synonyms.map(item => <Tag key={'manual-' + item} type="blue" filter onClose={() => setSynonyms(current => current.filter(value => value !== item))}>{item}</Tag>)}
                   <TextInput id="tp-synonym-input" labelText="补充行业词汇" hideLabel placeholder="输入同义词或本土商业词汇" value={synonymInput} onChange={event => setSynonymInput(event.currentTarget.value)} />
                   <Button kind="tertiary" size="sm" renderIcon={CarbonIcons.Add} onClick={addSynonym}>添加词汇</Button>
                 </div>
@@ -408,7 +451,7 @@ export function ProspectDiscoveryPage() {
                 </Accordion>
               </div>
               <div className="tp-prospect-discovery__preview-footer">
-                <span>当前为本地规则编译结果；AI 词库裂变、地图数据源和后续步骤传递将在对应服务完成后启用。</span>
+                <span>Google 与地图矩阵当前由本地规则编译；地图数据抓取和后续步骤数据传递将在对应步骤启用。</span>
                 <Button kind="secondary" renderIcon={CarbonIcons.Checkmark} onClick={() => setNotice('第一步策略已在当前页面确认。')}>确认当前策略</Button>
               </div>
             </section>
