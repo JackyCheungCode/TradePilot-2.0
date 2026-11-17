@@ -254,6 +254,52 @@ export async function handleSettings(request: Request, env: SettingsEnv): Promis
       return errorResponse(request, "PROSPECT_GUARDRAILS_SETTINGS_FAILED", error instanceof Error ? error.message : "全局护盾配置操作失败", 502);
     }
   }
+  if (url.pathname === "/api/v1/settings/theme-preference" && (request.method === "GET" || request.method === "PUT")) {
+    const endpoint = env.SUPABASE_URL + "/rest/v1/trade_business_settings";
+    // Use the verified user's JWT so RLS and the settings audit trigger remain owner-scoped.
+    const headers = {
+      apikey: env.SUPABASE_ANON_KEY,
+      Authorization: request.headers.get("Authorization") ?? "",
+      Accept: "application/json",
+    };
+    try {
+      if (request.method === "GET") {
+        const query = new URLSearchParams({
+          owner_id: "eq." + ownerId,
+          scope_key: "eq.theme_preference",
+          select: "config,config_version,updated_at",
+        });
+        const response = await fetch(endpoint + "?" + query.toString(), { headers });
+        if (!response.ok) throw new Error("读取账户主题偏好失败（HTTP " + response.status + "）");
+        const rows = await response.json() as Array<{ config?: { preference?: unknown }; config_version?: number; updated_at?: string }>;
+        const saved = rows[0]?.config?.preference;
+        const preference = saved === "white" || saved === "dark" || saved === "system" ? saved : "system";
+        return successResponse(request, { preference, configVersion: rows[0]?.config_version ?? 0, updatedAt: rows[0]?.updated_at ?? null });
+      }
+
+      const body = await request.json() as { preference?: unknown };
+      if (body.preference !== "system" && body.preference !== "white" && body.preference !== "dark") {
+        return errorResponse(request, "INVALID_THEME_PREFERENCE", "主题偏好只能是 system、white 或 dark。", 400);
+      }
+      const response = await fetch(endpoint + "?on_conflict=owner_id,scope_key", {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=representation" },
+        body: JSON.stringify({
+          owner_id: ownerId,
+          scope_key: "theme_preference",
+          config: { preference: body.preference },
+          config_version: 1,
+          updated_by: ownerId,
+        }),
+      });
+      if (!response.ok) throw new Error("保存账户主题偏好失败（HTTP " + response.status + "）");
+      const rows = await response.json() as Array<{ config_version?: number; updated_at?: string }>;
+      return successResponse(request, { saved: true, preference: body.preference, configVersion: rows[0]?.config_version ?? 1, updatedAt: rows[0]?.updated_at ?? null });
+    } catch (error) {
+      return errorResponse(request, "THEME_PREFERENCE_FAILED", error instanceof Error ? error.message : "账户主题偏好操作失败", 502);
+    }
+  }
+
   const instagramDefaults={hashtagActor:"apify~instagram-hashtag-scraper",searchActor:"apify~instagram-search-scraper",profilePrimaryActor:"transparent_meteorite~instagram-public-profile-scraper",profileFallbackActor:"dami_studio~instagram-profile-scraper",discoveryCostPer1000:0,profileCostPer1000:0,actorVersion:"latest"};
   if(url.pathname==="/api/v1/settings/instagram-discovery"&&request.method==="GET"){try{const key=env.SUPABASE_SERVICE_ROLE_KEY??"";const r=await fetch(env.SUPABASE_URL+"/rest/v1/instagram_discovery_settings?id=eq.true&select=config",{headers:{apikey:key,Authorization:"Bearer "+key}});if(!r.ok)throw new Error("读取 Instagram 配置失败");const rows=await r.json() as Array<{config:Record<string,unknown>}>;return successResponse(request,{...instagramDefaults,...(rows[0]?.config??{})});}catch(e){return errorResponse(request,"INSTAGRAM_CONFIG_READ_FAILED",e instanceof Error?e.message:"读取 Instagram 配置失败",502);}}
   if(url.pathname==="/api/v1/settings/instagram-discovery"&&request.method==="PUT"){try{const body=await request.json() as Record<string,unknown>;const actorKeys=["hashtagActor","searchActor","profilePrimaryActor","profileFallbackActor"];const next:Record<string,unknown>={};for(const key of actorKeys){const value=String(body[key]??instagramDefaults[key as keyof typeof instagramDefaults]).trim();if(!/^[A-Za-z0-9_~-]{3,120}$/.test(value))return errorResponse(request,"INVALID_ACTOR_ID","Actor ID 格式无效："+key,400);next[key]=value;}for(const key of ["discoveryCostPer1000","profileCostPer1000"]){const value=Number(body[key]??0);if(!Number.isFinite(value)||value<0||value>10000)return errorResponse(request,"INVALID_ACTOR_COST","Actor 单价必须为 0 到 10,000 USD。",400);next[key]=value;}next.actorVersion=String(body.actorVersion??"latest").slice(0,80);const serviceKey=env.SUPABASE_SERVICE_ROLE_KEY??"";const r=await fetch(env.SUPABASE_URL+"/rest/v1/instagram_discovery_settings?on_conflict=id",{method:"POST",headers:{apikey:serviceKey,Authorization:"Bearer "+serviceKey,"Content-Type":"application/json",Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({id:true,config:next,updated_at:new Date().toISOString()})});if(!r.ok)throw new Error("保存 Instagram Actor 配置失败");return successResponse(request,{saved:true});}catch(e){return errorResponse(request,"INSTAGRAM_CONFIG_SAVE_FAILED",e instanceof Error?e.message:"保存 Instagram 配置失败",502);}}
