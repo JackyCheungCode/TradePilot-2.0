@@ -474,3 +474,14 @@
   .cc-page-header-actions { gap: var(--tp-space-02); }
   .cc-page-header-actions .cds--btn { padding-inline: var(--tp-space-03); }
 }
+
+/* Sender identity and channel attribution for every timeline item. */
+
+.cc-message-row { display: flex; align-items: flex-end; gap: var(--tp-space-03); min-width: 0; }
+.cc-message-content { flex: 1 1 auto; min-width: 0; }
+.cc-message-avatar { display: inline-flex; flex: 0 0 2rem; align-items: center; justify-content: center; width: 2rem; height: 2rem; border-radius: 50%; overflow: hidden; background: var(--cds-layer-02); color: var(--cds-text-primary); font-size: .8125rem; font-weight: 600; }
+.cc-avatar-image { object-fit: cover; }
+.cc-message--outbound .cc-message-row { justify-content: flex-end; }
+.cc-message--outbound .cc-message-content { order: 0; }
+.cc-message--outbound .cc-message-avatar { order: 1; }
+.cc-message--system .cc-message-row { justify-content: center; }
