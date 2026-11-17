@@ -148,8 +148,8 @@ export function ExecutionStep({ profile, sources, onEditStep, onContinueToScorin
   const filteredLeads = useMemo(() => leads.filter(lead => {
     const term = search.trim().toLocaleLowerCase();
     const textMatch = !term || lead.name.toLocaleLowerCase().includes(term) || lead.domain.toLocaleLowerCase().includes(term);
-    return textMatch && (sourceFilter === 'all' || lead.sourceId === sourceFilter);
-  }), [leads, search, sourceFilter]);
+    return textMatch && !blockedIds.includes(lead.id) && (sourceFilter === 'all' || lead.sourceId === sourceFilter);
+  }), [leads, search, sourceFilter, blockedIds]);
   const selectedRows = leads.filter(lead => selectedIds.includes(lead.id));
   const visibleLeads = filteredLeads.slice((page - 1) * pageSize, page * pageSize);
   const elapsedText = '00:' + String(Math.floor(elapsed / 60)).padStart(2, '0') + ':' + String(elapsed % 60).padStart(2, '0');
@@ -303,7 +303,7 @@ export function ExecutionStep({ profile, sources, onEditStep, onContinueToScorin
         {blockedIds.length > 0 && <p className="tp-execution__helper">当前会话已模拟移出 / 拉黑 {blockedIds.length} 条记录；未写入数据库。</p>}
       </Tile>
 
-      <Modal open={confirmStop} modalHeading="确认终止当前任务？" primaryButtonText="终止任务" secondaryButtonText="继续运行" danger onRequestClose={() => setConfirmStop(false)} onRequestSubmit={() => { setConfirmStop(false); setStatus('idle'); appendLog('[SYSTEM] Task terminated by user.'); setNotice('任务已终止，已捕获的 Mock 线索仍保留在当前页面。'); }}>
+      <Modal open={confirmStop} modalHeading="确认终止当前任务？" primaryButtonText="终止任务" secondaryButtonText="继续运行" danger onRequestClose={() => setConfirmStop(false)} onRequestSubmit={() => { setConfirmStop(false); progressRef.current = 0; setProgress(0); setStatus('idle'); appendLog('[SYSTEM] Task terminated by user.'); setNotice('任务已终止，已捕获的 Mock 线索仍保留在当前页面。'); }}>
         <p>终止后将停止前端模拟进度与日志输出。已捕获的线索不会自动删除。</p>
       </Modal>
       <Modal open={Boolean(detail)} modalHeading="企业原始抓取数据" primaryButtonText="关闭" onRequestClose={() => setDetail(null)} onRequestSubmit={() => setDetail(null)} size="lg">
