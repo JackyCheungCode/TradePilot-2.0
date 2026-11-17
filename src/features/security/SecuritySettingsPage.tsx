@@ -44,7 +44,7 @@ export function SecuritySettingsPage() {
   const [disableCode, setDisableCode] = useState('');
   const [showDisable, setShowDisable] = useState(false);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
+  const [notice, setNotice] = useState('');\n  const [recoveryStatus, setRecoveryStatus] = useState<RecoveryStatus>({ total: 0, remaining: 0 });\n  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
 
   const loadSecurity = useCallback(async () => {
     setLoading(true);
@@ -194,6 +194,38 @@ export function SecuritySettingsPage() {
     }
   };
 
+  const generateRecoveryCodes = async () => {
+    setBusy(true);
+    setError('');
+    setNotice('');
+    setRecoveryCodes([]);
+    try {
+      const client = await getSupabaseClient();
+      const hasExistingSet = recoveryStatus.total > 0;
+      const result = hasExistingSet
+        ? await client.auth.mfa.recoveryCodes.regenerate()
+        : await client.auth.mfa.recoveryCodes.generate({ friendlyName: 'TradePilot 备用恢复代码' });
+      if (result.error) throw result.error;
+      setRecoveryCodes(result.data.codes);
+      setNotice('恢复代码只显示这一次，请立即复制并保存在安全位置。');
+      const status = await client.auth.mfa.recoveryCodes.getStatus();
+      if (!status.error) setRecoveryStatus(status.data as RecoveryStatus);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '无法生成备用恢复代码。');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const copyRecoveryCodes = async () => {
+    try {
+      await navigator.clipboard.writeText(recoveryCodes.join('\\n'));
+      setNotice('恢复代码已复制。请将其保存在密码管理器等安全位置。');
+    } catch {
+      setError('无法访问剪贴板，请手动复制恢复代码。');
+    }
+  };
+
   const verifiedTotp = totpFactors.some((factor) => factor.status === 'verified');
 
   return (
@@ -317,6 +349,24 @@ export function SecuritySettingsPage() {
               <div className="tp-security__factor">
                 <strong>{totpFactors.find((factor) => factor.status === 'verified')?.friendly_name || '身份验证器'}</strong>
                 <Tag type="green">已验证</Tag>
+              </div>
+            )}
+            {verifiedTotp && (
+              <div className="tp-security__recovery">
+                <div>
+                  <h3>备用恢复代码</h3>
+                  <p>已生成 {recoveryStatus.total} 个恢复代码，剩余 {recoveryStatus.remaining} 个可用。每个代码只能使用一次。</p>
+                </div>
+                <Button kind="tertiary" size="sm" disabled={busy} onClick={() => void generateRecoveryCodes()}>
+                  {recoveryStatus.total > 0 ? '重新生成恢复代码' : '生成恢复代码'}
+                </Button>
+                {recoveryCodes.length > 0 && (
+                  <div className="tp-security__recovery-codes">
+                    <p>请立即保存。离开此页面后将无法再次查看：</p>
+                    <code>{recoveryCodes.join('\\n')}</code>
+                    <Button kind="secondary" size="sm" onClick={() => void copyRecoveryCodes()}>复制恢复代码</Button>
+                  </div>
+                )}
               </div>
             )}
           </section>
