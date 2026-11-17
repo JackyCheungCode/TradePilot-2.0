@@ -103,11 +103,19 @@ export function AppShell() {
               onClick={() => setPreference('system')}
             />
             <OverflowMenuItem
-              itemText={preference === 'white' ? '✓ White（浅色）' : 'White（浅色）'}
+              itemText={preference === 'white' ? '✓ 白色' : '白色'}
               onClick={() => setPreference('white')}
             />
             <OverflowMenuItem
-              itemText={preference === 'dark' ? '✓ Dark（深色）' : 'Dark（深色）'}
+              itemText={preference === 'g10' ? '✓ 浅灰色' : '浅灰色'}
+              onClick={() => setPreference('g10')}
+            />
+            <OverflowMenuItem
+              itemText={preference === 'g90' ? '✓ 深灰色' : '深灰色'}
+              onClick={() => setPreference('g90')}
+            />
+            <OverflowMenuItem
+              itemText={preference === 'dark' ? '✓ 深色' : '深色'}
               onClick={() => setPreference('dark')}
             />
           </OverflowMenu>
