@@ -15,6 +15,7 @@ type Run = {
   search_config?: Record<string, unknown> | null;
 };
 type RunLog = { id: string; level?: string; message?: string; created_at?: string };
+type RunResult = { id: string; is_removed?: boolean; provider?: string; record?: { id?: string; name?: string; website?: string; country_code?: string; status?: string; confidence_score?: number; lead_id?: string | null; email?: string | null; phone?: string | null } | null };
 
 const statusLabel = (status?: string) => ({
   queued: '排队中', running: '执行中', completed: '已完成', partial: '部分完成',
@@ -30,6 +31,7 @@ export function ProspectHistoryPage() {
   const navigate = useNavigate();
   const [runs, setRuns] = useState<Run[]>([]);
   const [logs, setLogs] = useState<RunLog[]>([]);
+  const [results, setResults] = useState<RunResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState('');
@@ -61,6 +63,11 @@ export function ProspectHistoryPage() {
         const { data, error: queryError } = await db.from('discovery_run_logs').select('*').eq('run_id', runId).order('created_at', { ascending: true }).limit(500);
         if (queryError) throw queryError;
         if (active) setLogs((data ?? []) as RunLog[]);
+        const { data: resultData, error: resultError } = await db.from('discovery_record_occurrences')
+          .select('id,is_removed,provider,record:discovery_records!discovery_record_occurrences_record_id_owner_id_fkey(id,name,website,country_code,status,confidence_score,lead_id,email,phone)')
+          .eq('run_id', runId).order('captured_at', { ascending: false }).limit(1000);
+        if (resultError) throw resultError;
+        if (active) setResults((resultData ?? []) as unknown as RunResult[]);
       } catch (cause) {
         if (active) setError(cause instanceof Error ? cause.message : '任务日志读取失败');
       } finally { if (active) setDetailLoading(false); }
@@ -113,6 +120,23 @@ export function ProspectHistoryPage() {
           </div>}
           {selected?.message && <p className="tp-prospect-hub__task-message">{selected.message}</p>}
           <div className="tp-prospect-hub__section-heading"><div><h3>执行日志</h3><p>任务的后台运行轨迹与结果反馈</p></div></div>
+          <div className="tp-prospect-hub__section-heading"><div><h3>本次任务捕获结果</h3><p>仅显示关联到当前任务的企业记录</p></div><Tag type="blue">{results.length} 条结果</Tag></div>
+          <div className="tp-prospect-hub__table-wrap">
+            <Table size="lg">
+              <TableHead><TableRow>{['企业名称','官网','国家','来源','AI 置信度','处理状态'].map(label => <TableHeader key={label}>{label}</TableHeader>)}</TableRow></TableHead>
+              <TableBody>
+                {results.map(item => { const record = item.record; const removed = item.is_removed || record?.status === 'removed'; const converted = record?.status === 'promoted' || !!record?.lead_id; return <TableRow key={item.id}>
+                  <TableCell>{record?.name || '未命名企业'}</TableCell>
+                  <TableCell>{record?.website || '—'}</TableCell>
+                  <TableCell>{record?.country_code || '—'}</TableCell>
+                  <TableCell>{item.provider || '—'}</TableCell>
+                  <TableCell>{record?.confidence_score ?? '—'}</TableCell>
+                  <TableCell><Tag type={removed ? 'red' : converted ? 'green' : 'blue'}>{removed ? '手动移除' : converted ? '已送入 CRM' : '待处理'}</Tag></TableCell>
+                </TableRow>; })}
+                {!results.length && <TableRow><TableCell colSpan={6}>该任务暂未关联捕获结果。</TableCell></TableRow>}
+              </TableBody>
+            </Table>
+          </div>
           {detailLoading ? <InlineLoading description="正在读取任务日志…" /> : <div className="tp-prospect-hub__logs">
             {logs.map(log => <div key={log.id}><time>{fmt(log.created_at)}</time><Tag type={log.level === 'error' ? 'red' : log.level === 'success' ? 'green' : 'gray'}>{log.level || 'info'}</Tag><span>{log.message || '—'}</span></div>)}
             {!logs.length && <p>暂无执行日志。该任务可能尚未开始，或没有记录日志。</p>}
