@@ -1,26 +1,34 @@
 name: Deploy TradePilot Worker
 
 on:
+  # Deploy automatically only after the CI workflow succeeds on develop.
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+  # Keep a manual recovery path, restricted to develop.
   workflow_dispatch:
-  # One-time, commit-message-gated production release requested by the user.
-  push:
-    branches: [develop]
 
 permissions:
   contents: read
 
+concurrency:
+  group: tradepilot-production-deploy
+  cancel-in-progress: false
+
 jobs:
   deploy:
     if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' &&
-       contains(github.event.head_commit.message, 'one-time approved production release'))
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'develop') ||
+      (github.event_name == 'workflow_dispatch' &&
+       github.ref == 'refs/heads/develop')
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout validated develop commit
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
