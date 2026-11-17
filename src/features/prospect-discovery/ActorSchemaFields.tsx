@@ -134,7 +134,7 @@ export function ActorSchemaFields({ sources, profile, onValuesChange }: Props) {
       const localTestPassed = test?.passed === true && test.inputFingerprint === currentFingerprint;
       const persistedTestPassed = item.actorStatus === 'enabled' && item.actorInputFingerprint === currentFingerprint;
       const status = localTestPassed || persistedTestPassed ? 'enabled' : test || item.actorStatus === 'enabled' ? 'needs_retest' : item.actorStatus;
-      return { sourceId: item.source.id, sourceName: item.source.name, actorId: item.actorId, actorTitle: item.actorTitle, status, schemaKeys: Object.keys(item.schema.properties ?? {}), input, inputFingerprint: currentFingerprint };
+      return { sourceId: item.source.id, sourceName: item.source.name, actorId: item.actorId, actorTitle: item.actorTitle, schemaVersion: item.schemaVersion, status, schemaKeys: Object.keys(item.schema.properties ?? {}), input, inputFingerprint: currentFingerprint };
     }),
   }), [values, items, testResults, profile]);
   useEffect(() => { onValuesChange(actorParameters); }, [actorParameters, onValuesChange]);
