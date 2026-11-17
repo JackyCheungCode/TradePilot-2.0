@@ -23,7 +23,7 @@ function keywordMatches(haystack: string, keyword: string, modes: string[]): boo
   return false;
 }
 function normalizedHost(value: string): string {
-  try { return new URL(/^https?:\\/\\//i.test(value) ? value : "https://" + value).hostname.toLowerCase().replace(/^www\\./, ""); }
+  try { return new URL(/^https?:\/\//i.test(value) ? value : "https://" + value).hostname.toLowerCase().replace(/^www\./, ""); }
   catch { return ""; }
 }
 function websiteTypeMatches(website: string, raw: Record<string, unknown>, selected: string[]): string[] {
@@ -73,7 +73,7 @@ function websiteMatches(website: string, rules: Array<Record<string, unknown>>):
 export function evaluateGuardrails(record: {
   name?: unknown; country?: unknown; address?: unknown; website?: unknown; phone?: unknown; email?: unknown;
   businessType?: unknown; title?: unknown; description?: unknown; content?: unknown; social?: unknown;
-  employeeCount?: unknown; email?: unknown; raw?: unknown;
+  employeeCount?: unknown; raw?: unknown;
 }, snapshotValue: unknown): GuardrailDecision {
   const snapshot = object(snapshotValue);
   const enabled = object(snapshot.enabled);
@@ -129,7 +129,7 @@ export function evaluateGuardrails(record: {
     if (snapshot.excludeInternalStaff === true) {
       const email = text(record.email || raw.email || raw.businessEmail || raw.business_email).toLowerCase();
       const emailHost = email.includes("@") ? email.split("@").pop() ?? "" : "";
-      const internalDomains = lines(rules.internalStaffDomains).map(value => value.toLowerCase().replace(/^@/, "").replace(/^www\\./, ""));
+      const internalDomains = lines(rules.internalStaffDomains).map(value => value.toLowerCase().replace(/^@/, "").replace(/^www\./, ""));
       if (emailHost && internalDomains.some(domain => emailHost === domain || emailHost.endsWith("." + domain))) reasons.push("命中内部员工邮箱域名");
     }
     if (snapshot.excludeCompetitorStaff === true) {
