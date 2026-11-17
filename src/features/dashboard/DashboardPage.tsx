@@ -157,7 +157,6 @@ export function DashboardPage() {
       date.setHours(0, 0, 0, 0);
       if (period === 'year') { date.setDate(1); date.setMonth(date.getMonth() - (days - index - 1)); }
       else date.setDate(date.getDate() - (period === '90d' ? 89 - index * 3 : days - index - 1));
-      const key = period === 'year' ? keyMonth(date) : dateKey(date);
       const next = new Date(date);
       if (period === 'year') next.setMonth(next.getMonth() + 1);
       else next.setDate(next.getDate() + (period === '90d' ? 3 : 1));
@@ -272,6 +271,7 @@ export function DashboardPage() {
         <SelectItem value="all" text="全球市场"/>{countryOptions.map(code => <SelectItem key={code} value={code} text={countryLabel(code)}/>)}
       </Select>
       <Tag type="blue">总览币种：USD</Tag>
+      <Button kind="ghost" size="sm" onClick={() => { setPeriod('30d'); setCountry('all'); setMarketMetric('customers'); }}>重置筛选</Button>
       <span className="tp-workbench__filter-note">金额优先采用原币为 USD 或已有基础币快照；未配置汇率的外币不参与合计。</span>
     </section>
 
