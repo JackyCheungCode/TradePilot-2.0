@@ -34,17 +34,18 @@ const FIELD_OPTIONS = [
 ] as const;
 const titleFor = (type: string) => DOC_TYPES.find(x => x.value === type)?.label ?? type;
 const TEMPLATE_LABELS: Record<string, Record<string, string>> = {
-  en: { quotation: 'QUOTATION', proforma_invoice: 'PRO FORMA INVOICE', sales_contract: 'SALES CONTRACT', commercial_invoice: 'COMMERCIAL INVOICE', packing_list: 'PACKING LIST', shipping_instructions: 'SHIPPING INSTRUCTIONS', seller: 'SELLER', buyer: 'BUYER', order: 'ORDER NO.', terms: 'PAYMENT TERMS', total: 'TOTAL', signature: 'AUTHORIZED SIGNATURE' },
-  'zh-CN': { quotation: '报价单', proforma_invoice: '形式发票', sales_contract: '销售合同', commercial_invoice: '商业发票', packing_list: '装箱单', shipping_instructions: '装运指示', seller: '卖方', buyer: '买方', order: '订单编号', terms: '付款条件', total: '总金额', signature: '授权签字' },
-  'zh-TW': { quotation: '報價單', proforma_invoice: '形式發票', sales_contract: '銷售合約', commercial_invoice: '商業發票', packing_list: '裝箱單', shipping_instructions: '裝運指示', seller: '賣方', buyer: '買方', order: '訂單編號', terms: '付款條件', total: '總金額', signature: '授權簽署' },
-  es: { quotation: 'COTIZACIÓN', proforma_invoice: 'FACTURA PROFORMA', sales_contract: 'CONTRATO DE VENTA', commercial_invoice: 'FACTURA COMERCIAL', packing_list: 'LISTA DE EMPAQUE', shipping_instructions: 'INSTRUCCIONES DE EMBARQUE', seller: 'VENDEDOR', buyer: 'COMPRADOR', order: 'N.º DE PEDIDO', terms: 'CONDICIONES DE PAGO', total: 'TOTAL', signature: 'FIRMA AUTORIZADA' },
-  fr: { quotation: 'DEVIS', proforma_invoice: 'FACTURE PRO FORMA', sales_contract: 'CONTRAT DE VENTE', commercial_invoice: 'FACTURE COMMERCIALE', packing_list: 'LISTE DE COLISAGE', shipping_instructions: 'INSTRUCTIONS D’EXPÉDITION', seller: 'VENDEUR', buyer: 'ACHETEUR', order: 'N° DE COMMANDE', terms: 'CONDITIONS DE PAIEMENT', total: 'TOTAL', signature: 'SIGNATURE AUTORISÉE' },
-  de: { quotation: 'ANGEBOT', proforma_invoice: 'PROFORMARECHNUNG', sales_contract: 'KAUFVERTRAG', commercial_invoice: 'HANDELSRECHNUNG', packing_list: 'PACKLISTE', shipping_instructions: 'VERSANDANWEISUNGEN', seller: 'VERKÄUFER', buyer: 'KÄUFER', order: 'BESTELLNUMMER', terms: 'ZAHLUNGSBEDINGUNGEN', total: 'GESAMT', signature: 'AUTORISIERTE UNTERSCHRIFT' },
-  ja: { quotation: '見積書', proforma_invoice: 'プロフォーマインボイス', sales_contract: '売買契約書', commercial_invoice: '商業送り状', packing_list: '梱包明細書', shipping_instructions: '船積指示書', seller: '売主', buyer: '買主', order: '注文番号', terms: '支払条件', total: '合計', signature: '署名' },
+  en: { quotation: 'QUOTATION', proforma_invoice: 'PRO FORMA INVOICE', sales_contract: 'SALES CONTRACT', commercial_invoice: 'COMMERCIAL INVOICE', packing_list: 'PACKING LIST', shipping_instructions: 'SHIPPING INSTRUCTIONS', seller: 'SELLER', buyer: 'BUYER', order: 'ORDER NO.', terms: 'PAYMENT TERMS', total: 'TOTAL', signature: 'AUTHORIZED SIGNATURE', shipment: 'SHIPMENT DETAILS', packages: 'PACKAGES', net_weight: 'NET WEIGHT', gross_weight: 'GROSS WEIGHT', volume: 'VOLUME' },
+  'zh-CN': { quotation: '报价单', proforma_invoice: '形式发票', sales_contract: '销售合同', commercial_invoice: '商业发票', packing_list: '装箱单', shipping_instructions: '装运指示', seller: '卖方', buyer: '买方', order: '订单编号', terms: '付款条件', total: '总金额', signature: '授权签字', shipment: '发运信息', packages: '包装件数', net_weight: '净重', gross_weight: '毛重', volume: '体积' },
+  'zh-TW': { quotation: '報價單', proforma_invoice: '形式發票', sales_contract: '銷售合約', commercial_invoice: '商業發票', packing_list: '裝箱單', shipping_instructions: '裝運指示', seller: '賣方', buyer: '買方', order: '訂單編號', terms: '付款條件', total: '總金額', signature: '授權簽署', shipment: '出貨資訊', packages: '包裝件數', net_weight: '淨重', gross_weight: '毛重', volume: '體積' },
+  es: { quotation: 'COTIZACIÓN', proforma_invoice: 'FACTURA PROFORMA', sales_contract: 'CONTRATO DE VENTA', commercial_invoice: 'FACTURA COMERCIAL', packing_list: 'LISTA DE EMPAQUE', shipping_instructions: 'INSTRUCCIONES DE EMBARQUE', seller: 'VENDEDOR', buyer: 'COMPRADOR', order: 'N.º DE PEDIDO', terms: 'CONDICIONES DE PAGO', total: 'TOTAL', signature: 'FIRMA AUTORIZADA', shipment: 'DETALLES DEL ENVÍO', packages: 'BULTOS', net_weight: 'PESO NETO', gross_weight: 'PESO BRUTO', volume: 'VOLUMEN' },
+  fr: { quotation: 'DEVIS', proforma_invoice: 'FACTURE PRO FORMA', sales_contract: 'CONTRAT DE VENTE', commercial_invoice: 'FACTURE COMMERCIALE', packing_list: 'LISTE DE COLISAGE', shipping_instructions: 'INSTRUCTIONS D’EXPÉDITION', seller: 'VENDEUR', buyer: 'ACHETEUR', order: 'N° DE COMMANDE', terms: 'CONDITIONS DE PAIEMENT', total: 'TOTAL', signature: 'SIGNATURE AUTORISÉE', shipment: 'DÉTAILS DE L’EXPÉDITION', packages: 'COLIS', net_weight: 'POIDS NET', gross_weight: 'POIDS BRUT', volume: 'VOLUME' },
+  de: { quotation: 'ANGEBOT', proforma_invoice: 'PROFORMARECHNUNG', sales_contract: 'KAUFVERTRAG', commercial_invoice: 'HANDELSRECHNUNG', packing_list: 'PACKLISTE', shipping_instructions: 'VERSANDANWEISUNGEN', seller: 'VERKÄUFER', buyer: 'KÄUFER', order: 'BESTELLNUMMER', terms: 'ZAHLUNGSBEDINGUNGEN', total: 'GESAMT', signature: 'AUTORISIERTE UNTERSCHRIFT', shipment: 'VERSANDDETAILS', packages: 'PACKSTÜCKE', net_weight: 'NETTOGEWICHT', gross_weight: 'BRUTTOGEWICHT', volume: 'VOLUMEN' },
+  ja: { quotation: '見積書', proforma_invoice: 'プロフォーマインボイス', sales_contract: '売買契約書', commercial_invoice: '商業送り状', packing_list: '梱包明細書', shipping_instructions: '船積指示書', seller: '売主', buyer: '買主', order: '注文番号', terms: '支払条件', total: '合計', signature: '署名', shipment: '出荷情報', packages: '梱包数', net_weight: '正味重量', gross_weight: '総重量', volume: '容積' },
 };
 const initialElements = (type: DocType, locale = 'en'): StudioElement[] => {
   const labels = TEMPLATE_LABELS[locale] ?? TEMPLATE_LABELS.en;
-  return [
+  const shipmentDocument = ['commercial_invoice', 'packing_list', 'shipping_instructions'].includes(type);
+  const elements: StudioElement[] = [
   { id: 'title', type: 'text', name: '单据标题', translationKey: type, x: 25, y: 16, width: 160, height: 14, text: labels[type], fontSize: 20, fontWeight: '700', align: 'center', color: '#161616' },
   { id: 'seller-label', type: 'text', name: '卖方标签', translationKey: 'seller', x: 16, y: 42, width: 80, height: 7, text: labels.seller, fontSize: 9, fontWeight: '700' },
   { id: 'seller', type: 'field', name: '卖方名称', x: 16, y: 50, width: 82, height: 12, binding: 'seller_name', fontSize: 10, fontWeight: '600' },
@@ -56,11 +57,24 @@ const initialElements = (type: DocType, locale = 'en'): StudioElement[] => {
   { id: 'order-no', type: 'field', name: '订单编号', x: 16, y: 94, width: 85, height: 8, binding: 'order_number', fontSize: 9 },
   { id: 'terms-label', type: 'text', name: '付款条件标签', translationKey: 'terms', x: 112, y: 87, width: 82, height: 6, text: labels.terms, fontSize: 7, fontWeight: '600' },
   { id: 'terms', type: 'field', name: '付款条件', x: 112, y: 94, width: 82, height: 8, binding: 'payment_terms', fontSize: 9 },
-  { id: 'items', type: 'table', name: '产品明细表', x: 16, y: 112, width: 178, height: 72, fontSize: 8, border: '#a8a8a8' },
-  { id: 'total-label', type: 'text', name: '总金额标签', translationKey: 'total', x: 116, y: 198, width: 38, height: 9, text: labels.total, fontSize: 10, fontWeight: '700', align: 'right' },
-  { id: 'total', type: 'field', name: '总金额', x: 156, y: 198, width: 38, height: 9, binding: 'totals.grand_total', fontSize: 11, fontWeight: '700', align: 'right' },
+  { id: 'items', type: 'table', name: '产品明细表', x: 16, y: shipmentDocument ? 140 : 112, width: 178, height: 72, fontSize: 8, border: '#a8a8a8' },
+  { id: 'total-label', type: 'text', name: '总金额标签', translationKey: 'total', x: 116, y: shipmentDocument ? 220 : 198, width: 38, height: 9, text: labels.total, fontSize: 10, fontWeight: '700', align: 'right' },
+  { id: 'total', type: 'field', name: '总金额', x: 156, y: shipmentDocument ? 220 : 198, width: 38, height: 9, binding: 'totals.grand_total', fontSize: 11, fontWeight: '700', align: 'right' },
   { id: 'footer', type: 'text', name: '页脚文字', translationKey: 'signature', x: 16, y: 270, width: 178, height: 8, text: labels.signature, fontSize: 8, color: '#525252', align: 'right' },
   ];
+  if (shipmentDocument) elements.push(
+    { id: 'shipment-heading', type: 'text', name: '发运信息标题', translationKey: 'shipment', x: 16, y: 108, width: 178, height: 7, text: labels.shipment, fontSize: 8, fontWeight: '700' },
+    { id: 'packages-label', type: 'text', name: '包装件数标签', translationKey: 'packages', x: 16, y: 119, width: 36, height: 6, text: labels.packages, fontSize: 6.5 },
+    { id: 'packages-value', type: 'field', name: '包装件数', x: 16, y: 126, width: 36, height: 7, binding: 'shipment.total_packages', fontSize: 8 },
+    { id: 'net-label', type: 'text', name: '净重标签', translationKey: 'net_weight', x: 62, y: 119, width: 36, height: 6, text: labels.net_weight, fontSize: 6.5 },
+    { id: 'net-value', type: 'field', name: '净重', x: 62, y: 126, width: 36, height: 7, binding: 'shipment.total_net_weight', fontSize: 8 },
+    { id: 'gross-label', type: 'text', name: '毛重标签', translationKey: 'gross_weight', x: 108, y: 119, width: 36, height: 6, text: labels.gross_weight, fontSize: 6.5 },
+    { id: 'gross-value', type: 'field', name: '毛重', x: 108, y: 126, width: 36, height: 7, binding: 'shipment.total_gross_weight', fontSize: 8 },
+    { id: 'volume-label', type: 'text', name: '体积标签', translationKey: 'volume', x: 154, y: 119, width: 36, height: 6, text: labels.volume, fontSize: 6.5 },
+    { id: 'volume-value', type: 'field', name: '体积', x: 154, y: 126, width: 36, height: 7, binding: 'shipment.total_volume', fontSize: 8 }
+  );
+  if (['packing_list', 'shipping_instructions'].includes(type)) return elements.filter(item => !['total-label', 'total'].includes(item.id));
+  return elements;
 };
 const readPath = (root: Json, path?: string) => (path || '').split('.').filter(Boolean).reduce<any>((value, key) => value?.[key], root);
 const formatValue = (value: any) => value == null || value === '' ? '—' : typeof value === 'object' ? Object.values(value).filter(Boolean).join(', ') : String(value);
