@@ -10,7 +10,7 @@ type ContactRow = {
   id: string; company: string; domain: string; country: string; source: string;
   person: string; title: string; linkedin: string; email: string; phone: string; whatsapp: string;
   emailStatus: 'valid' | 'pending' | 'unknown'; enrichment: 'pending' | 'complete';
-  crm: 'not-synced' | 'synced' | 'failed'; crmId?: string; candidateKey?: string;
+  crm: 'not-synced' | 'synced' | 'failed'; crmId?: string; candidateKeys: string[];
   candidateCount: number;
 };
 type Candidate = Record<string, unknown>;
@@ -61,7 +61,7 @@ function mapRecord(record: Record<string, unknown>): ContactRow {
     emailStatus: email ? 'unknown' : 'pending', enrichment: isEnriched ? 'complete' : 'pending',
     crm: raw.lifecycle_stage === 'converted' || Boolean(record.lead_id) ? 'synced' : 'not-synced',
     crmId: String(asObject(raw.contact_intelligence).crm_account_id ?? '') || undefined,
-    candidateKey: candidates[0] ? candidateKey(candidates[0]) : undefined, candidateCount: candidates.length,
+    candidateKeys: candidates.map(candidateKey).filter(Boolean), candidateCount: candidates.length,
   };
 }
 
@@ -163,14 +163,14 @@ export function DecisionMakerStep({ profile }: Props) {
   };
 
   const syncSelected = async () => {
-    const candidates = selectedRows.filter(row => row.enrichment === 'complete' && row.candidateKey);
+    const candidates = selectedRows.filter(row => row.enrichment === 'complete' && row.candidateKeys.length > 0);
     if (!candidates.length) { setNotice('所选企业尚无可转换的真实联系人候选。请先执行联系人穿透。'); return; }
     setNotice('正在逐家企业提交已勾选的联系人，成功与失败结果将分别保留。');
     const token = await tokenOrThrow();
     const results = await Promise.all(candidates.map(async row => {
       try {
         const result = await api('/api/v1/discovery-contact-candidates/convert', token, {
-          method: 'POST', body: JSON.stringify({ recordId: row.id, candidateKeys: [row.candidateKey] }),
+          method: 'POST', body: JSON.stringify({ recordId: row.id, candidateKeys: row.candidateKeys }),
         }) as { leadId?: string; accountId?: string; accountName?: string; createdContacts?: number; linkedContacts?: number };
         return { id: row.id, ok: true, crmId: result.accountId ?? result.leadId ?? '' };
       } catch (error) {
