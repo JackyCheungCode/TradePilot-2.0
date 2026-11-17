@@ -17,6 +17,7 @@ import { handleMasterData } from "./routes/master-data";
 import { handleProspectConsole } from "./routes/prospect-console";
 import { handleProspectProfiling, handleProspectStrategy, handleProspectCities, handleProspectCountries } from "./routes/prospect-profiling";
 import { handleContactValidation } from "./routes/contact-validation";
+import { handleActorRegistry } from "./routes/actor-registry";
 import { handleInbox } from "./routes/inbox";
 import { handleInboxWebhook } from "./routes/inbox-webhooks";
 import { handleInboxAttachment } from "./routes/inbox-attachments";
@@ -77,6 +78,7 @@ export default {
    if (url.pathname === "/api/v1/prospect-profiling/cities") return await handleProspectCities(request, env);
    if (url.pathname === "/api/v1/prospect-profiling/countries") return await handleProspectCountries(request, env);
    if (url.pathname === "/api/v1/contact-validation") return await handleContactValidation(request, env);
+   if (url.pathname.startsWith("/api/v1/actor-registry")) return await handleActorRegistry(request, env);
    if (url.pathname.startsWith("/api/v1/inbox/webhooks/")) return await handleInboxWebhook(request, env);
    if (url.pathname.startsWith("/api/v1/inbox/attachments/")) return await handleInboxAttachment(request, env);
    if (url.pathname.startsWith("/api/v1/inbox/")) return await handleInbox(request, env);
