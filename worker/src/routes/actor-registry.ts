@@ -46,6 +46,15 @@ async function gatewayFetch(path: string, token: string): Promise<Record<string,
 }
 function actorKey(actor: ActorRecord): string { return actor.username ? actor.username + "~" + actor.name : actor.id; }
 function safeText(value: unknown, max = 4000): string { return typeof value === "string" ? value.slice(0, max) : ""; }
+function inputFingerprint(value: Record<string, unknown>): string {
+  const serialized = JSON.stringify(value);
+  let hash = 2166136261;
+  for (let index = 0; index < serialized.length; index++) {
+    hash ^= serialized.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
 
 async function translateSchema(actorId: string, schema: Record<string, unknown>, env: ActorRegistryEnv): Promise<Record<string, unknown>> {
   const properties = schema.properties && typeof schema.properties === "object" ? schema.properties as Record<string, unknown> : {};
@@ -207,6 +216,7 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
         if (["maxItems", "maxResults", "maxResultsPerQuery", "resultsLimit", "maxItemsPerRun", "limit"].includes(key)) input[key] = 1;
       }
       const serializedInput = JSON.stringify(input);
+      const testedInputFingerprint = inputFingerprint(input);
       if (serializedInput.length > 20000) return errorResponse(request, "ACTOR_INPUT_TOO_LARGE", "测试参数超出大小限制。", 400);
       const existing = await db<Array<{ id: string; source_metadata: Record<string, unknown> }>>(env,
         "actor_registry?owner_id=eq." + ownerId + "&actor_id=eq." + encodeURIComponent(actorId) + "&select=id,source_metadata&limit=1");
@@ -243,7 +253,7 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
       const summary = {
         runId: safeText(run.id, 160), runStatus, sampleCount: objects.length, fieldCount: fieldNames.length,
         completeness: Math.round(completeness * 100), schemaCoverage: Math.round(schemaCoverage),
-        qualityScore, stabilityScore, passed, testedAt: new Date().toISOString(),
+        qualityScore, stabilityScore, passed, inputFingerprint: testedInputFingerprint, testedAt: new Date().toISOString(),
       };
       const previousMetadata = existing[0].source_metadata && typeof existing[0].source_metadata === "object" ? existing[0].source_metadata : {};
       await db(env, "actor_registry?owner_id=eq." + ownerId + "&actor_id=eq." + encodeURIComponent(actorId), {
@@ -270,9 +280,10 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
         method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
         body: JSON.stringify({ owner_id: ownerId, actor_id: actorId, version, input_schema: schema, localized_schema: localized, fetched_at: new Date().toISOString() }),
       });
-      const registryRows = await db<Array<{ status: string; quality_score: number | null; last_tested_at: string | null }>>(env,
-        "actor_registry?owner_id=eq." + ownerId + "&actor_id=eq." + encodeURIComponent(actorId) + "&select=status,quality_score,last_tested_at&limit=1");
-      return successResponse(request, { actorId, version, schema: localized, actor: registryRows?.[0] ?? null });
+      const registryRows = await db<Array<{ status: string; quality_score: number | null; last_tested_at: string | null; source_metadata: Record<string, unknown> }>>(env,
+        "actor_registry?owner_id=eq." + ownerId + "&actor_id=eq." + encodeURIComponent(actorId) + "&select=status,quality_score,last_tested_at,source_metadata&limit=1");
+      const lastTest = registryRows?.[0]?.source_metadata?.lastTest && typeof registryRows[0].source_metadata.lastTest === "object" ? registryRows[0].source_metadata.lastTest as Record<string, unknown> : {};
+      return successResponse(request, { actorId, version, schema: localized, actor: { status: registryRows?.[0]?.status ?? "discovered", quality_score: registryRows?.[0]?.quality_score ?? null, last_test_input_fingerprint: safeText(lastTest.inputFingerprint, 40) } });
     }
     return errorResponse(request, "NOT_FOUND", "数据源管理接口不存在。", 404);
   } catch (error) {
