@@ -74,6 +74,7 @@ export function DesignSystemProvider({ children }: DesignSystemProviderProps) {
       if (!alive) return;
       setSession(nextSession);
       const nextUserId = nextSession?.user.id ?? null;
+      if (activeUserId !== nextUserId) setPreferenceState('system');
       activeUserId = nextUserId;
       setUserId(nextUserId);
       if (!nextUserId || !nextSession) {
