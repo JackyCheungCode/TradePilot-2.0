@@ -100,13 +100,13 @@ export function DesignSystemProvider({ children }: DesignSystemProviderProps) {
     };
 
     void getSupabaseClient().then(async (client) => {
-      const { data } = await client.auth.getSession();
-      if (!alive) return;
-      await resolveSession(data.session);
       const listener = client.auth.onAuthStateChange((_event, nextSession) => {
         void resolveSession(nextSession);
       });
       subscription = listener.data.subscription;
+      const { data } = await client.auth.getSession();
+      if (!alive) return;
+      await resolveSession(data.session);
     }).catch(() => {
       if (alive) {
         setSession(null);
@@ -139,6 +139,12 @@ export function DesignSystemProvider({ children }: DesignSystemProviderProps) {
     });
   }, [session, userId]);
 
+  const resolvedTheme: DesignSystemTheme = preference === 'dark'
+    ? 'g100'
+    : preference === 'white'
+      ? 'white'
+      : systemDark ? 'g100' : 'white';
+
   useEffect(() => {
     document.documentElement.setAttribute('data-carbon-theme', resolvedTheme);
     const metaThemeColor = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
@@ -147,12 +153,6 @@ export function DesignSystemProvider({ children }: DesignSystemProviderProps) {
       if (background) metaThemeColor.content = background;
     }
   }, [resolvedTheme]);
-
-  const resolvedTheme: DesignSystemTheme = preference === 'dark'
-    ? 'g100'
-    : preference === 'white'
-      ? 'white'
-      : systemDark ? 'g100' : 'white';
 
   const value = useMemo(() => ({ preference, resolvedTheme, setPreference }), [preference, resolvedTheme, setPreference]);
 
