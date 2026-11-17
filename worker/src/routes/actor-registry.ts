@@ -14,7 +14,7 @@ interface ActorRegistryEnv {
 type ActorRecord = { id: string; username?: string; name?: string; title?: string; description?: string; modifiedAt?: string; stats?: Record<string, unknown>; };
 
 async function authenticate(request: Request, env: ActorRegistryEnv): Promise<string | null> {
-  const token = request.headers.get("Authorization")?.replace(/^Bearer\\s+/i, "");
+  const token = request.headers.get("Authorization")?.replace(/^Bearer\s+/i, "");
   if (!token) return null;
   const response = await fetch(env.SUPABASE_URL + "/auth/v1/user", {
     headers: { apikey: env.SUPABASE_ANON_KEY, Authorization: "Bearer " + token },
