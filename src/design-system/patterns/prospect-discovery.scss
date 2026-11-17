@@ -358,9 +358,6 @@
   &__platform-row .cds--checkbox:disabled + .cds--checkbox-label {
     cursor: not-allowed;
   }
-  &__platform-row:has(.cds--checkbox:disabled) .tp-prospect-discovery__platform-copy {
-    opacity: .72;
-  }
 
   &__platform-classification {
     display: flex;
@@ -416,10 +413,10 @@
     &__platform-toolbar { align-items: flex-start; flex-direction: column; }
     &__platform-actions { justify-content: flex-start; }
     &__platform-row {
-      grid-template-columns: minmax(0, 1fr);
-      gap: $spacing-03;
+      grid-template-columns: 24px minmax(0, 1fr);
+      gap: $spacing-03 $spacing-04;
     }
-    &__platform-classification { justify-content: flex-start; padding-left: $spacing-07; }
+    &__platform-classification { grid-column: 2; justify-content: flex-start; padding-left: 0; }
     &__platform-pagination > span { text-align: left; }
   }
 }
