@@ -24,6 +24,8 @@ const statusLabel = (status?: string | null) => ({
 const statusType = (status?: string | null): 'green' | 'blue' | 'red' | 'gray' =>
   status === 'completed' ? 'green' : status === 'running' || status === 'queued' ? 'blue' : status === 'failed' ? 'red' : 'gray';
 const fmt = (value?: string | null) => value ? new Date(value).toLocaleString('zh-TW', { hour12: false }) : '—';
+const channelLabel = (value?: string | null) => value === 'actor_discovery' ? '智能数据源' : value === 'map_local_businesses' ? '地图与本地商家' : value === 'search_engine' ? '搜索引擎' : value || '—';
+const providerLabel = (value?: string) => value === 'actor_gateway' ? '智能数据源' : value || '—';
 const codeOf = (run: Run) => run.task_code || ('TPD-' + (run.created_at || '').replace(/[-:TZ.]/g, '').slice(0, 14) + '-' + run.id.slice(0, 6).toUpperCase());
 
 export function ProspectHistoryPage() {
@@ -93,7 +95,7 @@ export function ProspectHistoryPage() {
                   <TableCell><strong className="tp-prospect-hub__code">{codeOf(run)}</strong></TableCell>
                   <TableCell>{run.query || '—'}</TableCell>
                   <TableCell>{(run.countries ?? []).join(', ') || '—'}</TableCell>
-                  <TableCell>{run.channel || (run.providers ?? []).join(' / ') || '—'}</TableCell>
+                  <TableCell>{channelLabel(run.channel) !== '—' ? channelLabel(run.channel) : (run.providers ?? []).map(providerLabel).join(' / ') || '—'}</TableCell>
                   <TableCell><Tag type={statusType(run.status)}>{statusLabel(run.status)}</Tag></TableCell>
                   <TableCell>{(run.discovered_count ?? 0).toLocaleString()}</TableCell>
                   <TableCell>{fmt(run.created_at)}</TableCell>
@@ -111,7 +113,7 @@ export function ProspectHistoryPage() {
           {selected && <div className="tp-prospect-hub__detail-grid">
             <div><span>执行状态</span><Tag type={statusType(selected.status)}>{statusLabel(selected.status)}</Tag></div>
             <div><span>目标市场</span><strong>{(selected.countries ?? []).join(', ') || '—'}</strong></div>
-            <div><span>发现渠道</span><strong>{selected.channel || (selected.providers ?? []).join(' / ') || '—'}</strong></div>
+            <div><span>发现渠道</span><strong>{channelLabel(selected.channel) !== '—' ? channelLabel(selected.channel) : (selected.providers ?? []).map(providerLabel).join(' / ') || '—'}</strong></div>
             <div><span>捕获数量</span><strong>{(selected.discovered_count ?? 0).toLocaleString()}</strong></div>
             <div><span>已创建 CRM 线索</span><strong>{(selected.created_lead_count ?? 0).toLocaleString()}</strong></div>
             <div><span>进度</span><strong>{selected.progress ?? 0}%</strong></div>
@@ -129,7 +131,7 @@ export function ProspectHistoryPage() {
                   <TableCell>{record?.name || '未命名企业'}</TableCell>
                   <TableCell>{record?.website || '—'}</TableCell>
                   <TableCell>{record?.country_code || '—'}</TableCell>
-                  <TableCell>{item.provider || '—'}</TableCell>
+                  <TableCell>{providerLabel(item.provider)}</TableCell>
                   <TableCell>{record?.confidence_score ?? '—'}</TableCell>
                   <TableCell><Tag type={removed ? 'red' : converted ? 'green' : 'blue'}>{removed ? '手动移除' : converted ? '已送入 CRM' : '待处理'}</Tag></TableCell>
                 </TableRow>; })}
