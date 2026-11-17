@@ -124,6 +124,7 @@ export function DashboardPage() {
       const code = String(row.country_code || '').toUpperCase();
       if (code) counts.set(code, (counts.get(code) || 0) + 1);
     });
+    (data?.leads || []).forEach(row => { const code = String(row.country_code || '').toUpperCase(); if (code) counts.set(code, (counts.get(code) || 0) + 1); });
     return [...counts.keys()].sort();
   }, [data?.accounts]);
 
@@ -153,10 +154,16 @@ export function DashboardPage() {
       const date = new Date();
       date.setHours(0, 0, 0, 0);
       if (period === 'year') date.setMonth(date.getMonth() - (days - index - 1));
-      else date.setDate(date.getDate() - (days - index - 1) * (period === '90d' ? 3 : 1));
+      else date.setDate(date.getDate() - (period === '90d' ? 89 - index * 3 : days - index - 1));
       const key = period === 'year' ? keyMonth(date) : dateKey(date);
-      const value = scoped.newAccounts.filter(row => (period === 'year' ? String(row.created_at || '').slice(0, 7) : String(row.created_at || '').slice(0, 10)) === key).length;
-      return { group: '新增客户', date: period === 'year' ? new Date(key + '-01T00:00:00') : new Date(key + 'T00:00:00'), value };
+      const next = new Date(date);
+      if (period === 'year') next.setMonth(next.getMonth() + 1);
+      else next.setDate(next.getDate() + (period === '90d' ? 3 : 1));
+      const value = scoped.newAccounts.filter(row => {
+        const created = new Date(row.created_at);
+        return created >= date && created < next;
+      }).length;
+      return { group: '新增客户', date, value };
     });
     const stages = [
       ['潜客发现', scoped.discovery.length], ['潜在客户', scoped.leads.length],
@@ -222,7 +229,7 @@ export function DashboardPage() {
     { label: '有效报价金额', value: effectiveQuotes.length ? money(quoteTotal) : '暂无有效报价', detail: number(effectiveQuotes.length) + ' 份已发送 / 已查看 / 已接受报价', icon: CarbonIcons.Document, href: '/quotes' },
     { label: '销售订单', value: confirmedSalesOrders.length ? money(orderTotal) : '暂无有效订单', detail: number(confirmedSalesOrders.length) + ' 个已启用销售订单', icon: CarbonIcons.ShoppingCart, href: '/sales-orders' },
     { label: '发运履约', value: number(scoped.shipments.length), detail: number(shipmentExceptions.length) + ' 项异常', icon: CarbonIcons.Delivery, href: '/shipments' },
-    { label: '实际回款', value: scoped.payments.length ? money(receivedTotal) : '暂无记录', detail: scoped.payments.length ? number(collected.length) + ' 笔收款记录' : '尚无实际收款记录', icon: CarbonIcons.CurrencyDollar, href: '/payments' },
+    { label: '实际回款', value: collected.length || refunds.length ? money(receivedTotal) : '暂无实际收款', detail: collected.length ? number(collected.length) + ' 笔已确认收款' : '尚无已确认收款记录', icon: CarbonIcons.CurrencyDollar, href: '/payments' },
     { label: '经营风险', value: number(riskCount), detail: '逾期跟进 ' + overdueActivities.length + ' · 逾期应收 ' + overdueReceivableCount + ' · 发运异常 ' + shipmentExceptions.length + ' · Agent 失败 ' + failedAgents.length, icon: CarbonIcons.WarningAlt, href: '/agent' },
   ];
 
