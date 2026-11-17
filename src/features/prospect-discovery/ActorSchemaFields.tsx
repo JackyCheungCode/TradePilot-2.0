@@ -152,7 +152,7 @@ export function ActorSchemaFields({ sources, profile, onValuesChange }: Props) {
         return (requiredFields.has(fieldKey) || field.required === true) && (value === undefined || value === null || value === '');
       }).map(([fieldKey, field]) => (field.titleZh || field.title || fieldKey));
       if (missingFields.length) throw new Error('请先填写必填字段：' + missingFields.join('、'));
-      const currentFingerprint = fingerprint(input);
+      const currentFingerprint = fingerprint(input, item.schemaVersion);
       const result = await api('/api/v1/actor-registry/test', token, {
         method: 'POST',
         body: JSON.stringify({ actorId: item.actorId, input, profile, expectedFieldCount: Object.keys(item.schema.properties ?? {}).length, schemaVersion: item.schemaVersion }),
