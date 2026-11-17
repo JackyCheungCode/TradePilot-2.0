@@ -53,7 +53,7 @@ function websiteTypeMatches(website: string, raw: Record<string, unknown>, selec
     return definition.hosts.some(part => host.includes(part)) || definition.terms.some(term => metadata.includes(term));
   }).map(label => "网站类型排除：" + label);
 }
-function websiteMatches(website: string, rules: Array<Record<string, unknown>>): string[] {
+function websiteMatches(website: string, rules: Array<Record<string, unknown>>, raw: Record<string, unknown>): string[] {
   if (!website) return [];
   let url: URL | null = null;
   try { url = new URL(/^https?:\/\//i.test(website) ? website : "https://" + website); } catch { return []; }
@@ -67,6 +67,10 @@ function websiteMatches(website: string, rules: Array<Record<string, unknown>>):
       case "suffix": return host.endsWith(value.startsWith(".") ? value : "." + value);
       case "subdomain": return host.endsWith("." + value) && host !== value;
       case "path": return url?.pathname.toLowerCase().includes(value) ?? false;
+      case "platform": {
+        const platform = [raw.platform, raw.platformName, raw.platform_name, raw.websitePlatform, raw.website_platform, raw.cms, raw.generator, raw.technology].map(text).join(" ").toLowerCase();
+        return host.includes(value) || platform.includes(value);
+      }
       case "pattern": {
         const escaped = value.replace(/[.+^$${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".");
         try { return new RegExp(escaped, "i").test(website); } catch { return false; }
@@ -104,7 +108,7 @@ export function evaluateGuardrails(record: {
   }
   if (enabled.websites === true) {
     const websiteRules = Array.isArray(snapshot.websiteRows) ? snapshot.websiteRows.map(object) : [];
-    reasons.push(...websiteMatches(text(record.website), websiteRules));
+    reasons.push(...websiteMatches(text(record.website), websiteRules, raw));
     const selectedTypes = Array.isArray(snapshot.selectedWebsiteTypes)
       ? snapshot.selectedWebsiteTypes.map(item => text(object(item).text)).filter(Boolean)
       : [];
