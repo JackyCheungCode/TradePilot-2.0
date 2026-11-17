@@ -24,13 +24,13 @@ const DOC_TYPES: { value: DocType; label: string; source: 'order' | 'shipment'; 
 ];
 const LOCALES = [{ value: 'en', label: 'English' }, { value: 'zh-CN', label: '简体中文' }, { value: 'zh-TW', label: '繁體中文' }, { value: 'es', label: 'Español' }, { value: 'fr', label: 'Français' }, { value: 'de', label: 'Deutsch' }, { value: 'ja', label: '日本語' }];
 const FIELD_OPTIONS = [
-  ['seller_name', '卖方名称'], ['seller_address', '卖方地址'], ['buyer_name', '买方名称'], ['buyer_address', '买方地址'],
+  ['seller_name', '卖方名称'], ['seller_address', '卖方地址'], ['company_email', '企业邮箱'], ['company_phone', '企业电话'], ['company_website', '企业官网'], ['company_tax_number', '企业税号'], ['buyer_name', '买方名称'], ['buyer_address', '买方地址'], ['buyer_email', '买方邮箱'],
   ['buyer_shipping_address', '收货地址'], ['order_number', '订单编号'], ['customer_reference', '客户参考号'],
   ['payment_terms', '付款条件'], ['incoterms_code', '贸易术语'], ['named_place', '指定地点'],
   ['delivery_date', '交付日期'], ['contact_name', '联系人'], ['contact_email', '联系人邮箱'],
   ['shipment.shipment_no', '发运批次号'], ['shipment.total_packages', '包装件数'],
   ['shipment.total_net_weight', '净重'], ['shipment.total_gross_weight', '毛重'], ['shipment.total_volume', '体积'],
-  ['totals.grand_total', '总金额'], ['document.document_number', '单据编号'],
+  ['totals.grand_total', '总金额'], ['default_bank_account.bank_name', '默认收款银行'], ['default_bank_account.account_name', '收款账户名称'], ['default_bank_account.swift_bic', 'SWIFT / BIC'], ['default_bank_account.account_number', '银行账号'], ['document.document_number', '单据编号'], ['order_date', '订单日期'],
 ] as const;
 const titleFor = (type: string) => DOC_TYPES.find(x => x.value === type)?.label ?? type;
 const TEMPLATE_LABELS: Record<string, Record<string, string>> = {
@@ -47,12 +47,16 @@ const initialElements = (type: DocType, locale = 'en'): StudioElement[] => {
   const shipmentDocument = ['commercial_invoice', 'packing_list', 'shipping_instructions'].includes(type);
   const elements: StudioElement[] = [
   { id: 'title', type: 'text', name: '单据标题', translationKey: type, x: 25, y: 16, width: 160, height: 14, text: labels[type], fontSize: 20, fontWeight: '700', align: 'center', color: '#161616' },
+  { id: 'document-number', type: 'field', name: '单据编号', x: 16, y: 31, width: 178, height: 5, binding: 'document.document_number', fontSize: 7, color: '#525252', align: 'right' },
+  { id: 'brand-rule', type: 'shape', name: '品牌强调线', x: 16, y: 38, width: 178, height: 1, background: '#0f62fe', color: '#0f62fe' },
   { id: 'seller-label', type: 'text', name: '卖方标签', translationKey: 'seller', x: 16, y: 42, width: 80, height: 7, text: labels.seller, fontSize: 9, fontWeight: '700' },
   { id: 'seller', type: 'field', name: '卖方名称', x: 16, y: 50, width: 82, height: 12, binding: 'seller_name', fontSize: 10, fontWeight: '600' },
   { id: 'seller-address', type: 'field', name: '卖方地址', x: 16, y: 63, width: 82, height: 18, binding: 'seller_address', fontSize: 8 },
+  { id: 'seller-contact', type: 'field', name: '企业联系方式', x: 16, y: 81, width: 82, height: 5, binding: 'company_email', fontSize: 7, color: '#525252' },
   { id: 'buyer-label', type: 'text', name: '买方标签', translationKey: 'buyer', x: 112, y: 42, width: 80, height: 7, text: labels.buyer, fontSize: 9, fontWeight: '700' },
   { id: 'buyer', type: 'field', name: '买方名称', x: 112, y: 50, width: 82, height: 12, binding: 'buyer_name', fontSize: 10, fontWeight: '600' },
   { id: 'buyer-address', type: 'field', name: '买方地址', x: 112, y: 63, width: 82, height: 18, binding: 'buyer_address', fontSize: 8 },
+  { id: 'buyer-contact', type: 'field', name: '买方联系方式', x: 112, y: 81, width: 82, height: 5, binding: 'buyer_email', fontSize: 7, color: '#525252' },
   { id: 'order-label', type: 'text', name: '订单编号标签', translationKey: 'order', x: 16, y: 87, width: 85, height: 6, text: labels.order, fontSize: 7, fontWeight: '600' },
   { id: 'order-no', type: 'field', name: '订单编号', x: 16, y: 94, width: 85, height: 8, binding: 'order_number', fontSize: 9 },
   { id: 'terms-label', type: 'text', name: '付款条件标签', translationKey: 'terms', x: 112, y: 87, width: 82, height: 6, text: labels.terms, fontSize: 7, fontWeight: '600' },
@@ -60,6 +64,9 @@ const initialElements = (type: DocType, locale = 'en'): StudioElement[] => {
   { id: 'items', type: 'table', name: '产品明细表', x: 16, y: shipmentDocument ? 140 : 112, width: 178, height: 72, fontSize: 8, border: '#a8a8a8' },
   { id: 'total-label', type: 'text', name: '总金额标签', translationKey: 'total', x: 116, y: shipmentDocument ? 220 : 198, width: 38, height: 9, text: labels.total, fontSize: 10, fontWeight: '700', align: 'right' },
   { id: 'total', type: 'field', name: '总金额', x: 156, y: shipmentDocument ? 220 : 198, width: 38, height: 9, binding: 'totals.grand_total', fontSize: 11, fontWeight: '700', align: 'right' },
+  { id: 'bank-name', type: 'field', name: '收款银行', x: 16, y: 244, width: 82, height: 6, binding: 'default_bank_account.bank_name', fontSize: 7, color: '#525252' },
+  { id: 'bank-swift', type: 'field', name: '银行 SWIFT', x: 112, y: 244, width: 82, height: 6, binding: 'default_bank_account.swift_bic', fontSize: 7, color: '#525252' },
+  { id: 'footer-rule', type: 'shape', name: '页脚分隔线', x: 16, y: 263, width: 178, height: 0.8, background: '#c6c6c6', color: '#c6c6c6' },
   { id: 'footer', type: 'text', name: '页脚文字', translationKey: 'signature', x: 16, y: 270, width: 178, height: 8, text: labels.signature, fontSize: 8, color: '#525252', align: 'right' },
   ];
   if (shipmentDocument) elements.push(
