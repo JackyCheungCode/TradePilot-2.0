@@ -355,3 +355,6 @@ begin
   end if;
 end;
 $$;
+
+-- Refresh PostgREST's function/schema cache after the new RPCs are created.
+notify pgrst, 'reload schema';
