@@ -179,18 +179,25 @@ export function ScoringStep({ profile, onContinueToEnrichment }: Props) {
       const { data } = await db.auth.getSession();
       const token = data.session?.access_token;
       if (!token) throw new Error('登录状态已失效，请重新登录。');
-      const results = await Promise.all(selectedRows.map(async row => {
-        if (row.reviewed) return row;
-        const response = await fetch('/api/v1/discovery-records/' + row.id + '/action', {
-          method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify({ action: 'review' }),
-        });
-        const payload = await response.json().catch(() => ({})) as { error?: { message?: string } };
-        if (!response.ok) throw new Error(row.name + '：' + (payload.error?.message || '审核未通过'));
-        return row;
+      const outcomes = await Promise.all(selectedRows.map(async row => {
+        if (row.reviewed) return { row, ok: true as const };
+        try {
+          const response = await fetch('/api/v1/discovery-records/' + row.id + '/action', {
+            method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ action: 'review' }),
+          });
+          const payload = await response.json().catch(() => ({})) as { error?: { message?: string } };
+          if (!response.ok) throw new Error(payload.error?.message || '审核未通过');
+          return { row: { ...row, reviewed: true }, ok: true as const };
+        } catch (error) {
+          return { row, ok: false as const, message: row.name + '：' + (error instanceof Error ? error.message : String(error)) };
+        }
       }));
-      localStorage.setItem('tradepilot.prospect-discovery.crm-queue.v1', JSON.stringify(results));
-      setNotice('已审核通过 ' + results.length + ' 条真实潜客记录，正在进入联系人穿透步骤。');
+      const approved = outcomes.filter(item => item.ok).map(item => item.row);
+      const failed = outcomes.filter(item => !item.ok);
+      if (!approved.length) throw new Error(failed.map(item => item.message).join('；') || '没有记录通过审核。');
+      localStorage.setItem('tradepilot.prospect-discovery.crm-queue.v1', JSON.stringify(approved));
+      setNotice('已审核通过 ' + approved.length + ' 条记录' + (failed.length ? '；另有 ' + failed.length + ' 条未通过，已保留在第五步' : '') + '，正在进入联系人穿透步骤。');
       onContinueToEnrichment();
     } catch (error) {
       setNotice(error instanceof Error ? error.message : '潜客审核失败；未进入联系人穿透步骤。');
