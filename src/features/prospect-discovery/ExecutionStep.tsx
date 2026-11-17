@@ -117,6 +117,24 @@ export function ExecutionStep({ profile, sources, onEditStep, onContinueToScorin
         const savedGuardrails = localStorage.getItem('tradepilot.guardrails.frontend.v1');
         if (savedGuardrails) guardrailsSnapshot = JSON.parse(savedGuardrails) as Record<string, unknown>;
       } catch { /* Preserve task execution even if an older browser snapshot is malformed. */ }
+      const guardrailScope = guardrailsSnapshot.scope === 'global' || guardrailsSnapshot.scope === 'both' ? guardrailsSnapshot.scope : 'task';
+      if (guardrailScope === 'global' || guardrailScope === 'both') {
+        const savedGlobal = await requestApi('/api/v1/settings/prospect-guardrails', token) as { config?: Record<string, unknown> | null };
+        const globalConfig = savedGlobal.config;
+        if (guardrailScope === 'global' && !globalConfig) throw new Error('尚未保存全局护盾配置。请先在第三步保存全局规则。');
+        if (globalConfig) {
+          const taskConfig = guardrailsSnapshot;
+          guardrailsSnapshot = guardrailScope === 'global' ? globalConfig : {
+            ...globalConfig,
+            ...taskConfig,
+            enabled: { ...(globalConfig.enabled as Record<string, boolean> ?? {}), ...(taskConfig.enabled as Record<string, boolean> ?? {}) },
+            rules: { ...(globalConfig.rules as Record<string, string> ?? {}), ...(taskConfig.rules as Record<string, string> ?? {}) },
+            contactEntries: { ...(globalConfig.contactEntries as Record<string, string> ?? {}), ...(taskConfig.contactEntries as Record<string, string> ?? {}) },
+            websiteRows: [...(Array.isArray(globalConfig.websiteRows) ? globalConfig.websiteRows : []), ...(Array.isArray(taskConfig.websiteRows) ? taskConfig.websiteRows : [])],
+            excludedCountries: [...(Array.isArray(globalConfig.excludedCountries) ? globalConfig.excludedCountries : []), ...(Array.isArray(taskConfig.excludedCountries) ? taskConfig.excludedCountries : [])],
+          };
+        }
+      }
       const planSnapshot = {
         planTaskCode,
         profile: { ...profile },
