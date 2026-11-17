@@ -97,6 +97,12 @@ export function ActorSchemaFields({ sources, onValuesChange }: Props) {
     try {
       const token = await accessToken();
       const input: Record<string, unknown> = {};
+      const requiredFields = new Set(item.schema.required ?? []);
+      const missingFields = Object.entries(item.schema.properties ?? {}).filter(([fieldKey, field]) => {
+        const value = values[item.source.id + ':' + item.actorId + ':' + fieldKey] ?? field.default;
+        return (requiredFields.has(fieldKey) || (field as SchemaField).required === true) && (value === undefined || value === null || value === '');
+      }).map(([fieldKey, field]) => (field.titleZh || field.title || fieldKey));
+      if (missingFields.length) throw new Error('请先填写必填字段：' + missingFields.join('、'));
       for (const [fieldKey, field] of Object.entries(item.schema.properties ?? {})) {
         const valueKey = item.source.id + ':' + item.actorId + ':' + fieldKey;
         const value = values[valueKey] ?? field.default;
