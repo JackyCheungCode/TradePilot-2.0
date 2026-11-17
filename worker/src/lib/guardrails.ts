@@ -29,7 +29,7 @@ function normalizedHost(value: string): string {
 function websiteTypeMatches(website: string, raw: Record<string, unknown>, selected: string[]): string[] {
   if (!selected.length) return [];
   const host = normalizedHost(website);
-  const metadata = [raw.websiteType, raw.website_type, raw.siteType, raw.site_type, raw.platformType, raw.platform_type, raw.category, raw.pageCategory, raw.record_type].map(text).join(" ").toLowerCase();
+  const metadata = [raw.websiteType, raw.website_type, raw.siteType, raw.site_type, raw.platformType, raw.platform_type, raw.category, raw.pageCategory, raw.record_type, raw.type, raw.types].map(text).join(" ").toLowerCase();
   const definitions: Array<{label:string; hosts:string[]; terms:string[]}> = [
     {label:"电商零售平台",hosts:["amazon.","ebay.","walmart.","alibaba.","aliexpress.","etsy.","shopify."],terms:["marketplace","e-commerce","ecommerce","shopping platform"]},
     {label:"B2C 零售商城",hosts:["store.","shop."],terms:["online store","retail store","b2c retailer"]},
@@ -104,7 +104,17 @@ export function evaluateGuardrails(record: {
       : [];
     reasons.push(...websiteTypeMatches(text(record.website), raw, selectedTypes));
   }
-  if (enabled.companies === true && lines(rules.companies).some(value => text(record.name).toLowerCase().includes(value.toLowerCase()))) reasons.push("命中企业主体排除名单");
+  if (enabled.companies === true) {
+    const primaryName = text(record.name).toLowerCase();
+    const aliases = snapshot.matchCompanyAliases === false ? [] : [
+      raw.aliases, raw.alternateNames, raw.alternate_names, raw.formerNames, raw.former_names, raw.brands,
+    ].flatMap(value => Array.isArray(value) ? value.map(text) : lines(value));
+    const groupNames = snapshot.matchGroupEntities === true
+      ? [raw.parentCompany, raw.parent_company, raw.groupName, raw.group_name, raw.parentName].map(text)
+      : [];
+    const companyNames = [primaryName, ...aliases, ...groupNames].join("\\n").toLowerCase();
+    if (lines(rules.companies).some(value => companyNames.includes(value.toLowerCase()))) reasons.push("命中企业主体、别名或集团排除名单");
+  }
   if (enabled.geography === true) {
     const excluded = Array.isArray(snapshot.excludedCountries) ? snapshot.excludedCountries.map(item => text(object(item).id).toUpperCase()) : [];
     if (excluded.includes(text(record.country).toUpperCase())) reasons.push("命中排除国家");
