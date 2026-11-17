@@ -8,7 +8,7 @@ type SchemaField = {
   enum?: unknown[]; default?: unknown; minimum?: number; maximum?: number; required?: boolean;
 };
 type ActorSchema = { properties?: Record<string, SchemaField>; required?: string[]; translatedProperties?: Record<string, { titleZh?: string; descriptionZh?: string; usageZh?: string; translationStatus?: string }> };
-type LoadedSchema = { source: Source; actorId: string; actorTitle: string; schema: ActorSchema };
+type LoadedSchema = { source: Source; actorId: string; actorTitle: string; actorStatus?: string; actorQualityScore?: number | null; schema: ActorSchema };
 type Props = { sources: Source[]; onValuesChange: (values: Record<string, unknown>) => void };
 
 async function api(path: string, token: string, init: RequestInit = {}) {
@@ -58,9 +58,9 @@ export function ActorSchemaFields({ sources, onValuesChange }: Props) {
           const actor = candidates[0];
           if (!actor) return null;
           const actorId = String(actor.actor_id);
-          const result = await api('/api/v1/actor-registry/schema/' + encodeURIComponent(actorId), token) as { schema?: ActorSchema };
+          const result = await api('/api/v1/actor-registry/schema/' + encodeURIComponent(actorId), token) as { schema?: ActorSchema; actor?: { status?: string; quality_score?: number | null } };
           if (!result.schema) return null;
-          return { source, actorId, actorTitle: String(actor.title || actor.actor_name || actorId), schema: result.schema } as LoadedSchema;
+          return { source, actorId, actorTitle: String(actor.title || actor.actor_name || actorId), actorStatus: result.actor?.status, actorQualityScore: result.actor?.quality_score, schema: result.schema } as LoadedSchema;
         }));
         if (active) setItems(loaded.filter((item): item is LoadedSchema => Boolean(item)));
       } catch (e) {
@@ -132,8 +132,8 @@ export function ActorSchemaFields({ sources, onValuesChange }: Props) {
         <div className="tp-prospect-discovery__actor-schema-heading">
           <div><strong>{item.source.name}</strong><span>{item.actorTitle}</span></div>
           <div className="tp-prospect-discovery__actor-schema-actions">
-            <Tag type={testResults[item.source.id + ':' + item.actorId]?.passed ? 'green' : testResults[item.source.id + ':' + item.actorId] ? 'red' : 'blue'}>
-              {testResults[item.source.id + ':' + item.actorId]?.passed ? '已通过门禁' : testResults[item.source.id + ':' + item.actorId] ? '测试未通过' : '已读取 Schema'}
+            <Tag type={testResults[item.source.id + ':' + item.actorId]?.passed || (!testResults[item.source.id + ':' + item.actorId] && item.actorStatus === 'enabled') ? 'green' : testResults[item.source.id + ':' + item.actorId] || item.actorStatus === 'failed' ? 'red' : 'blue'}>
+              {testResults[item.source.id + ':' + item.actorId]?.passed || (!testResults[item.source.id + ':' + item.actorId] && item.actorStatus === 'enabled') ? '已通过门禁' : testResults[item.source.id + ':' + item.actorId] || item.actorStatus === 'failed' ? '测试未通过' : '已读取 Schema'}
             </Tag>
             <Button kind="secondary" size="sm" disabled={testingActor === item.source.id + ':' + item.actorId} onClick={() => void runActorTest(item)}>
               {testingActor === item.source.id + ':' + item.actorId ? '正在测试…' : '最小化测试并启用'}
