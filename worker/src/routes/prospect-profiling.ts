@@ -100,12 +100,27 @@ export async function handleProspectCities(request: Request, env: Env): Promise<
   const url = new URL(request.url);
   const query = (url.searchParams.get("q") ?? "").trim().slice(0, 80);
   const country = (url.searchParams.get("country") ?? "").trim().slice(0, 2).toUpperCase();
+  const countryName = (url.searchParams.get("countryName") ?? "").trim().slice(0, 80);
   const language = (url.searchParams.get("language") ?? "en").trim().slice(0, 8);
-  if (query.length < 2 || !/^[A-Z]{2}$/.test(country)) return successResponse(request, { cities: [] });
+  if (!/^[A-Z]{2}$/.test(country)) return successResponse(request, { cities: [] });
   try {
+    if (query.length < 2 && countryName) {
+      const catalogResponse = await fetch("https://countriesnow.space/api/v0.1/countries/cities", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ country: countryName }),
+        signal: AbortSignal.timeout(10000),
+      });
+      if (catalogResponse.ok) {
+        const catalog = await catalogResponse.json() as { data?: string[]; error?: boolean };
+        const cities = [...new Set((catalog.data ?? []).filter((item): item is string => typeof item === "string" && item.trim()).map(item => item.trim()))].sort((a, b) => a.localeCompare(b)).slice(0, 500);
+        if (cities.length) return successResponse(request, { cities, source: "country-city-catalog" });
+      }
+    }
+    if (query.length < 2) return successResponse(request, { cities: [] });
     const endpoint = new URL("https://geocoding-api.open-meteo.com/v1/search");
     endpoint.searchParams.set("name", query);
-    endpoint.searchParams.set("count", "12");
+    endpoint.searchParams.set("count", "20");
     endpoint.searchParams.set("language", language);
     endpoint.searchParams.set("countryCode", country);
     const response = await fetch(endpoint, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(8000) });
@@ -113,10 +128,10 @@ export async function handleProspectCities(request: Request, env: Env): Promise<
     const payload = await response.json() as { results?: Array<{ name?: string; admin1?: string; country_code?: string }> };
     const cities = [...new Set((payload.results ?? [])
       .filter(item => item.name && item.country_code?.toUpperCase() === country)
-      .map(item => item.admin1 && item.admin1 !== item.name ? item.name + ", " + item.admin1 : item.name as string))].slice(0, 12);
-    return successResponse(request, { cities });
+      .map(item => item.admin1 && item.admin1 !== item.name ? item.name + ", " + item.admin1 : item.name as string))].slice(0, 20);
+    return successResponse(request, { cities, source: "open-meteo" });
   } catch (error) {
     console.error("PROSPECT_CITY_LOOKUP_FAILED", String(error).slice(0, 240));
-    return errorResponse(request, "CITY_LOOKUP_UNAVAILABLE", "城市联想暂时不可用，请稍后重试。", 502);
+    return errorResponse(request, "CITY_LOOKUP_UNAVAILABLE", "城市列表暂时不可用，请稍后重试。", 502);
   }
 }
