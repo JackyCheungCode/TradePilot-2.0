@@ -10,9 +10,11 @@
   --tp-type-label-font-size: var(--cds-label-01-font-size, 0.75rem);
   --tp-type-label-line-height: var(--cds-label-01-line-height, 1rem);
 }
-body, button, input, textarea, select, .cds--chart-holder {
+
+/* Carbon components declare their own font-family; apply the SC family consistently. */
+body, body * {
   font-family: var(--tp-font-family-sans);
 }
-code, pre, kbd, samp {
+code, pre, kbd, samp, code *, pre *, kbd *, samp * {
   font-family: var(--tp-font-family-mono);
 }
