@@ -47,7 +47,9 @@ async function gatewayFetch(path: string, token: string): Promise<Record<string,
 function actorKey(actor: ActorRecord): string { return actor.username ? actor.username + "~" + actor.name : actor.id; }
 function safeText(value: unknown, max = 4000): string { return typeof value === "string" ? value.slice(0, max) : ""; }
 function inputFingerprint(value: Record<string, unknown>): string {
-  const serialized = JSON.stringify(value);
+  const normalized = { ...value };
+  for (const key of ["maxItems", "maxResults", "maxResultsPerQuery", "resultsLimit", "maxItemsPerRun", "limit"]) if (key in normalized) normalized[key] = 1;
+  const serialized = JSON.stringify(normalized);
   let hash = 2166136261;
   for (let index = 0; index < serialized.length; index++) {
     hash ^= serialized.charCodeAt(index);
