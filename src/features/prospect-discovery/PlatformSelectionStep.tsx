@@ -172,7 +172,7 @@ export function PlatformSelectionStep({
   selectedIds?: string[]; onSelectionChange?: (sources: Array<{ id: string; name: string; category?: string }>) => void;
 }) {
   const recommended = useMemo(() => recommendedFor(countryCode), [countryCode]);
-  const [selected, setSelected] = useState<string[]>(() => selectedIds?.length ? selectedIds : recommendedFor(countryCode));
+  const [selected, setSelected] = useState<string[]>(() => selectedIds !== undefined ? selectedIds : recommendedFor(countryCode));
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedContinents, setSelectedContinents] = useState<string[]>([]);
   const [selectedCountries, setSelectedCountries] = useState<Country[]>([]);
