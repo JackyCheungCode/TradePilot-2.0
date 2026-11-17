@@ -219,13 +219,13 @@ export function ScoringStep({ profile, onContinueToEnrichment }: Props) {
           <Grid narrow>
             <Column sm={4} md={4} lg={5}>
               <Tile className="tp-scoring__info-tile"><div className="tp-scoring__info-title"><CarbonIcons.ModelBuilder size={18} /><strong>所用清洗与大模型</strong></div>
-                <dl><dt>主模型候选</dt><dd>GPT-4o / Claude 3.5 Sonnet</dd><dt>向量模型</dt><dd>text-embedding-3-small</dd></dl>
-                <p>用于多语言语义解析、企业官网内容理解，以及主营业务与 ICP 的向量相似度计算。</p>
+                <dl><dt>评分模型</dt><dd>由 AI 与 API 集成中的 prospect_scoring 任务配置决定</dd><dt>向量模型</dt><dd>当前评分链路未调用向量检索</dd></dl>
+                <p>模型根据目标画像、企业基础字段、公开资料摘要和来源证据生成结构化评分。</p>
               </Tile>
             </Column>
             <Column sm={4} md={4} lg={5}>
               <Tile className="tp-scoring__info-tile"><div className="tp-scoring__info-title"><CarbonIcons.Filter size={18} /><strong>清洗与过滤方法</strong></div>
-                <ul><li><strong>URL 归一化：</strong>剔除无效二级路由，提取根域名</li><li><strong>内容同构去重：</strong>企业名称与官网域名双重哈希</li><li><strong>语义降噪：</strong>过滤伪企业描述、空壳博客及经销商重定向</li></ul>
+                <ul><li><strong>真实记录：</strong>读取后端持久化的企业与渠道来源记录</li><li><strong>证据输入：</strong>提交企业字段、公开资料摘要及来源出现记录</li><li><strong>结构化输出：</strong>保存四项维度分数、证据、风险和模型信息</li></ul>
               </Tile>
             </Column>
             <Column sm={4} md={8} lg={6}>
@@ -277,7 +277,7 @@ export function ScoringStep({ profile, onContinueToEnrichment }: Props) {
                 <TableCell>{row.domain ? <a href={row.domain.startsWith('http') ? row.domain : 'https://' + row.domain} target="_blank" rel="noreferrer">{row.domain}<CarbonIcons.ArrowUpRight size={12} /></a> : <span>暂无官网</span>}<small>{row.email}</small></TableCell>
                 <TableCell><Tag type="blue">{row.source}</Tag></TableCell>
                 <TableCell>{row.score === undefined ? <span className="tp-scoring__score-empty">—</span> : <button type="button" className="tp-scoring__score" title={'Fit ' + row.fit + ' · Persona ' + row.persona + ' · Scale ' + row.scale + ' · Intent ' + row.intent} onClick={() => setNotice('评分明细：Fit ' + row.fit + ' · Persona ' + row.persona + ' · Scale ' + row.scale + ' · Intent ' + row.intent)}>{row.score} 分</button>}</TableCell>
-                <TableCell><span className="tp-scoring__comment">{row.comment || '等待后端 AI 评分服务接入。'}</span></TableCell>
+                <TableCell><span className="tp-scoring__comment">{row.comment || '尚未评分；选择记录后可调用已配置的评分模型。'}</span></TableCell>
                 <TableCell><OverflowMenu ariaLabel={'记录操作：' + row.name} flipped><OverflowMenuItem itemText="单条执行 AI 清洗与打分" onClick={() => scoreRows([row.id])} /><OverflowMenuItem itemText="移除记录" onClick={() => { setRows(current => current.filter(item => item.id !== row.id)); setSelected(current => current.filter(id => id !== row.id)); setNotice('已移除 ' + row.name + '。'); }} /><OverflowMenuItem itemText="复制网址" onClick={() => { void navigator.clipboard?.writeText('https://' + row.domain); setNotice('网址已复制。'); }} /></OverflowMenu></TableCell>
               </TableRow>)}
               {visible.length === 0 && <TableRow><TableCell colSpan={7}>没有符合当前筛选条件的真实记录。</TableCell></TableRow>}
