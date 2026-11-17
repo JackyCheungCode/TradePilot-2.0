@@ -116,7 +116,7 @@ export function CustomerCommunicationsWidget({
   const [notice, setNotice] = useState('');
   const [maximized, setMaximized] = useState(false);
 
-  const activeCustomer = customers.find((customer) => customer.id === activeCustomerId) ?? customers[0];
+  const activeCustomer = customers.find((customer) => customer.id === activeCustomerId) ?? customers[0]!;
   const draft = drafts[activeCustomerId] ?? '';
   const customerMessages = messages.filter((message) => message.customerId === activeCustomerId).sort((a, b) => a.timestamp - b.timestamp);
   const lastInbound = [...customerMessages].reverse().find((message) => message.direction === 'inbound');
