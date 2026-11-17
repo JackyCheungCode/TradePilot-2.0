@@ -46,6 +46,17 @@ async function gatewayFetch(path: string, token: string): Promise<Record<string,
 }
 function actorKey(actor: ActorRecord): string { return actor.username ? actor.username + "~" + actor.name : actor.id; }
 function safeText(value: unknown, max = 4000): string { return typeof value === "string" ? value.slice(0, max) : ""; }
+function redactActorInput(value: unknown, depth = 0): unknown {
+  if (depth > 8) return "[已省略]";
+  if (Array.isArray(value)) return value.slice(0, 100).map(item => redactActorInput(item, depth + 1));
+  if (!value || typeof value !== "object") return typeof value === "string" ? value.slice(0, 2000) : value;
+  const output: Record<string, unknown> = {};
+  for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+    if (/(?:api.?key|token|secret|password|credential|authorization|cookie)/i.test(key)) continue;
+    output[key] = redactActorInput(item, depth + 1);
+  }
+  return output;
+}
 function inputFingerprint(value: Record<string, unknown>, schemaVersion: string): string {
   const normalized = { ...value };
   for (const key of ["maxItems", "maxResults", "maxResultsPerQuery", "resultsLimit", "maxItemsPerRun", "limit"]) if (key in normalized) normalized[key] = 1;
@@ -180,7 +191,7 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
         }
         return {
           actorId: String(actor.actorId), sourceId: safeText(actor.sourceId, 100),
-          sourceName: safeText(actor.sourceName, 160), actorTitle: safeText(actor.actorTitle, 200), input,
+          sourceName: safeText(actor.sourceName, 160), actorTitle: safeText(actor.actorTitle, 200), schemaVersion: safeText(actor.schemaVersion, 160), inputFingerprint: safeText(actor.inputFingerprint, 40), input,
         };
       });
       if (!actors.length) return errorResponse(request, "ACTOR_QUALITY_GATE_REQUIRED", "所选数据源尚未通过质量门禁，不能正式执行。", 400);
@@ -193,7 +204,7 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
         countries: [country], query: noun, limitPerCountry: limit, providers: [], channel: "actor_discovery",
         actorExecutions: actors, planSnapshot: body.planSnapshot, guardrailsSnapshot: body.guardrailsSnapshot,
       };
-      const config = { actorExecutions: actors.map(actor => ({ actorId: actor.actorId, sourceId: actor.sourceId, sourceName: actor.sourceName })), planSnapshot: body.planSnapshot ?? null, guardrailsSnapshot: body.guardrailsSnapshot ?? null };
+      const config = { actorExecutions: actors.map(actor => ({ actorId: actor.actorId, sourceId: actor.sourceId, sourceName: actor.sourceName, actorTitle: actor.actorTitle, schemaVersion: actor.schemaVersion, inputFingerprint: actor.inputFingerprint, input: redactActorInput(actor.input) })), planSnapshot: body.planSnapshot ?? null, guardrailsSnapshot: body.guardrailsSnapshot ?? null };
       const rows = await db<Array<{ id: string }>>(env, "discovery_runs", {
         method: "POST", headers: { Prefer: "return=representation" },
         body: JSON.stringify({
