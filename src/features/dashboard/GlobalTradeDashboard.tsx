@@ -7,7 +7,7 @@ import {
   Button, InlineLoading, InlineNotification, Tile, Tag, Select, SelectItem,
   Tabs, TabList, Tab, TabPanels, TabPanel, MultiSelect, Search, DataTable,
   Table, TableHead, TableRow, TableHeader, TableBody, TableCell, TableContainer,
-  CarbonIcons, Theme,
+  CarbonIcons, Theme, ClickableTile,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import worldAtlas from 'world-atlas/countries-110m.json';
@@ -347,9 +347,12 @@ export function GlobalTradeDashboard() {
             {error && <InlineNotification kind="error" lowContrast title="数据读取失败" subtitle={error} />}
             {loading && !data ? <div className="tp-gt-loading"><InlineLoading description="正在汇聚经营数据…"/></div> : <>
               <section className="tp-gt-kpis" aria-label={label + '关键指标'}>
-                {metricSet.map(metric => <button type="button" key={metric.label} className="tp-gt-kpi" onClick={() => metric.href && navigate(metric.href)} disabled={!metric.href}>
-                  <span>{metric.label}</span><strong>{metric.value}</strong><small className={metric.tone === 'negative' ? 'is-negative' : metric.tone === 'positive' ? 'is-positive' : ''}>{metric.detail}</small>
-                </button>)}
+                {metricSet.map(metric => {
+                  const content = <><span>{metric.label}</span><strong>{metric.value}</strong><small className={metric.tone === 'negative' ? 'is-negative' : metric.tone === 'positive' ? 'is-positive' : ''}>{metric.detail}</small></>;
+                  return metric.href
+                    ? <ClickableTile key={metric.label} className="tp-gt-kpi" onClick={() => navigate(metric.href!)}>{content}</ClickableTile>
+                    : <Tile key={metric.label} className="tp-gt-kpi">{content}</Tile>;
+                })}
               </section>
 
               {index === 0 && <div className="tp-gt-grid">
@@ -395,7 +398,7 @@ export function GlobalTradeDashboard() {
               {index === 6 && <div className="tp-gt-grid">
                 <Tile className="tp-gt-card"><div className="tp-gt-card__heading"><h3>跟进活动类型</h3></div>{commonBar('活动类型分布', countBy(scoped.activities, row => String(row.activity_type || '其他')))}</Tile>
                 <Tile className="tp-gt-card"><div className="tp-gt-card__heading"><h3>风险构成</h3></div>{commonBar('风险事项分布', [{ group: '逾期跟进', value: overdueActivities.length }, { group: '逾期应收', value: overdueReceivables.length }, { group: '发运异常', value: shipmentRisks.length }].filter(row => row.value > 0))}</Tile>
-                <Tile className="tp-gt-card tp-gt-card--wide"><div className="tp-gt-card__heading"><h3>风险摘要</h3><Tag type={riskTotal ? 'red' : 'green'}>{riskTotal ? n(riskTotal) + ' 项待处理' : '暂无风险'}</Tag></div><div className="tp-gt-risk-list"><button onClick={() => navigate('/accounts')}><span>逾期跟进活动</span><strong>{n(overdueActivities.length)}</strong><CarbonIcons.ChevronRight/></button><button onClick={() => navigate('/sales-orders')}><span>逾期应收款项</span><strong>{n(overdueReceivables.length)}</strong><CarbonIcons.ChevronRight/></button><button onClick={() => navigate('/shipments')}><span>发运异常记录</span><strong>{n(shipmentRisks.length)}</strong><CarbonIcons.ChevronRight/></button></div></Tile>
+                <Tile className="tp-gt-card tp-gt-card--wide"><div className="tp-gt-card__heading"><h3>风险摘要</h3><Tag type={riskTotal ? 'red' : 'green'}>{riskTotal ? n(riskTotal) + ' 项待处理' : '暂无风险'}</Tag></div><div className="tp-gt-risk-list"><Button kind="ghost" size="md" className="tp-gt-risk-row" onClick={() => navigate('/accounts')}>逾期跟进活动 <strong>{n(overdueActivities.length)}</strong><CarbonIcons.ChevronRight/></Button><Button kind="ghost" size="md" className="tp-gt-risk-row" onClick={() => navigate('/sales-orders')}>逾期应收款项 <strong>{n(overdueReceivables.length)}</strong><CarbonIcons.ChevronRight/></Button><Button kind="ghost" size="md" className="tp-gt-risk-row" onClick={() => navigate('/shipments')}>发运异常记录 <strong>{n(shipmentRisks.length)}</strong><CarbonIcons.ChevronRight/></Button></div></Tile>
               </div>}
 
               <section className="tp-gt-table-section">
