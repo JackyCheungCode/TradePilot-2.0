@@ -139,6 +139,15 @@ export function DesignSystemProvider({ children }: DesignSystemProviderProps) {
     });
   }, [session, userId]);
 
+  useEffect(() => {
+    document.documentElement.setAttribute('data-carbon-theme', resolvedTheme);
+    const metaThemeColor = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+    if (metaThemeColor) {
+      const background = getComputedStyle(document.documentElement).getPropertyValue('--cds-background').trim();
+      if (background) metaThemeColor.content = background;
+    }
+  }, [resolvedTheme]);
+
   const resolvedTheme: DesignSystemTheme = preference === 'dark'
     ? 'g100'
     : preference === 'white'
