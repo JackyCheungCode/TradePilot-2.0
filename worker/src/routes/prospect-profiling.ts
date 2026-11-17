@@ -3,7 +3,7 @@ import { errorResponse, successResponse } from "../lib/http";
 interface Env { SUPABASE_URL: string; SUPABASE_ANON_KEY: string; }
 
 async function authenticated(request: Request, env: Env): Promise<boolean> {
-  const token = request.headers.get("Authorization")?.match(/^Bearer\\s+(\\S+)$/i)?.[1];
+  const token = request.headers.get("Authorization")?.match(/^Bearer\s+(\S+)$/i)?.[1];
   if (!token) return false;
   const response = await fetch(env.SUPABASE_URL + "/auth/v1/user", {
     headers: { apikey: env.SUPABASE_ANON_KEY, Authorization: "Bearer " + token },
