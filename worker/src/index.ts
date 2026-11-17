@@ -100,6 +100,7 @@ async function enforceWebAuthnSession(request: Request, env: WorkerEnv): Promise
    }
    return null;
   }
+  if (claims.aal === "aal2") return null;
   const grantResponse = await fetch(env.SUPABASE_URL + "/rest/v1/rpc/tradepilot_webauthn_has_grant", {
    method:"POST",headers,body:JSON.stringify({p_user_id:user.id,p_session_id:sessionId}),
   });
