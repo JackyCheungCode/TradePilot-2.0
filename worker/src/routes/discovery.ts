@@ -14,6 +14,7 @@ export interface DiscoveryEnv {
   SERPER_API_KEY?: string;
   SERPAPI_API_KEY?: string;
   ACTOR_GATEWAY_API_TOKEN?: string;
+  APIFY_API_TOKEN?: string;
   LEAD_DISCOVERY_WORKFLOW: { create(options: { id: string; params: { runId: string; ownerId: string; input: DiscoveryRunInput } }): Promise<{ id: string }> };
   CONTACT_ENRICHMENT_WORKFLOW?: { create(options:{id:string;params:{jobId:string;ownerId:string;recordIds:string[];providers?:Array<"website"|"apollo"|"zoominfo">}}):Promise<{id:string}> };
   OVERPASS_API_URL?: string;
