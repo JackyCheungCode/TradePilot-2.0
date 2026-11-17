@@ -223,7 +223,7 @@ export function DecisionMakerStep({ profile }: Props) {
           </div>
         </div>
         <div className="tp-decision__actions">
-          <Button kind="primary" renderIcon={CarbonIcons.SearchLocate} disabled={running || !selectedRoles.length || !rows.length} onClick={startEnrichment}>{running ? '正在穿透组织架构…' : '开始执行决策人穿透'}</Button>
+          <Button kind="primary" renderIcon={CarbonIcons.SearchLocate} disabled={running || !selectedRoles.length || !rows.length} onClick={() => startEnrichment()}>{running ? '正在穿透组织架构…' : '开始执行决策人穿透'}</Button>
           <Button kind="secondary" renderIcon={CarbonIcons.CloudUpload} disabled={!selected.length || !allReady || running} onClick={syncSelected}>一键确认并同步至 CRM（公司 / 联系人 / 线索）</Button>
           <span>需完成穿透并人工勾选后，方可同步入库</span>
         </div>
