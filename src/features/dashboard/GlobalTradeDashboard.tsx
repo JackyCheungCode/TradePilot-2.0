@@ -292,7 +292,7 @@ export function GlobalTradeDashboard() {
     const query = tableSearch.trim().toLocaleLowerCase();
     const filtered = tableRows.filter(row => !query || Object.values(row).some(value => String(value).toLocaleLowerCase().includes(query)));
     return [...filtered].sort((a, b) => String(b.date || '').localeCompare(String(a.date || ''), 'zh-CN', { numeric: true }));
-  }, [tableRows, tableSearch, sortKey, sortDirection]);
+  }, [tableRows, tableSearch]);
   const pageSize = 8;
   const pageRows = visibleRows.slice((tablePage - 1) * pageSize, tablePage * pageSize);
   const tableHeaders = [
