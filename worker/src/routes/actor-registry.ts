@@ -128,7 +128,14 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
       if (items.length) await db(env, "actor_registry?on_conflict=owner_id,actor_id", {
         method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify(items),
       });
-      return successResponse(request, { discovered: items.length, items });
+      const registry = await db<Array<{ actor_id: string; status: string; quality_score: number | null; stability_score: number | null }>>(env,
+        "actor_registry?owner_id=eq." + ownerId + "&select=actor_id,status,quality_score,stability_score&limit=1000");
+      const registryById = new Map((registry ?? []).map(row => [row.actor_id, row]));
+      const enrichedItems = items.map(item => {
+        const saved = registryById.get(item.actor_id);
+        return { ...item, status: saved?.status ?? "discovered", quality_score: saved?.quality_score ?? null, stability_score: saved?.stability_score ?? null };
+      });
+      return successResponse(request, { discovered: enrichedItems.length, items: enrichedItems });
     }
     if (request.method === "POST" && parts[3] === "execute") {
       const body = await request.json().catch(() => ({})) as {
