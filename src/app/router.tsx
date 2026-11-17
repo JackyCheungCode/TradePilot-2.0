@@ -25,6 +25,8 @@ import { DocumentsCenterPage } from '../features/documents/DocumentsCenterPage';
 import { GeneratedDocumentsPage } from '../features/documents/GeneratedDocumentsPage';
 import { DocumentPreviewPage } from '../features/documents/DocumentPreviewPage';
 import { DocumentStudioPage } from '../features/documents/DocumentStudioPage';
+import { DocumentTemplateCenterPage } from '../features/documents/DocumentTemplateCenterPage';
+import { DocumentCompanyProfilePage } from '../features/documents/DocumentCompanyProfilePage';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -58,6 +60,8 @@ export const router = createBrowserRouter([
           { path: 'sales-orders/:id', element: <SalesOrderDetailPage /> },
           { path: 'documents', element: <DocumentsCenterPage /> },
           { path: 'documents/studio', element: <DocumentStudioPage /> },
+          { path: 'documents/templates', element: <DocumentTemplateCenterPage /> },
+          { path: 'documents/company-profile', element: <DocumentCompanyProfilePage /> },
           { path: 'documents/generated', element: <GeneratedDocumentsPage /> },
           { path: 'documents/:id', element: <DocumentPreviewPage /> },
           { path: 'shipments', element: <ShipmentConsolePage /> },
