@@ -197,7 +197,7 @@ export async function handleWebAuthn(request: Request, env: WebAuthnEnv): Promis
 
     if (path === "/api/v1/webauthn/enable") {
       const enabled = body.enabled === true;
-      if (enabled && auth.aal !== "aal2") return fail(request, "STEP_UP_REQUIRED", "启用生物识别 MFA 前，请先完成 TOTP 二次验证。", 403);
+      if (auth.aal !== "aal2") return fail(request, "STEP_UP_REQUIRED", "修改生物识别 MFA 状态前，请先完成 TOTP 二次验证。", 403);
       await rpc(env, "tradepilot_webauthn_set_enabled", { p_user_id: auth.userId, p_enabled: enabled });
       return successResponse(request, { enabled });
     }
