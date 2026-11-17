@@ -39,7 +39,7 @@ For authenticated users, the migration adds:
 - A write trigger on those tables and Storage objects to enforce the session gate even when a permitted SECURITY DEFINER routine would otherwise bypass RLS.
 - A private authorization function that checks the current `auth.uid()`, JWT `session_id`, active credential, and unexpired grant.
 
-Users must register at least two WebAuthn credentials before enabling MFA (preferably on separate primary and backup devices). Users who have not enabled WebAuthn MFA remain unaffected by the session gate. Service-role operations and direct administrative database operations are not blocked by the trigger. Worker routes must still validate the user's bearer token and enforce the grant before using service-role data access.
+Users must register at least two WebAuthn credentials before enabling MFA (preferably on separate primary and backup devices). When WebAuthn MFA is disabled, verified Supabase TOTP factors still require AAL2 at both Worker and database boundaries. Users with neither WebAuthn MFA nor a verified TOTP factor retain existing access behavior. Service-role operations and direct administrative database operations are not blocked by the trigger. Worker routes must still validate the user's bearer token and enforce the grant before using service-role data access.
 
 **Public Storage exception:** the existing `crm-assets` bucket is configured as public. Public object downloads are intentionally accessible by URL and cannot be made session-bound by Storage RLS. Do not store confidential documents in that bucket; sensitive documents must use private buckets and authenticated/signed access.
 
