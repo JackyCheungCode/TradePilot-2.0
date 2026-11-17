@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/documents.scss';
@@ -24,13 +24,13 @@ const DOC_TYPES: { value: DocType; label: string; source: 'order' | 'shipment'; 
 ];
 const LOCALES = [{ value: 'en', label: 'English' }, { value: 'zh-CN', label: '简体中文' }, { value: 'zh-TW', label: '繁體中文' }, { value: 'es', label: 'Español' }, { value: 'fr', label: 'Français' }, { value: 'de', label: 'Deutsch' }, { value: 'ja', label: '日本語' }];
 const FIELD_OPTIONS = [
-  ['seller_name', '卖方名称'], ['seller_address', '卖方地址'], ['buyer_name', '买方名称'], ['buyer_address', '买方地址'],
+  ['seller_name', '卖方名称'], ['seller_address', '卖方地址'], ['company_email', '企业邮箱'], ['company_phone', '企业电话'], ['company_website', '企业官网'], ['company_tax_number', '企业税号'], ['buyer_name', '买方名称'], ['buyer_address', '买方地址'], ['buyer_email', '买方邮箱'],
   ['buyer_shipping_address', '收货地址'], ['order_number', '订单编号'], ['customer_reference', '客户参考号'],
   ['payment_terms', '付款条件'], ['incoterms_code', '贸易术语'], ['named_place', '指定地点'],
   ['delivery_date', '交付日期'], ['contact_name', '联系人'], ['contact_email', '联系人邮箱'],
   ['shipment.shipment_no', '发运批次号'], ['shipment.total_packages', '包装件数'],
   ['shipment.total_net_weight', '净重'], ['shipment.total_gross_weight', '毛重'], ['shipment.total_volume', '体积'],
-  ['totals.grand_total', '总金额'], ['document.document_number', '单据编号'],
+  ['totals.grand_total', '总金额'], ['default_bank_account.bank_name', '默认收款银行'], ['default_bank_account.account_name', '收款账户名称'], ['default_bank_account.swift_bic', 'SWIFT / BIC'], ['default_bank_account.account_number', '银行账号'], ['document.document_number', '单据编号'], ['order_date', '订单日期'],
 ] as const;
 const titleFor = (type: string) => DOC_TYPES.find(x => x.value === type)?.label ?? type;
 const TEMPLATE_LABELS: Record<string, Record<string, string>> = {
@@ -47,12 +47,16 @@ const initialElements = (type: DocType, locale = 'en'): StudioElement[] => {
   const shipmentDocument = ['commercial_invoice', 'packing_list', 'shipping_instructions'].includes(type);
   const elements: StudioElement[] = [
   { id: 'title', type: 'text', name: '单据标题', translationKey: type, x: 25, y: 16, width: 160, height: 14, text: labels[type], fontSize: 20, fontWeight: '700', align: 'center', color: '#161616' },
+  { id: 'document-number', type: 'field', name: '单据编号', x: 16, y: 31, width: 178, height: 5, binding: 'document.document_number', fontSize: 7, color: '#525252', align: 'right' },
+  { id: 'brand-rule', type: 'shape', name: '品牌强调线', x: 16, y: 38, width: 178, height: 1, background: '#0f62fe', color: '#0f62fe' },
   { id: 'seller-label', type: 'text', name: '卖方标签', translationKey: 'seller', x: 16, y: 42, width: 80, height: 7, text: labels.seller, fontSize: 9, fontWeight: '700' },
   { id: 'seller', type: 'field', name: '卖方名称', x: 16, y: 50, width: 82, height: 12, binding: 'seller_name', fontSize: 10, fontWeight: '600' },
   { id: 'seller-address', type: 'field', name: '卖方地址', x: 16, y: 63, width: 82, height: 18, binding: 'seller_address', fontSize: 8 },
+  { id: 'seller-contact', type: 'field', name: '企业联系方式', x: 16, y: 81, width: 82, height: 5, binding: 'company_email', fontSize: 7, color: '#525252' },
   { id: 'buyer-label', type: 'text', name: '买方标签', translationKey: 'buyer', x: 112, y: 42, width: 80, height: 7, text: labels.buyer, fontSize: 9, fontWeight: '700' },
   { id: 'buyer', type: 'field', name: '买方名称', x: 112, y: 50, width: 82, height: 12, binding: 'buyer_name', fontSize: 10, fontWeight: '600' },
   { id: 'buyer-address', type: 'field', name: '买方地址', x: 112, y: 63, width: 82, height: 18, binding: 'buyer_address', fontSize: 8 },
+  { id: 'buyer-contact', type: 'field', name: '买方联系方式', x: 112, y: 81, width: 82, height: 5, binding: 'buyer_email', fontSize: 7, color: '#525252' },
   { id: 'order-label', type: 'text', name: '订单编号标签', translationKey: 'order', x: 16, y: 87, width: 85, height: 6, text: labels.order, fontSize: 7, fontWeight: '600' },
   { id: 'order-no', type: 'field', name: '订单编号', x: 16, y: 94, width: 85, height: 8, binding: 'order_number', fontSize: 9 },
   { id: 'terms-label', type: 'text', name: '付款条件标签', translationKey: 'terms', x: 112, y: 87, width: 82, height: 6, text: labels.terms, fontSize: 7, fontWeight: '600' },
@@ -60,6 +64,9 @@ const initialElements = (type: DocType, locale = 'en'): StudioElement[] => {
   { id: 'items', type: 'table', name: '产品明细表', x: 16, y: shipmentDocument ? 140 : 112, width: 178, height: 72, fontSize: 8, border: '#a8a8a8' },
   { id: 'total-label', type: 'text', name: '总金额标签', translationKey: 'total', x: 116, y: shipmentDocument ? 220 : 198, width: 38, height: 9, text: labels.total, fontSize: 10, fontWeight: '700', align: 'right' },
   { id: 'total', type: 'field', name: '总金额', x: 156, y: shipmentDocument ? 220 : 198, width: 38, height: 9, binding: 'totals.grand_total', fontSize: 11, fontWeight: '700', align: 'right' },
+  { id: 'bank-name', type: 'field', name: '收款银行', x: 16, y: 244, width: 82, height: 6, binding: 'default_bank_account.bank_name', fontSize: 7, color: '#525252' },
+  { id: 'bank-swift', type: 'field', name: '银行 SWIFT', x: 112, y: 244, width: 82, height: 6, binding: 'default_bank_account.swift_bic', fontSize: 7, color: '#525252' },
+  { id: 'footer-rule', type: 'shape', name: '页脚分隔线', x: 16, y: 263, width: 178, height: 0.8, background: '#c6c6c6', color: '#c6c6c6' },
   { id: 'footer', type: 'text', name: '页脚文字', translationKey: 'signature', x: 16, y: 270, width: 178, height: 8, text: labels.signature, fontSize: 8, color: '#525252', align: 'right' },
   ];
   if (shipmentDocument) elements.push(
@@ -82,8 +89,10 @@ const formatValue = (value: any) => value == null || value === '' ? '—' : type
 export function DocumentStudioPage() {
   const navigate = useNavigate();
   const canvasRef = useRef<HTMLDivElement>(null);
-  const dragRef = useRef<{ id: string; startX: number; startY: number; x: number; y: number } | null>(null);
-  const [documentType, setDocumentType] = useState<DocType>('quotation');
+  const dragRef = useRef<{ id: string; mode: 'move' | 'resize'; startX: number; startY: number; x: number; y: number; width: number; height: number } | null>(null);
+  const [searchParams] = useSearchParams();
+  const initialType = searchParams.get('document_type') as DocType | null;
+  const [documentType, setDocumentType] = useState<DocType>(() => DOC_TYPES.some(item => item.value === initialType) ? initialType! : 'quotation');
   const [locale, setLocale] = useState('en');
   const [pageSize, setPageSize] = useState<'A4' | 'Letter'>('A4');
   const [orientation, setOrientation] = useState<'portrait' | 'landscape'>('portrait');
@@ -92,7 +101,8 @@ export function DocumentStudioPage() {
   const [orders, setOrders] = useState<SourceOrder[]>([]);
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [quotes, setQuotes] = useState<QuoteDoc[]>([]);
-  const [sourceMode, setSourceMode] = useState<'sales_order' | 'quotation'>('sales_order');
+  const [sourceMode, setSourceMode] = useState<'sales_order' | 'quotation' | 'blank'>(searchParams.get('mode') === 'instant' ? 'blank' : 'sales_order');
+  const [blankContent, setBlankContent] = useState({ seller_name: '', seller_address: '', buyer_name: '', buyer_address: '', buyer_shipping_address: '', payment_terms: '', incoterms_code: '', notes: '' });
   const [sourceDocumentId, setSourceDocumentId] = useState('');
   const [templates, setTemplates] = useState<Template[]>([]);
   const [templateId, setTemplateId] = useState('');
@@ -149,11 +159,11 @@ export function DocumentStudioPage() {
   useEffect(() => {
     setElements(initialElements(documentType, locale));
     setCreatedDoc(null); setPreviewContent({}); setPreviewTotals({}); setSelectedId('title');
-    setTemplateId(''); setSourceMode('sales_order'); setSourceDocumentId('');
+    setTemplateId(''); setSourceMode(current => current === 'blank' ? 'blank' : 'sales_order'); setSourceDocumentId('');
   }, [documentType]);
 
   useEffect(() => {
-    if (!isShipment || !orderId) { setShipments([]); setShipmentId(''); return; }
+    if (!isShipment || sourceMode === 'blank' || !orderId) { setShipments([]); setShipmentId(''); return; }
     let active = true;
     void (async () => {
       const client = await getSupabaseClient();
@@ -162,7 +172,7 @@ export function DocumentStudioPage() {
       if (active) setShipments((data ?? []) as Shipment[]);
     })().catch(cause => setError(cause instanceof Error ? cause.message : '发运批次读取失败。'));
     return () => { active = false; };
-  }, [isShipment, orderId]);
+  }, [isShipment, orderId, sourceMode]);
 
   useEffect(() => { setTemplateId(''); const labels = TEMPLATE_LABELS[locale] ?? TEMPLATE_LABELS.en; setElements(items => items.map(item => item.translationKey ? { ...item, text: labels[item.translationKey] ?? item.text } : item)); }, [locale]);
 
@@ -188,7 +198,8 @@ export function DocumentStudioPage() {
     if (!drag || !canvas) return;
     const scale = canvas.getBoundingClientRect().width / pageWidthMm;
     const dx = (event.clientX - drag.startX) / scale; const dy = (event.clientY - drag.startY) / scale;
-    updateElement(drag.id, { x: Math.max(0, Math.min(210, drag.x + dx)), y: Math.max(0, Math.min(297, drag.y + dy)) });
+    if (drag.mode === 'resize') updateElement(drag.id, { width: Math.max(8, Math.min(pageWidthMm - drag.x, drag.width + dx)), height: Math.max(6, Math.min(297 - drag.y, drag.height + dy)) });
+    else updateElement(drag.id, { x: Math.max(0, Math.min(pageWidthMm - 8, drag.x + dx)), y: Math.max(0, Math.min(297 - 6, drag.y + dy)) });
   };
   const onPointerUp = () => { dragRef.current = null; };
 
@@ -208,7 +219,7 @@ export function DocumentStudioPage() {
   };
 
   const loadBusinessData = async () => {
-    if (!orderId || (isShipment && !shipmentId) || (sourceMode === 'quotation' && !sourceDocumentId)) { setError(isShipment ? '请选择订单和发运批次。' : sourceMode === 'quotation' ? '请选择报价单。' : '请选择销售订单。'); return; }
+    if ((sourceMode !== 'blank' && !orderId) || (isShipment && sourceMode !== 'blank' && !shipmentId) || (sourceMode === 'quotation' && !sourceDocumentId)) { setError(isShipment ? '请选择订单和发运批次，或选择空白单据。' : sourceMode === 'quotation' ? '请选择报价单。' : '请选择销售订单，或选择空白单据。'); return; }
     setSaving(true); setError(''); setNotice('');
     try {
       let savedTemplateId = templateId;
@@ -216,7 +227,7 @@ export function DocumentStudioPage() {
         const createdTemplate = await request('templates', { method: 'POST', body: JSON.stringify({ name: templateName, document_type: documentType, locale, description: 'TradePilot 自由画布模板', is_default: false, is_active: true, template_config: templateConfig }) });
         savedTemplateId = createdTemplate.id; setTemplateId(savedTemplateId); setTemplates(items => [...items, createdTemplate as Template]);
       } else await request('templates/' + encodeURIComponent(savedTemplateId), { method: 'PATCH', body: JSON.stringify({ template_config: templateConfig, name: templateName, locale, document_type: documentType }) });
-      const doc = await request('documents', { method: 'POST', body: JSON.stringify({ order_id: orderId, shipment_id: isShipment ? shipmentId : undefined, document_type: documentType, title: titleFor(documentType), template_id: savedTemplateId, source_document_id: sourceMode === 'quotation' ? sourceDocumentId : undefined, locale, currency_code: selectedOrder?.currency_code || 'USD', totals: {} }) });
+      const doc = await request('documents', { method: 'POST', body: JSON.stringify({ order_id: sourceMode === 'blank' ? undefined : orderId, shipment_id: isShipment && sourceMode !== 'blank' ? shipmentId : undefined, document_type: documentType, title: titleFor(documentType), template_id: savedTemplateId, source_document_id: sourceMode === 'quotation' ? sourceDocumentId : undefined, locale, currency_code: selectedOrder?.currency_code || 'USD', content: sourceMode === 'blank' ? { ...Object.fromEntries(Object.entries(blankContent).filter(([, value]) => value.trim())), items: [], charges: [], payment_schedule: [], bank_accounts: [] } : undefined, totals: {} }) });
       setCreatedDoc(doc as CreatedDoc); setPreviewContent(doc.content ?? {}); setPreviewTotals(doc.totals ?? {});
       setNotice('业务数据已载入，单据草稿已创建。你现在可以在画布中调整每个元素。');
     } catch (cause) { setError(cause instanceof Error ? cause.message : '业务数据载入失败。'); }
@@ -247,8 +258,8 @@ export function DocumentStudioPage() {
     {notice && <InlineNotification kind="success" lowContrast title="已完成" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
     <section className="tp-doc-studio__source">
       <div><Select id="studio-type" labelText="制作单据" value={documentType} onChange={event => setDocumentType(event.currentTarget.value as DocType)}>{DOC_TYPES.map(item => <SelectItem key={item.value} value={item.value} text={item.label} />)}</Select></div>
-      <div><Select id="studio-source" labelText="数据来源" value={isShipment ? 'shipment' : sourceMode} disabled={isShipment || !canUseQuotationSource} onChange={event => { setSourceMode(event.currentTarget.value as 'sales_order' | 'quotation'); setOrderId(''); setSourceDocumentId(''); }}><SelectItem value="sales_order" text="销售订单" /><SelectItem value="quotation" text="已生成报价单" /><SelectItem value="shipment" text="发运批次" /></Select></div>
-      {sourceMode === 'quotation' && canUseQuotationSource ? <div><Select id="studio-quote" labelText="选择报价单" value={sourceDocumentId} onChange={event => { const id = event.currentTarget.value; setSourceDocumentId(id); setOrderId(quotes.find(quote => quote.id === id)?.order_id ?? ''); }}><SelectItem value="" text="请选择已生成报价单" />{quotes.map(quote => <SelectItem key={quote.id} value={quote.id} text={quote.document_number + ' · ' + quote.status} />)}</Select></div> : <div><Select id="studio-order" labelText="选择销售订单" value={orderId} onChange={event => { setOrderId(event.currentTarget.value); setShipmentId(''); }}><SelectItem value="" text="请选择订单" />{orders.map(order => <SelectItem key={order.id} value={order.id} text={order.order_number + ' · ' + order.title + ' · ' + order.status} />)}</Select></div>}
+      <div><Select id="studio-source" labelText="数据来源" value={sourceMode === 'blank' ? 'blank' : isShipment ? 'shipment' : sourceMode} onChange={event => { const value=event.currentTarget.value; setSourceMode(value === 'blank' ? 'blank' : value === 'quotation' ? 'quotation' : 'sales_order'); setOrderId(''); setShipmentId(''); setSourceDocumentId(''); }}><SelectItem value="sales_order" text="销售订单" /><SelectItem value="quotation" text="已生成报价单" disabled={!canUseQuotationSource || isShipment} /><SelectItem value="shipment" text="发运批次" disabled={!isShipment} /><SelectItem value="blank" text="空白单据 / 即时制作" /></Select></div>
+      {sourceMode === 'blank' ? <div className="tp-doc-studio__blank-fields"><TextInput id="studio-seller-name" labelText="卖方名称" value={blankContent.seller_name} onChange={event=>setBlankContent(current=>({...current,seller_name:event.currentTarget.value}))}/><TextInput id="studio-seller-address" labelText="卖方地址" value={blankContent.seller_address} onChange={event=>setBlankContent(current=>({...current,seller_address:event.currentTarget.value}))}/><TextInput id="studio-buyer-name" labelText="买方名称" value={blankContent.buyer_name} onChange={event=>setBlankContent(current=>({...current,buyer_name:event.currentTarget.value}))}/><TextInput id="studio-buyer-address" labelText="买方地址" value={blankContent.buyer_address} onChange={event=>setBlankContent(current=>({...current,buyer_address:event.currentTarget.value}))}/></div> : sourceMode === 'quotation' && canUseQuotationSource ? <div><Select id="studio-quote" labelText="选择报价单" value={sourceDocumentId} onChange={event => { const id = event.currentTarget.value; setSourceDocumentId(id); setOrderId(quotes.find(quote => quote.id === id)?.order_id ?? ''); }}><SelectItem value="" text="请选择已生成报价单" />{quotes.map(quote => <SelectItem key={quote.id} value={quote.id} text={quote.document_number + ' · ' + quote.status} />)}</Select></div> : <div><Select id="studio-order" labelText="选择销售订单" value={orderId} onChange={event => { setOrderId(event.currentTarget.value); setShipmentId(''); }}><SelectItem value="" text="请选择订单" />{orders.map(order => <SelectItem key={order.id} value={order.id} text={order.order_number + ' · ' + order.title + ' · ' + order.status} />)}</Select></div>}
       {isShipment && <div><Select id="studio-shipment" labelText="选择发运批次" value={shipmentId} disabled={!orderId} onChange={event => setShipmentId(event.currentTarget.value)}><SelectItem value="" text="请选择本次实际发运批次" />{shipments.map(shipment => <SelectItem key={shipment.id} value={shipment.id} text={shipment.shipment_no + ' · ' + shipment.status} />)}</Select></div>}
       <div><Select id="studio-locale" labelText="单据语言" value={locale} onChange={event => setLocale(event.currentTarget.value)}>{LOCALES.map(item => <SelectItem key={item.value} value={item.value} text={item.label} />)}</Select></div>
       <div><Select id="studio-page-size" labelText="纸张尺寸" value={pageSize} onChange={event => setPageSize(event.currentTarget.value as 'A4' | 'Letter')}><SelectItem value="A4" text="A4" /><SelectItem value="Letter" text="Letter" /></Select></div>
@@ -269,11 +280,11 @@ export function DocumentStudioPage() {
         <div className="tp-doc-studio__canvas-scroll">
           <div ref={canvasRef} className={'tp-doc-studio__paper tp-doc-studio__paper--' + pageSize.toLowerCase() + '-' + orientation} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerLeave={onPointerUp}>
             <svg className="tp-doc-studio__svg" viewBox={pageSize === 'Letter' ? (orientation === 'portrait' ? '0 0 216 279' : '0 0 279 216') : (orientation === 'portrait' ? '0 0 210 297' : '0 0 297 210')} role="img" aria-label="A4 单据模板编辑画布">
-              {elements.map(item => <g key={item.id} className={'tp-doc-studio__svg-element' + (selectedId === item.id ? ' is-selected' : '') + (item.locked ? ' is-locked' : '')} onPointerDown={event => { event.stopPropagation(); setSelectedId(item.id); if (!item.locked && canvasRef.current) { dragRef.current = { id: item.id, startX: event.clientX, startY: event.clientY, x: item.x, y: item.y }; canvasRef.current.setPointerCapture(event.pointerId); } }}>
+              {elements.map(item => <g key={item.id} className={'tp-doc-studio__svg-element' + (selectedId === item.id ? ' is-selected' : '') + (item.locked ? ' is-locked' : '')} onPointerDown={event => { event.stopPropagation(); setSelectedId(item.id); if (!item.locked && canvasRef.current) { dragRef.current = { id: item.id, mode: 'move', startX: event.clientX, startY: event.clientY, x: item.x, y: item.y, width: item.width, height: item.height }; canvasRef.current.setPointerCapture(event.pointerId); } }}>
                 {item.background && item.background !== 'transparent' && <rect x={item.x} y={item.y} width={item.width} height={item.height} fill={item.background} />}
                 {item.type === 'shape' && <rect x={item.x} y={item.y} width={item.width} height={item.height} fill={item.background || 'none'} stroke={item.color || '#8d8d8d'} />}
                 {item.type === 'table' ? <foreignObject x={item.x} y={item.y} width={item.width} height={item.height} fontSize={item.fontSize ?? 8} fontFamily={item.fontFamily ?? 'Arial'} color={item.color ?? '#161616'}><div className="tp-doc-studio__foreign-content"><div className="tp-doc-studio__table"><div>SKU / PRODUCT DESCRIPTION</div><div>QTY</div><div>UNIT PRICE</div><div>AMOUNT</div>{(Array.isArray(previewContent.items) ? previewContent.items : []).slice(0, 3).map((row: Json, index: number) => <React.Fragment key={index}><span>{row.product_name ?? row.name ?? 'Product ' + (index + 1)}</span><span>{row.quantity ?? '—'}</span><span>{row.unit_price ?? '—'}</span><span>{row.amount ?? '—'}</span></React.Fragment>)}{!previewContent.items?.length && <span className="tp-doc-studio__empty-row">载入业务数据后自动显示产品明细</span>}</div></div></foreignObject> : item.type === 'image' ? <foreignObject x={item.x} y={item.y} width={item.width} height={item.height}><div className="tp-doc-studio__image-placeholder">{item.imageUrl ? <img className="tp-doc-studio__image-preview" src={item.imageUrl} alt="模板图片" /> : '图片 / Logo'}</div></foreignObject> : item.type !== 'shape' ? <foreignObject x={item.x} y={item.y} width={item.width} height={item.height} fontSize={item.fontSize ?? 9} fontFamily={item.fontFamily ?? 'Arial'} fontWeight={item.fontWeight ?? '400'} color={item.color ?? '#161616'}><div className={'tp-doc-studio__foreign-content tp-doc-studio__align-' + (item.align ?? 'left')}>{item.type === 'field' ? <>{displayValue(item)}{!createdDoc && <small>{labels[item.binding ?? ''] ?? item.binding}</small>}</> : item.text}</div></foreignObject> : null}
-                {selectedId === item.id && <rect x={item.x} y={item.y} width={item.width} height={item.height} className="tp-doc-studio__selection-outline" />}
+                {selectedId === item.id && <><rect x={item.x} y={item.y} width={item.width} height={item.height} className="tp-doc-studio__selection-outline" /><rect x={item.x + item.width - 2} y={item.y + item.height - 2} width={4} height={4} className="tp-doc-studio__resize-handle" onPointerDown={event => { event.stopPropagation(); if (item.locked || !canvasRef.current) return; setSelectedId(item.id); dragRef.current = { id:item.id, mode:'resize', startX:event.clientX, startY:event.clientY, x:item.x, y:item.y, width:item.width, height:item.height }; canvasRef.current.setPointerCapture(event.pointerId); }}/></>}
               </g>)}
             </svg>
           </div>       </div>
