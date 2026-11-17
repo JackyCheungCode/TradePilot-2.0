@@ -228,14 +228,16 @@ as $$
         where f.user_id=auth.uid() and f.factor_type='totp' and f.status='verified'
       ) or auth.jwt()->>'aal'='aal2'
     )
-    else exists (
-      select 1
-      from private.webauthn_session_grants g
-      join private.webauthn_credentials c
-        on c.credential_id=g.credential_id and c.user_id=g.user_id and c.revoked_at is null
-      where g.user_id=auth.uid()
-        and g.session_id=nullif(auth.jwt()->>'session_id','')::uuid
-        and g.revoked_at is null and g.expires_at>now()
+    else (
+      auth.jwt()->>'aal'='aal2' or exists (
+        select 1
+        from private.webauthn_session_grants g
+        join private.webauthn_credentials c
+          on c.credential_id=g.credential_id and c.user_id=g.user_id and c.revoked_at is null
+        where g.user_id=auth.uid()
+          and g.session_id=nullif(auth.jwt()->>'session_id','')::uuid
+          and g.revoked_at is null and g.expires_at>now()
+      )
     )
   end;
 $$;
