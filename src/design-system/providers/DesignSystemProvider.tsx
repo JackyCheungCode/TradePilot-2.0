@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { getSupabaseClient } from '@/lib/supabase';
 
@@ -55,6 +55,7 @@ export function DesignSystemProvider({ children }: DesignSystemProviderProps) {
   );
   const [session, setSession] = useState<Session | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const preferenceChangeVersion = useRef(0);
 
   useEffect(() => {
     const media = window.matchMedia('(prefers-color-scheme: dark)');
@@ -82,6 +83,7 @@ export function DesignSystemProvider({ children }: DesignSystemProviderProps) {
 
       const cached = readCachedPreference(nextUserId);
       if (cached) setPreferenceState(cached);
+      const requestVersion = preferenceChangeVersion.current;
 
       try {
         const response = await fetch('/api/v1/settings/theme-preference', {
@@ -90,7 +92,7 @@ export function DesignSystemProvider({ children }: DesignSystemProviderProps) {
         if (!response.ok) return;
         const payload = await response.json() as { data?: { preference?: unknown } };
         const remote = payload.data?.preference;
-        if (alive && activeUserId === nextUserId && isThemePreference(remote)) {
+        if (alive && activeUserId === nextUserId && preferenceChangeVersion.current === requestVersion && isThemePreference(remote)) {
           setPreferenceState(remote);
           cachePreference(nextUserId, remote);
         }
@@ -123,19 +125,35 @@ export function DesignSystemProvider({ children }: DesignSystemProviderProps) {
 
   const setPreference = useCallback((next: ThemePreference) => {
     if (!isThemePreference(next)) return;
+    preferenceChangeVersion.current += 1;
     setPreferenceState(next);
-    if (!userId || !session) return;
-    cachePreference(userId, next);
-    void fetch('/api/v1/settings/theme-preference', {
-      method: 'PUT',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-        Authorization: 'Bearer ' + session.access_token,
-      },
-      body: JSON.stringify({ preference: next }),
-    }).catch(() => {
-      // Keep the local choice; the next authenticated load will reconcile with the server.
+    void (async () => {
+      let activeSession = session;
+      let activeUserId = userId;
+      if (!activeSession || !activeUserId) {
+        const client = await getSupabaseClient();
+        const { data } = await client.auth.getSession();
+        activeSession = data.session;
+        activeUserId = activeSession?.user.id ?? null;
+        if (activeSession && activeUserId) {
+          setSession(activeSession);
+          setUserId(activeUserId);
+        }
+      }
+      if (!activeUserId || !activeSession) return;
+      cachePreference(activeUserId, next);
+      const response = await fetch('/api/v1/settings/theme-preference', {
+        method: 'PUT',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + activeSession.access_token,
+        },
+        body: JSON.stringify({ preference: next }),
+      });
+      if (!response.ok) throw new Error('账户主题偏好同步失败。');
+    })().catch(() => {
+      // Keep the immediate local choice; the next authenticated load can reconcile it.
     });
   }, [session, userId]);
 
