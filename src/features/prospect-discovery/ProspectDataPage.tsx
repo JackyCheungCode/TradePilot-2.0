@@ -24,7 +24,7 @@ type Prospect = {
 
 const channelLabel = (channel?: string, provider?: string) => ({
   map_local_businesses: 'Google Maps', search_engine: '搜索引擎', facebook: 'Facebook Pages',
-  instagram: 'Instagram', agent: '内置 Agent',
+  instagram: 'Instagram', actor_discovery: '智能数据源', agent: '内置 Agent',
 }[channel || ''] || channel || provider || '未知来源');
 const statusLabel = (status: Prospect['status']) => ({ removed: '手动移除', discarded: '已废弃', crm: '已送入 CRM', pending: '待处理' }[status]);
 const statusType = (status: Prospect['status']): 'red' | 'gray' | 'green' | 'blue' => status === 'removed' ? 'red' : status === 'discarded' ? 'gray' : status === 'crm' ? 'green' : 'blue';

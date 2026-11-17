@@ -13,6 +13,7 @@ export interface DiscoveryEnv {
   GOOGLE_MAPS_API_KEY?: string;
   SERPER_API_KEY?: string;
   SERPAPI_API_KEY?: string;
+  ACTOR_GATEWAY_API_TOKEN?: string;
   LEAD_DISCOVERY_WORKFLOW: { create(options: { id: string; params: { runId: string; ownerId: string; input: DiscoveryRunInput } }): Promise<{ id: string }> };
   CONTACT_ENRICHMENT_WORKFLOW?: { create(options:{id:string;params:{jobId:string;ownerId:string;recordIds:string[];providers?:Array<"website"|"apollo"|"zoominfo">}}):Promise<{id:string}> };
   OVERPASS_API_URL?: string;
@@ -24,7 +25,8 @@ export interface DiscoveryRunInput {
   businessTypes?: string[];
   filters?: { minRating?: number; openNow?: boolean; requireWebsite?: boolean; requirePhone?: boolean };
   originalQuery?: string; translatedQuery?: string; targetLanguage?: string;
-  channel?: "map_local_businesses" | "search_engine";
+  channel?: "map_local_businesses" | "search_engine" | "actor_discovery";
+  actorExecutions?: Array<{ actorId: string; sourceId: string; sourceName: string; actorTitle?: string; input: Record<string, unknown> }>;
   searchEngines?: Array<"serper" | "serpapi">;
   searchTypes?: Array<"web" | "shopping" | "images" | "news" | "videos" | "scholar" | "patents">;
   searchLanguage?: string; advancedQuery?: string; excludeCategories?: string[];
@@ -268,6 +270,7 @@ async function persistDiscoveryRecord(
 
 export async function processRun(env: DiscoveryEnv, runId: string, ownerId: string, input: DiscoveryRunInput) {
   if (input.channel === "search_engine") { const { processSearchRun } = await import("./search-discovery-process"); return processSearchRun(env, runId, ownerId, input); }
+  if (input.channel === "actor_discovery") { const { processActorDiscoveryRun } = await import("./actor-execution"); return processActorDiscoveryRun(env, runId, ownerId, input); }
   const providers = input.providers?.length ? input.providers : ["google_maps", "openstreetmap"];
   const totalUnits = input.countries.length * providers.length;
   let doneUnits = 0, discovered = 0, created = 0, googleCount = 0, osmCount = 0, failures = 0;

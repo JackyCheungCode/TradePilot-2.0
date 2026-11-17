@@ -17,6 +17,7 @@ import { handleMasterData } from "./routes/master-data";
 import { handleProspectConsole } from "./routes/prospect-console";
 import { handleProspectProfiling, handleProspectStrategy, handleProspectCities, handleProspectCountries } from "./routes/prospect-profiling";
 import { handleContactValidation } from "./routes/contact-validation";
+import { handleActorRegistry } from "./routes/actor-registry";
 import { handleInbox } from "./routes/inbox";
 import { handleInboxWebhook } from "./routes/inbox-webhooks";
 import { handleInboxAttachment } from "./routes/inbox-attachments";
@@ -29,6 +30,7 @@ export interface WorkerEnv {
  SUPABASE_URL: string;
  SUPABASE_ANON_KEY: string;
  SUPABASE_SERVICE_ROLE_KEY: string;
+ ACTOR_GATEWAY_API_TOKEN?: string;
  INBOX_SCANNER_URL?: string;
  INBOX_SCANNER_HMAC_SECRET?: string;
  GOOGLE_MAPS_API_KEY?: string;
@@ -40,7 +42,6 @@ export interface WorkerEnv {
  FEDEX_CLIENT_SECRET?: string;
  SERPER_API_KEY?: string;
  SERPAPI_API_KEY?: string;
- APIFY_API_TOKEN?: string;
  CLOUDFLARE_API_TOKEN?: string;
  CLOUDFLARE_ACCOUNT_ID?: string;
  CLOUDFLARE_WORKER_NAME?: string;
@@ -77,6 +78,7 @@ export default {
    if (url.pathname === "/api/v1/prospect-profiling/cities") return await handleProspectCities(request, env);
    if (url.pathname === "/api/v1/prospect-profiling/countries") return await handleProspectCountries(request, env);
    if (url.pathname === "/api/v1/contact-validation") return await handleContactValidation(request, env);
+   if (url.pathname.startsWith("/api/v1/actor-registry")) return await handleActorRegistry(request, env);
    if (url.pathname.startsWith("/api/v1/inbox/webhooks/")) return await handleInboxWebhook(request, env);
    if (url.pathname.startsWith("/api/v1/inbox/attachments/")) return await handleInboxAttachment(request, env);
    if (url.pathname.startsWith("/api/v1/inbox/")) return await handleInbox(request, env);

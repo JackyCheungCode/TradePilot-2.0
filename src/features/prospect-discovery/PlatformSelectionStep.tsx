@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Button, Checkbox, MultiSelect, Pagination, Search, Tag, CarbonIcons } from '@/design-system';
+import { Button, Checkbox, MultiSelect, Pagination, Search, Select, SelectItem, Tag, CarbonIcons } from '@/design-system';
 
 type Country = { name: { common: string }; cca2: string; region: string };
 type Source = { id: string; name: string; description: string; markets: string[] };
@@ -164,34 +164,39 @@ const allPlatforms: Array<Source & { category: string; global: boolean }> = [
 const continentLabelForCountry = (country: Country) => directoryContinent(country);
 const continentName = (value: string) => continentLabels.find(item => item.value === value)?.label ?? value;
 
-type PlatformExecutionStatus = 'connected' | 'verify' | 'unavailable';
+type PlatformExecutionStatus = 'connected' | 'verify' | 'actor' | 'unavailable';
 const getPlatformExecutionStatus = (id: string): PlatformExecutionStatus => {
   if (id === 'google-maps') return 'connected';
   if (id === 'facebook' || id === 'instagram' || id === 'google-search') return 'verify';
-  return 'unavailable';
+  return 'actor';
 };
-const isRunnablePlatform = (id: string) => ['google-maps', 'google-search', 'facebook', 'instagram'].includes(id);
+const isRunnablePlatform = (id: string) => allPlatforms.some(source => source.id === id);
 const platformStatusLabels: Record<PlatformExecutionStatus, string> = {
   connected: '执行链已接入',
   verify: '需验证连接 / 凭证',
+  actor: '需通过数据源质量门禁',
   unavailable: '尚未接入执行器',
 };
 
 export function PlatformSelectionStep({
-  countryCode, countryName, continentLabel, countries, onChangeCountry, onSelectionCountChange, selectedIds, onSelectionChange,
+  countryCode, countryName, continentLabel, countries, onChangeCountry, onCountryChange, onSelectionCountChange, selectedIds, onSelectionChange,
 }: {
   countryCode: string; countryName: string; continentLabel: string; countries: Country[];
-  onChangeCountry: () => void; onSelectionCountChange: (count: number) => void;
+  onChangeCountry: () => void; onCountryChange: (country: Country) => void; onSelectionCountChange: (count: number) => void;
   selectedIds?: string[]; onSelectionChange?: (sources: Array<{ id: string; name: string; category?: string }>) => void;
 }) {
   const recommended = useMemo(() => recommendedFor(countryCode).filter(isRunnablePlatform), [countryCode]);
-  const [selected, setSelected] = useState<string[]>(() => selectedIds !== undefined ? selectedIds.filter(isRunnablePlatform) : recommendedFor(countryCode).filter(isRunnablePlatform));
+  const [selected, setSelected] = useState<string[]>(() => countryCode ? (selectedIds !== undefined ? selectedIds.filter(isRunnablePlatform) : recommendedFor(countryCode).filter(isRunnablePlatform)) : []);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedContinents, setSelectedContinents] = useState<string[]>([]);
   const [selectedCountries, setSelectedCountries] = useState<Country[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(defaultPlatformPageSize);
+  const [selectionWarning, setSelectionWarning] = useState('');
+  const maxSelectedSources = 20;
+
+  useEffect(() => { setSelected(countryCode ? recommendedFor(countryCode).filter(isRunnablePlatform) : []); }, [countryCode]);
 
   useEffect(() => { onSelectionCountChange(selected.length); onSelectionChange?.(allPlatforms.filter(source => selected.includes(source.id)).map(source => ({ id: source.id, name: source.name, category: source.category }))); }, [selected, onSelectionCountChange, onSelectionChange]);
 
@@ -226,14 +231,34 @@ export function PlatformSelectionStep({
   const visibleIds = visiblePlatforms.filter(source => isRunnablePlatform(source.id)).map(source => source.id);
   const allVisibleSelected = visibleIds.length > 0 && visibleIds.every(id => selected.includes(id));
   const selectedOnPage = visibleIds.filter(id => selected.includes(id)).length;
-  const toggle = (id: string) => { if (!isRunnablePlatform(id)) return; setSelected(current => current.includes(id) ? current.filter(value => value !== id) : [...current, id]); };
-  const togglePage = () => setSelected(current => allVisibleSelected
-    ? current.filter(id => !visibleIds.includes(id))
-    : [...new Set([...current, ...visibleIds])]);
-  const selectAllFiltered = () => setSelected(current => [...new Set([...current, ...filtered.filter(source => isRunnablePlatform(source.id)).map(source => source.id)])]);
+  const toggle = (id: string) => {
+    if (!isRunnablePlatform(id)) return;
+    setSelected(current => {
+      if (current.includes(id)) return current.filter(value => value !== id);
+      if (current.length >= maxSelectedSources) { setSelectionWarning('每次方案最多选择 ' + maxSelectedSources + ' 个平台，请分批执行。'); return current; }
+      setSelectionWarning('');
+      return [...current, id];
+    });
+  };
+  const togglePage = () => setSelected(current => {
+    if (allVisibleSelected) return current.filter(id => !visibleIds.includes(id));
+    const additions = visibleIds.filter(id => !current.includes(id));
+    const remaining = Math.max(0, maxSelectedSources - current.length);
+    if (additions.length > remaining) setSelectionWarning('本页还有 ' + (additions.length - remaining) + ' 个平台未选中；每次方案最多选择 ' + maxSelectedSources + ' 个。');
+    else setSelectionWarning('');
+    return [...current, ...additions.slice(0, remaining)];
+  });
+  const selectAllFiltered = () => setSelected(current => {
+    const additions = filtered.filter(source => isRunnablePlatform(source.id) && !current.includes(source.id)).map(source => source.id);
+    const remaining = Math.max(0, maxSelectedSources - current.length);
+    if (additions.length > remaining) setSelectionWarning('已达到本次方案上限，未选中的平台可在下一批任务中选择。');
+    else setSelectionWarning('');
+    return [...current, ...additions.slice(0, remaining)];
+  });
   const clearAllFiltered = () => {
     const filteredIds = new Set(filtered.map(source => source.id));
     setSelected(current => current.filter(id => !filteredIds.has(id)));
+    setSelectionWarning('');
   };
   const clearFilters = () => {
     setSearchTerm('');
@@ -246,11 +271,20 @@ export function PlatformSelectionStep({
     <div className="tp-prospect-discovery__market-context">
       <span className="tp-prospect-discovery__market-pin"><CarbonIcons.Map size={20}/></span>
       <div className="tp-prospect-discovery__market-copy">
-        <span>当前锁定的目标市场</span>
-        <strong>{continentLabel || '尚未选择大洲'}{countryName ? ' → ' + countryName + ' (' + countryCode + ')' : ' → 尚未选择国家'}</strong>
-        <p>平台目录统一展示；全球通用渠道与本土平台通过覆盖范围参与筛选。</p>
+        <span>先确定目标市场，再匹配可用数据源</span>
+        <strong>{continentLabel || '请选择目标国家'}{countryName ? ' → ' + countryName + ' (' + countryCode + ')' : ' → 目标市场尚未确定'}</strong>
+        <p>国家选择会影响本土平台推荐、覆盖范围和后续采集参数。</p>
       </div>
-      <Button kind="ghost" size="md" renderIcon={CarbonIcons.Edit} onClick={onChangeCountry}>更改国家</Button>
+      <div className="tp-prospect-discovery__market-country">
+        <Select id="tp-source-market-country" labelText="目标国家 / 地区" value={countryCode} onChange={event => {
+          const selectedCountry = countries.find(country => country.cca2 === event.currentTarget.value);
+          if (selectedCountry) onCountryChange(selectedCountry);
+        }}>
+          <SelectItem value="" text="选择目标国家 / 地区" />
+          {countries.map(country => <SelectItem key={country.cca2} value={country.cca2} text={country.name.common} />)}
+        </Select>
+        <Button kind="ghost" size="sm" renderIcon={CarbonIcons.Edit} onClick={onChangeCountry}>完善市场画像</Button>
+      </div>
     </div>
 
     <section className="tp-prospect-discovery__platform-browser">
@@ -288,6 +322,8 @@ export function PlatformSelectionStep({
         </div>
       </div>
 
+      {selectionWarning && <div className="tp-prospect-discovery__selection-warning"><Tag type="red">选择上限</Tag><span>{selectionWarning}</span></div>}
+
       <div className="tp-prospect-discovery__platform-list" aria-live="polite">
         {visiblePlatforms.map(source => {
           const checked = selected.includes(source.id);
@@ -314,7 +350,7 @@ export function PlatformSelectionStep({
     </section>
 
     <div className="tp-prospect-discovery__source-selection-note">
-      <span>已选择 {selected.length} 个平台。翻页和调整筛选不会清除已选项目；此步骤不会启动采集任务。</span>
+      <span>已选择 {selected.length} 个平台；每次方案最多 20 个。未通过数据源质量门禁的来源不会启动正式采集。</span>
       <Button kind="secondary" onClick={() => setSelected(recommended)} disabled={!countryCode}>恢复当前市场智能推荐</Button>
     </div>
   </section>;

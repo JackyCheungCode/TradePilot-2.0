@@ -19,6 +19,7 @@ type RunRef = { id: string; sourceId: string; name: string };
 type Props = {
   profile: ProfileSnapshot;
   sources: SourceItem[];
+  actorParameters?: Record<string, unknown>;
   onEditStep: (step: number) => void;
   onContinueToScoring: (recordIds: string[]) => void;
   planTaskCode: string;
@@ -45,7 +46,7 @@ async function requestApi(path: string, token: string, init: RequestInit = {}) {
     headers: { Authorization: 'Bearer ' + token, Accept: 'application/json', ...(init.body ? { 'Content-Type': 'application/json' } : {}), ...init.headers },
   });
   const payload = await response.json().catch(() => ({})) as { data?: unknown; error?: { message?: string }; message?: string };
-  if (!response.ok) throw new Error((payload.error?.message || payload.message || '请求失败（HTTP ' + response.status + '）').replace(/Apify/gi, '外部数据采集服务'));
+  if (!response.ok) throw new Error((payload.error?.message || payload.message || '请求失败（HTTP ' + response.status + '）'));
   return payload.data ?? payload;
 }
 
@@ -56,7 +57,7 @@ async function getAccessToken() {
   return data.session.access_token;
 }
 
-export function ExecutionStep({ profile, sources, onEditStep, onContinueToScoring, planTaskCode }: Props) {
+export function ExecutionStep({ profile, sources, actorParameters = {}, onEditStep, onContinueToScoring, planTaskCode }: Props) {
   const channels = useMemo(() => sources, [sources]);
   const [status, setStatus] = useState<'idle' | 'running' | 'completed' | 'failed'>('idle');
   const [progress, setProgress] = useState(0);
@@ -146,6 +147,7 @@ export function ExecutionStep({ profile, sources, onEditStep, onContinueToScorin
         planTaskCode,
         profile: { ...profile },
         selectedSources: channels.map(source => ({ id: source.id, name: source.name, category: source.category ?? null })),
+        actorParameters: Object.fromEntries(Object.entries(actorParameters).slice(0, 200)),
         capturedAt: new Date().toISOString(),
       };
       const created: RunRef[] = [];
@@ -194,6 +196,19 @@ export function ExecutionStep({ profile, sources, onEditStep, onContinueToScorin
         addTask('instagram', 'Instagram', '/api/v1/instagram-discovery-runs', {
           countries: [profile.country], keywords: [profile.coreNoun.trim()], accountTypes: ['business', 'creator'],
           minFollowers: 0, maxFollowers: 100000000, recentDays: 365, requireContact: true, limit: instagramLimitValue, planSnapshot, guardrailsSnapshot,
+        });
+      }
+      const actorPlans = Array.isArray(actorParameters.actors) ? actorParameters.actors as Array<Record<string, unknown>> : [];
+      const nativeChannels = new Set(["google-maps", "google-search", "facebook", "instagram"]);
+      const enabledActorPlans = actorPlans.filter(actor => actor.status === "enabled" && typeof actor.actorId === "string" && !nativeChannels.has(String(actor.sourceId)));
+      const pendingActorPlans = actorPlans.filter(actor => !nativeChannels.has(String(actor.sourceId)) && actor.status !== "enabled");
+      if (pendingActorPlans.length) appendLog("[ACTOR GATE] " + pendingActorPlans.length + " 个候选来源尚未通过质量门禁，本次不会启动。");
+      if (enabledActorPlans.length) {
+        addTask("actor-discovery", "Actor 智能采集（" + enabledActorPlans.length + " 个来源）", "/api/v1/actor-registry/execute", {
+          actors: enabledActorPlans,
+          profile: { coreNoun: profile.coreNoun, country: profile.country, countryName: profile.countryName, city: profile.city },
+          limitPerCountry: clampLimit(webLimit, 5),
+          planSnapshot, guardrailsSnapshot,
         });
       }
       await Promise.all(tasks);

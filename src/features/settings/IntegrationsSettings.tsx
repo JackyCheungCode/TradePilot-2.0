@@ -29,7 +29,7 @@ const catalog:Catalog[]=[
 {id:'custom',name:'自定义 OpenAI 兼容接口',protocol:'openai',baseUrl:'',logo:'',initial:'API'}
 ];
 const apiCards=[
-{id:'apify',name:'Apify',logo:'apify',initial:'A',description:'网页采集、社交平台与数据发现。',fields:[{key:'apify',label:'API Token'}],test:'apify'},
+{id:'actorGateway',name:'通用数据采集平台',logo:'',initial:'AG',description:'连接采集平台，管理 Actor 目录、输入参数与执行能力。',fields:[{key:'actorGateway',label:'访问令牌'}],test:'actorGateway'},
 {id:'serper',name:'Serper',logo:'',initial:'S',description:'Google 搜索引擎数据 API。',fields:[{key:'serper',label:'API Key'}],test:'serper'},
 {id:'serpapi',name:'SerpApi',logo:'',initial:'S',description:'多类型搜索结果 API。',fields:[{key:'serpapi',label:'API Key'}],test:'serpapi'},
 {id:'deepl',name:'DeepL',logo:'deepl',initial:'D',description:'外贸工具在线翻译。',fields:[{key:'deepl',label:'API Key'}],test:'deepl'},
