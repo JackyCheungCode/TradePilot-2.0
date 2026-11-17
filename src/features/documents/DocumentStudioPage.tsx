@@ -80,7 +80,6 @@ export function DocumentStudioPage() {
   const selected = elements.find(item => item.id === selectedId) ?? elements[0];
   const selectedType = DOC_TYPES.find(item => item.value === documentType)!;
   const selectedOrder = orders.find(item => item.id === orderId);
-  const selectedQuote = quotes.find(item => item.id === sourceDocumentId);
   const isShipment = selectedType.source === 'shipment';
   const canUseQuotationSource = ['proforma_invoice', 'sales_contract'].includes(documentType);
   const templateConfig = useMemo(() => ({ layoutEngine: 'free-canvas-v1', pageSize: 'A4', orientation: 'portrait', unit: 'mm', locale, elements }), [elements, locale]);
@@ -202,7 +201,7 @@ export function DocumentStudioPage() {
     finally { setSaving(false); }
   };
 
-  const addFromBinding = (value: string) => updateElement(selected.id, { binding: value, type: 'field' });
+  const addFromBinding = (value: string) => { if (!selected) return; updateElement(selected.id, { binding: value, type: 'field' }); };
   const displayValue = (item: StudioElement) => item.type === 'text' ? item.text : item.type === 'field' ? formatValue(readPath({ ...previewContent, totals: previewTotals, document: createdDoc ?? {} }, item.binding)) : '';
   const labels: Record<string, string> = Object.fromEntries(FIELD_OPTIONS.map(([key, label]) => [key, label]));
 
