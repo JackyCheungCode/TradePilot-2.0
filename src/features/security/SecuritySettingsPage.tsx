@@ -386,7 +386,8 @@ export function SecuritySettingsPage() {
               <li>Passkey 可以保存在电脑、手机或密码管理器中；跨设备扫码登录取决于浏览器和平台支持。</li>
               <li>建议保留至少一个备用 Passkey，并确保身份验证器可以在备用设备上恢复。</li>
               <li>删除 Passkey 前，请确认还有其他可用的登录方式。</li>
-              <li>Passkey 当前用于无密码登录；Supabase 原生 MFA 的第二因子使用 TOTP。不会将同一次 Passkey 验证错误标记为独立 AAL2 因子。</li>
+              <li>Passkey 当前用于无密码登录；Supabase 托管版 Auth 的原生 MFA 第二因子使用 TOTP。Passkey 登录会话仍是 AAL1，不会因为设备使用了 Face ID 或指纹就自动升级为 AAL2。</li>
+              <li>生物识别作为独立 WebAuthn 第二因子尚未启用。托管版 Supabase Auth 目前不开放 WebAuthn MFA 因子配置；需要单独建设服务端验证与全链路授权，不能只在前端增加一个验证弹窗。</li>
             </ul>
           </section>
         </>
