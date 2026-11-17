@@ -36,6 +36,10 @@ export function AppShell() {
     return () => mediaQuery.removeEventListener('change', updateViewport);
   }, []);
 
+  useEffect(() => {
+    if (isCompactViewport) setSideNavExpanded(false);
+  }, [location.pathname, isCompactViewport]);
+
   const signOut = async () => {
     if (signingOut) return;
     setSigningOut(true);
