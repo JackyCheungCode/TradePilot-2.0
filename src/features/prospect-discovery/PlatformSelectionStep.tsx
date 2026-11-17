@@ -255,13 +255,13 @@ export function PlatformSelectionStep({
           <Search id="platform-catalog-search" labelText="搜索平台" placeholder="搜索平台名称或描述" size="lg" value={searchTerm} onChange={(event) => setSearchTerm(event.currentTarget.value)} />
         </div>
         <div className="tp-prospect-discovery__platform-filter">
-          <MultiSelect id="platform-continent-filter" titleText="大洲" label="全部大洲" items={continentLabels.map(item => item.value)} itemToString={(item) => item ? continentName(item) : ''} selectedItems={selectedContinents} onChange={({ selectedItems }) => { setSelectedContinents(selectedItems); setSelectedCountries(current => current.filter(country => selectedItems.length === 0 || selectedItems.includes(continentLabelForCountry(country)))); }} />
+          <MultiSelect id="platform-continent-filter" titleText="大洲" label="全部大洲" items={continentLabels.map(item => item.value)} itemToString={(item) => item ? continentName(item) : ''} selectedItems={selectedContinents} onChange={({ selectedItems }) => { const nextItems = selectedItems ?? []; setSelectedContinents(nextItems); setSelectedCountries(current => current.filter(country => nextItems.length === 0 || nextItems.includes(continentLabelForCountry(country)))); }} />
         </div>
         <div className="tp-prospect-discovery__platform-filter">
-          <MultiSelect id="platform-country-filter" titleText="国家 / 地区" label="全部国家 / 地区" items={countryOptions} itemToString={(item) => item ? item.name.common : ''} selectedItems={selectedCountries} onChange={({ selectedItems }) => setSelectedCountries(selectedItems)} />
+          <MultiSelect id="platform-country-filter" titleText="国家 / 地区" label="全部国家 / 地区" items={countryOptions} itemToString={(item) => item ? item.name.common : ''} selectedItems={selectedCountries} onChange={({ selectedItems }) => setSelectedCountries(selectedItems ?? [])} />
         </div>
         <div className="tp-prospect-discovery__platform-filter">
-          <MultiSelect id="platform-category-filter" titleText="平台分类" label="全部分类" items={categoryLabels} itemToString={(item) => item ?? ''} selectedItems={selectedCategories} onChange={({ selectedItems }) => setSelectedCategories(selectedItems)} />
+          <MultiSelect id="platform-category-filter" titleText="平台分类" label="全部分类" items={categoryLabels} itemToString={(item) => item ?? ''} selectedItems={selectedCategories} onChange={({ selectedItems }) => setSelectedCategories(selectedItems ?? [])} />
         </div>
       </div>
 
