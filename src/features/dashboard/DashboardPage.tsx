@@ -411,7 +411,9 @@ export function DashboardPage() {
               data={(globalMapData.length ? globalMapData : [{
                 name: String(worldGeoData?.objects?.countries?.geometries?.[0]?.properties?.NAME || 'Afghanistan'),
                 group: String(worldGeoData?.objects?.countries?.geometries?.[0]?.id || ''),
-                value: null,
+                code: '',
+                label: '',
+                value: 0,
               }]).map(item => ({ name: item.name, id: String(item.group), value: item.value }))}
               options={choroplethOptions as any}
             />
