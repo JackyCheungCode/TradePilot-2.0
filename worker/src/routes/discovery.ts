@@ -382,7 +382,7 @@ export async function handleDiscovery(request: Request, env: DiscoveryEnv): Prom
     if (recordIds.length < 1 || recordIds.length > 20 || recordIds.some(id => !/^[0-9a-f-]{36}$/i.test(id))) {
       return errorResponse(request, "VALIDATION_ERROR", "每批请选择 1 到 20 条有效潜客记录。", 400);
     }
-    const records = await db<Array<Record<string, unknown>>>(env, "discovery_records?owner_id=eq." + userId + "&id=in.(" + recordIds.join(",") + ")&select=id,name,website,country_code,address,phone,email,business_type,confidence_score,raw_data,discovery_record_occurrences!inner(provider,keyword,source_url,attribution,raw_data)");
+    const records = await db<Array<Record<string, unknown>>>(env, "discovery_records?owner_id=eq." + userId + "&id=in.(" + recordIds.join(",") + ")&select=id,name,website,country_code,address,phone,email,business_type,confidence_score,raw_data,discovery_record_occurrences(provider,keyword,source_url,attribution,raw_data)");
     if (records.length !== recordIds.length) return errorResponse(request, "NOT_FOUND", "部分所选记录不存在或无权访问。", 404);
     const profile = {
       coreNoun: String(body.profile?.coreNoun ?? "").slice(0, 300),
