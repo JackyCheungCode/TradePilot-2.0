@@ -52,14 +52,15 @@ export async function processSearchRun(env:DiscoveryEnv,run:string,owner:string,
  for(const job of jobs){try{const found=await search(job.engine,job.type,q,country,hl,input.limitPerCountry,location,env);raw+=found.length;all.push(...found.map(item=>({...job,item})));await log(env,run,owner,found.length?"success":"warning",job.engine+" · "+job.type+" 返回 "+found.length+" 条");}catch(e){failed++;await log(env,run,owner,"warning",job.engine+" · "+job.type+" 失败："+String(e).slice(0,180));}done++;await update(env,run,owner,{progress:Math.max(1,Math.round(done/jobs.length*85)),message:"搜索中 · "+done+"/"+jobs.length+" 个引擎/类型组合"});}
  const unique=new Map<string,{engine:Engine;type:Vertical;item:Result}>();for(const row of all){if(excluded(row.item.url,rules))continue;const domain=new URL(row.item.url).hostname.replace(/^www\./,"").toLowerCase();if(!unique.has(domain))unique.set(domain,row);}
  const uniqueRows=[...unique.values()];
- const guardrailBlocked=uniqueRows.filter(row=>evaluateGuardrails({
-   name:row.item.title,country,address:location,website:row.item.url,
-   businessType:row.type,description:row.item.snippet,content:row.item.title+" "+row.item.snippet,raw:row.item.raw,
- },input.guardrailsSnapshot).blocked).length;
- const allowed=uniqueRows.filter(row=>!evaluateGuardrails({
-   name:row.item.title,country,address:location,website:row.item.url,
-   businessType:row.type,description:row.item.snippet,content:row.item.title+" "+row.item.snippet,raw:row.item.raw,
- },input.guardrailsSnapshot).blocked);
+ let guardrailBlocked=0;
+ const allowed=uniqueRows.flatMap(row=>{
+   const decision=evaluateGuardrails({
+     name:row.item.title,country,address:location,website:row.item.url,
+     businessType:row.type,description:row.item.snippet,content:row.item.title+" "+row.item.snippet,raw:row.item.raw,
+   },input.guardrailsSnapshot);
+   if(decision.blocked){guardrailBlocked++;return [];}
+   return [{...row,item:{...row.item,raw:{...row.item.raw,guardrail_review_required:decision.review}}}];
+ });
  const chosen=allowed.slice(0,input.limitPerCountry);for(const row of chosen)await persist(env,owner,run,input,row.engine,row.type,row.item);
  if(guardrailBlocked)await log(env,run,owner,"info","护盾已拦截 "+guardrailBlocked+" 条搜索候选记录。");
  const status=failed===0?"completed":failed<jobs.length?"partial":"failed";await update(env,run,owner,{status,progress:100,discovered_count:chosen.length,created_lead_count:0,message:"搜索完成 · "+chosen.length+" 个独立网站 · 护盾拦截 "+guardrailBlocked+" 条 · "+raw+" 条原始结果"});
