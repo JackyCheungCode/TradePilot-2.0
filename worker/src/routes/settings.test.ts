@@ -5,7 +5,7 @@ import { handleSettings } from "./settings.ts";
 const ownerId = "123e4567-e89b-42d3-a456-426614174000";
 const env = { SUPABASE_URL: "https://project.supabase.co", SUPABASE_ANON_KEY: "anon-test-key" };
 
-function withFetch(handler: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>) {
+function withFetch(handler: (input: string | URL | Request, init?: RequestInit) => Promise<Response>) {
   const original = globalThis.fetch;
   globalThis.fetch = handler as typeof fetch;
   return () => { globalThis.fetch = original; };
