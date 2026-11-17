@@ -130,7 +130,7 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
   const applyImportPreview = () => {
     const imported = importPreview.filter(line => !websiteRows.some(row => row.value.toLowerCase() === line.toLowerCase()));
     const classify = (value: string) => {
-      if (/^https?:\/\//i.test(value)) return 'exact_url';
+      if (value.startsWith('http://') || value.startsWith('https://')) return 'exact_url';
       if (value.startsWith('.')) return 'suffix';
       if (value.startsWith('/')) return 'path';
       if (value.includes('*') || value.includes('?')) return 'pattern';
