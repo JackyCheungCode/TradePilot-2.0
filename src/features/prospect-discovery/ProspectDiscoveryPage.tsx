@@ -16,13 +16,13 @@ const steps = [
   '决策人穿透与入库（Decision-Maker Enrichment & CRM Sync）',
 ] as const;
 
-const continents = [
+const continents: Array<{ value: string; label: string; path: string }> = [
   { value: 'Africa', label: '非洲（Africa）', path: 'M49 5 67 14 73 31 66 46 58 70 45 91 34 78 29 58 17 43 23 22 36 10Z' },
   { value: 'Americas', label: '美洲（Americas）', path: 'M27 4 46 8 54 21 47 34 52 48 43 58 40 78 30 94 23 76 26 60 14 45 19 28 10 16Z' },
   { value: 'Asia', label: '亚洲（Asia）', path: 'M7 20 20 8 41 5 56 12 75 9 94 22 87 38 71 43 62 57 44 51 33 63 18 52 9 37Z' },
   { value: 'Europe', label: '欧洲（Europe）', path: 'M12 26 24 12 42 9 55 17 70 12 84 24 76 38 62 36 52 48 37 42 24 52 14 41Z' },
   { value: 'Oceania', label: '大洋洲（Oceania）', path: 'M12 28 25 18 40 22 48 34 39 47 24 45Z M64 58 76 52 91 60 86 75 70 78 60 68Z' },
-] as const;
+];
 
 const buyerOptions = [
   { id: 'importer', title: 'Importer', detail: '大型进口商', description: '跨境采购、进口与供应链采购主体' },
@@ -402,7 +402,7 @@ export function ProspectDiscoveryPage() {
                 items={buyerOptions.map(item => ({ id: item.id, text: item.title + ' — ' + item.detail }))}
                 itemToString={item => item?.text ?? ''}
                 selectedItems={buyerOptions.filter(item => profile.buyers.includes(item.id)).map(item => ({ id: item.id, text: item.title + ' — ' + item.detail }))}
-                onChange={({ selectedItems }) => update('buyers', selectedItems.map(item => item.id))}
+                onChange={({ selectedItems }) => update('buyers', (selectedItems ?? []).map(item => item.id))}
               />
             </div>
 
@@ -416,7 +416,7 @@ export function ProspectDiscoveryPage() {
                     label="选择大洲或地区"
                     items={[...continents]}
                     itemToString={item => item?.label ?? ''}
-                    itemToElement={item => item ? <div className="tp-prospect-discovery__continent-option"><svg viewBox="0 0 100 100" aria-hidden="true"><path d={item.path} /></svg><span>{item.label}</span></div> : null}
+                    itemToElement={item => item ? <div className="tp-prospect-discovery__continent-option"><svg viewBox="0 0 100 100" aria-hidden="true"><path d={item.path} /></svg><span>{item.label}</span></div> : <></>}
                     selectedItem={continents.find(item => item.value === profile.continent) ?? null}
                     onChange={({ selectedItem }) => setProfile(current => ({ ...current, continent: selectedItem?.value ?? '', country: '', countryName: '', city: '' }))}
                   />
@@ -428,7 +428,7 @@ export function ProspectDiscoveryPage() {
                     label={countryLoading ? '正在加载国家…' : '选择国家'}
                     items={filteredCountries}
                     itemToString={item => item?.name.common ?? ''}
-                    itemToElement={item => item ? <div className="tp-prospect-discovery__country-option"><img src={'https://flagcdn.com/w80/' + item.cca2.toLowerCase() + '.png'} alt="" loading="lazy" /><span>{item.name.common}</span></div> : null}
+                    itemToElement={item => item ? <div className="tp-prospect-discovery__country-option"><img src={'https://flagcdn.com/w80/' + item.cca2.toLowerCase() + '.png'} alt="" loading="lazy" /><span>{item.name.common}</span></div> : <></>}
                     selectedItem={selectedCountry ?? null}
                     disabled={!profile.continent || countryLoading || filteredCountries.length === 0}
                     onChange={({ selectedItem }) => setProfile(current => ({ ...current, country: selectedItem?.cca2 ?? '', countryName: selectedItem?.name.common ?? '', city: '' }))}
