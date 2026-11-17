@@ -1,5 +1,6 @@
 // Release trigger only; no runtime behavior. Approved platform catalog release 2026-11-17. Final build gate after catalog cleanup. Includes initial all-platform visibility fix.
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Accordion, AccordionItem, Button, Checkbox, ComboBox, Dropdown, MultiSelect, InlineLoading, InlineNotification,
   RadioButton, RadioButtonGroup, Select, SelectItem, Tag, TextArea, TextInput,
@@ -12,6 +13,8 @@ import { ExecutionStep } from './ExecutionStep';
 import { ScoringStep } from './ScoringStep';
 import { DecisionMakerStep } from './DecisionMakerStep';
 import '@/design-system/patterns/prospect-discovery.scss';
+
+const createPlanTaskCode = () => 'TPD-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + Math.random().toString(36).slice(2,8).toUpperCase();
 
 const steps = [
   '意图与画像锚定（Target Profiling）',
@@ -145,6 +148,8 @@ function compileStrategy(profile: Profile, tld: string, keywords: string[] = [])
 }
 
 export function ProspectDiscoveryPage() {
+  const navigate = useNavigate();
+  const [planTaskCode] = useState(() => createPlanTaskCode());
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [selectedSourceCount, setSelectedSourceCount] = useState(0);
   const [selectedSources, setSelectedSources] = useState<Array<{ id: string; name: string; category?: string }> | null>(null);
@@ -366,15 +371,23 @@ export function ProspectDiscoveryPage() {
     <main className="tp-prospect-discovery">
       <header className="tp-prospect-discovery__page-header">
         <div>
-          <p className="tp-prospect-discovery__eyebrow">PROSPECT DISCOVERY / WORKFLOW</p>
+          <p className="tp-prospect-discovery__eyebrow">TRADEPILOT / CRM · PROSPECT DISCOVERY</p>
           <h1>全球外贸智能潜客发现</h1>
           <p>将商业意图转化为可执行的全球获客搜索策略。</p>
         </div>
-        <div className="tp-prospect-discovery__header-meta">
-          <span>STEP {String(selectedIndex + 1).padStart(2, '0')} / 06</span>
-          <strong>{selectedIndex === 0 ? 'Target Profiling' : selectedIndex === 1 ? 'Platform & Source Selection' : steps[selectedIndex]}</strong>
+        <div className="tp-prospect-discovery__header-actions">
+          <div className="tp-prospect-discovery__header-meta">
+            <span>STEP {String(selectedIndex + 1).padStart(2, '0')} / 06</span>
+            <strong>{selectedIndex === 0 ? 'Target Profiling' : selectedIndex === 1 ? 'Platform & Source Selection' : steps[selectedIndex]}</strong>
+          </div>
+          <div className="tp-prospect-discovery__hub-actions">
+            <Button kind="secondary" size="md" renderIcon={CarbonIcons.DocumentMultiple_01} onClick={() => navigate('/prospect-history')}>历史任务</Button>
+            <Button kind="tertiary" size="md" renderIcon={CarbonIcons.DataBase} onClick={() => navigate('/prospect-data')}>潜客数据</Button>
+          </div>
         </div>
       </header>
+
+      <div className="tp-prospect-discovery__task-code"><span>本次方案任务编码</span><strong>{planTaskCode}</strong><span className="tp-prospect-discovery__task-code-note">每次重新打开潜客方案都会生成新的唯一编码</span></div>
 
       <Tabs selectedIndex={selectedIndex} onChange={({ selectedIndex: nextIndex }) => setSelectedIndex(nextIndex)}>
         <TabList aria-label="潜客发现六步流程" contained>
