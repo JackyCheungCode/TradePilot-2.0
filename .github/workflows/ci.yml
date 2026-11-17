@@ -32,6 +32,8 @@ jobs:
           node --check services/inbox-scanner/server.mjs
           node --test services/inbox-scanner/server.test.mjs
           SCANNER_HMAC_SECRET=$(printf 'a%.0s' {1..64}) docker compose -f services/inbox-scanner/docker-compose.yml config --quiet
+      - name: Test server-side discovery guardrails
+        run: npm run test:guardrails
       - name: Verify design-system boundary
         run: npm run check:design-system
 
