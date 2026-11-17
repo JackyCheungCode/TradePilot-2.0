@@ -3,7 +3,7 @@ import { buildLeadDedupeKey, normalizeBusinessName } from "../lib/deduplication"
 import { discoveryRunQuery } from "../lib/owner-scoped-query";
 import { readIntegrationSecret } from "../lib/integrations";
 import { callAgentChatModel, type Env as AgentEnv } from "./agent-center";
-import { evaluateGuardrails } from "../lib/guardrails";
+import { evaluateGuardrails, getDuplicatePolicy } from "../lib/guardrails";
 
 export interface DiscoveryEnv {
   SUPABASE_URL: string;
@@ -229,8 +229,11 @@ async function persistDiscoveryRecord(
   if(!entityId)throw new Error("DISCOVERY_ENTITY_UPSERT_FAILED");
   const previous = await db<Array<Record<string,unknown>>>(env,"discovery_records?owner_id=eq."+ownerId+"&channel=eq.map_local_businesses&dedupe_key=eq."+encodeURIComponent(item.dedupeKey)+"&select=id,address,phone,email,website,business_type,confidence_score,raw_data");
   const prior = previous[0] ?? {};
-  const mergedRawData = {...(prior.raw_data && typeof prior.raw_data==="object" ? prior.raw_data as Record<string,unknown> : {}),...item.rawData};
-  const rows = await db<Array<{ id: string }>>(env, "discovery_records?on_conflict=owner_id,channel,dedupe_key", {
+  const duplicate = typeof prior.id === "string";
+  const duplicatePolicy = getDuplicatePolicy(input.guardrailsSnapshot);
+  const mergedRawData = {...(prior.raw_data && typeof prior.raw_data==="object" ? prior.raw_data as Record<string,unknown> : {}),...item.rawData,...(duplicate && duplicatePolicy === "review" ? { duplicate_review_required: true } : {})};
+  let recordId = duplicate && duplicatePolicy === "skip" ? String(prior.id) : undefined;
+  const rows = recordId ? [] : await db<Array<{ id: string }>>(env, "discovery_records?on_conflict=owner_id,channel,dedupe_key", {
     method: "POST",
     headers: { Prefer: "resolution=merge-duplicates,return=representation" },
     body: JSON.stringify({
@@ -244,7 +247,7 @@ async function persistDiscoveryRecord(
       dedupe_key: item.dedupeKey, raw_data: mergedRawData,
     }),
   });
-  let recordId = rows?.[0]?.id;
+  recordId = recordId ?? rows?.[0]?.id;
   if (!recordId) {
     const existing = await db<Array<{ id: string }>>(env, "discovery_records?owner_id=eq." + ownerId + "&channel=eq.map_local_businesses&dedupe_key=eq." + encodeURIComponent(item.dedupeKey) + "&select=id");
     recordId = existing[0]?.id;
