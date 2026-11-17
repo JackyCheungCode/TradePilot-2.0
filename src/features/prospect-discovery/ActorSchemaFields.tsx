@@ -46,8 +46,8 @@ export function ActorSchemaFields({ sources, onValuesChange }: Props) {
 
   useEffect(() => {
     let active = true;
-    if (!sources.length) { setItems([]); setValues({}); setExpandedHelp({}); setError(''); setLoading(false); onValuesChange({ fields: {}, actors: [] }); return; }
-    setLoading(true); setError(''); setItems([]); setValues({}); setExpandedHelp({});
+    if (!sources.length) { setItems([]); setValues({}); setExpandedHelp({}); setTestResults({}); setError(''); setLoading(false); onValuesChange({ fields: {}, actors: [] }); return; }
+    setLoading(true); setError(''); setItems([]); setValues({}); setExpandedHelp({}); setTestResults({});
     void (async () => {
       try {
         const token = await accessToken();
