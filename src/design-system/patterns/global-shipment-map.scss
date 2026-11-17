@@ -72,7 +72,7 @@
   min-height: 22rem;
   overflow: hidden;
   isolation: isolate;
-  background: #e8e5df;
+  background: var(--cds-layer-02);
   cursor: grab;
   touch-action: none;
   user-select: none;
@@ -239,4 +239,25 @@
   .tp-shipment-map__canvas { height: 25rem; min-height: 25rem; }
   .tp-shipment-map__selected { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .tp-shipment-map__controls { top: .5rem; right: .5rem; }
+}
+
+
+/* The map tiles are rasterized by the external map provider; invert only the
+   tile layer in Carbon G100 so route and shipment SVG colors remain semantic. */
+:root[data-carbon-theme='g100'] .tp-shipment-map__tiles {
+  filter: invert(1) hue-rotate(180deg) saturate(.72) brightness(.88) contrast(.92);
+}
+
+:root[data-carbon-theme='g100'] .tp-shipment-map__attribution {
+  color: var(--cds-text-primary);
+  background: var(--cds-layer-02);
+}
+
+:root[data-carbon-theme='g100'] .tp-shipment-map__attribution a {
+  color: var(--cds-link-primary);
+}
+
+:root[data-carbon-theme='g100'] .tp-shipment-map__map-caption {
+  color: var(--cds-text-primary);
+  text-shadow: 0 1px 0 var(--cds-layer-01);
 }

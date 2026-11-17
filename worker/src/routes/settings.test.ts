@@ -92,3 +92,74 @@ test("global guardrail settings require a valid authenticated user", async () =>
     assert.equal(response.status, 401);
   } finally { restore(); }
 });
+
+
+test("theme preference GET is scoped to the authenticated account and defaults to system", async () => {
+  const calls: Array<{ url: string; headers: Headers }> = [];
+  const restore = withFetch(async (input, init) => {
+    const url = String(input);
+    const headers = new Headers(init?.headers);
+    calls.push({ url, headers });
+    if (url.endsWith("/auth/v1/user")) return Response.json({ id: ownerId });
+    return Response.json([]);
+  });
+  try {
+    const response = await handleSettings(new Request("https://worker.test/api/v1/settings/theme-preference", {
+      headers: { Authorization: "Bearer user-access-token" },
+    }), env);
+    assert.equal(response.status, 200);
+    const payload = await response.json() as { data: { preference: string } };
+    assert.equal(payload.data.preference, "system");
+    assert.equal(calls.length, 2);
+    assert.equal(calls[1].headers.get("apikey"), env.SUPABASE_ANON_KEY);
+    assert.equal(calls[1].headers.get("authorization"), "Bearer user-access-token");
+    const query = new URL(calls[1].url).searchParams;
+    assert.equal(query.get("owner_id"), "eq." + ownerId);
+    assert.equal(query.get("scope_key"), "eq.theme_preference");
+  } finally { restore(); }
+});
+
+test("theme preference PUT persists only an allow-listed preference for the authenticated account", async () => {
+  let stored: Record<string, unknown> | undefined;
+  let storageHeaders: Headers | undefined;
+  const restore = withFetch(async (input, init) => {
+    const url = String(input);
+    if (url.endsWith("/auth/v1/user")) return Response.json({ id: ownerId });
+    storageHeaders = new Headers(init?.headers);
+    stored = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    return Response.json([{ config_version: 1, updated_at: "2026-11-18T00:00:00Z" }]);
+  });
+  try {
+    const response = await handleSettings(new Request("https://worker.test/api/v1/settings/theme-preference", {
+      method: "PUT",
+      headers: { Authorization: "Bearer user-access-token", "Content-Type": "application/json" },
+      body: JSON.stringify({ preference: "dark", unexpected: "must-not-persist" }),
+    }), env);
+    assert.equal(response.status, 200);
+    assert.ok(stored);
+    assert.equal(stored.owner_id, ownerId);
+    assert.equal(stored.scope_key, "theme_preference");
+    assert.deepEqual(stored.config, { preference: "dark" });
+    assert.equal("unexpected" in stored, false);
+    assert.equal(storageHeaders?.get("apikey"), env.SUPABASE_ANON_KEY);
+    assert.equal(storageHeaders?.get("authorization"), "Bearer user-access-token");
+  } finally { restore(); }
+});
+
+test("theme preference PUT rejects unsupported values before writing", async () => {
+  let storageCalled = false;
+  const restore = withFetch(async input => {
+    if (String(input).endsWith("/auth/v1/user")) return Response.json({ id: ownerId });
+    storageCalled = true;
+    return Response.json([]);
+  });
+  try {
+    const response = await handleSettings(new Request("https://worker.test/api/v1/settings/theme-preference", {
+      method: "PUT",
+      headers: { Authorization: "Bearer user-access-token", "Content-Type": "application/json" },
+      body: JSON.stringify({ preference: "midnight" }),
+    }), env);
+    assert.equal(response.status, 400);
+    assert.equal(storageCalled, false);
+  } finally { restore(); }
+});

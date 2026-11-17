@@ -1,4 +1,4 @@
-/** Semantic color aliases: Carbon White remains the source of truth. */
+/** Semantic color aliases resolve against the active Carbon theme boundary. */
 :root {
   --tp-color-background: var(--cds-background);
   --tp-color-background-inverse: var(--cds-background-inverse);
