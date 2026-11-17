@@ -26,6 +26,7 @@ export interface DiscoveryRunInput {
   searchEngines?: Array<"serper" | "serpapi">;
   searchTypes?: Array<"web" | "shopping" | "images" | "news" | "videos" | "scholar" | "patents">;
   searchLanguage?: string; advancedQuery?: string; excludeCategories?: string[];
+  planSnapshot?: Record<string, unknown>; guardrailsSnapshot?: Record<string, unknown>;
 }
 const BUSINESS_TYPE_FILTERS: Record<string, { googleTypes: string[]; osmTags: Array<{key:string;value:string}> }> = {
   distributor: { googleTypes: ["supplier", "wholesaler"], osmTags: [{key:"shop",value:"trade"},{key:"shop",value:"wholesale"}] },
@@ -444,7 +445,7 @@ export async function handleDiscovery(request: Request, env: DiscoveryEnv): Prom
     const code=input.countries[0], scope=[input.city,input.state,countryName(code)].filter(Boolean).join(" · ");
     const rows=await db<Array<{id:string;task_code:string}>>(env,"discovery_runs",{
       method:"POST",headers:{Prefer:"return=representation"},
-      body:JSON.stringify({owner_id:userId,query:input.query.trim(),countries:input.countries,limit_per_country:input.limitPerCountry,state:input.state??null,city:input.city??null,providers,search_config:{businessTypes:input.businessTypes??[],filters:input.filters??{},osmTags:input.osmTags??[],originalQuery:input.originalQuery??null,translatedQuery:input.translatedQuery??null,targetLanguage:input.targetLanguage??null},channel:"map_local_businesses",status:"queued",progress:0,discovered_count:0,created_lead_count:0,message:"任务已排队 · "+scope,task_code:"MAP-"+code+"-"+new Date().toISOString().slice(0,10).replace(/-/g,"")+"-"+crypto.randomUUID().replace(/-/g,"").slice(0,6).toUpperCase()})
+      body:JSON.stringify({owner_id:userId,query:input.query.trim(),countries:input.countries,limit_per_country:input.limitPerCountry,state:input.state??null,city:input.city??null,providers,search_config:{businessTypes:input.businessTypes??[],filters:input.filters??{},osmTags:input.osmTags??[],originalQuery:input.originalQuery??null,translatedQuery:input.translatedQuery??null,targetLanguage:input.targetLanguage??null,planSnapshot:input.planSnapshot??null,guardrailsSnapshot:input.guardrailsSnapshot??null},channel:"map_local_businesses",status:"queued",progress:0,discovered_count:0,created_lead_count:0,message:"任务已排队 · "+scope,task_code:"MAP-"+code+"-"+new Date().toISOString().slice(0,10).replace(/-/g,"")+"-"+crypto.randomUUID().replace(/-/g,"").slice(0,6).toUpperCase()})
     });
     const run=rows?.[0]; if(!run?.id) throw new Error("DISCOVERY_RUN_CREATE_FAILED");
     await log(env,run.id,userId,"info","任务编号："+run.task_code+"；关键词："+input.query+(input.originalQuery?"（原始关键词："+input.originalQuery+"）":"")+"；业务类型："+(input.businessTypes??[]).join("、")+"；数据源："+providers.join("、"));
