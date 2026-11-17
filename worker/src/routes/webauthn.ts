@@ -132,8 +132,15 @@ export async function handleWebAuthn(request: Request, env: WebAuthnEnv): Promis
     if (path === "/api/v1/webauthn/status") {
       const enabled = await rpc<boolean>(env, "tradepilot_webauthn_is_enabled", { p_user_id: auth.userId });
       const credentials = await credentialsForUser(env, auth.userId);
+      const granted = enabled
+        ? await rpc<boolean>(env, "tradepilot_webauthn_has_grant", {
+            p_user_id: auth.userId,
+            p_session_id: auth.sessionId,
+          })
+        : false;
       return successResponse(request, {
         enabled: Boolean(enabled),
+        granted: Boolean(granted),
         credentials: credentials.map((item) => ({
           id: item.credential_id,
           name: item.friendly_name,
