@@ -282,3 +282,23 @@ begin
   end loop;
 end;
 $$;
+
+-- Storage is a separate exposed API surface; apply the same session gate where
+-- authenticated users already have object policies.
+do $$
+begin
+  if to_regclass('storage.objects') is not null
+     and exists (
+       select 1 from pg_class c
+       where c.oid=to_regclass('storage.objects') and c.relrowsecurity
+     )
+     and exists (
+       select 1 from pg_policies p
+       where p.schemaname='storage' and p.tablename='objects'
+         and ('authenticated'=any(p.roles) or 'public'=any(p.roles))
+     ) then
+    execute 'drop policy if exists tradepilot_webauthn_session_gate on storage.objects';
+    execute 'create policy tradepilot_webauthn_session_gate on storage.objects as restrictive for all to authenticated using ((select private.tradepilot_webauthn_session_authorized())) with check ((select private.tradepilot_webauthn_session_authorized()))';
+  end if;
+end;
+$$;
