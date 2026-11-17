@@ -190,7 +190,7 @@ export function ActorSchemaFields({ sources, profile, onValuesChange }: Props) {
             </Button>
           </div>
         </div>
-        {testResults[item.source.id + ':' + item.actorId] && <InlineNotification kind={testResults[item.source.id + ':' + item.actorId].passed ? 'success' : 'warning'} lowContrast title={testResults[item.source.id + ':' + item.actorId].passed ? '质量门禁通过' : '质量门禁未通过'} subtitle={testResults[item.source.id + ':' + item.actorId].message + (typeof testResults[item.source.id + ':' + item.actorId].qualityScore === 'number' ? ' · 质量评分 ' + testResults[item.source.id + ':' + item.actorId].qualityScore : '')} />}
+        {localTest && localTest.inputFingerprint === currentFingerprint && <InlineNotification kind={localTest.passed ? 'success' : 'warning'} lowContrast title={localTest.passed ? '质量门禁通过' : '质量门禁未通过'} subtitle={localTest.message + (typeof localTest.qualityScore === 'number' ? ' · 质量评分 ' + localTest.qualityScore : '')} />}
         <div className="tp-prospect-discovery__actor-schema-fields">
           {Object.entries(properties).map(([fieldKey, field]) => {
             const translated = item.schema.translatedProperties?.[fieldKey];
