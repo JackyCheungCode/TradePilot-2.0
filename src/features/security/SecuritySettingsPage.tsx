@@ -102,6 +102,11 @@ export function SecuritySettingsPage() {
       const { data: assurance, error: assuranceError } = await client.auth.mfa.getAuthenticatorAssuranceLevel();
       if (assuranceError) throw assuranceError;
       if (assurance.currentLevel !== 'aal2') {
+        const currentStatus = await callWebAuthn<WebAuthnStatus>(client, '/api/v1/webauthn/status');
+        if (currentStatus.granted) {
+          await performWebAuthnAction(action, client, credentialId);
+          return;
+        }
         const { data: factors, error: factorsError } = await client.auth.mfa.listFactors();
         if (factorsError) throw factorsError;
         const factor = factors.totp.find((item) => item.status === 'verified');
@@ -110,7 +115,7 @@ export function SecuritySettingsPage() {
         if (challengeError) throw challengeError;
         setWebAuthnStepUp({ factorId: factor.id, challengeId: challenge.id, action, credentialId });
         setWebAuthnStepUpCode('');
-        setNotice('请先输入身份验证器验证码，完成安全设置的二次确认。');
+        setNotice('请先输入身份验证器验证码，完成安全设置的二次确认。若当前登录会话已完成生物识别验证，则无需再次输入。');
         return;
       }
       await performWebAuthnAction(action, client, credentialId);
