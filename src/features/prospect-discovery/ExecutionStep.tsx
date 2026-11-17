@@ -283,7 +283,7 @@ export function ExecutionStep({ profile, sources, onEditStep, onContinueToScorin
             </TableRow></TableHead>
             <TableBody>
               {visibleLeads.map(lead => <TableRow key={lead.id}>
-                <TableSelectRow id={'select-' + lead.id} checked={selectedIds.includes(lead.id)} onChange={() => toggleOne(lead.id)} />
+                <TableSelectRow id={'select-' + lead.id} checked={selectedIds.includes(lead.id)} onSelect={() => toggleOne(lead.id)} />
                 <TableCell><Button kind="ghost" size="sm" className="tp-execution__company-button" onClick={() => setDetail(lead)}>{lead.name}</Button></TableCell>
                 <TableCell><a href={'https://' + lead.domain} target="_blank" rel="noreferrer">{lead.domain} <CarbonIcons.ArrowUpRight size={12}/></a></TableCell>
                 <TableCell><Tag type="blue">{lead.country}</Tag></TableCell>
@@ -307,7 +307,7 @@ export function ExecutionStep({ profile, sources, onEditStep, onContinueToScorin
       <Modal open={confirmStop} modalHeading="确认终止当前任务？" primaryButtonText="终止任务" secondaryButtonText="继续运行" danger onRequestClose={() => setConfirmStop(false)} onRequestSubmit={() => { setConfirmStop(false); setStatus('idle'); appendLog('[SYSTEM] Task terminated by user.'); setNotice('任务已终止，已捕获的 Mock 线索仍保留在当前页面。'); }}>
         <p>终止后将停止前端模拟进度与日志输出。已捕获的线索不会自动删除。</p>
       </Modal>
-      <Modal open={Boolean(detail)} modalHeading="企业原始抓取数据" primaryButtonText="关闭" secondaryButtonText="" onRequestClose={() => setDetail(null)} onRequestSubmit={() => setDetail(null)} size="lg">
+      <Modal open={Boolean(detail)} modalHeading="企业原始抓取数据" primaryButtonText="关闭" onRequestClose={() => setDetail(null)} onRequestSubmit={() => setDetail(null)} size="lg">
         {detail && <div className="tp-execution__detail"><div><strong>{detail.name}</strong><Tag type={detail.shield === 'passed' ? 'green' : 'warm-gray'}>{detail.shield === 'passed' ? '校验通过' : '待补充邮箱'}</Tag></div><p>{detail.domain} · {detail.country} · {detail.sourceName}</p><CodeSnippet type="multi" wrapText>{JSON.stringify(detail, null, 2)}</CodeSnippet></div>}
       </Modal>
     </section>
