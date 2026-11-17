@@ -103,6 +103,7 @@ export function DesignSystemProvider({ children }: DesignSystemProviderProps) {
     };
 
     void getSupabaseClient().then(async (client) => {
+      if (!alive) return;
       const listener = client.auth.onAuthStateChange((_event, nextSession) => {
         void resolveSession(nextSession);
       });
