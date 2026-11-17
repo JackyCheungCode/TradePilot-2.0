@@ -23,12 +23,15 @@ async function accessToken() {
   if (!data.session?.access_token) throw new Error('登录状态已失效，请重新登录。');
   return data.session.access_token;
 }
-function popularity(actor: Record<string, unknown>) {
+function suitability(actor: Record<string, unknown>, source: Source) {
   const stats = actor.stats && typeof actor.stats === 'object' ? actor.stats as Record<string, unknown> : {};
   const users = Number(stats.totalUsers ?? stats.userCount ?? 0);
   const runs = Number(stats.monthlyRuns ?? stats.totalRuns ?? 0);
   const rating = Number(stats.rating ?? 0);
-  return Math.log10(Math.max(0, users) + 1) * 12 + Math.log10(Math.max(0, runs) + 1) * 16 + rating * 8;
+  const text = [actor.name, actor.title, actor.description].filter(Boolean).join(' ').toLowerCase();
+  const terms = (source.name + ' ' + source.id).toLowerCase().split(/[^a-z0-9]+/).filter(term => term.length > 2);
+  const match = new Set(terms).size ? [...new Set(terms)].filter(term => text.includes(term)).length : 0;
+  return match * 40 + Math.log10(Math.max(0, users) + 1) * 12 + Math.log10(Math.max(0, runs) + 1) * 16 + rating * 8;
 }
 
 export function ActorSchemaFields({ sources, onValuesChange }: Props) {
@@ -49,7 +52,7 @@ export function ActorSchemaFields({ sources, onValuesChange }: Props) {
         const loaded = await Promise.all(sources.map(async source => {
           const discovery = await api('/api/v1/actor-registry/discover', token, { method: 'POST', body: JSON.stringify({ platform: source.id, query: source.name }) }) as { items?: Array<Record<string, unknown>> };
           const candidates = (discovery.items ?? []).filter(actor => typeof actor.actor_id === 'string');
-          candidates.sort((a, b) => popularity(b) - popularity(a));
+          candidates.sort((a, b) => suitability(b, source) - suitability(a, source));
           const actor = candidates[0];
           if (!actor) return null;
           const actorId = String(actor.actor_id);
