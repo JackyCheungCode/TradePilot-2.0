@@ -47,7 +47,8 @@ export function SecuritySettingsPage() {
   const [showDisable, setShowDisable] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [recoveryStatus, setRecoveryStatus] = useState<RecoveryStatus>({ total: 0, remaining: 0 });\n  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
+  const [recoveryStatus, setRecoveryStatus] = useState<RecoveryStatus>({ total: 0, remaining: 0 });
+  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
 
   const loadSecurity = useCallback(async () => {
     setLoading(true);
