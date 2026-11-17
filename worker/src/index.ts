@@ -59,7 +59,10 @@ export { LeadDiscoveryWorkflow, ContactEnrichmentWorkflow, FacebookDiscoveryWork
 
 async function enforceWebAuthnSession(request: Request, env: WorkerEnv): Promise<Response | null> {
  const token = request.headers.get("Authorization")?.match(/^Bearer\s+(\S+)$/i)?.[1];
- if (!token) return null;
+ if (!token) {
+  const isSignedWebhook = new URL(request.url).pathname.startsWith("/api/v1/inbox/webhooks/");
+  return isSignedWebhook ? null : errorResponse(request,"UNAUTHENTICATED","请先登录 TradePilot。",401);
+ }
  try {
   const userResponse = await fetch(env.SUPABASE_URL + "/auth/v1/user", {
    headers: { apikey: env.SUPABASE_ANON_KEY, Authorization: "Bearer " + token },
