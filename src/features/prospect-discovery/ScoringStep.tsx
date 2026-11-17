@@ -8,6 +8,8 @@ import {
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 
+const asObject = (value: unknown): Record<string, unknown> => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+
 type Lead = {
   id: string; name: string; domain: string; country: string; source: string; email: string;
   address?: string; phone?: string; runId?: string; confidence?: number;
@@ -27,6 +29,7 @@ export function ScoringStep({ profile, onContinueToEnrichment }: Props) {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [notice, setNotice] = useState('');
+  const [scoring, setScoring] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -62,7 +65,13 @@ export function ScoringStep({ profile, onContinueToEnrichment }: Props) {
             email: String(record.email ?? '') || '待补充', address: String(record.address ?? ''),
             phone: String(record.phone ?? ''), runId: String(occurrence.run_id ?? ''),
             confidence: typeof record.confidence_score === 'number' ? record.confidence_score : undefined,
-            status: 'pending' as const, comment: '已读取真实检索记录，等待后端 AI 评分服务。',
+            status: asObject(record.raw_data).ai_scoring ? 'scored' as const : 'pending' as const,
+            score: typeof asObject(asObject(record.raw_data).ai_scoring).score === 'number' ? Number(asObject(asObject(record.raw_data).ai_scoring).score) : undefined,
+            fit: Number(asObject(asObject(asObject(record.raw_data).ai_scoring).dimensions).fit) || undefined,
+            persona: Number(asObject(asObject(asObject(record.raw_data).ai_scoring).dimensions).persona) || undefined,
+            scale: Number(asObject(asObject(asObject(record.raw_data).ai_scoring).dimensions).scale) || undefined,
+            intent: Number(asObject(asObject(asObject(record.raw_data).ai_scoring).dimensions).intent) || undefined,
+            comment: String(asObject(asObject(record.raw_data).ai_scoring).summary ?? '已读取真实检索记录，等待 AI 评分。'),
           };
         });
         if (active) setRows(mapped);
@@ -89,8 +98,37 @@ export function ScoringStep({ profile, onContinueToEnrichment }: Props) {
   const togglePage = () => setSelected(current => visible.every(row => current.includes(row.id))
     ? current.filter(id => !visible.some(row => row.id === id))
     : [...new Set([...current, ...visible.map(row => row.id)])]);
-  const scoreRows = (_ids: string[]) => {
-    setNotice('当前版本已切换为真实检索记录，但后端 AI 评分接口尚未接入；为避免虚假评分，本步骤暂不生成分数。');
+  const scoreRows = async (ids: string[]) => {
+    if (!ids.length || scoring) return;
+    setScoring(true); setNotice('');
+    try {
+      const db = await getSupabaseClient();
+      const { data } = await db.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) throw new Error('登录状态已失效，请重新登录。');
+      let updated: Array<Record<string, unknown>> = [];
+      for (let index = 0; index < ids.length; index += 20) {
+        const batch = ids.slice(index, index + 20);
+        const response = await fetch('/api/v1/discovery-records/score', {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ recordIds: batch, profile }),
+        });
+        const payload = await response.json() as { data?: { scores?: Array<Record<string, unknown>> }; error?: { message?: string } };
+        if (!response.ok) throw new Error(payload.error?.message || 'AI 评分失败（HTTP ' + response.status + '）');
+        updated = [...updated, ...(payload.data?.scores ?? [])];
+      }
+      setRows(current => current.map(row => {
+        const score = updated.find(item => item.id === row.id);
+        if (!score) return row;
+        const dimensions = asObject(score.dimensions);
+        return { ...row, status: 'scored', score: Number(score.score), fit: Number(dimensions.fit), persona: Number(dimensions.persona), scale: Number(dimensions.scale), intent: Number(dimensions.intent), comment: String(score.summary ?? '') };
+      }));
+      setNotice('已完成并保存 ' + updated.length + ' 条真实 AI 评分；评分模型与证据已写入潜客记录。');
+      setSelected([]);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'AI 评分失败');
+    } finally { setScoring(false); }
   };
   const removeSelected = async () => {
     if (!selected.length) return;
@@ -188,7 +226,7 @@ export function ScoringStep({ profile, onContinueToEnrichment }: Props) {
               </Tile>
             </Column>
           </Grid>
-          <p className="tp-scoring__method-note">模型名称与评分权重按产品方案展示。当前展示真实检索记录。AI 模型选择、清洗执行、评分依据与结果持久化尚待后端评分流水线接入；接口完成前不会生成模拟分数。</p>
+          <p className="tp-scoring__method-note">模型名称与评分权重按产品方案展示。使用 AI 与 API 集成中为潜客评分配置的模型。评分维度、证据、风险、模型版本与评分时间会持久化到潜客记录。</p>
         </AccordionItem>
       </Accordion>
 
@@ -202,7 +240,7 @@ export function ScoringStep({ profile, onContinueToEnrichment }: Props) {
       <Tile className="tp-scoring__table-panel">
         <div className="tp-execution__section-heading"><div><h3>原始检索结果</h3><p>人工复核企业主体、官网与来源，再决定是否纳入 AI 清洗打分</p></div><Tag type="blue">{filtered.length} 条匹配</Tag></div>
         <div className="tp-scoring__table-controls">
-          {selected.length > 0 && <div className="tp-scoring__batch-actions"><span>已勾选 {selected.length} / {rows.length} 条记录</span><div><Button kind="primary" size="md" renderIcon={CarbonIcons.MagicWand} onClick={() => scoreRows(selected)}>检查 AI 评分接入状态</Button><Button kind="tertiary" size="md" renderIcon={CarbonIcons.TrashCan} onClick={removeSelected}>批量移除</Button><Button kind="tertiary" size="md" renderIcon={CarbonIcons.Download} onClick={exportSelected}>导出 XLSX</Button><Button kind="ghost" size="md" onClick={() => setSelected([])}>取消选择</Button></div></div>}
+          {selected.length > 0 && <div className="tp-scoring__batch-actions"><span>已勾选 {selected.length} / {rows.length} 条记录</span><div><Button kind="primary" size="md" renderIcon={CarbonIcons.MagicWand} onClick={() => scoreRows(selected)}>AI 清洗与打分</Button><Button kind="tertiary" size="md" renderIcon={CarbonIcons.TrashCan} onClick={removeSelected}>批量移除</Button><Button kind="tertiary" size="md" renderIcon={CarbonIcons.Download} onClick={exportSelected}>导出 XLSX</Button><Button kind="ghost" size="md" onClick={() => setSelected([])}>取消选择</Button></div></div>}
           <TableToolbar>
           <TableToolbarContent>
             <div className="tp-scoring__toolbar">
@@ -216,6 +254,7 @@ export function ScoringStep({ profile, onContinueToEnrichment }: Props) {
         </div>
         {loading && <InlineNotification kind="info" lowContrast title="正在读取真实检索记录" subtitle="从潜客发现结果接口加载本轮任务的记录。" />}
         {loadError && <InlineNotification kind="error" lowContrast title="检索结果读取失败" subtitle={loadError} />}
+        {scoring && <InlineNotification kind="info" lowContrast title="AI 清洗与评分进行中" subtitle="正在调用已配置的评分模型并保存评分依据。" />}
         <div className="tp-scoring__table-scroll">
           <Table size="lg" useZebraStyles={false}>
             <TableHead><TableRow>
@@ -230,7 +269,7 @@ export function ScoringStep({ profile, onContinueToEnrichment }: Props) {
                 <TableCell><Tag type="blue">{row.source}</Tag></TableCell>
                 <TableCell>{row.score === undefined ? <span className="tp-scoring__score-empty">—</span> : <button type="button" className="tp-scoring__score" title={'Fit ' + row.fit + ' · Persona ' + row.persona + ' · Scale ' + row.scale + ' · Intent ' + row.intent} onClick={() => setNotice('评分明细：Fit ' + row.fit + ' · Persona ' + row.persona + ' · Scale ' + row.scale + ' · Intent ' + row.intent)}>{row.score} 分</button>}</TableCell>
                 <TableCell><span className="tp-scoring__comment">{row.comment || '等待后端 AI 评分服务接入。'}</span></TableCell>
-                <TableCell><OverflowMenu ariaLabel={'记录操作：' + row.name} flipped><OverflowMenuItem itemText="查看 AI 评分接入状态" onClick={() => scoreRows([row.id])} /><OverflowMenuItem itemText="移除记录" onClick={() => { setRows(current => current.filter(item => item.id !== row.id)); setSelected(current => current.filter(id => id !== row.id)); setNotice('已移除 ' + row.name + '。'); }} /><OverflowMenuItem itemText="复制网址" onClick={() => { void navigator.clipboard?.writeText('https://' + row.domain); setNotice('网址已复制。'); }} /></OverflowMenu></TableCell>
+                <TableCell><OverflowMenu ariaLabel={'记录操作：' + row.name} flipped><OverflowMenuItem itemText="单条执行 AI 清洗与打分" onClick={() => scoreRows([row.id])} /><OverflowMenuItem itemText="移除记录" onClick={() => { setRows(current => current.filter(item => item.id !== row.id)); setSelected(current => current.filter(id => id !== row.id)); setNotice('已移除 ' + row.name + '。'); }} /><OverflowMenuItem itemText="复制网址" onClick={() => { void navigator.clipboard?.writeText('https://' + row.domain); setNotice('网址已复制。'); }} /></OverflowMenu></TableCell>
               </TableRow>)}
               {visible.length === 0 && <TableRow><TableCell colSpan={7}>没有符合当前筛选条件的真实记录。</TableCell></TableRow>}
             </TableBody>
