@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Accordion, AccordionItem, Button, CodeSnippet, Column, CopyButton, Dropdown, Grid,
   InlineNotification, Modal, OverflowMenu, OverflowMenuItem, Pagination, ProgressBar,
