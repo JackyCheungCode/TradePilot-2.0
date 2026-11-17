@@ -17,11 +17,11 @@ type Run = {
 type RunLog = { id: string; level?: string; message?: string; created_at?: string };
 type RunResult = { id: string; is_removed?: boolean; provider?: string; record?: { id?: string; name?: string; website?: string; country_code?: string; status?: string; confidence_score?: number; lead_id?: string | null; email?: string | null; phone?: string | null } | null };
 
-const statusLabel = (status?: string) => ({
+const statusLabel = (status?: string | null) => ({
   queued: '排队中', running: '执行中', completed: '已完成', partial: '部分完成',
   failed: '失败', cancelled: '已取消', paused: '已暂停',
 }[status || ''] || status || '未知');
-const statusType = (status?: string): 'green' | 'blue' | 'red' | 'gray' =>
+const statusType = (status?: string | null): 'green' | 'blue' | 'red' | 'gray' =>
   status === 'completed' ? 'green' : status === 'running' || status === 'queued' ? 'blue' : status === 'failed' ? 'red' : 'gray';
 const fmt = (value?: string | null) => value ? new Date(value).toLocaleString('zh-TW', { hour12: false }) : '—';
 const codeOf = (run: Run) => run.task_code || ('TPD-' + (run.created_at || '').replace(/[-:TZ.]/g, '').slice(0, 14) + '-' + run.id.slice(0, 6).toUpperCase());
