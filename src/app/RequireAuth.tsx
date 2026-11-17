@@ -24,17 +24,6 @@ export function RequireAuth() {
         return;
       }
       try {
-        const client = await getSupabaseClient();
-        const { data, error } = await client.auth.mfa.getAuthenticatorAssuranceLevel();
-        if (error) throw error;
-        if (!alive) return;
-        const needsSecondFactor = data.currentLevel === 'aal1' && data.nextLevel === 'aal2';
-        if (needsSecondFactor) {
-          setMfaRequired(true);
-          setSession(null);
-          setReady(true);
-          return;
-        }
         const biometricResponse = await fetch('/api/v1/webauthn/status', {
           method: 'POST',
           headers: {
@@ -48,9 +37,20 @@ export function RequireAuth() {
           data?: { enabled?: boolean; granted?: boolean };
         };
         if (!biometricPayload.data) throw new Error('生物识别 MFA 状态响应无效。');
-        const biometricRequired = biometricPayload.data.enabled === true && biometricPayload.data.granted !== true;
-        setMfaRequired(biometricRequired);
-        setSession(biometricRequired ? null : nextSession);
+        if (biometricPayload.data.enabled === true) {
+          const biometricRequired = biometricPayload.data.granted !== true;
+          setMfaRequired(biometricRequired);
+          setSession(biometricRequired ? null : nextSession);
+          setReady(true);
+          return;
+        }
+        const client = await getSupabaseClient();
+        const { data, error } = await client.auth.mfa.getAuthenticatorAssuranceLevel();
+        if (error) throw error;
+        if (!alive) return;
+        const needsSecondFactor = data.currentLevel === 'aal1' && data.nextLevel === 'aal2';
+        setMfaRequired(needsSecondFactor);
+        setSession(needsSecondFactor ? null : nextSession);
         setReady(true);
       } catch {
         if (!alive) return;
