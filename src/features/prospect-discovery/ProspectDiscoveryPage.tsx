@@ -179,7 +179,7 @@ export function ProspectDiscoveryPage() {
         setCountries(valid.length ? valid : buildFallbackCountries());
         if (!valid.length) setCountryError('已切换至本地国家目录，可继续选择国家。');
       })
-      .catch(cause => {
+      .catch(() => {
         if (!active) return;
         setCountries(buildFallbackCountries());
         setCountryError('在线国家目录暂不可用，已切换至本地国家目录。');
