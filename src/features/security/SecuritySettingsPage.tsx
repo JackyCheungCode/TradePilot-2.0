@@ -128,7 +128,7 @@ export function SecuritySettingsPage() {
   };
 
   const verifyTotpEnrollment = async () => {
-    if (!enrollment || !/^\\d{6,8}$/.test(enrollmentCode.trim())) {
+    if (!enrollment || !/^\d{6,8}$/.test(enrollmentCode.trim())) {
       setError('请输入验证器当前显示的 6–8 位验证码。');
       return;
     }
@@ -167,7 +167,7 @@ export function SecuritySettingsPage() {
       const { data: assurance, error: assuranceError } = await client.auth.mfa.getAuthenticatorAssuranceLevel();
       if (assuranceError) throw assuranceError;
       if (assurance.currentLevel !== 'aal2' && assurance.nextLevel === 'aal2') {
-        if (!/^\\d{6,8}$/.test(disableCode.trim())) {
+        if (!/^\d{6,8}$/.test(disableCode.trim())) {
           throw new Error('请先输入验证器当前显示的验证码，以确认身份。');
         }
         const { data: challenge, error: challengeError } = await client.auth.mfa.challenge({
@@ -284,7 +284,7 @@ export function SecuritySettingsPage() {
                   id="tradepilot-totp-enrollment-code"
                   labelText="输入验证器生成的验证码"
                   value={enrollmentCode}
-                  onChange={(event) => setEnrollmentCode(event.currentTarget.value.replace(/\\D/g, '').slice(0, 8))}
+                  onChange={(event) => setEnrollmentCode(event.currentTarget.value.replace(/\D/g, '').slice(0, 8))}
                   inputMode="numeric"
                   autoComplete="one-time-code"
                 />
@@ -303,7 +303,7 @@ export function SecuritySettingsPage() {
                   id="tradepilot-totp-disable-code"
                   labelText="身份验证器验证码"
                   value={disableCode}
-                  onChange={(event) => setDisableCode(event.currentTarget.value.replace(/\\D/g, '').slice(0, 8))}
+                  onChange={(event) => setDisableCode(event.currentTarget.value.replace(/\D/g, '').slice(0, 8))}
                   inputMode="numeric"
                   autoComplete="one-time-code"
                 />
