@@ -58,7 +58,7 @@ export interface WorkerEnv {
 export { LeadDiscoveryWorkflow, ContactEnrichmentWorkflow, FacebookDiscoveryWorkflow, InstagramDiscoveryWorkflow, AgentOrchestrationWorkflow };
 
 async function enforceWebAuthnSession(request: Request, env: WorkerEnv): Promise<Response | null> {
- const token = request.headers.get("Authorization")?.match(/^Bearer\\s+(\\S+)$/i)?.[1];
+ const token = request.headers.get("Authorization")?.match(/^Bearer\s+(\S+)$/i)?.[1];
  if (!token) return null;
  try {
   const userResponse = await fetch(env.SUPABASE_URL + "/auth/v1/user", {
@@ -71,7 +71,7 @@ async function enforceWebAuthnSession(request: Request, env: WorkerEnv): Promise
   if (!jwtPart) return errorResponse(request,"UNAUTHENTICATED","登录会话无效。",401);
   const normalized = jwtPart.replace(/-/g,"+").replace(/_/g,"/");
   const claims = JSON.parse(atob(normalized + "=".repeat((4-normalized.length%4)%4))) as Record<string,unknown>;
-  if (claims.sub !== user.id || claims.iss !== env.SUPABASE_URL.replace(/\\/$/,"") + "/auth/v1") {
+  if (claims.sub !== user.id || claims.iss !== env.SUPABASE_URL.replace(/\/$/,"") + "/auth/v1") {
    return errorResponse(request,"UNAUTHENTICATED","登录会话无效。",401);
   }
   const sessionId = typeof claims.session_id === "string" ? claims.session_id : "";
