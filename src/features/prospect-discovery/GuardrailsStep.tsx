@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ChangeEvent } from 'react';
+import { getSupabaseClient } from '@/lib/supabase';
 import {
   Button, Checkbox, FileUploaderButton, InlineNotification,
   MultiSelect, RadioButton, RadioButtonGroup, Select, SelectItem, Tag, TextArea, TextInput, Toggle,
@@ -8,6 +9,13 @@ import {
 type CountryOption = { cca2: string; name: { common: string } };
 type ProfileContext = { coreNoun?: string; country?: string; countryName?: string; buyers?: string[] };
 type RuleSet = Record<string, string>;
+
+async function getSettingsToken() {
+  const db = await getSupabaseClient();
+  const { data } = await db.auth.getSession();
+  if (!data.session?.access_token) throw new Error('登录状态已失效，请重新登录。');
+  return data.session.access_token;
+}
 
 const keywordDimensions = [
   { id: 'identity', label: '企业身份', examples: 'manufacturer, factory, supplier, wholesaler, retailer' },
@@ -91,7 +99,7 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
         if (value.enabled) setEnabled(value.enabled);
         if (value.rules) setRules({ ...emptyRules, ...value.rules });
         if (value.websiteRows) setWebsiteRows(value.websiteRows);
-        setScope('task');
+        setScope(value.scope === 'global' || value.scope === 'both' ? value.scope : 'task');
         if (value.selectedDimensions) setSelectedDimensions(value.selectedDimensions);
         if (value.selectedPositions) setSelectedPositions(value.selectedPositions);
         if (value.selectedModes) setSelectedModes(value.selectedModes);
@@ -150,12 +158,27 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
     setImportPreview([]);
     setNotice('已将预览中的项目加入本地网站排除规则。');
   };
-  const saveLocal = () => {
+  const saveLocal = async () => {
+    const config = { enabled, rules, websiteRows, scope, contactEntries, excludedCountries, keywordAction, doNotContact, excludeInternalStaff, excludeCompetitorStaff, excludeNonDecisionRoles, matchCompanyAliases, matchGroupEntities, selectedDimensions, selectedPositions, selectedModes, selectedWebsiteTypes, employeeFloor, requireIndependentSite, unknownPolicy, duplicatePolicy, template };
     try {
-      localStorage.setItem('tradepilot.guardrails.frontend.v1', JSON.stringify({ enabled, rules, websiteRows, scope, contactEntries, excludedCountries, keywordAction, doNotContact, excludeInternalStaff, excludeCompetitorStaff, excludeNonDecisionRoles, matchCompanyAliases, matchGroupEntities, selectedDimensions, selectedPositions, selectedModes, selectedWebsiteTypes, employeeFloor, requireIndependentSite, unknownPolicy, duplicatePolicy, template }));
-      setNotice('护盾配置已保存在当前浏览器；下一次启动任务时会随任务快照提交并执行已接入规则。');
+      localStorage.setItem('tradepilot.guardrails.frontend.v1', JSON.stringify(config));
+      if (scope === 'global' || scope === 'both') {
+        const token = await getSettingsToken();
+        const response = await fetch('/api/v1/settings/prospect-guardrails', {
+          method: 'PUT',
+          headers: { Authorization: 'Bearer ' + token, Accept: 'application/json', 'Content-Type': 'application/json' },
+          body: JSON.stringify({ config }),
+        });
+        const payload = await response.json().catch(() => ({})) as { error?: { message?: string }; message?: string };
+        if (!response.ok) throw new Error(payload.error?.message || payload.message || '全局护盾配置保存失败（HTTP ' + response.status + '）');
+      }
+      setNotice(scope === 'task'
+        ? '护盾配置已保存在当前浏览器；下一次启动任务时会随任务快照提交。'
+        : scope === 'global' ? '全局护盾配置已保存到服务器，并记录配置变更历史。' : '全局护盾配置与当前任务配置均已保存。');
       setError('');
-    } catch { setError('浏览器本地保存失败，请检查存储空间。'); }
+    } catch (error) {
+      setError(error instanceof Error ? error.message : '护盾配置保存失败。');
+    }
   };
   const loadPreset = (value: string) => {
     setTemplate(value);
@@ -183,7 +206,7 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
   return (
     <section className="tp-prospect-discovery__step tp-guardrails">
       <div className="tp-guardrails__notice">
-        <InlineNotification kind="info" lowContrast hideCloseButton title="前端配置预览" subtitle="配置保存在当前浏览器；启动任务时会随任务快照发送至后端。已接入渠道会执行关键词、网站与网站类型、企业、地域、产品、联系方式、人员及质量规则。全局规则范围尚未接入，当前按任务快照执行。" />
+        <InlineNotification kind="info" lowContrast hideCloseButton title="前端配置预览" subtitle="当前任务配置保存在浏览器；全局配置保存在服务器并按用户隔离。启动任务时会生成不可变配置快照，已接入渠道按快照执行。" />
       </div>
       {(notice || error) && <div className="tp-guardrails__feedback">
         {notice && <InlineNotification kind="success" lowContrast title="提示" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
@@ -363,7 +386,7 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
             <SelectItem value="relaxed" text="宽松型" /><SelectItem value="standard" text="标准型（推荐）" /><SelectItem value="strict" text="严格型" />
           </Select>
           <Select id="tp-guardrails-scope" labelText="规则作用范围" value={scope} onChange={event => setScope(event.currentTarget.value)}>
-            <SelectItem value="task" text="当前任务（已启用）" /><SelectItem value="global" text="全局规则（服务端持久化未接入）" disabled /><SelectItem value="both" text="全局 + 当前任务（服务端持久化未接入）" disabled />
+            <SelectItem value="task" text="仅当前任务" /><SelectItem value="global" text="全局规则（保存后用于后续任务）" /><SelectItem value="both" text="全局规则 + 当前任务覆盖" />
           </Select>
         </div>
         <div className="tp-guardrails__rule-summary">
