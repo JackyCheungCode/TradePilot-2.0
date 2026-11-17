@@ -88,7 +88,7 @@ export function ActorSchemaFields({ sources, onValuesChange }: Props) {
   if (!sources.length) return null;
   return <section className="tp-prospect-discovery__section tp-prospect-discovery__actor-schema" aria-label="数据源动态参数">
     <div className="tp-prospect-discovery__section-heading">
-      <div><span className="tp-prospect-discovery__section-index">DS</span><div><h2>数据源动态参数</h2><p>根据已选平台自动匹配可执行 Actor，并读取其真实输入 Schema</p></div></div>
+      <div><span className="tp-prospect-discovery__section-index">DS</span><div><h2>数据源动态参数</h2><p>根据已选平台匹配候选 Actor，并读取其真实输入 Schema</p></div></div>
     </div>
     {loading && <InlineLoading description="正在匹配数据源并读取输入字段…" />}
     {error && <InlineNotification kind="error" title="动态参数读取失败" subtitle={error} />}
