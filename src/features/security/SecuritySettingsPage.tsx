@@ -190,6 +190,8 @@ export function SecuritySettingsPage() {
       }
       const { error: unenrollError } = await client.auth.mfa.unenroll({ factorId: factor.id });
       if (unenrollError) throw unenrollError;
+      const { error: refreshError } = await client.auth.refreshSession();
+      if (refreshError) throw refreshError;
       setShowDisable(false);
       setDisableCode('');
       setNotice('多因子认证已关闭。邮箱密码和已注册的 Passkey 仍可用于登录。');
