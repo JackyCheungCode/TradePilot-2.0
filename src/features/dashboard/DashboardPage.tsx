@@ -30,19 +30,40 @@ const countryLabelEnglish = (code: string) => {
   try { return new Intl.DisplayNames(['en'], { type: 'region' }).of(code.toUpperCase()) || code.toUpperCase(); }
   catch { return code.toUpperCase(); }
 };
-const countryGeoId = (code: string) => {
-  const geometries = (worldAtlas as any)?.objects?.countries?.geometries || [];
+const normalizeGeoName = (value: unknown) => String(value || '').trim().toLocaleLowerCase('en');
+const countryGeoName = (code: string) => {
   const aliases: Record<string, string> = {
-    US: 'United States of America', KR: 'South Korea', RU: 'Russia', CZ: 'Czechia',
-    CD: 'Democratic Republic of the Congo', CG: 'Republic of the Congo',
-    CI: 'Ivory Coast', BO: 'Bolivia', VE: 'Venezuela', TZ: 'Tanzania',
-    SY: 'Syria', LA: 'Laos', MD: 'Moldova', VN: 'Vietnam', IR: 'Iran',
-    KP: 'North Korea', PS: 'Palestine', BN: 'Brunei', TL: 'Timor-Leste',
+    US: 'United States of America', GB: 'United Kingdom', KR: 'South Korea', KP: 'North Korea',
+    RU: 'Russia', CZ: 'Czechia', CD: 'Democratic Republic of the Congo', CG: 'Republic of the Congo',
+    CI: 'Ivory Coast', BO: 'Bolivia', VE: 'Venezuela', TZ: 'Tanzania', SY: 'Syria',
+    LA: 'Laos', MD: 'Moldova', VN: 'Vietnam', IR: 'Iran', PS: 'Palestine', BN: 'Brunei',
+    TL: 'Timor-Leste', MK: 'North Macedonia', MM: 'Myanmar', SZ: 'Eswatini', TR: 'Turkey',
   };
-  const target = (aliases[code.toUpperCase()] || countryLabelEnglish(code)).toLowerCase();
-  const match = geometries.find((item: any) => String(item.properties?.name || '').toLowerCase() === target);
-  return match?.id === undefined || match?.id === null ? null : String(match.id);
+  return aliases[code.toUpperCase()] || countryLabelEnglish(code);
 };
+// Carbon Charts reads properties.NAME from TopoJSON. world-atlas 2.x ships properties.name.
+// Normalize the topology once so Carbon receives the property it actually looks up.
+const worldGeoData = (() => {
+  const source = worldAtlas as any;
+  const countries = source?.objects?.countries;
+  if (!countries?.geometries?.length) return source;
+  return {
+    ...source,
+    objects: {
+      ...source.objects,
+      countries: {
+        ...countries,
+        geometries: countries.geometries.map((geometry: any) => ({
+          ...geometry,
+          properties: {
+            ...(geometry.properties || {}),
+            NAME: String(geometry.properties?.NAME || geometry.properties?.name || ''),
+          },
+        })),
+      },
+    },
+  };
+})();
 const countryLabel = (code: string) => {
   if (!code || code === 'unknown') return '未设置国家';
   try { return new Intl.DisplayNames(['zh-CN'], { type: 'region' }).of(code.toUpperCase()) || code.toUpperCase(); }
@@ -67,7 +88,7 @@ export function DashboardPage() {
   const [error, setError] = useState('');
   const [period, setPeriod] = useState('30d');
   const [country, setCountry] = useState('all');
-  const [marketMetric, setMarketMetric] = useState('customers');
+  const [marketMetric, setMarketMetric] = useState('prospects');
 
   const load = useCallback(async () => {
     setError('');
@@ -218,10 +239,36 @@ export function DashboardPage() {
       const accountCountries = new Map(scoped.accounts.map(row => [String(row.id), row.country_code]));
       scoped.opportunities.forEach(row => add(accountCountries.get(String(row.account_id))));
     }
-    return [...counts.entries()].map(([code, value]) => ({
-      group: countryGeoId(code), code, name: countryLabel(code), value,
-    })).filter(item => item.group !== null).sort((a, b) => b.value - a.value);
+    const geometryByName = new Map<string, any>(
+      (worldGeoData?.objects?.countries?.geometries || []).map((geometry: any) => [
+        normalizeGeoName(geometry.properties?.NAME),
+        geometry,
+      ]),
+    );
+    return [...counts.entries()].flatMap(([code, value]) => {
+      const name = countryGeoName(code);
+      const geometry = geometryByName.get(normalizeGeoName(name));
+      if (!geometry) {
+        console.warn('[TradePilot] No Carbon world geometry matched country code:', code, name);
+        return [];
+      }
+      return [{ group: String(geometry.id), code, name, label: countryLabel(code), value }];
+    }).sort((a, b) => b.value - a.value);
   }, [marketMetric, scoped]);
+
+  // Send every geography to Carbon, including zero-count countries, so the base map
+  // is always complete and the quantize color scale has a valid numeric domain.
+  const choroplethData = useMemo(() => {
+    const valuesByName = new Map(globalMapData.map(item => [normalizeGeoName(item.name), item.value]));
+    return (worldGeoData?.objects?.countries?.geometries || []).map((geometry: any) => {
+      const name = String(geometry.properties?.NAME || '');
+      return {
+        id: String(geometry.id),
+        name,
+        value: valuesByName.get(normalizeGeoName(name)) ?? 0,
+      };
+    }).filter((item: any) => item.name);
+  }, [globalMapData]);
 
   const searchKeywords = useMemo(() => {
     const counts = new Map<string, number>();
@@ -319,7 +366,7 @@ export function DashboardPage() {
   };
   const choroplethOptions = {
     ...commonOptions, title: '全球业务资产分布', height: '430px',
-    geoData: worldAtlas as any, thematic: { projection: 'geoNaturalEarth1' },
+    geoData: worldGeoData as any, thematic: { projection: 'geoNaturalEarth1' },
     choropleth: { colorLegend: { title: '记录数量', type: 'linear' } },
     color: { gradient: { enabled: true, colors: ['#edf5ff', '#78a9ff', '#4589ff', '#0f62fe', '#002d9c'] } },
   };
@@ -361,7 +408,7 @@ export function DashboardPage() {
         <SelectItem value="all" text="全球市场"/>{countryOptions.map(code => <SelectItem key={code} value={code} text={countryLabel(code)}/>)}
       </Select>
       <Tag type="blue">总览币种：USD</Tag>
-      <Button kind="ghost" size="sm" onClick={() => { setPeriod('30d'); setCountry('all'); setMarketMetric('customers'); }}>重置筛选</Button>
+      <Button kind="ghost" size="sm" onClick={() => { setPeriod('30d'); setCountry('all'); setMarketMetric('prospects'); }}>重置筛选</Button>
       <span className="tp-workbench__filter-note">金额优先采用原币为 USD 或已有基础币快照；未配置汇率的外币不参与合计。</span>
     </section>
 
@@ -374,7 +421,7 @@ export function DashboardPage() {
         </div>
         <div className="tp-workbench__global-map-layout">
           <div className="tp-workbench__global-map-chart">
-            {globalMapData.length ? <ChoroplethChart data={globalMapData.map(item => ({ name: item.name, id: String(item.group), value: item.value }))} options={choroplethOptions as any}/> : <div className="tp-workbench__empty">当前维度暂无可定位的国家 / 地区数据。</div>}
+            <ChoroplethChart data={choroplethData} options={choroplethOptions as any}/>
           </div>
           <div className="tp-workbench__global-map-switch" role="group" aria-label="地图数据维度">
             <span>查看维度</span>
@@ -386,7 +433,7 @@ export function DashboardPage() {
             ].map(([value, label, detail]) => <Button key={value} kind={marketMetric === value ? 'primary' : 'tertiary'} size="md" onClick={() => setMarketMetric(value)}>{label}<small>{detail}</small></Button>)}
           </div>
         </div>
-        <div className="tp-workbench__global-map-ranking">{globalMapData.slice(0, 8).map((item, index) => <div key={item.code}><span>{String(index + 1).padStart(2, '0')}</span><strong>{item.name}</strong><b>{number(item.value)}</b></div>)}</div>
+        <div className="tp-workbench__global-map-ranking">{globalMapData.slice(0, 8).map((item, index) => <div key={item.code}><span>{String(index + 1).padStart(2, '0')}</span><strong>{item.label}</strong><b>{number(item.value)}</b></div>)}</div>
       </section>
 
       <section className="tp-workbench__intelligence-grid" aria-label="市场情报分析">
