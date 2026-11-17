@@ -8,6 +8,7 @@ import { getSupabaseClient } from '@/lib/supabase';
 import { XiaoyaAvatar } from '@/features/agent/XiaoyaAvatar';
 import { XiaoyaSidePanel } from '@/features/agent/XiaoyaSidePanel';
 import { CustomerCommunicationsWidget } from '@/features/customer-communications/CustomerCommunicationsWidget';
+import { useThemePreference } from '@/design-system/providers';
 
 /**
  * Shared Carbon application frame.
@@ -21,6 +22,7 @@ export function AppShell() {
   const [communicationsUnreadCount, setCommunicationsUnreadCount] = useState(0);
   const [signingOut, setSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState('');
+  const { preference, setPreference } = useThemePreference();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -73,6 +75,27 @@ export function AppShell() {
           >
             <XiaoyaAvatar emotion="idle" size={30} />
           </HeaderGlobalAction>
+          <OverflowMenu
+            ariaLabel="主题设置"
+            iconDescription="主题设置"
+            renderIcon={CarbonIcons.Asleep}
+            flipped
+            size="lg"
+            className="tp-theme-menu"
+          >
+            <OverflowMenuItem
+              itemText={preference === 'system' ? '✓ 跟随设备系统' : '跟随设备系统'}
+              onClick={() => setPreference('system')}
+            />
+            <OverflowMenuItem
+              itemText={preference === 'white' ? '✓ White（浅色）' : 'White（浅色）'}
+              onClick={() => setPreference('white')}
+            />
+            <OverflowMenuItem
+              itemText={preference === 'dark' ? '✓ Dark（深色）' : 'Dark（深色）'}
+              onClick={() => setPreference('dark')}
+            />
+          </OverflowMenu>
           <OverflowMenu
             ariaLabel="账户菜单"
             iconDescription="账户菜单"
