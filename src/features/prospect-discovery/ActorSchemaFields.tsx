@@ -28,10 +28,14 @@ function suitability(actor: Record<string, unknown>, source: Source) {
   const users = Number(stats.totalUsers ?? stats.userCount ?? 0);
   const runs = Number(stats.monthlyRuns ?? stats.totalRuns ?? 0);
   const rating = Number(stats.rating ?? 0);
+  const quality = Number(actor.quality_score ?? 0);
+  const stability = Number(actor.stability_score ?? 0);
+  const status = String(actor.status ?? 'discovered');
   const text = [actor.name, actor.title, actor.description].filter(Boolean).join(' ').toLowerCase();
   const terms = (source.name + ' ' + source.id).toLowerCase().split(/[^a-z0-9]+/).filter(term => term.length > 2);
   const match = new Set(terms).size ? [...new Set(terms)].filter(term => text.includes(term)).length : 0;
-  return match * 40 + Math.log10(Math.max(0, users) + 1) * 12 + Math.log10(Math.max(0, runs) + 1) * 16 + rating * 8;
+  return match * 40 + quality * 0.5 + stability * 0.25 + (status === 'enabled' ? 30 : status === 'failed' ? -20 : 0)
+    + Math.log10(Math.max(0, users) + 1) * 12 + Math.log10(Math.max(0, runs) + 1) * 16 + rating * 8;
 }
 function buildActorInput(item: LoadedSchema, values: Record<string, unknown>, profile: Props['profile']) {
   const input: Record<string, unknown> = {};
