@@ -211,7 +211,7 @@ export function DashboardPage() {
       if (!normalized || normalized === 'UNKNOWN') return;
       counts.set(normalized, (counts.get(normalized) || 0) + 1);
     };
-    if (marketMetric === 'prospects') scoped.discovery.filter(row => !['removed', 'discarded'].includes(String(row.status || '').toLowerCase())).forEach(row => add(row.country_code));
+    if (marketMetric === 'prospects') scoped.discovery.filter(row => !row.lead_id && !['removed', 'discarded'].includes(String(row.status || '').toLowerCase())).forEach(row => add(row.country_code));
     if (marketMetric === 'leads') scoped.leads.forEach(row => add(row.country_code));
     if (marketMetric === 'customers') scoped.accounts.forEach(row => add(row.country_code));
     if (marketMetric === 'opportunities') {
@@ -243,7 +243,7 @@ export function DashboardPage() {
       const normalized = String(code || '').trim().toUpperCase();
       if (normalized && normalized !== 'UNKNOWN') map.set(normalized, (map.get(normalized) || 0) + 1);
     };
-    (data?.discovery || []).filter(row => !['removed', 'discarded'].includes(String(row.status || '').toLowerCase())).forEach(row => add(prospects, row.country_code));
+    (data?.discovery || []).filter(row => !row.lead_id && !['removed', 'discarded'].includes(String(row.status || '').toLowerCase())).forEach(row => add(prospects, row.country_code));
     (data?.leads || []).forEach(row => add(leads, row.country_code));
     (data?.opportunities || []).forEach(row => add(opportunities, accountCountries.get(String(row.account_id))));
     return [...prospects.entries()].map(([code, prospectCount]) => {
