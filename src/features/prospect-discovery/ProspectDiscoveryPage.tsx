@@ -63,7 +63,7 @@ type Strategy = { google: string[]; maps: string[]; social: string[] };
 const emptyProfile: Profile = {
   name: '', coreNoun: '', buyers: [], continent: '', country: '', countryName: '', city: '', materials: [],
   specifications: '', hsCode: '', certifications: [], employeeScale: '', activity: '',
-  competitors: ['', '', ''],
+  competitors: [''],
 };
 
 function compileStrategy(profile: Profile, tld: string, keywords: string[] = []): Strategy {
@@ -103,6 +103,9 @@ export function ProspectDiscoveryPage() {
   const [countries, setCountries] = useState<Country[]>([]);
   const [countryLoading, setCountryLoading] = useState(true);
   const [countryError, setCountryError] = useState('');
+  const [citySuggestions, setCitySuggestions] = useState<string[]>([]);
+  const [cityLoading, setCityLoading] = useState(false);
+  const [cityError, setCityError] = useState('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [suggestionLoading, setSuggestionLoading] = useState(false);
   const [suggestionError, setSuggestionError] = useState('');
@@ -168,6 +171,36 @@ export function ProspectDiscoveryPage() {
     }, 350);
     return () => { active = false; window.clearTimeout(timer); };
   }, [profile.coreNoun, profile.country, countries]);
+
+  useEffect(() => {
+    const query = profile.city.trim();
+    if (query.length < 2 || !profile.country) { setCitySuggestions([]); setCityError(''); return; }
+    let active = true;
+    const timer = window.setTimeout(async () => {
+      setCityLoading(true);
+      setCityError('');
+      try {
+        const db = await getSupabaseClient();
+        const { data } = await db.auth.getSession();
+        const token = data.session?.access_token;
+        if (!token) throw new Error('登录状态已失效，请重新登录。');
+        const country = countries.find(item => item.cca2 === profile.country);
+        const language = country?.languages ? Object.keys(country.languages)[0] : 'en';
+        const params = new URLSearchParams({ q: query, country: profile.country, language: language || 'en' });
+        const response = await fetch('/api/v1/prospect-profiling/cities?' + params.toString(), {
+          headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' },
+        });
+        const payload = await response.json() as { data?: { cities?: string[] }; error?: { message?: string } };
+        if (!response.ok) throw new Error(payload.error?.message || '城市联想暂时不可用');
+        if (active) setCitySuggestions(payload.data?.cities ?? []);
+      } catch (cause) {
+        if (active) setCityError(cause instanceof Error ? cause.message : '城市联想失败');
+      } finally {
+        if (active) setCityLoading(false);
+      }
+    }, 350);
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [profile.city, profile.country, countries]);
 
   const filteredCountries = useMemo(
     () => countries.filter(item => !profile.continent || item.region === profile.continent),
@@ -349,9 +382,11 @@ export function ProspectDiscoveryPage() {
                   <SelectItem value="" text={countryLoading ? '正在加载国家…' : '选择国家'} />
                   {filteredCountries.map(item => <SelectItem key={item.cca2} value={item.cca2} text={item.name.common} />)}
                 </Select>
-                <TextInput id="tp-city" labelText="目标城市" placeholder="输入城市名称（可选）" value={profile.city} disabled={!profile.country} onChange={event => update('city', event.currentTarget.value)} />
+                <ComboBox id="tp-city" titleText="目标城市" placeholder="输入城市名称并选择（可选）" items={citySuggestions} selectedItem={profile.city} itemToString={item => typeof item === 'string' ? item : ''} disabled={!profile.country} onInputChange={value => update('city', value)} onChange={({ selectedItem }) => { if (typeof selectedItem === 'string') update('city', selectedItem); }} />
               </div>
               {countryError && <span className="tp-prospect-discovery__field-error">{countryError}</span>}
+              {cityLoading && <InlineLoading description="正在查找目标城市…" />}
+              {cityError && <span className="tp-prospect-discovery__field-error">{cityError}</span>}
               {selectedCountry && (
                 <div className="tp-prospect-discovery__geo-meta">
                   <span>国家代码：{selectedCountry.cca2}</span><span>顶级域名：{countryTld || '暂无'}</span><span>商业语言：{countryLanguage || '待确认'}</span>
@@ -400,7 +435,13 @@ export function ProspectDiscoveryPage() {
               <AccordionItem title="C. 竞品逆向锚定（Competitor Benchmark）">
                 <p className="tp-prospect-discovery__helper">录入 1–3 个竞争对手英文名或独立站域名，用于后续逆向挖掘分销网络。</p>
                 <div className="tp-prospect-discovery__competitors">
-                  {profile.competitors.map((value, index) => <TextInput key={index} id={'tp-competitor-' + index} labelText={'竞争对手 ' + (index + 1)} placeholder="例如 competitor.com 或 Brand Name" value={value} onChange={event => updateCompetitor(index, event.currentTarget.value)} />)}
+                  {profile.competitors.map((value, index) => (
+                    <div className="tp-prospect-discovery__competitor-row" key={index}>
+                      <TextInput id={'tp-competitor-' + index} labelText={'竞争对手 ' + (index + 1)} placeholder="例如 competitor.com 或 Brand Name" value={value} onChange={event => updateCompetitor(index, event.currentTarget.value)} />
+                      {profile.competitors.length > 1 && <Button kind="ghost" size="sm" onClick={() => setProfile(current => ({ ...current, competitors: current.competitors.filter((_, i) => i !== index) }))}>移除</Button>}
+                    </div>
+                  ))}
+                  {profile.competitors.length < 3 && <Button kind="tertiary" size="sm" renderIcon={CarbonIcons.Add} onClick={() => setProfile(current => ({ ...current, competitors: [...current.competitors, ''] }))}>添加竞争对手</Button>}
                 </div>
               </AccordionItem>
             </Accordion>
