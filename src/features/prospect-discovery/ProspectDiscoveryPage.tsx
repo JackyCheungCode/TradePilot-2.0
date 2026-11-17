@@ -17,8 +17,8 @@ import '@/design-system/patterns/prospect-discovery.scss';
 const createPlanTaskCode = () => 'TPD-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + Math.random().toString(36).slice(2,8).toUpperCase();
 
 const steps = [
-  '意图与画像锚定（Target Profiling）',
   '数据源与平台选择（Platform & Source Selection）',
+  '意图与画像锚定（Target Profiling）',
   '拦截护盾配置（Filtering & Guardrails Config）',
   '执行全网搜索（Multi-Channel Execution）',
   'AI智能清洗与打分（AI Filtering & Scoring）',
@@ -395,7 +395,7 @@ export function ProspectDiscoveryPage() {
         </TabList>
       </Tabs>
 
-      {selectedIndex === 0 ? (
+      {selectedIndex === 1 ? (
         <section className="tp-prospect-discovery__step">
           {(notice || error) && (
             <div className="tp-prospect-discovery__notifications">
@@ -620,8 +620,8 @@ export function ProspectDiscoveryPage() {
             </section>
           )}
         </section>
-      ) : selectedIndex === 1 ? (
-        <PlatformSelectionStep countryCode={profile.country} countryName={profile.countryName} continentLabel={continents.find(item => item.value === profile.continent)?.label ?? ''} countries={countries} onChangeCountry={() => setSelectedIndex(0)} onSelectionCountChange={setSelectedSourceCount} selectedIds={selectedSources?.map(item => item.id)} onSelectionChange={setSelectedSources} />
+       ) : selectedIndex === 0 ? (
+        <PlatformSelectionStep countryCode={profile.country} countryName={profile.countryName} continentLabel={continents.find(item => item.value === profile.continent)?.label ?? ''} countries={countries} onChangeCountry={() => setSelectedIndex(1)} onCountryChange={country => setProfile(current => ({ ...current, country: country.cca2, countryName: country.name.common, continent: country.region }))} onSelectionCountChange={setSelectedSourceCount} selectedIds={selectedSources?.map(item => item.id)} onSelectionChange={setSelectedSources} />
       ) : selectedIndex === 2 ? (
         <GuardrailsStep countries={countries} profile={{ coreNoun: profile.coreNoun, country: profile.country, countryName: profile.countryName, buyers: profile.buyers }} />
       ) : selectedIndex === 3 ? (
@@ -636,7 +636,7 @@ export function ProspectDiscoveryPage() {
       <div className="tp-prospect-discovery__step-navigation">
         <Button kind="secondary" renderIcon={CarbonIcons.ArrowLeft} onClick={() => setSelectedIndex(index => Math.max(0, index - 1))} disabled={selectedIndex === 0}>上一步</Button>
         <span>第 {selectedIndex + 1} 步，共 6 步</span>
-        <Button kind="primary" renderIcon={CarbonIcons.ArrowRight} onClick={() => setSelectedIndex(index => Math.min(5, index + 1))} disabled={selectedIndex === 5 || (selectedIndex === 0 && !profile.country) || (selectedIndex === 1 && selectedSourceCount === 0)}>下一步</Button>
+        <Button kind="primary" renderIcon={CarbonIcons.ArrowRight} onClick={() => setSelectedIndex(index => Math.min(5, index + 1))} disabled={selectedIndex === 5 || (selectedIndex === 0 && (!profile.country || selectedSourceCount === 0)) || (selectedIndex === 1 && !profile.coreNoun.trim())}>下一步</Button>
       </div>
     </main>
   );
