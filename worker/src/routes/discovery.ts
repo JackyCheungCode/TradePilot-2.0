@@ -355,7 +355,7 @@ export async function handleDiscovery(request: Request, env: DiscoveryEnv): Prom
     if (recordIds.length < 1 || recordIds.length > 20 || recordIds.some(id => !/^[0-9a-f-]{36}$/i.test(id))) {
       return errorResponse(request, "VALIDATION_ERROR", "每批请选择 1 到 20 条有效潜客记录。", 400);
     }
-    const records = await db<Array<Record<string, unknown>>>(env, "discovery_records?owner_id=eq." + userId + "&id=in.(" + recordIds.join(",") + ")&select=id,name,website,country_code,address,phone,email,business_type,confidence_score,raw_data");
+    const records = await db<Array<Record<string, unknown>>>(env, "discovery_records?owner_id=eq." + userId + "&id=in.(" + recordIds.join(",") + ")&select=id,name,website,country_code,address,phone,email,business_type,confidence_score,raw_data,discovery_record_occurrences!inner(provider,keyword,source_url,attribution,raw_data)");
     if (records.length !== recordIds.length) return errorResponse(request, "NOT_FOUND", "部分所选记录不存在或无权访问。", 404);
     const profile = {
       coreNoun: String(body.profile?.coreNoun ?? "").slice(0, 300),
@@ -365,7 +365,7 @@ export async function handleDiscovery(request: Request, env: DiscoveryEnv): Prom
     if (!profile.coreNoun) return errorResponse(request, "VALIDATION_ERROR", "缺少目标产品画像，无法进行 AI 评分。", 400);
     const scoringInput = records.map(record => {
       const raw = record.raw_data && typeof record.raw_data === "object" ? record.raw_data as Record<string, unknown> : {};
-      const occurrences = Array.isArray(raw.occurrences) ? raw.occurrences : [];
+      const occurrences = Array.isArray(record.discovery_record_occurrences) ? record.discovery_record_occurrences : [];
       return {
         id: record.id, name: record.name, website: record.website, country: record.country_code,
         address: record.address, phone: record.phone, email: record.email, businessType: record.business_type,
