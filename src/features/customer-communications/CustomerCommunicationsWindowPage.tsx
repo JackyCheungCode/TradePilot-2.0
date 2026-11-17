@@ -12,6 +12,14 @@ import '@/design-system/styles/customer-communications-window.scss';
 
 const initials = (name: string) => name.split(/\s+/).map((part) => part[0]).slice(0, 2).join('').toUpperCase();
 const timeLabel = (time: number) => new Intl.DateTimeFormat('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false }).format(time);
+const messageStatusText = (status?: CommunicationMessage['status']) => {
+  if (status === 'failed') return '发送失败';
+  if (status === 'sending' || status === 'queued') return '发送中';
+  if (status === 'delivered') return '已送达';
+  if (status === 'read') return '已读';
+  if (status === 'sent') return '已发送';
+  return '';
+};
 const dateLabel = (time: number) => new Intl.DateTimeFormat('zh-TW', { month: 'long', day: 'numeric' }).format(time);
 
 function PersonAvatar({ name, src, className = 'tp-wa-avatar' }: { name: string; src?: string | null; className?: string }) {
@@ -172,7 +180,7 @@ export function CustomerCommunicationsWindowPage() {
                     {message.kind === 'email' && <div className="tp-wa-email-label">电子邮件 · {message.subject}</div>}
                     {message.kind === 'file' && <div className="tp-wa-file"><span>▤</span><span><strong>{message.filename ?? '附件'}</strong><small>{message.fileSize}</small></span></div>}
                     <p>{message.body}</p>
-                    <div className="tp-wa-message-meta"><time>{timeLabel(message.time)}</time>{message.direction === 'outbound' && <span className="tp-wa-ticks">✓✓</span>}</div>
+                    <div className="tp-wa-message-meta"><time>{timeLabel(message.time)}</time>{message.direction === 'outbound' && message.status && <span className={'tp-wa-ticks tp-wa-ticks--' + message.status}>{messageStatusText(message.status)}</span>}</div>
                     </div>
                     {message.direction === 'outbound' && <PersonAvatar name={currentUser.name} src={currentUser.avatarUrl} className="tp-wa-avatar tp-wa-avatar--message" />}
                   </div>
