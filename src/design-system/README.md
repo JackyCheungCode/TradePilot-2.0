@@ -4,7 +4,7 @@ The local design system is the only approved source for visual foundations and U
 
 ## Foundations
 
-- `themes/`: approved Carbon theme definitions; Carbon White is the only active theme.
+- `themes/`: official IBM Carbon White, G10, G90 and G100 theme definitions.
 - `tokens/`: semantic color, borders, spacing, typography, motion, breakpoint, layer, elevation, z-index, focus, and interaction-state aliases.
 - `typography/`: IBM Plex Sans font loading and type-scale aliases.
 - `icons/`: Carbon icon entry point.
