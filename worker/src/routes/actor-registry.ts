@@ -112,7 +112,7 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
         owner_id: ownerId, actor_id: actorKey(actor), actor_name: safeText(actor.name, 160),
         title: safeText(actor.title || actor.name, 200), description: safeText(actor.description, 4000),
         platforms: body.platform ? [safeText(body.platform, 80)] : [], capabilities: [],
-        latest_version: null, status: "discovered", source_metadata: { modifiedAt: actor.modifiedAt ?? null, stats: actor.stats ?? null },
+        latest_version: null,
       }));
       if (items.length) await db(env, "actor_registry?on_conflict=owner_id,actor_id", {
         method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify(items),
