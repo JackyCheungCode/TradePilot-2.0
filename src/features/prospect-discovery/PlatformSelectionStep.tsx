@@ -278,7 +278,7 @@ export function PlatformSelectionStep({
           const checked = selected.includes(source.id);
           const isRecommended = recommended.includes(source.id);
           return <div className={'tp-prospect-discovery__platform-row' + (checked ? ' is-selected' : '')} key={source.id}>
-            <Checkbox id={'tp-platform-' + source.id} checked={checked} onChange={() => toggle(source.id)} />
+            <Checkbox id={'tp-platform-' + source.id} labelText={source.name} hideLabel checked={checked} onChange={() => toggle(source.id)} />
             <div className="tp-prospect-discovery__platform-copy">
               <div className="tp-prospect-discovery__platform-name">{source.name}{isRecommended && <Tag type="green">智能推荐</Tag>}{source.global && <Tag type="blue">全球通用</Tag>}</div>
               <p>{source.description}</p>
