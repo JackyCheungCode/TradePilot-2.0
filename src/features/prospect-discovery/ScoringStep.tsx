@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { strToU8, zipSync } from 'fflate';
 import {
   Accordion, AccordionItem, Button, Column, Dropdown, Grid, InlineNotification, OverflowMenu,
@@ -6,42 +6,21 @@ import {
   TableCell, TableHead, TableHeader, TableRow, TableSelectAll, TableSelectRow,
   TableToolbar, TableToolbarContent, TableToolbarSearch, Tag, Tile, CarbonIcons,
 } from '@/design-system';
+import { getSupabaseClient } from '@/lib/supabase';
 
 type Lead = {
   id: string; name: string; domain: string; country: string; source: string; email: string;
+  address?: string; phone?: string; runId?: string; confidence?: number;
   status: 'pending' | 'scored'; score?: number; fit?: number; persona?: number; scale?: number; intent?: number; comment?: string;
 };
 type Props = { profile: { coreNoun: string; countryName: string; buyers: string[] }; onContinueToEnrichment: () => void };
 
-const companyNames = [
-  ['SolarTech Deutschland GmbH', 'solartech-de.com'], ['EcoPower Systems GmbH', 'eco-power.de'],
-  ['Nordic Energy Solutions', 'nordic-energy.eu'], ['Bavaria Industrial Supply', 'bavaria-supply.de'],
-  ['GreenVolt Europe GmbH', 'greenvolt-eu.com'], ['Rheinland Power Components', 'rheinland-power.de'],
-  ['Alpine Battery Trading AG', 'alpine-battery.ch'], ['Hanover Smart Energy', 'hanover-energy.de'],
-  ['Westfalen Solarhandel', 'westfalen-solar.de'], ['Berlin Power Distribution', 'berlin-power.eu'],
-  ['EnergieWerk Solutions', 'energiewerk.de'], ['Central Europe Battery GmbH', 'ce-battery.com'],
-  ['BrightGrid Technologies', 'brightgrid.eu'], ['Hansa Renewable Systems', 'hansa-renewable.de'],
-  ['Frankfurt Energy Trading', 'frankfurt-energy.de'], ['VoltHaus Deutschland', 'volthaus.de'],
-];
-const sourceNames = ['Google Maps 德国网格', 'WLW 工业黄页', 'SERP 搜索引擎矩阵'];
-const seedLeads = (): Lead[] => Array.from({ length: 128 }, (_, index) => {
-  const company = companyNames[index % companyNames.length];
-  return {
-    id: 'lead-' + (index + 1),
-    name: index < companyNames.length ? company[0] : company[0] + ' ' + (Math.floor(index / companyNames.length) + 1),
-    domain: company[1], country: 'DE', source: sourceNames[index % sourceNames.length],
-    email: index % 5 === 0 ? '待补充' : 'info@' + company[1], status: 'pending',
-  };
-});
 
 export function ScoringStep({ profile, onContinueToEnrichment }: Props) {
-  const [rows, setRows] = useState<Lead[]>(() => {
-    const data = seedLeads();
-    try {
-      const queue = JSON.parse(localStorage.getItem('tradepilot.prospect-scoring.queue.v1') || '[]') as string[];
-      return queue.length ? data.filter(item => queue.includes(item.id)) : data;
-    } catch { return data; }
-  });
+  const [rows, setRows] = useState<Lead[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+
   const [selected, setSelected] = useState<string[]>([]);
   const [search, setSearch] = useState('');
   const [source, setSource] = useState('all');
@@ -49,6 +28,54 @@ export function ScoringStep({ profile, onContinueToEnrichment }: Props) {
   const [pageSize, setPageSize] = useState(10);
   const [notice, setNotice] = useState('');
   const [scoring, setScoring] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const loadRecords = async () => {
+      setLoading(true); setLoadError('');
+      try {
+        const queue = JSON.parse(localStorage.getItem('tradepilot.prospect-scoring.queue.v1') || '[]') as string[];
+        if (!queue.length) { setRows([]); return; }
+        const db = await getSupabaseClient();
+        const { data } = await db.auth.getSession();
+        const token = data.session?.access_token;
+        if (!token) throw new Error('登录状态已失效，请重新登录。');
+        const response = await fetch('/api/v1/discovery-records?limit=500', {
+          headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' },
+        });
+        const payload = await response.json() as { data?: Array<Record<string, unknown>>; error?: { message?: string } };
+        if (!response.ok) throw new Error(payload.error?.message || '无法读取真实检索结果');
+        const records = (payload.data ?? []).filter(record => queue.includes(String(record.id)));
+        const mapped = records.map(record => {
+          const occurrences = Array.isArray(record.discovery_record_occurrences) ? record.discovery_record_occurrences as Array<Record<string, unknown>> : [];
+          const occurrence = occurrences[0] ?? {};
+          const website = typeof record.website === 'string' ? record.website : '';
+          let domain = '';
+          try { domain = website ? new URL(website).hostname.replace(/^www\\./i, '') : ''; } catch { domain = website; }
+          const channel = String(record.channel ?? '');
+          const sourceLabels: Record<string, string> = {
+            map_local_businesses: '地图与本地商家', search_engine: '搜索引擎',
+            facebook: 'Facebook', instagram: 'Instagram',
+          };
+          return {
+            id: String(record.id), name: String(record.name ?? '未命名企业'), domain,
+            country: String(record.country_code ?? ''), source: sourceLabels[channel] ?? channel,
+            email: String(record.email ?? '') || '待补充', address: String(record.address ?? ''),
+            phone: String(record.phone ?? ''), runId: String(occurrence.run_id ?? ''),
+            confidence: typeof record.confidence_score === 'number' ? record.confidence_score : undefined,
+            status: 'pending' as const, comment: '已读取真实检索记录，等待后端 AI 评分服务。',
+          };
+        });
+        if (active) setRows(mapped);
+      } catch (error) {
+        if (active) setLoadError(error instanceof Error ? error.message : '读取检索结果失败');
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    void loadRecords();
+    return () => { active = false; };
+  }, []);
 
   const filtered = useMemo(() => rows.filter(row => {
     const term = search.trim().toLowerCase();
@@ -62,23 +89,8 @@ export function ScoringStep({ profile, onContinueToEnrichment }: Props) {
   const togglePage = () => setSelected(current => visible.every(row => current.includes(row.id))
     ? current.filter(id => !visible.some(row => row.id === id))
     : [...new Set([...current, ...visible.map(row => row.id)])]);
-  const scoreRows = (ids: string[]) => {
-    if (!ids.length) return;
-    setScoring(true);
-    window.setTimeout(() => {
-      setRows(current => current.map((row, index) => {
-        if (!ids.includes(row.id)) return row;
-        const fit = 82 + (index * 7 % 18);
-        const persona = 76 + (index * 5 % 23);
-        const scale = 68 + (index * 9 % 30);
-        const intent = 60 + (index * 11 % 38);
-        const score = Math.round(fit * .4 + persona * .3 + scale * .2 + intent * .1);
-        return { ...row, status: 'scored', fit, persona, scale, intent, score, comment: fit >= 90 ? '产品线与目标品类高度吻合，具备进口或区域分销特征。建议优先核验采购负责人。' : '主营方向与目标产品存在一定关联，建议结合官网产品目录和采购动态进一步人工核验。' };
-      }));
-      setScoring(false);
-      setNotice('已完成 ' + ids.length + ' 条记录的前端演示评分；当前未调用真实 AI 模型或写入后端。');
-      setSelected([]);
-    }, 900);
+  const scoreRows = (_ids: string[]) => {
+    setNotice('当前版本已切换为真实检索记录，但后端 AI 评分接口尚未接入；为避免虚假评分，本步骤暂不生成分数。');
   };
   const removeSelected = () => {
     setRows(current => current.filter(row => !selected.includes(row.id)));
@@ -117,7 +129,7 @@ export function ScoringStep({ profile, onContinueToEnrichment }: Props) {
     <section className="tp-prospect-discovery__step tp-scoring">
       <div className="tp-scoring__heading">
         <div><span className="tp-execution__eyebrow">AI FILTERING & SCORING</span><h2>AI 智能清洗与打分工作台</h2><p>目标市场：{profile.countryName || '未指定'} · 核心产品：{profile.coreNoun || '未指定'} · 目标买家：{profile.buyers.length} 类</p></div>
-        <div className="tp-scoring__heading-actions"><Tag type="blue">{rows.length} 条待处理记录</Tag><Button kind="primary" size="md" renderIcon={CarbonIcons.ArrowRight} disabled={!selected.length} onClick={sendToEnrichment}>将已选企业送入第六步</Button></div>
+        <div className="tp-scoring__heading-actions"><Tag type="blue">{rows.length} 条待处理记录</Tag><Button kind="primary" size="md" renderIcon={CarbonIcons.ArrowRight} disabled={!selected.length || loading || !rows.length} onClick={sendToEnrichment}>将已选企业送入第六步</Button></div>
       </div>
 
       {notice && <InlineNotification kind="info" lowContrast title="操作反馈" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
@@ -143,7 +155,7 @@ export function ScoringStep({ profile, onContinueToEnrichment }: Props) {
               </Tile>
             </Column>
           </Grid>
-          <p className="tp-scoring__method-note">模型名称与评分权重按产品方案展示。当前页面仅运行前端演示评分，尚未连接真实模型调用；实际模型选择、清洗执行与评分解释需由后端 AI 流水线提供。</p>
+          <p className="tp-scoring__method-note">模型名称与评分权重按产品方案展示。当前展示真实检索记录。AI 模型选择、清洗执行、评分依据与结果持久化尚待后端评分流水线接入；接口完成前不会生成模拟分数。</p>
         </AccordionItem>
       </Accordion>
 
@@ -157,7 +169,7 @@ export function ScoringStep({ profile, onContinueToEnrichment }: Props) {
       <Tile className="tp-scoring__table-panel">
         <div className="tp-execution__section-heading"><div><h3>原始检索结果</h3><p>人工复核企业主体、官网与来源，再决定是否纳入 AI 清洗打分</p></div><Tag type="blue">{filtered.length} 条匹配</Tag></div>
         <div className="tp-scoring__table-controls">
-          {selected.length > 0 && <div className="tp-scoring__batch-actions"><span>已勾选 {selected.length} / {rows.length} 条记录</span><div><Button kind="primary" size="md" renderIcon={CarbonIcons.MagicWand} onClick={() => scoreRows(selected)}>AI 清洗与打分</Button><Button kind="tertiary" size="md" renderIcon={CarbonIcons.TrashCan} onClick={removeSelected}>批量移除</Button><Button kind="tertiary" size="md" renderIcon={CarbonIcons.Download} onClick={exportSelected}>导出 XLSX</Button><Button kind="ghost" size="md" onClick={() => setSelected([])}>取消选择</Button></div></div>}
+          {selected.length > 0 && <div className="tp-scoring__batch-actions"><span>已勾选 {selected.length} / {rows.length} 条记录</span><div><Button kind="primary" size="md" renderIcon={CarbonIcons.MagicWand} onClick={() => scoreRows(selected)}>检查 AI 评分接入状态</Button><Button kind="tertiary" size="md" renderIcon={CarbonIcons.TrashCan} onClick={removeSelected}>批量移除</Button><Button kind="tertiary" size="md" renderIcon={CarbonIcons.Download} onClick={exportSelected}>导出 XLSX</Button><Button kind="ghost" size="md" onClick={() => setSelected([])}>取消选择</Button></div></div>}
           <TableToolbar>
           <TableToolbarContent>
             <div className="tp-scoring__toolbar">
@@ -169,7 +181,8 @@ export function ScoringStep({ profile, onContinueToEnrichment }: Props) {
           </TableToolbarContent>
           </TableToolbar>
         </div>
-        {scoring && <InlineNotification kind="info" lowContrast title="AI 清洗与打分进行中" subtitle="正在处理已选记录（前端演示任务）。" />}
+        {loading && <InlineNotification kind="info" lowContrast title="正在读取真实检索记录" subtitle="从潜客发现结果接口加载本轮任务的记录。" />}
+        {loadError && <InlineNotification kind="error" lowContrast title="检索结果读取失败" subtitle={loadError} />}
         <div className="tp-scoring__table-scroll">
           <Table size="lg" useZebraStyles={false}>
             <TableHead><TableRow>
@@ -180,13 +193,13 @@ export function ScoringStep({ profile, onContinueToEnrichment }: Props) {
               {visible.map(row => <TableRow key={row.id}>
                 <TableSelectRow id={'scoring-' + row.id} name={'scoring-' + row.id} checked={selected.includes(row.id)} onSelect={() => toggleOne(row.id)} />
                 <TableCell><div className="tp-scoring__company"><strong>{row.name}</strong>{scoreTag(row.score)}</div></TableCell>
-                <TableCell><a href={'https://' + row.domain} target="_blank" rel="noreferrer">{row.domain}<CarbonIcons.ArrowUpRight size={12} /></a><small>{row.email}</small></TableCell>
+                <TableCell>{row.domain ? <a href={row.domain.startsWith('http') ? row.domain : 'https://' + row.domain} target="_blank" rel="noreferrer">{row.domain}<CarbonIcons.ArrowUpRight size={12} /></a> : <span>暂无官网</span>}<small>{row.email}</small></TableCell>
                 <TableCell><Tag type="blue">{row.source}</Tag></TableCell>
                 <TableCell>{row.score === undefined ? <span className="tp-scoring__score-empty">—</span> : <button type="button" className="tp-scoring__score" title={'Fit ' + row.fit + ' · Persona ' + row.persona + ' · Scale ' + row.scale + ' · Intent ' + row.intent} onClick={() => setNotice('评分明细：Fit ' + row.fit + ' · Persona ' + row.persona + ' · Scale ' + row.scale + ' · Intent ' + row.intent)}>{row.score} 分</button>}</TableCell>
-                <TableCell><span className="tp-scoring__comment">{row.comment || '等待 AI 清洗与评分后生成企业契合点评。'}</span></TableCell>
-                <TableCell><OverflowMenu ariaLabel={'记录操作：' + row.name} flipped><OverflowMenuItem itemText="单条执行 AI 清洗与打分" onClick={() => scoreRows([row.id])} /><OverflowMenuItem itemText="移除记录" onClick={() => { setRows(current => current.filter(item => item.id !== row.id)); setSelected(current => current.filter(id => id !== row.id)); setNotice('已移除 ' + row.name + '。'); }} /><OverflowMenuItem itemText="复制网址" onClick={() => { void navigator.clipboard?.writeText('https://' + row.domain); setNotice('网址已复制。'); }} /></OverflowMenu></TableCell>
+                <TableCell><span className="tp-scoring__comment">{row.comment || '等待后端 AI 评分服务接入。'}</span></TableCell>
+                <TableCell><OverflowMenu ariaLabel={'记录操作：' + row.name} flipped><OverflowMenuItem itemText="查看 AI 评分接入状态" onClick={() => scoreRows([row.id])} /><OverflowMenuItem itemText="移除记录" onClick={() => { setRows(current => current.filter(item => item.id !== row.id)); setSelected(current => current.filter(id => id !== row.id)); setNotice('已移除 ' + row.name + '。'); }} /><OverflowMenuItem itemText="复制网址" onClick={() => { void navigator.clipboard?.writeText('https://' + row.domain); setNotice('网址已复制。'); }} /></OverflowMenu></TableCell>
               </TableRow>)}
-              {visible.length === 0 && <TableRow><TableCell colSpan={7}>没有符合当前筛选条件的记录。</TableCell></TableRow>}
+              {visible.length === 0 && <TableRow><TableCell colSpan={7}>没有符合当前筛选条件的真实记录。</TableCell></TableRow>}
             </TableBody>
           </Table>
         </div>
