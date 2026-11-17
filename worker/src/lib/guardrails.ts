@@ -22,6 +22,31 @@ function keywordMatches(haystack: string, keyword: string, modes: string[]): boo
   if (modes.includes("prefix") && target.split(/[^\p{L}\p{N}]+/u).some(token => token.startsWith(value))) return true;
   return false;
 }
+function normalizedHost(value: string): string {
+  try { return new URL(/^https?:\\/\\//i.test(value) ? value : "https://" + value).hostname.toLowerCase().replace(/^www\\./, ""); }
+  catch { return ""; }
+}
+function websiteTypeMatches(website: string, raw: Record<string, unknown>, selected: string[]): string[] {
+  if (!selected.length) return [];
+  const host = normalizedHost(website);
+  const metadata = [raw.websiteType, raw.website_type, raw.siteType, raw.site_type, raw.platformType, raw.platform_type, raw.category, raw.pageCategory, raw.record_type].map(text).join(" ").toLowerCase();
+  const definitions: Array<{label:string; hosts:string[]; terms:string[]}> = [
+    {label:"电商零售平台",hosts:["amazon.","ebay.","walmart.","alibaba.","aliexpress.","etsy.","shopify."],terms:["marketplace","e-commerce","ecommerce","shopping platform"]},
+    {label:"B2C 零售商城",hosts:["store.","shop."],terms:["online store","retail store","b2c retailer"]},
+    {label:"社交媒体",hosts:["facebook.com","instagram.com","linkedin.com","tiktok.com","youtube.com","x.com","twitter.com"],terms:["social media","social network"]},
+    {label:"论坛与社区",hosts:["reddit.com","quora.com","stackoverflow.com","discourse."],terms:["forum","community","discussion board"]},
+    {label:"博客与内容平台",hosts:["medium.com","wordpress.com","blogspot.","substack.com","tumblr.com"],terms:["blog","publisher","content platform"]},
+    {label:"黄页与企业目录",hosts:["yellowpages.","yelp.","crunchbase.com","kompass.com","dnb.com"],terms:["business directory","yellow pages","company directory"]},
+    {label:"招聘与求职网站",hosts:["indeed.","glassdoor.","monster.","ziprecruiter.","careerbuilder."],terms:["job board","recruitment","careers site"]},
+    {label:"新闻与媒体",hosts:["reuters.com","bbc.","cnn.com","bloomberg.com","apnews.com"],terms:["news","media outlet","press"]},
+    {label:"政府及公共机构网站",hosts:[".gov",".gov."],terms:["government","public institution","municipality"]},
+  ];
+  return selected.filter(label => {
+    const definition = definitions.find(item => item.label === label);
+    if (!definition) return false;
+    return definition.hosts.some(part => host.includes(part)) || definition.terms.some(term => metadata.includes(term));
+  }).map(label => "网站类型排除：" + label);
+}
 function websiteMatches(website: string, rules: Array<Record<string, unknown>>): string[] {
   if (!website) return [];
   let url: URL | null = null;
@@ -48,7 +73,7 @@ function websiteMatches(website: string, rules: Array<Record<string, unknown>>):
 export function evaluateGuardrails(record: {
   name?: unknown; country?: unknown; address?: unknown; website?: unknown; phone?: unknown; email?: unknown;
   businessType?: unknown; title?: unknown; description?: unknown; content?: unknown; social?: unknown;
-  employeeCount?: unknown; raw?: unknown;
+  employeeCount?: unknown; email?: unknown; raw?: unknown;
 }, snapshotValue: unknown): GuardrailDecision {
   const snapshot = object(snapshotValue);
   const enabled = object(snapshot.enabled);
@@ -74,6 +99,10 @@ export function evaluateGuardrails(record: {
   if (enabled.websites === true) {
     const websiteRules = Array.isArray(snapshot.websiteRows) ? snapshot.websiteRows.map(object) : [];
     reasons.push(...websiteMatches(text(record.website), websiteRules));
+    const selectedTypes = Array.isArray(snapshot.selectedWebsiteTypes)
+      ? snapshot.selectedWebsiteTypes.map(item => text(object(item).text)).filter(Boolean)
+      : [];
+    reasons.push(...websiteTypeMatches(text(record.website), raw, selectedTypes));
   }
   if (enabled.companies === true && lines(rules.companies).some(value => text(record.name).toLowerCase().includes(value.toLowerCase()))) reasons.push("命中企业主体排除名单");
   if (enabled.geography === true) {
@@ -83,12 +112,31 @@ export function evaluateGuardrails(record: {
     if (regions.some(value => (text(record.address) + " " + rawText).toLowerCase().includes(value.toLowerCase()))) reasons.push("命中排除地区");
   }
   if (enabled.products === true && lines(rules.products).some(value => (text(record.businessType) + " " + text(record.description) + " " + rawText).toLowerCase().includes(value.toLowerCase()))) reasons.push("命中产品或业务排除规则");
-  if (enabled.contacts === true) {
+  if (enabled.contacts === true && snapshot.doNotContact !== false) {
     const contacts = object(snapshot.contactEntries);
     const contactValues = [record.email, record.phone, record.social, record.address].map(text).join("\n").toLowerCase();
     if (Object.values(contacts).some(value => lines(value).some(item => contactValues.includes(item.toLowerCase())))) reasons.push("命中联系方式排除名单");
   }
-  if (enabled.people === true && lines(rules.people).some(value => (text(record.title) + " " + text(record.name)).toLowerCase().includes(value.toLowerCase()))) reasons.push("命中人员排除规则");
+  if (enabled.people === true) {
+    const role = [raw.jobTitle, raw.job_title, raw.position, raw.currentPosition, raw.current_position, raw.role, raw.headline].map(text).join(" ");
+    const personName = [record.title, record.name, raw.fullName, raw.full_name, raw.username].map(text).join(" ");
+    if (lines(rules.people).some(value => personName.toLowerCase().includes(value.toLowerCase()))) reasons.push("命中人员姓名或账号排除规则");
+    if (lines(rules.jobTitles).some(value => role.toLowerCase().includes(value.toLowerCase()))) reasons.push("命中指定职位排除规则");
+    if (snapshot.excludeNonDecisionRoles === true) {
+      const nonDecision = ["intern", "internship", "assistant", "coordinator", "operator", "technician", "support agent", "客服", "助理", "实习", "技术员", "操作员", "客服专员"];
+      if (nonDecision.some(value => role.toLowerCase().includes(value))) reasons.push("命中非决策岗位排除规则");
+    }
+    if (snapshot.excludeInternalStaff === true) {
+      const email = text(record.email || raw.email || raw.businessEmail || raw.business_email).toLowerCase();
+      const emailHost = email.includes("@") ? email.split("@").pop() ?? "" : "";
+      const internalDomains = lines(rules.internalStaffDomains).map(value => value.toLowerCase().replace(/^@/, "").replace(/^www\\./, ""));
+      if (emailHost && internalDomains.some(domain => emailHost === domain || emailHost.endsWith("." + domain))) reasons.push("命中内部员工邮箱域名");
+    }
+    if (snapshot.excludeCompetitorStaff === true) {
+      const employer = [raw.currentEmployer, raw.current_employer, raw.employer, raw.company, raw.companyName, raw.company_name].map(text).join(" ").toLowerCase();
+      if (lines(rules.competitorCompanies).some(value => employer.includes(value.toLowerCase()))) reasons.push("命中竞争对手员工排除规则");
+    }
+  }
   if (enabled.quality === true) {
     if (lines(rules.quality).some(value => fields.toLowerCase().includes(value.toLowerCase()))) reasons.push("命中数据质量排除规则");
     const floor = Number(snapshot.employeeFloor);
