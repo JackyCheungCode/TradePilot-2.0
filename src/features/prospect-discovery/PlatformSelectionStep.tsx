@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Button, Checkbox, MultiSelect, Pagination, Search, Select, SelectItem, Tag, CarbonIcons } from '@/design-system';
+import { Button, Checkbox, MultiSelect, Pagination, Search, Tag } from '@/design-system';
 
 type Country = { name: { common: string }; cca2: string; region: string };
 type Source = { id: string; name: string; description: string; markets: string[] };
