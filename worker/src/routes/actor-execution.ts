@@ -139,8 +139,9 @@ export async function processActorDiscoveryRun(env: DiscoveryEnv, runId: string,
   let discovered = 0, created = 0, failedActors = 0;
   await updateRun(env, runId, ownerId, { status: "running", message: "正在执行已通过质量门禁的数据源…" });
   await log(env, runId, ownerId, "info", "Actor 任务启动；已选数据源：" + actors.map(actor => actor.sourceName).join("、"));
-  for (let index = 0; index < actors.length; index++) {
-    const actor = actors[index];
+  let completedActors = 0;
+  let cursor = 0;
+  const executeOne = async (actor: ActorExecution) => {
     try {
       await log(env, runId, ownerId, "info", "开始执行：" + actor.sourceName + " · " + actor.actorId);
       const started = await gateway<Record<string, unknown>>("acts/" + encodeURIComponent(actor.actorId) + "/runs?waitForFinish=300", token, {
@@ -153,20 +154,30 @@ export async function processActorDiscoveryRun(env: DiscoveryEnv, runId: string,
       if (!actorRunId || status !== "SUCCEEDED" || !datasetId) throw new Error("ACTOR_RUN_" + (status || "NO_STATUS"));
       const dataset = await gateway<unknown>("datasets/" + encodeURIComponent(datasetId) + "/items?format=json&clean=true&limit=" + Math.max(1, Math.min(500, input.limitPerCountry || 100)), token);
       const items = Array.isArray(dataset) ? dataset : Array.isArray(asObject(dataset).data) ? asObject(dataset).data as unknown[] : [];
+      let actorCreated = 0;
       for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
         const raw = asObject(items[itemIndex]);
         await persistRaw(env, ownerId, runId, actor, actorRunId, datasetId, itemIndex, raw);
         discovered++;
-        if (await persistCanonical(env, ownerId, runId, actor, actorRunId, itemIndex, raw, countryCode)) created++;
+        if (await persistCanonical(env, ownerId, runId, actor, actorRunId, itemIndex, raw, countryCode)) { created++; actorCreated++; }
       }
-      await log(env, runId, ownerId, "info", actor.sourceName + " 完成：读取 " + items.length + " 条原始记录，归一化 " + (created) + " 条企业记录。");
+      await log(env, runId, ownerId, "info", actor.sourceName + " 完成：读取 " + items.length + " 条原始记录，归一化 " + actorCreated + " 条企业记录。");
     } catch (error) {
       failedActors++;
       await log(env, runId, ownerId, "error", actor.sourceName + " 执行失败：" + String(error).slice(0, 240));
+    } finally {
+      completedActors++;
+      const progress = Math.round((completedActors / actors.length) * 100);
+      await updateRun(env, runId, ownerId, { progress, discovered_count: discovered, created_lead_count: created, message: "已完成 " + completedActors + " / " + actors.length + " 个数据源" });
     }
-    const progress = Math.round(((index + 1) / actors.length) * 100);
-    await updateRun(env, runId, ownerId, { progress, discovered_count: discovered, created_lead_count: created, message: "已完成 " + (index + 1) + " / " + actors.length + " 个数据源" });
-  }
+  };
+  const workers = Array.from({ length: Math.min(4, actors.length) }, async () => {
+    while (cursor < actors.length) {
+      const index = cursor++;
+      await executeOne(actors[index]);
+    }
+  });
+  await Promise.all(workers);
   const status = created > 0 && failedActors > 0 ? "partial" : created > 0 ? "completed" : "failed";
   await updateRun(env, runId, ownerId, { status, progress: 100, discovered_count: discovered, created_lead_count: created, message: status === "failed" ? "数据源执行失败或未返回可识别的企业记录" : "数据源采集完成" });
   await log(env, runId, ownerId, status === "failed" ? "error" : "info", "任务结束；原始记录 " + discovered + " 条；标准化企业记录 " + created + " 条；失败数据源 " + failedActors + " 个。");
