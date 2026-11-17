@@ -164,17 +164,26 @@ export function SecuritySettingsPage() {
     setError('');
     try {
       const client = await getSupabaseClient();
-      const [passkeyResult, factorResult, recoveryResult] = await Promise.all([
+      const [passkeyResult, factorResult] = await Promise.all([
         client.auth.passkey.list(),
         client.auth.mfa.listFactors(),
-        client.auth.mfa.recoveryCodes.getStatus(),
       ]);
       if (passkeyResult.error) throw passkeyResult.error;
       if (factorResult.error) throw factorResult.error;
-      if (recoveryResult.error) throw recoveryResult.error;
       setPasskeys((passkeyResult.data ?? []) as PasskeyRecord[]);
       setTotpFactors((factorResult.data?.totp ?? []) as TotpFactor[]);
-      setRecoveryStatus((recoveryResult.data ?? { total: 0, remaining: 0 }) as RecoveryStatus);
+
+      // No recovery-code enrollment is a normal first-use state, not a page-load failure.
+      const recoveryResult = await client.auth.mfa.recoveryCodes.getStatus();
+      if (recoveryResult.error) {
+        if (/has not enrolled recovery codes/i.test(recoveryResult.error.message ?? '')) {
+          setRecoveryStatus({ total: 0, remaining: 0 });
+        } else {
+          throw recoveryResult.error;
+        }
+      } else {
+        setRecoveryStatus((recoveryResult.data ?? { total: 0, remaining: 0 }) as RecoveryStatus);
+      }
       try {
         const status = await callWebAuthn<WebAuthnStatus>(client, '/api/v1/webauthn/status');
         setWebAuthnStatus(status); setWebAuthnAvailable(true);
