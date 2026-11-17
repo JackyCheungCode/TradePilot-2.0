@@ -44,6 +44,7 @@ const buyerOptions = [
 const materials = ['Forged', 'CNC Machined', 'Silicone', 'Aluminum', 'Stainless Steel', 'ABS', 'Die Casting', 'Injection Molded'];
 const certifications = ['CE', 'RoHS', 'FCC', 'UKCA', 'REACH', 'IATF 16949'];
 const excludedTerms = ['jobs', 'careers', '招聘', 'DIY', 'used'];
+const EMPTY_DISCOVERY_SOURCES: Array<{ id: string; name: string; category?: string }> = [];
 
 type Country = {
   name: { common: string };
@@ -181,6 +182,13 @@ export function ProspectDiscoveryPage() {
 
   const handleSelectionCountChange = useCallback((count: number) => setSelectedSourceCount(count), []);
   const handleSelectionChange = useCallback((sources: Array<{ id: string; name: string; category?: string }>) => setSelectedSources(sources), []);
+  const actorProfile = useMemo(() => ({
+    coreNoun: profile.coreNoun,
+    country: profile.country,
+    countryName: profile.countryName,
+    city: profile.city,
+  }), [profile.coreNoun, profile.country, profile.countryName, profile.city]);
+  const actorSourcesForSchema = selectedSources ?? EMPTY_DISCOVERY_SOURCES;
 
   const [googleQueries, setGoogleQueries] = useState<string[]>([]);
   const [notice, setNotice] = useState('');
@@ -626,7 +634,7 @@ export function ProspectDiscoveryPage() {
             </section>
           )}
         </section>
-          <ActorSchemaFields sources={selectedSources ?? []} profile={{ coreNoun: profile.coreNoun, country: profile.country, countryName: profile.countryName, city: profile.city }} onValuesChange={setActorParameters} />
+          <ActorSchemaFields sources={actorSourcesForSchema} profile={actorProfile} onValuesChange={setActorParameters} />
         </>
        ) : selectedIndex === 0 ? (
         <PlatformSelectionStep countryCode={profile.country} countries={countries} onSelectionCountChange={handleSelectionCountChange} selectedIds={selectedSources?.map(item => item.id)} onSelectionChange={handleSelectionChange} />
@@ -644,7 +652,7 @@ export function ProspectDiscoveryPage() {
       <div className="tp-prospect-discovery__step-navigation">
         <Button kind="secondary" renderIcon={CarbonIcons.ArrowLeft} onClick={() => setSelectedIndex(index => Math.max(0, index - 1))} disabled={selectedIndex === 0}>上一步</Button>
         <span>第 {selectedIndex + 1} 步，共 6 步</span>
-        <Button kind="primary" renderIcon={CarbonIcons.ArrowRight} onClick={() => setSelectedIndex(index => Math.min(5, index + 1))} disabled={selectedIndex === 5 || (selectedIndex === 0 && (!profile.country || selectedSourceCount === 0)) || (selectedIndex === 1 && !profile.coreNoun.trim())}>下一步</Button>
+        <Button kind="primary" renderIcon={CarbonIcons.ArrowRight} onClick={() => setSelectedIndex(index => Math.min(5, index + 1))} disabled={selectedIndex === 5 || (selectedIndex === 0 && selectedSourceCount === 0) || (selectedIndex === 1 && !profile.coreNoun.trim())}>下一步</Button>
       </div>
     </main>
   );
