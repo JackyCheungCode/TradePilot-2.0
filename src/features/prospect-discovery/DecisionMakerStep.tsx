@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { strToU8, zipSync } from 'fflate';
 import {
   Button, Checkbox, CodeSnippet, InlineNotification, OverflowMenu,
   OverflowMenuItem, ProgressBar, RadioButton, RadioButtonGroup, Table, TableBody,
@@ -115,17 +116,20 @@ export function DecisionMakerStep({ profile }: Props) {
     ? current.filter(id => !filtered.some(row => row.id === id))
     : [...new Set([...current, ...filtered.map(row => row.id)])]);
 
-  const startEnrichment = () => {
-    if (!rows.length || !selectedRoles.length) return;
+  const startEnrichment = (targetIds: string[] = rows.map(row => row.id)) => {
+    const targets = targetIds.filter(id => rows.some(row => row.id === id));
+    if (!targets.length || !selectedRoles.length) return;
     setRunning(true);
     setProgress(0);
-    setLog('[14:10:01] [ENRICH] Starting organization and decision-maker discovery...\n[14:10:02] [PREFERENCE] Target roles: ' + selectedRoles.join(', ') + '\n[14:10:03] [VERIFY] Email policy: ' + emailLevel + '\n[14:10:04] [MODE] Frontend demonstration; no external enrichment request sent.');
+    setLog('[14:10:01] [ENRICH] Starting organization and decision-maker discovery...\\n[14:10:02] [PREFERENCE] Target roles: ' + selectedRoles.join(', ') + '\\n[14:10:03] [VERIFY] Email policy: ' + emailLevel + '\\n[14:10:04] [MODE] Frontend demonstration; no external enrichment request sent.');
     let step = 0;
     const timer = window.setInterval(() => {
       step += 1;
-      const next = Math.min(100, step * 4);
+      const completed = Math.min(targets.length, step);
+      const next = Math.round(completed / targets.length * 100);
+      const completedIds = new Set(targets.slice(0, completed));
       setProgress(next);
-      setRows(current => current.map((row, index) => index < Math.ceil(next / 4) ? {
+      setRows(current => current.map((row, index) => completedIds.has(row.id) ? {
         ...row,
         enrichment: 'complete',
         person: row.person || ['Michael Schmidt','Anna Weber','Thomas Müller','Laura Fischer'][index % 4],
@@ -134,11 +138,13 @@ export function DecisionMakerStep({ profile }: Props) {
         email: row.email || 'procurement@' + row.domain,
         emailStatus: row.emailStatus === 'pending' ? 'valid' : row.emailStatus,
       } : row));
-      if (step % 5 === 0) setLog(current => current + '\n[14:10:' + String(4 + step).padStart(2,'0') + '] [ENRICH] Processed ' + Math.ceil(next / 4) + '/' + rows.length + ' companies.');
+      if (completed % Math.max(1, Math.ceil(targets.length / 5)) === 0 || next === 100) {
+        setLog(current => current + '\\n[14:10:' + String(4 + step).padStart(2,'0') + '] [ENRICH] Processed ' + completed + '/' + targets.length + ' companies.');
+      }
       if (next >= 100) {
         window.clearInterval(timer);
         setRunning(false);
-        setLog(current => current + '\n[14:11:01] [COMPLETE] Decision-maker discovery finished. ' + rows.length + ' company records updated.');
+        setLog(current => current + '\\n[14:11:01] [COMPLETE] Decision-maker discovery finished. ' + targets.length + ' company records updated.');
         setNotice('演示穿透完成。当前姓名、邮箱与验证状态为演示数据，尚未调用真实数据源。');
       }
     }, 180);
@@ -157,6 +163,28 @@ export function DecisionMakerStep({ profile }: Props) {
   const retryOne = (id: string) => {
     setRows(current => current.map((row, index) => row.id === id ? { ...row, crm: 'synced', crmId: 'CRM-' + String(10000 + index) } : row));
     setNotice('已模拟重试 CRM 同步。');
+  };
+
+  const exportSelected = () => {
+    const selectedRows = rows.filter(row => selected.includes(row.id));
+    if (!selectedRows.length) return;
+    const headers = ['目标企业','AI 分级','AI 综合评分','决策人姓名','职称','LinkedIn','商务邮箱','邮箱验证状态','获客来源','穿透状态','CRM 状态','CRM 关联 ID'];
+    const data = selectedRows.map(row => [row.company,row.tier,row.score,row.person,row.title,row.linkedin,row.email,row.emailStatus,row.source,row.enrichment,row.crm,row.crmId ?? '']);
+    const escapeXml = (value: unknown) => String(value ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
+    const columnName = (index: number) => { let n=index+1, out=''; while(n){const rem=(n-1)%26;out=String.fromCharCode(65+rem)+out;n=Math.floor((n-1)/26);} return out; };
+    const sheetRows = [headers,...data].map((values,rowIndex) => '<row r="'+(rowIndex+1)+'">'+values.map((value,colIndex) => '<c r="'+columnName(colIndex)+(rowIndex+1)+'" t="inlineStr"><is><t xml:space="preserve">'+escapeXml(value)+'</t></is></c>').join('')+'</row>').join('');
+    const files = {
+      '[Content_Types].xml': strToU8('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>'),
+      '_rels/.rels': strToU8('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'),
+      'xl/workbook.xml': strToU8('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="决策人名片" sheetId="1" r:id="rId1"/></sheets></workbook>'),
+      'xl/_rels/workbook.xml.rels': strToU8('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>'),
+      'xl/worksheets/sheet1.xml': strToU8('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>'+sheetRows+'</sheetData></worksheet>'),
+    };
+    const workbook = zipSync(files,{level:0});
+    const url = URL.createObjectURL(new Blob([workbook],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+    const anchor = document.createElement('a'); anchor.href=url; anchor.download='tradepilot-decision-maker-cards.xlsx'; anchor.click();
+    window.setTimeout(() => URL.revokeObjectURL(url),1000);
+    setNotice('已导出 '+selectedRows.length+' 张决策人名片。');
   };
 
   const copyCard = (row: Contact) => {
@@ -212,7 +240,7 @@ export function DecisionMakerStep({ profile }: Props) {
         <div className="tp-decision__table-heading"><div><h3>企业与决策人主表</h3><p>企业资产、AI 评分、决策人名片、邮箱验证及 CRM 状态集中在同一张表格</p></div><Tag type="blue">{filtered.length} 条记录</Tag></div>
         <div className="tp-decision__table-toolbar">
           <TableToolbar>
-            {selected.length > 0 && <div className="tp-decision__batch-actions"><span>已勾选 {selected.length} / {rows.length} 条</span><div><Button kind="primary" size="md" renderIcon={CarbonIcons.CloudUpload} disabled={!allReady} onClick={syncSelected}>同步至 CRM</Button><Button kind="tertiary" size="md" renderIcon={CarbonIcons.Download} onClick={() => setNotice('导出功能将在 CRM 正式接入时启用。')}>导出名片</Button></div></div>}
+            {selected.length > 0 && <div className="tp-decision__batch-actions"><span>已勾选 {selected.length} / {rows.length} 条</span><div><Button kind="primary" size="md" renderIcon={CarbonIcons.CloudUpload} disabled={!allReady} onClick={syncSelected}>同步至 CRM</Button><Button kind="tertiary" size="md" renderIcon={CarbonIcons.Download} onClick={exportSelected}>导出名片 XLSX</Button></div></div>}
             <TableToolbarContent><TableToolbarSearch persistent value={search} onChange={(_event, value) => { setSearch(value ?? ''); setPage(1); }} placeholder="搜索公司、决策人或邮箱" /></TableToolbarContent>
           </TableToolbar>
         </div>
@@ -230,7 +258,7 @@ export function DecisionMakerStep({ profile }: Props) {
                 <TableCell>{row.email ? <div className="tp-decision__email"><a href={'mailto:' + row.email}>{row.email}</a>{emailTag(row.emailStatus)}</div> : <Tag type="gray">待采集</Tag>}</TableCell>
                 <TableCell><Tag type="blue">{row.source}</Tag><small>AI 评分 {row.score}</small></TableCell>
                 <TableCell><div className="tp-decision__status">{crmTag(row)}{row.crm === 'synced' && <small title={'CRM 关联 ID：' + row.crmId}>{row.crmId}</small>}{row.crm === 'failed' && <Button kind="ghost" size="sm" onClick={() => retryOne(row.id)}>重试</Button>}</div></TableCell>
-                <TableCell><OverflowMenu ariaLabel={'企业操作：' + row.company} flipped><OverflowMenuItem itemText="单条入库 CRM" onClick={() => { setSelected([row.id]); if (row.enrichment === 'complete') retryOne(row.id); else setNotice('请先完成决策人穿透。'); }} /><OverflowMenuItem itemText="重新挖掘决策人" onClick={startEnrichment} /><OverflowMenuItem itemText="复制完整名片" onClick={() => copyCard(row)} /></OverflowMenu></TableCell>
+                <TableCell><OverflowMenu ariaLabel={'企业操作：' + row.company} flipped><OverflowMenuItem itemText="单条入库 CRM" onClick={() => { setSelected([row.id]); if (row.enrichment === 'complete') retryOne(row.id); else setNotice('请先完成决策人穿透。'); }} /><OverflowMenuItem itemText="重新挖掘决策人" onClick={() => startEnrichment([row.id])} /><OverflowMenuItem itemText="复制完整名片" onClick={() => copyCard(row)} /></OverflowMenu></TableCell>
               </TableRow>)}
               {visible.length === 0 && <TableRow><TableCell colSpan={7}>没有符合当前筛选条件的记录。</TableCell></TableRow>}
             </TableBody>
