@@ -3,6 +3,7 @@ import {
   generateRegistrationOptions,
   verifyAuthenticationResponse,
   verifyRegistrationResponse,
+  type AuthenticatorTransportFuture,
 } from "@simplewebauthn/server";
 import { errorResponse, successResponse } from "../lib/http";
 
@@ -27,10 +28,9 @@ interface StoredCredential {
   credential_id: string;
   public_key: string;
   counter: number;
-  transports: AuthenticatorTransport[];
+  transports: AuthenticatorTransportFuture[];
   friendly_name: string;
 }
-interface RpcError { message?: string; }
 
 function decodeBase64Url(value: string): Uint8Array {
   const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
@@ -188,7 +188,7 @@ export async function handleWebAuthn(request: Request, env: WebAuthnEnv): Promis
       if (!verification.verified || !verification.registrationInfo) return fail(request, "REGISTRATION_FAILED", "未能验证设备凭证。", 400);
       const info = verification.registrationInfo;
       const credentialId = info.credential.id;
-      const transports = (response as { response?: { transports?: AuthenticatorTransport[] } }).response?.transports ?? [];
+      const transports = (response as { response?: { transports?: AuthenticatorTransportFuture[] } }).response?.transports ?? [];
       await rpc(env, "tradepilot_webauthn_save_credential", {
         p_user_id: auth.userId,
         p_credential_id: credentialId,
