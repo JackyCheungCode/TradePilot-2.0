@@ -340,3 +340,116 @@
   font-size: 0.625rem; font-weight: 600; line-height: 1;
   font-variant-numeric: tabular-nums; pointer-events: none;
 }
+
+
+/* Carbon G100 adaptation for the floating communications workspace. */
+:root[data-carbon-theme='g100'] .cc-floating-root,
+:root[data-carbon-theme='g100'] .cc-minimized {
+  color: var(--cds-text-primary);
+}
+
+:root[data-carbon-theme='g100'] .cc-window {
+  --cc-surface: var(--cds-layer-01);
+  --cc-surface-soft: var(--cds-layer-02);
+  --cc-border: var(--cds-border-subtle-01);
+  --cc-text: var(--cds-text-primary);
+  --cc-muted: var(--cds-text-secondary);
+  border-color: var(--cds-border-subtle-01);
+}
+
+:root[data-carbon-theme='g100'] .cc-icon-button,
+:root[data-carbon-theme='g100'] .cc-filters button,
+:root[data-carbon-theme='g100'] .cc-mobile-back {
+  color: var(--cds-text-secondary);
+}
+
+:root[data-carbon-theme='g100'] .cc-icon-button:hover,
+:root[data-carbon-theme='g100'] .cc-customer-row:hover,
+:root[data-carbon-theme='g100'] .cc-channel-menu button:hover {
+  background: var(--cds-layer-hover-01);
+  color: var(--cds-text-primary);
+}
+
+:root[data-carbon-theme='g100'] .cc-inbox,
+:root[data-carbon-theme='g100'] .cc-profile,
+:root[data-carbon-theme='g100'] .cc-chat,
+:root[data-carbon-theme='g100'] .cc-composer {
+  background: var(--cc-surface);
+}
+
+:root[data-carbon-theme='g100'] .cc-search,
+:root[data-carbon-theme='g100'] .cc-channel-trigger,
+:root[data-carbon-theme='g100'] .cc-channel-menu,
+:root[data-carbon-theme='g100'] .cc-composer textarea,
+:root[data-carbon-theme='g100'] .cc-email-subject-input {
+  background: var(--cds-field);
+  color: var(--cds-text-primary);
+}
+
+:root[data-carbon-theme='g100'] .cc-customer-top strong,
+:root[data-carbon-theme='g100'] .cc-email-subject,
+:root[data-carbon-theme='g100'] .cc-profile-section h3,
+:root[data-carbon-theme='g100'] .cc-profile-section dd,
+:root[data-carbon-theme='g100'] .cc-identity strong {
+  color: var(--cds-text-primary);
+}
+
+:root[data-carbon-theme='g100'] .cc-company,
+:root[data-carbon-theme='g100'] .cc-preview,
+:root[data-carbon-theme='g100'] .cc-customer-bottom,
+:root[data-carbon-theme='g100'] .cc-channel,
+:root[data-carbon-theme='g100'] .cc-chat-header-actions,
+:root[data-carbon-theme='g100'] .cc-profile-section dt,
+:root[data-carbon-theme='g100'] .cc-identity small,
+:root[data-carbon-theme='g100'] .cc-profile-foot,
+:root[data-carbon-theme='g100'] .cc-reply-routing,
+:root[data-carbon-theme='g100'] .cc-composer-footer {
+  color: var(--cds-text-secondary);
+}
+
+:root[data-carbon-theme='g100'] .cc-avatar,
+:root[data-carbon-theme='g100'] .cc-avatar--placeholder {
+  background: var(--cds-layer-03);
+  color: var(--cds-text-primary);
+}
+
+:root[data-carbon-theme='g100'] .cc-date-divider:before,
+:root[data-carbon-theme='g100'] .cc-date-divider:after {
+  background: var(--cds-border-subtle-01);
+}
+
+:root[data-carbon-theme='g100'] .cc-message-bubble {
+  border-color: var(--cds-border-subtle-01);
+  background: var(--cds-layer-01);
+  color: var(--cds-text-primary);
+}
+
+:root[data-carbon-theme='g100'] .cc-message-group.is-outbound .cc-message-bubble {
+  background: var(--cds-layer-accent-01);
+  color: var(--cds-text-primary);
+}
+
+:root[data-carbon-theme='g100'] .cc-channel-trigger,
+:root[data-carbon-theme='g100'] .cc-channel-menu {
+  border-color: var(--cds-border-subtle-01);
+}
+
+:root[data-carbon-theme='g100'] .cc-tags span {
+  background: var(--cds-layer-03);
+  color: var(--cds-text-secondary);
+}
+
+:root[data-carbon-theme='g100'] .cc-notice {
+  border-left: 3px solid var(--cds-support-warning);
+  background: var(--cds-layer-02);
+  color: var(--cds-text-primary);
+}
+
+:root[data-carbon-theme='g100'] .cc-notice button {
+  color: var(--cds-text-primary);
+}
+
+:root[data-carbon-theme='g100'] .cc-minimized .cc-restore {
+  background: var(--cds-layer-03);
+  color: var(--cds-text-primary);
+}
