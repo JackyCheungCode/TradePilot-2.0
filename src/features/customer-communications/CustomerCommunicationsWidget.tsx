@@ -31,7 +31,6 @@ type Message = {
   attachment?: string;
 };
 
-const ago = (minutes: number) => Date.now() - minutes * 60_000;
 const channelNames: Record<Channel, string> = {
   whatsapp: 'WhatsApp',
   messenger: 'Messenger',
@@ -264,17 +263,6 @@ export function CustomerCommunicationsWidget({
   const latestMessage = customerMessages[customerMessages.length - 1];
   const customerIdentities = activeCustomer ? identities.filter((identity) => identity.customerId === activeCustomer.id) : [];
   const defaultChannel = lastInbound?.channel ?? latestMessage?.channel ?? activeCustomer?.lastChannel ?? customerIdentities[0]?.channel ?? 'email';
-  const replyChannel = channelOverride ?? defaultChannel;
-  const replyIdentity = customerIdentities.find((identity) => identity.channel === replyChannel);
-  const unreadTotal = customers.reduce((total, customer) => total + customer.unread, 0);
-
-  const activeCustomer = customers.find((customer) => customer.id === activeCustomerId) ?? customers[0]!;
-  const draft = drafts[activeCustomerId] ?? '';
-  const customerMessages = messages.filter((message) => message.customerId === activeCustomerId).sort((a, b) => a.timestamp - b.timestamp);
-  const lastInbound = [...customerMessages].reverse().find((message) => message.direction === 'inbound');
-  const latestMessage = customerMessages[customerMessages.length - 1];
-  const customerIdentities = identities.filter((identity) => identity.customerId === activeCustomerId);
-  const defaultChannel = lastInbound?.channel ?? latestMessage?.channel ?? customerIdentities[0]?.channel ?? 'email';
   const replyChannel = channelOverride ?? defaultChannel;
   const replyIdentity = customerIdentities.find((identity) => identity.channel === replyChannel);
   const unreadTotal = customers.reduce((total, customer) => total + customer.unread, 0);
