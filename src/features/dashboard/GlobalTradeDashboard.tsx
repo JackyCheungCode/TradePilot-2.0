@@ -215,7 +215,7 @@ export function GlobalTradeDashboard() {
 
   const themeOptions = { ...chartBase, theme: 'white' };
   const areaData = useMemo(() => {
-    const days = period === '7d' ? 7 : period === '30d' ? 30 : 12;
+    const days = period === '7d' ? 7 : period === '30d' ? 30 : period === 'quarter' ? 3 : 12;
     return Array.from({ length: days }, (_, index) => {
       const date = new Date(start);
       if (period === 'year' || period === 'quarter') date.setMonth(date.getMonth() + index);
@@ -312,10 +312,7 @@ export function GlobalTradeDashboard() {
   };
 
   const commonBar = (title: string, rows: { group: string; value: number }[]) => (
-    <Tile className="tp-gt-card">
-      <div className="tp-gt-card__heading"><h3>{title}</h3><Tag type="cool-gray">{n(rows.reduce((sum, row) => sum + row.value, 0))} 条</Tag></div>
-      {rows.length ? <SimpleBarChart data={rows} options={{ ...barOptions, title, legend: { enabled: false } } as any}/> : <EmptyState message="当前筛选条件下暂无可用数据"/>}
-    </Tile>
+    rows.length ? <SimpleBarChart data={rows} options={{ ...barOptions, title, legend: { enabled: false } } as any}/> : <EmptyState message="当前筛选条件下暂无可用数据"/>
   );
 
   const metricSet = metricsByTab[activeTab] || metricsByTab[0];
