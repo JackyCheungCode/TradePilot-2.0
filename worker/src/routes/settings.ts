@@ -273,13 +273,13 @@ export async function handleSettings(request: Request, env: SettingsEnv): Promis
         if (!response.ok) throw new Error("读取账户主题偏好失败（HTTP " + response.status + "）");
         const rows = await response.json() as Array<{ config?: { preference?: unknown }; config_version?: number; updated_at?: string }>;
         const saved = rows[0]?.config?.preference;
-        const preference = saved === "white" || saved === "dark" || saved === "system" ? saved : "system";
+        const preference = saved === "white" || saved === "g10" || saved === "g90" || saved === "dark" || saved === "system" ? saved : "system";
         return successResponse(request, { preference, configVersion: rows[0]?.config_version ?? 0, updatedAt: rows[0]?.updated_at ?? null });
       }
 
       const body = await request.json() as { preference?: unknown };
-      if (body.preference !== "system" && body.preference !== "white" && body.preference !== "dark") {
-        return errorResponse(request, "INVALID_THEME_PREFERENCE", "主题偏好只能是 system、white 或 dark。", 400);
+      if (body.preference !== "system" && body.preference !== "white" && body.preference !== "g10" && body.preference !== "g90" && body.preference !== "dark") {
+        return errorResponse(request, "INVALID_THEME_PREFERENCE", "主题偏好只能是 system、white、g10、g90 或 dark。", 400);
       }
       const response = await fetch(endpoint + "?on_conflict=owner_id,scope_key", {
         method: "POST",
