@@ -45,7 +45,7 @@ export function ActorSchemaFields({ sources, onValuesChange }: Props) {
   useEffect(() => {
     let active = true;
     if (!sources.length) { setItems([]); setError(''); setLoading(false); return; }
-    setLoading(true); setError('');
+    setLoading(true); setError(''); setItems([]); setValues({}); setExpandedHelp({});
     void (async () => {
       try {
         const token = await accessToken();
@@ -77,7 +77,11 @@ export function ActorSchemaFields({ sources, onValuesChange }: Props) {
       for (const [fieldKey, field] of Object.entries(item.schema.properties ?? {})) {
         const valueKey = item.source.id + ':' + item.actorId + ':' + fieldKey;
         const value = values[valueKey] ?? field.default;
-        if (value !== undefined && value !== '') input[fieldKey] = value;
+        if (value !== undefined && value !== '') {
+          if ((field.type === 'object' || field.type === 'array') && typeof value === 'string') {
+            try { input[fieldKey] = JSON.parse(value); } catch { input[fieldKey] = value; }
+          } else input[fieldKey] = value;
+        }
       }
       return { sourceId: item.source.id, sourceName: item.source.name, actorId: item.actorId, actorTitle: item.actorTitle, input };
     }),
