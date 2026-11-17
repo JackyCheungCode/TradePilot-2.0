@@ -77,6 +77,7 @@ async function mapLimit<T, R>(items: T[], limit: number, mapper: (item: T, index
 }
 
 export function ActorSchemaFields({ sources, profile, onValuesChange }: Props) {
+  const actorSources = useMemo(() => sources.filter(source => !['google-maps', 'google-search', 'facebook', 'instagram'].includes(source.id)), [sources]);
   const [items, setItems] = useState<LoadedSchema[]>([]);
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [expandedHelp, setExpandedHelp] = useState<Record<string, boolean>>({});
@@ -88,13 +89,13 @@ export function ActorSchemaFields({ sources, profile, onValuesChange }: Props) {
 
   useEffect(() => {
     let active = true;
-    if (!sources.length) { setItems([]); setValues({}); setExpandedHelp({}); setTestResults({}); setError(''); setLoading(false); onValuesChange({ fields: {}, actors: [] }); return; }
+    if (!actorSources.length) { setItems([]); setValues({}); setExpandedHelp({}); setTestResults({}); setError(''); setLoading(false); onValuesChange({ fields: {}, actors: [] }); return; }
     setLoading(true); setError(''); setItems([]); setValues({}); setExpandedHelp({}); setTestResults({});
     void (async () => {
       try {
         const token = await accessToken();
         const failures: string[] = [];
-        const loaded = await mapLimit(sources, 4, async source => {
+        const loaded = await mapLimit(actorSources, 4, async source => {
           try {
             const discovery = await api('/api/v1/actor-registry/discover', token, { method: 'POST', body: JSON.stringify({ platform: source.id, query: source.name }) }) as { items?: Array<Record<string, unknown>> };
             const candidates = (discovery.items ?? []).filter(actor => typeof actor.actor_id === 'string');
@@ -129,7 +130,7 @@ export function ActorSchemaFields({ sources, profile, onValuesChange }: Props) {
       }
     })();
     return () => { active = false; };
-  }, [sourceKey]);
+  }, [sourceKey, actorSources]);
 
   const actorParameters = useMemo(() => ({
     fields: values,
