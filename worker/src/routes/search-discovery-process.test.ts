@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalizeMerchantDomain, searchResultIdentity, searchResultExclusionTarget } from "./search-discovery-process.ts";
+import { normalizeMerchantDomain, searchResultIdentity, searchResultExclusionTarget } from "./search-result-normalization.ts";
 
 test("normalizes a merchant hostname", () => {
   assert.equal(normalizeMerchantDomain("Amazon.com"), "amazon.com");
