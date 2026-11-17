@@ -106,7 +106,7 @@ export function ProspectDataPage() {
           id: record.id, name: record.name || '未命名企业', country: record.country_code || '—',
           website: record.website || '', email: record.email || '', phone: record.phone || '',
           source: sourceLabel, sources: [sourceLabel], status: nextStatus,
-          score: scoreOf(raw) ?? (typeof record.confidence_score === 'number' ? record.confidence_score : null),
+          score: scoreOf(raw),
           capturedAt: occurrence.captured_at || record.created_at || '', taskCode: run?.task_code || '—',
           industry: textOf(raw, ['industry','industry_name','sector','category']),
           companySize: textOf(raw, ['company_size','employee_range','employees','size']),
@@ -163,12 +163,6 @@ export function ProspectDataPage() {
   const areaOptions = { ...baseOptions, height: '300px', axes: { bottom: { title: '月份', mapsTo: 'date', scaleType: 'time' }, left: { title: '新增数量', mapsTo: 'value', scaleType: 'linear' } }, curve: 'curveMonotoneX', points: { enabled: false } };
   const treemapOptions = { ...baseOptions, height: '340px', tooltip: { enabled: true, valueFormatter: (value: number) => value.toLocaleString() + ' 家潜客' } };
 
-  const crmCount = rows.filter(row => row.status === 'crm').length;
-  const pendingCount = rows.filter(row => row.status === 'pending').length;
-  const ratedCount = rows.filter(row => row.score !== null).length;
-  const countriesCount = new Set(rows.map(row => row.country).filter(value => value !== '—')).size;
-  const contactableCount = rows.filter(row => row.email || row.phone || row.website).length;
-
   return (
     <main className="tp-prospect-hub tp-prospect-data">
       <header className="tp-prospect-hub__header tp-prospect-data__header">
@@ -181,15 +175,6 @@ export function ProspectDataPage() {
       </header>
 
       {error && <InlineNotification kind="error" lowContrast title="数据读取失败" subtitle={error} onCloseButtonClick={() => setError('')} />}
-      <section className="tp-prospect-data__signal-strip" aria-label="潜客数据概况">
-        <div className="tp-prospect-data__signal tp-prospect-data__signal--blue"><span>有效潜客</span><strong>{analytics.active.length.toLocaleString()}</strong><small>排除已移除与废弃记录</small></div>
-        <div className="tp-prospect-data__signal tp-prospect-data__signal--green"><span>已转入 CRM</span><strong>{crmCount.toLocaleString()}</strong><small>已建立正式线索关联</small></div>
-        <div className="tp-prospect-data__signal tp-prospect-data__signal--purple"><span>已有评分</span><strong>{ratedCount.toLocaleString()}</strong><small>评分覆盖 {rows.length ? (ratedCount / rows.length * 100).toFixed(1) : '0.0'}%</small></div>
-        <div className="tp-prospect-data__signal tp-prospect-data__signal--teal"><span>可联系资产</span><strong>{contactableCount.toLocaleString()}</strong><small>含官网、邮箱或电话</small></div>
-        <div className="tp-prospect-data__signal tp-prospect-data__signal--orange"><span>待处理</span><strong>{pendingCount.toLocaleString()}</strong><small>等待筛选与转化</small></div>
-        <div className="tp-prospect-data__signal tp-prospect-data__signal--magenta"><span>覆盖市场</span><strong>{countriesCount.toLocaleString()}</strong><small>已识别国家 / 地区</small></div>
-      </section>
-
       <section className="tp-prospect-data__overview">
         <Tile className="tp-prospect-data__panel tp-prospect-data__market">
           <div className="tp-prospect-data__panel-heading"><div><p className="tp-prospect-data__kicker">GLOBAL REACH</p><h2>全球市场分布</h2><p>按有效潜客所在国家与地区展示资产覆盖情况</p></div><Tag type="blue">{countriesCount} 个市场</Tag></div>
@@ -209,7 +194,7 @@ export function ProspectDataPage() {
       </section>
 
       <section className="tp-prospect-data__panel tp-prospect-data__trend">
-        <div className="tp-prospect-data__panel-heading"><div><p className="tp-prospect-data__kicker">ACQUISITION MOMENTUM</p><h2>潜客增长趋势</h2><p>最近 12 个月有效潜客的首次采集时间分布</p></div><Tag type="teal">12 个月</Tag></div>
+        <div className="tp-prospect-data__panel-heading"><div><p className="tp-prospect-data__kicker">ACQUISITION MOMENTUM</p><h2>潜客增长趋势</h2><p>最近 12 个月有效潜客的采集时间分布</p></div><Tag type="teal">12 个月</Tag></div>
         <AreaChart data={analytics.monthly} options={areaOptions as any} />
       </section>
 
