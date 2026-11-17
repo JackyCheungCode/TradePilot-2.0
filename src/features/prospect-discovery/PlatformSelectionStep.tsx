@@ -229,12 +229,6 @@ export function PlatformSelectionStep({
   };
 
   return <section className="tp-prospect-discovery__step tp-prospect-discovery__step-two">
-    <div className="tp-prospect-discovery__source-summary tp-prospect-discovery__source-summary-cards">
-      <div className="tp-prospect-discovery__summary-card"><span>平台总数</span><strong>{allPlatforms.length}</strong><small>完整平台目录</small></div>
-      <div className="tp-prospect-discovery__summary-card"><span>当前筛选结果</span><strong>{filtered.length}</strong><small>符合当前筛选条件</small></div>
-      <div className="tp-prospect-discovery__summary-card"><span>已选平台</span><strong>{selected.length}</strong><small>跨页与筛选持续保留</small></div>
-    </div>
-
     <div className="tp-prospect-discovery__market-context">
       <span className="tp-prospect-discovery__market-pin"><CarbonIcons.Map size={20}/></span>
       <div className="tp-prospect-discovery__market-copy">
@@ -284,7 +278,7 @@ export function PlatformSelectionStep({
           const checked = selected.includes(source.id);
           const isRecommended = recommended.includes(source.id);
           return <div className={'tp-prospect-discovery__platform-row' + (checked ? ' is-selected' : '')} key={source.id}>
-            <Checkbox id={'tp-platform-' + source.id} labelText={source.name} checked={checked} onChange={() => toggle(source.id)} />
+            <Checkbox id={'tp-platform-' + source.id} checked={checked} onChange={() => toggle(source.id)} />
             <div className="tp-prospect-discovery__platform-copy">
               <div className="tp-prospect-discovery__platform-name">{source.name}{isRecommended && <Tag type="green">智能推荐</Tag>}{source.global && <Tag type="blue">全球通用</Tag>}</div>
               <p>{source.description}</p>
