@@ -623,7 +623,7 @@ export function ProspectDiscoveryPage() {
             </section>
           )}
         </section>
-          <ActorSchemaFields sources={selectedSources ?? []} onValuesChange={setActorParameters} />
+          <ActorSchemaFields sources={selectedSources ?? []} profile={{ coreNoun: profile.coreNoun, country: profile.country, countryName: profile.countryName, city: profile.city }} onValuesChange={setActorParameters} />
         </>
        ) : selectedIndex === 0 ? (
         <PlatformSelectionStep countryCode={profile.country} countryName={profile.countryName} continentLabel={continents.find(item => item.value === profile.continent)?.label ?? ''} countries={countries} onChangeCountry={() => setSelectedIndex(1)} onCountryChange={country => setProfile(current => ({ ...current, country: country.cca2, countryName: country.name.common, continent: country.region }))} onSelectionCountChange={setSelectedSourceCount} selectedIds={selectedSources?.map(item => item.id)} onSelectionChange={setSelectedSources} />
