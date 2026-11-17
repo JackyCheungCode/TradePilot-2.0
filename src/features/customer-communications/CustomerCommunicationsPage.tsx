@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { getSupabaseClient } from '@/lib/supabase';
 import {
   Button, IconButton, Search, TextInput, TextArea, Dropdown, Tag, InlineNotification, Heading, Modal, CarbonIcons,
 } from '@/design-system';
@@ -37,6 +38,7 @@ function mapInboxConversation(row: InboxConversation): { conversation: Communica
     id: row.contact_id,
     company: row.account?.account_name || row.display_name || contactName,
     contact: contactName,
+    avatarUrl: contact.avatar_url || undefined,
     role: contact.job_title || contact.department || '—',
     email: contact.email || '—',
     phone: contact.phone || contact.mobile || '—',
@@ -128,11 +130,16 @@ function ChannelLogo({ channel, size = 'md' }: { channel: CommunicationChannel; 
 }
 
 function CustomerAvatar({ customer, large = false }: { customer: (typeof communicationCustomers)[number]; large?: boolean }) {
-  return (
-    <span className={'cc-customer-initial' + (large ? ' cc-customer-initial--large' : '')} aria-hidden="true">
-      {customer.contact.slice(0, 1)}
-    </span>
-  );
+  const [failed, setFailed] = useState(false);
+  const className = 'cc-customer-initial' + (large ? ' cc-customer-initial--large' : '');
+  if (customer.avatarUrl && !failed) return <img className={className + ' cc-avatar-image'} src={customer.avatarUrl} alt={customer.contact + '头像'} onError={() => setFailed(true)} />;
+  return <span className={className} aria-label={customer.contact + '头像'}>{customer.contact.slice(0, 1)}</span>;
+}
+
+function UserAvatar({ name, src }: { name: string; src?: string }) {
+  const [failed, setFailed] = useState(false);
+  if (src && !failed) return <img className="cc-message-avatar cc-avatar-image" src={src} alt={name + '头像'} onError={() => setFailed(true)} />;
+  return <span className="cc-message-avatar" aria-label={name + '头像'}>{name.slice(0, 1) || 'U'}</span>;
 }
 
 function MessageStatus({ status }: { status?: CommunicationMessage['status'] }) {
@@ -154,6 +161,7 @@ export function CustomerCommunicationsPage() {
   const [replyChannel, setReplyChannel] = useState<CommunicationChannel>('whatsapp');
   const [draft, setDraft] = useState('');
   const [notice, setNotice] = useState('');
+  const [currentUser, setCurrentUser] = useState({ name: '当前用户', avatarUrl: '' });
   const [mobileChat, setMobileChat] = useState(false);
   const [profileOpen, setProfileOpen] = useState(() => typeof window === 'undefined' ? true : window.matchMedia('(min-width: 768px)').matches);
   const [storageReady, setStorageReady] = useState(false);
@@ -176,6 +184,16 @@ export function CustomerCommunicationsPage() {
 
   useEffect(() => {
     setStorageReady(true);
+    let active = true;
+    void getSupabaseClient().then((client) => client.auth.getUser()).then(({ data }) => {
+      if (!active || !data.user) return;
+      const metadata = data.user.user_metadata ?? {};
+      setCurrentUser({
+        name: String(metadata.full_name || metadata.name || data.user.email || '当前用户'),
+        avatarUrl: String(metadata.avatar_url || metadata.picture || ''),
+      });
+    }).catch(() => undefined);
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {
@@ -693,24 +711,28 @@ export function CustomerCommunicationsPage() {
                 <div className="cc-message-meta">
                   <time>{formatDate(message.time)}</time>
                 </div>
-                {message.direction === 'inbound' && (
-                  <span className="cc-message-source" aria-label={communicationChannelLabels[message.channel]} title={communicationChannelLabels[message.channel]}>
-                    <ChannelLogo channel={message.channel} size="sm" />
-                  </span>
-                )}
-                {message.kind === 'email' ? (
-                  <div className="cc-email-message">
-                    <strong>{message.subject}</strong>
-                    <p>{message.body}</p>
+                <span className="cc-message-source" aria-label={'来源平台：' + communicationChannelLabels[message.channel]} title={'来源平台：' + communicationChannelLabels[message.channel]}>
+                  <ChannelLogo channel={message.channel} size="sm" />
+                </span>
+                <div className="cc-message-row">
+                  {message.direction === 'inbound' && <CustomerAvatar customer={activeCustomer} />}
+                  <div className="cc-message-content">
+                    {message.kind === 'email' ? (
+                      <div className="cc-email-message">
+                        <strong>{message.subject}</strong>
+                        <p>{message.body}</p>
+                      </div>
+                    ) : message.kind === 'file' ? (
+                      <div className="cc-file-message">
+                        <CarbonIcons.Document size={20} />
+                        <div><strong>{message.filename}</strong><span>{message.fileSize} · {message.body}</span></div>
+                      </div>
+                    ) : (
+                      <div className="cc-message-body">{message.body}</div>
+                    )}
                   </div>
-                ) : message.kind === 'file' ? (
-                  <div className="cc-file-message">
-                    <CarbonIcons.Document size={20} />
-                    <div><strong>{message.filename}</strong><span>{message.fileSize} · {message.body}</span></div>
-                  </div>
-                ) : (
-                  <div className="cc-message-body">{message.body}</div>
-                )}
+                  {message.direction === 'outbound' && <UserAvatar name={currentUser.name} src={currentUser.avatarUrl} />}
+                </div>
                 <div className="cc-message-footer">
                   {message.direction === 'outbound' && <MessageStatus status={message.status} />}
                 </div>
