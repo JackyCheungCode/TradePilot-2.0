@@ -89,7 +89,17 @@ async function enforceWebAuthnSession(request: Request, env: WorkerEnv): Promise
   });
   if (!enabledResponse.ok) return errorResponse(request,"MFA_POLICY_UNAVAILABLE","无法确认账户安全策略，已阻止访问。",503);
   const enabled = await enabledResponse.json() as boolean;
-  if (!enabled) return null;
+  if (!enabled) {
+   const totpResponse = await fetch(env.SUPABASE_URL + "/rest/v1/rpc/tradepilot_webauthn_has_verified_totp", {
+    method:"POST",headers,body:JSON.stringify({p_user_id:user.id}),
+   });
+   if (!totpResponse.ok) return errorResponse(request,"MFA_POLICY_UNAVAILABLE","无法确认 TOTP 安全策略，已阻止访问。",503);
+   const hasVerifiedTotp = await totpResponse.json() as boolean;
+   if (hasVerifiedTotp && claims.aal !== "aal2") {
+    return errorResponse(request,"TOTP_MFA_REQUIRED","此账户已启用 TOTP 多因子认证，请先完成二次验证。",403);
+   }
+   return null;
+  }
   const grantResponse = await fetch(env.SUPABASE_URL + "/rest/v1/rpc/tradepilot_webauthn_has_grant", {
    method:"POST",headers,body:JSON.stringify({p_user_id:user.id,p_session_id:sessionId}),
   });
