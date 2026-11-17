@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
 import { strToU8, zipSync } from 'fflate';
 import {
-  Accordion, AccordionItem, Column, Dropdown, Grid, InlineNotification, OverflowMenu,
-  OverflowMenuItem, Pagination, Table, TableBatchAction, TableBatchActions, TableBody,
+  Accordion, AccordionItem, Button, Column, Dropdown, Grid, InlineNotification, OverflowMenu,
+  OverflowMenuItem, Pagination, Table, TableBody,
   TableCell, TableHead, TableHeader, TableRow, TableSelectAll, TableSelectRow,
   TableToolbar, TableToolbarContent, TableToolbarSearch, Tag, Tile, CarbonIcons,
 } from '@/design-system';
@@ -11,7 +11,7 @@ type Lead = {
   id: string; name: string; domain: string; country: string; source: string; email: string;
   status: 'pending' | 'scored'; score?: number; fit?: number; persona?: number; scale?: number; intent?: number; comment?: string;
 };
-type Props = { profile: { coreNoun: string; countryName: string; buyers: string[] } };
+type Props = { profile: { coreNoun: string; countryName: string; buyers: string[] }; onContinueToEnrichment: () => void };
 
 const companyNames = [
   ['SolarTech Deutschland GmbH', 'solartech-de.com'], ['EcoPower Systems GmbH', 'eco-power.de'],
@@ -34,7 +34,7 @@ const seedLeads = (): Lead[] => Array.from({ length: 128 }, (_, index) => {
   };
 });
 
-export function ScoringStep({ profile }: Props) {
+export function ScoringStep({ profile, onContinueToEnrichment }: Props) {
   const [rows, setRows] = useState<Lead[]>(() => {
     const data = seedLeads();
     try {
@@ -106,13 +106,18 @@ export function ScoringStep({ profile }: Props) {
     const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'tradepilot-raw-leads.xlsx'; anchor.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
+  const sendToEnrichment = () => {
+    if (!selectedRows.length) return;
+    try { localStorage.setItem('tradepilot.prospect-discovery.crm-queue.v1', JSON.stringify(selectedRows)); } catch { /* Keep the current workbench available if browser storage is full. */ }
+    onContinueToEnrichment();
+  };
   const scoreTag = (score?: number) => score === undefined ? <Tag type="gray">待清洗</Tag> : <Tag type={score >= 90 ? 'green' : score >= 80 ? 'blue' : 'warm-gray'}>{score >= 90 ? 'Tier A' : score >= 80 ? 'Tier B' : 'Tier C'}</Tag>;
 
   return (
     <section className="tp-prospect-discovery__step tp-scoring">
       <div className="tp-scoring__heading">
         <div><span className="tp-execution__eyebrow">AI FILTERING & SCORING</span><h2>AI 智能清洗与打分工作台</h2><p>目标市场：{profile.countryName || '未指定'} · 核心产品：{profile.coreNoun || '未指定'} · 目标买家：{profile.buyers.length} 类</p></div>
-        <Tag type="blue">{rows.length} 条待处理记录</Tag>
+        <div className="tp-scoring__heading-actions"><Tag type="blue">{rows.length} 条待处理记录</Tag><Button kind="primary" size="md" renderIcon={CarbonIcons.ArrowRight} disabled={!selected.length} onClick={sendToEnrichment}>将已选企业送入第六步</Button></div>
       </div>
 
       {notice && <InlineNotification kind="info" lowContrast title="操作反馈" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
@@ -151,12 +156,9 @@ export function ScoringStep({ profile }: Props) {
 
       <Tile className="tp-scoring__table-panel">
         <div className="tp-execution__section-heading"><div><h3>原始检索结果</h3><p>人工复核企业主体、官网与来源，再决定是否纳入 AI 清洗打分</p></div><Tag type="blue">{filtered.length} 条匹配</Tag></div>
-        <TableToolbar>
-          <TableBatchActions shouldShowBatchActions={selected.length > 0} totalSelected={selected.length} onCancel={() => setSelected([])}>
-            <TableBatchAction tabIndex={0} renderIcon={CarbonIcons.MagicWand} onClick={() => scoreRows(selected)}>对选中记录执行 AI 清洗与打分</TableBatchAction>
-            <TableBatchAction tabIndex={0} renderIcon={CarbonIcons.TrashCan} onClick={removeSelected}>批量移除记录</TableBatchAction>
-            <TableBatchAction tabIndex={0} renderIcon={CarbonIcons.Download} onClick={exportSelected}>导出选中记录 (.xlsx)</TableBatchAction>
-          </TableBatchActions>
+        <div className="tp-scoring__table-controls">
+          {selected.length > 0 && <div className="tp-scoring__batch-actions"><span>已勾选 {selected.length} / {rows.length} 条记录</span><div><Button kind="primary" size="md" renderIcon={CarbonIcons.MagicWand} onClick={() => scoreRows(selected)}>AI 清洗与打分</Button><Button kind="tertiary" size="md" renderIcon={CarbonIcons.TrashCan} onClick={removeSelected}>批量移除</Button><Button kind="tertiary" size="md" renderIcon={CarbonIcons.Download} onClick={exportSelected}>导出 XLSX</Button><Button kind="ghost" size="md" onClick={() => setSelected([])}>取消选择</Button></div></div>}
+          <TableToolbar>
           <TableToolbarContent>
             <div className="tp-scoring__toolbar">
               <TableToolbarSearch persistent value={search} onChange={(_event, value) => { setSearch(value ?? ''); setPage(1); }} placeholder="搜索企业名称或域名" />
@@ -165,7 +167,8 @@ export function ScoringStep({ profile }: Props) {
               </div>
             </div>
           </TableToolbarContent>
-        </TableToolbar>
+          </TableToolbar>
+        </div>
         {scoring && <InlineNotification kind="info" lowContrast title="AI 清洗与打分进行中" subtitle="正在处理已选记录（前端演示任务）。" />}
         <div className="tp-scoring__table-scroll">
           <Table size="lg" useZebraStyles={false}>

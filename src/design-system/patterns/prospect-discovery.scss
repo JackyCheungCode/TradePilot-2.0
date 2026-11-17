@@ -576,3 +576,81 @@
     &__methodology .cds--accordion__content { padding:$spacing-03; }
   }
 }
+
+
+/* Step 5 responsive toolbar and batch action layout */
+.tp-scoring {
+  &__heading-actions { display:flex; align-items:center; flex-wrap:wrap; justify-content:flex-end; gap:$spacing-03; min-width:0; }
+  &__table-controls { display:flex; flex-direction:column; gap:$spacing-04; min-width:0; }
+  &__table-controls .cds--table-toolbar { display:block; width:100%; min-width:0; margin:0; padding:0; }
+  &__table-controls .cds--table-toolbar-content { display:block; width:100%; min-width:0; }
+  &__toolbar { margin-bottom:$spacing-05; }
+  &__source-filter { padding-bottom:$spacing-02; }
+  &__table-scroll { margin-top:$spacing-02; }
+  &__batch-actions { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:$spacing-03; width:100%; min-width:0; padding:$spacing-03 $spacing-04; background:var(--cds-layer-selected-01); }
+  &__batch-actions > span { @include type-style('label-01'); color:var(--cds-text-primary); }
+  &__batch-actions > div { display:flex; align-items:center; flex-wrap:wrap; gap:$spacing-02; min-width:0; }
+  @media(max-width:672px) {
+    &__heading-actions { width:100%; justify-content:flex-start; }
+    &__heading-actions .cds--btn { width:100%; max-width:none; }
+    &__toolbar { grid-template-columns:minmax(0,1fr); gap:$spacing-04; }
+    &__source-filter { padding:0; }
+    &__batch-actions { align-items:stretch; flex-direction:column; }
+    &__batch-actions > div { display:grid; grid-template-columns:minmax(0,1fr); width:100%; }
+    &__batch-actions .cds--btn { width:100%; max-width:none; }
+  }
+}
+
+/* Step 6 unified decision-maker and CRM workbench */
+.tp-decision {
+  display:flex;
+  flex-direction:column;
+  gap:$spacing-05;
+  min-width:0;
+  &__heading, &__preferences-heading, &__runtime-heading, &__table-heading {
+    display:flex; align-items:flex-start; justify-content:space-between; gap:$spacing-04; min-width:0;
+  }
+  &__eyebrow { @include type-style('label-01'); color:var(--cds-text-helper); letter-spacing:.08em; }
+  &__heading h2 { @include type-style('productive-heading-04'); margin:$spacing-02 0; }
+  &__heading p, &__preferences-heading p, &__runtime-heading p, &__table-heading p {
+    @include type-style('body-compact-01'); color:var(--cds-text-secondary); margin:0;
+  }
+  &__preferences, &__runtime, &__table-panel { min-width:0; background:var(--cds-layer-01); }
+  &__preferences { display:flex; flex-direction:column; gap:$spacing-05; }
+  &__preferences-heading h3, &__runtime-heading h3, &__table-heading h3 { @include type-style('heading-compact-02'); margin:0 0 $spacing-02; }
+  &__preference-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:$spacing-06; min-width:0; }
+  &__role-group { display:flex; flex-direction:column; gap:$spacing-03; min-width:0; padding:0; margin:0; border:0; }
+  &__role-group legend, &__field-label { @include type-style('label-01'); color:var(--cds-text-secondary); margin-bottom:$spacing-02; }
+  &__email-policy { display:flex; flex-direction:column; gap:$spacing-03; min-width:0; }
+  &__email-policy p { @include type-style('helper-text-01'); color:var(--cds-text-secondary); margin:0; }
+  &__actions { display:flex; align-items:center; flex-wrap:wrap; gap:$spacing-03; }
+  &__actions > span { @include type-style('helper-text-01'); color:var(--cds-text-secondary); }
+  &__runtime { display:flex; flex-direction:column; gap:$spacing-04; }
+  &__progress-meta { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:$spacing-03; @include type-style('label-01'); }
+  &__progress-meta strong { font-variant-numeric:tabular-nums; }
+  &__console .cds--snippet--multi { height:160px; max-height:160px; overflow:auto; background:var(--cds-background-inverse); color:var(--cds-text-inverse); }
+  &__table-panel { display:flex; flex-direction:column; gap:$spacing-04; }
+  &__table-toolbar { min-width:0; }
+  &__table-toolbar .cds--table-toolbar { display:block; width:100%; margin:0; }
+  &__table-toolbar .cds--table-toolbar-content { display:block; width:100%; }
+  &__batch-actions { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:$spacing-03; padding:$spacing-03 $spacing-04; margin-bottom:$spacing-04; background:var(--cds-layer-selected-01); }
+  &__batch-actions > div { display:flex; flex-wrap:wrap; gap:$spacing-02; }
+  &__table-scroll { width:100%; min-width:0; overflow-x:auto; }
+  &__table-scroll .cds--data-table { min-width:1120px; }
+  &__company, &__person, &__email, &__status { display:flex; flex-direction:column; align-items:flex-start; gap:$spacing-02; min-width:150px; }
+  &__company strong, &__person strong { @include type-style('heading-compact-01'); }
+  &__person span, &__table-scroll small { @include type-style('helper-text-01'); color:var(--cds-text-secondary); }
+  &__person a, &__email a { display:inline-flex; align-items:center; gap:$spacing-02; color:var(--cds-link-primary); text-decoration:none; }
+  &__person a:hover, &__email a:hover { text-decoration:underline; }
+  &__footer { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:$spacing-03; padding-top:$spacing-03; @include type-style('helper-text-01'); color:var(--cds-text-secondary); }
+  @media(max-width:1056px) { &__preference-grid { grid-template-columns:minmax(0,1fr); } }
+  @media(max-width:672px) {
+    &__heading, &__preferences-heading, &__runtime-heading, &__table-heading { flex-direction:column; }
+    &__actions { align-items:stretch; flex-direction:column; }
+    &__actions .cds--btn { width:100%; max-width:none; }
+    &__batch-actions { align-items:stretch; flex-direction:column; }
+    &__batch-actions > div { display:grid; grid-template-columns:minmax(0,1fr); width:100%; }
+    &__batch-actions .cds--btn { width:100%; max-width:none; }
+    &__progress-meta { align-items:flex-start; flex-direction:column; }
+  }
+}
