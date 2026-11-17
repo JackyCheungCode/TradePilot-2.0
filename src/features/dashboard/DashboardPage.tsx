@@ -231,7 +231,7 @@ export function DashboardPage() {
       if (!keyword || keyword.length > 100) continue;
       counts.set(keyword, (counts.get(keyword) || 0) + 1);
     }
-    return [...counts.entries()].map(([word, count]) => ({ word, count })).sort((a, b) => b.count - a.count).slice(0, 80);
+    return [...counts.entries()].map(([word, count]) => ({ word, count, value: count, group: count >= 5 ? '高频关键词' : count >= 2 ? '中频关键词' : '低频关键词' })).sort((a, b) => b.count - a.count).slice(0, 80);
   }, [data?.discoveryRuns]);
 
   const marketBubbles = useMemo(() => {
