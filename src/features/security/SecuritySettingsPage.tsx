@@ -28,7 +28,7 @@ type Enrollment = {
 
 type RecoveryStatus = { total: number; remaining: number };
 type WebAuthnStatus = { enabled: boolean; granted: boolean; credentials: Array<{ id: string; name: string }> };
-type WebAuthnAction = 'register' | 'enable' | 'disable';
+type WebAuthnAction = 'register' | 'enable' | 'disable' | 'revoke';
 
 function formatDate(value?: string | null) {
   if (!value) return '尚未使用';
@@ -54,7 +54,7 @@ export function SecuritySettingsPage() {
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
   const [webAuthnStatus, setWebAuthnStatus] = useState<WebAuthnStatus>({ enabled: false, granted: false, credentials: [] });
   const [webAuthnAvailable, setWebAuthnAvailable] = useState(false);
-  const [webAuthnStepUp, setWebAuthnStepUp] = useState<{ factorId: string; challengeId: string; action: WebAuthnAction } | null>(null);
+  const [webAuthnStepUp, setWebAuthnStepUp] = useState<{ factorId: string; challengeId: string; action: WebAuthnAction; credentialId?: string } | null>(null);
   const [webAuthnStepUpCode, setWebAuthnStepUpCode] = useState('');
 
   const callWebAuthn = async <T,>(client: Awaited<ReturnType<typeof getSupabaseClient>>, path: string, body: Record<string, unknown> = {}): Promise<T> => {
@@ -71,7 +71,7 @@ export function SecuritySettingsPage() {
     return payload.data;
   };
 
-  const performWebAuthnAction = async (action: WebAuthnAction, client: Awaited<ReturnType<typeof getSupabaseClient>>) => {
+  const performWebAuthnAction = async (action: WebAuthnAction, client: Awaited<ReturnType<typeof getSupabaseClient>>, credentialId?: string) => {
     if (action === 'register') {
       const challenge = await callWebAuthn<{ challengeId: string; options: Parameters<typeof startRegistration>[0]['optionsJSON'] }>(client, '/api/v1/webauthn/registration/options');
       const credential = await startRegistration({ optionsJSON: challenge.options });
@@ -79,6 +79,11 @@ export function SecuritySettingsPage() {
         challengeId: challenge.challengeId, response: credential, friendlyName: 'TradePilot 生物识别设备',
       });
       setNotice('生物识别凭证注册成功。请开启下方的生物识别 MFA 开关后，密码登录才会要求第二步验证。');
+    } else if (action === 'revoke') {
+      if (!credentialId) throw new Error('缺少要撤销的生物识别凭证。');
+      const result = await callWebAuthn<{ revoked: boolean }>(client, '/api/v1/webauthn/credential/revoke', { credentialId });
+      if (!result.revoked) throw new Error('凭证可能已撤销或不存在。');
+      setNotice('生物识别凭证已撤销。');
     } else {
       await callWebAuthn(client, '/api/v1/webauthn/enable', { enabled: action === 'enable' });
       setNotice(action === 'enable' ? '生物识别 MFA 已启用。下次登录需要完成设备验证。' : '生物识别 MFA 已关闭。');
@@ -88,7 +93,7 @@ export function SecuritySettingsPage() {
     setWebAuthnAvailable(true);
   };
 
-  const beginWebAuthnAction = async (action: WebAuthnAction) => {
+  const beginWebAuthnAction = async (action: WebAuthnAction, credentialId?: string) => {
     setBusy(true); setError(''); setNotice('');
     try {
       const client = await getSupabaseClient();
@@ -101,12 +106,12 @@ export function SecuritySettingsPage() {
         if (!factor) throw new Error('此操作需要先配置并验证 TOTP 身份验证器。');
         const { data: challenge, error: challengeError } = await client.auth.mfa.challenge({ factorId: factor.id });
         if (challengeError) throw challengeError;
-        setWebAuthnStepUp({ factorId: factor.id, challengeId: challenge.id, action });
+        setWebAuthnStepUp({ factorId: factor.id, challengeId: challenge.id, action, credentialId });
         setWebAuthnStepUpCode('');
         setNotice('请先输入身份验证器验证码，完成安全设置的二次确认。');
         return;
       }
-      await performWebAuthnAction(action, client);
+      await performWebAuthnAction(action, client, credentialId);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : '无法完成生物识别安全设置。');
     } finally { setBusy(false); }
@@ -126,7 +131,7 @@ export function SecuritySettingsPage() {
       if (assurance.currentLevel !== 'aal2') throw new Error('身份验证未能提升到 AAL2。');
       const action = webAuthnStepUp.action;
       setWebAuthnStepUp(null); setWebAuthnStepUpCode('');
-      await performWebAuthnAction(action, client);
+      await performWebAuthnAction(action, client, webAuthnStepUp.credentialId);
     } catch (cause) { setError(cause instanceof Error ? cause.message : '二次验证失败。'); }
     finally { setBusy(false); }
   };
@@ -391,7 +396,7 @@ export function SecuritySettingsPage() {
                   <Button kind="secondary" disabled={busy} onClick={() => void beginWebAuthnAction("register")}>注册生物识别设备</Button>
                 </div>
                 {webAuthnStatus.credentials.length > 0 ? (
-                  <ul className="tp-security__passkey-list">{webAuthnStatus.credentials.map((credential) => <li key={credential.id}><div><strong>{credential.name}</strong><span>WebAuthn 生物识别凭证</span></div><Tag type="green">已注册</Tag></li>)}</ul>
+                  <ul className="tp-security__passkey-list">{webAuthnStatus.credentials.map((credential) => <li key={credential.id}><div><strong>{credential.name}</strong><span>WebAuthn 生物识别凭证</span></div><div className="tp-security__actions"><Tag type="green">已注册</Tag><Button kind="danger--tertiary" size="sm" disabled={busy} onClick={() => { if (window.confirm("确定撤销此生物识别设备吗？")) void beginWebAuthnAction("revoke", credential.id); }}>撤销</Button></div></li>)}</ul>
                 ) : <p className="tp-security__muted">尚未注册 WebAuthn 生物识别设备。</p>}
                 {webAuthnStepUp && (
                   <div className="tp-security__enrollment">
