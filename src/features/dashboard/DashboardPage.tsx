@@ -256,18 +256,19 @@ export function DashboardPage() {
     }).sort((a, b) => b.value - a.value);
   }, [marketMetric, scoped]);
 
-  // Send every geography to Carbon, including zero-count countries, so the base map
-  // is always complete and the quantize color scale has a valid numeric domain.
+  // Only send countries with real records to Carbon. Including every country with
+  // value=0 compresses the useful range when just a few markets are active, making
+  // distinct market volumes appear almost identical. Countries without data remain
+  // unfilled by the native choropleth and are visually treated as geographic context.
   const choroplethData = useMemo(() => {
-    const valuesByName = new Map(globalMapData.map(item => [normalizeGeoName(item.name), item.value]));
-    return (worldGeoData?.objects?.countries?.geometries || []).map((geometry: any) => {
-      const name = String(geometry.properties?.NAME || '');
-      return {
-        id: String(geometry.id),
-        name,
-        value: valuesByName.get(normalizeGeoName(name)) ?? 0,
-      };
-    }).filter((item: any) => item.name);
+    const activeCountries = new Set(globalMapData.map(item => normalizeGeoName(item.name)));
+    return globalMapData
+      .filter(item => item.value > 0 && activeCountries.has(normalizeGeoName(item.name)))
+      .map(item => ({
+        id: item.group,
+        name: item.name,
+        value: item.value,
+      }));
   }, [globalMapData]);
 
   const searchKeywords = useMemo(() => {
