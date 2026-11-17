@@ -162,7 +162,7 @@ export function DecisionMakerStep({ profile }: Props) {
     const target = selected.length ? selectedRows : rows;
     if (!target.length || running) return;
     if (target.length > 50) { setNotice('现有联系人补全接口每批最多处理 50 家企业，请分批选择。'); return; }
-    setRunning(true); setProgress(0); setNotice('');
+    setRunning(true); setProgress(0); setNotice(''); setSelectedCandidateKeys({});
     setLog('[SYSTEM] 正在创建真实联系人补全任务…\n[TARGET] ' + target.length + ' 家企业');
     try {
       const token = await tokenOrThrow();
@@ -204,12 +204,13 @@ export function DecisionMakerStep({ profile }: Props) {
     setNotice('CRM 转换完成：成功 ' + success + ' 家，失败 ' + failed + ' 家。失败原因已写入下方日志。');
     setLog(current => current + results.filter(item => !item.ok).map(item => '\n[CRM FAILED] ' + item.id + ' · ' + item.message).join(''));
       setSelected([]);
+      setSelectedCandidateKeys(current => { const next = { ...current }; results.filter(item => item.ok).forEach(item => { delete next[item.id]; }); return next; });
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'CRM 转换失败');
     }
   };
 
-  const selectedCandidateCount = Object.values(selectedCandidateKeys).reduce((sum, keys) => sum + keys.length, 0);
+  const selectedCandidateCount = selectedRows.reduce((sum, row) => sum + (selectedCandidateKeys[row.id] ?? []).length, 0);
   const allReady = rows.some(row => row.enrichment === 'complete' && row.candidateCount > 0);
   const emailTag = (row: ContactRow) => row.email
     ? <Tag type={row.emailStatus === 'valid' ? 'green' : 'warm-gray'}>{row.emailStatus === 'valid' ? '已验证' : '待核验'}</Tag>
