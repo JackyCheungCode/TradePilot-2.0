@@ -15,11 +15,20 @@ function keywordMatches(haystack: string, keyword: string, modes: string[]): boo
     try { if (value.length <= 120 && new RegExp(value, "i").test(target)) return true; } catch { /* Ignore invalid user regex safely. */ }
   }
   if (modes.includes("whole")) {
+    const escaped = value.replace(/[.*+?^${}()|[\]\\]/g, "\\  if (modes.includes("regex")) {
+    try { if (value.length <= 120 && new RegExp(value, "i").test(target)) return true; } catch { /* Ignore invalid user regex safely. */ }
+  }
+  if (modes.includes("whole")) {
     const escaped = value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     if (new RegExp("(^|[^\\p{L}\\p{N}])" + escaped + "($|[^\\p{L}\\p{N}])", "iu").test(target)) return true;
   }
   if (modes.includes("prefix") && target.split(/[^\p{L}\p{N}]+/u).some(token => token.startsWith(value))) return true;
-  return target.includes(value);
+  return target.includes(value);");
+    if (new RegExp("(^|[^\\p{L}\\p{N}])" + escaped + "($|[^\\p{L}\\p{N}])", "iu").test(target)) return true;
+  }
+  if ((modes.includes("phrase") || modes.includes("contains")) && target.includes(value)) return true;
+  if (modes.includes("prefix") && target.split(/[^\p{L}\p{N}]+/u).some(token => token.startsWith(value))) return true;
+  return false;
 }
 
 function websiteMatches(website: string, rules: Array<Record<string, unknown>>): string[] {
@@ -83,7 +92,7 @@ export function evaluateGuardrails(record: {
     if (regions.some(value => (text(record.address) + " " + rawText).toLowerCase().includes(value.toLowerCase()))) reasons.push("命中排除地区");
   }
   if (enabled.products === true && lines(rules.products).some(value => (text(record.businessType) + " " + text(record.description) + " " + rawText).toLowerCase().includes(value.toLowerCase()))) reasons.push("命中产品或业务排除规则");
-  if (enabled.contacts === true) {
+  if (enabled.contacts === true && snapshot.doNotContact !== false) {
     const contacts = object(snapshot.contactEntries);
     const contactValues = [record.email, record.phone, record.social, record.address].map(text).join("\n").toLowerCase();
     if (Object.values(contacts).some(value => lines(value).some(item => contactValues.includes(item.toLowerCase())))) reasons.push("命中联系方式排除名单");
