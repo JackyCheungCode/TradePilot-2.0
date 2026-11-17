@@ -143,7 +143,7 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
   const saveLocal = () => {
     try {
       localStorage.setItem('tradepilot.guardrails.frontend.v1', JSON.stringify({ enabled, rules, websiteRows, scope, contactEntries, excludedCountries, keywordAction, doNotContact, selectedDimensions, selectedPositions, selectedModes, selectedWebsiteTypes, employeeFloor, requireIndependentSite, unknownPolicy, duplicatePolicy, template }));
-      setNotice('护盾配置已保存在当前浏览器。尚未写入服务器或任务。');
+      setNotice('护盾配置已保存在当前浏览器；下一次启动任务时会随任务快照提交并执行已接入规则。');
       setError('');
     } catch { setError('浏览器本地保存失败，请检查存储空间。'); }
   };
@@ -173,7 +173,7 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
   return (
     <section className="tp-prospect-discovery__step tp-guardrails">
       <div className="tp-guardrails__notice">
-        <InlineNotification kind="info" lowContrast hideCloseButton title="前端配置预览" subtitle="本阶段仅实现界面交互与浏览器本地状态，不会创建后端规则、写入数据库、启动过滤或影响现有任务。" />
+        <InlineNotification kind="info" lowContrast hideCloseButton title="前端配置预览" subtitle="配置保存在当前浏览器；启动任务时会随任务快照发送至后端，已接入的关键词、网站、企业、地域、产品、联系方式、人员及质量规则会在结果入库前执行。网站类型预设、部分人员选项和全局规则范围尚未接入。" />
       </div>
       {(notice || error) && <div className="tp-guardrails__feedback">
         {notice && <InlineNotification kind="success" lowContrast title="提示" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
