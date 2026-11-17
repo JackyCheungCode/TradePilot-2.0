@@ -70,6 +70,8 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
   const [excludeInternalStaff, setExcludeInternalStaff] = useState(false);
   const [excludeCompetitorStaff, setExcludeCompetitorStaff] = useState(false);
   const [excludeNonDecisionRoles, setExcludeNonDecisionRoles] = useState(false);
+  const [matchCompanyAliases, setMatchCompanyAliases] = useState(true);
+  const [matchGroupEntities, setMatchGroupEntities] = useState(false);
   const [contactEntries, setContactEntries] = useState({ emails: '', phones: '', social: '', addresses: '' });
   const [excludedCountries, setExcludedCountries] = useState<Array<{ id: string; text: string }>>([]);
   const [employeeFloor, setEmployeeFloor] = useState('');
@@ -85,7 +87,7 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
     try {
       const saved = localStorage.getItem('tradepilot.guardrails.frontend.v1');
       if (saved) {
-        const value = JSON.parse(saved) as { enabled?: Record<string, boolean>; rules?: RuleSet; websiteRows?: Array<{ type: string; value: string }>; scope?: string; selectedDimensions?: Array<{ id: string; text: string }>; selectedPositions?: typeof positions; selectedModes?: typeof matchModes; selectedWebsiteTypes?: Array<{ id: string; text: string }>; excludedCountries?: Array<{ id: string; text: string }>; contactEntries?: typeof contactEntries; keywordAction?: string; doNotContact?: boolean; excludeInternalStaff?: boolean; excludeCompetitorStaff?: boolean; excludeNonDecisionRoles?: boolean; employeeFloor?: string; requireIndependentSite?: boolean; unknownPolicy?: string; duplicatePolicy?: string; template?: string };
+        const value = JSON.parse(saved) as { enabled?: Record<string, boolean>; rules?: RuleSet; websiteRows?: Array<{ type: string; value: string }>; scope?: string; selectedDimensions?: Array<{ id: string; text: string }>; selectedPositions?: typeof positions; selectedModes?: typeof matchModes; selectedWebsiteTypes?: Array<{ id: string; text: string }>; excludedCountries?: Array<{ id: string; text: string }>; contactEntries?: typeof contactEntries; keywordAction?: string; doNotContact?: boolean; excludeInternalStaff?: boolean; excludeCompetitorStaff?: boolean; excludeNonDecisionRoles?: boolean; matchCompanyAliases?: boolean; matchGroupEntities?: boolean; employeeFloor?: string; requireIndependentSite?: boolean; unknownPolicy?: string; duplicatePolicy?: string; template?: string };
         if (value.enabled) setEnabled(value.enabled);
         if (value.rules) setRules({ ...emptyRules, ...value.rules });
         if (value.websiteRows) setWebsiteRows(value.websiteRows);
@@ -101,6 +103,8 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
         if (typeof value.excludeInternalStaff === 'boolean') setExcludeInternalStaff(value.excludeInternalStaff);
         if (typeof value.excludeCompetitorStaff === 'boolean') setExcludeCompetitorStaff(value.excludeCompetitorStaff);
         if (typeof value.excludeNonDecisionRoles === 'boolean') setExcludeNonDecisionRoles(value.excludeNonDecisionRoles);
+        if (typeof value.matchCompanyAliases === 'boolean') setMatchCompanyAliases(value.matchCompanyAliases);
+        if (typeof value.matchGroupEntities === 'boolean') setMatchGroupEntities(value.matchGroupEntities);
         if (value.employeeFloor !== undefined) setEmployeeFloor(value.employeeFloor);
         if (typeof value.requireIndependentSite === 'boolean') setRequireIndependentSite(value.requireIndependentSite);
         if (value.unknownPolicy) setUnknownPolicy(value.unknownPolicy);
@@ -148,7 +152,7 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
   };
   const saveLocal = () => {
     try {
-      localStorage.setItem('tradepilot.guardrails.frontend.v1', JSON.stringify({ enabled, rules, websiteRows, scope, contactEntries, excludedCountries, keywordAction, doNotContact, excludeInternalStaff, excludeCompetitorStaff, excludeNonDecisionRoles, selectedDimensions, selectedPositions, selectedModes, selectedWebsiteTypes, employeeFloor, requireIndependentSite, unknownPolicy, duplicatePolicy, template }));
+      localStorage.setItem('tradepilot.guardrails.frontend.v1', JSON.stringify({ enabled, rules, websiteRows, scope, contactEntries, excludedCountries, keywordAction, doNotContact, excludeInternalStaff, excludeCompetitorStaff, excludeNonDecisionRoles, matchCompanyAliases, matchGroupEntities, selectedDimensions, selectedPositions, selectedModes, selectedWebsiteTypes, employeeFloor, requireIndependentSite, unknownPolicy, duplicatePolicy, template }));
       setNotice('护盾配置已保存在当前浏览器；下一次启动任务时会随任务快照提交并执行已接入规则。');
       setError('');
     } catch { setError('浏览器本地保存失败，请检查存储空间。'); }
@@ -262,8 +266,8 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
         </div>
         <TextArea id="tp-guardrails-companies-list" labelText="企业名称 / 品牌 / 别名（每行一个）" placeholder={'企业全称\n企业简称\n品牌名称\n集团名称'} rows={4} value={rules.companies} onChange={event => updateRule('companies', event.currentTarget.value)} />
         <div className="tp-guardrails__choice-row">
-          <Checkbox id="tp-guardrails-company-alias" labelText="同时匹配已确认的企业别名" defaultChecked />
-          <Checkbox id="tp-guardrails-company-group" labelText="匹配已验证的集团关联主体" />
+          <Checkbox id="tp-guardrails-company-alias" labelText="同时匹配已确认的企业别名" checked={matchCompanyAliases} onChange={event => setMatchCompanyAliases(event.currentTarget.checked)} />
+          <Checkbox id="tp-guardrails-company-group" labelText="匹配已验证的集团关联主体" checked={matchGroupEntities} onChange={event => setMatchGroupEntities(event.currentTarget.checked)} />
         </div>
       </div>
 
