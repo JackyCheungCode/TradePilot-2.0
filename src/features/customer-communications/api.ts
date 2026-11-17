@@ -23,6 +23,7 @@ export interface InboxContact {
   mobile?: string | null;
   preferred_language?: string | null;
   preferred_channel?: string | null;
+  avatar_url?: string | null;
 }
 export interface InboxConversation {
   id: string;
