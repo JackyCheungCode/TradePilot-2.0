@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  AreaChart, DonutChart, TreemapChart, SimpleBarChart, LineChart,
+  AreaChart, DonutChart, TreemapChart, SimpleBarChart,
 } from '@carbon/charts-react';
 import {
   Button, InlineLoading, InlineNotification, Tile, Tag, Select, SelectItem,
@@ -86,8 +86,6 @@ export function DashboardPage() {
 
   useEffect(() => { void load(); }, [load]);
 
-  const accountsById = useMemo(() => new Map((data?.accounts || []).map(row => [row.id, row])), [data?.accounts]);
-  const ordersById = useMemo(() => new Map((data?.orders || []).map(row => [row.id, row])), [data?.orders]);
   const startDate = useMemo(() => {
     if (period === 'all') return null;
     const date = new Date();
@@ -213,7 +211,6 @@ export function DashboardPage() {
     ...scoped.orders.filter(row => amountFrom(row, row.metadata?.sales_order?.totals?.grand_total) === null),
     ...scoped.payments.filter(row => amountFrom(row, row.amount) === null),
   ].length;
-  const activeOrders = scoped.orders.filter(row => row.status !== 'draft' && row.status !== 'cancelled');
   const overdueActivities = scoped.activities.filter(row => row.due_at && new Date(row.due_at) < new Date() && !['completed', 'done', 'cancelled'].includes(String(row.status || '').toLowerCase()));
   const overdueReceivables = scoped.orders.flatMap(row => safeArray(row.metadata?.sales_order?.payment_schedule).filter(step => step.due_date && step.due_date < dateKey(new Date()) && Number(step.paid_amount || 0) + 0.005 < Number(step.amount || 0)).map(step => ({ order: row.order_number, step })));
   const overdueReceivableCount = overdueReceivables.length;
