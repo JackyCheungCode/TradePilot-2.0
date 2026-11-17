@@ -176,7 +176,7 @@ export function CustomerCommunicationsWindowPage() {
                     </div>
                     {message.direction === 'outbound' && <PersonAvatar name={currentUser.name} src={currentUser.avatarUrl} className="tp-wa-avatar tp-wa-avatar--message" />}
                   </div>
-                  <div className={'tp-wa-message-source tp-wa-message-source--' + message.channel} title={'消息来源：' + communicationChannelLabels[message.channel]}><span aria-hidden="true">●</span>{communicationChannelLabels[message.channel]}</div>
+                  {message.channel ? <div className={'tp-wa-message-source tp-wa-message-source--' + message.channel} title={'消息来源：' + communicationChannelLabels[message.channel]}><span aria-hidden="true">●</span>{communicationChannelLabels[message.channel]}</div> : <div className="tp-wa-message-source tp-wa-message-source--internal">内部备注</div>}
                 </article>
               ))}
             </div>
