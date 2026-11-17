@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   Accordion, AccordionItem, Button, Checkbox, ComboBox, InlineLoading, InlineNotification,
   RadioButton, RadioButtonGroup, Select, SelectItem, SelectableTile, Tag, TextArea, TextInput,
-  Toggle, Tabs, TabList, Tab, CarbonIcons,
+  Toggle, Tabs, TabList, Tab, Grid, Column, CarbonIcons,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/prospect-discovery.scss';
@@ -366,30 +366,38 @@ export function ProspectDiscoveryPage() {
 
             <div className="tp-prospect-discovery__field">
               <span className="tp-prospect-discovery__field-label">供应链身位锚定（Buyer Persona）</span>
-              <div className="tp-prospect-discovery__buyer-grid">
+              <Grid className="tp-prospect-discovery__buyer-grid" narrow>
                 {buyerOptions.map(item => (
-                  <SelectableTile key={item.id} id={'tp-buyer-' + item.id} value={item.id} selected={profile.buyers.includes(item.id)} onChange={() => toggleArray('buyers', item.id)}>
-                    <div className="tp-prospect-discovery__buyer-tile">
-                      <strong>{item.title}</strong><b>{item.detail}</b><span>{item.description}</span>
-                    </div>
-                  </SelectableTile>
+                  <Column key={item.id} sm={4} md={4} lg={4}>
+                    <SelectableTile id={'tp-buyer-' + item.id} value={item.id} selected={profile.buyers.includes(item.id)} onChange={() => toggleArray('buyers', item.id)}>
+                      <div className="tp-prospect-discovery__buyer-tile">
+                        <strong>{item.title}</strong><b>{item.detail}</b><span>{item.description}</span>
+                      </div>
+                    </SelectableTile>
+                  </Column>
                 ))}
-              </div>
+              </Grid>
             </div>
 
             <div className="tp-prospect-discovery__field">
               <span className="tp-prospect-discovery__field-label">目标市场与语言锚定（Geo & Language）</span>
-              <div className="tp-prospect-discovery__geo-grid">
-                <Select id="tp-continent" labelText="大洲 / 地区" value={profile.continent} onChange={event => setProfile(current => ({ ...current, continent: event.currentTarget.value, country: '', city: '' }))}>
-                  <SelectItem value="" text="选择大洲" />
-                  {continents.map(item => <SelectItem key={item.value} value={item.value} text={item.label} />)}
-                </Select>
-                <Select id="tp-country" labelText="目标国家" value={profile.country} disabled={!profile.continent || countryLoading} onChange={event => { const code = event.currentTarget.value; const country = countries.find(item => item.cca2 === code); setProfile(current => ({ ...current, country: code, countryName: country?.name.common ?? '', city: '' })); }}>
-                  <SelectItem value="" text={countryLoading ? '正在加载国家…' : '选择国家'} />
-                  {filteredCountries.map(item => <SelectItem key={item.cca2} value={item.cca2} text={item.name.common} />)}
-                </Select>
-                <ComboBox id="tp-city" titleText="目标城市" placeholder="输入城市名称并选择（可选）" items={citySuggestions} selectedItem={profile.city} itemToString={item => typeof item === 'string' ? item : ''} disabled={!profile.country} onInputChange={value => update('city', value)} onChange={({ selectedItem }) => { if (typeof selectedItem === 'string') update('city', selectedItem); }} />
-              </div>
+              <Grid className="tp-prospect-discovery__geo-grid" narrow>
+                <Column sm={4} md={4} lg={5}>
+                  <Select id="tp-continent" labelText="大洲 / 地区" value={profile.continent} onChange={event => setProfile(current => ({ ...current, continent: event.currentTarget.value, country: '', countryName: '', city: '' }))}>
+                    <SelectItem value="" text="选择大洲" />
+                    {continents.map(item => <SelectItem key={item.value} value={item.value} text={item.label} />)}
+                  </Select>
+                </Column>
+                <Column sm={4} md={4} lg={5}>
+                  <Select id="tp-country" labelText="目标国家" value={profile.country} disabled={!profile.continent || countryLoading} onChange={event => { const code = event.currentTarget.value; const country = countries.find(item => item.cca2 === code); setProfile(current => ({ ...current, country: code, countryName: country?.name.common ?? '', city: '' })); }}>
+                    <SelectItem value="" text={countryLoading ? '正在加载国家…' : '选择国家'} />
+                    {filteredCountries.map(item => <SelectItem key={item.cca2} value={item.cca2} text={item.name.common} />)}
+                  </Select>
+                </Column>
+                <Column sm={4} md={8} lg={6}>
+                  <ComboBox id="tp-city" titleText="目标城市" placeholder="输入城市名称并选择（可选）" items={citySuggestions} selectedItem={profile.city} itemToString={item => typeof item === 'string' ? item : ''} disabled={!profile.country} onInputChange={value => update('city', value)} onChange={({ selectedItem }) => { if (typeof selectedItem === 'string') update('city', selectedItem); }} />
+                </Column>
+              </Grid>
               {countryError && <span className="tp-prospect-discovery__field-error">{countryError}</span>}
               {cityLoading && <InlineLoading description="正在查找目标城市…" />}
               {cityError && <span className="tp-prospect-discovery__field-error">{cityError}</span>}
