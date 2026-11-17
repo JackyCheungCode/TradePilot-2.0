@@ -111,3 +111,10 @@
 - Proposed reconciliation after explicit approval: transition only these exact run IDs, and only if they are still queued/running, to `failed` with a clear historical-interruption message; preserve progress/counts, all discovery records, occurrences, and existing logs; append one system warning log per transitioned run. Do not delete records, label them cancelled, or restart collection automatically.
 - A read-only FK/index check found no missing leading-column FK indexes on the `discovery_*` tables; the 49 unindexed-FK advisor findings are elsewhere in the project.
 - One orphaned historical search result remains: record `a38048ab-fcf2-4ecc-a856-2099de6fff09` (`品牌故事`, `dx2.cn`) has no occurrence row. The all-results API retains legacy records without occurrences, but no occurrence was fabricated or inserted.
+
+
+## Final code-only CI pass (2026-11-17)
+- Commit `358d4695e36e0d8dfacfd8c3021516e0189e7044`, CI run `44053111364`: success.
+- All 15 automated tests passed, including the four owner-scoped global guardrail settings API tests.
+- Design-system boundary, Worker secret scan, generated Worker types, TypeScript checks, frontend build, Cloudflare Worker dry-run validation, and deployment bundle packaging passed.
+- This is build/package verification only. No deployment or production database migration was executed.
