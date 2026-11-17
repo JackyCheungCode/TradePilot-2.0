@@ -284,8 +284,10 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
       });
       const registryRows = await db<Array<{ status: string; quality_score: number | null; last_tested_at: string | null; source_metadata: Record<string, unknown> }>>(env,
         "actor_registry?owner_id=eq." + ownerId + "&actor_id=eq." + encodeURIComponent(actorId) + "&select=status,quality_score,last_tested_at,source_metadata&limit=1");
-      const lastTest = registryRows?.[0]?.source_metadata?.lastTest && typeof registryRows[0].source_metadata.lastTest === "object" ? registryRows[0].source_metadata.lastTest as Record<string, unknown> : {};
-      return successResponse(request, { actorId, version, schema: localized, actor: { status: registryRows?.[0]?.status ?? "discovered", quality_score: registryRows?.[0]?.quality_score ?? null, last_test_input_fingerprint: safeText(lastTest.inputFingerprint, 40) } });
+      const registryRow = registryRows?.[0];
+      const metadata = registryRow?.source_metadata ?? {};
+      const lastTest = metadata.lastTest && typeof metadata.lastTest === "object" ? metadata.lastTest as Record<string, unknown> : {};
+      return successResponse(request, { actorId, version, schema: localized, actor: { status: registryRow?.status ?? "discovered", quality_score: registryRow?.quality_score ?? null, last_test_input_fingerprint: safeText(lastTest.inputFingerprint, 40) } });
     }
     return errorResponse(request, "NOT_FOUND", "数据源管理接口不存在。", 404);
   } catch (error) {
