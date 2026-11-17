@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { startRegistration } from '@simplewebauthn/browser';
 import {
   Button, InlineLoading, InlineNotification, Tag, TextInput, Toggle,
 } from '@/design-system';
@@ -26,6 +27,8 @@ type Enrollment = {
 };
 
 type RecoveryStatus = { total: number; remaining: number };
+type WebAuthnStatus = { enabled: boolean; granted: boolean; credentials: Array<{ id: string; name: string }> };
+type WebAuthnAction = 'register' | 'enable' | 'disable';
 
 function formatDate(value?: string | null) {
   if (!value) return '尚未使用';
@@ -49,7 +52,84 @@ export function SecuritySettingsPage() {
   const [notice, setNotice] = useState('');
   const [recoveryStatus, setRecoveryStatus] = useState<RecoveryStatus>({ total: 0, remaining: 0 });
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
+  const [webAuthnStatus, setWebAuthnStatus] = useState<WebAuthnStatus>({ enabled: false, granted: false, credentials: [] });
+  const [webAuthnAvailable, setWebAuthnAvailable] = useState(false);
+  const [webAuthnStepUp, setWebAuthnStepUp] = useState<{ factorId: string; challengeId: string; action: WebAuthnAction } | null>(null);
+  const [webAuthnStepUpCode, setWebAuthnStepUpCode] = useState('');
 
+  const callWebAuthn = async <T,>(client: Awaited<ReturnType<typeof getSupabaseClient>>, path: string, body: Record<string, unknown> = {}): Promise<T> => {
+    const { data, error: sessionError } = await client.auth.getSession();
+    if (sessionError) throw sessionError;
+    if (!data.session?.access_token) throw new Error('登录会话已失效，请重新登录。');
+    const response = await fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.session.access_token}` },
+      body: JSON.stringify(body),
+    });
+    const payload = await response.json() as { data?: T; error?: { message?: string } };
+    if (!response.ok || payload.error || payload.data === undefined) throw new Error(payload.error?.message || 'WebAuthn 服务暂时不可用。');
+    return payload.data;
+  };
+
+  const performWebAuthnAction = async (action: WebAuthnAction, client: Awaited<ReturnType<typeof getSupabaseClient>>) => {
+    if (action === 'register') {
+      const challenge = await callWebAuthn<{ challengeId: string; options: Parameters<typeof startRegistration>[0]['optionsJSON'] }>(client, '/api/v1/webauthn/registration/options');
+      const credential = await startRegistration({ optionsJSON: challenge.options });
+      await callWebAuthn(client, '/api/v1/webauthn/registration/verify', {
+        challengeId: challenge.challengeId, response: credential, friendlyName: 'TradePilot 生物识别设备',
+      });
+      setNotice('生物识别凭证注册成功。请开启下方的生物识别 MFA 开关后，密码登录才会要求第二步验证。');
+    } else {
+      await callWebAuthn(client, '/api/v1/webauthn/enable', { enabled: action === 'enable' });
+      setNotice(action === 'enable' ? '生物识别 MFA 已启用。下次登录需要完成设备验证。' : '生物识别 MFA 已关闭。');
+    }
+    const status = await callWebAuthn<WebAuthnStatus>(client, '/api/v1/webauthn/status');
+    setWebAuthnStatus(status);
+    setWebAuthnAvailable(true);
+  };
+
+  const beginWebAuthnAction = async (action: WebAuthnAction) => {
+    setBusy(true); setError(''); setNotice('');
+    try {
+      const client = await getSupabaseClient();
+      const { data: assurance, error: assuranceError } = await client.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (assuranceError) throw assuranceError;
+      if (assurance.currentLevel !== 'aal2') {
+        const { data: factors, error: factorsError } = await client.auth.mfa.listFactors();
+        if (factorsError) throw factorsError;
+        const factor = factors.totp.find((item) => item.status === 'verified');
+        if (!factor) throw new Error('此操作需要先配置并验证 TOTP 身份验证器。');
+        const { data: challenge, error: challengeError } = await client.auth.mfa.challenge({ factorId: factor.id });
+        if (challengeError) throw challengeError;
+        setWebAuthnStepUp({ factorId: factor.id, challengeId: challenge.id, action });
+        setWebAuthnStepUpCode('');
+        setNotice('请先输入身份验证器验证码，完成安全设置的二次确认。');
+        return;
+      }
+      await performWebAuthnAction(action, client);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '无法完成生物识别安全设置。');
+    } finally { setBusy(false); }
+  };
+
+  const verifyWebAuthnStepUp = async () => {
+    if (!webAuthnStepUp || !/^\\d{6,8}$/.test(webAuthnStepUpCode.trim())) { setError('请输入 6–8 位身份验证器验证码。'); return; }
+    setBusy(true); setError('');
+    try {
+      const client = await getSupabaseClient();
+      const { error: verifyError } = await client.auth.mfa.verify({
+        factorId: webAuthnStepUp.factorId, challengeId: webAuthnStepUp.challengeId, code: webAuthnStepUpCode.trim(),
+      });
+      if (verifyError) throw verifyError;
+      const { data: assurance, error: assuranceError } = await client.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (assuranceError) throw assuranceError;
+      if (assurance.currentLevel !== 'aal2') throw new Error('身份验证未能提升到 AAL2。');
+      const action = webAuthnStepUp.action;
+      setWebAuthnStepUp(null); setWebAuthnStepUpCode('');
+      await performWebAuthnAction(action, client);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : '二次验证失败。'); }
+    finally { setBusy(false); }
+  };
   const loadSecurity = useCallback(async () => {
     setLoading(true);
     setError('');
@@ -66,6 +146,10 @@ export function SecuritySettingsPage() {
       setPasskeys((passkeyResult.data ?? []) as PasskeyRecord[]);
       setTotpFactors((factorResult.data?.totp ?? []) as TotpFactor[]);
       setRecoveryStatus((recoveryResult.data ?? { total: 0, remaining: 0 }) as RecoveryStatus);
+      try {
+        const status = await callWebAuthn<WebAuthnStatus>(client, '/api/v1/webauthn/status');
+        setWebAuthnStatus(status); setWebAuthnAvailable(true);
+      } catch { setWebAuthnAvailable(false); }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : '无法读取安全设置。');
     } finally {
@@ -287,6 +371,38 @@ export function SecuritySettingsPage() {
             )}
           </section>
 
+          <section className="tp-security__section" aria-labelledby="tp-security-webauthn">
+            <div className="tp-security__section-heading">
+              <div>
+                <h2 id="tp-security-webauthn">独立 WebAuthn 生物识别第二因子</h2>
+                <p>密码登录后，使用已注册设备进行独立的指纹、面部或设备 PIN 验证。凭证私钥保留在设备中，服务端只保存公钥。</p>
+              </div>
+              <Tag type={webAuthnStatus.enabled ? "green" : "gray"}>{webAuthnStatus.enabled ? "已启用" : "未启用"}</Tag>
+            </div>
+            {!webAuthnAvailable ? (
+              <InlineNotification kind="warning" lowContrast title="生物识别服务尚未就绪" subtitle="服务端数据库迁移和 API 尚未完成部署，当前不能注册或启用独立 WebAuthn 第二因子。" />
+            ) : (
+              <>
+                <div className="tp-security__toggle-row">
+                  <div><strong>启用生物识别 MFA</strong><span>启用后，每次新登录都必须通过当前会话的设备验证。</span></div>
+                  <Toggle id="tradepilot-webauthn-toggle" labelText="生物识别 MFA" labelA="关闭" labelB="开启" toggled={webAuthnStatus.enabled} disabled={busy || (!webAuthnStatus.enabled && webAuthnStatus.credentials.length === 0)} onToggle={(checked) => void beginWebAuthnAction(checked ? "enable" : "disable")} />
+                </div>
+                <div className="tp-security__actions">
+                  <Button kind="secondary" disabled={busy} onClick={() => void beginWebAuthnAction("register")}>注册生物识别设备</Button>
+                </div>
+                {webAuthnStatus.credentials.length > 0 ? (
+                  <ul className="tp-security__passkey-list">{webAuthnStatus.credentials.map((credential) => <li key={credential.id}><div><strong>{credential.name}</strong><span>WebAuthn 生物识别凭证</span></div><Tag type="green">已注册</Tag></li>)}</ul>
+                ) : <p className="tp-security__muted">尚未注册 WebAuthn 生物识别设备。</p>}
+                {webAuthnStepUp && (
+                  <div className="tp-security__enrollment">
+                    <h3>确认身份</h3><p>此安全操作需要 TOTP 二次验证。</p>
+                    <TextInput id="tradepilot-webauthn-stepup" labelText="身份验证器验证码" value={webAuthnStepUpCode} onChange={(event) => setWebAuthnStepUpCode(event.currentTarget.value.replace(/\\D/g, "").slice(0, 8))} inputMode="numeric" autoComplete="one-time-code" />
+                    <div className="tp-security__actions"><Button onClick={() => void verifyWebAuthnStepUp()} disabled={busy || webAuthnStepUpCode.length < 6}>验证并继续</Button><Button kind="ghost" onClick={() => setWebAuthnStepUp(null)}>取消</Button></div>
+                  </div>
+                )}
+              </>
+            )}
+          </section>
           <section className="tp-security__section" aria-labelledby="tp-security-mfa">
             <div className="tp-security__section-heading">
               <div>
@@ -387,7 +503,7 @@ export function SecuritySettingsPage() {
               <li>建议保留至少一个备用 Passkey，并确保身份验证器可以在备用设备上恢复。</li>
               <li>删除 Passkey 前，请确认还有其他可用的登录方式。</li>
               <li>Passkey 当前用于无密码登录；Supabase 托管版 Auth 的原生 MFA 第二因子使用 TOTP。Passkey 登录会话仍是 AAL1，不会因为设备使用了 Face ID 或指纹就自动升级为 AAL2。</li>
-              <li>生物识别作为独立 WebAuthn 第二因子尚未启用。托管版 Supabase Auth 目前不开放 WebAuthn MFA 因子配置；需要单独建设服务端验证与全链路授权，不能只在前端增加一个验证弹窗。</li>
+              <li>独立 WebAuthn 第二因子由 TradePilot Worker 验证，并按 Supabase 登录会话授予限时访问权限；Passkey 无密码登录与密码后的第二因子是两条独立流程。</li>
             </ul>
           </section>
         </>
