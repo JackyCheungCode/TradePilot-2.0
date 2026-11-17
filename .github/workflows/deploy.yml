@@ -1,23 +1,22 @@
 name: Deploy TradePilot Worker
 
 on:
-  workflow_dispatch:
-  # One-time, commit-message-gated production release requested by the user.
   push:
     branches: [develop]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: tradepilot-production-deploy
+  cancel-in-progress: false
+
 jobs:
   deploy:
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' &&
-       contains(github.event.head_commit.message, 'one-time approved production release'))
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout develop commit
         uses: actions/checkout@v4
         with:
           ref: ${{ github.sha }}
