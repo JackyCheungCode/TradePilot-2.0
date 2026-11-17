@@ -74,11 +74,11 @@ async function enforceWebAuthnSession(request: Request, env: WorkerEnv): Promise
   if (!jwtPart) return errorResponse(request,"UNAUTHENTICATED","登录会话无效。",401);
   const normalized = jwtPart.replace(/-/g,"+").replace(/_/g,"/");
   const claims = JSON.parse(atob(normalized + "=".repeat((4-normalized.length%4)%4))) as Record<string,unknown>;
-  if (claims.sub !== user.id || claims.iss !== env.SUPABASE_URL.replace(/\/$/,"") + "/auth/v1") {
+  if (claims.sub !== user.id || claims.role !== "authenticated" || claims.iss !== env.SUPABASE_URL.replace(/\/$/,"") + "/auth/v1") {
    return errorResponse(request,"UNAUTHENTICATED","登录会话无效。",401);
   }
   const sessionId = typeof claims.session_id === "string" ? claims.session_id : "";
-  if (!/^[0-9a-f-]{36}$/i.test(sessionId)) return errorResponse(request,"UNAUTHENTICATED","登录会话缺少有效标识。",401);
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(sessionId)) return errorResponse(request,"UNAUTHENTICATED","登录会话缺少有效标识。",401);
   const headers = {
    apikey: env.SUPABASE_SERVICE_ROLE_KEY,
    Authorization: "Bearer " + env.SUPABASE_SERVICE_ROLE_KEY,
