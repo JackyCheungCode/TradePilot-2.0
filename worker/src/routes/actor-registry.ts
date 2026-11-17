@@ -186,7 +186,9 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
         method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
         body: JSON.stringify({ owner_id: ownerId, actor_id: actorId, version, input_schema: schema, localized_schema: localized, fetched_at: new Date().toISOString() }),
       });
-      return successResponse(request, { actorId, version, schema: localized });
+      const registryRows = await db<Array<{ status: string; quality_score: number | null; last_tested_at: string | null }>>(env,
+        "actor_registry?owner_id=eq." + ownerId + "&actor_id=eq." + encodeURIComponent(actorId) + "&select=status,quality_score,last_tested_at&limit=1");
+      return successResponse(request, { actorId, version, schema: localized, actor: registryRows?.[0] ?? null });
     }
     return errorResponse(request, "NOT_FOUND", "数据源管理接口不存在。", 404);
   } catch (error) {
