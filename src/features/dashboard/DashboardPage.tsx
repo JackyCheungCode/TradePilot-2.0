@@ -183,7 +183,6 @@ export function DashboardPage() {
     };
   }, [scoped, period, marketMetric]);
 
-  function keyMonth(date: Date) { return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0'); }
 
   const effectiveQuotes = scoped.documents.filter(row => ['sent', 'viewed', 'accepted'].includes(String(row.status || '').toLowerCase()));
   const quoteTotal = effectiveQuotes.reduce((sum, row) => {
