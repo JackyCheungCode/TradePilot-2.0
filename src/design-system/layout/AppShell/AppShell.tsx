@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, Outlet } from 'react-router-dom';
 import {
-  Header, HeaderName, HeaderMenuButton, HeaderGlobalBar, HeaderGlobalAction,
+  Header, HeaderName, HeaderMenuButton, HeaderGlobalBar, HeaderGlobalAction, SkipToContent,
   SideNav, SideNavItems, SideNavLink, Content, CarbonIcons, InlineNotification, OverflowMenu, OverflowMenuItem, useThemePreference,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
@@ -15,6 +15,9 @@ import { CustomerCommunicationsWidget } from '@/features/customer-communications
  */
 export function AppShell() {
   const [sideNavExpanded, setSideNavExpanded] = useState(false);
+  const [isCompactViewport, setIsCompactViewport] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 1055px)').matches
+  );
   const [xiaoyaOpen, setXiaoyaOpen] = useState(false);
   const [communicationsOpen, setCommunicationsOpen] = useState(false);
   const [communicationsMinimized, setCommunicationsMinimized] = useState(false);
@@ -24,6 +27,18 @@ export function AppShell() {
   const { preference, setPreference } = useThemePreference();
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 1055px)');
+    const updateViewport = () => setIsCompactViewport(mediaQuery.matches);
+    updateViewport();
+    mediaQuery.addEventListener('change', updateViewport);
+    return () => mediaQuery.removeEventListener('change', updateViewport);
+  }, []);
+
+  useEffect(() => {
+    if (isCompactViewport) setSideNavExpanded(false);
+  }, [location.pathname, isCompactViewport]);
 
   const signOut = async () => {
     if (signingOut) return;
@@ -43,6 +58,7 @@ export function AppShell() {
 
   return (
     <>
+      <SkipToContent href="#main-content" />
       <Header aria-label="TradePilot">
         <HeaderMenuButton
           aria-label={sideNavExpanded ? '收起导航菜单' : '展开导航菜单'}
@@ -116,8 +132,8 @@ export function AppShell() {
         aria-label="TradePilot 主导航"
         className={sideNavExpanded ? 'tp-sidenav--expanded' : 'tp-sidenav--rail'}
         expanded={sideNavExpanded}
-        isPersistent
-        isRail={!sideNavExpanded}
+        isPersistent={!isCompactViewport}
+        isRail={!isCompactViewport && !sideNavExpanded}
         onOverlayClick={() => setSideNavExpanded(false)}
       >
         <div className="tp-sidenav__group">
@@ -168,7 +184,7 @@ export function AppShell() {
           </div>
         </div>
       </SideNav>
-      <Content className="tp-content">
+      <Content id="main-content" tabIndex={-1} className="tp-content">
         <div className="tp-content__main">
           {signOutError && <InlineNotification kind="error" lowContrast title="退出登录失败" subtitle={signOutError} onCloseButtonClick={() => setSignOutError('')} />}
           <Outlet />
