@@ -98,3 +98,16 @@
 - The five SECURITY DEFINER RPCs inspected in the read-only audit all contain explicit auth.uid() and owner_id checks; their execute grants were retained. Their search_path is hardened by the additive migration rather than revoking authenticated execution.
 - The two mutable-search_path trigger functions reference public tables with schema qualification and are hardened to an empty search_path by the same migration.
 - The 17 RLS-enabled/no-policy tables remain fail-closed. No generic allow policies were added. The Supabase Auth leaked-password-protection setting still requires an administrator-side configuration change.
+
+
+## Historical task reconciliation proposal (read-only; not executed)
+- The five non-terminal runs identified in the production audit are:
+  - `f0585e55-117d-44e1-8880-ce21c29e4d44` — Maps, queued, progress 0, one log.
+  - `ade7c883-9373-4f4a-aead-4950da8cfbde` — Maps, queued, progress 0, one log.
+  - `88a13922-d250-478d-a8c2-a5c8bf75111a` — Maps, running, progress 0, five logs.
+  - `edb80b84-f50a-4add-89fa-77a65627d5b4` — Facebook, running, progress 1, three logs.
+  - `54097203-4249-4748-8634-96505807bb84` — Agent/web search, running, progress 85, four logs.
+- The last log timestamps are Nov 13–14, 2026; the read-only Cloudflare workflow inspection found no matching active queued/running instances. No database row or log was changed.
+- Proposed reconciliation after explicit approval: transition only these exact run IDs, and only if they are still queued/running, to `failed` with a clear historical-interruption message; preserve progress/counts, all discovery records, occurrences, and existing logs; append one system warning log per transitioned run. Do not delete records, label them cancelled, or restart collection automatically.
+- A read-only FK/index check found no missing leading-column FK indexes on the `discovery_*` tables; the 49 unindexed-FK advisor findings are elsewhere in the project.
+- One orphaned historical search result remains: record `a38048ab-fcf2-4ecc-a856-2099de6fff09` (`品牌故事`, `dx2.cn`) has no occurrence row. The all-results API retains legacy records without occurrences, but no occurrence was fabricated or inserted.
