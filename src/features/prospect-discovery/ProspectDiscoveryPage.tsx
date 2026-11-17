@@ -121,10 +121,7 @@ export function ProspectDiscoveryPage() {
   const [localizedTerms, setLocalizedTerms] = useState<string[]>([]);
   const [buyerKeywords, setBuyerKeywords] = useState<string[]>([]);
   const [strategyLoading, setStrategyLoading] = useState(false);
-  const [aiSynonyms, setAiSynonyms] = useState<string[]>([]);
-  const [localizedTerms, setLocalizedTerms] = useState<string[]>([]);
-  const [buyerKeywords, setBuyerKeywords] = useState<string[]>([]);
-  const [strategyLoading, setStrategyLoading] = useState(false);
+
   const [googleQueries, setGoogleQueries] = useState<string[]>([]);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
