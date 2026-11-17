@@ -134,6 +134,8 @@ export function DocumentStudioPage() {
     return () => { active = false; };
   }, [isShipment, orderId]);
 
+  useEffect(() => { setTemplateId(''); }, [locale]);
+
   useEffect(() => {
     const template = templates.find(item => item.id === templateId);
     if (!template) return;
