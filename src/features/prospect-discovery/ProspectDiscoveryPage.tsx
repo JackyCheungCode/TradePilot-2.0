@@ -503,7 +503,7 @@ export function ProspectDiscoveryPage() {
                 </div>
               </div>
               <div className="tp-prospect-discovery__preview-block">
-                <div className="tp-prospect-discovery__preview-heading"><h3>黄金搜索矩阵（Golden Dork Matrix）</h3><Toggle id="tp-advanced-mode" labelText="高级模式" labelA="关闭" labelB="开启" toggled={advancedMode} onToggle={event => setAdvancedMode(event.currentTarget.checked)} /></div>
+                <div className="tp-prospect-discovery__preview-heading"><h3>黄金搜索矩阵（Golden Dork Matrix）</h3><Toggle id="tp-advanced-mode" labelText="高级模式" labelA="关闭" labelB="开启" toggled={advancedMode} onToggle={setAdvancedMode} /></div>
                 <Accordion>
                   <AccordionItem title={'Google Dorks（' + googleQueries.length + ' 条）'}>
                     <div className="tp-prospect-discovery__query-list">
