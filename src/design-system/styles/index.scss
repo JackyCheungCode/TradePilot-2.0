@@ -1,3 +1,5 @@
 /** Single application-wide stylesheet entry point. */
 @use './carbon';
 @use '../layout/AppShell/styles';
+
+@use './customer-communications';
