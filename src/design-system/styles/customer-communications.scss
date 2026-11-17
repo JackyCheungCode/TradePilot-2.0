@@ -1,9 +1,6 @@
 /* Isolated SaaS-style communication workspace. The app header launcher uses the native Carbon global action. */
 .cc-floating-root{position:fixed;z-index:1200;inset:0;display:grid;place-items:center;pointer-events:none;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#172033}.cc-minimized{position:fixed;z-index:1200;right:24px;bottom:24px;pointer-events:none;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#172033}
-.cc-window{--cc-accent:#16865b;--cc-accent-soft:#e7f6ee;--cc-surface:#fff;--cc-surface-soft:#f7f9fc;--cc-border:#e6eaf0;--cc-text:#172033;--cc-muted:#748094;display:flex;flex-direction:column;width:min(1220px,calc(100vw - 48px));height:min(790px,calc(100vh - 96px));min-height:520px;overflow:hidden;border:1px solid rgba(25,39,61,.13);border-radius:18px;background:var(--cc-surface);box-shadow:0 24px 80px rgba(22,34,51,.24);pointer-events:auto}
-.cc-theme-wechat{--cc-accent:#07a35a;--cc-accent-soft:#e8f7ef}
-.cc-theme-messenger{--cc-accent:#087cff;--cc-accent-soft:#eaf3ff}
-.cc-theme-outlook{--cc-accent:#1767b2;--cc-accent-soft:#eaf2fb}
+.cc-window{--cc-accent:var(--cds-interactive-01, #0f62fe);--cc-accent-soft:var(--cds-layer-accent-01, #edf5ff);--cc-surface:#fff;--cc-surface-soft:#f7f9fc;--cc-border:#e6eaf0;--cc-text:#172033;--cc-muted:#748094;display:flex;flex-direction:column;width:min(1220px,calc(100vw - 48px));height:min(790px,calc(100vh - 96px));min-height:520px;overflow:hidden;border:1px solid rgba(25,39,61,.13);border-radius:18px;background:var(--cc-surface);box-shadow:0 24px 80px rgba(22,34,51,.24);pointer-events:auto}
 .cc-window--maximized{position:fixed;inset:12px;width:auto;height:auto;max-height:none}
 .cc-window-header{height:62px;flex:0 0 62px;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:0 18px;border-bottom:1px solid var(--cc-border);background:var(--cc-surface)}
 .cc-window-brand,.cc-window-tools,.cc-brand-mark,.cc-chat-header,.cc-chat-header-actions,.cc-inbox-heading,.cc-customer-top,.cc-customer-bottom,.cc-reply-routing,.cc-composer-footer{display:flex;align-items:center}
@@ -13,9 +10,6 @@
 .cc-window-brand strong{font-size:14px;font-weight:700}
 .cc-window-brand small{color:var(--cc-muted);font-size:11px}
 .cc-window-tools{gap:7px}
-.cc-theme-switcher{display:flex;align-items:center;gap:2px;padding:3px;border-radius:9px;background:#f0f3f7}
-.cc-theme-switcher button{border:0;border-radius:7px;padding:7px 9px;background:transparent;color:#677386;font-size:11px;font-weight:600;cursor:pointer}
-.cc-theme-switcher button.is-active{background:#fff;color:#172033;box-shadow:0 1px 3px rgba(18,32,53,.12)}
 .cc-icon-button{width:32px;height:32px;border:0;border-radius:8px;background:transparent;color:#657287;font-size:19px;line-height:1;cursor:pointer}
 .cc-icon-button:hover{background:#f0f3f7;color:#172033}
 .cc-workspace{display:grid;grid-template-columns:286px minmax(360px,1fr) 258px;flex:1;min-height:0;background:var(--cc-surface)}
@@ -115,13 +109,8 @@
 .cc-minimized .cc-restore{display:flex;align-items:center;gap:9px;border:0;border-radius:30px;padding:12px 16px;background:#172033;color:#fff;font-size:12px;font-weight:700;box-shadow:0 10px 35px rgba(22,34,51,.28);pointer-events:auto;cursor:pointer}
 .cc-restore-icon{font-size:17px}
 .cc-restore b{display:inline-flex;min-width:18px;height:18px;align-items:center;justify-content:center;border-radius:10px;background:#e54d5c;font-size:10px}
-.cc-theme-outlook .cc-message-group{max-width:86%}
-.cc-theme-outlook .cc-message-bubble{border-radius:8px}
-.cc-theme-outlook .cc-message-group.is-outbound .cc-message-bubble{background:#eaf2fb;color:#263d58}
-.cc-theme-wechat .cc-message-group.is-outbound .cc-message-bubble{border-radius:12px 4px 12px 12px}
-.cc-theme-messenger .cc-message-group.is-outbound .cc-message-bubble{border-radius:16px 16px 4px 16px}
-@media(max-width:900px){.cc-workspace{grid-template-columns:245px minmax(300px,1fr)}.cc-profile{display:none}.cc-workspace--no-profile{grid-template-columns:245px minmax(300px,1fr)}.cc-theme-switcher button{padding-inline:6px}}
-@media(max-width:680px){.cc-floating-root,.cc-minimized{inset:0;right:0;bottom:0}.cc-window,.cc-window--maximized{position:fixed;inset:0;width:100vw;height:100dvh;min-height:0;border:0;border-radius:0}.cc-window-header{height:auto;min-height:58px;flex-basis:auto;flex-wrap:wrap;padding:8px 10px}.cc-window-brand{min-width:0}.cc-window-brand small{display:none}.cc-window-tools{gap:2px}.cc-theme-switcher{max-width:calc(100vw - 190px);overflow:auto}.cc-theme-switcher button{font-size:9px;padding:6px}.cc-icon-button{width:27px;height:29px}.cc-workspace,.cc-workspace--no-profile{display:block;position:relative;flex:1;min-height:0}.cc-inbox,.cc-chat{position:absolute;inset:0;width:100%;height:100%}.cc-chat{display:none}.cc-workspace--mobile-chat .cc-inbox{display:none}.cc-workspace--mobile-chat .cc-chat{display:flex}.cc-mobile-back{display:inline-flex;align-items:center;justify-content:center;width:28px;height:32px}.cc-customer-row{padding:13px 12px}.cc-timeline{padding:15px 12px}.cc-message-group{max-width:90%}.cc-composer{padding:10px}.cc-composer-footer span{max-width:58%}.cc-minimized .cc-restore{position:absolute;right:14px;bottom:14px}.cc-window-tools .cc-icon-button:nth-last-child(4),.cc-window-tools .cc-icon-button:nth-last-child(3),.cc-window-tools .cc-icon-button:nth-last-child(2){display:none}}
+@media(max-width:900px){.cc-workspace{grid-template-columns:245px minmax(300px,1fr)}.cc-profile{display:none}.cc-workspace--no-profile{grid-template-columns:245px minmax(300px,1fr)}}
+@media(max-width:680px){.cc-floating-root,.cc-minimized{inset:0;right:0;bottom:0}.cc-window,.cc-window--maximized{position:fixed;inset:0;width:100vw;height:100dvh;min-height:0;border:0;border-radius:0}.cc-window-header{height:auto;min-height:58px;flex-basis:auto;flex-wrap:wrap;padding:8px 10px}.cc-window-brand{min-width:0}.cc-window-brand small{display:none}.cc-window-tools{gap:2px}.cc-icon-button{width:27px;height:29px}.cc-workspace,.cc-workspace--no-profile{display:block;position:relative;flex:1;min-height:0}.cc-inbox,.cc-chat{position:absolute;inset:0;width:100%;height:100%}.cc-chat{display:none}.cc-workspace--mobile-chat .cc-inbox{display:none}.cc-workspace--mobile-chat .cc-chat{display:flex}.cc-mobile-back{display:inline-flex;align-items:center;justify-content:center;width:28px;height:32px}.cc-customer-row{padding:13px 12px}.cc-timeline{padding:15px 12px}.cc-message-group{max-width:90%}.cc-composer{padding:10px}.cc-composer-footer span{max-width:58%}.cc-minimized .cc-restore{position:absolute;right:14px;bottom:14px}.cc-window-tools .cc-icon-button:nth-last-child(4),.cc-window-tools .cc-icon-button:nth-last-child(3),.cc-window-tools .cc-icon-button:nth-last-child(2){display:none}}
 @media(prefers-reduced-motion:reduce){.cc-window *{scroll-behavior:auto!important;transition:none!important}}
 
 
@@ -176,20 +165,6 @@
     min-width: 0;
     justify-content: space-between;
     gap: 6px;
-  }
-  .cc-theme-switcher {
-    flex: 1 1 auto;
-    width: auto;
-    max-width: none;
-    min-width: 0;
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    white-space: nowrap;
-  }
-  .cc-theme-switcher button {
-    flex: 0 0 auto;
-    padding: 7px 9px;
-    font-size: 10px;
   }
   .cc-window-tools .cc-icon-button:nth-last-child(3),
   .cc-window-tools .cc-icon-button:nth-last-child(2),
@@ -351,4 +326,17 @@
     bottom: 0;
     padding: 0 12px calc(12px + env(safe-area-inset-bottom)) 0;
   }
+}
+
+
+/* Carbon blue notification count on the global communications action. */
+.tp-header-communications { position: relative; }
+.tp-header-unread-badge {
+  position: absolute; top: 0.125rem; right: 0.125rem; z-index: 2;
+  display: inline-flex; min-width: 1.125rem; height: 1.125rem;
+  align-items: center; justify-content: center; padding-inline: 0.25rem;
+  border: 2px solid var(--cds-header, #ffffff); border-radius: 999px;
+  background: var(--cds-support-error, #da1e28); color: #ffffff;
+  font-size: 0.625rem; font-weight: 600; line-height: 1;
+  font-variant-numeric: tabular-nums; pointer-events: none;
 }
