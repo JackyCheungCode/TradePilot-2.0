@@ -80,7 +80,7 @@ export function evaluateGuardrails(record: {
     const excluded = Array.isArray(snapshot.excludedCountries) ? snapshot.excludedCountries.map(item => text(object(item).id).toUpperCase()) : [];
     if (excluded.includes(text(record.country).toUpperCase())) reasons.push("命中排除国家");
     const regions = lines(rules.geography);
-    if (regions.some(value => (text(record.address) + " " + text(record.raw)).toLowerCase().includes(value.toLowerCase()))) reasons.push("命中排除地区");
+    if (regions.some(value => (text(record.address) + " " + rawText).toLowerCase().includes(value.toLowerCase()))) reasons.push("命中排除地区");
   }
   if (enabled.products === true && lines(rules.products).some(value => (text(record.businessType) + " " + text(record.description) + " " + rawText).toLowerCase().includes(value.toLowerCase()))) reasons.push("命中产品或业务排除规则");
   if (enabled.contacts === true) {
@@ -92,7 +92,7 @@ export function evaluateGuardrails(record: {
   if (enabled.quality === true) {
     if (lines(rules.quality).some(value => fields.toLowerCase().includes(value.toLowerCase()))) reasons.push("命中数据质量排除规则");
     const floor = Number(snapshot.employeeFloor);
-    const employees = Number(record.employeeCount ?? raw.employee_count ?? raw.employees ?? raw.company_size);
+    const employeeValue = record.employeeCount ?? raw.employee_count ?? raw.employees ?? raw.company_size;\n    const employees = employeeValue === null || employeeValue === undefined || employeeValue === "" ? Number.NaN : Number(employeeValue);
     if (Number.isFinite(floor) && floor > 0 && (!Number.isFinite(employees) || employees < floor)) {
       if (!Number.isFinite(employees) && snapshot.unknownPolicy === "pending") review = true;
       else if (!Number.isFinite(employees) && snapshot.unknownPolicy === "block") reasons.push("员工规模未知，按严格策略拦截");
