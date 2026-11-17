@@ -79,7 +79,7 @@ export function DecisionMakerStep({ profile }: Props) {
   const [log, setLog] = useState('[SYSTEM] 联系人穿透工作台已就绪。\n[CONTEXT] 等待加载已审核的真实潜客记录。');
   const [notice, setNotice] = useState('');
   const [page, setPage] = useState(1);
-  const pageSize = 10;
+  const [pageSize, setPageSize] = useState(10);
 
   const loadRecords = async () => {
     const queue = JSON.parse(localStorage.getItem('tradepilot.prospect-discovery.crm-queue.v1') || '[]') as Array<{ id?: string }>;
@@ -258,7 +258,7 @@ export function DecisionMakerStep({ profile }: Props) {
             </TableBody>
           </Table>
         </div>
-        <div className="tp-decision__pagination"><Pagination id="tp-decision-pagination" page={page} pageSize={pageSize} pageSizes={[10, 20, 50]} totalItems={filtered.length} onChange={({ page: nextPage }) => setPage(nextPage)} /></div>
+        <div className="tp-decision__pagination"><Pagination id="tp-decision-pagination" page={page} pageSize={pageSize} pageSizes={[10, 20, 50]} totalItems={filtered.length} onChange={({ page: nextPage, pageSize: nextSize }) => { setPage(nextPage); setPageSize(nextSize); }} /></div>
         <div className="tp-decision__footer"><span>当前 {rows.length} 家企业 · 已补全 {enrichedCount} 家 · 联系人候选 {candidateCount} 位 · 已同步 {rows.filter(row => row.crm === 'synced').length} 家</span><Button kind="ghost" size="sm" renderIcon={CarbonIcons.ArrowUp} onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>返回顶部</Button></div>
       </Tile>
     </section>
