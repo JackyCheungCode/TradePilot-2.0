@@ -58,6 +58,15 @@ as $$
   select coalesce((select s.enabled from private.webauthn_mfa_preferences s where s.user_id = p_user_id), false);
 $$;
 
+create or replace function public.tradepilot_webauthn_has_verified_totp(p_user_id uuid)
+returns boolean language sql stable security definer set search_path = ''
+as $
+  select exists (
+    select 1 from auth.mfa_factors f
+    where f.user_id=p_user_id and f.factor_type='totp' and f.status='verified'
+  );
+$;
+
 create or replace function public.tradepilot_webauthn_get_credentials(p_user_id uuid)
 returns table(credential_id text, public_key text, counter bigint, transports text[], friendly_name text)
 language sql stable security definer set search_path = ''
@@ -213,7 +222,12 @@ as $$
     when auth.uid() is null then false
     when not coalesce((
       select s.enabled from private.webauthn_mfa_preferences s where s.user_id=auth.uid()
-    ),false) then true
+    ),false) then (
+      not exists (
+        select 1 from auth.mfa_factors f
+        where f.user_id=auth.uid() and f.factor_type='totp' and f.status='verified'
+      ) or auth.jwt()->>'aal'='aal2'
+    )
     else exists (
       select 1
       from private.webauthn_session_grants g
@@ -227,6 +241,7 @@ as $$
 $$;
 
 revoke all on function public.tradepilot_webauthn_is_enabled(uuid) from public, anon, authenticated;
+revoke all on function public.tradepilot_webauthn_has_verified_totp(uuid) from public, anon, authenticated;
 revoke all on function public.tradepilot_webauthn_get_credentials(uuid) from public, anon, authenticated;
 revoke all on function public.tradepilot_webauthn_store_challenge(uuid,uuid,text,text,timestamptz) from public, anon, authenticated;
 revoke all on function public.tradepilot_webauthn_consume_challenge(uuid,uuid,uuid,text) from public, anon, authenticated;
