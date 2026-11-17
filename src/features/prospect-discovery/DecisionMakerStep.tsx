@@ -11,7 +11,7 @@ type ContactRow = {
   person: string; title: string; linkedin: string; email: string; phone: string; whatsapp: string;
   emailStatus: 'valid' | 'pending' | 'unknown'; enrichment: 'pending' | 'complete';
   crm: 'not-synced' | 'synced' | 'failed'; crmId?: string; candidateKeys: string[];
-  candidateCount: number; contacts: Array<{ name: string; title: string; email: string; phone: string; linkedin: string; whatsapp: string }>;
+  candidateCount: number; contacts: Array<{ key: string; name: string; title: string; email: string; phone: string; linkedin: string; whatsapp: string }>;
 };
 type Candidate = Record<string, unknown>;
 type Props = { profile: { coreNoun: string; countryName: string } };
@@ -52,7 +52,7 @@ function mapRecord(record: Record<string, unknown>): ContactRow {
   const email = String(candidate.email ?? emails[0] ?? '');
   const person = String(candidate.full_name ?? '');
   const isEnriched = Boolean(raw.contact_enrichment || raw.contact_intelligence);
-  const contacts = candidates.map(item => ({ name: String(item.full_name ?? ''), title: String(item.job_title ?? ''), email: String(item.email ?? ''), phone: String(item.phone ?? item.mobile ?? ''), linkedin: String(item.linkedin_url ?? ''), whatsapp: String(item.whatsapp ?? '') }));
+  const contacts = candidates.map(item => ({ key: candidateKey(item), name: String(item.full_name ?? ''), title: String(item.job_title ?? ''), email: String(item.email ?? ''), phone: String(item.phone ?? item.mobile ?? ''), linkedin: String(item.linkedin_url ?? ''), whatsapp: String(item.whatsapp ?? '') }));
   return {
     id: String(record.id), company: String(record.name ?? '未命名企业'), domain,
     country: String(record.country_code ?? ''), source: String(occurrences[0]?.provider ?? record.channel ?? ''),
@@ -69,6 +69,7 @@ function mapRecord(record: Record<string, unknown>): ContactRow {
 export function DecisionMakerStep({ profile }: Props) {
   const [rows, setRows] = useState<ContactRow[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
+  const [selectedCandidateKeys, setSelectedCandidateKeys] = useState<Record<string, string[]>>({});
   const [search, setSearch] = useState('');
   const [providers, setProviders] = useState<string[]>(['website']);
   const [loading, setLoading] = useState(true);
@@ -179,7 +180,7 @@ export function DecisionMakerStep({ profile }: Props) {
   };
 
   const syncSelected = async () => {
-    const candidates = selectedRows.filter(row => row.enrichment === 'complete' && row.candidateKeys.length > 0);
+    const candidates = selectedRows.map(row => ({ ...row, candidateKeys: selectedCandidateKeys[row.id] ?? [] })).filter(row => row.enrichment === 'complete' && row.candidateKeys.length > 0);
     if (!candidates.length) { setNotice('所选企业尚无可转换的真实联系人候选。请先执行联系人穿透。'); return; }
     try {
       setNotice('正在逐家企业提交已勾选的联系人，成功与失败结果将分别保留。');
@@ -208,6 +209,7 @@ export function DecisionMakerStep({ profile }: Props) {
     }
   };
 
+  const selectedCandidateCount = Object.values(selectedCandidateKeys).reduce((sum, keys) => sum + keys.length, 0);
   const allReady = rows.some(row => row.enrichment === 'complete' && row.candidateCount > 0);
   const emailTag = (row: ContactRow) => row.email
     ? <Tag type={row.emailStatus === 'valid' ? 'green' : 'warm-gray'}>{row.emailStatus === 'valid' ? '已验证' : '待核验'}</Tag>
@@ -241,7 +243,7 @@ export function DecisionMakerStep({ profile }: Props) {
         </div>
         <div className="tp-decision__actions">
           <Button kind="primary" renderIcon={CarbonIcons.SearchLocate} disabled={running || loading || !rows.length || !providers.length} onClick={startEnrichment}>{running ? '正在穿透组织架构…' : '开始执行联系人穿透'}</Button>
-          <Button kind="secondary" renderIcon={CarbonIcons.CloudUpload} disabled={!selected.length || !allReady || running} onClick={syncSelected}>确认所选联系人并同步至 CRM</Button>
+          <Button kind="secondary" renderIcon={CarbonIcons.CloudUpload} disabled={!selected.length || !allReady || selectedCandidateCount === 0 || running} onClick={syncSelected}>确认所选联系人并同步至 CRM</Button>
           <span>先执行补全，再人工确认联系人候选</span>
         </div>
       </Tile>
@@ -268,7 +270,7 @@ export function DecisionMakerStep({ profile }: Props) {
               {visible.map(row => <TableRow key={row.id}>
                 <TableSelectRow id={'decision-' + row.id} name={'decision-' + row.id} checked={selected.includes(row.id)} onSelect={() => toggleOne(row.id)} />
                 <TableCell><div className="tp-decision__company"><strong>{row.company}</strong><Tag type="blue">{row.source || row.country}</Tag></div><small>{row.domain || '暂无官网'}</small></TableCell>
-                <TableCell>{row.contacts.length ? <div className="tp-decision__person">{row.contacts.map((contact, index) => <div key={index}><strong>{contact.name || '姓名待核验'}</strong><span>{contact.title || '职位待核验'}</span>{contact.email && <small>{contact.email}</small>}</div>)}</div> : row.person ? <div className="tp-decision__person"><strong>{row.person}</strong><span>{row.title || '职位待核验'}</span></div> : <Tag type="gray">暂无候选</Tag>}</TableCell>
+                <TableCell>{row.contacts.length ? <div className="tp-decision__person">{row.contacts.map((contact, index) => <div key={contact.key || index}><Checkbox id={'tp-contact-candidate-' + row.id + '-' + index} labelText={contact.name || '姓名待核验'} checked={(selectedCandidateKeys[row.id] ?? []).includes(contact.key)} onChange={event => { const checked = event.currentTarget.checked; setSelectedCandidateKeys(current => ({ ...current, [row.id]: checked ? [...new Set([...(current[row.id] ?? []), contact.key])] : (current[row.id] ?? []).filter(key => key !== contact.key) })); setSelected(current => checked ? [...new Set([...current, row.id])] : current); }} /><span>{contact.title || '职位待核验'}</span>{contact.email && <small>{contact.email}</small>}</div>)}</div> : row.person ? <div className="tp-decision__person"><strong>{row.person}</strong><span>{row.title || '职位待核验'}</span></div> : <Tag type="gray">暂无候选</Tag>}</TableCell>
                 <TableCell><div className="tp-decision__email">{row.email ? <a href={'mailto:' + row.email}>{row.email}</a> : <Tag type="gray">待采集</Tag>}{emailTag(row)}{row.phone && <small>{row.phone}</small>}{row.whatsapp && <small>WhatsApp：{row.whatsapp}</small>}</div></TableCell>
                 <TableCell>{row.linkedin ? <a href={row.linkedin} target="_blank" rel="noreferrer">LinkedIn <CarbonIcons.ArrowUpRight size={12} /></a> : <Tag type="gray">暂无公开账号</Tag>}</TableCell>
                 <TableCell><div className="tp-decision__status">{crmTag(row)}{row.crmId && <small>{row.crmId}</small>}</div></TableCell>
