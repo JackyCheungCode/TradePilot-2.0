@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ChangeEvent } from 'react';
+import { getSupabaseClient } from '@/lib/supabase';
 import {
   Button, Checkbox, FileUploaderButton, InlineNotification,
   MultiSelect, RadioButton, RadioButtonGroup, Select, SelectItem, Tag, TextArea, TextInput, Toggle,
@@ -8,6 +9,13 @@ import {
 type CountryOption = { cca2: string; name: { common: string } };
 type ProfileContext = { coreNoun?: string; country?: string; countryName?: string; buyers?: string[] };
 type RuleSet = Record<string, string>;
+
+async function getSettingsToken() {
+  const db = await getSupabaseClient();
+  const { data } = await db.auth.getSession();
+  if (!data.session?.access_token) throw new Error('登录状态已失效，请重新登录。');
+  return data.session.access_token;
+}
 
 const keywordDimensions = [
   { id: 'identity', label: '企业身份', examples: 'manufacturer, factory, supplier, wholesaler, retailer' },
@@ -44,11 +52,11 @@ const websiteRuleTypes = [
   { value: 'pattern', text: 'URL 模式（Pattern）' },
 ];
 const exclusionActions = [
-  { value: 'company', text: '拦截企业' }, { value: 'page', text: '跳过页面' }, { value: 'result', text: '跳过搜索结果' },
+  { value: 'company', text: '拦截企业（后续接入）' }, { value: 'page', text: '跳过页面（后续接入）' }, { value: 'result', text: '跳过当前搜索结果（已启用）' },
 ];
 
 const emptyRules: RuleSet = {
-  keywords: '', websites: '', companies: '', geography: '', products: '', contacts: '', people: '', quality: '',
+  keywords: '', websites: '', companies: '', geography: '', products: '', contacts: '', people: '', quality: '', jobTitles: '', competitorCompanies: '', internalStaffDomains: '',
 };
 
 export function GuardrailsStep({ countries, profile }: { countries: CountryOption[]; profile: ProfileContext }) {
@@ -65,8 +73,13 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
   const [websiteValue, setWebsiteValue] = useState('');
   const [websiteRows, setWebsiteRows] = useState<Array<{ type: string; value: string }>>([]);
   const [scope, setScope] = useState('task');
-  const [keywordAction, setKeywordAction] = useState('page');
+  const [keywordAction, setKeywordAction] = useState('result');
   const [doNotContact, setDoNotContact] = useState(true);
+  const [excludeInternalStaff, setExcludeInternalStaff] = useState(false);
+  const [excludeCompetitorStaff, setExcludeCompetitorStaff] = useState(false);
+  const [excludeNonDecisionRoles, setExcludeNonDecisionRoles] = useState(false);
+  const [matchCompanyAliases, setMatchCompanyAliases] = useState(true);
+  const [matchGroupEntities, setMatchGroupEntities] = useState(false);
   const [contactEntries, setContactEntries] = useState({ emails: '', phones: '', social: '', addresses: '' });
   const [excludedCountries, setExcludedCountries] = useState<Array<{ id: string; text: string }>>([]);
   const [employeeFloor, setEmployeeFloor] = useState('');
@@ -78,23 +91,66 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
 
+  const loadGlobalConfig = async () => {
+    const token = await getSettingsToken();
+    const response = await fetch('/api/v1/settings/prospect-guardrails', {
+      headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' },
+    });
+    const payload = await response.json().catch(() => ({})) as { data?: { config?: Record<string, unknown> | null }; error?: { message?: string } };
+    if (!response.ok) throw new Error(payload.error?.message || '读取全局护盾配置失败（HTTP ' + response.status + '）');
+    const config = payload.data?.config;
+    if (!config) return false;
+    if (config.enabled && typeof config.enabled === 'object') setEnabled(config.enabled as Record<string, boolean>);
+    if (config.rules && typeof config.rules === 'object') setRules({ ...emptyRules, ...(config.rules as RuleSet) });
+    if (Array.isArray(config.websiteRows)) setWebsiteRows(config.websiteRows as Array<{ type: string; value: string }>);
+    if (Array.isArray(config.selectedDimensions)) setSelectedDimensions(config.selectedDimensions as Array<{ id: string; text: string }>);
+    if (Array.isArray(config.selectedPositions)) setSelectedPositions(config.selectedPositions as typeof positions);
+    if (Array.isArray(config.selectedModes)) setSelectedModes(config.selectedModes as typeof matchModes);
+    if (Array.isArray(config.selectedWebsiteTypes)) setSelectedWebsiteTypes(config.selectedWebsiteTypes as Array<{ id: string; text: string }>);
+    if (Array.isArray(config.excludedCountries)) setExcludedCountries(config.excludedCountries as Array<{ id: string; text: string }>);
+    if (config.contactEntries && typeof config.contactEntries === 'object') setContactEntries(config.contactEntries as typeof contactEntries);
+    setKeywordAction('result');
+    for (const key of ['doNotContact', 'excludeInternalStaff', 'excludeCompetitorStaff', 'excludeNonDecisionRoles', 'matchCompanyAliases', 'matchGroupEntities', 'requireIndependentSite'] as const) {
+      if (typeof config[key] === 'boolean') {
+        if (key === 'doNotContact') setDoNotContact(config[key] as boolean);
+        else if (key === 'excludeInternalStaff') setExcludeInternalStaff(config[key] as boolean);
+        else if (key === 'excludeCompetitorStaff') setExcludeCompetitorStaff(config[key] as boolean);
+        else if (key === 'excludeNonDecisionRoles') setExcludeNonDecisionRoles(config[key] as boolean);
+        else if (key === 'matchCompanyAliases') setMatchCompanyAliases(config[key] as boolean);
+        else if (key === 'matchGroupEntities') setMatchGroupEntities(config[key] as boolean);
+        else setRequireIndependentSite(config[key] as boolean);
+      }
+    }
+    if (config.employeeFloor !== undefined) setEmployeeFloor(String(config.employeeFloor));
+    if (typeof config.unknownPolicy === 'string') setUnknownPolicy(config.unknownPolicy);
+    if (typeof config.duplicatePolicy === 'string') setDuplicatePolicy(config.duplicatePolicy);
+    if (typeof config.template === 'string') setTemplate(config.template);
+    setNotice('已从服务器加载当前账户的全局护盾配置。');
+    return true;
+  };
+
   useEffect(() => {
     try {
       const saved = localStorage.getItem('tradepilot.guardrails.frontend.v1');
       if (saved) {
-        const value = JSON.parse(saved) as { enabled?: Record<string, boolean>; rules?: RuleSet; websiteRows?: Array<{ type: string; value: string }>; scope?: string; selectedDimensions?: Array<{ id: string; text: string }>; selectedPositions?: typeof positions; selectedModes?: typeof matchModes; selectedWebsiteTypes?: Array<{ id: string; text: string }>; excludedCountries?: Array<{ id: string; text: string }>; contactEntries?: typeof contactEntries; keywordAction?: string; doNotContact?: boolean; employeeFloor?: string; requireIndependentSite?: boolean; unknownPolicy?: string; duplicatePolicy?: string; template?: string };
+        const value = JSON.parse(saved) as { enabled?: Record<string, boolean>; rules?: RuleSet; websiteRows?: Array<{ type: string; value: string }>; scope?: string; selectedDimensions?: Array<{ id: string; text: string }>; selectedPositions?: typeof positions; selectedModes?: typeof matchModes; selectedWebsiteTypes?: Array<{ id: string; text: string }>; excludedCountries?: Array<{ id: string; text: string }>; contactEntries?: typeof contactEntries; keywordAction?: string; doNotContact?: boolean; excludeInternalStaff?: boolean; excludeCompetitorStaff?: boolean; excludeNonDecisionRoles?: boolean; matchCompanyAliases?: boolean; matchGroupEntities?: boolean; employeeFloor?: string; requireIndependentSite?: boolean; unknownPolicy?: string; duplicatePolicy?: string; template?: string };
         if (value.enabled) setEnabled(value.enabled);
         if (value.rules) setRules({ ...emptyRules, ...value.rules });
         if (value.websiteRows) setWebsiteRows(value.websiteRows);
-        if (value.scope) setScope(value.scope);
+        setScope(value.scope === 'global' || value.scope === 'both' ? value.scope : 'task');
         if (value.selectedDimensions) setSelectedDimensions(value.selectedDimensions);
         if (value.selectedPositions) setSelectedPositions(value.selectedPositions);
         if (value.selectedModes) setSelectedModes(value.selectedModes);
         if (value.selectedWebsiteTypes) setSelectedWebsiteTypes(value.selectedWebsiteTypes);
         if (value.excludedCountries) setExcludedCountries(value.excludedCountries);
         if (value.contactEntries) setContactEntries(value.contactEntries);
-        if (value.keywordAction) setKeywordAction(value.keywordAction);
+        if (value.keywordAction) setKeywordAction('result');
         if (typeof value.doNotContact === 'boolean') setDoNotContact(value.doNotContact);
+        if (typeof value.excludeInternalStaff === 'boolean') setExcludeInternalStaff(value.excludeInternalStaff);
+        if (typeof value.excludeCompetitorStaff === 'boolean') setExcludeCompetitorStaff(value.excludeCompetitorStaff);
+        if (typeof value.excludeNonDecisionRoles === 'boolean') setExcludeNonDecisionRoles(value.excludeNonDecisionRoles);
+        if (typeof value.matchCompanyAliases === 'boolean') setMatchCompanyAliases(value.matchCompanyAliases);
+        if (typeof value.matchGroupEntities === 'boolean') setMatchGroupEntities(value.matchGroupEntities);
         if (value.employeeFloor !== undefined) setEmployeeFloor(value.employeeFloor);
         if (typeof value.requireIndependentSite === 'boolean') setRequireIndependentSite(value.requireIndependentSite);
         if (value.unknownPolicy) setUnknownPolicy(value.unknownPolicy);
@@ -140,12 +196,27 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
     setImportPreview([]);
     setNotice('已将预览中的项目加入本地网站排除规则。');
   };
-  const saveLocal = () => {
+  const saveLocal = async () => {
+    const config = { enabled, rules, websiteRows, scope, contactEntries, excludedCountries, keywordAction, doNotContact, excludeInternalStaff, excludeCompetitorStaff, excludeNonDecisionRoles, matchCompanyAliases, matchGroupEntities, selectedDimensions, selectedPositions, selectedModes, selectedWebsiteTypes, employeeFloor, requireIndependentSite, unknownPolicy, duplicatePolicy, template };
     try {
-      localStorage.setItem('tradepilot.guardrails.frontend.v1', JSON.stringify({ enabled, rules, websiteRows, scope, contactEntries, excludedCountries, keywordAction, doNotContact, selectedDimensions, selectedPositions, selectedModes, selectedWebsiteTypes, employeeFloor, requireIndependentSite, unknownPolicy, duplicatePolicy, template }));
-      setNotice('护盾配置已保存在当前浏览器。尚未写入服务器或任务。');
+      localStorage.setItem('tradepilot.guardrails.frontend.v1', JSON.stringify(config));
+      if (scope === 'global' || scope === 'both') {
+        const token = await getSettingsToken();
+        const response = await fetch('/api/v1/settings/prospect-guardrails', {
+          method: 'PUT',
+          headers: { Authorization: 'Bearer ' + token, Accept: 'application/json', 'Content-Type': 'application/json' },
+          body: JSON.stringify({ config }),
+        });
+        const payload = await response.json().catch(() => ({})) as { error?: { message?: string }; message?: string };
+        if (!response.ok) throw new Error(payload.error?.message || payload.message || '全局护盾配置保存失败（HTTP ' + response.status + '）');
+      }
+      setNotice(scope === 'task'
+        ? '护盾配置已保存在当前浏览器；下一次启动任务时会随任务快照提交。'
+        : scope === 'global' ? '全局护盾配置已保存到服务器，并记录配置变更历史。' : '全局护盾配置与当前任务配置均已保存。');
       setError('');
-    } catch { setError('浏览器本地保存失败，请检查存储空间。'); }
+    } catch (error) {
+      setError(error instanceof Error ? error.message : '护盾配置保存失败。');
+    }
   };
   const loadPreset = (value: string) => {
     setTemplate(value);
@@ -173,7 +244,7 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
   return (
     <section className="tp-prospect-discovery__step tp-guardrails">
       <div className="tp-guardrails__notice">
-        <InlineNotification kind="info" lowContrast hideCloseButton title="前端配置预览" subtitle="本阶段仅实现界面交互与浏览器本地状态，不会创建后端规则、写入数据库、启动过滤或影响现有任务。" />
+        <InlineNotification kind="info" lowContrast hideCloseButton title="前端配置预览" subtitle="当前任务配置保存在浏览器；全局配置保存在服务器并按用户隔离。启动任务时会生成不可变配置快照，已接入渠道按快照执行。" />
       </div>
       {(notice || error) && <div className="tp-guardrails__feedback">
         {notice && <InlineNotification kind="success" lowContrast title="提示" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
@@ -210,9 +281,10 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
           <span className="tp-guardrails__field-label">命中后的处理动作</span>
           <div className="tp-guardrails__choice-row">
             <RadioButtonGroup legendText="命中后的处理动作" name="tp-guardrails-keyword-action" valueSelected={keywordAction} onChange={value => setKeywordAction(String(value))}>
-            {exclusionActions.map(item => <RadioButton key={item.value} id={'tp-guardrails-action-' + item.value} value={item.value} labelText={item.text} />)}
+            {exclusionActions.map(item => <RadioButton key={item.value} id={'tp-guardrails-action-' + item.value} value={item.value} labelText={item.text} disabled={item.value !== 'result'} />)}
           </RadioButtonGroup>
           </div>
+          <p className="tp-guardrails__helper">当前已接入渠道仅启用“跳过当前搜索结果”。企业级跨记录封锁和页面级处理暂不开放，避免显示未生效的选项。</p>
         </div>
       </div>
 
@@ -256,8 +328,8 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
         </div>
         <TextArea id="tp-guardrails-companies-list" labelText="企业名称 / 品牌 / 别名（每行一个）" placeholder={'企业全称\n企业简称\n品牌名称\n集团名称'} rows={4} value={rules.companies} onChange={event => updateRule('companies', event.currentTarget.value)} />
         <div className="tp-guardrails__choice-row">
-          <Checkbox id="tp-guardrails-company-alias" labelText="同时匹配已确认的企业别名" defaultChecked />
-          <Checkbox id="tp-guardrails-company-group" labelText="匹配已验证的集团关联主体" />
+          <Checkbox id="tp-guardrails-company-alias" labelText="同时匹配已确认的企业别名" checked={matchCompanyAliases} onChange={event => setMatchCompanyAliases(event.currentTarget.checked)} />
+          <Checkbox id="tp-guardrails-company-group" labelText="匹配已验证的集团关联主体" checked={matchGroupEntities} onChange={event => setMatchGroupEntities(event.currentTarget.checked)} />
         </div>
       </div>
 
@@ -307,13 +379,15 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
         </div>
         <div className="tp-guardrails__two-col">
           <TextArea id="tp-guardrails-person-names" labelText="联系人姓名 / 账号" placeholder="每行一个姓名或账号" rows={3} value={rules.people} onChange={event => updateRule('people', event.currentTarget.value)} />
-          <TextArea id="tp-guardrails-job-titles" labelText="排除职位 / 岗位" placeholder={'intern\nassistant\nnon-purchasing role'} rows={3} />
+          <TextArea id="tp-guardrails-job-titles" labelText="排除职位 / 岗位" placeholder={'intern\nassistant\nnon-purchasing role'} rows={3} value={rules.jobTitles} onChange={event => updateRule('jobTitles', event.currentTarget.value)} />
         </div>
         <div className="tp-guardrails__choice-row">
-          <Checkbox id="tp-guardrails-internal-staff" labelText="排除内部员工" />
-          <Checkbox id="tp-guardrails-competitor-staff" labelText="排除竞争对手员工" />
-          <Checkbox id="tp-guardrails-non-decision" labelText="排除非决策岗位" />
+          <Checkbox id="tp-guardrails-internal-staff" labelText="排除内部员工" checked={excludeInternalStaff} onChange={event => setExcludeInternalStaff(event.currentTarget.checked)} />
+          <Checkbox id="tp-guardrails-competitor-staff" labelText="排除竞争对手员工" checked={excludeCompetitorStaff} onChange={event => setExcludeCompetitorStaff(event.currentTarget.checked)} />
+          <Checkbox id="tp-guardrails-non-decision" labelText="排除非决策岗位" checked={excludeNonDecisionRoles} onChange={event => setExcludeNonDecisionRoles(event.currentTarget.checked)} />
         </div>
+        <div className="tp-guardrails__field"><TextArea id="tp-guardrails-competitor-companies" labelText="竞争对手企业名称（每行一个）" placeholder="填写需要排除其员工的竞争对手企业名称" rows={2} value={rules.competitorCompanies} onChange={event => updateRule('competitorCompanies', event.currentTarget.value)} /></div>
+        <div className="tp-guardrails__field"><TextArea id="tp-guardrails-internal-domains" labelText="内部员工邮箱域名（每行一个）" placeholder="例如 yourcompany.com，用于识别本企业内部员工" rows={2} value={rules.internalStaffDomains} onChange={event => updateRule('internalStaffDomains', event.currentTarget.value)} /></div>
       </div>
 
       <div className="tp-guardrails__panel">
@@ -349,8 +423,8 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
           <Select id="tp-guardrails-template" labelText="预设模板" value={template} onChange={event => loadPreset(event.currentTarget.value)}>
             <SelectItem value="relaxed" text="宽松型" /><SelectItem value="standard" text="标准型（推荐）" /><SelectItem value="strict" text="严格型" />
           </Select>
-          <Select id="tp-guardrails-scope" labelText="规则作用范围" value={scope} onChange={event => setScope(event.currentTarget.value)}>
-            <SelectItem value="task" text="当前任务" /><SelectItem value="global" text="全局规则" /><SelectItem value="both" text="全局 + 当前任务" />
+          <Select id="tp-guardrails-scope" labelText="规则作用范围" value={scope} onChange={event => { const nextScope = event.currentTarget.value; setScope(nextScope); if (nextScope === 'global' || nextScope === 'both') loadGlobalConfig().catch(error => setError(error instanceof Error ? error.message : '读取全局护盾配置失败。')); }}>
+            <SelectItem value="task" text="仅当前任务" /><SelectItem value="global" text="全局规则（保存后用于后续任务）" /><SelectItem value="both" text="全局规则 + 当前任务覆盖" />
           </Select>
         </div>
         <div className="tp-guardrails__rule-summary">

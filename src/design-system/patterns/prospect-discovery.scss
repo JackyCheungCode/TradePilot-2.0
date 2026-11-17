@@ -309,6 +309,41 @@
     @include type-style('heading-compact-01');
   }
 
+  &__platform-status-legend {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: $spacing-04;
+    margin-top: $spacing-03;
+  }
+
+  &__platform-status {
+    display: inline-flex;
+    align-items: center;
+    gap: $spacing-02;
+    color: var(--cds-text-secondary);
+    @include type-style('label-01');
+    white-space: nowrap;
+  }
+
+  &__platform-status i {
+    display: inline-block;
+    flex: 0 0 8px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--cds-text-disabled);
+  }
+
+  &__platform-status.is-connected i { background: var(--cds-support-success); }
+  &__platform-status.is-verify i { background: var(--cds-support-warning); }
+  &__platform-status.is-unavailable i { background: var(--cds-text-disabled); }
+
+  &__platform-name > strong {
+    color: var(--cds-text-primary);
+    font-weight: 600;
+  }
+
   &__platform-copy p {
     @include type-style('body-compact-01');
     color: var(--cds-text-secondary);

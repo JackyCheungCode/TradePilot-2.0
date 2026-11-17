@@ -164,6 +164,18 @@ const allPlatforms: Array<Source & { category: string; global: boolean }> = [
 const continentLabelForCountry = (country: Country) => directoryContinent(country);
 const continentName = (value: string) => continentLabels.find(item => item.value === value)?.label ?? value;
 
+type PlatformExecutionStatus = 'connected' | 'verify' | 'unavailable';
+const getPlatformExecutionStatus = (id: string): PlatformExecutionStatus => {
+  if (id === 'google-maps') return 'connected';
+  if (id === 'facebook' || id === 'instagram' || id === 'google-search') return 'verify';
+  return 'unavailable';
+};
+const platformStatusLabels: Record<PlatformExecutionStatus, string> = {
+  connected: '执行链已接入',
+  verify: '需验证连接 / 凭证',
+  unavailable: '尚未接入执行器',
+};
+
 export function PlatformSelectionStep({
   countryCode, countryName, continentLabel, countries, onChangeCountry, onSelectionCountChange, selectedIds, onSelectionChange,
 }: {
@@ -242,7 +254,11 @@ export function PlatformSelectionStep({
 
     <section className="tp-prospect-discovery__platform-browser">
       <div className="tp-prospect-discovery__platform-browser-heading">
-        <div><h3>全球平台筛选与选择</h3><p>同一筛选维度内为“或”关系，不同维度之间为“且”关系。</p></div>
+        <div><h3>全球平台筛选与选择</h3><p>同一筛选维度内为“或”关系，不同维度之间为“且”关系。</p>
+          <div className="tp-prospect-discovery__platform-status-legend" aria-label="平台执行状态说明">
+            {(['connected', 'verify', 'unavailable'] as const).map(state => <span key={state} className={`tp-prospect-discovery__platform-status is-${state}`}><i aria-hidden="true" />{platformStatusLabels[state]}</span>)}
+          </div>
+        </div>
         <Tag type="blue">{allPlatforms.length} 个平台</Tag>
       </div>
       <div className="tp-prospect-discovery__platform-filters">
@@ -281,7 +297,10 @@ export function PlatformSelectionStep({
           return <div className={'tp-prospect-discovery__platform-row' + (checked ? ' is-selected' : '')} key={source.id}>
             <Checkbox id={'tp-platform-' + source.id} labelText={source.name} hideLabel checked={checked} onChange={() => toggle(source.id)} />
             <div className="tp-prospect-discovery__platform-copy">
-              <div className="tp-prospect-discovery__platform-name">{source.name}{isRecommended && <Tag type="green">智能推荐</Tag>}{source.global && <Tag type="blue">全球通用</Tag>}</div>
+              <div className="tp-prospect-discovery__platform-name">
+                <span className={`tp-prospect-discovery__platform-status is-${getPlatformExecutionStatus(source.id)}`}><i aria-hidden="true" />{platformStatusLabels[getPlatformExecutionStatus(source.id)]}</span>
+                <strong>{source.name}</strong>{isRecommended && <Tag type="green">智能推荐</Tag>}{source.global && <Tag type="blue">全球通用</Tag>}
+              </div>
               <p>{source.description}</p>
             </div>
             <div className="tp-prospect-discovery__platform-classification"><Tag type="gray">{source.category}</Tag></div>

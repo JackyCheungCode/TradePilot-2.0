@@ -625,7 +625,7 @@ export function ProspectDiscoveryPage() {
       ) : selectedIndex === 2 ? (
         <GuardrailsStep countries={countries} profile={{ coreNoun: profile.coreNoun, country: profile.country, countryName: profile.countryName, buyers: profile.buyers }} />
       ) : selectedIndex === 3 ? (
-        <ExecutionStep profile={{ coreNoun: profile.coreNoun, buyers: profile.buyers, continent: continents.find(item => item.value === profile.continent)?.label ?? profile.continent, country: profile.country, countryName: profile.countryName, city: profile.city }} sources={selectedSources ?? []} onEditStep={setSelectedIndex} onContinueToScoring={ids => { try { localStorage.setItem('tradepilot.prospect-scoring.queue.v1', JSON.stringify(ids)); } catch { /* Keep navigation available if local storage is full. */ } setSelectedIndex(4); }} />
+        <ExecutionStep profile={{ coreNoun: profile.coreNoun, buyers: profile.buyers, continent: continents.find(item => item.value === profile.continent)?.label ?? profile.continent, country: profile.country, countryName: profile.countryName, city: profile.city }} sources={selectedSources ?? []} planTaskCode={planTaskCode} onEditStep={setSelectedIndex} onContinueToScoring={ids => { try { localStorage.setItem('tradepilot.prospect-scoring.queue.v1', JSON.stringify(ids)); } catch { /* Keep navigation available if local storage is full. */ } setSelectedIndex(4); }} />
       ) : selectedIndex === 4 ? (
         <ScoringStep profile={{ coreNoun: profile.coreNoun, countryName: profile.countryName, buyers: profile.buyers }} onContinueToEnrichment={() => setSelectedIndex(5)} />
       ) : selectedIndex === 5 ? (

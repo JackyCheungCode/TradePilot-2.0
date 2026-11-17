@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { strToU8, zipSync } from 'fflate';
 import {
   Accordion, AccordionItem, Button, Column, Dropdown, Grid, InlineNotification, OverflowMenu,
@@ -6,42 +6,23 @@ import {
   TableCell, TableHead, TableHeader, TableRow, TableSelectAll, TableSelectRow,
   TableToolbar, TableToolbarContent, TableToolbarSearch, Tag, Tile, CarbonIcons,
 } from '@/design-system';
+import { getSupabaseClient } from '@/lib/supabase';
+
+const asObject = (value: unknown): Record<string, unknown> => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
 
 type Lead = {
   id: string; name: string; domain: string; country: string; source: string; email: string;
+  address?: string; phone?: string; runId?: string; confidence?: number; reviewed?: boolean; guardrailReview?: boolean; duplicateReview?: boolean;
   status: 'pending' | 'scored'; score?: number; fit?: number; persona?: number; scale?: number; intent?: number; comment?: string;
 };
 type Props = { profile: { coreNoun: string; countryName: string; buyers: string[] }; onContinueToEnrichment: () => void };
 
-const companyNames = [
-  ['SolarTech Deutschland GmbH', 'solartech-de.com'], ['EcoPower Systems GmbH', 'eco-power.de'],
-  ['Nordic Energy Solutions', 'nordic-energy.eu'], ['Bavaria Industrial Supply', 'bavaria-supply.de'],
-  ['GreenVolt Europe GmbH', 'greenvolt-eu.com'], ['Rheinland Power Components', 'rheinland-power.de'],
-  ['Alpine Battery Trading AG', 'alpine-battery.ch'], ['Hanover Smart Energy', 'hanover-energy.de'],
-  ['Westfalen Solarhandel', 'westfalen-solar.de'], ['Berlin Power Distribution', 'berlin-power.eu'],
-  ['EnergieWerk Solutions', 'energiewerk.de'], ['Central Europe Battery GmbH', 'ce-battery.com'],
-  ['BrightGrid Technologies', 'brightgrid.eu'], ['Hansa Renewable Systems', 'hansa-renewable.de'],
-  ['Frankfurt Energy Trading', 'frankfurt-energy.de'], ['VoltHaus Deutschland', 'volthaus.de'],
-];
-const sourceNames = ['Google Maps 德国网格', 'WLW 工业黄页', 'SERP 搜索引擎矩阵'];
-const seedLeads = (): Lead[] => Array.from({ length: 128 }, (_, index) => {
-  const company = companyNames[index % companyNames.length];
-  return {
-    id: 'lead-' + (index + 1),
-    name: index < companyNames.length ? company[0] : company[0] + ' ' + (Math.floor(index / companyNames.length) + 1),
-    domain: company[1], country: 'DE', source: sourceNames[index % sourceNames.length],
-    email: index % 5 === 0 ? '待补充' : 'info@' + company[1], status: 'pending',
-  };
-});
 
 export function ScoringStep({ profile, onContinueToEnrichment }: Props) {
-  const [rows, setRows] = useState<Lead[]>(() => {
-    const data = seedLeads();
-    try {
-      const queue = JSON.parse(localStorage.getItem('tradepilot.prospect-scoring.queue.v1') || '[]') as string[];
-      return queue.length ? data.filter(item => queue.includes(item.id)) : data;
-    } catch { return data; }
-  });
+  const [rows, setRows] = useState<Lead[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+
   const [selected, setSelected] = useState<string[]>([]);
   const [search, setSearch] = useState('');
   const [source, setSource] = useState('all');
@@ -50,6 +31,63 @@ export function ScoringStep({ profile, onContinueToEnrichment }: Props) {
   const [notice, setNotice] = useState('');
   const [scoring, setScoring] = useState(false);
 
+  useEffect(() => {
+    let active = true;
+    const loadRecords = async () => {
+      setLoading(true); setLoadError('');
+      try {
+        const queue = JSON.parse(localStorage.getItem('tradepilot.prospect-scoring.queue.v1') || '[]') as string[];
+        if (!queue.length) { setRows([]); return; }
+        const db = await getSupabaseClient();
+        const { data } = await db.auth.getSession();
+        const token = data.session?.access_token;
+        if (!token) throw new Error('登录状态已失效，请重新登录。');
+        const response = await fetch('/api/v1/discovery-records?limit=500', {
+          headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' },
+        });
+        const payload = await response.json() as { data?: Array<Record<string, unknown>>; error?: { message?: string } };
+        if (!response.ok) throw new Error(payload.error?.message || '无法读取真实检索结果');
+        const records = (payload.data ?? []).filter(record => queue.includes(String(record.id)));
+        const mapped = records.map(record => {
+          const occurrences = Array.isArray(record.discovery_record_occurrences) ? record.discovery_record_occurrences as Array<Record<string, unknown>> : [];
+          const occurrence = occurrences[0] ?? {};
+          const website = typeof record.website === 'string' ? record.website : '';
+          let domain = '';
+          try { domain = website ? new URL(website).hostname.replace(/^www\\./i, '') : ''; } catch { domain = website; }
+          const channel = String(record.channel ?? '');
+          const sourceLabels: Record<string, string> = {
+            map_local_businesses: '地图与本地商家', search_engine: '搜索引擎',
+            facebook: 'Facebook', instagram: 'Instagram',
+          };
+          return {
+            id: String(record.id), name: String(record.name ?? '未命名企业'), domain,
+            country: String(record.country_code ?? ''), source: sourceLabels[channel] ?? channel,
+            email: String(record.email ?? '') || '待补充', address: String(record.address ?? ''),
+            phone: String(record.phone ?? ''), runId: String(occurrence.run_id ?? ''),
+            confidence: typeof record.confidence_score === 'number' ? record.confidence_score : undefined,
+            reviewed: ['reviewed', 'collected', 'converted'].includes(String(asObject(record.raw_data).lifecycle_stage ?? '')),
+            guardrailReview: asObject(record.raw_data).guardrail_review_required === true,
+            duplicateReview: asObject(record.raw_data).duplicate_review_required === true,
+            status: asObject(record.raw_data).ai_scoring ? 'scored' as const : 'pending' as const,
+            score: typeof asObject(asObject(record.raw_data).ai_scoring).score === 'number' ? Number(asObject(asObject(record.raw_data).ai_scoring).score) : undefined,
+            fit: Number(asObject(asObject(asObject(record.raw_data).ai_scoring).dimensions).fit) || undefined,
+            persona: Number(asObject(asObject(asObject(record.raw_data).ai_scoring).dimensions).persona) || undefined,
+            scale: Number(asObject(asObject(asObject(record.raw_data).ai_scoring).dimensions).scale) || undefined,
+            intent: Number(asObject(asObject(asObject(record.raw_data).ai_scoring).dimensions).intent) || undefined,
+            comment: String(asObject(asObject(record.raw_data).ai_scoring).summary ?? '已读取真实检索记录，等待 AI 评分。'),
+          };
+        });
+        if (active) setRows(mapped);
+      } catch (error) {
+        if (active) setLoadError(error instanceof Error ? error.message : '读取检索结果失败');
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    void loadRecords();
+    return () => { active = false; };
+  }, []);
+
   const filtered = useMemo(() => rows.filter(row => {
     const term = search.trim().toLowerCase();
     return (!term || row.name.toLowerCase().includes(term) || row.domain.toLowerCase().includes(term))
@@ -57,33 +95,63 @@ export function ScoringStep({ profile, onContinueToEnrichment }: Props) {
   }), [rows, search, source]);
   const visible = filtered.slice((page - 1) * pageSize, page * pageSize);
   const selectedRows = rows.filter(row => selected.includes(row.id));
+  const sourceOptions = useMemo(() => [...new Set(rows.map(row => row.source).filter(Boolean))], [rows]);
   const scoredCount = rows.filter(row => row.status === 'scored').length;
   const toggleOne = (id: string) => setSelected(current => current.includes(id) ? current.filter(value => value !== id) : [...current, id]);
   const togglePage = () => setSelected(current => visible.every(row => current.includes(row.id))
     ? current.filter(id => !visible.some(row => row.id === id))
     : [...new Set([...current, ...visible.map(row => row.id)])]);
-  const scoreRows = (ids: string[]) => {
-    if (!ids.length) return;
-    setScoring(true);
-    window.setTimeout(() => {
-      setRows(current => current.map((row, index) => {
-        if (!ids.includes(row.id)) return row;
-        const fit = 82 + (index * 7 % 18);
-        const persona = 76 + (index * 5 % 23);
-        const scale = 68 + (index * 9 % 30);
-        const intent = 60 + (index * 11 % 38);
-        const score = Math.round(fit * .4 + persona * .3 + scale * .2 + intent * .1);
-        return { ...row, status: 'scored', fit, persona, scale, intent, score, comment: fit >= 90 ? '产品线与目标品类高度吻合，具备进口或区域分销特征。建议优先核验采购负责人。' : '主营方向与目标产品存在一定关联，建议结合官网产品目录和采购动态进一步人工核验。' };
+  const scoreRows = async (ids: string[]) => {
+    if (!ids.length || scoring) return;
+    setScoring(true); setNotice('');
+    try {
+      const db = await getSupabaseClient();
+      const { data } = await db.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) throw new Error('登录状态已失效，请重新登录。');
+      let updated: Array<Record<string, unknown>> = [];
+      for (let index = 0; index < ids.length; index += 20) {
+        const batch = ids.slice(index, index + 20);
+        const response = await fetch('/api/v1/discovery-records/score', {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ recordIds: batch, profile }),
+        });
+        const payload = await response.json() as { data?: { scores?: Array<Record<string, unknown>> }; error?: { message?: string } };
+        if (!response.ok) throw new Error(payload.error?.message || 'AI 评分失败（HTTP ' + response.status + '）');
+        updated = [...updated, ...(payload.data?.scores ?? [])];
+      }
+      setRows(current => current.map(row => {
+        const score = updated.find(item => item.id === row.id);
+        if (!score) return row;
+        const dimensions = asObject(score.dimensions);
+        return { ...row, status: 'scored', score: Number(score.score), fit: Number(dimensions.fit), persona: Number(dimensions.persona), scale: Number(dimensions.scale), intent: Number(dimensions.intent), comment: String(score.summary ?? '') };
       }));
-      setScoring(false);
-      setNotice('已完成 ' + ids.length + ' 条记录的前端演示评分；当前未调用真实 AI 模型或写入后端。');
+      setNotice('已完成并保存 ' + updated.length + ' 条真实 AI 评分；评分模型与证据已写入潜客记录。');
       setSelected([]);
-    }, 900);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'AI 评分失败');
+    } finally { setScoring(false); }
   };
-  const removeSelected = () => {
-    setRows(current => current.filter(row => !selected.includes(row.id)));
-    setNotice('已从当前工作台移除 ' + selected.length + ' 条记录；未写入全局黑名单。');
-    setSelected([]);
+  const removeSelected = async () => {
+    if (!selected.length) return;
+    try {
+      const db = await getSupabaseClient();
+      const { data } = await db.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) throw new Error('登录状态已失效，请重新登录。');
+      const results = await Promise.all(selected.map(async id => {
+        const response = await fetch('/api/v1/discovery-records/' + id + '/action', {
+          method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ action: 'remove' }),
+        });
+        if (!response.ok) throw new Error('移除记录失败（HTTP ' + response.status + '）');
+        return id;
+      }));
+      setRows(current => current.filter(row => !results.includes(row.id)));
+      setNotice('已从潜客发现结果中移除 ' + results.length + ' 条记录（软移除，原始数据仍保留）。');
+      setSelected([]);
+    } catch (error) { setNotice(error instanceof Error ? error.message : '移除记录失败'); }
   };
   const exportSelected = () => {
     const headers = ['企业名称', '官方网站', '国家', '获客来源', '邮箱', '清洗状态', 'AI 综合评分', 'AI 评语'];
@@ -106,10 +174,36 @@ export function ScoringStep({ profile, onContinueToEnrichment }: Props) {
     const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'tradepilot-raw-leads.xlsx'; anchor.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
-  const sendToEnrichment = () => {
+  const sendToEnrichment = async () => {
     if (!selectedRows.length) return;
-    try { localStorage.setItem('tradepilot.prospect-discovery.crm-queue.v1', JSON.stringify(selectedRows)); } catch { /* Keep the current workbench available if browser storage is full. */ }
-    onContinueToEnrichment();
+    try {
+      const db = await getSupabaseClient();
+      const { data } = await db.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) throw new Error('登录状态已失效，请重新登录。');
+      const outcomes = await Promise.all(selectedRows.map(async row => {
+        if (row.reviewed) return { row, ok: true as const };
+        try {
+          const response = await fetch('/api/v1/discovery-records/' + row.id + '/action', {
+            method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ action: 'review' }),
+          });
+          const payload = await response.json().catch(() => ({})) as { error?: { message?: string } };
+          if (!response.ok) throw new Error(payload.error?.message || '审核未通过');
+          return { row: { ...row, reviewed: true }, ok: true as const };
+        } catch (error) {
+          return { row, ok: false as const, message: row.name + '：' + (error instanceof Error ? error.message : String(error)) };
+        }
+      }));
+      const approved = outcomes.filter(item => item.ok).map(item => item.row);
+      const failed = outcomes.filter(item => !item.ok);
+      if (!approved.length) throw new Error(failed.map(item => item.message).join('；') || '没有记录通过审核。');
+      localStorage.setItem('tradepilot.prospect-discovery.crm-queue.v1', JSON.stringify(approved));
+      setNotice('已审核通过 ' + approved.length + ' 条记录' + (failed.length ? '；另有 ' + failed.length + ' 条未通过，已保留在第五步' : '') + '，正在进入联系人穿透步骤。');
+      onContinueToEnrichment();
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : '潜客审核失败；未进入联系人穿透步骤。');
+    }
   };
   const scoreTag = (score?: number) => score === undefined ? <Tag type="gray">待清洗</Tag> : <Tag type={score >= 90 ? 'green' : score >= 80 ? 'blue' : 'warm-gray'}>{score >= 90 ? 'Tier A' : score >= 80 ? 'Tier B' : 'Tier C'}</Tag>;
 
@@ -117,7 +211,7 @@ export function ScoringStep({ profile, onContinueToEnrichment }: Props) {
     <section className="tp-prospect-discovery__step tp-scoring">
       <div className="tp-scoring__heading">
         <div><span className="tp-execution__eyebrow">AI FILTERING & SCORING</span><h2>AI 智能清洗与打分工作台</h2><p>目标市场：{profile.countryName || '未指定'} · 核心产品：{profile.coreNoun || '未指定'} · 目标买家：{profile.buyers.length} 类</p></div>
-        <div className="tp-scoring__heading-actions"><Tag type="blue">{rows.length} 条待处理记录</Tag><Button kind="primary" size="md" renderIcon={CarbonIcons.ArrowRight} disabled={!selected.length} onClick={sendToEnrichment}>将已选企业送入第六步</Button></div>
+        <div className="tp-scoring__heading-actions"><Tag type="blue">{rows.length} 条待处理记录</Tag><Button kind="primary" size="md" renderIcon={CarbonIcons.ArrowRight} disabled={!selected.length || loading || !rows.length} onClick={sendToEnrichment}>将已选企业送入第六步</Button></div>
       </div>
 
       {notice && <InlineNotification kind="info" lowContrast title="操作反馈" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
@@ -127,13 +221,13 @@ export function ScoringStep({ profile, onContinueToEnrichment }: Props) {
           <Grid narrow>
             <Column sm={4} md={4} lg={5}>
               <Tile className="tp-scoring__info-tile"><div className="tp-scoring__info-title"><CarbonIcons.ModelBuilder size={18} /><strong>所用清洗与大模型</strong></div>
-                <dl><dt>主模型候选</dt><dd>GPT-4o / Claude 3.5 Sonnet</dd><dt>向量模型</dt><dd>text-embedding-3-small</dd></dl>
-                <p>用于多语言语义解析、企业官网内容理解，以及主营业务与 ICP 的向量相似度计算。</p>
+                <dl><dt>评分模型</dt><dd>由 AI 与 API 集成中的 prospect_scoring 任务配置决定</dd><dt>向量模型</dt><dd>当前评分链路未调用向量检索</dd></dl>
+                <p>模型根据目标画像、企业基础字段、公开资料摘要和来源证据生成结构化评分。</p>
               </Tile>
             </Column>
             <Column sm={4} md={4} lg={5}>
               <Tile className="tp-scoring__info-tile"><div className="tp-scoring__info-title"><CarbonIcons.Filter size={18} /><strong>清洗与过滤方法</strong></div>
-                <ul><li><strong>URL 归一化：</strong>剔除无效二级路由，提取根域名</li><li><strong>内容同构去重：</strong>企业名称与官网域名双重哈希</li><li><strong>语义降噪：</strong>过滤伪企业描述、空壳博客及经销商重定向</li></ul>
+                <ul><li><strong>真实记录：</strong>读取后端持久化的企业与渠道来源记录</li><li><strong>证据输入：</strong>提交企业字段、公开资料摘要及来源出现记录</li><li><strong>结构化输出：</strong>保存四项维度分数、证据、风险和模型信息</li></ul>
               </Tile>
             </Column>
             <Column sm={4} md={8} lg={6}>
@@ -143,7 +237,7 @@ export function ScoringStep({ profile, onContinueToEnrichment }: Props) {
               </Tile>
             </Column>
           </Grid>
-          <p className="tp-scoring__method-note">模型名称与评分权重按产品方案展示。当前页面仅运行前端演示评分，尚未连接真实模型调用；实际模型选择、清洗执行与评分解释需由后端 AI 流水线提供。</p>
+          <p className="tp-scoring__method-note">模型名称与评分权重按产品方案展示。使用 AI 与 API 集成中为潜客评分配置的模型。评分维度、证据、风险、模型版本与评分时间会持久化到潜客记录。</p>
         </AccordionItem>
       </Accordion>
 
@@ -163,13 +257,15 @@ export function ScoringStep({ profile, onContinueToEnrichment }: Props) {
             <div className="tp-scoring__toolbar">
               <TableToolbarSearch persistent value={search} onChange={(_event, value) => { setSearch(value ?? ''); setPage(1); }} placeholder="搜索企业名称或域名" />
               <div className="tp-scoring__source-filter">
-                <Dropdown id="tp-scoring-source" titleText="获客来源" label="全部来源" items={[{ id: 'all', text: '全部来源' }, ...sourceNames.map(item => ({ id: item, text: item }))]} itemToString={item => item?.text ?? ''} selectedItem={[{ id: 'all', text: '全部来源' }, ...sourceNames.map(item => ({ id: item, text: item }))].find(item => item.id === source) ?? { id: 'all', text: '全部来源' }} onChange={({ selectedItem }) => { setSource(selectedItem?.id ?? 'all'); setPage(1); }} />
+                <Dropdown id="tp-scoring-source" titleText="获客来源" label="全部来源" items={[{ id: 'all', text: '全部来源' }, ...sourceOptions.map(item => ({ id: item, text: item }))]} itemToString={item => item?.text ?? ''} selectedItem={[{ id: 'all', text: '全部来源' }, ...sourceOptions.map(item => ({ id: item, text: item }))].find(item => item.id === source) ?? { id: 'all', text: '全部来源' }} onChange={({ selectedItem }) => { setSource(selectedItem?.id ?? 'all'); setPage(1); }} />
               </div>
             </div>
           </TableToolbarContent>
           </TableToolbar>
         </div>
-        {scoring && <InlineNotification kind="info" lowContrast title="AI 清洗与打分进行中" subtitle="正在处理已选记录（前端演示任务）。" />}
+        {loading && <InlineNotification kind="info" lowContrast title="正在读取真实检索记录" subtitle="从潜客发现结果接口加载本轮任务的记录。" />}
+        {loadError && <InlineNotification kind="error" lowContrast title="检索结果读取失败" subtitle={loadError} />}
+        {scoring && <InlineNotification kind="info" lowContrast title="AI 清洗与评分进行中" subtitle="正在调用已配置的评分模型并保存评分依据。" />}
         <div className="tp-scoring__table-scroll">
           <Table size="lg" useZebraStyles={false}>
             <TableHead><TableRow>
@@ -179,14 +275,14 @@ export function ScoringStep({ profile, onContinueToEnrichment }: Props) {
             <TableBody>
               {visible.map(row => <TableRow key={row.id}>
                 <TableSelectRow id={'scoring-' + row.id} name={'scoring-' + row.id} checked={selected.includes(row.id)} onSelect={() => toggleOne(row.id)} />
-                <TableCell><div className="tp-scoring__company"><strong>{row.name}</strong>{scoreTag(row.score)}</div></TableCell>
-                <TableCell><a href={'https://' + row.domain} target="_blank" rel="noreferrer">{row.domain}<CarbonIcons.ArrowUpRight size={12} /></a><small>{row.email}</small></TableCell>
+                <TableCell><div className="tp-scoring__company"><strong>{row.name}</strong>{scoreTag(row.score)}{row.guardrailReview && <Tag type="warm-gray">护盾待审核</Tag>}{row.duplicateReview && <Tag type="warm-gray">重复待复核</Tag>}</div></TableCell>
+                <TableCell>{row.domain ? <a href={row.domain.startsWith('http') ? row.domain : 'https://' + row.domain} target="_blank" rel="noreferrer">{row.domain}<CarbonIcons.ArrowUpRight size={12} /></a> : <span>暂无官网</span>}<small>{row.email}</small></TableCell>
                 <TableCell><Tag type="blue">{row.source}</Tag></TableCell>
                 <TableCell>{row.score === undefined ? <span className="tp-scoring__score-empty">—</span> : <button type="button" className="tp-scoring__score" title={'Fit ' + row.fit + ' · Persona ' + row.persona + ' · Scale ' + row.scale + ' · Intent ' + row.intent} onClick={() => setNotice('评分明细：Fit ' + row.fit + ' · Persona ' + row.persona + ' · Scale ' + row.scale + ' · Intent ' + row.intent)}>{row.score} 分</button>}</TableCell>
-                <TableCell><span className="tp-scoring__comment">{row.comment || '等待 AI 清洗与评分后生成企业契合点评。'}</span></TableCell>
+                <TableCell><span className="tp-scoring__comment">{row.comment || '尚未评分；选择记录后可调用已配置的评分模型。'}</span></TableCell>
                 <TableCell><OverflowMenu ariaLabel={'记录操作：' + row.name} flipped><OverflowMenuItem itemText="单条执行 AI 清洗与打分" onClick={() => scoreRows([row.id])} /><OverflowMenuItem itemText="移除记录" onClick={() => { setRows(current => current.filter(item => item.id !== row.id)); setSelected(current => current.filter(id => id !== row.id)); setNotice('已移除 ' + row.name + '。'); }} /><OverflowMenuItem itemText="复制网址" onClick={() => { void navigator.clipboard?.writeText('https://' + row.domain); setNotice('网址已复制。'); }} /></OverflowMenu></TableCell>
               </TableRow>)}
-              {visible.length === 0 && <TableRow><TableCell colSpan={7}>没有符合当前筛选条件的记录。</TableCell></TableRow>}
+              {visible.length === 0 && <TableRow><TableCell colSpan={7}>没有符合当前筛选条件的真实记录。</TableCell></TableRow>}
             </TableBody>
           </Table>
         </div>
