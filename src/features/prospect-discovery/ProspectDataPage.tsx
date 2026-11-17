@@ -1,9 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { AreaChart, DonutChart, TreemapChart, SimpleBarChart } from '@carbon/charts-react';
 import {
   Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput, Tile,
   Table, TableHead, TableRow, TableHeader, TableBody, TableCell, Pagination, CarbonIcons,
+  Tabs, TabList, Tab, TabPanels, TabPanel,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
+import '@carbon/charts/styles.css';
 import '@/design-system/patterns/prospect-hub.scss';
 
 type RecordRow = {
@@ -19,11 +23,10 @@ type Occurrence = {
 type Prospect = {
   id: string; name: string; country: string; website: string; email: string; phone: string;
   source: string; sources: string[]; status: 'removed' | 'crm' | 'pending' | 'discarded';
-  score: number | null; capturedAt: string; taskCode: string;
+  score: number | null; capturedAt: string; taskCode: string; industry: string; companySize: string; businessType: string;
 };
-
 const channelLabel = (channel?: string, provider?: string) => ({
-  map_local_businesses: 'Google Maps', search_engine: '搜索引擎', facebook: 'Facebook Pages',
+  map_local_businesses: 'Google Maps', search_engine: '搜索引擎', facebook: 'Facebook',
   instagram: 'Instagram', actor_discovery: '智能数据源', agent: '内置 Agent',
 }[channel || ''] || channel || provider || '未知来源');
 const statusLabel = (status: Prospect['status']) => ({ removed: '手动移除', discarded: '已废弃', crm: '已送入 CRM', pending: '待处理' }[status]);
@@ -40,110 +43,206 @@ const scoreOf = (raw?: Record<string, unknown> | null): number | null => {
   }
   return null;
 };
+const textOf = (raw: Record<string, unknown> | null | undefined, keys: string[]) => {
+  for (const key of keys) {
+    const value = raw?.[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+    if (typeof value === 'number') return String(value);
+  }
+  return '未分类';
+};
 const fmt = (value: string) => value ? new Date(value).toLocaleString('zh-TW', { hour12: false }) : '—';
+const chartTheme = () => document.documentElement.dataset.carbonTheme === 'g100' ? 'g100' : 'white';
+const countBy = (values: string[]) => {
+  const counts = new Map<string, number>();
+  values.forEach(value => counts.set(value || '未分类', (counts.get(value || '未分类') || 0) + 1));
+  return [...counts.entries()].map(([group, value]) => ({ group, value })).sort((a, b) => b.value - a.value);
+};
+const countryLabel = (code: string) => {
+  if (!code || code === '—') return '未设置国家';
+  try { return new Intl.DisplayNames(['zh-CN'], { type: 'region' }).of(code.toUpperCase()) || code.toUpperCase(); }
+  catch { return code.toUpperCase(); }
+};
 
 export function ProspectDataPage() {
+  const navigate = useNavigate();
   const [rows, setRows] = useState<Prospect[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [source, setSource] = useState('all');
   const [status, setStatus] = useState('all');
+  const [country, setCountry] = useState('all');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
 
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      setLoading(true); setError('');
-      try {
-        const db = await getSupabaseClient();
-        const { data, error: queryError } = await db.from('discovery_record_occurrences')
-          .select('id,is_removed,provider,captured_at,record:discovery_records!discovery_record_occurrences_record_id_owner_id_fkey(id,name,status,lifecycle_stage,country_code,address,phone,email,website,confidence_score,lead_id,raw_data,created_at),run:discovery_runs!discovery_record_occurrences_run_id_owner_id_fkey(channel,task_code)')
-          .order('captured_at', { ascending: false }).limit(10000);
-        if (queryError) throw queryError;
-        const occurrences = (data ?? []) as unknown as Occurrence[];
-        const grouped = new Map<string, Prospect>();
-        for (const occurrence of occurrences) {
-          const record = Array.isArray(occurrence.record) ? occurrence.record[0] : occurrence.record;
-          if (!record?.id) continue;
-          const run = Array.isArray(occurrence.run) ? occurrence.run[0] : occurrence.run;
-          const sourceLabel = channelLabel(run?.channel, occurrence.provider);
-          const current = grouped.get(record.id);
-          const isRemoved = occurrence.is_removed === true || record.status === 'removed';
-          const isDiscarded = record.status === 'discarded';
-          const nextStatus: Prospect['status'] = isRemoved ? 'removed' : isDiscarded ? 'discarded' : record.status === 'promoted' || !!record.lead_id ? 'crm' : 'pending';
-          if (current) {
-            if (!current.sources.includes(sourceLabel)) current.sources.push(sourceLabel);
-            if (nextStatus === 'removed' || nextStatus === 'crm') current.status = nextStatus;
-            continue;
-          }
-          grouped.set(record.id, {
-            id: record.id, name: record.name || '未命名企业', country: record.country_code || '—',
-            website: record.website || '', email: record.email || '', phone: record.phone || '',
-            source: sourceLabel, sources: [sourceLabel], status: nextStatus,
-            score: scoreOf(record.raw_data), capturedAt: occurrence.captured_at || record.created_at || '',
-            taskCode: run?.task_code || '—',
-          });
+  const load = useCallback(async () => {
+    setError('');
+    try {
+      const db = await getSupabaseClient();
+      const { data, error: queryError } = await db.from('discovery_record_occurrences')
+        .select('id,is_removed,provider,captured_at,record:discovery_records!discovery_record_occurrences_record_id_owner_id_fkey(id,name,status,lifecycle_stage,country_code,address,phone,email,website,confidence_score,lead_id,raw_data,created_at),run:discovery_runs!discovery_record_occurrences_run_id_owner_id_fkey(channel,task_code)')
+        .order('captured_at', { ascending: false }).limit(10000);
+      if (queryError) throw queryError;
+      const occurrences = (data ?? []) as unknown as Occurrence[];
+      const grouped = new Map<string, Prospect>();
+      for (const occurrence of occurrences) {
+        const record = Array.isArray(occurrence.record) ? occurrence.record[0] : occurrence.record;
+        if (!record?.id) continue;
+        const run = Array.isArray(occurrence.run) ? occurrence.run[0] : occurrence.run;
+        const sourceLabel = channelLabel(run?.channel, occurrence.provider);
+        const raw = record.raw_data || {};
+        const current = grouped.get(record.id);
+        const isRemoved = occurrence.is_removed === true || record.status === 'removed';
+        const isDiscarded = record.status === 'discarded';
+        const nextStatus: Prospect['status'] = isRemoved ? 'removed' : isDiscarded ? 'discarded' : record.status === 'promoted' || !!record.lead_id ? 'crm' : 'pending';
+        if (current) {
+          if (!current.sources.includes(sourceLabel)) current.sources.push(sourceLabel);
+          if (nextStatus === 'removed' || nextStatus === 'crm') current.status = nextStatus;
+          continue;
         }
-        if (active) setRows([...grouped.values()]);
-      } catch (cause) {
-        if (active) setError(cause instanceof Error ? cause.message : '潜客数据读取失败');
-      } finally { if (active) setLoading(false); }
-    })();
-    return () => { active = false; };
+        grouped.set(record.id, {
+          id: record.id, name: record.name || '未命名企业', country: record.country_code || '—',
+          website: record.website || '', email: record.email || '', phone: record.phone || '',
+          source: sourceLabel, sources: [sourceLabel], status: nextStatus,
+          score: scoreOf(raw) ?? (typeof record.confidence_score === 'number' ? record.confidence_score : null),
+          capturedAt: occurrence.captured_at || record.created_at || '', taskCode: run?.task_code || '—',
+          industry: textOf(raw, ['industry','industry_name','sector','category']),
+          companySize: textOf(raw, ['company_size','employee_range','employees','size']),
+          businessType: textOf(raw, ['business_type','business_model','company_type']),
+        });
+      }
+      setRows([...grouped.values()]);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '潜客数据读取失败');
+    } finally { setLoading(false); setRefreshing(false); }
   }, []);
 
+  useEffect(() => { void load(); }, [load]);
+
   const sources = useMemo(() => [...new Set(rows.flatMap(row => row.sources))].sort(), [rows]);
+  const countries = useMemo(() => [...new Set(rows.map(row => row.country).filter(value => value !== '—'))].sort(), [rows]);
   const filtered = useMemo(() => rows.filter(row => {
     const term = search.trim().toLowerCase();
-    return (!term || [row.name,row.website,row.email,row.country].some(value => value.toLowerCase().includes(term)))
-      && (source === 'all' || row.sources.includes(source)) && (status === 'all' || row.status === status);
-  }), [rows, search, source, status]);
+    return (!term || [row.name,row.website,row.email,row.country,row.industry].some(value => value.toLowerCase().includes(term)))
+      && (source === 'all' || row.sources.includes(source))
+      && (status === 'all' || row.status === status)
+      && (country === 'all' || row.country === country);
+  }), [rows, search, source, status, country]);
   const visible = filtered.slice((page - 1) * pageSize, page * pageSize);
+
+  const analytics = useMemo(() => {
+    const active = rows.filter(row => row.status !== 'removed' && row.status !== 'discarded');
+    const countriesByCount = countBy(active.map(row => countryLabel(row.country)));
+    const channelCounts = countBy(active.flatMap(row => row.sources));
+    const statusCounts = countBy(rows.map(row => statusLabel(row.status)));
+    const industryCounts = countBy(active.map(row => row.industry));
+    const sizeCounts = countBy(active.map(row => row.companySize));
+    const businessCounts = countBy(active.map(row => row.businessType));
+    const scoreGroups = [
+      { group: '高潜力 · 80+', value: active.filter(row => row.score !== null && row.score >= 80).length },
+      { group: '中高 · 60–79', value: active.filter(row => row.score !== null && row.score >= 60 && row.score < 80).length },
+      { group: '待培育 · 40–59', value: active.filter(row => row.score !== null && row.score >= 40 && row.score < 60).length },
+      { group: '低分 · 0–39', value: active.filter(row => row.score !== null && row.score < 40).length },
+      { group: '尚无评分', value: active.filter(row => row.score === null).length },
+    ];
+    const monthly = Array.from({ length: 12 }, (_, index) => {
+      const date = new Date();
+      date.setDate(1); date.setMonth(date.getMonth() - (11 - index));
+      const key = date.toISOString().slice(0, 7);
+      return { group: '新增潜客', date: new Date(date.getFullYear(), date.getMonth(), 1), value: active.filter(row => row.capturedAt && row.capturedAt.slice(0, 7) === key).length };
+    });
+    return { active, countriesByCount, channelCounts, statusCounts, industryCounts, sizeCounts, businessCounts, scoreGroups, monthly };
+  }, [rows]);
+
+  const theme = chartTheme();
+  const baseOptions = { theme, toolbar: { enabled: false }, legend: { enabled: false } };
+  const donutOptions = { ...baseOptions, height: '280px', donut: { center: { label: '潜客' } }, legend: { position: 'bottom' } };
+  const barOptions = { ...baseOptions, height: '280px', axes: { bottom: { mapsTo: 'group', scaleType: 'labels' }, left: { mapsTo: 'value', scaleType: 'linear' } } };
+  const areaOptions = { ...baseOptions, height: '300px', axes: { bottom: { title: '月份', mapsTo: 'date', scaleType: 'time' }, left: { title: '新增数量', mapsTo: 'value', scaleType: 'linear' } }, curve: 'curveMonotoneX', points: { enabled: false } };
+  const treemapOptions = { ...baseOptions, height: '340px', tooltip: { enabled: true, valueFormatter: (value: number) => value.toLocaleString() + ' 家潜客' } };
+
   const crmCount = rows.filter(row => row.status === 'crm').length;
-  const removedCount = rows.filter(row => row.status === 'removed' || row.status === 'discarded').length;
-  const scoredCount = rows.filter(row => row.score !== null).length;
-  const sourceCounts = sources.map(label => ({ label, count: rows.filter(row => row.sources.includes(label)).length })).sort((a,b) => b.count-a.count);
-  const maxSource = Math.max(1, ...sourceCounts.map(item => item.count));
+  const pendingCount = rows.filter(row => row.status === 'pending').length;
+  const ratedCount = rows.filter(row => row.score !== null).length;
+  const countriesCount = new Set(rows.map(row => row.country).filter(value => value !== '—')).size;
+  const contactableCount = rows.filter(row => row.email || row.phone || row.website).length;
 
   return (
-    <main className="tp-prospect-hub">
-      <header className="tp-prospect-hub__header">
-        <div><p className="tp-prospect-hub__eyebrow">TRADEPILOT / CRM · GLOBAL PROSPECT DATABASE</p><h1>潜客数据</h1><p>汇聚所有渠道抓取的企业资产，追踪人工处理、AI 评分与 CRM 入库状态。</p></div>
-        <Button kind="tertiary" renderIcon={CarbonIcons.Renew} onClick={() => window.location.reload()}>刷新数据</Button>
+    <main className="tp-prospect-hub tp-prospect-data">
+      <header className="tp-prospect-hub__header tp-prospect-data__header">
+        <div><p className="tp-prospect-hub__eyebrow">TRADEPILOT / CRM · GLOBAL PROSPECT INTELLIGENCE</p><h1>潜客数据</h1><p>全球渠道统一汇聚 · 多维资产洞察 · 从发现到 CRM 转化</p></div>
+        <div className="tp-prospect-data__actions">
+          <Button kind="primary" renderIcon={CarbonIcons.Search} onClick={() => navigate('/prospect-discovery')}>潜客发现</Button>
+          <Button kind="tertiary" renderIcon={CarbonIcons.Time} onClick={() => navigate('/prospect-history')}>历史任务</Button>
+          <Button kind="ghost" renderIcon={CarbonIcons.Renew} disabled={loading || refreshing} onClick={() => { setRefreshing(true); void load(); }}>刷新数据</Button>
+        </div>
       </header>
+
       {error && <InlineNotification kind="error" lowContrast title="数据读取失败" subtitle={error} onCloseButtonClick={() => setError('')} />}
-      <div className="tp-prospect-hub__metrics">
-        <Tile><span>抓取企业总量</span><strong>{rows.length.toLocaleString()}</strong><small>按企业记录去重</small></Tile>
-        <Tile><span>已送入 CRM</span><strong>{crmCount.toLocaleString()}</strong><small>已关联正式线索</small></Tile>
-        <Tile><span>人工移除 / 废弃</span><strong>{removedCount.toLocaleString()}</strong><small>保留历史状态便于审计</small></Tile>
-        <Tile><span>已有 AI 评分</span><strong>{scoredCount.toLocaleString()}</strong><small>从现有记录评分字段读取</small></Tile>
-      </div>
-      <Tile className="tp-prospect-hub__panel">
-        <div className="tp-prospect-hub__section-heading"><div><h2>获客来源分布</h2><p>按企业所关联的发现平台统计，可同时拥有多个来源。</p></div><Tag type="blue">{sources.length} 个来源平台</Tag></div>
-        {loading ? <InlineLoading description="正在汇总来源平台…" /> : sourceCounts.length ? <div className="tp-prospect-hub__source-chart">
-          {sourceCounts.map(item => <div key={item.label} className="tp-prospect-hub__source-row"><span>{item.label}</span><div><svg viewBox="0 0 100 12" preserveAspectRatio="none" aria-hidden="true"><rect x="0" y="0" width={item.count / maxSource * 100} height="12" /></svg></div><strong>{item.count.toLocaleString()}</strong></div>)}
-        </div> : <p className="tp-prospect-hub__empty">暂无来源统计数据。</p>}
-      </Tile>
-      <Tile className="tp-prospect-hub__panel">
-        <div className="tp-prospect-hub__section-heading"><div><h2>全部潜客记录</h2><p>包含抓取、移除、废弃及送入 CRM 的企业数据</p></div><Tag type="blue">{filtered.length.toLocaleString()} 条匹配</Tag></div>
-        <div className="tp-prospect-hub__filters">
-          <TextInput id="tp-prospect-data-search" labelText="搜索企业、网址、邮箱或国家" placeholder="搜索企业、网址、邮箱或国家" value={search} onChange={event => { setSearch(event.currentTarget.value); setPage(1); }} />
-          <Select id="tp-prospect-data-source" labelText="获客来源" value={source} onChange={event => { setSource(event.currentTarget.value); setPage(1); }}>
-            <SelectItem value="all" text="全部来源" />{sources.map(item => <SelectItem key={item} value={item} text={item} />)}
-          </Select>
-          <Select id="tp-prospect-data-status" labelText="处理状态" value={status} onChange={event => { setStatus(event.currentTarget.value); setPage(1); }}>
-            <SelectItem value="all" text="全部状态" /><SelectItem value="pending" text="待处理" /><SelectItem value="crm" text="已送入 CRM" /><SelectItem value="removed" text="手动移除" /><SelectItem value="discarded" text="已废弃" />
-          </Select>
+      <section className="tp-prospect-data__signal-strip" aria-label="潜客数据概况">
+        <div className="tp-prospect-data__signal tp-prospect-data__signal--blue"><span>有效潜客</span><strong>{analytics.active.length.toLocaleString()}</strong><small>排除已移除与废弃记录</small></div>
+        <div className="tp-prospect-data__signal tp-prospect-data__signal--green"><span>已转入 CRM</span><strong>{crmCount.toLocaleString()}</strong><small>已建立正式线索关联</small></div>
+        <div className="tp-prospect-data__signal tp-prospect-data__signal--purple"><span>已有评分</span><strong>{ratedCount.toLocaleString()}</strong><small>评分覆盖 {rows.length ? (ratedCount / rows.length * 100).toFixed(1) : '0.0'}%</small></div>
+        <div className="tp-prospect-data__signal tp-prospect-data__signal--teal"><span>可联系资产</span><strong>{contactableCount.toLocaleString()}</strong><small>含官网、邮箱或电话</small></div>
+        <div className="tp-prospect-data__signal tp-prospect-data__signal--orange"><span>待处理</span><strong>{pendingCount.toLocaleString()}</strong><small>等待筛选与转化</small></div>
+        <div className="tp-prospect-data__signal tp-prospect-data__signal--magenta"><span>覆盖市场</span><strong>{countriesCount.toLocaleString()}</strong><small>已识别国家 / 地区</small></div>
+      </section>
+
+      <section className="tp-prospect-data__overview">
+        <Tile className="tp-prospect-data__panel tp-prospect-data__market">
+          <div className="tp-prospect-data__panel-heading"><div><p className="tp-prospect-data__kicker">GLOBAL REACH</p><h2>全球市场分布</h2><p>按有效潜客所在国家与地区展示资产覆盖情况</p></div><Tag type="blue">{countriesCount} 个市场</Tag></div>
+          {analytics.countriesByCount.length ? <TreemapChart data={analytics.countriesByCount.map(item => ({ group: item.group, value: item.value }))} options={treemapOptions as any} /> : <div className="tp-prospect-data__empty">暂无国家 / 地区数据</div>}
+          <div className="tp-prospect-data__rank-list">{analytics.countriesByCount.slice(0, 6).map((item, index) => <div key={item.group}><span>{String(index + 1).padStart(2,'0')}</span><strong>{item.group}</strong><b>{item.value.toLocaleString()}</b></div>)}</div>
+        </Tile>
+        <div className="tp-prospect-data__overview-side">
+          <Tile className="tp-prospect-data__panel">
+            <div className="tp-prospect-data__panel-heading"><div><p className="tp-prospect-data__kicker">CHANNEL MIX</p><h2>发现渠道构成</h2><p>多渠道归因，同一企业可拥有多个来源</p></div></div>
+            {analytics.channelCounts.length ? <DonutChart data={analytics.channelCounts} options={{ ...donutOptions, title: '来源平台' } as any} /> : <div className="tp-prospect-data__empty">暂无渠道数据</div>}
+          </Tile>
+          <Tile className="tp-prospect-data__panel">
+            <div className="tp-prospect-data__panel-heading"><div><p className="tp-prospect-data__kicker">LEAD QUALITY</p><h2>潜客质量分层</h2><p>基于已有评分字段；未评分记录单独呈现</p></div></div>
+            <SimpleBarChart data={analytics.scoreGroups} options={{ ...barOptions, height: '230px' } as any} />
+          </Tile>
+        </div>
+      </section>
+
+      <section className="tp-prospect-data__panel tp-prospect-data__trend">
+        <div className="tp-prospect-data__panel-heading"><div><p className="tp-prospect-data__kicker">ACQUISITION MOMENTUM</p><h2>潜客增长趋势</h2><p>最近 12 个月有效潜客的首次采集时间分布</p></div><Tag type="teal">12 个月</Tag></div>
+        <AreaChart data={analytics.monthly} options={areaOptions as any} />
+      </section>
+
+      <section className="tp-prospect-data__panel tp-prospect-data__dimensions">
+        <div className="tp-prospect-data__panel-heading"><div><p className="tp-prospect-data__kicker">MULTI-DIMENSIONAL INTELLIGENCE</p><h2>潜客多维分析</h2><p>按行业、企业规模、业务类型与处理状态切换观察维度；仅呈现数据源实际提供的字段。</p></div><Tag type="purple">多维洞察</Tag></div>
+        <Tabs>
+          <TabList aria-label="潜客分析维度">
+            <Tab>行业结构</Tab><Tab>企业规模</Tab><Tab>业务类型</Tab><Tab>处理状态</Tab>
+          </TabList>
+          <TabPanels>
+            <TabPanel><div className="tp-prospect-data__dimension-chart"><SimpleBarChart data={analytics.industryCounts.slice(0,12)} options={barOptions as any} />{!analytics.industryCounts.length && <p className="tp-prospect-data__empty">当前记录尚未提供可识别的行业字段。</p>}</div></TabPanel>
+            <TabPanel><div className="tp-prospect-data__dimension-chart"><DonutChart data={analytics.sizeCounts} options={donutOptions as any} />{!analytics.sizeCounts.length && <p className="tp-prospect-data__empty">当前记录尚未提供企业规模字段。</p>}</div></TabPanel>
+            <TabPanel><div className="tp-prospect-data__dimension-chart"><SimpleBarChart data={analytics.businessCounts.slice(0,12)} options={barOptions as any} />{!analytics.businessCounts.length && <p className="tp-prospect-data__empty">当前记录尚未提供业务类型字段。</p>}</div></TabPanel>
+            <TabPanel><div className="tp-prospect-data__dimension-chart"><DonutChart data={analytics.statusCounts} options={donutOptions as any} /></div></TabPanel>
+          </TabPanels>
+        </Tabs>
+      </section>
+
+      <section className="tp-prospect-data__panel tp-prospect-data__all">
+        <div className="tp-prospect-data__panel-heading"><div><p className="tp-prospect-data__kicker">PROSPECT MASTER DATA</p><h2>全部潜客</h2><p>统一资产表 · 可按来源、市场与处理状态筛选；保留全部发现记录及历史处理状态</p></div><Tag type="blue">{filtered.length.toLocaleString()} 条记录</Tag></div>
+        <div className="tp-prospect-hub__filters tp-prospect-data__filters">
+          <TextInput id="tp-prospect-data-search" labelText="搜索企业、网址、邮箱、行业" placeholder="输入企业名称或关键词" value={search} onChange={event => { setSearch(event.currentTarget.value); setPage(1); }} />
+          <Select id="tp-prospect-data-source" labelText="获客来源" value={source} onChange={event => { setSource(event.currentTarget.value); setPage(1); }}><SelectItem value="all" text="全部来源" />{sources.map(item => <SelectItem key={item} value={item} text={item} />)}</Select>
+          <Select id="tp-prospect-data-country" labelText="国家 / 地区" value={country} onChange={event => { setCountry(event.currentTarget.value); setPage(1); }}><SelectItem value="all" text="全部市场" />{countries.map(item => <SelectItem key={item} value={item} text={countryLabel(item)} />)}</Select>
+          <Select id="tp-prospect-data-status" labelText="处理状态" value={status} onChange={event => { setStatus(event.currentTarget.value); setPage(1); }}><SelectItem value="all" text="全部状态" /><SelectItem value="pending" text="待处理" /><SelectItem value="crm" text="已送入 CRM" /><SelectItem value="removed" text="手动移除" /><SelectItem value="discarded" text="已废弃" /></Select>
         </div>
         <div className="tp-prospect-hub__table-wrap">
           {loading ? <div className="tp-prospect-hub__loading"><InlineLoading description="正在读取全部潜客数据…" /></div> : <Table size="lg">
             <TableHead><TableRow>{['企业名称','国家 / 地区','官方网站 / 邮箱','获客来源','AI 评分','处理状态','任务编码','抓取时间'].map(label => <TableHeader key={label}>{label}</TableHeader>)}</TableRow></TableHead>
             <TableBody>
               {visible.map(row => <TableRow key={row.id}>
-                <TableCell><strong>{row.name}</strong></TableCell>
-                <TableCell>{row.country}</TableCell>
+                <TableCell><strong>{row.name}</strong>{row.industry !== '未分类' && <small>{row.industry}</small>}</TableCell>
+                <TableCell>{countryLabel(row.country)}</TableCell>
                 <TableCell><div className="tp-prospect-hub__contact">{row.website ? <a href={row.website.startsWith('http') ? row.website : 'https://' + row.website} target="_blank" rel="noreferrer">{row.website}</a> : '—'}<small>{row.email || row.phone || '暂无联系方式'}</small></div></TableCell>
                 <TableCell><div className="tp-prospect-hub__source-tags">{row.sources.map(item => <Tag key={item} type="blue">{item}</Tag>)}</div></TableCell>
                 <TableCell>{row.score === null ? '—' : <strong>{row.score} 分</strong>}</TableCell>
@@ -156,7 +255,8 @@ export function ProspectDataPage() {
           </Table>}
         </div>
         {!loading && <div className="tp-prospect-hub__pagination"><Pagination id="tp-prospect-data-pagination" page={page} pageSize={pageSize} pageSizes={[20,50,100]} totalItems={filtered.length} onChange={({page:nextPage,pageSize:nextSize})=>{setPage(nextPage);setPageSize(nextSize);}} /></div>}
-      </Tile>
+      </section>
+      <footer className="tp-prospect-data__footer"><span>TRADEPILOT · GLOBAL PROSPECT DATABASE</span><span>真实发现记录 · 企业去重口径 · {loading ? '正在同步' : '已加载 ' + rows.length.toLocaleString() + ' 条企业资产'}</span></footer>
     </main>
   );
 }
