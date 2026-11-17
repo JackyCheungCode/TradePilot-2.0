@@ -113,7 +113,7 @@ export function SecuritySettingsPage() {
   };
 
   const verifyWebAuthnStepUp = async () => {
-    if (!webAuthnStepUp || !/^\\d{6,8}$/.test(webAuthnStepUpCode.trim())) { setError('请输入 6–8 位身份验证器验证码。'); return; }
+    if (!webAuthnStepUp || !/^\d{6,8}$/.test(webAuthnStepUpCode.trim())) { setError('请输入 6–8 位身份验证器验证码。'); return; }
     setBusy(true); setError('');
     try {
       const client = await getSupabaseClient();
@@ -396,7 +396,7 @@ export function SecuritySettingsPage() {
                 {webAuthnStepUp && (
                   <div className="tp-security__enrollment">
                     <h3>确认身份</h3><p>此安全操作需要 TOTP 二次验证。</p>
-                    <TextInput id="tradepilot-webauthn-stepup" labelText="身份验证器验证码" value={webAuthnStepUpCode} onChange={(event) => setWebAuthnStepUpCode(event.currentTarget.value.replace(/\\D/g, "").slice(0, 8))} inputMode="numeric" autoComplete="one-time-code" />
+                    <TextInput id="tradepilot-webauthn-stepup" labelText="身份验证器验证码" value={webAuthnStepUpCode} onChange={(event) => setWebAuthnStepUpCode(event.currentTarget.value.replace(/\D/g, "").slice(0, 8))} inputMode="numeric" autoComplete="one-time-code" />
                     <div className="tp-security__actions"><Button onClick={() => void verifyWebAuthnStepUp()} disabled={busy || webAuthnStepUpCode.length < 6}>验证并继续</Button><Button kind="ghost" onClick={() => setWebAuthnStepUp(null)}>取消</Button></div>
                   </div>
                 )}
