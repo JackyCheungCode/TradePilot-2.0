@@ -376,3 +376,54 @@
     &__platform-pagination > span { text-align: left; }
   }
 }
+
+.tp-guardrails {
+  gap: $spacing-05;
+  min-width: 0;
+  &__notice, &__feedback { min-width: 0; }
+  &__context { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:$spacing-04; padding:$spacing-05; background:var(--cds-layer-01); }
+  &__context > div { display:flex; flex-direction:column; gap:$spacing-02; min-width:0; }
+  &__context span, &__helper { @include type-style('label-01'); color:var(--cds-text-secondary); }
+  &__context strong { @include type-style('heading-compact-01'); overflow-wrap:anywhere; }
+  &__panel { display:flex; flex-direction:column; gap:$spacing-05; min-width:0; padding:$spacing-06; background:var(--cds-layer-01); }
+  &__panel-heading { display:flex; align-items:center; justify-content:space-between; gap:$spacing-04; min-width:0; }
+  &__panel-heading > div { display:flex; align-items:center; gap:$spacing-04; min-width:0; }
+  &__panel-heading h2 { @include type-style('heading-compact-02'); margin:0 0 $spacing-02; }
+  &__panel-heading p { @include type-style('body-compact-01'); color:var(--cds-text-secondary); margin:0; }
+  &__index { @include type-style('heading-compact-02'); color:var(--cds-text-helper); font-variant-numeric:tabular-nums; }
+  &__field { display:flex; flex-direction:column; gap:$spacing-03; min-width:0; }
+  &__field-label { @include type-style('label-01'); color:var(--cds-text-secondary); }
+  &__keyword-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:$spacing-03; }
+  &__keyword-group { display:flex; flex-direction:column; gap:$spacing-02; min-width:0; padding:$spacing-04; background:var(--cds-layer-02); }
+  &__keyword-group strong { @include type-style('heading-compact-01'); }
+  &__keyword-group span { @include type-style('helper-text-01'); color:var(--cds-text-secondary); overflow-wrap:anywhere; }
+  &__two-col { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:$spacing-05; min-width:0; }
+  &__choice-row { display:flex; flex-wrap:wrap; align-items:center; gap:$spacing-04 $spacing-06; }
+  &__website-builder { display:grid; grid-template-columns:minmax(190px,.9fr) minmax(220px,1.5fr) auto; gap:$spacing-04; align-items:end; min-width:0; }
+  &__rule-list { display:flex; flex-direction:column; gap:$spacing-02; min-width:0; }
+  &__rule-row { display:flex; align-items:center; gap:$spacing-03; min-width:0; padding:$spacing-03 $spacing-04; background:var(--cds-layer-02); }
+  &__rule-row span { flex:1; min-width:0; overflow-wrap:anywhere; @include type-style('body-compact-01'); }
+  &__empty { @include type-style('body-compact-01'); color:var(--cds-text-secondary); margin:0; padding:$spacing-04; background:var(--cds-layer-02); }
+  &__import { display:flex; justify-content:space-between; align-items:center; gap:$spacing-04; padding:$spacing-04; background:var(--cds-layer-02); }
+  &__import > div { display:flex; flex-direction:column; gap:$spacing-02; min-width:0; }
+  &__import strong { @include type-style('heading-compact-01'); }
+  &__import span { @include type-style('helper-text-01'); color:var(--cds-text-secondary); }
+  &__import-preview { display:flex; flex-direction:column; gap:$spacing-02; padding:$spacing-04; background:var(--cds-layer-02); }
+  &__import-preview > span { @include type-style('body-compact-01'); overflow-wrap:anywhere; }
+  &__context-tags { display:flex; flex-wrap:wrap; gap:$spacing-03; align-items:center; }
+  &__context-tags > span { @include type-style('body-compact-01'); color:var(--cds-text-secondary); }
+  &__helper { margin:0; }
+  &__rule-summary { display:flex; flex-wrap:wrap; gap:$spacing-03 $spacing-05; padding:$spacing-04; background:var(--cds-layer-02); }
+  &__rule-summary span { @include type-style('label-01'); color:var(--cds-text-secondary); }
+  &__footer-actions { display:flex; justify-content:flex-end; gap:$spacing-03; }
+  @media(max-width:1056px) { &__keyword-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+  @media(max-width:672px) {
+    &__context { grid-template-columns:minmax(0,1fr); }
+    &__panel { padding:$spacing-04; }
+    &__panel-heading { align-items:flex-start; flex-direction:column; }
+    &__keyword-grid, &__two-col, &__website-builder { grid-template-columns:minmax(0,1fr); }
+    &__rule-row { align-items:flex-start; flex-wrap:wrap; }
+    &__import { align-items:flex-start; flex-direction:column; }
+    &__footer-actions { align-items:stretch; flex-direction:column; }
+  }
+}
