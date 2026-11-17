@@ -136,7 +136,7 @@ const continentOrder = ['North America','South America','Europe','Asia','Africa'
 const northAmericaCodes = new Set('AG AI AW BB BL BM BQ BS BZ CA CR CU CW DM DO GD GL GP GT HN HT JM KN KY LC MF MQ MS MX NI PA PR SV SX TC TT US VC VG VI'.split(' '));
 const directoryContinent = (country: Country) => country.region === 'Americas' ? (northAmericaCodes.has(country.cca2) ? 'North America' : 'South America') : country.region;
 
-const categoryLabels = globalCatalog.map(group => group.title);
+const categoryLabels = [...globalCatalog.map(group => group.title), '全球通用与全域穿透渠道', '企业名录与本地商业目录'];
 const continentLabels = [
   { value: 'North America', label: '北美洲' },
   { value: 'South America', label: '南美洲' },
