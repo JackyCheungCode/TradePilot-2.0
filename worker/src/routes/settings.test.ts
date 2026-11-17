@@ -38,13 +38,13 @@ test("global guardrail GET is owner-scoped and uses the caller JWT for RLS", asy
 });
 
 test("global guardrail PUT stores only allow-listed config under the authenticated owner", async () => {
-  let stored: Record<string, unknown> | null = null;
-  let storageHeaders: Headers | null = null;
+  const storedRows: Array<Record<string, unknown>> = [];
+  const storageHeaders: Headers[] = [];
   const restore = withFetch(async (input, init) => {
     const url = String(input);
     if (url.endsWith("/auth/v1/user")) return Response.json({ id: ownerId });
-    storageHeaders = new Headers(init?.headers);
-    stored = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    storageHeaders.push(new Headers(init?.headers));
+    storedRows.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
     return Response.json([{ config_version: 1, updated_at: "2026-11-17T00:00:00Z" }]);
   });
   try {
@@ -54,14 +54,16 @@ test("global guardrail PUT stores only allow-listed config under the authenticat
       body: JSON.stringify({ config: { enabled: { keywords: true }, rules: { keywords: "spam" }, unexpected: "must-not-persist", scope: "global" } }),
     }), env);
     assert.equal(response.status, 200);
-    assert.equal(stored?.owner_id, ownerId);
-    assert.equal(stored?.scope_key, "prospect_guardrails");
-    const config = stored?.config as Record<string, unknown>;
+    const stored = storedRows[0];
+    assert.ok(stored);
+    assert.equal(stored.owner_id, ownerId);
+    assert.equal(stored.scope_key, "prospect_guardrails");
+    const config = stored.config as Record<string, unknown>;
     assert.deepEqual(config.rules, { keywords: "spam" });
     assert.equal("unexpected" in config, false);
     assert.equal("scope" in config, false);
-    assert.equal(storageHeaders?.get("apikey"), env.SUPABASE_ANON_KEY);
-    assert.equal(storageHeaders?.get("authorization"), "Bearer user-access-token");
+    assert.equal(storageHeaders[0]?.get("apikey"), env.SUPABASE_ANON_KEY);
+    assert.equal(storageHeaders[0]?.get("authorization"), "Bearer user-access-token");
   } finally { restore(); }
 });
 
