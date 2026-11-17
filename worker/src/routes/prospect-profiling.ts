@@ -62,6 +62,8 @@ export async function handleProspectStrategy(request: Request, env: Env): Promis
     specifications: typeof body.specifications === "string" ? body.specifications.slice(0, 160) : "",
     hsCode: typeof body.hsCode === "string" ? body.hsCode.slice(0, 20) : "",
     certifications: cleanTerms(body.certifications, 12),
+    employeeScale: typeof body.employeeScale === "string" ? body.employeeScale.slice(0, 30) : "",
+    activity: typeof body.activity === "string" ? body.activity.slice(0, 20) : "",
     competitors: cleanTerms(body.competitors, 3),
   };
   const prompt = [
