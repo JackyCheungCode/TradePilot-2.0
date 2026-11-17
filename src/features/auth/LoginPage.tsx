@@ -109,7 +109,7 @@ export function LoginPage() {
   const verifySecondFactor = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!client || !factorId || !challengeId) return;
-    if (!/^\\d{6,8}$/.test(verificationCode.trim())) {
+    if (!/^\d{6,8}$/.test(verificationCode.trim())) {
       setError('请输入身份验证器当前显示的 6–8 位验证码。');
       return;
     }
@@ -182,7 +182,7 @@ export function LoginPage() {
               id="tradepilot-login-totp"
               labelText="身份验证器验证码"
               value={verificationCode}
-              onChange={(event) => setVerificationCode(event.currentTarget.value.replace(/\\D/g, '').slice(0, 8))}
+              onChange={(event) => setVerificationCode(event.currentTarget.value.replace(/\D/g, '').slice(0, 8))}
               inputMode="numeric"
               autoComplete="one-time-code"
               required
