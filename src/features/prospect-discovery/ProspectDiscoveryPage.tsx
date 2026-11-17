@@ -7,6 +7,7 @@ import {
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import { PlatformSelectionStep } from './PlatformSelectionStep';
+import { GuardrailsStep } from './GuardrailsStep';
 import '@/design-system/patterns/prospect-discovery.scss';
 
 const steps = [
@@ -604,6 +605,8 @@ export function ProspectDiscoveryPage() {
         </section>
       ) : selectedIndex === 1 ? (
         <PlatformSelectionStep countryCode={profile.country} countryName={profile.countryName} continentLabel={continents.find(item => item.value === profile.continent)?.label ?? ''} countries={countries} onChangeCountry={() => setSelectedIndex(0)} onSelectionCountChange={setSelectedSourceCount} />
+      ) : selectedIndex === 2 ? (
+        <GuardrailsStep countries={countries} profile={{ coreNoun: profile.coreNoun, country: profile.country, countryName: profile.countryName, buyers: profile.buyers }} />
       ) : (
         <div className="tp-prospect-discovery__future-step" aria-label="后续步骤暂未开放"><h2>{steps[selectedIndex]}</h2><p>此步骤将在前序配置确认后启用。</p></div>
       )}
