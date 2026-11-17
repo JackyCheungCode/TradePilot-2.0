@@ -259,7 +259,7 @@ export function CustomerCommunicationsWidget({
               <span className="cc-route-hint">{channelOverride ? '已手动切换' : '跟随客户最后一条入站消息'}</span>
               </div>
               {replyChannel === 'email' && <input className="cc-email-subject-input" value={emailSubject} onChange={(event) => setEmailSubject(event.currentTarget.value)} placeholder="邮件主题"/>}
-              <textarea value={draft} onChange={(event) => setDrafts((current) => ({ ...current, [activeCustomerId]: event.currentTarget.value }))} placeholder={'通过 ' + channelNames[replyChannel] + ' 回复 ' + activeCustomer.name + '…'} rows={3}/>
+              <textarea value={draft} onChange={(event) => { const value = event.currentTarget.value; setDrafts((current) => ({ ...current, [activeCustomerId]: value })); }} placeholder={'通过 ' + channelNames[replyChannel] + ' 回复 ' + activeCustomer.name + '…'} rows={3}/>
               <div className="cc-composer-footer"><span>附件和真实发送将在后端接入阶段启用</span><button type="submit" disabled={!draft.trim() || !replyIdentity?.connected}>发送消息 <span>↗</span></button></div>
             </form>
           </main>
