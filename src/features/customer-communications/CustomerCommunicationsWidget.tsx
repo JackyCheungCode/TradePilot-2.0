@@ -1,7 +1,7 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { getSupabaseClient } from '@/lib/supabase';
 
 type Channel = 'whatsapp' | 'messenger' | 'instagram' | 'email' | 'telegram' | 'wechat';
-type Theme = 'whatsapp' | 'wechat' | 'messenger' | 'outlook';
 type Filter = 'all' | 'unread' | 'pending' | 'resolved';
 type Customer = {
   id: string;
@@ -14,8 +14,11 @@ type Customer = {
   tags: string[];
   status: 'pending' | 'resolved';
   unread: number;
+  lastActivityAt: number;
+  lastPreview: string;
+  lastChannel?: Channel;
 };
-type Identity = { customerId: string; channel: Channel; handle: string; account: string; connected: boolean };
+type Identity = { id: string; customerId: string; channel: Channel; handle: string; account: string; connected: boolean };
 type Message = {
   id: string;
   customerId: string;
@@ -28,7 +31,6 @@ type Message = {
   attachment?: string;
 };
 
-const ago = (minutes: number) => Date.now() - minutes * 60_000;
 const channelNames: Record<Channel, string> = {
   whatsapp: 'WhatsApp',
   messenger: 'Messenger',
@@ -45,31 +47,54 @@ const channelGlyphs: Record<Channel, string> = {
   telegram: '➤',
   wechat: '◌',
 };
-const customerSeed: Customer[] = [
-  { id: 'customer-1', name: 'Michael Brown', company: 'ABC Electronics', role: '采购经理', country: 'United States', email: 'michael@abcelectronics.com', phone: '+1 415 555 0138', tags: ['重点客户', '消费电子', '批发商'], status: 'pending', unread: 2 },
-  { id: 'customer-2', name: 'Sarah Johnson', company: 'Global Trading Ltd.', role: '采购总监', country: 'United Kingdom', email: 'sarah@globaltrading.co.uk', phone: '+44 20 7946 0182', tags: ['潜在客户', '渠道商'], status: 'pending', unread: 1 },
-  { id: 'customer-3', name: 'David Lee', company: 'Tech Distribution', role: '创始人', country: 'Singapore', email: 'david@techdist.sg', phone: '+65 6123 4567', tags: ['新客户'], status: 'resolved', unread: 0 },
-];
-const identitySeed: Identity[] = [
-  { customerId: 'customer-1', channel: 'whatsapp', handle: '+1 415 555 0138', account: 'TradePilot Sales', connected: true },
-  { customerId: 'customer-1', channel: 'instagram', handle: '@michael.brown', account: 'TradePilot Official', connected: true },
-  { customerId: 'customer-1', channel: 'email', handle: 'michael@abcelectronics.com', account: 'sales@tradepilot.com', connected: true },
-  { customerId: 'customer-2', channel: 'messenger', handle: 'sarah.johnson', account: 'TradePilot Page', connected: true },
-  { customerId: 'customer-2', channel: 'email', handle: 'sarah@globaltrading.co.uk', account: 'sales@tradepilot.com', connected: true },
-  { customerId: 'customer-3', channel: 'telegram', handle: '@david_lee', account: 'TradePilot Sales Bot', connected: true },
-  { customerId: 'customer-3', channel: 'wechat', handle: 'david_techdist', account: 'TradePilot WeChat', connected: true },
-];
-const messageSeed: Message[] = [
-  { id: 'm1', customerId: 'customer-1', channel: 'whatsapp', direction: 'inbound', body: 'Hello, I am interested in your latest product range.', timestamp: ago(190), status: 'read' },
-  { id: 'm2', customerId: 'customer-1', channel: 'whatsapp', direction: 'outbound', body: 'Thanks for reaching out. I can share our latest catalogue.', timestamp: ago(184), status: 'delivered' },
-  { id: 'm3', customerId: 'customer-1', channel: 'email', direction: 'inbound', body: 'Please send the catalogue and wholesale price list.', subject: 'Product catalogue request', timestamp: ago(92), status: 'read' },
-  { id: 'm4', customerId: 'customer-1', channel: 'instagram', direction: 'inbound', body: 'I also want to know the MOQ for the new models.', timestamp: ago(18), status: 'read' },
-  { id: 'm5', customerId: 'customer-2', channel: 'messenger', direction: 'inbound', body: 'Could you provide your distributor terms?', timestamp: ago(46), status: 'read' },
-  { id: 'm6', customerId: 'customer-2', channel: 'email', direction: 'inbound', body: 'Following up on our conversation. Please share your company profile.', subject: 'Company profile', timestamp: ago(12), status: 'read' },
-  { id: 'm7', customerId: 'customer-3', channel: 'telegram', direction: 'inbound', body: 'Thank you. We have received the quotation.', timestamp: ago(320), status: 'read' },
-  { id: 'm8', customerId: 'customer-3', channel: 'wechat', direction: 'outbound', body: 'You are welcome. Please let me know if you need anything else.', timestamp: ago(310), status: 'sent' },
-];
-
+type ContactDbRow = {
+  id: string; first_name: string | null; last_name: string | null; full_name: string | null;
+  job_title: string | null; decision_role: string | null; email: string | null; phone: string | null;
+  mobile: string | null; is_active: boolean; is_archived: boolean; updated_at: string;
+  custom_fields: Record<string, unknown> | null;
+  crm_accounts?: { account_name?: string | null; country_code?: string | null } | null;
+};
+type ConversationDbRow = {
+  id: string; contact_id: string; unread_count: number | null; last_message_at: string | null;
+  last_channel_type: string | null; last_message_preview: string | null; status: string | null;
+};
+type IdentityDbRow = {
+  id: string; contact_id: string; channel_connection_id: string | null; channel_type: string;
+  external_user_id: string; external_display_name: string | null; external_username: string | null;
+  is_primary: boolean;
+};
+type ConnectionDbRow = { id: string; channel_type: string; display_name: string | null; external_account_id: string | null; connection_status: string };
+type MessageDbRow = {
+  id: string; conversation_id: string; channel_type: string; direction: string; content_type: string;
+  content: string | null; email_subject: string | null; media_url: string | null; attachments: unknown;
+  status: string | null; created_at: string;
+};
+const channelAliases: Record<string, Channel> = {
+  whatsapp: 'whatsapp', messenger: 'messenger', facebook_messenger: 'messenger', facebook: 'messenger',
+  instagram: 'instagram', email: 'email', telegram: 'telegram', wechat: 'wechat',
+};
+function normalizeChannel(value: string | null | undefined): Channel {
+  return channelAliases[(value ?? '').toLowerCase()] ?? 'email';
+}
+function timestamp(value: string | null | undefined): number {
+  const parsed = value ? new Date(value).getTime() : 0;
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+function messageStatus(value: string | null): Message['status'] {
+  if (value === 'failed' || value === 'error') return 'failed';
+  if (value === 'read') return 'read';
+  if (value === 'delivered') return 'delivered';
+  if (value === 'sent' || value === 'accepted') return 'sent';
+  return 'local';
+}
+function contentFallback(contentType: string): string {
+  if (contentType === 'image') return '图片';
+  if (contentType === 'video') return '视频';
+  if (contentType === 'audio' || contentType === 'voice') return '语音消息';
+  if (contentType === 'file') return '文件';
+  if (contentType === 'email_card') return '邮件';
+  return '暂不支持显示的消息类型';
+}
 function ChannelBadge({ channel, compact = false }: { channel: Channel; compact?: boolean }) {
   return <span className={'cc-channel cc-channel--' + channel}><span aria-hidden="true">{channelGlyphs[channel]}</span>{!compact && channelNames[channel]}</span>;
 }
@@ -94,6 +119,7 @@ export function CustomerCommunicationsWidget({
   onMinimize,
   onRestore,
   navigationExpanded,
+  onUnreadCountChange,
 }: {
   open: boolean;
   minimized: boolean;
@@ -101,14 +127,14 @@ export function CustomerCommunicationsWidget({
   onMinimize: () => void;
   onRestore: () => void;
   navigationExpanded: boolean;
+  onUnreadCountChange: (count: number) => void;
 }) {
-  const [customers, setCustomers] = useState(customerSeed);
-  const [identities, setIdentities] = useState(identitySeed);
-  const [messages, setMessages] = useState(messageSeed);
-  const [activeCustomerId, setActiveCustomerId] = useState('customer-1');
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [identities, setIdentities] = useState<Identity[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [activeCustomerId, setActiveCustomerId] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
   const [search, setSearch] = useState('');
-  const [theme, setTheme] = useState<Theme>('whatsapp');
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [emailSubject, setEmailSubject] = useState('');
   const [channelPickerOpen, setChannelPickerOpen] = useState(false);
@@ -117,38 +143,158 @@ export function CustomerCommunicationsWidget({
   const [profileOpen, setProfileOpen] = useState(true);
   const [notice, setNotice] = useState('');
   const [maximized, setMaximized] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
-  const activeCustomer = customers.find((customer) => customer.id === activeCustomerId) ?? customers[0]!;
+  const loadInbox = useCallback(async () => {
+    try {
+      const client = await getSupabaseClient();
+      const [contactsResult, conversationsResult, identitiesResult, connectionsResult] = await Promise.all([
+        client.from('crm_contacts')
+          .select('id,first_name,last_name,full_name,job_title,decision_role,email,phone,mobile,is_active,is_archived,updated_at,custom_fields,crm_accounts(account_name,country_code)')
+          .eq('is_archived', false).order('updated_at', { ascending: false }),
+        client.from('inbox_conversations')
+          .select('id,contact_id,unread_count,last_message_at,last_channel_type,last_message_preview,status')
+          .order('last_message_at', { ascending: false }),
+        client.from('inbox_customer_identities')
+          .select('id,contact_id,channel_connection_id,channel_type,external_user_id,external_display_name,external_username,is_primary'),
+        client.from('inbox_channel_connections')
+          .select('id,channel_type,display_name,external_account_id,connection_status'),
+      ]);
+      const failure = contactsResult.error || conversationsResult.error || identitiesResult.error || connectionsResult.error;
+      if (failure) throw failure;
+
+      const contacts = (contactsResult.data ?? []) as unknown as ContactDbRow[];
+      const conversations = (conversationsResult.data ?? []) as unknown as ConversationDbRow[];
+      const rawIdentities = (identitiesResult.data ?? []) as unknown as IdentityDbRow[];
+      const connections = (connectionsResult.data ?? []) as unknown as ConnectionDbRow[];
+      const messagesResult = conversations.length
+        ? await client.from('inbox_messages')
+          .select('id,conversation_id,channel_type,direction,content_type,content,email_subject,media_url,attachments,status,created_at')
+          .in('conversation_id', conversations.map((conversation) => conversation.id))
+          .order('created_at', { ascending: true })
+        : { data: [], error: null };
+      if (messagesResult.error) throw messagesResult.error;
+      const rawMessages = (messagesResult.data ?? []) as unknown as MessageDbRow[];
+      const connectionById = new Map(connections.map((item) => [item.id, item]));
+      const conversationsByContact = new Map<string, ConversationDbRow[]>();
+      const contactByConversation = new Map<string, string>();
+      conversations.forEach((conversation) => {
+        const list = conversationsByContact.get(conversation.contact_id) ?? [];
+        list.push(conversation);
+        conversationsByContact.set(conversation.contact_id, list);
+        contactByConversation.set(conversation.id, conversation.contact_id);
+      });
+
+      const nextCustomers: Customer[] = contacts.map((contact) => {
+        const related = conversationsByContact.get(contact.id) ?? [];
+        const latestConversation = related.slice().sort((a, b) => timestamp(b.last_message_at) - timestamp(a.last_message_at))[0];
+        const account = contact.crm_accounts;
+        const custom = contact.custom_fields ?? {};
+        const tags = Array.isArray(custom.tags) ? custom.tags.filter((tag): tag is string => typeof tag === 'string') : [];
+        const unread = related.reduce((total, conversation) => total + Math.max(0, conversation.unread_count ?? 0), 0);
+        return {
+          id: contact.id,
+          name: contact.full_name || [contact.first_name, contact.last_name].filter(Boolean).join(' ') || '未命名联系人',
+          company: account?.account_name || '未关联客户',
+          role: contact.job_title || contact.decision_role || '联系人',
+          country: (typeof custom.country === 'string' && custom.country) || account?.country_code || '—',
+          email: contact.email || '',
+          phone: contact.phone || contact.mobile || '',
+          tags,
+          status: related.length && related.every((item) => item.status === 'resolved') ? 'resolved' : 'pending',
+          unread,
+          lastActivityAt: timestamp(latestConversation?.last_message_at) || timestamp(contact.updated_at),
+          lastPreview: latestConversation?.last_message_preview || '尚无消息',
+          ...(latestConversation?.last_channel_type ? { lastChannel: normalizeChannel(latestConversation.last_channel_type) } : {}),
+        };
+      });
+
+      const nextIdentities: Identity[] = rawIdentities.map((identity) => {
+        const connection = identity.channel_connection_id ? connectionById.get(identity.channel_connection_id) : undefined;
+        const channel = normalizeChannel(identity.channel_type);
+        return {
+          id: identity.id,
+          customerId: identity.contact_id,
+          channel,
+          handle: identity.external_display_name || identity.external_username || identity.external_user_id,
+          account: connection?.display_name || connection?.external_account_id || channelNames[channel],
+          connected: connection?.connection_status === 'connected' || connection?.connection_status === 'active',
+        };
+      });
+
+      const nextMessages: Message[] = rawMessages.flatMap((message) => {
+        const customerId = contactByConversation.get(message.conversation_id);
+        if (!customerId) return [];
+        const attachmentList = Array.isArray(message.attachments) ? message.attachments as Array<{ filename?: string; name?: string }> : [];
+        const attachment = attachmentList[0]?.filename || attachmentList[0]?.name || (message.media_url ? '附件' : undefined);
+        return [{
+          id: message.id,
+          customerId,
+          channel: normalizeChannel(message.channel_type),
+          direction: message.direction === 'outbound' ? 'outbound' : 'inbound',
+          body: message.content || contentFallback(message.content_type),
+          timestamp: timestamp(message.created_at),
+          status: messageStatus(message.status),
+          ...(message.email_subject ? { subject: message.email_subject } : {}),
+          ...(attachment ? { attachment } : {}),
+        }];
+      });
+
+      setCustomers(nextCustomers);
+      setIdentities(nextIdentities);
+      setMessages(nextMessages);
+      setActiveCustomerId((current) => nextCustomers.some((customer) => customer.id === current) ? current : nextCustomers[0]?.id ?? '');
+      const unreadCount = nextCustomers.reduce((total, customer) => total + customer.unread, 0);
+      onUnreadCountChange(unreadCount);
+      setLoadError('');
+    } catch (cause) {
+      setLoadError(cause instanceof Error ? cause.message : '读取 CRM 联系人和收件箱失败');
+    } finally {
+      setLoading(false);
+    }
+  }, [onUnreadCountChange]);
+
+  useEffect(() => {
+    void loadInbox();
+    const refresh = window.setInterval(() => { void loadInbox(); }, 30_000);
+    return () => window.clearInterval(refresh);
+  }, [loadInbox]);
+
+  const activeCustomer = customers.find((customer) => customer.id === activeCustomerId) ?? customers[0];
   const draft = drafts[activeCustomerId] ?? '';
-  const customerMessages = messages.filter((message) => message.customerId === activeCustomerId).sort((a, b) => a.timestamp - b.timestamp);
+  const customerMessages = activeCustomer ? messages.filter((message) => message.customerId === activeCustomer.id).sort((a, b) => a.timestamp - b.timestamp) : [];
   const lastInbound = [...customerMessages].reverse().find((message) => message.direction === 'inbound');
   const latestMessage = customerMessages[customerMessages.length - 1];
-  const customerIdentities = identities.filter((identity) => identity.customerId === activeCustomerId);
-  const defaultChannel = lastInbound?.channel ?? latestMessage?.channel ?? customerIdentities[0]?.channel ?? 'email';
+  const customerIdentities = activeCustomer ? identities.filter((identity) => identity.customerId === activeCustomer.id) : [];
+  const defaultChannel = lastInbound?.channel ?? latestMessage?.channel ?? activeCustomer?.lastChannel ?? customerIdentities[0]?.channel ?? 'email';
   const replyChannel = channelOverride ?? defaultChannel;
   const replyIdentity = customerIdentities.find((identity) => identity.channel === replyChannel);
   const unreadTotal = customers.reduce((total, customer) => total + customer.unread, 0);
 
   const sortedCustomers = useMemo(() => customers
     .filter((customer) => {
-      const customerText = [customer.name, customer.company, customer.email, customer.phone, ...customer.tags].join(' ').toLowerCase();
+      const customerText = [customer.name, customer.company, customer.email, customer.phone, customer.lastPreview, ...customer.tags].join(' ').toLowerCase();
       const messageText = messages.filter((message) => message.customerId === customer.id).map((message) => message.body + ' ' + (message.subject ?? '')).join(' ').toLowerCase();
       const matchesSearch = !search || customerText.includes(search.toLowerCase()) || messageText.includes(search.toLowerCase());
       const matchesFilter = filter === 'all' || (filter === 'unread' ? customer.unread > 0 : customer.status === filter);
       return matchesSearch && matchesFilter;
     })
-    .sort((a, b) => {
-      const aTime = Math.max(0, ...messages.filter((message) => message.customerId === a.id).map((message) => message.timestamp));
-      const bTime = Math.max(0, ...messages.filter((message) => message.customerId === b.id).map((message) => message.timestamp));
-      return bTime - aTime;
-    }), [customers, messages, search, filter]);
+    .sort((a, b) => b.lastActivityAt - a.lastActivityAt), [customers, messages, search, filter]);
 
   const selectCustomer = (customer: Customer) => {
     setActiveCustomerId(customer.id);
     setChannelOverride(null);
     setChannelPickerOpen(false);
     setMobileChatOpen(true);
-    setCustomers((current) => current.map((item) => item.id === customer.id ? { ...item, unread: 0 } : item));
+    if (customer.unread > 0) {
+      setCustomers((current) => current.map((item) => item.id === customer.id ? { ...item, unread: 0 } : item));
+      onUnreadCountChange(Math.max(0, unreadTotal - customer.unread));
+      void getSupabaseClient().then((client) => client.from('inbox_conversations')
+        .update({ unread_count: 0 }).eq('contact_id', customer.id).gt('unread_count', 0))
+        .then(({ error }) => { if (error) setNotice('已在本地清除未读标记，但服务器未能同步：' + error.message); })
+        .catch((error) => setNotice(error instanceof Error ? error.message : '同步已读状态失败'));
+    }
   };
 
   const sendMessage = (event: FormEvent<HTMLFormElement>) => {
@@ -170,34 +316,31 @@ export function CustomerCommunicationsWidget({
     setCustomers((current) => current.map((item) => item.id === activeCustomerId ? { ...item, status: 'pending' } : item));
     setDrafts((current) => ({ ...current, [activeCustomerId]: '' }));
     setEmailSubject('');
-    setNotice('演示模式：消息仅保存在当前页面的本地状态中，没有发送到真实平台。');
+    setNotice('演示模式：消息仅保存在当前页面的本地状态中，尚未发送到真实渠道。');
   };
 
-  const createDemoCustomer = () => {
-    const id = 'customer-' + (customers.length + 1);
-    const next: Customer = { id, name: 'New customer', company: 'New company', role: '联系人', country: '—', email: '', phone: '', tags: ['新客户'], status: 'pending', unread: 0 };
-    setCustomers((current) => [...current, next]);
-    setIdentities((current) => [...current, { customerId: id, channel: 'email', handle: 'new-customer@example.com', account: 'sales@tradepilot.com', connected: true }]);
-    setActiveCustomerId(id);
-    setChannelOverride('email');
-    setMobileChatOpen(true);
-    setNotice('已创建本地演示客户。真实客户创建功能将在后端接入后启用。');
-  };
+
 
   if (!open) return null;
   if (minimized) {
     return <div className="cc-minimized"><button type="button" className="cc-restore" onClick={onRestore}><span className="cc-restore-icon">✉</span><span>客户沟通</span>{unreadTotal > 0 && <b>{unreadTotal}</b>}</button></div>;
   }
 
+  if (!activeCustomer) {
+    return <div className={"cc-floating-root" + (navigationExpanded ? " cc-floating-root--nav-expanded" : "")}>
+      <section className="cc-window" role="dialog" aria-label="客户沟通工作台" aria-modal="false">
+        <header className="cc-window-header"><div className="cc-window-brand"><span className="cc-brand-mark">TP</span><div><strong>客户沟通</strong><small>CRM 联系人与统一收件箱</small></div></div><div className="cc-window-tools"><IconButton label="关闭聊天窗口" onClick={onClose}>×</IconButton></div></header>
+        <div className="cc-empty">{loading ? '正在读取系统联系人…' : loadError || 'CRM 中暂无可显示的联系人。请先在联系人模块添加联系人。'}</div>
+      </section>
+    </div>;
+  }
+
   return (
     <div className={"cc-floating-root" + (navigationExpanded ? " cc-floating-root--nav-expanded" : "")}>
-      <section className={'cc-window cc-theme-' + theme + (maximized ? ' cc-window--maximized' : '')} role="dialog" aria-label="客户沟通工作台" aria-modal="false">
+      <section className={'cc-window' + (maximized ? ' cc-window--maximized' : '')} role="dialog" aria-label="客户沟通工作台" aria-modal="false">
         <header className="cc-window-header">
-          <div className="cc-window-brand"><span className="cc-brand-mark">TP</span><div><strong>客户沟通</strong><small>统一收件箱 · 本地演示</small><span className="cc-mobile-app-label">聊天 App</span></div></div>
+          <div className="cc-window-brand"><span className="cc-brand-mark">TP</span><div><strong>客户沟通</strong><small>CRM 联系人与统一收件箱</small><span className="cc-mobile-app-label">聊天 App</span></div></div>
           <div className="cc-window-tools">
-            <div className="cc-theme-switcher" aria-label="切换聊天界面主题">
-              {(['whatsapp', 'wechat', 'messenger', 'outlook'] as Theme[]).map((item) => <button key={item} type="button" className={theme === item ? 'is-active' : ''} onClick={() => setTheme(item)}>{({ whatsapp: 'WhatsApp', wechat: 'WeChat', messenger: 'Messenger', outlook: 'Outlook' })[item]}</button>)}
-            </div>
             <IconButton label={profileOpen ? '收起客户资料' : '显示客户资料'} onClick={() => setProfileOpen((value) => !value)}>{profileOpen ? '▣' : '▤'}</IconButton>
             <IconButton label={maximized ? '还原窗口' : '最大化窗口'} onClick={() => setMaximized((value) => !value)}>{maximized ? '❐' : '□'}</IconButton>
             <IconButton label="最小化聊天窗口" onClick={onMinimize}>−</IconButton>
@@ -207,7 +350,7 @@ export function CustomerCommunicationsWidget({
 
         <div className={'cc-workspace' + (!profileOpen ? ' cc-workspace--no-profile' : '') + (mobileChatOpen ? ' cc-workspace--mobile-chat' : '')}>
           <aside className="cc-inbox">
-            <div className="cc-inbox-heading"><div><strong>收件箱</strong><span>{customers.length} 位客户</span></div><button type="button" className="cc-new-button" onClick={createDemoCustomer}>＋ 新建</button></div>
+            <div className="cc-inbox-heading"><div><strong>联系人</strong><span>{customers.length} 位 CRM 联系人</span></div></div>
             <label className="cc-search"><span aria-hidden="true">⌕</span><input value={search} onChange={(event) => setSearch(event.currentTarget.value)} placeholder="搜索客户、公司或消息"/></label>
             <div className="cc-filters">
               {([{ id: 'all', label: '全部' }, { id: 'unread', label: '未读' }, { id: 'pending', label: '待处理' }, { id: 'resolved', label: '已解决' }] as { id: Filter; label: string }[]).map((item) => <button key={item.id} type="button" className={filter === item.id ? 'is-active' : ''} onClick={() => setFilter(item.id)}>{item.label}{item.id === 'unread' && unreadTotal > 0 ? <span>{unreadTotal}</span> : null}</button>)}
@@ -217,7 +360,7 @@ export function CustomerCommunicationsWidget({
                 const last = messages.filter((message) => message.customerId === customer.id).sort((a, b) => b.timestamp - a.timestamp)[0];
                 return <button type="button" key={customer.id} className={'cc-customer-row' + (activeCustomerId === customer.id ? ' is-selected' : '')} onClick={() => selectCustomer(customer)}>
                   <Avatar name={customer.name}/>
-                  <span className="cc-customer-copy"><span className="cc-customer-top"><strong>{customer.name}</strong><time>{last ? formatTime(last.timestamp) : '新客户'}</time></span><span className="cc-company">{customer.company}</span><span className="cc-preview">{last?.body ?? '尚无消息'}</span><span className="cc-customer-bottom">{last && <ChannelBadge channel={last.channel} compact/>}<span>{customerIdentitiesCount(identities, customer.id)} 个渠道</span></span></span>
+                  <span className="cc-customer-copy"><span className="cc-customer-top"><strong>{customer.name}</strong><time>{last ? formatTime(last.timestamp) : customer.lastActivityAt ? formatTime(customer.lastActivityAt) : '—'}</time></span><span className="cc-company">{customer.company}</span><span className="cc-preview">{last?.body ?? customer.lastPreview}</span><span className="cc-customer-bottom">{(last?.channel || customer.lastChannel) && <ChannelBadge channel={last?.channel || customer.lastChannel!} compact/>}<span>{customerIdentitiesCount(identities, customer.id)} 个渠道</span></span></span>
                   {customer.unread > 0 && <b className="cc-unread-count">{customer.unread}</b>}
                 </button>;
               })}
@@ -251,7 +394,7 @@ export function CustomerCommunicationsWidget({
                   {message.direction === 'outbound' && <span className="cc-message-status">{message.status === 'local' ? '本地演示 · 未发送' : message.status === 'delivered' ? '已送达' : '已发送'}</span>}
                 </div>;
               })}
-              {customerMessages.length === 0 && <div className="cc-empty cc-empty--timeline">这个客户还没有消息。你可以在下方输入一条本地演示消息。</div>}
+              {customerMessages.length === 0 && <div className="cc-empty cc-empty--timeline">这个联系人当前没有收件箱消息。</div>}
             </div>
 
             <form className="cc-composer" onSubmit={sendMessage}>
@@ -259,7 +402,7 @@ export function CustomerCommunicationsWidget({
                 <span>回复渠道</span>
                 <div className="cc-channel-picker">
                 <button type="button" className="cc-channel-trigger" aria-expanded={channelPickerOpen} onClick={() => setChannelPickerOpen((value) => !value)}><ChannelBadge channel={replyChannel}/><span>⌄</span></button>
-                {channelPickerOpen && <div className="cc-channel-menu">{customerIdentities.map((identity) => <button key={identity.channel} type="button" onClick={() => { setChannelOverride(identity.channel); setChannelPickerOpen(false); }}><ChannelBadge channel={identity.channel}/><small>{identity.handle}</small></button>)}</div>}
+                {channelPickerOpen && <div className="cc-channel-menu">{customerIdentities.map((identity) => <button key={identity.id} type="button" onClick={() => { setChannelOverride(identity.channel); setChannelPickerOpen(false); }}><ChannelBadge channel={identity.channel}/><small>{identity.handle}</small></button>)}</div>}
               </div>
               <span className="cc-route-hint">{channelOverride ? '已手动切换' : '跟随客户最后一条入站消息'}</span>
               </div>
@@ -272,9 +415,9 @@ export function CustomerCommunicationsWidget({
           {profileOpen && <aside className="cc-profile">
             <div className="cc-profile-top"><Avatar name={activeCustomer.name}/><strong>{activeCustomer.name}</strong><span>{activeCustomer.role}</span><small>{activeCustomer.company}</small></div>
             <section className="cc-profile-section"><h3>客户信息</h3><dl><dt>国家 / 地区</dt><dd>{activeCustomer.country}</dd><dt>邮箱</dt><dd>{activeCustomer.email || '—'}</dd><dt>电话</dt><dd>{activeCustomer.phone || '—'}</dd></dl></section>
-            <section className="cc-profile-section"><h3>渠道身份 <span>{customerIdentities.length}</span></h3>{customerIdentities.map((identity) => <div className="cc-identity" key={identity.channel}><ChannelBadge channel={identity.channel}/><div><strong>{identity.handle}</strong><small>{identity.account}</small></div><i className={identity.connected ? 'is-connected' : ''}/></div>)}</section>
+            <section className="cc-profile-section"><h3>渠道身份 <span>{customerIdentities.length}</span></h3>{customerIdentities.map((identity) => <div className="cc-identity" key={identity.id}><ChannelBadge channel={identity.channel}/><div><strong>{identity.handle}</strong><small>{identity.account}</small></div><i className={identity.connected ? 'is-connected' : ''}/></div>)}</section>
             <section className="cc-profile-section"><h3>客户标签</h3><div className="cc-tags">{activeCustomer.tags.map((tag) => <span key={tag}>{tag}</span>)}</div></section>
-            <div className="cc-profile-foot">单人工作台 · 本地模拟资料</div>
+            <div className="cc-profile-foot">CRM 联系人档案</div>
           </aside>}
         </div>
         {notice && <div className="cc-notice" role="status"><span>{notice}</span><button type="button" onClick={() => setNotice('')}>知道了</button></div>}

@@ -18,6 +18,7 @@ export function AppShell() {
   const [xiaoyaOpen, setXiaoyaOpen] = useState(false);
   const [communicationsOpen, setCommunicationsOpen] = useState(false);
   const [communicationsMinimized, setCommunicationsMinimized] = useState(false);
+  const [communicationsUnreadCount, setCommunicationsUnreadCount] = useState(0);
   const [signingOut, setSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState('');
   const navigate = useNavigate();
@@ -53,13 +54,15 @@ export function AppShell() {
         </HeaderName>
         <HeaderGlobalBar>
           <HeaderGlobalAction
-            aria-label="客户沟通"
+            aria-label={communicationsUnreadCount > 0 ? `客户沟通，${communicationsUnreadCount} 条未读消息` : '客户沟通'}
             tooltipAlignment="end"
+            className="tp-header-communications"
             isActive={communicationsOpen && !communicationsMinimized}
             aria-expanded={communicationsOpen && !communicationsMinimized}
             onClick={() => { setCommunicationsOpen(true); setCommunicationsMinimized(false); }}
           >
             <CarbonIcons.Chat size={20} />
+            {communicationsUnreadCount > 0 && <span className="tp-header-unread-badge" aria-label={`${communicationsUnreadCount} 条未读消息`} aria-live="polite">{communicationsUnreadCount > 99 ? '99+' : communicationsUnreadCount}</span>}
           </HeaderGlobalAction>
           <HeaderGlobalAction
             aria-label={xiaoyaOpen ? "关闭小雅 AI 助手" : "打开小雅 AI 助手"}
@@ -157,6 +160,7 @@ export function AppShell() {
         onMinimize={() => setCommunicationsMinimized(true)}
         onRestore={() => setCommunicationsMinimized(false)}
         navigationExpanded={sideNavExpanded}
+        onUnreadCountChange={setCommunicationsUnreadCount}
       />
     </>
   );
