@@ -4,7 +4,7 @@ import {
   Button, InlineLoading, InlineNotification, TextInput,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
-import './login-page.scss';
+import '@/design-system/patterns/login.scss';
 
 export function LoginPage() {
   const location = useLocation();
