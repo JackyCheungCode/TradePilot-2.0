@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import {
   Accordion, AccordionItem, Button, Checkbox, FileUploaderButton, InlineNotification,
-  MultiSelect, Select, SelectItem, Tag, TextArea, TextInput, Toggle,
+  MultiSelect, RadioButton, RadioButtonGroup, Select, SelectItem, Tag, TextArea, TextInput, Toggle,
 } from '@/design-system';
 
 type CountryOption = { cca2: string; name: { common: string } };
@@ -50,10 +50,6 @@ const exclusionActions = [
 const emptyRules: RuleSet = {
   keywords: '', websites: '', companies: '', geography: '', products: '', contacts: '', people: '', quality: '',
 };
-
-function parseLines(value: string) {
-  return value.split(/\\r?\\n|,/).map(item => item.trim()).filter(Boolean);
-}
 
 export function GuardrailsStep({ countries, profile }: { countries: CountryOption[]; profile: ProfileContext }) {
   const [enabled, setEnabled] = useState<Record<string, boolean>>({
@@ -148,6 +144,10 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
     }
   };
 
+  useEffect(() => {
+    if (countries.length) setExcludedCountries(current => current.length ? current : countries.filter(item => item.cca2 === 'CN').map(item => ({ id: item.cca2, text: item.name.common + ' (' + item.cca2 + ')' })));
+  }, [countries]);
+
   const summary = useMemo(() => Object.values(enabled).filter(Boolean).length, [enabled]);
 
   return (
@@ -189,7 +189,9 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
         <div className="tp-guardrails__field">
           <span className="tp-guardrails__field-label">命中后的处理动作</span>
           <div className="tp-guardrails__choice-row">
-            {exclusionActions.map(item => <Checkbox key={item.value} id={'tp-guardrails-action-' + item.value} labelText={item.text} checked={keywordAction === item.value} onChange={() => setKeywordAction(item.value)} />)}
+            <RadioButtonGroup legendText="命中后的处理动作" name="tp-guardrails-keyword-action" valueSelected={keywordAction} onChange={value => setKeywordAction(String(value))}>
+            {exclusionActions.map(item => <RadioButton key={item.value} id={'tp-guardrails-action-' + item.value} value={item.value} labelText={item.text} />)}
+          </RadioButtonGroup>
           </div>
         </div>
       </div>
@@ -245,7 +247,7 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
           <Toggle id="tp-guardrails-geography" labelText="启用地域排除" toggled={enabled.geography} onToggle={value => toggleEnabled('geography', value)} />
         </div>
         <div className="tp-guardrails__field">
-          <MultiSelect id="tp-guardrails-country-exclusion" titleText="排除国家 / 地区" label="选择需要排除的国家或地区" items={countries.map(item => ({ id: item.cca2, text: item.name.common + ' (' + item.cca2 + ')' }))} itemToString={item => item?.text ?? ''} selectedItems={excludedCountries.length ? excludedCountries : countries.filter(item => item.cca2 === 'CN').map(item => ({ id: item.cca2, text: item.name.common + ' (' + item.cca2 + ')' }))} onChange={({ selectedItems }) => setExcludedCountries(selectedItems ?? [])} />
+          <MultiSelect id="tp-guardrails-country-exclusion" titleText="排除国家 / 地区" label="选择需要排除的国家或地区" items={countries.map(item => ({ id: item.cca2, text: item.name.common + ' (' + item.cca2 + ')' }))} itemToString={item => item?.text ?? ''} selectedItems={excludedCountries} onChange={({ selectedItems }) => setExcludedCountries(selectedItems ?? [])} />
         </div>
         <TextArea id="tp-guardrails-subregions" labelText="省州 / 城市 / 邮政编码（每行一个）" placeholder={'California\\nOntario\\nDubai\\n10001'} rows={3} value={rules.geography} onChange={event => updateRule('geography', event.currentTarget.value)} />
         <p className="tp-guardrails__helper">地域判定优先依据企业注册地与实际经营地址；IP 和服务器位置仅作辅助证据。</p>
