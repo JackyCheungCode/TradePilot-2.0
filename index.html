@@ -4,6 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#ffffff" />
+    <script>
+      (() => {
+        const dark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+        document.documentElement.setAttribute("data-carbon-theme", dark ? "g100" : "white");
+      })();
+    </script>
     <title>潜客发现 · TradePilot</title>
   </head>
   <body>
