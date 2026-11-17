@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Button, Checkbox, CodeSnippet, InlineNotification, ProgressBar, Table, TableBody,
+  Button, Checkbox, CodeSnippet, InlineNotification, Pagination, ProgressBar, Table, TableBody,
   TableCell, TableHead, TableHeader, TableRow, TableSelectAll, TableSelectRow,
   TableToolbar, TableToolbarContent, TableToolbarSearch, Tag, Tile, CarbonIcons,
 } from '@/design-system';
@@ -11,7 +11,7 @@ type ContactRow = {
   person: string; title: string; linkedin: string; email: string; phone: string; whatsapp: string;
   emailStatus: 'valid' | 'pending' | 'unknown'; enrichment: 'pending' | 'complete';
   crm: 'not-synced' | 'synced' | 'failed'; crmId?: string; candidateKeys: string[];
-  candidateCount: number;
+  candidateCount: number; contacts: Array<{ name: string; title: string; email: string; phone: string; linkedin: string; whatsapp: string }>;
 };
 type Candidate = Record<string, unknown>;
 type Props = { profile: { coreNoun: string; countryName: string } };
@@ -52,6 +52,7 @@ function mapRecord(record: Record<string, unknown>): ContactRow {
   const email = String(candidate.email ?? emails[0] ?? '');
   const person = String(candidate.full_name ?? '');
   const isEnriched = Boolean(raw.contact_enrichment || raw.contact_intelligence);
+  const contacts = candidates.map(item => ({ name: String(item.full_name ?? ''), title: String(item.job_title ?? ''), email: String(item.email ?? ''), phone: String(item.phone ?? item.mobile ?? ''), linkedin: String(item.linkedin_url ?? ''), whatsapp: String(item.whatsapp ?? '') }));
   return {
     id: String(record.id), company: String(record.name ?? '未命名企业'), domain,
     country: String(record.country_code ?? ''), source: String(occurrences[0]?.provider ?? record.channel ?? ''),
@@ -61,7 +62,7 @@ function mapRecord(record: Record<string, unknown>): ContactRow {
     emailStatus: email ? 'unknown' : 'pending', enrichment: isEnriched ? 'complete' : 'pending',
     crm: raw.lifecycle_stage === 'converted' || Boolean(record.lead_id) ? 'synced' : 'not-synced',
     crmId: String(asObject(raw.contact_intelligence).crm_account_id ?? '') || undefined,
-    candidateKeys: candidates.map(candidateKey).filter(Boolean), candidateCount: candidates.length,
+    candidateKeys: candidates.map(candidateKey).filter(Boolean), candidateCount: candidates.length, contacts,
   };
 }
 
@@ -248,7 +249,7 @@ export function DecisionMakerStep({ profile }: Props) {
               {visible.map(row => <TableRow key={row.id}>
                 <TableSelectRow id={'decision-' + row.id} name={'decision-' + row.id} checked={selected.includes(row.id)} onSelect={() => toggleOne(row.id)} />
                 <TableCell><div className="tp-decision__company"><strong>{row.company}</strong><Tag type="blue">{row.source || row.country}</Tag></div><small>{row.domain || '暂无官网'}</small></TableCell>
-                <TableCell>{row.person ? <div className="tp-decision__person"><strong>{row.person}</strong><span>{row.title || '职位待核验'}</span></div> : <Tag type="gray">暂无候选</Tag>}</TableCell>
+                <TableCell>{row.contacts.length ? <div className="tp-decision__person">{row.contacts.map((contact, index) => <div key={index}><strong>{contact.name || '姓名待核验'}</strong><span>{contact.title || '职位待核验'}</span>{contact.email && <small>{contact.email}</small>}</div>)}</div> : row.person ? <div className="tp-decision__person"><strong>{row.person}</strong><span>{row.title || '职位待核验'}</span></div> : <Tag type="gray">暂无候选</Tag>}</TableCell>
                 <TableCell><div className="tp-decision__email">{row.email ? <a href={'mailto:' + row.email}>{row.email}</a> : <Tag type="gray">待采集</Tag>}{emailTag(row)}{row.phone && <small>{row.phone}</small>}{row.whatsapp && <small>WhatsApp：{row.whatsapp}</small>}</div></TableCell>
                 <TableCell>{row.linkedin ? <a href={row.linkedin} target="_blank" rel="noreferrer">LinkedIn <CarbonIcons.ArrowUpRight size={12} /></a> : <Tag type="gray">暂无公开账号</Tag>}</TableCell>
                 <TableCell><div className="tp-decision__status">{crmTag(row)}{row.crmId && <small>{row.crmId}</small>}</div></TableCell>
@@ -257,6 +258,7 @@ export function DecisionMakerStep({ profile }: Props) {
             </TableBody>
           </Table>
         </div>
+        <div className="tp-decision__pagination"><Pagination id="tp-decision-pagination" page={page} pageSize={pageSize} pageSizes={[10, 20, 50]} totalItems={filtered.length} onChange={({ page: nextPage }) => setPage(nextPage)} /></div>
         <div className="tp-decision__footer"><span>当前 {rows.length} 家企业 · 已补全 {enrichedCount} 家 · 联系人候选 {candidateCount} 位 · 已同步 {rows.filter(row => row.crm === 'synced').length} 家</span><Button kind="ghost" size="sm" renderIcon={CarbonIcons.ArrowUp} onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>返回顶部</Button></div>
       </Tile>
     </section>
