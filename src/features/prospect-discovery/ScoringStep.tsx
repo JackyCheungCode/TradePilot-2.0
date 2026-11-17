@@ -246,7 +246,7 @@ export function ScoringStep({ profile, onContinueToEnrichment }: Props) {
             <div className="tp-scoring__toolbar">
               <TableToolbarSearch persistent value={search} onChange={(_event, value) => { setSearch(value ?? ''); setPage(1); }} placeholder="搜索企业名称或域名" />
               <div className="tp-scoring__source-filter">
-                <Dropdown id="tp-scoring-source" titleText="获客来源" label="全部来源" items={[{ id: 'all', text: '全部来源' }, ...sourceOptions.map(item => ({ id: item, text: item }))]} itemToString={item => item?.text ?? ''} selectedItem={[{ id: 'all', text: '全部来源' }, ...sourceNames.map(item => ({ id: item, text: item }))].find(item => item.id === source) ?? { id: 'all', text: '全部来源' }} onChange={({ selectedItem }) => { setSource(selectedItem?.id ?? 'all'); setPage(1); }} />
+                <Dropdown id="tp-scoring-source" titleText="获客来源" label="全部来源" items={[{ id: 'all', text: '全部来源' }, ...sourceOptions.map(item => ({ id: item, text: item }))]} itemToString={item => item?.text ?? ''} selectedItem={[{ id: 'all', text: '全部来源' }, ...sourceOptions.map(item => ({ id: item, text: item }))].find(item => item.id === source) ?? { id: 'all', text: '全部来源' }} onChange={({ selectedItem }) => { setSource(selectedItem?.id ?? 'all'); setPage(1); }} />
               </div>
             </div>
           </TableToolbarContent>
