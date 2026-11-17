@@ -43,7 +43,7 @@ async function requestApi(path: string, token: string, init: RequestInit = {}) {
     headers: { Authorization: 'Bearer ' + token, Accept: 'application/json', ...(init.body ? { 'Content-Type': 'application/json' } : {}), ...init.headers },
   });
   const payload = await response.json().catch(() => ({})) as { data?: unknown; error?: { message?: string }; message?: string };
-  if (!response.ok) throw new Error(payload.error?.message || payload.message || '请求失败（HTTP ' + response.status + '）');
+  if (!response.ok) throw new Error((payload.error?.message || payload.message || '请求失败（HTTP ' + response.status + '）').replace(/Apify/gi, '外部数据采集服务'));
   return payload.data ?? payload;
 }
 
@@ -169,7 +169,7 @@ export function ExecutionStep({ profile, sources, onEditStep, onContinueToScorin
         setProgress(Math.round(totalProgress / Math.max(1, results.length)));
         setCaptured(results.reduce((sum, item) => sum + (Number(item.snapshot.discoveredCount) || 0), 0));
         const logLines = results.flatMap(({ run, snapshot }) => (snapshot.logs ?? []).map(item => '[' + run.name + '] ' + item.message));
-        if (logLines.length) setLogs(current => [...current.slice(-Math.max(0, 80 - logLines.length)), ...logLines].slice(-80));
+        if (logLines.length) setLogs(current => { const existing = new Set(current); const additions = logLines.filter(line => !existing.has(line)); return [...current, ...additions].slice(-80); });
         if (results.every(item => terminalStatuses.has(item.snapshot.status))) {
           const successful = results.some(item => item.snapshot.status === 'completed' || item.snapshot.status === 'partial' || item.snapshot.status === 'partially_completed');
           setStatus(successful ? 'completed' : 'failed');
