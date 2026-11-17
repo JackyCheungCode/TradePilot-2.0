@@ -57,6 +57,8 @@ export function DocumentStudioPage() {
   const dragRef = useRef<{ id: string; startX: number; startY: number; x: number; y: number } | null>(null);
   const [documentType, setDocumentType] = useState<DocType>('quotation');
   const [locale, setLocale] = useState('en');
+  const [pageSize, setPageSize] = useState<'A4' | 'Letter'>('A4');
+  const [orientation, setOrientation] = useState<'portrait' | 'landscape'>('portrait');
   const [orderId, setOrderId] = useState('');
   const [shipmentId, setShipmentId] = useState('');
   const [orders, setOrders] = useState<SourceOrder[]>([]);
@@ -82,7 +84,7 @@ export function DocumentStudioPage() {
   const selectedOrder = orders.find(item => item.id === orderId);
   const isShipment = selectedType.source === 'shipment';
   const canUseQuotationSource = ['proforma_invoice', 'sales_contract'].includes(documentType);
-  const templateConfig = useMemo(() => ({ layoutEngine: 'free-canvas-v1', pageSize: 'A4', orientation: 'portrait', unit: 'mm', locale, elements }), [elements, locale]);
+  const templateConfig = useMemo(() => ({ layoutEngine: 'free-canvas-v1', pageSize, orientation, unit: 'mm', locale, elements }), [elements, locale, pageSize, orientation]);
 
   const request = useCallback(async (path: string, init?: RequestInit) => {
     const client = await getSupabaseClient();
@@ -140,6 +142,8 @@ export function DocumentStudioPage() {
     if (!template) return;
     const config = template.template_config ?? {};
     if (Array.isArray(config.elements)) setElements(config.elements as StudioElement[]);
+    if (config.pageSize === 'Letter' || config.pageSize === 'A4') setPageSize(config.pageSize);
+    if (config.orientation === 'portrait' || config.orientation === 'landscape') setOrientation(config.orientation);
   }, [templateId, templates]);
 
   const updateElement = (id: string, patch: Partial<StudioElement>) => setElements(items => items.map(item => item.id === id ? { ...item, ...patch } : item));
@@ -218,6 +222,8 @@ export function DocumentStudioPage() {
       {sourceMode === 'quotation' && canUseQuotationSource ? <div><Select id="studio-quote" labelText="选择报价单" value={sourceDocumentId} onChange={event => { const id = event.currentTarget.value; setSourceDocumentId(id); setOrderId(quotes.find(quote => quote.id === id)?.order_id ?? ''); }}><SelectItem value="" text="请选择已生成报价单" />{quotes.map(quote => <SelectItem key={quote.id} value={quote.id} text={quote.document_number + ' · ' + quote.status} />)}</Select></div> : <div><Select id="studio-order" labelText="选择销售订单" value={orderId} onChange={event => { setOrderId(event.currentTarget.value); setShipmentId(''); }}><SelectItem value="" text="请选择订单" />{orders.map(order => <SelectItem key={order.id} value={order.id} text={order.order_number + ' · ' + order.title + ' · ' + order.status} />)}</Select></div>}
       {isShipment && <div><Select id="studio-shipment" labelText="选择发运批次" value={shipmentId} disabled={!orderId} onChange={event => setShipmentId(event.currentTarget.value)}><SelectItem value="" text="请选择本次实际发运批次" />{shipments.map(shipment => <SelectItem key={shipment.id} value={shipment.id} text={shipment.shipment_no + ' · ' + shipment.status} />)}</Select></div>}
       <div><Select id="studio-locale" labelText="单据语言" value={locale} onChange={event => setLocale(event.currentTarget.value)}>{LOCALES.map(item => <SelectItem key={item.value} value={item.value} text={item.label} />)}</Select></div>
+      <div><Select id="studio-page-size" labelText="纸张尺寸" value={pageSize} onChange={event => setPageSize(event.currentTarget.value as 'A4' | 'Letter')}><SelectItem value="A4" text="A4" /><SelectItem value="Letter" text="Letter" /></Select></div>
+      <div><Select id="studio-orientation" labelText="页面方向" value={orientation} onChange={event => setOrientation(event.currentTarget.value as 'portrait' | 'landscape')}><SelectItem value="portrait" text="纵向" /><SelectItem value="landscape" text="横向" /></Select></div>
       <div><Select id="studio-template" labelText="模板" value={templateId} onChange={event => setTemplateId(event.currentTarget.value)}><SelectItem value="" text="新建模板" />{templates.filter(item => item.document_type === documentType && item.locale === locale).map(item => <SelectItem key={item.id} value={item.id} text={item.name + (item.is_default ? ' · 默认' : '')} />)}</Select></div>
       <div className="tp-doc-studio__template-name"><TextInput id="studio-template-name" labelText="模板名称" value={templateName} onChange={event => setTemplateName(event.currentTarget.value)} /></div>
       <div className="tp-doc-studio__source-detail">{selectedType.detail}{selectedOrder && <Tag type={selectedOrder.locked_at ? 'green' : 'blue'}>{selectedOrder.locked_at ? '成交快照已锁定' : '当前订单未锁定成交快照'}</Tag>}</div>
@@ -230,10 +236,10 @@ export function DocumentStudioPage() {
         <div className="tp-doc-studio__tool-hint">选择画布元素后，可在右侧编辑属性。拖动元素可调整位置。</div>
       </aside>
       <div className="tp-doc-studio__canvas-area">
-        <div className="tp-doc-studio__canvas-toolbar"><strong>A4 · 210 × 297 mm</strong><span>{createdDoc ? createdDoc.document_number : '模板设计预览'}</span><Tag type="blue">自由设计</Tag></div>
+        <div className="tp-doc-studio__canvas-toolbar"><strong>{pageSize} · {orientation === 'portrait' ? '纵向' : '横向'}</strong><span>{createdDoc ? createdDoc.document_number : '模板设计预览'}</span><Tag type="blue">自由设计</Tag></div>
         <div className="tp-doc-studio__canvas-scroll">
-          <div ref={canvasRef} className="tp-doc-studio__paper" onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerLeave={onPointerUp}>
-            <svg className="tp-doc-studio__svg" viewBox="0 0 210 297" role="img" aria-label="A4 单据模板编辑画布">
+          <div ref={canvasRef} className={'tp-doc-studio__paper tp-doc-studio__paper--' + pageSize.toLowerCase() + '-' + orientation} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerLeave={onPointerUp}>
+            <svg className="tp-doc-studio__svg" viewBox={pageSize === 'Letter' ? (orientation === 'portrait' ? '0 0 216 279' : '0 0 279 216') : (orientation === 'portrait' ? '0 0 210 297' : '0 0 297 210')} role="img" aria-label="A4 单据模板编辑画布">
               {elements.map(item => <g key={item.id} className={'tp-doc-studio__svg-element' + (selectedId === item.id ? ' is-selected' : '') + (item.locked ? ' is-locked' : '')} onPointerDown={event => { event.stopPropagation(); setSelectedId(item.id); if (!item.locked && canvasRef.current) { dragRef.current = { id: item.id, startX: event.clientX, startY: event.clientY, x: item.x, y: item.y }; canvasRef.current.setPointerCapture(event.pointerId); } }}>
                 {item.background && item.background !== 'transparent' && <rect x={item.x} y={item.y} width={item.width} height={item.height} fill={item.background} />}
                 {item.type === 'shape' && <rect x={item.x} y={item.y} width={item.width} height={item.height} fill={item.background || 'none'} stroke={item.color || '#8d8d8d'} />}
