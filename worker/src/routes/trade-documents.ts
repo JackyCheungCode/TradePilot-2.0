@@ -44,7 +44,7 @@ function pdfMoney(value:unknown,currency:string,locale="en"):string{const amount
 function renderTradeDocumentHtml(document:Json,version:Json,storageBaseUrl:string):{html:string;pdfOptions:Json;fileName:string}{
  const content=obj(version.content_snapshot),totals=obj(version.totals_snapshot),template=obj(version.template_snapshot),config=obj(template.template_config),currency=str(document.currency_code,3)||"USD",type=str(document.document_type,80),items=Array.isArray(content.items)?content.items as Json[]:[],shipment=obj(content.shipment),locale=str(version.locale,20)||"en";
  if(config.layoutEngine==="free-canvas-v1"&&Array.isArray(config.elements)){
-  const elements=config.elements as Json[],pageSize=str(config.pageSize,20).toLowerCase()==="letter"?"letter":"a4",landscape=str(config.orientation,20)==="landscape",pageWidth=landscape?279:210,pageHeight=landscape?216:297;
+  const elements=config.elements as Json[],pageSize=str(config.pageSize,20).toLowerCase()==="letter"?"letter":"a4",landscape=str(config.orientation,20)==="landscape",pageWidth=pageSize==="letter"?(landscape?279:216):(landscape?297:210),pageHeight=pageSize==="letter"?(landscape?216:279):(landscape?210:297);
   const root:Json={...content,totals,document};
   const resolve=(path:unknown)=>String(path??"").split(".").filter(Boolean).reduce<unknown>((value,key)=>obj(value)[key],root);
   const tableElement=elements.find(element=>element.type==="table"),rowHeight=8,maxRows=tableElement?Math.max(1,Math.floor(Number(tableElement.height||72)/rowHeight)):18,pageCount=Math.max(1,Math.ceil(items.length/maxRows));
@@ -58,7 +58,7 @@ function renderTradeDocumentHtml(document:Json,version:Json,storageBaseUrl:strin
     return "<div class='element' style='"+style+"'><table><thead>"+head+"</thead><tbody>"+(body||"<tr><td colspan='6'>—</td></tr>")+"</tbody></table></div>";
    }
    if(element.type==="shape")return "<div class='element' style='"+style+"border:1px solid "+htmlEscape(element.color||"#8d8d8d")+"'></div>";
-   if(element.type==="image")return "<div class='element' style='"+style+"border:1px dashed #8d8d8d;color:#6f6f6f'>"+pdfText(element.text||"Image / Logo")+"</div>";
+   if(element.type==="image"){let imageUrl="";try{const candidate=new URL(String(element.imageUrl||"")),base=new URL(storageBaseUrl);if(candidate.protocol==="https:"&&candidate.origin===base.origin&&candidate.pathname.startsWith("/storage/v1/object/public/crm-assets/"))imageUrl=candidate.href;}catch{}return "<div class='element' style='"+style+"'>"+(imageUrl?"<img src='"+htmlEscape(imageUrl)+"' style='width:100%;height:100%;object-fit:contain' alt='Document image'>":pdfText(element.text||"Image / Logo"))+"</div>";}
    const value=element.type==="field"?resolve(element.binding):element.text;
    return "<div class='element' style='"+style+"white-space:pre-wrap;overflow-wrap:anywhere'>"+pdfText(value)+"</div>";
   };
