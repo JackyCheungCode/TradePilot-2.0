@@ -44,6 +44,8 @@ function mapInboxConversation(row: InboxConversation): { conversation: Communica
     email: contact.email || '—',
     phone: contact.phone || contact.mobile || '—',
     region: contact.preferred_language || '—',
+    industry: row.account?.industry || undefined,
+    website: row.account?.website || undefined,
     tags: [],
     identities: row.identities.map((identity) => ({
       channel: identity.channel_type as CommunicationChannel,
@@ -74,7 +76,7 @@ function mapInboxMessage(row: InboxMessage): CommunicationMessage {
     : bytes >= 1024 ? Math.round(bytes / 1024) + ' KB' : bytes ? bytes + ' B' : '附件';
   return {
     id: row.id, conversationId: row.conversation_id,
-    channel: row.channel_type ? row.channel_type as CommunicationChannel : undefined,
+    channel: row.channel_type ? row.channel_type as CommunicationChannel : 'email',
     direction: isNote ? 'system' : row.direction === 'outbound' ? 'outbound' : 'inbound',
     kind, body: row.content || row.media_url || '（此消息没有文本内容）',
     translatedBody: row.translated_content || undefined,
@@ -803,7 +805,7 @@ export function CustomerCommunicationsPage() {
                 <div className="cc-message-meta">
                   <time>{formatDate(message.time)}</time>
                 </div>
-                {message.channel && <span className="cc-message-source" aria-label={'来源平台：' + communicationChannelLabels[message.channel]} title={'来源平台：' + communicationChannelLabels[message.channel]}><ChannelLogo channel={message.channel} size="sm" /></span>}
+                {message.direction !== 'system' && message.channel && <span className="cc-message-source" aria-label={'来源平台：' + communicationChannelLabels[message.channel]} title={'来源平台：' + communicationChannelLabels[message.channel]}><ChannelLogo channel={message.channel} size="sm" /></span>}
                 <div className="cc-message-row">
                   {message.direction === 'inbound' && <CustomerAvatar customer={activeCustomer} />}
                   <div className="cc-message-content">

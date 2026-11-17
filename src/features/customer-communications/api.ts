@@ -45,6 +45,9 @@ export interface InboxMessage {
   conversation_id: string;
   channel_type?: InboxChannel;
   direction: 'inbound' | 'outbound' | 'internal';
+  translated_content?: string | null;
+  source_language?: string | null;
+  target_language?: string | null;
   content_type?: 'text' | 'image' | 'file' | 'audio' | 'video' | 'template' | 'email_card';
   content: string;
   email_subject?: string | null;

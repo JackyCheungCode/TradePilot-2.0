@@ -28,7 +28,7 @@ export interface CommunicationConversation {
 export interface CommunicationMessage {
   id: string;
   conversationId: string;
-  channel?: CommunicationChannel;
+  channel: CommunicationChannel;
   direction: 'inbound' | 'outbound' | 'system';
   kind: MessageKind;
   body: string;
