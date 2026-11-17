@@ -47,7 +47,7 @@ Users who have not enabled WebAuthn MFA remain unaffected by the session gate. S
 
 1. Confirm Cloudflare Worker has the `SUPABASE_SERVICE_ROLE_KEY` secret configured. Never expose it in browser code or Wrangler public vars.
 2. Review the migration and its effect on current RLS policies. Back up the production database and prepare a rollback migration before applying it.
-3. Apply `supabase/migrations/20261117212000_add_webauthn_session_mfa.sql` to Supabase.
+3. Apply both pending migrations in lexical order: `202611170001_webauthn_mfa.sql` first, then `20261117212000_add_webauthn_session_mfa.sql`. The second migration extends the credential schema and enforcement installed by the first; do not apply it alone.
 4. Deploy the Worker and frontend from the reviewed release commit.
 5. Verify status, registration, authentication, grant expiry, revocation, and direct Data API/Storage denial from a real browser session.
 6. Test supported desktop and mobile browsers, including platform authenticators and external security keys.
