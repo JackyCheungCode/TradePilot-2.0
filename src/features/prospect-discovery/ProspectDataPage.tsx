@@ -111,7 +111,7 @@ export function ProspectDataPage() {
     <main className="tp-prospect-hub">
       <header className="tp-prospect-hub__header">
         <div><p className="tp-prospect-hub__eyebrow">TRADEPILOT / CRM · GLOBAL PROSPECT DATABASE</p><h1>潜客数据</h1><p>汇聚所有渠道抓取的企业资产，追踪人工处理、AI 评分与 CRM 入库状态。</p></div>
-        <Button kind="tertiary" renderIcon={CarbonIcons.Repeat} onClick={() => window.location.reload()}>刷新数据</Button>
+        <Button kind="tertiary" renderIcon={CarbonIcons.Renew} onClick={() => window.location.reload()}>刷新数据</Button>
       </header>
       {error && <InlineNotification kind="error" lowContrast title="数据读取失败" subtitle={error} onCloseButtonClick={() => setError('')} />}
       <div className="tp-prospect-hub__metrics">
