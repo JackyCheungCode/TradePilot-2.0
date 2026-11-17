@@ -9,6 +9,7 @@ import { getSupabaseClient } from '@/lib/supabase';
 import { PlatformSelectionStep } from './PlatformSelectionStep';
 import { GuardrailsStep } from './GuardrailsStep';
 import { ExecutionStep } from './ExecutionStep';
+import { ScoringStep } from './ScoringStep';
 import '@/design-system/patterns/prospect-discovery.scss';
 
 const steps = [
@@ -611,6 +612,8 @@ export function ProspectDiscoveryPage() {
         <GuardrailsStep countries={countries} profile={{ coreNoun: profile.coreNoun, country: profile.country, countryName: profile.countryName, buyers: profile.buyers }} />
       ) : selectedIndex === 3 ? (
         <ExecutionStep profile={{ coreNoun: profile.coreNoun, buyers: profile.buyers, continent: continents.find(item => item.value === profile.continent)?.label ?? profile.continent, country: profile.country, countryName: profile.countryName, city: profile.city }} sources={selectedSources ?? []} onEditStep={setSelectedIndex} onContinueToScoring={ids => { try { localStorage.setItem('tradepilot.prospect-scoring.queue.v1', JSON.stringify(ids)); } catch { /* Keep navigation available if local storage is full. */ } setSelectedIndex(4); }} />
+      ) : selectedIndex === 4 ? (
+        <ScoringStep profile={{ coreNoun: profile.coreNoun, countryName: profile.countryName, buyers: profile.buyers }} />
       ) : (
         <div className="tp-prospect-discovery__future-step" aria-label="后续步骤暂未开放"><h2>{steps[selectedIndex]}</h2><p>此步骤将在前序配置确认后启用。</p></div>
       )}
