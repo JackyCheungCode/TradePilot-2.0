@@ -179,7 +179,7 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
   return (
     <section className="tp-prospect-discovery__step tp-guardrails">
       <div className="tp-guardrails__notice">
-        <InlineNotification kind="info" lowContrast hideCloseButton title="前端配置预览" subtitle="配置保存在当前浏览器；启动任务时会随任务快照发送至后端，已接入的关键词、网站、企业、地域、产品、联系方式、人员及质量规则会在结果入库前执行。网站类型预设、部分人员选项和全局规则范围尚未接入。" />
+        <InlineNotification kind="info" lowContrast hideCloseButton title="前端配置预览" subtitle="配置保存在当前浏览器；启动任务时会随任务快照发送至后端。已接入渠道会执行关键词、网站与网站类型、企业、地域、产品、联系方式、人员及质量规则。全局规则范围尚未接入，当前按任务快照执行。" />
       </div>
       {(notice || error) && <div className="tp-guardrails__feedback">
         {notice && <InlineNotification kind="success" lowContrast title="提示" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
