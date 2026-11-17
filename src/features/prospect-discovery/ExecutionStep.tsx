@@ -21,6 +21,7 @@ type Props = {
   sources: SourceItem[];
   onEditStep: (step: number) => void;
   onContinueToScoring: (recordIds: string[]) => void;
+  planTaskCode: string;
 };
 
 const buyerLabels: Record<string, string> = {
@@ -54,7 +55,7 @@ async function getAccessToken() {
   return data.session.access_token;
 }
 
-export function ExecutionStep({ profile, sources, onEditStep, onContinueToScoring }: Props) {
+export function ExecutionStep({ profile, sources, onEditStep, onContinueToScoring, planTaskCode }: Props) {
   const channels = useMemo(() => sources, [sources]);
   const [status, setStatus] = useState<'idle' | 'running' | 'completed' | 'failed'>('idle');
   const [progress, setProgress] = useState(0);
@@ -93,6 +94,17 @@ export function ExecutionStep({ profile, sources, onEditStep, onContinueToScorin
     try {
       if (!profile.country || !profile.coreNoun.trim()) throw new Error('请先完成目标国家和核心产品画像。');
       const token = await getAccessToken();
+      let guardrailsSnapshot: Record<string, unknown> = {};
+      try {
+        const savedGuardrails = localStorage.getItem('tradepilot.guardrails.frontend.v1');
+        if (savedGuardrails) guardrailsSnapshot = JSON.parse(savedGuardrails) as Record<string, unknown>;
+      } catch { /* Preserve task execution even if an older browser snapshot is malformed. */ }
+      const planSnapshot = {
+        planTaskCode,
+        profile: { ...profile },
+        selectedSources: channels.map(source => ({ id: source.id, name: source.name, category: source.category ?? null })),
+        capturedAt: new Date().toISOString(),
+      };
       const created: RunRef[] = [];
       const failures: string[] = [];
       const tasks: Array<Promise<void>> = [];
@@ -114,33 +126,33 @@ export function ExecutionStep({ profile, sources, onEditStep, onContinueToScorin
         addTask('google-maps', 'Google Maps', '/api/v1/discovery-runs', {
           countries: [profile.country], query: profile.coreNoun.trim(), limitPerCountry: 100,
           providers: ['google_maps', 'openstreetmap'], city: profile.city || undefined,
-          businessTypes: [], filters: {},
+          businessTypes: [], filters: {}, planSnapshot, guardrailsSnapshot,
         });
       }
       if (channels.some(item => item.id === 'google-search')) {
         addTask('google-search', 'Google Search', '/api/v1/search-discovery-runs', {
           country: profile.country, city: profile.city || undefined, query: profile.coreNoun.trim(),
           advancedQuery: '"' + profile.coreNoun.trim() + '"', limitPerCountry: 100,
-          searchEngines: ['serper'], searchTypes: ['web'], searchLanguage: 'en',
+          searchEngines: ['serper'], searchTypes: ['web'], searchLanguage: 'en', planSnapshot, guardrailsSnapshot,
         });
       }
       if (channels.some(item => item.id === 'facebook')) {
         addTask('facebook', 'Facebook', '/api/v1/facebook-discovery-runs', {
           country: profile.country, city: profile.city || undefined, query: profile.coreNoun.trim(),
-          objectTypes: ['page', 'person', 'post'], limitPerType: 50,
+          objectTypes: ['page', 'person', 'post'], limitPerType: 50, planSnapshot, guardrailsSnapshot,
         });
       }
       if (channels.some(item => item.id === 'instagram')) {
         addTask('instagram', 'Instagram', '/api/v1/instagram-discovery-runs', {
           countries: [profile.country], keywords: [profile.coreNoun.trim()], accountTypes: ['business', 'creator'],
-          minFollowers: 0, maxFollowers: 100000000, recentDays: 365, requireContact: true, limit: 100,
+          minFollowers: 0, maxFollowers: 100000000, recentDays: 365, requireContact: true, limit: 100, planSnapshot, guardrailsSnapshot,
         });
       }
       await Promise.all(tasks);
       if (!created.length) throw new Error(failures.length ? failures.join('；') : '当前所选渠道没有可执行的后端任务入口。');
       setRuns(created);
       setStatus('running');
-      setLogs(current => [...current, '[' + nowTime() + '] [SYSTEM] 已创建 ' + created.length + ' 个真实任务。' + (failures.length ? '另有 ' + failures.length + ' 个渠道创建失败。' : '')]);
+      setLogs(current => [...current, '[' + nowTime() + '] [SYSTEM] 已创建 ' + created.length + ' 个真实任务。画像与护盾配置快照已写入各任务。' + (failures.length ? '另有 ' + failures.length + ' 个渠道创建失败。' : '')]);
       if (failures.length) setNotice('部分渠道创建失败，已成功启动的任务会继续运行：' + failures.join('；'));
     } catch (error) {
       setStatus('failed');
