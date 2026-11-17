@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { startAuthentication } from '@simplewebauthn/browser';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Button, InlineLoading, InlineNotification, TextInput,
@@ -6,7 +7,7 @@ import {
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/login.scss';
 
-type LoginStep = 'credentials' | 'mfa';
+type LoginStep = 'credentials' | 'mfa' | 'webauthn';
 
 export function LoginPage() {
   const location = useLocation();
@@ -24,6 +25,47 @@ export function LoginPage() {
   const [error, setError] = useState('');
 
   const from = (location.state as { from?: { pathname?: string; search?: string; hash?: string } } | null)?.from;
+
+  const requestWebAuthn = async <T,>(supabase: NonNullable<typeof client>, path: string, body: Record<string, unknown> = {}): Promise<T> => {
+    const { data, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) throw sessionError;
+    if (!data.session?.access_token) throw new Error('登录会话已失效，请重新登录。');
+    const response = await fetch(path, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${data.session.access_token}`,
+      },
+      body: JSON.stringify(body),
+    });
+    const payload = await response.json() as { data?: T; error?: { message?: string } };
+    if (!response.ok || payload.error || payload.data === undefined) {
+      throw new Error(payload.error?.message || '生物识别验证服务暂时不可用。');
+    }
+    return payload.data;
+  };
+
+  const verifyWebAuthnIfRequired = async (supabase: NonNullable<typeof client>) => {
+    const status = await requestWebAuthn<{ enabled: boolean; granted: boolean }>(supabase, '/api/v1/webauthn/status');
+    if (!status.enabled || status.granted) {
+      navigate(destination, { replace: true });
+      return;
+    }
+    if (!window.PublicKeyCredential || !navigator.credentials) {
+      throw new Error('当前浏览器不支持 WebAuthn 生物识别验证，请使用支持 Passkey 的最新版浏览器。');
+    }
+    setStep('webauthn');
+    const challenge = await requestWebAuthn<{ challengeId: string; options: Parameters<typeof startAuthentication>[0]['optionsJSON'] }>(
+      supabase, '/api/v1/webauthn/authentication/options',
+    );
+    const assertion = await startAuthentication({ optionsJSON: challenge.options });
+    await requestWebAuthn<{ verified: boolean }>(supabase, '/api/v1/webauthn/authentication/verify', {
+      challengeId: challenge.challengeId,
+      credentialId: assertion.id,
+      response: assertion,
+    });
+    navigate(destination, { replace: true });
+  };
   const destination = from?.pathname
     ? `${from.pathname}${from.search ?? ''}${from.hash ?? ''}`
     : '/prospect-discovery';
@@ -47,7 +89,7 @@ export function LoginPage() {
       return;
     }
 
-    navigate(destination, { replace: true });
+    await verifyWebAuthnIfRequired(supabase);
   };
 
   useEffect(() => {
@@ -132,7 +174,7 @@ export function LoginPage() {
       const { data: assurance, error: assuranceError } = await client.auth.mfa.getAuthenticatorAssuranceLevel();
       if (assuranceError) throw assuranceError;
       if (assurance.currentLevel !== 'aal2') throw new Error('第二因子验证未能提升当前会话安全等级。');
-      navigate(destination, { replace: true });
+      await verifyWebAuthnIfRequired(client);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : '二次验证失败，请重试。');
     } finally {
@@ -144,11 +186,13 @@ export function LoginPage() {
     <main className="tp-login">
       <section className="tp-login__surface" aria-labelledby="tp-login-title">
         <p className="tp-login__eyebrow">TRADEPILOT / SECURE ACCESS</p>
-        <h1 id="tp-login-title">{step === 'mfa' ? '验证身份' : '登录 TradePilot'}</h1>
+        <h1 id="tp-login-title">{step === 'mfa' ? '验证身份' : step === 'webauthn' ? '生物识别验证' : '登录 TradePilot'}</h1>
         <p className="tp-login__description">
           {step === 'mfa'
-            ? '账户已启用多因子认证。请输入身份验证器生成的一次性验证码。'
-            : '使用邮箱密码或已注册的 Passkey 安全登录工作区。'}
+            ? '请输入身份验证器生成的一次性验证码。'
+            : step === 'webauthn'
+              ? '请使用已注册设备完成指纹、面部或设备 PIN 验证。'
+              : '使用邮箱密码或已注册的 Passkey 安全登录工作区。'}
         </p>
         {!clientReady && <InlineLoading description="正在连接登录服务…" />}
         {error && <InlineNotification kind="error" title="无法完成登录" subtitle={error} onCloseButtonClick={() => setError('')} />}
@@ -183,7 +227,7 @@ export function LoginPage() {
               </Button>
             </form>
           </>
-        ) : (
+        ) : step === 'mfa' ? (
           <form className="tp-login__form" onSubmit={verifySecondFactor}>
             <TextInput
               id="tradepilot-login-totp"
@@ -216,6 +260,15 @@ export function LoginPage() {
               返回登录
             </Button>
           </form>
+        ) : (
+          <div className="tp-login__form">
+            <InlineLoading description="正在等待设备完成 WebAuthn 生物识别验证…" />
+            <Button kind="ghost" onClick={async () => {
+              await client?.auth.signOut();
+              setStep('credentials');
+              setVerificationCode('');
+            }}>取消并返回登录</Button>
+          </div>
         )}
         <p className="tp-login__footnote">此工作区使用管理员创建的账户，不提供公开注册。Passkey 使用设备本地验证，不会向 TradePilot 发送生物特征数据。</p>
       </section>
