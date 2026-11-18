@@ -205,7 +205,6 @@ const platformLogoSymbols: Record<string, { file: string; symbol: string }> = {
   'yelp-reviews': { file: 'platform-sprite-more.svg', symbol: 'yelp' },
   'yelp-local': { file: 'platform-sprite-more.svg', symbol: 'yelp' },
   'naver-search': { file: 'platform-sprite-regional.svg', symbol: 'naver' },
-  'google-shopping': { file: 'platform-sprite-search.svg', symbol: 'google' },
   'google-reviews': { file: 'platform-sprite-search.svg', symbol: 'google' },
 };
 const localPlatformLogos: Record<string, string> = {
@@ -222,7 +221,7 @@ const platformLettermarkTones: Record<string, string> = {
   telegram: 'cyan', amazon: 'navy', walmart: 'blue', alibaba: 'orange', aliexpress: 'red',
   ebay: 'blue', etsy: 'orange', temu: 'orange', shein: 'black', 'shopify-stores': 'green',
   woocommerce: 'purple', bigcommerce: 'black', 'tiktok-shop': 'black', 'mercado-libre': 'yellow',
-  'google-shopping': 'white', trustpilot: 'green', crunchbase: 'cyan', 'product-hunt': 'orange',
+trustpilot: 'green', crunchbase: 'cyan', 'product-hunt': 'orange',
   github: 'black', 'sam-gov': 'navy', 'canton-fair': 'red', thomasnet: 'navy',
   europages: 'blue', kompass: 'red', wlw: 'red', indiamart: 'blue', tradeindia: 'orange',
   justdial: 'yellow', coupang: 'red', 'rakuten-jp': 'red', '1688': 'orange', jd: 'red',
