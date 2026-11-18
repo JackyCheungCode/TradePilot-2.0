@@ -258,14 +258,14 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
       }
       const code = "ACT-" + new Date().toISOString().slice(0, 10).replace(/-/g, "") + "-" + crypto.randomUUID().replace(/-/g, "").slice(0, 6).toUpperCase();
       const input: DiscoveryRunInput = {
-        countries: [], query: "Actor Schema task", limitPerCountry: 0, providers: [], channel: "actor_discovery",
+        countries: [], query: "", limitPerCountry: 0, providers: [], channel: "actor_discovery",
         actorExecutions: actors, planSnapshot: body.planSnapshot,
       };
       const config = { actorExecutions: actors.map(actor => ({ actorId: actor.actorId, sourceId: actor.sourceId, sourceName: actor.sourceName, actorTitle: actor.actorTitle, schemaVersion: actor.schemaVersion, input: redactActorInput(actor.input) })), planSnapshot: body.planSnapshot ?? null };
       const rows = await db<Array<{ id: string }>>(env, "discovery_runs", {
         method: "POST", headers: { Prefer: "return=representation" },
         body: JSON.stringify({
-          owner_id: ownerId, query: "Actor Schema task", countries: [], limit_per_country: 1,
+          owner_id: ownerId, query: "", countries: [], limit_per_country: 1,
           providers: ["actor_gateway"], channel: "actor_discovery", search_config: config,
           status: "queued", progress: 0, discovered_count: 0, created_lead_count: 0,
           message: "数据源任务已排队", task_code: code,
