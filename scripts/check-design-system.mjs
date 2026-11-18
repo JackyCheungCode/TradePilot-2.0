@@ -6,7 +6,7 @@ const allowedRoot = path.resolve('src/design-system');
 const violations = [];
 const forbiddenPackages = /(?:from\\s*|import\\s*|@use\\s*|@forward\\s*|@import\\s*)['"](?:@carbon\\/(?:react|icons-react|pictograms-react)|@fontsource[^'"]*|lucide-react|react-icons(?:\\/[^'"]*)?|@fortawesome\\/|@tabler\\/)[^'"]*['"]/g;
 const cssDeclaration = /(?:^|[;{}\\s])[-a-zA-Z]+\\s*:\\s*[^;{}]+;/m;
-const nativeSelectElement = /<(?:select|option)\\b/i;
+const nativeSelectElement = /<(?:select|option|datalist)\\b|<input\\b[^>]*\\blist\\s*=/is;
 
 async function scan(directory) {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
@@ -27,7 +27,7 @@ async function scan(directory) {
     forbiddenPackages.lastIndex = 0;
 
     if (/\\.tsx?$/.test(entry.name) && nativeSelectElement.test(source)) {
-      violations.push(relative + ': native <select>/<option> elements are forbidden; use Carbon Dropdown, ComboBox, or MultiSelect');
+      violations.push(relative + ': native <select>/<option> elements are forbidden; use Carbon Dropdown, ComboBox, or MultiSelect; browser datalists are also forbidden');
     }
 
     if (/\\.s[ac]ss$|\\.css$/.test(entry.name)) {
