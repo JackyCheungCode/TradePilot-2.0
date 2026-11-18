@@ -1,4 +1,4 @@
-import { PageSkeleton } from '@/design-system';
+import { PageSkeleton, pageSkeletonHeader, pageSkeletonFormSection, pageSkeletonPanel } from '@/design-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
@@ -149,7 +149,14 @@ export function SalesOrderFormPage(){
  const itemRows=finalLines.filter(l=>l.line_type==='product'&&l.line_status!=='cancelled').map((l,i)=>({owner_id:user.id,order_id:savedId,product_id:l.product_id||null,line_number:i+1,sku:l.sku||null,product_name:l.name,description:l.description||l.spec||null,hs_code:l.hs_code||null,origin_country_code:l.origin_country||null,quantity:Math.max(0.000001,l.quantity),unit:l.unit||'pcs',unit_price:l.unit_price,discount_amount:Number((l.quantity*l.unit_price*l.discount_pct/100).toFixed(2)),tax_rate:l.tax_rate,net_weight:Number(l.net_weight)||null,gross_weight:Number(l.gross_weight)||null,weight_unit:'kg',amount:Math.max(0,l.quantity)*Math.max(0,l.unit_price)*(1-Math.max(0,l.discount_pct)/100),product_snapshot:{...l,customer_sku:l.customer_sku,plans:l.plans}}));if(itemRows.length){const insItems=await db.from('trade_order_items').insert(itemRows);if(insItems.error)throw insItems.error;}
  const ev=await db.from('trade_document_events').insert({owner_id:user.id,order_id:savedId,event_type:orderId?'sales_order_draft_updated':'sales_order_created',payload:{order_number:orderNo||'existing',source_quote_id:quoteId,grand_total:totals.grand_total}});if(ev.error)throw ev.error;nav('/sales-orders/'+savedId,{replace:true});
  }catch(e){setError(e instanceof Error?e.message:'保存销售订单失败')}finally{setSaving(false)}};
- if (loading) return <PageSkeleton variant="form" className="tp-sales-orders" />;
+ if (loading) return <PageSkeleton className="tp-sales-orders" layout={[
+  pageSkeletonHeader('tp-sales-orders__header', 'tp-sales-orders__actions'),
+  { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-sales-orders__form-shell', children: [
+    { type: 'group', direction: 'row', gap: 'var(--cds-spacing-03)', className: 'tp-sales-orders__form-top', children: [{ type: 'text', heading: true, width: '12rem' }, { type: 'placeholder', width: '8rem', height: '2.5rem' }] },
+    { type: 'group', direction: 'grid', columns: 2, gap: 'var(--cds-spacing-05)', className: 'tp-sales-orders__grid', children: Array.from({ length: 10 }, () => ({ type: 'group' as const, direction: 'column' as const, gap: 'var(--cds-spacing-02)' as const, children: [{ type: 'text' as const, width: '6rem' }, { type: 'placeholder' as const, height: '2.5rem' }] })) },
+    pageSkeletonPanel('tp-sales-orders__panel', '14rem', '12rem'),
+  ] },
+]} />;
  return <main className="tp-sales-orders"><header className="tp-sales-orders__header"><div><p className="tp-sales-orders__eyebrow">TRADEPILOT / SALES / ORDER</p><h1>{orderId?'编辑销售订单':'创建销售订单'}</h1><p>{sourceQuote?'从已接受报价单继承产品、客户与商业条款。':'可独立创建订单，也可从已接受报价单转换。'}</p></div><div className="tp-sales-orders__actions"><Link href="/sales-orders">返回列表</Link>{saving&&<InlineLoading status="active" description="正在保存销售订单…"/>}<Button kind="primary" disabled={saving} onClick={()=>void save()}>保存草稿</Button></div></header>
  {error&&<InlineNotification kind="error" title="销售订单操作失败" subtitle={error}/>}
  <section className="tp-sales-orders__form-shell">
@@ -236,7 +243,19 @@ export function SalesOrderDetailPage(){
  const result=await db.rpc('confirm_sales_order_status_transition',{p_order_id:order.id,p_expected_status:orderState(order),p_target_status:next,p_reason:next==='cancelled'?cancelReason.trim():null});if(result.error)throw result.error;await load();}catch(e){setError(e instanceof Error?e.message:'更新订单状态失败')}};
  if(!order)return <main className="tp-sales-orders"><InlineNotification kind="error" title="销售订单不可用" subtitle={error||'订单不存在'}/><Link href="/sales-orders">返回列表</Link></main>;
  const so=order.metadata?.sales_order||{};const s=orderState(order);const totals=so.totals||{};const form=so.form||{};const lines=so.order_lines||[];const payments=so.payment_schedule||[];const paid=Number(totals.paid_amount||0);const outstanding=Number(totals.outstanding_amount||Math.max(0,Number(totals.grand_total||0)-paid));
- if (loading) return <PageSkeleton variant="detail" className="tp-sales-orders" />;
+ if (loading) return <PageSkeleton className="tp-sales-orders" layout={[
+  pageSkeletonHeader('tp-sales-orders__header', 'tp-responsive-header-actions'),
+  { type: 'group', direction: 'row', gap: 'var(--cds-spacing-05)', className: 'tp-sales-orders__detail-hero', children: [
+    { type: 'group', direction: 'column', gap: 'var(--cds-spacing-03)', children: [{ type: 'placeholder', width: '6rem', height: '2rem' }, { type: 'text', heading: true, width: '16rem' }, { type: 'text', width: '20rem' }] },
+    { type: 'group', direction: 'grid', columns: 3, gap: 'var(--cds-spacing-03)', className: 'tp-sales-orders__amount-strip', children: Array.from({ length: 3 }, () => ({ type: 'placeholder' as const, height: '4rem' })) },
+  ] },
+  pageSkeletonPanel('tp-sales-orders__basic', '9rem', '12rem'),
+  pageSkeletonPanel('tp-sales-orders__basic', '7rem', '12rem'),
+  { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-sales-orders__panel', children: [
+    { type: 'group', direction: 'row', gap: 'var(--cds-spacing-03)', children: Array.from({ length: 7 }, () => ({ type: 'placeholder' as const, width: '7rem', height: '3rem' })) },
+    { type: 'placeholder', minHeight: '18rem' },
+  ] },
+]} />;
  return <main className="tp-sales-orders"><header className="tp-sales-orders__header"><div><p className="tp-sales-orders__eyebrow">TRADEPILOT / SALES / ORDER</p><h1>{order.order_number}</h1><p>{order.title} · {so.account_snapshot?.account_name||'客户'} · V{Number(so.revision||0)+1}</p></div><div className="tp-responsive-header-actions">{s==='draft'&&<Button className="tp-responsive-header-actions__primary" kind="primary" onClick={()=>void transition('confirmed')}>确认订单并锁定价格</Button>}<div className="tp-responsive-header-actions__secondary"><Link href="/sales-orders">返回列表</Link>{order.locked_at&&<Link href={'/documents?order_id='+order.id+'&category=sales&document_type=proforma_invoice'}>生成单据</Link>}{s==='draft'&&<Link href={'/sales-orders/'+order.id+'/edit'}>编辑草稿</Link>}</div></div></header>
  {error&&<InlineNotification kind="error" title="订单操作失败" subtitle={error}/>}
  <section className="tp-sales-orders__detail-hero"><div><Tag type={s==='completed'?'green':s==='cancelled'?'red':s==='draft'?'cool-gray':'blue'}>{stateLabel(s)}</Tag><h2>{money(Number(totals.grand_total||0),order.currency_code)}</h2><p>{order.trade_date||'—'} · 承诺交期 {order.delivery_date||'—'} · {order.currency_code}</p></div><div className="tp-sales-orders__amount-strip"><div><span>已收金额</span><strong>{money(paid,order.currency_code)}</strong></div><div><span>未收金额</span><strong>{money(outstanding,order.currency_code)}</strong></div><div><span>价格锁定</span><strong>{so.price_locked?'是':'否'}</strong></div></div></section>
