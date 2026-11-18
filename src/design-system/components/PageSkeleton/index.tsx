@@ -5,7 +5,28 @@ import { SkeletonPlaceholder, SkeletonText } from '../Skeleton';
 
 export type PageSkeletonVariant = 'table' | 'dashboard' | 'form' | 'detail' | 'chart' | 'analytics-table' | 'settings' | 'workspace' | 'document-preview';
 
+
+export type PageSkeletonLayoutNode =
+  | { type: 'text'; width?: string; heading?: boolean; className?: string }
+  | { type: 'placeholder'; width?: string; height?: string; minHeight?: string; aspectRatio?: string; className?: string }
+  | { type: 'group'; direction?: 'row' | 'column' | 'grid'; columns?: number; gap?: string; className?: string; children: PageSkeletonLayoutNode[] }
+  | { type: 'table'; columns?: number; rows?: number; className?: string };
+
+function renderLayoutNode(node: PageSkeletonLayoutNode, key: string): React.ReactNode {
+  if (node.type === 'text') return <SkeletonText key={key} heading={node.heading} width={node.width} className={node.className} />;
+  if (node.type === 'placeholder') return <SkeletonPlaceholder key={key} className={node.className} style={{ width: node.width, height: node.height, minHeight: node.minHeight, aspectRatio: node.aspectRatio }} />;
+  if (node.type === 'table') return <div key={key} className={node.className}><DataTableSkeleton columnCount={node.columns ?? 6} rowCount={node.rows ?? 6} showHeader showToolbar={false} /></div>;
+  const style: CSSProperties = node.direction === 'grid'
+    ? { display: 'grid', gridTemplateColumns: `repeat(${node.columns ?? 2}, minmax(0, 1fr))`, gap: node.gap }
+    : { display: 'flex', flexDirection: node.direction === 'row' ? 'row' : 'column', gap: node.gap };
+  return <div key={key} className={node.className} style={style}>{node.children.map((child, index) => renderLayoutNode(child, `${key}-${index}`))}</div>;
+}
+
 export interface PageSkeletonProps {
+  /** Explicit page-owned layout. Prefer this over a guessed generic variant. */
+  layout?: PageSkeletonLayoutNode[];
+  /** Apply the same root layout class as the real page when using an explicit layout. */
+  className?: string;
   variant?: PageSkeletonVariant;
   columns?: number;
   rows?: number;
@@ -18,6 +39,8 @@ export interface PageSkeletonProps {
 
 export function PageSkeleton({
   variant = 'table',
+  layout,
+  className,
   columns = 6,
   rows = 8,
   metricCount = 4,
@@ -26,6 +49,12 @@ export function PageSkeleton({
   showActions,
   showToolbar,
 }: PageSkeletonProps) {
+  if (layout) {
+    return <div className={className} aria-busy="true" aria-label="正在加载页面内容">
+      {layout.map((node, index) => renderLayoutNode(node, `layout-${index}`))}
+    </div>;
+  }
+
   const hasActions = showActions ?? ['table', 'dashboard', 'analytics-table', 'document-preview'].includes(variant);
   const hasToolbar = showToolbar ?? ['table', 'analytics-table'].includes(variant);
   const hasTable = variant === 'table' || variant === 'analytics-table';
