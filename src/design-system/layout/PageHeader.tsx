@@ -1,4 +1,4 @@
-import { Children, Fragment, cloneElement, createElement, isValidElement, type ReactElement, type ReactNode } from 'react';
+import { Children, cloneElement, createElement, isValidElement, type ReactElement, type ReactNode } from 'react';
 import { ArrowLeft, ArrowRight, Add, Checkmark, Download, Edit, Renew, Save, Send, TrashCan, Upload } from '../icons';
 import { Button, ButtonSet, Heading, Link } from '../components';
 import './page-header.scss';
@@ -57,42 +57,51 @@ function nodeText(node: ReactNode): string {
 function isIconElement(node: ReactNode): node is ReactElement<Record<string, unknown>> {
   if (!isValidElement(node)) return false;
   const props = node.props as Record<string, unknown>;
-  const componentName = typeof node.type === 'function' ? node.type.name : '';
-  return Boolean(componentName && /^[A-Z]/.test(componentName) && (typeof props.size === 'number' || typeof props.size === 'string'));
+  const type = node.type as unknown as Record<string, unknown>;
+  const componentType = node.type as unknown as { displayName?: string; name?: string };
+  const componentName = typeof node.type === 'function'
+    ? componentType.displayName || componentType.name || ''
+    : typeof node.type === 'object' && node.type !== null
+      ? String(type.displayName || (type.render as { displayName?: string; name?: string } | undefined)?.displayName || (type.render as { name?: string } | undefined)?.name || '')
+      : '';
+  const isForwardRefIcon = typeof node.type === 'object' && node.type !== null
+    && type.$$typeof === Symbol.for('react.forward_ref')
+    && (typeof props.size === 'number' || typeof props.size === 'string');
+  return node.type === 'svg' || isForwardRefIcon || Boolean(componentName && /^[A-Z]/.test(componentName) && (typeof props.size === 'number' || typeof props.size === 'string'));
 }
 
-function extractChildIcon(children: ReactNode): { children: ReactNode; icon?: CarbonActionIcon } {
-  let icon: CarbonActionIcon | undefined;
+function extractChildIcon(children: ReactNode): { children: ReactNode; icon?: ReactElement<Record<string, unknown>> } {
+  let icon: ReactElement<Record<string, unknown>> | undefined;
   const visit = (node: ReactNode): ReactNode => {
     if (Array.isArray(node)) return node.map(visit).filter((child) => child !== null);
     if (!isValidElement(node)) return node;
     if (!icon && isIconElement(node)) {
-      icon = node.type as CarbonActionIcon;
+      icon = node;
       return null;
     }
-    if (node.type === Fragment) {
-      return cloneElement(node, { children: visit((node.props as Record<string, unknown>).children as ReactNode) } as Record<string, unknown>);
-    }
-    return node;
+    const nested = (node.props as Record<string, unknown>).children as ReactNode;
+    if (nested === undefined) return node;
+    const next = visit(nested);
+    return cloneElement(node, { children: next } as Record<string, unknown>);
   };
   return { children: visit(children), icon };
 }
 
-function resolveActionIcon(label: string, supplied: unknown, childIcon?: CarbonActionIcon): CarbonActionIcon | undefined {
-  if (isValidElement(supplied)) {
-    const componentType = supplied.type;
-    if (typeof componentType === 'function' || (typeof componentType === 'object' && componentType !== null)) return componentType as CarbonActionIcon;
+function resolveActionIcon(label: string, supplied: unknown, childIcon?: ReactElement<Record<string, unknown>>): ReactNode {
+  if (isValidElement(supplied)) return cloneElement(supplied, { size: 16 } as Record<string, unknown>);
+  if (typeof supplied === 'function' || (typeof supplied === 'object' && supplied !== null)) {
+    return createElement(supplied as CarbonActionIcon, { size: 16 });
   }
-  if (typeof supplied === 'function' || (typeof supplied === 'object' && supplied !== null)) return supplied as CarbonActionIcon;
-  return childIcon ?? inferActionIcon(label);
+  if (childIcon) return cloneElement(childIcon, { size: 16 });
+  const inferred = inferActionIcon(label);
+  return inferred ? createElement(inferred, { size: 16 }) : undefined;
 }
 
-function actionContent(children: ReactNode, icon?: CarbonActionIcon): ReactNode {
-  if (!icon) return children;
+function actionContent(children: ReactNode, icon?: ReactNode): ReactNode {
   return createElement(
     'span',
     { className: 'tp-page-header__action-content' },
-    createElement(icon, { size: 16 }),
+    icon,
     createElement('span', { className: 'tp-page-header__action-label' }, children),
   );
 }
@@ -112,9 +121,8 @@ function normalizeLegacyActions(node: ReactNode, primaryAssigned: { current: boo
     if (primary) primaryAssigned.current = true;
     const kind = primary ? 'primary' : 'tertiary';
     const className = [String(props.className || ''), 'tp-page-header__action'].filter(Boolean).join(' ');
-    const suppliedIcon = props.renderIcon;
-    const renderIcon = resolveActionIcon(label, suppliedIcon, extracted.icon);
-    const content = actionContent(extracted.children, renderIcon);
+    const icon = resolveActionIcon(label, props.renderIcon, extracted.icon);
+    const content = actionContent(extracted.children, icon);
 
     if (node.type === Button) {
       return cloneElement(node, { kind, size: 'lg', className, renderIcon: undefined } as Record<string, unknown>, content);
