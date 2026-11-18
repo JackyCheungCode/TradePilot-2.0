@@ -106,9 +106,6 @@ function Avatar({ name, size = 'normal', placeholder = false }: { name: string; 
   const initials = name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
   return <span className={'cc-avatar cc-avatar--' + size + (placeholder ? ' cc-avatar--placeholder' : '')} aria-label={name} role="img">{placeholder ? <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4.25 4.25 0 1 0 0-8.5 4.25 4.25 0 0 0 0 8.5Zm0 2c-4.2 0-7.5 2.15-7.5 4.85V21h15v-2.15C19.5 16.15 16.2 14 12 14Z" fill="currentColor"/></svg> : initials}</span>;
 }
-function IconButton({ label, children, onClick }: { label: string; children: string; onClick: () => void }) {
-  return <button className="cc-icon-button" type="button" aria-label={label} title={label} onClick={onClick}>{children}</button>;
-}
 function formatTime(timestamp: number) {
   const date = new Date(timestamp);
   const today = new Date();
@@ -278,6 +275,7 @@ export function CustomerCommunicationsWidget({
   const defaultChannel = lastInbound?.channel ?? latestMessage?.channel ?? activeCustomer?.lastChannel ?? customerIdentities[0]?.channel ?? 'email';
   const replyChannel = channelOverride ?? defaultChannel;
   const replyIdentity = customerIdentities.find((identity) => identity.channel === replyChannel);
+  const channelCanSend = ['whatsapp', 'messenger', 'telegram', 'line'].includes(replyChannel);
   const unreadTotal = customers.reduce((total, customer) => total + customer.unread, 0);
 
   const sortedCustomers = useMemo(() => customers
@@ -343,13 +341,13 @@ export function CustomerCommunicationsWidget({
 
   if (!open) return null;
   if (minimized && !fullPage) {
-    return <div className="cc-minimized"><button type="button" className="cc-restore" onClick={onRestore}><span className="cc-restore-icon">✉</span><span>客户沟通</span>{unreadTotal > 0 && <b>{unreadTotal}</b>}</button></div>;
+    return <div className="cc-minimized"><Button type="button" kind="primary" renderIcon={CarbonIcons.Chat} onClick={onRestore}>客户沟通{unreadTotal > 0 ? ' · ' + unreadTotal : ''}</Button></div>;
   }
 
   if (!activeCustomer) {
     return <div className={"cc-floating-root" + (fullPage ? " cc-floating-root--page" : "") + (navigationExpanded ? " cc-floating-root--nav-expanded" : "")}>
       <section className={"cc-window" + (fullPage ? " cc-window--page" : "")} role="region" aria-label="全渠道消息中心">
-        <header className="cc-window-header"><div className="cc-window-brand"><span className="cc-brand-mark">TP</span><div><strong>客户沟通</strong><small>CRM 联系人与统一收件箱</small></div></div><div className="cc-window-tools"><IconButton label="关闭聊天窗口" onClick={onClose}>×</IconButton></div></header>
+        <header className="cc-window-header"><div className="cc-window-brand"><span className="cc-brand-mark">TP</span><div><strong>客户沟通</strong><small>CRM 联系人与统一收件箱</small></div></div><div className="cc-window-tools"><ActionIconButton label="关闭聊天窗口" icon={CarbonIcons.Close} onClick={onClose} /></div></header>
         <div className="cc-empty">{loading ? '正在读取系统联系人…' : loadError || 'CRM 中暂无可显示的联系人。请先在联系人模块添加联系人。'}</div>
       </section>
     </div>;
@@ -441,7 +439,7 @@ export function CustomerCommunicationsWidget({
               </div>
               {replyChannel === 'email' && <TextInput id="cc-email-subject" labelText="邮件主题" hideLabel value={emailSubject} onChange={(event) => setEmailSubject(event.currentTarget.value)} placeholder="邮件主题" />}
               <TextArea id="cc-message-draft" labelText="消息内容" hideLabel value={draft} onChange={(event) => { const value = event.currentTarget.value; setDrafts((current) => ({ ...current, [activeCustomerId]: value })); }} placeholder={'通过 ' + channelNames[replyChannel] + ' 回复 ' + activeCustomer.name + '…'} rows={3} />
-              <div className="cc-composer-footer"><span>发送将调用已连接渠道的真实 API</span><Button type="submit" kind="primary" size="md" disabled={!draft.trim() || !replyIdentity?.connected || sending || !activeCustomer.latestConversationId}>{sending ? '发送中…' : '发送消息'}</Button></div>
+              <div className="cc-composer-footer"><span>{channelCanSend ? '发送将调用已连接渠道的真实 API' : '该渠道暂未开放真实发送'}</span><Button type="submit" kind="primary" size="md" disabled={!channelCanSend || !draft.trim() || !replyIdentity?.connected || sending || !activeCustomer.latestConversationId}>{sending ? '发送中…' : '发送消息'}</Button></div>
             </form>
           </main>
 
