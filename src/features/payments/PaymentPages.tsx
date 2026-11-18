@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   Button, FileUploaderButton, InlineLoading, InlineNotification, MultiSelect, Select, SelectItem, Tag, TextInput, TextArea,
   Tabs, TabList, Tab, TabPanels, TabPanel, Table, TableHead, TableRow, TableHeader, TableBody, TableCell,
-  Tile, LineChart, SimpleBarChart, ScaleTypes, CarbonIcons, BusinessLifecycle,
+  Tile, LineChart, SimpleBarChart, ScaleTypes, CarbonIcons, BusinessLifecycle, WorldMapChart,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@carbon/charts/styles.css';
@@ -46,6 +46,7 @@ export function PaymentConsolePage() {
   const [query,setQuery]=useState('');
   const [status,setStatus]=useState('all');
   const [currency,setCurrency]=useState('USD');
+  const [marketCountry,setMarketCountry]=useState('all');
   const [view,setView]=useState<'payments'|'receivables'>('payments');
 
   const load=useCallback(async()=>{
@@ -54,7 +55,7 @@ export function PaymentConsolePage() {
       const db=await getSupabaseClient();
       const [p,a,o,al,ep]=await Promise.all([
         db.from('trade_payments').select('*').order('created_at',{ascending:false}).range(0,2999),
-        db.from('crm_accounts').select('id,account_name').eq('is_archived',false).order('account_name'),
+        db.from('crm_accounts').select('id,account_name,country_code').eq('is_archived',false).order('account_name'),
         db.from('trade_orders').select('*').eq('order_type','sales').order('created_at',{ascending:false}).range(0,2999),
         db.from('trade_payment_allocations').select('*').range(0,9999),
         db.from('enterprise_profiles').select('default_currency').eq('is_default',true).eq('is_archived',false).maybeSingle(),
@@ -68,7 +69,9 @@ export function PaymentConsolePage() {
   useEffect(()=>{void load()},[load]);
 
   const accountMap=useMemo(()=>new Map(accounts.map(a=>[a.id,a.account_name])),[accounts]);
-  const filtered=useMemo(()=>rows.filter(r=>(status==='all'||r.status===status)&&r.currency===currency&&[r.payment_no,accountMap.get(r.account_id)||'',r.payer_name,r.bank_reference,r.remittance_info].join(' ').toLowerCase().includes(query.trim().toLowerCase())),[rows,status,currency,query,accountMap]);
+  const accountCountryMap=useMemo(()=>new Map(accounts.map(a=>[a.id,String(a.country_code||'').toUpperCase()])),[accounts]);
+  const paymentMarketData=useMemo(()=>{const counts=new Map<string,number>();rows.filter(row=>row.payment_type==='receipt').forEach(row=>{const code=accountCountryMap.get(row.account_id)||'';if(code)counts.set(code,(counts.get(code)||0)+1)});return [...counts.entries()].map(([code,value])=>{let label=code;try{label=new Intl.DisplayNames(['zh-TW'],{type:'region'}).of(code)||code}catch{}return {code,label,value}}).sort((a,b)=>b.value-a.value)},[rows,accountCountryMap]);
+  const filtered=useMemo(()=>rows.filter(r=>(status==='all'||r.status===status)&&r.currency===currency&&(marketCountry==='all'||accountCountryMap.get(r.account_id)===marketCountry)&&[r.payment_no,accountMap.get(r.account_id)||'',r.payer_name,r.bank_reference,r.remittance_info].join(' ').toLowerCase().includes(query.trim().toLowerCase())),[rows,status,currency,query,accountMap,accountCountryMap,marketCountry]);
   const confirmed=rows.filter(r=>['confirmed','partially_reconciled','reconciled'].includes(r.status));
   const currencyRows=rows.filter(r=>r.currency===currency);
   const grossReceived=currencyRows.filter(r=>r.payment_type==='receipt'&&['confirmed','partially_reconciled','reconciled','returned'].includes(r.status)).reduce((s,r)=>s+Number(r.net_received||0),0);
@@ -101,7 +104,7 @@ export function PaymentConsolePage() {
     }
     return out;
   },[orders,allocations,confirmed,accountMap]);
-  const receivableFiltered=receivables.filter(r=>r.currency===currency&&(status==='all'||(status==='overdue'?r.node_status==='逾期':status===r.node_status))&&[r.order_number,r.customer,r.node_name].join(' ').toLowerCase().includes(query.trim().toLowerCase()));
+  const receivableFiltered=receivables.filter(r=>r.currency===currency&&(marketCountry==='all'||accountCountryMap.get(r.account_id)===marketCountry)&&(status==='all'||(status==='overdue'?r.node_status==='逾期':status===r.node_status))&&[r.order_number,r.customer,r.node_name].join(' ').toLowerCase().includes(query.trim().toLowerCase()));
   const outstandingTotal=receivables.filter(r=>r.currency===currency).reduce((s,r)=>s+r.outstanding,0);
   const overdueTotal=receivables.filter(r=>r.currency===currency&&r.overdue_days>0).reduce((s,r)=>s+r.outstanding,0);
 
@@ -131,6 +134,10 @@ export function PaymentConsolePage() {
         <div className="tp-payments__chart"><h3>收款方式分布</h3>{methodData.length?<SimpleBarChart data={methodData} options={chartOpts}/>:<p>暂无收款数据</p>}</div>
         <div className="tp-payments__chart"><h3>应收账龄分布</h3>{agingData.length?<SimpleBarChart data={agingData} options={chartOpts}/>:<p>暂无未收应收</p>}</div>
       </div>
+    </section>
+    <section className="tp-payments__panel tp-payments__market-panel">
+      <div className="tp-payments__panel-head"><div><h2>全球回款客户分布</h2><p>按收款客户所在国家 / 地区统计收款笔数；点击地图或排名可筛选收款与应收记录。</p></div></div>
+      {paymentMarketData.length?<WorldMapChart data={paymentMarketData} unitLabel="笔收款" selectedCode={marketCountry==='all'?undefined:marketCountry} onCountrySelect={code=>setMarketCountry(current=>current===code?'all':code)}/>:<p className="tp-payments__empty">暂无可按客户国家统计的收款记录。</p>}
     </section>
     <section className="tp-payments__panel">
       <div className="tp-payments__view-switch"><div><Button kind={view==='payments'?'primary':'tertiary'} onClick={()=>{setView('payments');setStatus('all')}}>收款记录</Button><Button kind={view==='receivables'?'primary':'tertiary'} onClick={()=>{setView('receivables');setStatus('all')}}>应收计划（账龄与催款）</Button></div><Tag type="blue">{view==='payments'?filtered.length:receivableFiltered.length} 条记录</Tag></div>
