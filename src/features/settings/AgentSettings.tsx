@@ -86,7 +86,7 @@ export function AgentSettings({ section }: { section: string }) {
     } catch (cause) { setError(cause instanceof Error ? cause.message : '头像设置保存失败。'); }
     finally { setSaving(false); }
   };
-  if (loading) return <PageSkeleton variant="table" />;
+  if (loading) return <PageSkeleton variant="form" />;
   return <div className="tp-settings-agent">
     {error && <InlineNotification kind="error" title="设置失败" subtitle={error} onCloseButtonClick={() => setError('')} />}
     {notice && <InlineNotification kind="success" title="保存成功" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
