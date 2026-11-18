@@ -1,3 +1,4 @@
+import { PageHeader } from '@/design-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
@@ -116,7 +117,7 @@ export function PaymentConsolePage() {
   const chartOpts={theme:document.documentElement.dataset.carbonTheme==='g100'?'g100':'white',height:'240px',color:{pairing:{numberOfVariants:14,option:1}},legend:{enabled:false},toolbar:{enabled:false},axes:{bottom:{mapsTo:'group',scaleType:ScaleTypes.LABELS},left:{mapsTo:'value',scaleType:ScaleTypes.LINEAR}}};
 
   return <main className="tp-payments">
-    <header className="tp-payments__header"><div><p className="tp-payments__eyebrow">TRADEPILOT / FINANCE / ACCOUNTS RECEIVABLE</p><h1>收款（Payment）</h1><p>管理到账、预收款、订单核销、银行对账与应收催款。</p></div><div className="tp-payments__actions"><Button kind="tertiary" onClick={()=>void load()} disabled={loading}><CarbonIcons.Renew size={16}/>刷新</Button><Link href="/payments/new" renderIcon={CarbonIcons.Add}>创建收款</Link></div></header>
+    <PageHeader className="tp-payments__header"><div><p className="tp-payments__eyebrow">TRADEPILOT / FINANCE / ACCOUNTS RECEIVABLE</p><h1>收款（Payment）</h1><p>管理到账、预收款、订单核销、银行对账与应收催款。</p></div><div className="tp-payments__actions"><Button kind="tertiary" onClick={()=>void load()} disabled={loading}><CarbonIcons.Renew size={16}/>刷新</Button><Link href="/payments/new" renderIcon={CarbonIcons.Add}>创建收款</Link></div></PageHeader>
     {error&&<InlineNotification kind="error" title="收款数据读取失败" subtitle={error}/>}
     <section className="tp-payments__metrics">
       <Metric label="累计到账" value={money(totalReceived,currency)} detail={currency+' · 已确认收款'} icon={CarbonIcons.Currency}/>
@@ -305,7 +306,7 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
   if(loading)return <main className="tp-payments"><InlineLoading description="正在加载收款资料…"/></main>;
   const statusText=statusLabel(payment.status);
   return <main className="tp-payments">
-    <header className="tp-payments__header"><div><p className="tp-payments__eyebrow">TRADEPILOT / FINANCE / PAYMENT</p><h1>{editing?paymentNo:'创建收款（Payment）'}</h1><p>{editing?'维护收款资料、分配与核销记录。':'录入真实到账，可分配多个订单节点，也可保留为预收款。'}</p></div><div className="tp-responsive-header-actions">
+    <PageHeader className="tp-payments__header"><div><p className="tp-payments__eyebrow">TRADEPILOT / FINANCE / PAYMENT</p><h1>{editing?paymentNo:'创建收款（Payment）'}</h1><p>{editing?'维护收款资料、分配与核销记录。':'录入真实到账，可分配多个订单节点，也可保留为预收款。'}</p></div><div className="tp-responsive-header-actions">
       {readOnly&&['draft','pending_confirmation'].includes(payment.status)&&<Button className="tp-responsive-header-actions__primary" kind="primary" disabled={saving} onClick={()=>void confirm()}>{payment.payment_type==='refund'?'确认退款 / 红冲':'确认收款并核销'}</Button>}
       {readOnly&&['confirmed','partially_reconciled'].includes(payment.status)&&Number(payment.unallocated_amount)>0.005&&<Link className="tp-responsive-header-actions__primary" href={'/payments/'+id+'/allocate'}>分配预收余额</Link>}
       {editing&&!readOnly&&['confirmed','partially_reconciled','reconciled'].includes(payment.status)&&<Button className="tp-responsive-header-actions__primary" kind="primary" disabled={saving} onClick={()=>void saveReconciliation()}>保存对账信息</Button>}
@@ -315,7 +316,7 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
         {readOnly&&['confirmed','partially_reconciled','reconciled'].includes(payment.status)&&!payment.bank_reconciled&&<Link href={'/payments/'+id+'/edit'}>登记银行对账</Link>}
         {editing&&!readOnly&&payment.status==='draft'&&<Button kind="danger--tertiary" disabled={saving} onClick={()=>void voidPayment()}>作废</Button>}
       </div>
-    </div></header>
+    </div></PageHeader>
     {error&&<InlineNotification kind="error" title="收款操作未完成" subtitle={error}/>}
     {similarDuplicate&&<InlineNotification kind="warning" title="发现疑似重复收款" subtitle="同一客户在 3 天内存在相同币种和相同实际入账金额的收款记录，请核对银行流水号与水单。此提示不会阻止保存。"/>}
     {netMismatch&&<InlineNotification kind="warning" title="实际入账金额与费用计算不一致" subtitle={'汇款金额减银行手续费和中间行费用为 '+money(suggestedNet,payment.currency)+'，当前实际入账为 '+money(Number(payment.net_received),payment.currency)+'。请确认扣款差异。'}/>} 
@@ -477,7 +478,7 @@ export function PaymentAllocationPage() {
   if(loading)return <main className="tp-payments"><InlineLoading description="正在加载预收余额…"/></main>;
   if(!payment)return <main className="tp-payments"><InlineNotification kind="error" title="收款记录不存在" subtitle={error||'无法读取该收款记录。'}/></main>;
   return <main className="tp-payments">
-    <header className="tp-payments__header"><div><p className="tp-payments__eyebrow">TRADEPILOT / FINANCE / PREPAYMENT ALLOCATION</p><h1>分配预收余额</h1><p>{payment.payment_no} · {payment.currency} · {payment.status==='confirmed'?'已确认':'部分核销'}</p></div><div className="tp-payments__actions"><Link href={'/payments/'+id}>返回收款记录</Link><Button kind="primary" onClick={()=>void save()} disabled={saving||total<=0||total>Number(payment.unallocated_amount||0)}>确认分配</Button></div></header>
+    <PageHeader className="tp-payments__header"><div><p className="tp-payments__eyebrow">TRADEPILOT / FINANCE / PREPAYMENT ALLOCATION</p><h1>分配预收余额</h1><p>{payment.payment_no} · {payment.currency} · {payment.status==='confirmed'?'已确认':'部分核销'}</p></div><div className="tp-payments__actions"><Link href={'/payments/'+id}>返回收款记录</Link><Button kind="primary" onClick={()=>void save()} disabled={saving||total<=0||total>Number(payment.unallocated_amount||0)}>确认分配</Button></div></PageHeader>
     {error&&<InlineNotification kind="error" title="分配未完成" subtitle={error}/>}
     <section className="tp-payments__amount-strip"><div><span>客户</span><strong>{payment.payer_name}</strong></div><div><span>未分配余额</span><strong>{money(Number(payment.unallocated_amount||0),payment.currency)}</strong></div><div><span>本次分配</span><strong>{money(total,payment.currency)}</strong></div><div><span>分配后余额</span><strong>{money(Math.max(0,Number(payment.unallocated_amount||0)-total),payment.currency)}</strong></div></section>
     <section className="tp-payments__panel"><div className="tp-payments__panel-head"><div><h2>订单与收款节点</h2><p>仅可选择同一客户已确认及之后状态的订单；金额折算使用订单汇率与本次收款汇率。</p></div><Button kind="tertiary" onClick={addRow}><CarbonIcons.Add/>添加分配</Button></div>
