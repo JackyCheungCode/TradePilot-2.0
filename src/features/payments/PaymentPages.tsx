@@ -492,7 +492,7 @@ export function PaymentAllocationPage() {
         <Field id={'prepay-equivalent-'+i} label="折合收款币种金额（自动计算）" value={equivalent(a).toFixed(2)} onChange={()=>{}} disabled/>
         <Field id={'prepay-date-'+i} label="分配日期" type="date" value={a.allocation_date||dateToday()} onChange={v=>setRow(i,'allocation_date',v)}/>
       </div></div>)}
-      <div className="tp-payments__footer"><span>确认后会回写订单收款计划；定金节点收齐时自动解除发货冻结。</span><div><Link href={'/payments/'+id}>取消</Link><Button kind="primary" onClick={()=>void save()} disabled={saving||total<=0||total>Number(payment.unallocated_amount||0)}>{saving?'处理中…':'确认分配'}</Button></div></div>
+      <div className="tp-payments__footer"><span>确认后会回写订单收款计划；定金节点收齐时自动解除发货冻结。</span><div><Link href={'/payments/'+id}>取消</Link>{saving && <InlineLoading status="active" description="正在处理…" />}<Button kind="primary" onClick={()=>void save()} disabled={saving||total<=0||total>Number(payment.unallocated_amount||0)}>确认分配</Button></div></div>
     </section>
   </main>;
 }
