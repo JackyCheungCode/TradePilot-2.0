@@ -35,15 +35,35 @@ async function db<T>(env: ActorRegistryEnv, path: string, init: RequestInit = {}
 }
 async function gatewayFetch(path: string, token: string): Promise<Record<string, unknown>> {
   const host = "api." + String.fromCharCode(97, 112, 105, 102, 121) + ".com";
-  const response = await fetch("https://" + host + "/v2/" + (path.startsWith("/") ? path.slice(1) : path), {
-    headers: { Authorization: "Bearer " + token, Accept: "application/json" },
-    signal: AbortSignal.timeout(25000),
-  });
+  let response: Response;
+  try {
+    response = await fetch("https://" + host + "/v2/" + (path.startsWith("/") ? path.slice(1) : path), {
+      headers: { Authorization: "Bearer " + token, Accept: "application/json" },
+      signal: AbortSignal.timeout(25000),
+    });
+  } catch (error) {
+    const reason = error instanceof Error && error.name === "TimeoutError" ? "请求超时（25 秒）" : "网络连接失败";
+    throw new Error("APIFY_UPSTREAM_NETWORK: " + reason);
+  }
   const raw = await response.text();
   let body: Record<string, unknown> = {};
-  try { body = raw ? JSON.parse(raw) as Record<string, unknown> : {}; } catch { /* handled below */ }
-  if (!response.ok) throw new Error("SOURCE_GATEWAY_HTTP_" + response.status);
+  try { body = raw ? JSON.parse(raw) as Record<string, unknown> : {}; } catch { /* response may be non-JSON */ }
+  if (!response.ok) {
+    const detail = safeText((body.error as Record<string, unknown> | undefined)?.message || body.message, 180);
+    throw new Error("APIFY_HTTP_" + response.status + (detail ? ": " + detail : ""));
+  }
   return body;
+}
+const actorDiscoveryCache = new Map<string, { expiresAt: number; items: ActorRecord[] }>();
+const actorSchemaCache = new Map<string, { expiresAt: number; result: Record<string, unknown> }>();
+function cached<T>(store: Map<string, { expiresAt: number; [key: string]: unknown }>, key: string): T | null {
+  const entry = store.get(key);
+  if (!entry) return null;
+  if (entry.expiresAt <= Date.now()) { store.delete(key); return null; }
+  return (entry as unknown as { value?: T; items?: T; result?: T }).value
+    ?? (entry as unknown as { items?: T }).items
+    ?? (entry as unknown as { result?: T }).result
+    ?? null;
 }
 function actorKey(actor: ActorRecord): string { return actor.username ? actor.username + "~" + actor.name : actor.id; }
 function safeText(value: unknown, max = 4000): string { return typeof value === "string" ? value.slice(0, max) : ""; }
@@ -123,12 +143,29 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
       const body = await request.json().catch(() => ({})) as { platform?: string; query?: string };
       const search = safeText(body.query || body.platform, 120).trim();
       if (!search) return errorResponse(request, "SEARCH_REQUIRED", "请提供目标平台或能力关键词。", 400);
-      const [owned, store] = await Promise.all([
-        gatewayFetch("acts?my=1&limit=1000&offset=0&desc=true", token),
-        gatewayFetch("store?search=" + encodeURIComponent(search) + "&limit=100&offset=0", token),
-      ]);
-      const ownedItems = ((owned.data as Record<string, unknown> | undefined)?.items ?? []) as ActorRecord[];
-      const storeItems = ((store.data as Record<string, unknown> | undefined)?.items ?? []) as ActorRecord[];
+      const cacheKey = ownerId + ":" + safeText(body.platform, 80) + ":" + search.toLowerCase();
+      const cacheEntry = actorDiscoveryCache.get(cacheKey);
+      let ownedItems: ActorRecord[] = [];
+      let storeItems: ActorRecord[] = [];
+      const warnings: string[] = [];
+      if (cacheEntry && cacheEntry.expiresAt > Date.now()) {
+        ownedItems = cacheEntry.items;
+      } else {
+        const [ownedResult, storeResult] = await Promise.allSettled([
+          gatewayFetch("acts?my=1&limit=1000&offset=0&desc=true", token),
+          gatewayFetch("store?search=" + encodeURIComponent(search) + "&limit=100&offset=0", token),
+        ]);
+        if (ownedResult.status === "fulfilled") {
+          ownedItems = (((ownedResult.value.data as Record<string, unknown> | undefined)?.items ?? []) as ActorRecord[]);
+        } else warnings.push("账户 Actor 查询失败：" + String(ownedResult.reason instanceof Error ? ownedResult.reason.message : ownedResult.reason));
+        if (storeResult.status === "fulfilled") {
+          storeItems = (((storeResult.value.data as Record<string, unknown> | undefined)?.items ?? []) as ActorRecord[]);
+        } else warnings.push("Apify Store 搜索失败：" + String(storeResult.reason instanceof Error ? storeResult.reason.message : storeResult.reason));
+        if (ownedResult.status === "rejected" && storeResult.status === "rejected") {
+          return errorResponse(request, "ACTOR_DISCOVERY_UPSTREAM_FAILED", "两个数据源查询均失败。 " + warnings.join("；"), 502);
+        }
+        actorDiscoveryCache.set(cacheKey, { expiresAt: Date.now() + 2 * 60 * 1000, items: ownedItems });
+      }
       const merged = new Map<string, ActorRecord>();
       for (const actor of [...ownedItems, ...storeItems]) if (actor?.id) merged.set(actor.id, actor);
       const items = [...merged.values()].map(actor => ({
@@ -147,7 +184,7 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
         const saved = registryById.get(item.actor_id);
         return { ...item, status: saved?.status ?? "discovered", quality_score: saved?.quality_score ?? null, stability_score: saved?.stability_score ?? null };
       });
-      return successResponse(request, { discovered: enrichedItems.length, items: enrichedItems });
+      return successResponse(request, { discovered: enrichedItems.length, items: enrichedItems, warnings });
     }
     if (request.method === "POST" && parts[3] === "execute") {
       const body = await request.json().catch(() => ({})) as {
@@ -305,6 +342,9 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
     if (request.method === "GET" && parts.length >= 4 && parts[3] === "schema") {
       const actorId = decodeURIComponent(parts.slice(4).join("/"));
       if (!actorId || actorId.length > 240) return errorResponse(request, "INVALID_ACTOR_ID", "数据源标识无效。", 400);
+      const schemaCacheKey = ownerId + ":" + actorId;
+      const schemaCached = actorSchemaCache.get(schemaCacheKey);
+      if (schemaCached && schemaCached.expiresAt > Date.now()) return successResponse(request, schemaCached.result);
       const result = await gatewayFetch("acts/" + encodeURIComponent(actorId) + "/input-schema", token);
       const schema = (result.data && typeof result.data === "object" ? result.data : result) as Record<string, unknown>;
       const localized = await translateSchema(schema, env);
@@ -322,7 +362,9 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
       const registryRow = registryRows?.[0];
       const metadata = registryRow?.source_metadata ?? {};
       const lastTest = metadata.lastTest && typeof metadata.lastTest === "object" ? metadata.lastTest as Record<string, unknown> : {};
-      return successResponse(request, { actorId, version, schema: localized, actor: { status: registryRow?.status ?? "discovered", quality_score: registryRow?.quality_score ?? null, last_test_input_fingerprint: safeText(lastTest.inputFingerprint, 40) } });
+      const schemaResponse = { actorId, version, schema: localized, actor: { status: registryRow?.status ?? "discovered", quality_score: registryRow?.quality_score ?? null, last_test_input_fingerprint: safeText(lastTest.inputFingerprint, 40) } };
+      actorSchemaCache.set(schemaCacheKey, { expiresAt: Date.now() + 5 * 60 * 1000, result: schemaResponse });
+      return successResponse(request, schemaResponse);
     }
     return errorResponse(request, "NOT_FOUND", "数据源管理接口不存在。", 404);
   } catch (error) {
