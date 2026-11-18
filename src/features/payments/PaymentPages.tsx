@@ -323,7 +323,7 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
   };
 
   const statusText=statusLabel(payment.status);
-  if (loading) return <PageSkeleton variant="form" />;
+  if (loading) return <PageSkeleton variant="form" className="tp-payments" />;
   return <main className="tp-payments">
     <header className="tp-payments__header"><div><p className="tp-payments__eyebrow">TRADEPILOT / FINANCE / PAYMENT</p><h1>{editing?paymentNo:'创建收款（Payment）'}</h1><p>{editing?'维护收款资料、分配与核销记录。':'录入真实到账，可分配多个订单节点，也可保留为预收款。'}</p></div><div className="tp-responsive-header-actions">
       {readOnly&&['draft','pending_confirmation'].includes(payment.status)&&<Button className="tp-responsive-header-actions__primary" kind="primary" disabled={saving} onClick={()=>void confirm()}>{payment.payment_type==='refund'?'确认退款 / 红冲':'确认收款并核销'}</Button>}
@@ -495,7 +495,7 @@ export function PaymentAllocationPage() {
     finally{setSaving(false);}
   };
   if(!payment)return <main className="tp-payments"><InlineNotification kind="error" title="收款记录不存在" subtitle={error||'无法读取该收款记录。'}/></main>;
-  if (loading) return <PageSkeleton variant="table" />;
+  if (loading) return <PageSkeleton variant="table" className="tp-payments" />;
   return <main className="tp-payments">
     <header className="tp-payments__header"><div><p className="tp-payments__eyebrow">TRADEPILOT / FINANCE / PREPAYMENT ALLOCATION</p><h1>分配预收余额</h1><p>{payment.payment_no} · {payment.currency} · {payment.status==='confirmed'?'已确认':'部分核销'}</p></div><div className="tp-payments__actions"><Link href={'/payments/'+id}>返回收款记录</Link><Button kind="primary" onClick={()=>void save()} disabled={saving||total<=0||total>Number(payment.unallocated_amount||0)}>确认分配</Button></div></header>
     {error&&<InlineNotification kind="error" title="分配未完成" subtitle={error}/>}
