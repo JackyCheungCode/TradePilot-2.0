@@ -6,13 +6,13 @@ import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/documents.scss';
 
 type RecentDocument = { id:string; document_number:string; title:string; document_type:string; status:string; created_at:string };
-const groups = [
+const groups: Array<{ id: string; title: string; description: string; items: Array<{ type: string; label: string; detail: string; disabled?: boolean }> }> = [
   { id:'transaction', title:'交易单据', description:'报价、成交确认与合同文件', icon:semanticIcons.document, items:[
     {type:'quotation',label:'报价单',detail:'商业报价与有效期'},
     {type:'proforma_invoice',label:'形式发票（PI）',detail:'预付款与开证依据'},
     {type:'sales_contract',label:'销售合同',detail:'交易条款与双方义务'},
   ]},
-  { id:'commercial', title:'商业单据', description:'结算、报关与货物明细文件', icon:semanticIcons.documentTasks, items:[
+  { id:'commercial', title:'商业单据', description:'结算、报关与货物明细文件', icon:semanticIcons.tasks, items:[
     {type:'commercial_invoice',label:'商业发票',detail:'按实际发运数量计价'},
     {type:'packing_list',label:'装箱单',detail:'包装、件数、重量与体积'},
   ]},
@@ -42,7 +42,7 @@ export function DocumentsCenterPage(){
    <Tile className="tp-document-home__quick-tile"><div className="tp-document-home__quick-icon"><semanticIcons.edit size={24}/></div><div><h2>自由设计制作</h2><p>从业务订单或发运批次载入数据，进入自由画布编辑器。</p></div><Link href="/documents/studio" renderIcon={semanticIcons.next}>进入工作台</Link></Tile>
    <Tile className="tp-document-home__quick-tile"><div className="tp-document-home__quick-icon"><semanticIcons.template size={24}/></div><div><h2>模板中心</h2><p>管理官方预设、个人模板、企业品牌版式和模板版本。</p></div><Link href="/documents/templates" renderIcon={semanticIcons.next}>管理模板</Link></Tile>
    <Tile className="tp-document-home__quick-tile"><div className="tp-document-home__quick-icon"><semanticIcons.building size={24}/></div><div><h2>企业信息配置</h2><p>读取设置中的企业主档和收款账户，支持修改并供单据自动调用。</p></div><Link href="/documents/company-profile" renderIcon={semanticIcons.next}>配置企业信息</Link></Tile>
-   <Tile className="tp-document-home__quick-tile"><div className="tp-document-home__quick-icon"><semanticIcons.documentMultiple_01 size={24}/></div><div><h2>已生成单据</h2><p>查看草稿、已签发文件及历史版本。</p></div><Link href="/documents/generated" renderIcon={semanticIcons.next}>查看单据</Link></Tile>
+   <Tile className="tp-document-home__quick-tile"><div className="tp-document-home__quick-icon"><semanticIcons.documents size={24}/></div><div><h2>已生成单据</h2><p>查看草稿、已签发文件及历史版本。</p></div><Link href="/documents/generated" renderIcon={semanticIcons.next}>查看单据</Link></Tile>
   </section>
   <section className="tp-document-home__section"><div className="tp-document-home__section-head"><div><h2>按单据类型制作</h2><p>选择目标单据，随后选择业务来源，系统会自动载入对应业务数据。</p></div><Tag type="blue">6 种首期单据</Tag></div>
    <div className="tp-document-home__groups">{groups.map(group=><section className="tp-document-home__group" key={group.id}><div className="tp-document-home__group-head"><group.icon size={20}/><div><h3>{group.title}</h3><p>{group.description}</p></div></div><div className="tp-document-home__entries">{group.items.map(item=><ClickableTile key={item.type} className="tp-document-home__entry" disabled={Boolean(item.disabled)} onClick={()=>openStudio(item.type)}><span><strong>{item.label}</strong><small>{item.detail}</small></span>{item.disabled?<Tag type="cool-gray">即将开放</Tag>:<semanticIcons.next size={16}/>}</ClickableTile>)}</div></section>)}</div>
