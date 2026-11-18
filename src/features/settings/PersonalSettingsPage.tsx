@@ -189,7 +189,7 @@ export function PersonalSettingsPage() {
                   <TextInput id="tp-profile-email" labelText="登录邮箱" value={email} readOnly />
                 </div>
                 <div className="tp-personal-settings__meta"><span>账户 ID</span><code>{userId}</code><span>注册时间</span><strong>{createdAt ? new Intl.DateTimeFormat('zh-TW', { dateStyle: 'medium' }).format(new Date(createdAt)) : '—'}</strong></div>
-                <div className="tp-personal-settings__actions"><Button onClick={() => void saveProfile()} disabled={saving || uploading}>{saving ? '正在保存…' : '保存个人资料'}</Button></div>
+                <div className="tp-personal-settings__actions">{saving && <InlineLoading status="active" description="正在保存…" />}<Button onClick={() => void saveProfile()} disabled={saving || uploading}>保存个人资料</Button></div>
               </div>
             )}
 
@@ -239,7 +239,7 @@ export function PersonalSettingsPage() {
                     <Toggle id={`tp-notify-${key}`} labelText={label} labelA="关闭" labelB="开启" toggled={preferences.notifications[key]} onToggle={(checked) => setPreferences((current) => ({ ...current, notifications: { ...current.notifications, [key]: checked } }))} />
                   </div>
                 ))}
-                <div className="tp-personal-settings__actions"><Button onClick={() => void savePreferences()} disabled={saving}>{saving ? '正在保存…' : '保存通知偏好'}</Button></div>
+                <div className="tp-personal-settings__actions">{saving && <InlineLoading status="active" description="正在保存…" />}<Button onClick={() => void savePreferences()} disabled={saving}>保存通知偏好</Button></div>
               </div>
             )}
 
@@ -255,7 +255,7 @@ export function PersonalSettingsPage() {
                   <TextInput id="tp-work-market" labelText="默认目标市场" value={preferences.work.defaultMarket} onChange={(event) => setPreferences((current) => ({ ...current, work: { ...current.work, defaultMarket: event.currentTarget.value } }))} placeholder="例如：美国、德国、日本" />
                 </div>
                 <p className="tp-personal-settings__hint">这些是账户级默认偏好；只有已接入个人偏好的业务页面才会自动应用。</p>
-                <div className="tp-personal-settings__actions"><Button onClick={() => void savePreferences()} disabled={saving}>{saving ? '正在保存…' : '保存工作偏好'}</Button></div>
+                <div className="tp-personal-settings__actions">{saving && <InlineLoading status="active" description="正在保存…" />}<Button onClick={() => void savePreferences()} disabled={saving}>保存工作偏好</Button></div>
               </div>
             )}
 
