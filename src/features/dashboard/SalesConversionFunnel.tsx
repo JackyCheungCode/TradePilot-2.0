@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Link, InlineLoading, InlineNotification, Tile } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 
 type Stage = { key: string; label: string; count: number; href: string };
 export function SalesConversionFunnel({ startDate, endDate }: { startDate: string; endDate: string }) {
-  const navigate = useNavigate();
   const [stages, setStages] = useState<Stage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
