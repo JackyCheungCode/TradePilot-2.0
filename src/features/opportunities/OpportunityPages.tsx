@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Button, Link, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput, TextArea,
-  Tabs, TabList, Tab, TabPanels, TabPanel, Table, TableHead, TableRow, TableHeader, TableBody, TableCell,
+  Tabs, TabList, Tab, TabPanels, TabPanel, TpDataTable, TpDetailPanel,
   ComposedModal, ModalHeader, ModalBody, ModalFooter, Checkbox, RadioButtonGroup, RadioButton,
   semanticIcons, BusinessLifecycle, WorldMapChart,
 } from '@/design-system';
@@ -66,7 +66,8 @@ export function OpportunityConsolePage() {
   const [stage,setStage] = useState('all');
   const [marketCountry,setMarketCountry] = useState('all');
   const [page,setPage] = useState(1);
-  const pageSize = 15;
+  const [activeOpportunity,setActiveOpportunity] = useState<Opportunity | null>(null);
+  const pageSize = 20;
   const load = useCallback(async () => {
     setLoading(true); setError('');
     try {
@@ -97,7 +98,6 @@ export function OpportunityConsolePage() {
   };
   const pipeline = currencyTotals(open);
   const weighted = currencyTotals(open,true);
-  const pageRows = filtered.slice((page-1)*pageSize,page*pageSize);
   const accountMap = new Map(accounts.map(a=>[a.id,a.account_name] as [string,string]));
   const contactMap = new Map(contacts.map(c=>[c.id,contactName(c)]));
   return <main className="tp-opportunities">
@@ -115,10 +115,56 @@ export function OpportunityConsolePage() {
       <div className="tp-opportunities__chart"><h3>全球商机市场分布</h3>{opportunityMarketData.length?<WorldMapChart data={opportunityMarketData} unitLabel="个商机" selectedCode={marketCountry==='all'?undefined:marketCountry} onCountrySelect={code=>setMarketCountry(current=>current===code?'all':code)}/>:<p className="tp-opportunities__empty">客户资料尚未提供可识别的国家 / 地区信息。</p>}</div>
     </section>
     <section className="tp-opportunities__panel">
-      <div className="tp-opportunities__panel-head"><div><h2>商机列表</h2><p>可按商机名称、编号、阶段和负责人检索；列表每页最多 15 条。</p></div><Tag type="blue">{filtered.length} 条记录</Tag></div>
+      <div className="tp-opportunities__panel-head"><div><h2>商机列表</h2><p>可按商机名称、编号、阶段和负责人检索；支持排序、分页和侧边详情；每页默认 20 条。</p></div><Tag type="blue">{filtered.length} 条记录</Tag></div>
       <div className="tp-opportunities__filters"><TextInput id="opportunity-search" labelText="搜索商机" placeholder="名称、编号、来源或负责人" value={query} onChange={e=>setQuery(e.currentTarget.value)}/><Select id="opportunity-stage-filter" labelText="销售阶段" value={stage} onChange={e=>setStage(e.currentTarget.value)}><SelectItem value="all" text="全部阶段"/>{stages.map(([v,t])=><SelectItem key={v} value={v} text={t}/>)}</Select></div>
-      {loading?<div className="tp-opportunities__loading"><InlineLoading description="正在读取商机…"/></div>:<div className="tp-opportunities__table-wrap"><Table><TableHead><TableRow><TableHeader>商机名称 / 编号</TableHeader><TableHeader>所属客户</TableHeader><TableHeader>主要联系人</TableHeader><TableHeader>销售阶段</TableHeader><TableHeader>预计金额</TableHeader><TableHeader>赢率</TableHeader><TableHeader>预计成交日期</TableHeader><TableHeader>负责人</TableHeader></TableRow></TableHead><TableBody>{pageRows.map(r=><TableRow key={r.id}><TableCell><Link href={'/opportunities/'+r.id} className="tp-opportunities__row-link">{r.name}</Link><span className="tp-opportunities__secondary">{r.opportunity_number}</span></TableCell><TableCell>{accountMap.get(r.account_id)||'—'}</TableCell><TableCell>{r.primary_contact_id?contactMap.get(r.primary_contact_id)||'—':'—'}</TableCell><TableCell><Tag type={r.stage==='won'?'green':r.stage==='lost'?'red':'blue'}>{stageLabel(r.stage)}</Tag></TableCell><TableCell>{r.currency_code} {Number(r.amount||0).toLocaleString()}</TableCell><TableCell>{r.probability}%</TableCell><TableCell>{r.expected_close_date||'—'}</TableCell><TableCell>{r.sales_person||'—'}</TableCell></TableRow>)}</TableBody></Table>{!pageRows.length&&<p className="tp-opportunities__empty">没有符合条件的商机。</p>}</div>}
-      <div className="tp-opportunities__pagination"><span>第 {filtered.length?((page-1)*pageSize+1):0}–{Math.min(page*pageSize,filtered.length)} 条，共 {filtered.length} 条</span><div><Button kind="ghost" size="sm" disabled={page<=1} onClick={()=>setPage(p=>Math.max(1,p-1))}>上一页</Button><Button kind="ghost" size="sm" disabled={page*pageSize>=filtered.length} onClick={()=>setPage(p=>p+1)}>下一页</Button></div></div>
+      <TpDataTable
+        ariaLabel="商机列表"
+        columns={[
+          { key: 'name', header: '商机名称', primary: true, required: true, sortable: true, minWidth: 220, render: row => <span><Link href={`/opportunities/${row.id}`} className="tp-opportunities__row-link">{row.name}</Link><span className="tp-opportunities__secondary">{row.opportunity_number}</span></span> },
+          { key: 'account', header: '所属客户', minWidth: 180, sortable: true, render: row => accountMap.get(row.account_id) || '—' },
+          { key: 'contact', header: '主要联系人', minWidth: 150, render: row => row.primary_contact_id ? contactMap.get(row.primary_contact_id) || '—' : '—' },
+          { key: 'stage', header: '销售阶段', minWidth: 120, render: row => <Tag type={row.stage === 'won' ? 'green' : row.stage === 'lost' ? 'red' : 'blue'}>{stageLabel(row.stage)}</Tag> },
+          { key: 'amount', header: '预计金额', type: 'currency', align: 'end', minWidth: 150, render: row => `${row.currency_code} ${Number(row.amount || 0).toLocaleString()}` },
+          { key: 'probability', header: '赢率', type: 'percent', align: 'end', minWidth: 90, render: row => `${row.probability}%` },
+          { key: 'expected_close_date', header: '预计成交日期', type: 'datetime', minWidth: 160, render: row => row.expected_close_date || '—' },
+          { key: 'sales_person', header: '负责人', minWidth: 130, render: row => row.sales_person || '—' },
+        ]}
+        rows={filtered.slice((page - 1) * pageSize, page * pageSize)}
+        rowKey="id"
+        onRowOpen={setActiveOpportunity}
+        activeRowId={activeOpportunity?.id}
+        loading={loading}
+        refreshing={false}
+        pagination={{ page, pageSize: 20, totalItems: filtered.length, onChange: (nextPage, nextSize) => { setPage(nextPage); if (nextSize !== pageSize) setPage(1); } }}
+        emptyState="没有符合条件的商机。"
+      />
+      <TpDetailPanel
+        open={Boolean(activeOpportunity)}
+        title={activeOpportunity?.name || '商机详情'}
+        subtitle={activeOpportunity?.opportunity_number}
+        onRequestClose={() => setActiveOpportunity(null)}
+        size="lg"
+        className="tp-opportunities__detail-panel"
+      >
+        {activeOpportunity && (
+          <div className="tp-opportunities__detail-content">
+            <div className="tp-opportunities__detail-summary">
+              <Tag type={activeOpportunity.stage === 'won' ? 'green' : activeOpportunity.stage === 'lost' ? 'red' : 'blue'}>{stageLabel(activeOpportunity.stage)}</Tag>
+              <strong>{activeOpportunity.currency_code} {Number(activeOpportunity.amount || 0).toLocaleString()}</strong>
+              <span>赢率 {activeOpportunity.probability}%</span>
+            </div>
+            <dl>
+              <div><dt>所属客户</dt><dd>{accountMap.get(activeOpportunity.account_id) || '—'}</dd></div>
+              <div><dt>主要联系人</dt><dd>{activeOpportunity.primary_contact_id ? contactMap.get(activeOpportunity.primary_contact_id) || '—' : '—'}</dd></div>
+              <div><dt>预计成交日期</dt><dd>{activeOpportunity.expected_close_date || '—'}</dd></div>
+              <div><dt>负责人</dt><dd>{activeOpportunity.sales_person || '—'}</dd></div>
+              <div><dt>下一步计划</dt><dd>{activeOpportunity.next_step || '—'}</dd></div>
+              <div><dt>跟进摘要</dt><dd>{activeOpportunity.follow_up_summary || '—'}</dd></div>
+            </dl>
+            <Link href={`/opportunities/${activeOpportunity.id}`}>打开完整商机资料</Link>
+          </div>
+        )}
+      </TpDetailPanel>
     </section>
   </main>;
 }
