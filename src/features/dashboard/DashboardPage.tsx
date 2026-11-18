@@ -4,7 +4,7 @@ import {
   AreaChart, SimpleBarChart, WordCloudChart, BubbleChart,
 } from '@carbon/charts-react';
 import {
-  Button, InlineLoading, InlineNotification, Tile, Tag, Select, SelectItem,
+  Button, ClickableTile, InlineLoading, InlineNotification, Tile, Tag, Select, SelectItem,
   Tabs, TabList, Tab, TabPanels, TabPanel, CarbonIcons, WorldMapChart,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
@@ -384,12 +384,12 @@ export function DashboardPage() {
       <section className="tp-workbench__metrics" aria-label="核心经营指标">
         {metrics.map((metric, index) => {
           const Icon = metric.icon;
-          return <button type="button" key={metric.label} className={'tp-workbench__metric tp-workbench__metric--' + index} onClick={() => navigate(metric.href)}>
+          return <ClickableTile key={metric.label} className={'tp-workbench__metric tp-workbench__metric--' + index} onClick={() => navigate(metric.href)}>
             <span className="tp-workbench__metric-icon"><Icon size={20}/></span>
             <span className="tp-workbench__metric-label">{metric.label}</span>
             <strong>{metric.value}</strong><small>{metric.detail}</small>
             <span className="tp-workbench__metric-link">查看业务明细 <CarbonIcons.ArrowRight size={14}/></span>
-          </button>;
+          </ClickableTile>;
         })}
       </section>
 
@@ -439,7 +439,7 @@ export function DashboardPage() {
               <div className="tp-workbench__tab-grid">
                 <div className="tp-workbench__chart"><h3>Agent 任务状态</h3>{chartData.agents.length ? <SimpleBarChart data={chartData.agents} options={agentOptions as any}/> : <p className="tp-workbench__empty">暂无 Agent 任务</p>}</div>
                 <div className="tp-workbench__chart"><h3>任务运行概况</h3><div className="tp-workbench__mini-metrics"><div><span>全部任务</span><strong>{number(scoped.agentRuns.length)}</strong></div><div><span>运行中</span><strong>{number(scoped.agentRuns.filter(row => row.status === 'running').length)}</strong></div><div><span>已成功</span><strong>{number(scoped.agentRuns.filter(row => ['succeeded', 'completed'].includes(row.status)).length)}</strong></div><div><span>失败</span><strong>{number(failedAgents.length)}</strong></div></div><Button kind="ghost" size="sm" onClick={() => navigate('/agent')}>进入 Agent 中心 <CarbonIcons.ArrowRight size={16}/></Button></div>
-                <div className="tp-workbench__chart"><h3>最近 Agent 活动</h3><div className="tp-workbench__activity-list">{scoped.agentRuns.slice(0, 6).map(row => <button type="button" key={row.id} onClick={() => navigate('/agent')}><span className={'tp-workbench__activity-dot is-' + row.status}/><span><strong>{row.goal || '未命名任务'}</strong><small>{row.status || '状态未知'}</small></span><time>{row.created_at ? new Date(row.created_at).toLocaleDateString('zh-CN') : '—'}</time></button>)}</div></div>
+                <div className="tp-workbench__chart"><h3>最近 Agent 活动</h3><div className="tp-workbench__activity-list">{scoped.agentRuns.slice(0, 6).map(row => <ClickableTile key={row.id} className="tp-workbench__activity-item" onClick={() => navigate('/agent')}><span className={'tp-workbench__activity-dot is-' + row.status}/><span><strong>{row.goal || '未命名任务'}</strong><small>{row.status || '状态未知'}</small></span><time>{row.created_at ? new Date(row.created_at).toLocaleDateString('zh-CN') : '—'}</time></ClickableTile>)}</div></div>
               </div>
             </TabPanel>
           </TabPanels>
@@ -449,14 +449,14 @@ export function DashboardPage() {
       <section className="tp-workbench__bottom-grid">
         <Tile className="tp-workbench__panel">
           <div className="tp-workbench__panel-heading"><div><p className="tp-workbench__kicker">ACTION CENTER</p><h2>待处理与风险</h2><p>点击进入对应业务模块处理记录。</p></div><Tag type={riskCount ? 'red' : 'green'}>{riskCount ? number(riskCount) + ' 项关注' : '当前无风险项'}</Tag></div>
-          <button type="button" className="tp-workbench__risk-row" onClick={() => navigate('/accounts')}><span>逾期跟进活动</span><strong>{number(overdueActivities.length)}</strong><CarbonIcons.ChevronRight size={16}/></button>
-          <button type="button" className="tp-workbench__risk-row" onClick={() => navigate('/payments')}><span>逾期应收节点</span><strong>{number(overdueReceivableCount)}</strong><CarbonIcons.ChevronRight size={16}/></button>
-          <button type="button" className="tp-workbench__risk-row" onClick={() => navigate('/shipments')}><span>发运异常</span><strong>{number(shipmentExceptions.length)}</strong><CarbonIcons.ChevronRight size={16}/></button>
-          <button type="button" className="tp-workbench__risk-row" onClick={() => navigate('/agent')}><span>Agent 失败任务</span><strong>{number(failedAgents.length)}</strong><CarbonIcons.ChevronRight size={16}/></button>
+          <ClickableTile className="tp-workbench__risk-row" onClick={() => navigate('/accounts')}><span>逾期跟进活动</span><strong>{number(overdueActivities.length)}</strong><CarbonIcons.ChevronRight size={16}/></ClickableTile>
+          <ClickableTile className="tp-workbench__risk-row" onClick={() => navigate('/payments')}><span>逾期应收节点</span><strong>{number(overdueReceivableCount)}</strong><CarbonIcons.ChevronRight size={16}/></button>
+          <ClickableTile className="tp-workbench__risk-row" onClick={() => navigate('/shipments')}><span>发运异常</span><strong>{number(shipmentExceptions.length)}</strong><CarbonIcons.ChevronRight size={16}/></button>
+          <ClickableTile className="tp-workbench__risk-row" onClick={() => navigate('/agent')}><span>Agent 失败任务</span><strong>{number(failedAgents.length)}</strong><CarbonIcons.ChevronRight size={16}/></button>
         </Tile>
         <Tile className="tp-workbench__panel">
           <div className="tp-workbench__panel-heading"><div><p className="tp-workbench__kicker">RECENT BUSINESS ACTIVITY</p><h2>最近业务活动</h2><p>来自 CRM 活动和 Agent 执行记录。</p></div></div>
-          <div className="tp-workbench__activity-list">{scoped.activities.slice(0, 5).map(row => <button type="button" key={row.id} onClick={() => navigate(row.opportunity_id ? '/opportunities/' + row.opportunity_id : '/accounts')}><span className="tp-workbench__activity-dot"/><span><strong>{row.summary || row.activity_type || '业务活动'}</strong><small>{row.status || '状态未设置'}</small></span><time>{row.created_at ? new Date(row.created_at).toLocaleDateString('zh-CN') : '—'}</time></button>)}{!scoped.activities.length && <p className="tp-workbench__empty">暂无 CRM 活动记录。</p>}</div>
+          <div className="tp-workbench__activity-list">{scoped.activities.slice(0, 5).map(row => <ClickableTile key={row.id} className="tp-workbench__activity-item" onClick={() => navigate(row.opportunity_id ? '/opportunities/' + row.opportunity_id : '/accounts')}><span className="tp-workbench__activity-dot"/><span><strong>{row.summary || row.activity_type || '业务活动'}</strong><small>{row.status || '状态未设置'}</small></span><time>{row.created_at ? new Date(row.created_at).toLocaleDateString('zh-CN') : '—'}</time></ClickableTile>)}{!scoped.activities.length && <p className="tp-workbench__empty">暂无 CRM 活动记录。</p>}</div>
         </Tile>
       </section>
       {unconverted > 0 && <InlineNotification kind="warning" title="部分外币金额未纳入统一汇总" subtitle={number(unconverted) + ' 条金额记录缺少可验证的 USD 基础币快照。请在财务汇率配置完善后再纳入总额。'}/>}
