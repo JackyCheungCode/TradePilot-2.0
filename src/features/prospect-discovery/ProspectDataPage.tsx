@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AreaChart, DonutChart, TreemapChart, SimpleBarChart } from '@carbon/charts-react';
+import { AreaChart, DonutChart, SimpleBarChart } from '@carbon/charts-react';
 import {
   Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput, Tile,
   Table, TableHead, TableRow, TableHeader, TableBody, TableCell, Pagination, CarbonIcons,
-  Tabs, TabList, Tab, TabPanels, TabPanel,
+  Tabs, TabList, Tab, TabPanels, TabPanel, WorldMapChart,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@carbon/charts/styles.css';
@@ -135,7 +135,9 @@ export function ProspectDataPage() {
 
   const analytics = useMemo(() => {
     const active = rows.filter(row => row.status !== 'removed' && row.status !== 'discarded');
-    const countriesByCount = countBy(active.map(row => countryLabel(row.country)));
+    const countryCounts = new Map<string, number>();
+    active.forEach(row => { const code = row.country.trim().toUpperCase(); if (code && code !== '—') countryCounts.set(code, (countryCounts.get(code) || 0) + 1); });
+    const countryMap = [...countryCounts.entries()].map(([code, value]) => ({ code, label: countryLabel(code), value })).sort((a, b) => b.value - a.value);
     const channelCounts = countBy(active.flatMap(row => row.sources));
     const statusCounts = countBy(rows.map(row => statusLabel(row.status)));
     const industryCounts = countBy(active.map(row => row.industry));
@@ -154,7 +156,7 @@ export function ProspectDataPage() {
       const key = date.toISOString().slice(0, 7);
       return { group: '新增潜客', date: new Date(date.getFullYear(), date.getMonth(), 1), value: active.filter(row => row.capturedAt && row.capturedAt.slice(0, 7) === key).length };
     });
-    return { active, countriesByCount, channelCounts, statusCounts, industryCounts, sizeCounts, businessCounts, scoreGroups, monthly };
+    return { active, countryMap, channelCounts, statusCounts, industryCounts, sizeCounts, businessCounts, scoreGroups, monthly };
   }, [rows]);
 
   const theme = chartTheme();
@@ -162,7 +164,6 @@ export function ProspectDataPage() {
   const donutOptions = { ...baseOptions, height: '280px', donut: { center: { label: '潜客' } }, legend: { position: 'bottom' } };
   const barOptions = { ...baseOptions, height: '280px', axes: { bottom: { mapsTo: 'group', scaleType: 'labels' }, left: { mapsTo: 'value', scaleType: 'linear' } } };
   const areaOptions = { ...baseOptions, height: '300px', axes: { bottom: { title: '月份', mapsTo: 'date', scaleType: 'time' }, left: { title: '新增数量', mapsTo: 'value', scaleType: 'linear' } }, curve: 'curveMonotoneX', points: { enabled: false } };
-  const treemapOptions = { ...baseOptions, height: '340px', tooltip: { enabled: true, valueFormatter: (value: number) => value.toLocaleString() + ' 家潜客' } };
 
   return (
     <main className="tp-prospect-hub tp-prospect-data">
@@ -179,8 +180,7 @@ export function ProspectDataPage() {
       <section className="tp-prospect-data__overview">
         <Tile className="tp-prospect-data__panel tp-prospect-data__market">
           <div className="tp-prospect-data__panel-heading"><div><p className="tp-prospect-data__kicker">GLOBAL REACH</p><h2>全球市场分布</h2><p>按有效潜客所在国家与地区展示资产覆盖情况</p></div><Tag type="blue">{countriesCount} 个市场</Tag></div>
-          {analytics.countriesByCount.length ? <TreemapChart data={analytics.countriesByCount.map(item => ({ group: item.group, value: item.value }))} options={treemapOptions as any} /> : <div className="tp-prospect-data__empty">暂无国家 / 地区数据</div>}
-          <div className="tp-prospect-data__rank-list">{analytics.countriesByCount.slice(0, 6).map((item, index) => <div key={item.group}><span>{String(index + 1).padStart(2,'0')}</span><strong>{item.group}</strong><b>{item.value.toLocaleString()}</b></div>)}</div>
+          {analytics.countryMap.length ? <WorldMapChart data={analytics.countryMap} unitLabel="家潜客" selectedCode={country === 'all' ? undefined : country} onCountrySelect={code => { setCountry(current => current === code ? 'all' : code); setPage(1); }}/> : <div className="tp-prospect-data__empty">暂无国家 / 地区数据</div>}
         </Tile>
         <div className="tp-prospect-data__overview-side">
           <Tile className="tp-prospect-data__panel">
