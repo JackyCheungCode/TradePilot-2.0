@@ -158,8 +158,8 @@ export function QuoteDetailPage() {
     </TabPanels></Tabs></section>
     <ComposedModal open={statusModalOpen} onClose={()=>setStatusModalOpen(false)}>
       <ModalHeader title={nextStatus==='accepted'?'确认客户接受报价':'记录客户拒绝报价'} label={doc.document_number}/>
-      <ModalBody hasForm><p>请记录客户反馈依据。此操作会写入报价生命周期和操作历史。</p><TextArea id="quote-status-reason" labelText="客户反馈 / 变更原因 *" value={statusNote} onChange={e=>setStatusNote(e.currentTarget.value)} rows={4}/>{statusError&&<InlineNotification kind="error" title="无法提交" subtitle={statusError}/>}</ModalBody>
-      <ModalFooter><Button kind="secondary" onClick={()=>setStatusModalOpen(false)} disabled={statusSaving}>取消</Button><Button kind="primary" onClick={()=>void saveStatus()} disabled={statusSaving}>{statusSaving?'提交中…':'确认记录'}</Button></ModalFooter>
+      <ModalBody hasForm>{statusSaving&&<InlineLoading status="active" description="正在记录客户反馈…"/>}<p>请记录客户反馈依据。此操作会写入报价生命周期和操作历史。</p><TextArea id="quote-status-reason" labelText="客户反馈 / 变更原因 *" value={statusNote} onChange={e=>setStatusNote(e.currentTarget.value)} rows={4}/>{statusError&&<InlineNotification kind="error" title="无法提交" subtitle={statusError}/>}</ModalBody>
+      <ModalFooter><Button kind="secondary" onClick={()=>setStatusModalOpen(false)} disabled={statusSaving}>取消</Button><Button kind="primary" onClick={()=>void saveStatus()} disabled={statusSaving}>确认记录</Button></ModalFooter>
     </ComposedModal>
   </main>;
 }
