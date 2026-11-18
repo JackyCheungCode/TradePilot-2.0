@@ -1,7 +1,7 @@
 import { PageHeader } from '@/design-system';
 import { useCallback, useEffect, useState, type ChangeEvent } from 'react';
 import {
-  Button, Link, FileUploaderButton, InlineLoading, InlineNotification, Select, SelectItem, TextInput, Toggle, CarbonIcons, useThemePreference,
+  Button, Link, FileUploaderButton, InlineLoading, InlineNotification, Select, SelectItem, TextInput, Toggle, semanticIcons, useThemePreference,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/personal-settings.scss';
@@ -16,12 +16,12 @@ const defaults: Preferences = {
   work: { landingPage: 'dashboard', pageSize: '25', defaultMarket: '' },
 };
 const sections: Array<{ id: SectionId; label: string; description: string; icon: React.ReactNode }> = [
-  { id: 'profile', label: '个人资料', description: '头像与账户基本信息', icon: <CarbonIcons.User size={20} /> },
-  { id: 'security', label: '登录与安全', description: 'Passkey、多因素认证与恢复', icon: <CarbonIcons.Security size={20} /> },
-  { id: 'appearance', label: '外观与显示', description: '主题、语言、时区与格式', icon: <CarbonIcons.PaintBrush size={20} /> },
-  { id: 'notifications', label: '通知偏好', description: '任务、分析与系统提醒', icon: <CarbonIcons.Notification size={20} /> },
-  { id: 'work', label: '工作偏好', description: '默认页面、市场与列表密度', icon: <CarbonIcons.Workspace size={20} /> },
-  { id: 'privacy', label: '隐私与账户管理', description: '个人设置导出与账户信息', icon: <CarbonIcons.Security size={20} /> },
+  { id: 'profile', label: '个人资料', description: '头像与账户基本信息', icon: <semanticIcons.user size={20} /> },
+  { id: 'security', label: '登录与安全', description: 'Passkey、多因素认证与恢复', icon: <semanticIcons.security size={20} /> },
+  { id: 'appearance', label: '外观与显示', description: '主题、语言、时区与格式', icon: <semanticIcons.appearance size={20} /> },
+  { id: 'notifications', label: '通知偏好', description: '任务、分析与系统提醒', icon: <semanticIcons.notification size={20} /> },
+  { id: 'work', label: '工作偏好', description: '默认页面、市场与列表密度', icon: <semanticIcons.workspace size={20} /> },
+  { id: 'privacy', label: '隐私与账户管理', description: '个人设置导出与账户信息', icon: <semanticIcons.security size={20} /> },
 ];
 
 function readPreferences(value: unknown): Preferences {
@@ -171,7 +171,7 @@ export function PersonalSettingsPage() {
               <div className="tp-personal-settings__fields">
                 <div className="tp-personal-settings__avatar-block">
                   <div className="tp-personal-settings__avatar-preview">
-                    {avatarUrl ? <img src={avatarUrl} alt="个人头像" /> : <CarbonIcons.UserAvatar size={64} />}
+                    {avatarUrl ? <img src={avatarUrl} alt="个人头像" /> : <semanticIcons.userAvatar size={64} />}
                   </div>
                   <FileUploaderButton
                     accept={['.jpg', '.jpeg', '.png', '.webp', '.avif']}
@@ -194,10 +194,10 @@ export function PersonalSettingsPage() {
 
             {active === 'security' && (
               <div className="tp-personal-settings__info">
-                <CarbonIcons.Security size={32} />
+                <semanticIcons.security size={32} />
                 <h3>集中管理账户安全</h3>
                 <p>Passkey、生物识别登录、多因素认证和恢复代码沿用现有安全管理功能，不重复建设或改变认证策略。</p>
-                <Link href="/security" renderIcon={CarbonIcons.ArrowRight}>打开登录与安全设置</Link>
+                <Link href="/security" renderIcon={semanticIcons.next}>打开登录与安全设置</Link>
               </div>
             )}
 
@@ -260,10 +260,10 @@ export function PersonalSettingsPage() {
 
             {active === 'privacy' && (
               <div className="tp-personal-settings__info">
-                <CarbonIcons.Document size={32} />
+                <semanticIcons.document size={32} />
                 <h3>个人数据与账户控制</h3>
                 <p>可以导出当前个人资料摘要和偏好设置。此导出不包含业务记录、客户数据或集成密钥。</p>
-                <Button kind="tertiary" onClick={exportSettings}>导出个人设置 <CarbonIcons.Download size={16} /></Button>
+                <Button kind="tertiary" onClick={exportSettings}>导出个人设置 <semanticIcons.download size={16} /></Button>
                 <div className="tp-personal-settings__privacy-note"><strong>账户注销</strong><p>账户注销涉及业务数据归属与不可逆删除，目前不开放自助操作。请通过管理员支持渠道提出申请。</p></div>
               </div>
             )}
