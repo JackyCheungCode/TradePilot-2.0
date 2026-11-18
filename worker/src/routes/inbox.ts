@@ -480,8 +480,8 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
     const sendMatch = url.pathname.match(/^\/api\/v1\/inbox\/conversations\/([0-9a-f-]{36})\/messages$/i);
     if (sendMatch && request.method === "POST") {
       const conversationId = sendMatch[1];
-      let body: { content?: unknown };
-      try { body = await request.json() as { content?: unknown }; }
+      let body: { content?: unknown; channel_type?: unknown };
+      try { body = await request.json() as { content?: unknown; channel_type?: unknown }; }
       catch { return errorResponse(request, "INVALID_JSON", "消息内容格式不正确。", 400); }
       const content = typeof body.content === "string" ? body.content.trim() : "";
       if (!content || content.length > 4000) return errorResponse(request, "VALIDATION_ERROR", "消息不能为空，且不能超过 4000 个字符。", 400);
@@ -489,7 +489,7 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
       const conversations = await db<Row[]>(dbEnv, "inbox_conversations?select=id,contact_id,last_channel_type&id=eq." + conversationId + "&owner_id=eq." + ownerId + "&limit=1");
       const conversation = conversations[0];
       if (!conversation) return errorResponse(request, "CONVERSATION_NOT_FOUND", "会话不存在或无权访问。", 404);
-      const channel = String(conversation.last_channel_type ?? "");
+      const channel = typeof body.channel_type === "string" ? body.channel_type : String(conversation.last_channel_type ?? "");
       if (!["whatsapp", "line", "messenger", "telegram"].includes(channel)) return errorResponse(request, "CHANNEL_NOT_READY", "当前渠道尚未开放真实文本发送。", 409);
 
       const identities = await db<Row[]>(dbEnv, "inbox_customer_identities?select=id,external_user_id,channel_connection_id,is_primary&owner_id=eq." + ownerId + "&contact_id=eq." + String(conversation.contact_id) + "&channel_type=eq." + channel + "&order=is_primary.desc,last_seen_at.desc.nullslast&limit=1");
