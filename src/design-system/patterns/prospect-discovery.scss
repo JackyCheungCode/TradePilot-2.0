@@ -1003,3 +1003,24 @@
   font-size: 0.75rem;
   font-weight: 600;
 }
+
+
+/* Prospect discovery alignment: left-aligned platform copy and Carbon-sized source marks. */
+.tp-prospect-discovery__platform-row { align-items: flex-start; }
+.tp-prospect-discovery__platform-copy { align-items: flex-start; text-align: left; }
+.tp-prospect-discovery__platform-name { justify-content: flex-start; text-align: left; }
+.tp-prospect-discovery__platform-copy > p { width: 100%; text-align: left; }
+.tp-prospect-discovery__platform-logo,
+.tp-prospect-discovery__platform-monogram { flex-basis: 2.5rem; width: 2.5rem; height: 2.5rem; }
+.tp-prospect-discovery__platform-logo { padding: .375rem; }
+.tp-prospect-discovery__actor-schema .tp-prospect-discovery__section-heading > div { align-items: flex-start; }
+.tp-prospect-discovery__actor-schema .tp-prospect-discovery__section-heading svg { width: 24px; height: 24px; flex: 0 0 24px; }
+.tp-prospect-discovery__actor-schema-heading > div:first-child { align-items: center; flex-direction: row; gap: .75rem; }
+.tp-prospect-discovery__actor-schema-heading > div:first-child svg { width: 20px; height: 20px; flex: 0 0 20px; }
+
+
+.tp-prospect-discovery__platform-logo--sprite {
+  color: var(--cds-icon-primary);
+  fill: currentColor;
+  padding: .375rem;
+}

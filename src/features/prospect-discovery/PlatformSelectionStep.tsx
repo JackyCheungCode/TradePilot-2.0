@@ -152,11 +152,69 @@ const allPlatforms: Array<Source & { category: string; global: boolean }> = [
 ];
 
 const isRunnablePlatform = (id: string) => allPlatforms.some(source => source.id === id);
+const platformLogoSymbols: Record<string, { file: string; symbol: string }> = {
+  'google-search': { file: 'platform-sprite-search.svg', symbol: 'google' },
+  'google-news': { file: 'platform-sprite-search.svg', symbol: 'googlenews' },
+  duckduckgo: { file: 'platform-sprite-search.svg', symbol: 'duckduckgo' },
+  baidu: { file: 'platform-sprite-search.svg', symbol: 'baidu' },
+  'x-twitter': { file: 'platform-sprite-social.svg', symbol: 'x' },
+  reddit: { file: 'platform-sprite-social.svg', symbol: 'reddit' },
+  pinterest: { file: 'platform-sprite-social.svg', symbol: 'pinterest' },
+  threads: { file: 'platform-sprite-social.svg', symbol: 'threads' },
+  youtube: { file: 'platform-sprite-media.svg', symbol: 'youtube' },
+  vimeo: { file: 'platform-sprite-media.svg', symbol: 'vimeo' },
+  twitch: { file: 'platform-sprite-media.svg', symbol: 'twitch' },
+  ebay: { file: 'platform-sprite-media.svg', symbol: 'ebay' },
+  etsy: { file: 'platform-sprite-social-media.svg', symbol: 'etsy' },
+  medium: { file: 'platform-sprite-community.svg', symbol: 'medium' },
+  tumblr: { file: 'platform-sprite-community.svg', symbol: 'tumblr' },
+  snapchat: { file: 'platform-sprite-community.svg', symbol: 'snapchat' },
+  quora: { file: 'platform-sprite-community.svg', symbol: 'quora' },
+  wappalyzer: { file: 'platform-sprite-webtech.svg', symbol: 'wappalyzer' },
+  similarweb: { file: 'platform-sprite-webtech.svg', symbol: 'similarweb' },
+  webflow: { file: 'platform-sprite-webtech.svg', symbol: 'webflow' },
+  wix: { file: 'platform-sprite-webtech.svg', symbol: 'wix' },
+  prestashop: { file: 'platform-sprite-jobs.svg', symbol: 'prestashop' },
+  indeed: { file: 'platform-sprite-jobs.svg', symbol: 'indeed' },
+  glassdoor: { file: 'platform-sprite-jobs.svg', symbol: 'glassdoor' },
+  monster: { file: 'platform-sprite-jobs.svg', symbol: 'monster' },
+  crunchbase: { file: 'platform-sprite-business.svg', symbol: 'crunchbase' },
+  'product-hunt': { file: 'platform-sprite-business.svg', symbol: 'producthunt' },
+  github: { file: 'platform-sprite-business.svg', symbol: 'github' },
+  taobao: { file: 'platform-sprite-business.svg', symbol: 'taobao' },
+  nextdoor: { file: 'platform-sprite-marketplaces.svg', symbol: 'nextdoor' },
+  rumble: { file: 'platform-sprite-marketplaces.svg', symbol: 'rumble' },
+  woocommerce: { file: 'platform-sprite-marketplaces.svg', symbol: 'woocommerce' },
+  bigcommerce: { file: 'platform-sprite-marketplaces.svg', symbol: 'bigcommerce' },
+  rakuten: { file: 'platform-sprite-retail.svg', symbol: 'rakuten' },
+  target: { file: 'platform-sprite-retail.svg', symbol: 'target' },
+  newegg: { file: 'platform-sprite-retail.svg', symbol: 'newegg' },
+  shopee: { file: 'platform-sprite-retail.svg', symbol: 'shopee' },
+  trustpilot: { file: 'platform-sprite-reviews.svg', symbol: 'trustpilot' },
+  g2: { file: 'platform-sprite-reviews.svg', symbol: 'g2' },
+  tripadvisor: { file: 'platform-sprite-reviews.svg', symbol: 'tripadvisor' },
+  squarespace: { file: 'platform-sprite-reviews.svg', symbol: 'squarespace' },
+  greenhouse: { file: 'platform-sprite-work.svg', symbol: 'greenhouse' },
+  wellfound: { file: 'platform-sprite-work.svg', symbol: 'wellfound' },
+  ted: { file: 'platform-sprite-work.svg', symbol: 'ted' },
+  gumtree: { file: 'platform-sprite-work.svg', symbol: 'gumtree' },
+  naver: { file: 'platform-sprite-regional.svg', symbol: 'naver' },
+  xing: { file: 'platform-sprite-regional.svg', symbol: 'xing' },
+  allegro: { file: 'platform-sprite-regional.svg', symbol: 'allegro' },
+  dailymotion: { file: 'platform-sprite-more.svg', symbol: 'dailymotion' },
+  bilibili: { file: 'platform-sprite-more.svg', symbol: 'bilibili' },
+  'yelp-reviews': { file: 'platform-sprite-more.svg', symbol: 'yelp' },
+  'yelp-local': { file: 'platform-sprite-more.svg', symbol: 'yelp' },
+  'naver-search': { file: 'platform-sprite-regional.svg', symbol: 'naver' },
+  'google-shopping': { file: 'platform-sprite-search.svg', symbol: 'google' },
+  'google-reviews': { file: 'platform-sprite-search.svg', symbol: 'google' },
+};
 const localPlatformLogos: Record<string, string> = {
   'google-maps': 'google_maps.svg', alibaba: 'alibaba.svg', aliexpress: 'aliexpress.svg', amazon: 'amazon.svg',
   facebook: 'facebook.svg', instagram: 'instagram.svg', linkedin: 'linkedin.svg', 'linkedin-global': 'linkedin.svg',
   line: 'line.svg', messenger: 'messenger.svg', telegram: 'telegram.svg', tiktok: 'tiktok.svg',
-  'tiktok-shop': 'tiktok.svg', wechat: 'wechat.svg', whatsapp: 'whatsapp.svg',
+  'tiktok-shop': 'tiktok.svg', 'linkedin-jobs': 'linkedin.svg', 'amazon-reviews': 'amazon.svg',
+  wechat: 'wechat.svg', whatsapp: 'whatsapp.svg',
 };
 
 export function PlatformSelectionStep({
@@ -253,7 +311,7 @@ export function PlatformSelectionStep({
             <Checkbox id={'tp-platform-' + source.id} labelText={source.name} hideLabel checked={checked} disabled={!isRunnablePlatform(source.id)} onChange={() => toggle(source.id)} />
             <div className="tp-prospect-discovery__platform-copy">
               <div className="tp-prospect-discovery__platform-name">
-                {localPlatformLogos[source.id] ? <img className="tp-prospect-discovery__platform-logo" src={'/platform-logos/' + localPlatformLogos[source.id]} alt="" loading="lazy" /> : <span className="tp-prospect-discovery__platform-monogram" aria-hidden="true">{source.name.slice(0, 1).toUpperCase()}</span>}
+                {localPlatformLogos[source.id] ? <img className="tp-prospect-discovery__platform-logo" src={'/platform-logos/' + localPlatformLogos[source.id]} alt="" loading="lazy" /> : platformLogoSymbols[source.id] ? <svg className="tp-prospect-discovery__platform-logo tp-prospect-discovery__platform-logo--sprite" viewBox="0 0 24 24" aria-hidden="true"><use href={'/platform-logos/' + platformLogoSymbols[source.id].file + '#' + platformLogoSymbols[source.id].symbol} /></svg> : <span className="tp-prospect-discovery__platform-monogram" aria-hidden="true">{source.name.slice(0, 1).toUpperCase()}</span>}
                 <strong>{source.name}</strong>{isRecommended && <Tag type="green">智能推荐</Tag>}
               </div>
               <p>{source.description}</p>
