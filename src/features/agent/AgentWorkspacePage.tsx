@@ -316,14 +316,18 @@ export function AgentWorkspacePage() {
                         {item.metadata.task.channel && item.metadata.task.channel !== 'search_engine' && <Tag type="purple">Apify · {item.metadata.task.channel === 'facebook' ? 'Facebook' : 'Instagram'}</Tag>}
                         {item.metadata.runId && <Tag type={item.metadata.runStatus === 'succeeded' ? 'green' : item.metadata.runStatus === 'failed' ? 'red' : 'blue'}>{item.metadata.runStatus === 'succeeded' ? '执行完成' : item.metadata.runStatus === 'failed' ? '执行失败' : item.metadata.runStatus === 'running' ? '正在执行' : item.metadata.runStatus === 'awaiting_approval' ? '等待人工审批' : '任务已排队'} · {item.metadata.runProgress || 0}%</Tag>}
                         <p className="tp-agent__task-meta">执行角色：{item.metadata.task.agentKey} · 目标国家：{item.metadata.task.country}</p>
-                        <Button
-                          kind="tertiary"
-                          size="md"
-                          disabled={Boolean(startingTask)}
-                          onClick={() => item.metadata?.runId ? navigate('/recent-tasks') : void startTask(item.id, item.metadata!.task!)}
-                        >
-                          {item.metadata.runId ? '已启动，查看任务中心' : startingTask === item.id ? '正在创建任务…' : '确认并执行'}
-                        </Button>
+                        {item.metadata.runId ? (
+                          <Link href="/recent-tasks" renderIcon={CarbonIcons.Task}>已启动，查看任务中心</Link>
+                        ) : (
+                          <Button
+                            kind="tertiary"
+                            size="md"
+                            disabled={Boolean(startingTask)}
+                            onClick={() => void startTask(item.id, item.metadata!.task!)}
+                          >
+                            {startingTask === item.id ? '正在创建任务…' : '确认并执行'}
+                          </Button>
+                        )}
                       </Tile>
                     )}
                   </div>
