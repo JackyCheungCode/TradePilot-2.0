@@ -38,6 +38,28 @@ function countryName(code: string) {
   }
 }
 
+const CODE_ALIASES: Record<string, string> = {
+  CD: 'Democratic Republic of the Congo',
+  CG: 'Republic of the Congo',
+  CI: 'Ivory Coast',
+  BO: 'Bolivia',
+  VE: 'Venezuela',
+  TZ: 'Tanzania',
+  SY: 'Syria',
+  LA: 'Laos',
+  MD: 'Moldova',
+  VN: 'Vietnam',
+  IR: 'Iran',
+  PS: 'Palestine',
+  BN: 'Brunei',
+  TL: 'Timor-Leste',
+  MK: 'North Macedonia',
+  MM: 'Myanmar',
+  SZ: 'Eswatini',
+  TR: 'Turkey',
+  CZ: 'Czechia',
+};
+
 const NAME_ALIASES: Record<string, string> = {
   unitedstates: 'unitedstatesofamerica',
   russia: 'russianfederation',
@@ -112,7 +134,7 @@ function buildCountryLookup(data: WorldMapDatum[]) {
   const lookup = new Map<string, WorldMapDatum>();
   for (const item of data) {
     const englishName = countryName(item.code);
-    const keys = [item.code, item.label, englishName, NAME_ALIASES[normalize(englishName)] || '', NAME_ALIASES[normalize(item.label)] || ''];
+    const keys = [item.code, item.label, englishName, CODE_ALIASES[item.code.toUpperCase()] || '', NAME_ALIASES[normalize(englishName)] || '', NAME_ALIASES[normalize(item.label)] || ''];
     keys.forEach(key => { if (key) lookup.set(normalize(key), item); });
   }
   return lookup;
