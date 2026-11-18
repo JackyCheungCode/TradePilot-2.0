@@ -274,11 +274,7 @@ export function ExecutionStep({ sources, actorParameters = {}, onEditStep, onCon
       </Accordion>
 
       {notice && <InlineNotification kind="info" lowContrast title="任务反馈" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
-      <Tile className="tp-execution__configuration">
-        <div className="tp-execution__section-heading"><div><h3>执行参数</h3><p>直接使用第二步各平台 Schema 中填写的参数启动 Actor，不追加关键词、国家或结果数量参数。</p></div><Tag type="blue">{configuredChannels.length} 个可执行渠道</Tag></div>
-        <div className="tp-execution__confirmation-summary"><strong>本次执行平台</strong>{configuredChannels.length ? configuredChannels.map(item => <span key={item.name}>{item.name}：使用 Schema 参数执行</span>) : <span>请返回第二步读取所选平台的 Schema 并填写参数。</span>}</div>
-        <Checkbox id="tp-execution-confirm" labelText="我已检查本次执行平台与参数（可选确认）。" checked={confirmedExecution} disabled={!hasRunnableSource || status !== 'idle'} onChange={event => setConfirmedExecution(event.currentTarget.checked)} />
-      </Tile>
+
       <div className="tp-execution__dashboard-heading">
         <div><span className="tp-execution__eyebrow">MULTI-CHANNEL EXECUTION</span><h2>全网搜索大盘</h2><p>显示 Actor 后端任务真实状态、进度、结果数量与运行日志</p></div>
         <Tag type={status === 'completed' ? 'green' : status === 'running' ? 'blue' : status === 'failed' ? 'red' : 'gray'}>{status === 'completed' ? '任务已结束' : status === 'running' ? '后端任务运行中' : status === 'failed' ? '任务启动失败' : '待启动'}</Tag>
