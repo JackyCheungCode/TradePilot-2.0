@@ -48,6 +48,15 @@
   background: var(--cds-layer-selected-01);
   box-shadow: inset 3px 0 0 var(--cds-border-interactive);
 }
+.tp-settings__planned-dot {
+  display: inline-block;
+  flex: 0 0 .375rem;
+  width: .375rem;
+  height: .375rem;
+  margin-inline-start: auto;
+  border-radius: 50%;
+  background: var(--cds-icon-disabled);
+}
 .tp-settings__domain-icon {
   display: inline-flex;
   flex: 0 0 1.25rem;
