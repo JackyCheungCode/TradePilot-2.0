@@ -58,6 +58,24 @@ const actorDiscoveryCache = new Map<string, { expiresAt: number; items: ActorRec
 const actorSchemaCache = new Map<string, { expiresAt: number; result: Record<string, unknown> }>();
 function actorKey(actor: ActorRecord): string { return actor.username ? actor.username + "~" + actor.name : actor.id; }
 function safeText(value: unknown, max = 4000): string { return typeof value === "string" ? value.slice(0, max) : ""; }
+
+function parseActorInputSchema(build: Record<string, unknown>): Record<string, unknown> | null {
+  const definition = build.actorDefinition && typeof build.actorDefinition === "object"
+    ? build.actorDefinition as Record<string, unknown> : {};
+  const input = definition.input;
+  if (input && typeof input === "object" && !Array.isArray(input)) {
+    const schema = input as Record<string, unknown>;
+    if (schema.type === "object" && schema.properties && typeof schema.properties === "object") return schema;
+  }
+  const legacy = build.inputSchema;
+  if (typeof legacy === "string" && legacy.trim()) {
+    try {
+      const parsed = JSON.parse(legacy) as Record<string, unknown>;
+      if (parsed.type === "object" && parsed.properties && typeof parsed.properties === "object") return parsed;
+    } catch { /* ignore invalid legacy schema and return a precise schema error */ }
+  }
+  return null;
+}
 function redactActorInput(value: unknown, depth = 0): unknown {
   if (depth > 8) return "[已省略]";
   if (Array.isArray(value)) return value.slice(0, 100).map(item => redactActorInput(item, depth + 1));
@@ -336,10 +354,16 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
       const schemaCacheKey = ownerId + ":" + actorId;
       const schemaCached = actorSchemaCache.get(schemaCacheKey);
       if (schemaCached && schemaCached.expiresAt > Date.now()) return successResponse(request, schemaCached.result);
-      const result = await gatewayFetch("acts/" + encodeURIComponent(actorId) + "/input-schema", token);
-      const schema = (result.data && typeof result.data === "object" ? result.data : result) as Record<string, unknown>;
+      // Apify exposes Actor input schemas through the default Build, not /acts/{id}/input-schema.
+      // Prefer the current Actor definition and retain the deprecated inputSchema string as a compatibility fallback.
+      const buildResult = await gatewayFetch("actors/" + encodeURIComponent(actorId) + "/builds/default", token);
+      const build = (buildResult.data && typeof buildResult.data === "object" ? buildResult.data : buildResult) as Record<string, unknown>;
+      const schema = parseActorInputSchema(build);
+      if (!schema) {
+        throw new Error("APIFY_ACTOR_SCHEMA_UNAVAILABLE: Actor 默认 Build 未提供有效的 actorDefinition.input 或兼容 inputSchema；请确认该 Actor 存在可用 Build。");
+      }
       const localized = await translateSchema(schema, env);
-      const sourceVersion = safeText((schema.version as string) || "latest", 80);
+      const sourceVersion = safeText(build.buildNumber || schema.version as string || "latest", 80);
       const snapshotBytes = new TextEncoder().encode(JSON.stringify({ schema, localized }));
       const snapshotDigest = await crypto.subtle.digest("SHA-256", snapshotBytes);
       const fingerprint = [...new Uint8Array(snapshotDigest)].map(byte => byte.toString(16).padStart(2, "0")).join("").slice(0, 16);
