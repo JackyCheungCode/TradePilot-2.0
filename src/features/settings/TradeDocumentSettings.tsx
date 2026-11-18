@@ -144,7 +144,7 @@ export function TradeDocumentSettings({ scope }: { scope: Scope }) {
           </div>
           <div className="tp-trade-document-settings__footer">
             <p className="tp-settings__hint">保存只更新默认规则。已创建单据继续使用创建时保存的快照。</p>
-            <Button kind="primary" disabled={saving} onClick={() => void save()}>{saving ? '正在保存…' : '保存设置'}</Button>
+            {saving && <InlineLoading status="active" description="正在保存…" />}<Button kind="primary" disabled={saving} onClick={() => void save()}>保存设置</Button>
           </div>
           <section className="tp-trade-document-settings__history">
             <div><h4>最近设置变更</h4><p className="tp-settings__hint">保留最近 10 次变更，包含修改前后的配置快照。</p></div>
