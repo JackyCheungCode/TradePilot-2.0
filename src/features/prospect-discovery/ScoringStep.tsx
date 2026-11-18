@@ -209,10 +209,7 @@ export function ScoringStep({ onContinueToEnrichment }: Props) {
 
   return (
     <section className="tp-prospect-discovery__step tp-scoring">
-      <div className="tp-scoring__heading">
-        <div><span className="tp-execution__eyebrow">AI FILTERING & SCORING</span><h2>AI 智能清洗与打分工作台</h2><p>仅依据各数据源返回的企业公开信息与证据进行评分，不依赖预设关键词或目标国家。</p></div>
-        <div className="tp-scoring__heading-actions"><Tag type="blue">{rows.length} 条待处理记录</Tag><Button kind="primary" size="md" renderIcon={CarbonIcons.ArrowRight} disabled={!selected.length || loading || !rows.length} onClick={sendToEnrichment}>将已选企业送入第五步</Button></div>
-      </div>
+
 
       {notice && <InlineNotification kind="info" lowContrast title="操作反馈" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
 
