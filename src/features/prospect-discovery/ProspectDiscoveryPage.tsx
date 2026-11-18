@@ -81,7 +81,7 @@ export function ProspectDiscoveryPage() {
       ) : selectedIndex === 1 ? (
         <section className="tp-prospect-discovery__step">
           <div className="tp-prospect-discovery__section-heading">
-            <div><span className="tp-prospect-discovery__section-index">02</span><div><h2>Actor 动态参数配置</h2><p>仅展示所选数据源 Input Schema 实际定义的参数；不再提供预设画像字段。</p></div></div>
+            <div><span className="tp-prospect-discovery__section-index">02</span><div><h2>Actor 动态参数配置</h2></div></div>
           </div>
           <ActorSchemaFields sources={actorSourcesForSchema} onValuesChange={handleActorParametersChange} />
         </section>
