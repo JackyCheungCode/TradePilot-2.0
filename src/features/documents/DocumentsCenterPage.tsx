@@ -43,7 +43,7 @@ export function DocumentsCenterPage(){
   { type: 'group', direction: 'grid', columns: 2, gap: 'var(--cds-spacing-04)', className: 'tp-document-home__quick', children: Array.from({ length: 4 }, () => ({ type: 'placeholder' as const, minHeight: '8rem', className: 'tp-document-home__quick-tile' })) },
   { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-document-home__section', children: [
     { type: 'text', heading: true, width: '14rem' },
-    { type: 'group', direction: 'grid', columns: 2, gap: 'var(--cds-spacing-04)', className: 'tp-document-home__groups', children: Array.from({ length: 6 }, () => ({ type: 'placeholder' as const, minHeight: '10rem', className: 'tp-document-home__group' })) },
+    { type: 'group', direction: 'grid', columns: 2, gap: 'var(--cds-spacing-04)', className: 'tp-document-home__groups', children: Array.from({ length: 4 }, () => ({ type: 'placeholder' as const, minHeight: '10rem', className: 'tp-document-home__group' })) },
   ] },
   { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-document-home__section', children: [
     { type: 'text', heading: true, width: '12rem' },
