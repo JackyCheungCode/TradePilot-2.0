@@ -229,7 +229,7 @@ export function SettingsCenterPage() {
 
   const sectionGroups = [...new Set(activeSections.map((item) => item.group))].map((group) => ({ group, items: activeSections.filter((item) => item.group === group) }));
 
-  if (loading) return <PageSkeleton variant="table" />;
+  if (loading) return <PageSkeleton variant="dashboard" />;
   return (
     <main className="tp-settings">
       <header className="tp-settings__header">
