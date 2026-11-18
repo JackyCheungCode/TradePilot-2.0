@@ -178,8 +178,8 @@ export function PageHeader({ breadcrumb, title, description, actions, className 
       {normalizedActions.length > 0 && (
         <ButtonSet className="tp-page-header__actions">
           {normalizedActions.map((action) => (
-            <Button key={action.id} kind={action.kind} size="lg" href={action.href} onClick={action.onClick} disabled={action.disabled}>
-              {actionContent(action.label, resolveActionIcon(action.icon))}
+            <Button key={action.id} kind={action.kind} size="lg" href={action.href} onClick={action.onClick} disabled={action.disabled} renderIcon={resolveActionIcon(action.icon)}>
+              {actionContent(action.label)}
             </Button>
           ))}
         </ButtonSet>
