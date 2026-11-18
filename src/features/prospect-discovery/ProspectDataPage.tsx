@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AreaChart, DonutChart, SimpleBarChart } from '@carbon/charts-react';
 import {
-  Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput, Tile,
+  Button, Link, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput, Tile,
   Table, TableHead, TableRow, TableHeader, TableBody, TableCell, Pagination, CarbonIcons,
   Tabs, TabList, Tab, TabPanels, TabPanel, WorldMapChart,
 } from '@/design-system';
