@@ -46,7 +46,7 @@ function normalizeLegacyActions(node: ReactNode, primaryAssigned: { current: boo
     const className = [String(props.className || ''), 'tp-page-header__action'].filter(Boolean).join(' ');
     return isButton
       ? cloneElement(node, { kind, size: 'lg', className } as Record<string, unknown>)
-      : createElement(Button, { ...(props as Record<string, unknown>), kind, size: 'lg', className }, children);
+      : createElement(Button, { ...(props as Record<string, unknown>), kind, size: 'lg', className } as never, children);
   }
   if (children === undefined) return node;
   let normalizedChildren = normalizeLegacyActions(children, primaryAssigned);
