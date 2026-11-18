@@ -24,7 +24,7 @@ export type PageHeaderProps = {
 function isActionElement(node: ReactNode): node is ReactElement<Record<string, unknown>> {
   if (!isValidElement(node)) return false;
   const typeName = typeof node.type === 'string' ? node.type : (node.type as { displayName?: string; name?: string }).displayName || (node.type as { name?: string }).name || '';
-  return typeName === 'Button' || typeName === 'Link' || node.props.kind !== undefined || node.props.renderIcon !== undefined || node.props.disabled !== undefined || node.props.size !== undefined;
+  return typeName === 'Button' || typeName === 'Link' || node.props.kind !== undefined || node.props.renderIcon !== undefined || node.props.disabled !== undefined || node.props.size !== undefined || node.props.onClick !== undefined;
 }
 
 function nodeText(node: ReactNode): string { if (typeof node === 'string' || typeof node === 'number') return String(node); if (Array.isArray(node)) return node.map(nodeText).join(' '); if (isValidElement(node)) return nodeText((node.props as Record<string, unknown>).children as ReactNode); return ''; }
