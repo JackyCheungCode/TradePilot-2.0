@@ -1,3 +1,4 @@
+import { PageHeader } from '@/design-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -321,7 +322,7 @@ export function DashboardPage() {
   const agentOptions = { ...commonOptions, height: '260px', axes: { bottom: { mapsTo: 'group', scaleType: 'labels' }, left: { mapsTo: 'value', scaleType: 'linear' } } };
 
   return <main className="tp-workbench">
-    <header className="tp-workbench__header">
+    <PageHeader className="tp-workbench__header">
       <div>
         <p className="tp-workbench__eyebrow">TRADEPILOT / GLOBAL BUSINESS COMMAND CENTER</p>
         <h1>全球贸易经营驾驶舱</h1>
@@ -331,7 +332,7 @@ export function DashboardPage() {
         <span className="tp-workbench__updated">{data ? '更新于 ' + new Date(data.updatedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '等待数据'}</span>
         <Button kind="tertiary" size="md" disabled={loading || refreshing} onClick={() => { setRefreshing(true); void load(); }}><CarbonIcons.Renew size={16}/> 刷新数据</Button>
       </div>
-    </header>
+    </PageHeader>
 
     <section className="tp-workbench__filters" aria-label="全局筛选">
       <Select id="workbench-period" labelText="统计周期" value={period} onChange={event => setPeriod(event.currentTarget.value)}>
