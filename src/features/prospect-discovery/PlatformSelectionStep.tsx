@@ -214,7 +214,7 @@ const localPlatformLogos: Record<string, string> = {
   facebook: 'facebook.svg', instagram: 'instagram.svg', linkedin: 'linkedin.svg', 'linkedin-global': 'linkedin.svg',
   line: 'line.svg', messenger: 'messenger.svg', telegram: 'telegram.svg', tiktok: 'tiktok.svg',
   'tiktok-shop': 'tiktok.svg', 'linkedin-jobs': 'linkedin.svg', 'amazon-reviews': 'amazon.svg',
-  instagram: 'instagram.svg', tiktok: 'tiktok.svg', telegram: 'telegram.svg', wechat: 'wechat.svg', whatsapp: 'whatsapp.svg',
+  wechat: 'wechat.svg', whatsapp: 'whatsapp.svg',
 };
 
 export function PlatformSelectionStep({
