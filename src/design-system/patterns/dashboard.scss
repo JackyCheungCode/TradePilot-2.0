@@ -365,3 +365,13 @@
   .tp-workbench__global-map-switch .cds--btn { min-width: 0; }
   .tp-workbench__global-map-ranking { grid-template-columns: minmax(0, 1fr); }
 }
+
+
+.tp-workbench__metric{position:relative;overflow:hidden}
+.tp-workbench__metric::before{content:'';position:absolute;inset:0 0 auto;height:3px;background:var(--tp-metric-accent,var(--cds-support-info))}
+.tp-workbench__metric:nth-child(5n+1){--tp-metric-accent:var(--cds-support-info)}
+.tp-workbench__metric:nth-child(5n+2){--tp-metric-accent:var(--cds-support-success)}
+.tp-workbench__metric:nth-child(5n+3){--tp-metric-accent:var(--cds-support-warning)}
+.tp-workbench__metric:nth-child(5n+4){--tp-metric-accent:var(--cds-support-error)}
+.tp-workbench__metric:nth-child(5n+5){--tp-metric-accent:var(--cds-interactive)}
+.tp-workbench__metric-icon{color:var(--tp-metric-accent,var(--cds-icon-secondary))}
