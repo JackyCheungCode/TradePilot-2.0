@@ -113,7 +113,7 @@ export function PaymentConsolePage() {
   const statusData=PAYMENT_STATES.map(([k,v])=>({group:v,key:'收款笔数',value:currencyRows.filter(r=>r.status===k).length})).filter(x=>x.value);
   const methodData=METHODS.map(m=>({group:m,key:'收款笔数',value:currencyRows.filter(r=>r.payment_method===m).length})).filter(x=>x.value);
   const agingData=['未到期','1–30','31–60','61–90','90+'].map(k=>({group:k,key:'未收金额',value:receivables.filter(r=>r.currency===currency&&r.aging_bucket===k).reduce((s,r)=>s+r.outstanding,0)})).filter(x=>x.value>0);
-  const chartOpts={theme:document.documentElement.dataset.carbonTheme==='g100'?'g100':'white',height:'240px',legend:{enabled:false},toolbar:{enabled:false},axes:{bottom:{mapsTo:'group',scaleType:ScaleTypes.LABELS},left:{mapsTo:'value',scaleType:ScaleTypes.LINEAR}}};
+  const chartOpts={theme:document.documentElement.dataset.carbonTheme==='g100'?'g100':'white',height:'240px',color:{pairing:{numberOfVariants:14,option:1}},legend:{enabled:false},toolbar:{enabled:false},axes:{bottom:{mapsTo:'group',scaleType:ScaleTypes.LABELS},left:{mapsTo:'value',scaleType:ScaleTypes.LINEAR}}};
 
   return <main className="tp-payments">
     <header className="tp-payments__header"><div><p className="tp-payments__eyebrow">TRADEPILOT / FINANCE / ACCOUNTS RECEIVABLE</p><h1>收款（Payment）</h1><p>管理到账、预收款、订单核销、银行对账与应收催款。</p></div><div className="tp-payments__actions"><Button kind="tertiary" onClick={()=>void load()} disabled={loading}><CarbonIcons.Renew size={16}/>刷新</Button><Button kind="primary" onClick={()=>nav('/payments/new')}><CarbonIcons.Add size={16}/>创建收款</Button></div></header>
