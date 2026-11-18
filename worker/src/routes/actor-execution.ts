@@ -89,7 +89,7 @@ async function persistCanonical(env: DiscoveryEnv, ownerId: string, runId: strin
   const previous = previousRows?.[0] ?? {};
   const entities = await db<Array<{ id: string }>>(env, "discovery_entities?on_conflict=owner_id,dedupe_key", {
     method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" },
-    body: JSON.stringify({ owner_id: ownerId, entity_type: "business", display_name: item.name, dedupe_key: dedupeKey, attributes: { country_code: countryCode } }),
+    body: JSON.stringify({ owner_id: ownerId, entity_type: "business", display_name: item.name, dedupe_key: dedupeKey, attributes: { country_code: countryCode || null } }),
   });
   let entityId = entities?.[0]?.id;
   if (!entityId) {
@@ -106,7 +106,7 @@ async function persistCanonical(env: DiscoveryEnv, ownerId: string, runId: strin
     method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" },
     body: JSON.stringify({
       owner_id: ownerId, channel: "actor_discovery", record_type: "business", entity_id: entityId,
-      name: item.name, country_code: countryCode, address: item.address ?? previous.address ?? null, phone: item.phone ?? previous.phone ?? null, email: item.email ?? previous.email ?? null,
+      name: item.name, country_code: countryCode || null, address: item.address ?? previous.address ?? null, phone: item.phone ?? previous.phone ?? null, email: item.email ?? previous.email ?? null,
       website: item.website ?? previous.website ?? null, business_type: item.businessType ?? previous.business_type ?? null,
       confidence_score: Math.max(Number(previous.confidence_score ?? 0), Math.min(100, 45 + [item.website, item.email, item.phone, item.address, item.businessType].filter(Boolean).length * 10)),
       latitude: item.latitude, longitude: item.longitude, dedupe_key: dedupeKey, raw_data: rawData,
