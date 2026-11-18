@@ -123,7 +123,7 @@ function groupValue(row:ContactRow, fieldName:string, verifiedIds:Set<string>) {
   }
 }
 export function ContactConsolePage() {
-  const navigate=useNavigate();
+  
   const [rows,setRows]=useState<ContactRow[]>([]);
   const [countryStats,setCountryStats]=useState<CountryStat[]>([]);
   const [dailyStats,setDailyStats]=useState<DailyStat[]>([]);
