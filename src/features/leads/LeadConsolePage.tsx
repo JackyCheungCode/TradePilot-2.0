@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { AreaChart } from '@carbon/charts-react';
 import {
-  Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput,
+  Button, Link, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput,
   Table, TableHead, TableRow, TableHeader, TableBody, TableCell, TableContainer, CarbonIcons, WorldMapChart, SimpleBarChart,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
@@ -92,7 +91,7 @@ function LeadMap({ rows, selectedCode, onCountrySelect }: {
   </section>;
 }
 export function LeadConsolePage() {
-  const navigate = useNavigate();
+  
   const [rows, setRows] = useState<LeadRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -196,7 +195,7 @@ export function LeadConsolePage() {
       <div><p className="tp-leads__eyebrow">TRADEPILOT / CRM</p><h1>线索（Lead）</h1><p>集中管理已建立的正式线索，分析来源、状态、评级与国家 / 地区分布。</p></div>
       <div className="tp-leads__header-actions">
         <Button kind="tertiary" onClick={() => { setRefreshing(true); void load(); }} disabled={loading || refreshing}><CarbonIcons.Renew size={16} />刷新</Button>
-        <Button kind="primary" onClick={() => navigate('/leads/new')}><CarbonIcons.Add size={16} />新建线索</Button>
+        <Link href="/leads/new" renderIcon={CarbonIcons.Add}>新建线索</Link>
       </div>
     </header>
     {error && <InlineNotification kind="error" title="线索数据读取失败" subtitle={error} onCloseButtonClick={() => setError('')} />}

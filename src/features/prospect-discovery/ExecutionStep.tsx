@@ -271,8 +271,8 @@ export function ExecutionStep({ sources, actorParameters = {}, onContinueToScori
         <div className="tp-execution__actions">
           {status === 'idle' && <Button kind="primary" renderIcon={CarbonIcons.Play} disabled={starting || !hasRunnableSource} onClick={startTask}>{starting ? '正在创建任务…' : '开始执行全网搜索'}</Button>}
           
-          {allFinished && enabledActorPlans.length > 0 && schemaSaveStatus !== 'saved' && <Button kind="secondary" disabled={savingSchema} onClick={() => void saveSchemas()}>{savingSchema ? '正在保存 Schema…' : '保存本次 Schema'}</Button>}
-          {allFinished && <Button kind="secondary" renderIcon={CarbonIcons.Reset} onClick={resetTask}>开始新一轮任务</Button>}
+          {allFinished && enabledActorPlans.length > 0 && schemaSaveStatus !== 'saved' && <Button kind="tertiary" disabled={savingSchema} onClick={() => void saveSchemas()}>{savingSchema ? '正在保存 Schema…' : '保存本次 Schema'}</Button>}
+          {allFinished && <Button kind="tertiary" renderIcon={CarbonIcons.Reset} onClick={resetTask}>开始新一轮任务</Button>}
           {status === 'completed' && <Button kind="primary" renderIcon={CarbonIcons.ArrowRight} disabled={!recordIds.length} onClick={() => onContinueToScoring(recordIds)}>进入第四步：处理 {recordIds.length} 条真实检索结果</Button>}
         </div>
         {schemaSaveMessage && <InlineNotification kind={schemaSaveStatus === 'failed' ? 'error' : schemaSaveStatus === 'partial' ? 'warning' : 'success'} lowContrast title="Actor Schema 保存状态" subtitle={schemaSaveMessage} />}

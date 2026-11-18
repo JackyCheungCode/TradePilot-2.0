@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Accordion, AccordionItem, Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput, TextArea, CarbonIcons } from '@/design-system';
+import { Accordion, AccordionItem, Button, Link, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput, TextArea, CarbonIcons } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/trade-tools.scss';
 
@@ -63,7 +62,6 @@ async function authToken() {
   return data.session.access_token;
 }
 export function TradeToolsHubPage() {
-  const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [active, setActive] = useState<ToolKey | null>(null);
   const [productDescription, setProductDescription] = useState('');
@@ -110,7 +108,7 @@ export function TradeToolsHubPage() {
         <div className="tp-tool-center__section-heading"><h2>外贸智能工具目录</h2><Tag type="cool-gray">Omnibox · 4 项能力 + Jina Reader</Tag></div>
         <Accordion align="start">{categories.map(category => <AccordionItem key={category.name} title={category.name} open>{category.tools.length ? category.tools.map(renderToolRow) : <p className="tp-tool-center__empty">没有匹配的工具。</p>}</AccordionItem>)}</Accordion>
         <div className="tp-tool-center__section-heading tp-tool-center__section-heading--legacy"><h2>其他外贸工具</h2><Tag type="cool-gray">6 项</Tag></div>
-        <div className="tp-tool-center__legacy">{(!query || ('汇率换算 全球公共假期 国际物流追踪 DeepL 在线翻译 客户联系时机 报价利润计算器'.toLowerCase().includes(query.trim().toLowerCase()))) ? <Button kind="ghost" className="tp-tool-center__legacy-row" onClick={() => navigate('/trade-tools/legacy')}><span><strong>打开现有外贸工具</strong><small>汇率换算、公共假期、物流追踪、DeepL 翻译、客户联系时机、报价利润计算器</small></span><Tag type="cool-gray">6 项</Tag><CarbonIcons.ChevronRight size={16}/></Button> : <p className="tp-tool-center__empty">没有匹配的工具。</p>}</div>
+        <div className="tp-tool-center__legacy">{(!query || ('汇率换算 全球公共假期 国际物流追踪 DeepL 在线翻译 客户联系时机 报价利润计算器'.toLowerCase().includes(query.trim().toLowerCase()))) ? <Link href="/trade-tools/legacy" className="tp-tool-center__legacy-row"><span><strong>打开现有外贸工具</strong><small>汇率换算、公共假期、物流追踪、DeepL 翻译、客户联系时机、报价利润计算器</small></span><Tag type="cool-gray">6 项</Tag><CarbonIcons.ChevronRight size={16}/></Link> : <p className="tp-tool-center__empty">没有匹配的工具。</p>}</div>
         <p className="tp-tool-center__footnote">Omnibox 提供 HS Code 智能归类、关税预估、贸易实体筛查和 CBP 裁决检索。其他既有工具保持原有功能入口。</p>
       </section>
       <section className="tp-tool-center__workspace">

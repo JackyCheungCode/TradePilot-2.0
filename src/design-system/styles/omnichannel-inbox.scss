@@ -107,7 +107,7 @@
   overscroll-behavior: contain;
 }
 .oi-conversation-scroll { display: flex; flex-direction: column; }
-.oi-conversation {
+.oi-conversation.cds--tile--clickable {
   display: flex;
   flex: 0 0 auto;
   align-items: center;
@@ -116,7 +116,11 @@
   width: 100%;
   min-width: 0;
   text-align: start;
+  background: var(--cds-layer-01);
+  color: var(--cds-text-primary);
 }
+.oi-conversation.cds--tile--clickable:hover { background: var(--cds-layer-hover-01); }
+.oi-conversation.cds--tile--clickable.is-selected { background: var(--cds-layer-selected-01); }
 .oi-conversation-copy {
   display: flex;
   flex: 1 1 auto;

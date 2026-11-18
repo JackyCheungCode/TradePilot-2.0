@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useState, type ChangeEvent } from 'react';
 import {
-  Button, InlineLoading, InlineNotification, Select, SelectItem, TextInput, Toggle, CarbonIcons, useThemePreference,
+  Button, Link, FileUploaderButton, InlineLoading, InlineNotification, Select, SelectItem, TextInput, Toggle, CarbonIcons, useThemePreference,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/personal-settings.scss';
@@ -34,8 +33,7 @@ function readPreferences(value: unknown): Preferences {
 }
 
 export function PersonalSettingsPage() {
-  const navigate = useNavigate();
-  const fileInput = useRef<HTMLInputElement>(null);
+  
   const { preference, setPreference } = useThemePreference();
   const [active, setActive] = useState<SectionId>('profile');
   const [loading, setLoading] = useState(true);
@@ -115,7 +113,7 @@ export function PersonalSettingsPage() {
       }
       setNotice('头像已保存，顶部账户图标已同步更新。');
     } catch (cause) { setError(cause instanceof Error ? cause.message : '头像上传失败。'); }
-    finally { setUploading(false); if (fileInput.current) fileInput.current.value = ''; }
+    finally { setUploading(false); }
   };
 
   const savePreferences = async () => {
@@ -171,12 +169,18 @@ export function PersonalSettingsPage() {
             {active === 'profile' && (
               <div className="tp-personal-settings__fields">
                 <div className="tp-personal-settings__avatar-block">
-                  <button type="button" className="tp-personal-settings__avatar-button" onClick={() => fileInput.current?.click()} disabled={uploading} aria-label="点击上传或更换个人头像">
+                  <div className="tp-personal-settings__avatar-preview">
                     {avatarUrl ? <img src={avatarUrl} alt="个人头像" /> : <CarbonIcons.UserAvatar size={64} />}
-                    <span className="tp-personal-settings__avatar-overlay"><CarbonIcons.Camera size={20} /></span>
-                  </button>
-                  <input ref={fileInput} className="tp-personal-settings__file-input" type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={(event) => void uploadAvatar(event.currentTarget.files?.[0])} />
-                  <div><strong>个人头像</strong><p>点击头像即可上传或更换。支持 JPG、PNG、WebP、AVIF，最大 2 MB。</p><span>{uploading ? '正在上传头像…' : '头像保存后会同步到顶部账户图标。'}</span></div>
+                  </div>
+                  <FileUploaderButton
+                    accept={['.jpg', '.jpeg', '.png', '.webp', '.avif']}
+                    buttonKind="tertiary"
+                    labelText={uploading ? '正在上传头像…' : '上传 / 更换头像'}
+                    name="profile-avatar"
+                    disabled={uploading}
+                    onChange={(event: ChangeEvent<HTMLInputElement>) => void uploadAvatar(event.currentTarget.files?.[0])}
+                  />
+                  <div><strong>个人头像</strong><p>支持 JPG、PNG、WebP、AVIF，最大 2 MB。</p><span>头像保存后会同步到顶部账户图标。</span></div>
                 </div>
                 <div className="tp-personal-settings__field-grid">
                   <TextInput id="tp-profile-display-name" labelText="显示名称" value={displayName} onChange={(event) => setDisplayName(event.currentTarget.value)} placeholder="输入显示名称" />
@@ -192,7 +196,7 @@ export function PersonalSettingsPage() {
                 <CarbonIcons.Security size={32} />
                 <h3>集中管理账户安全</h3>
                 <p>Passkey、生物识别登录、多因素认证和恢复代码沿用现有安全管理功能，不重复建设或改变认证策略。</p>
-                <Button onClick={() => navigate('/security')}>打开登录与安全设置 <CarbonIcons.ArrowRight size={16} /></Button>
+                <Link href="/security" renderIcon={CarbonIcons.ArrowRight}>打开登录与安全设置</Link>
               </div>
             )}
 
@@ -258,7 +262,7 @@ export function PersonalSettingsPage() {
                 <CarbonIcons.Document size={32} />
                 <h3>个人数据与账户控制</h3>
                 <p>可以导出当前个人资料摘要和偏好设置。此导出不包含业务记录、客户数据或集成密钥。</p>
-                <Button kind="secondary" onClick={exportSettings}>导出个人设置 <CarbonIcons.Download size={16} /></Button>
+                <Button kind="tertiary" onClick={exportSettings}>导出个人设置 <CarbonIcons.Download size={16} /></Button>
                 <div className="tp-personal-settings__privacy-note"><strong>账户注销</strong><p>账户注销涉及业务数据归属与不可逆删除，目前不开放自助操作。请通过管理员支持渠道提出申请。</p></div>
               </div>
             )}

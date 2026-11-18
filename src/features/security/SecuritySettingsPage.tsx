@@ -432,7 +432,7 @@ export function SecuritySettingsPage() {
                   <Toggle id="tradepilot-webauthn-toggle" labelText="生物识别 MFA" labelA="关闭" labelB="开启" toggled={webAuthnStatus.enabled} disabled={busy || (!webAuthnStatus.enabled && webAuthnStatus.credentials.length < 2)} onToggle={(checked) => void beginWebAuthnAction(checked ? "enable" : "disable")} />
                 </div>
                 <div className="tp-security__actions">
-                  <Button kind="secondary" disabled={busy} onClick={() => void beginWebAuthnAction("register")}>注册生物识别设备</Button>
+                  <Button kind="tertiary" disabled={busy} onClick={() => void beginWebAuthnAction("register")}>注册生物识别设备</Button>
                 </div>
                 {webAuthnStatus.credentials.length > 0 ? (
                   <ul className="tp-security__passkey-list">{webAuthnStatus.credentials.map((credential) => <li key={credential.id}><div><strong>{credential.name}</strong><span>WebAuthn 生物识别凭证</span></div><div className="tp-security__actions"><Tag type="green">已注册</Tag>{pendingWebAuthnRevokeId === credential.id ? <><Button kind="danger--tertiary" size="sm" disabled={busy} onClick={() => void beginWebAuthnAction("revoke", credential.id)}>确认撤销</Button><Button kind="ghost" size="sm" onClick={() => setPendingWebAuthnRevokeId(null)}>取消</Button></> : <Button kind="danger--tertiary" size="sm" disabled={busy} onClick={() => setPendingWebAuthnRevokeId(credential.id)}>撤销</Button>}</div></li>)}</ul>
@@ -534,7 +534,7 @@ export function SecuritySettingsPage() {
                   <div className="tp-security__recovery-codes">
                     <p>请立即保存。离开此页面后将无法再次查看：</p>
                     <code>{recoveryCodes.join('\n')}</code>
-                    <Button kind="secondary" size="sm" onClick={() => void copyRecoveryCodes()}>复制恢复代码</Button>
+                    <Button kind="tertiary" size="sm" onClick={() => void copyRecoveryCodes()}>复制恢复代码</Button>
                   </div>
                 )}
               </div>

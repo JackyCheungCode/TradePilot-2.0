@@ -71,7 +71,7 @@ export function DocumentTemplateSettings() {
           <SelectItem value="" text="选择模板"/>
           {rows.map(row=><SelectItem key={row.id} value={row.id} text={row.name+' · '+(types.find(([id])=>id===row.document_type)?.[1]??row.document_type)+' · '+row.locale+(row.is_active?'':' · 已停用')}/>)}
         </Select>
-        <Button kind="secondary" onClick={create}>新建模板</Button>
+        <Button kind="tertiary" onClick={create}>新建模板</Button>
       </div>
       {draft&&<div className="tp-document-template-settings__editor">
         <div className="tp-document-template-settings__grid">

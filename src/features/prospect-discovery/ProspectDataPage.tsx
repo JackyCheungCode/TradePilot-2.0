@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { AreaChart, DonutChart, SimpleBarChart } from '@carbon/charts-react';
 import {
-  Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput, Tile,
+  Button, Link, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput, Tile,
   Table, TableHead, TableRow, TableHeader, TableBody, TableCell, Pagination, CarbonIcons,
   Tabs, TabList, Tab, TabPanels, TabPanel, WorldMapChart,
 } from '@/design-system';
@@ -65,7 +64,7 @@ const countryLabel = (code: string) => {
 };
 
 export function ProspectDataPage() {
-  const navigate = useNavigate();
+  
   const [rows, setRows] = useState<Prospect[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -170,8 +169,8 @@ export function ProspectDataPage() {
       <header className="tp-prospect-hub__header tp-prospect-data__header">
         <div><p className="tp-prospect-hub__eyebrow">TRADEPILOT / CRM · GLOBAL PROSPECT INTELLIGENCE</p><h1>潜客数据</h1><p>全球渠道统一汇聚 · 多维资产洞察 · 从发现到 CRM 转化</p></div>
         <div className="tp-prospect-data__actions">
-          <Button kind="primary" renderIcon={CarbonIcons.Search} onClick={() => navigate('/prospect-discovery')}>潜客发现</Button>
-          <Button kind="tertiary" renderIcon={CarbonIcons.Time} onClick={() => navigate('/prospect-history')}>历史任务</Button>
+          <Link href="/prospect-discovery" renderIcon={CarbonIcons.Search}>潜客发现</Link>
+          <Link href="/prospect-history" renderIcon={CarbonIcons.Time}>历史任务</Link>
           <Button kind="ghost" renderIcon={CarbonIcons.Renew} disabled={loading || refreshing} onClick={() => { setRefreshing(true); void load(); }}>刷新数据</Button>
         </div>
       </header>
