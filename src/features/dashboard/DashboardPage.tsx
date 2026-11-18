@@ -6,7 +6,7 @@ import {
 } from '@carbon/charts-react';
 import {
   Button, Link, ClickableTile, InlineLoading, InlineNotification, Tile, Tag, Select, SelectItem,
-  Tabs, TabList, Tab, TabPanels, TabPanel, ContentSwitcher, Switch, CarbonIcons, WorldMapChart,
+  Tabs, TabList, Tab, TabPanels, TabPanel, ContentSwitcher, Switch, semanticIcons, WorldMapChart,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@carbon/charts/styles.css';
@@ -289,14 +289,14 @@ export function DashboardPage() {
   const theme = chartTheme();
   const commonOptions = { theme, toolbar: { enabled: false }, legend: { enabled: false } };
   const metrics = [
-    { label: '潜客资产', value: number(scoped.leads.length), detail: '本期新增 ' + number(scoped.newLeads.length), icon: CarbonIcons.UserFollow, href: '/leads' },
-    { label: '正式客户', value: number(scoped.accounts.length), detail: '本期新增 ' + number(scoped.newAccounts.length), icon: CarbonIcons.Building, href: '/accounts' },
-    { label: '销售商机', value: money(opportunityTotal), detail: number(scoped.opportunities.length) + ' 个有效商机', icon: CarbonIcons.ChartLine, href: '/opportunities' },
-    { label: '有效报价金额', value: effectiveQuotes.length ? money(quoteTotal) : '暂无有效报价', detail: number(effectiveQuotes.length) + ' 份已发送 / 已查看 / 已接受报价', icon: CarbonIcons.Document, href: '/quotes' },
-    { label: '销售订单', value: confirmedSalesOrders.length ? money(orderTotal) : '暂无有效订单', detail: number(confirmedSalesOrders.length) + ' 个已启用销售订单', icon: CarbonIcons.ShoppingCart, href: '/sales-orders' },
-    { label: '发运履约', value: number(scoped.shipments.length), detail: number(shipmentExceptions.length) + ' 项异常', icon: CarbonIcons.Delivery, href: '/shipments' },
-    { label: '实际回款', value: collected.length || refunds.length ? money(receivedTotal) : '暂无实际收款', detail: collected.length ? number(collected.length) + ' 笔已确认收款' : '尚无已确认收款记录', icon: CarbonIcons.CurrencyDollar, href: '/payments' },
-    { label: '经营风险', value: number(riskCount), detail: '逾期跟进 ' + overdueActivities.length + ' · 逾期应收 ' + overdueReceivableCount + ' · 发运异常 ' + shipmentExceptions.length + ' · Agent 失败 ' + failedAgents.length, icon: CarbonIcons.WarningAlt, href: '/agent' },
+    { label: '潜客资产', value: number(scoped.leads.length), detail: '本期新增 ' + number(scoped.newLeads.length), icon: semanticIcons.userFollow, href: '/leads' },
+    { label: '正式客户', value: number(scoped.accounts.length), detail: '本期新增 ' + number(scoped.newAccounts.length), icon: semanticIcons.building, href: '/accounts' },
+    { label: '销售商机', value: money(opportunityTotal), detail: number(scoped.opportunities.length) + ' 个有效商机', icon: semanticIcons.chart, href: '/opportunities' },
+    { label: '有效报价金额', value: effectiveQuotes.length ? money(quoteTotal) : '暂无有效报价', detail: number(effectiveQuotes.length) + ' 份已发送 / 已查看 / 已接受报价', icon: semanticIcons.document, href: '/quotes' },
+    { label: '销售订单', value: confirmedSalesOrders.length ? money(orderTotal) : '暂无有效订单', detail: number(confirmedSalesOrders.length) + ' 个已启用销售订单', icon: semanticIcons.shoppingCart, href: '/sales-orders' },
+    { label: '发运履约', value: number(scoped.shipments.length), detail: number(shipmentExceptions.length) + ' 项异常', icon: semanticIcons.delivery, href: '/shipments' },
+    { label: '实际回款', value: collected.length || refunds.length ? money(receivedTotal) : '暂无实际收款', detail: collected.length ? number(collected.length) + ' 笔已确认收款' : '尚无已确认收款记录', icon: semanticIcons.money, href: '/payments' },
+    { label: '经营风险', value: number(riskCount), detail: '逾期跟进 ' + overdueActivities.length + ' · 逾期应收 ' + overdueReceivableCount + ' · 发运异常 ' + shipmentExceptions.length + ' · Agent 失败 ' + failedAgents.length, icon: semanticIcons.warning, href: '/agent' },
   ];
 
   const areaOptions = {
@@ -330,7 +330,7 @@ export function DashboardPage() {
       </div>
       <div className="tp-workbench__actions">
         <span className="tp-workbench__updated">{data ? '更新于 ' + new Date(data.updatedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '等待数据'}</span>
-        <Button kind="tertiary" size="md" disabled={loading || refreshing} onClick={() => { setRefreshing(true); void load(); }}><CarbonIcons.Renew size={16}/> 刷新数据</Button>
+        <Button kind="tertiary" size="md" disabled={loading || refreshing} onClick={() => { setRefreshing(true); void load(); }}><semanticIcons.refresh size={16}/> 刷新数据</Button>
       </div>
     </PageHeader>
 
@@ -398,7 +398,7 @@ export function DashboardPage() {
             <span className="tp-workbench__metric-icon"><Icon size={20}/></span>
             <span className="tp-workbench__metric-label">{metric.label}</span>
             <strong>{metric.value}</strong><small>{metric.detail}</small>
-            <span className="tp-workbench__metric-link">查看业务明细 <CarbonIcons.ArrowRight size={14}/></span>
+            <span className="tp-workbench__metric-link">查看业务明细 <semanticIcons.next size={14}/></span>
           </ClickableTile>;
         })}
       </section>
@@ -418,29 +418,29 @@ export function DashboardPage() {
             <TabPanel>
               <div className="tp-workbench__tab-grid">
                 <div className="tp-workbench__chart"><h3>商机阶段分布</h3>{scoped.opportunities.length ? <SimpleBarChart data={Object.entries(scoped.opportunities.reduce((acc: Record<string, number>, row) => { const key = String(row.stage || row.status || '未设置'); acc[key] = (acc[key] || 0) + 1; return acc; }, {})).map(([group, value]) => ({ group, value }))} options={barOptions as any}/> : <p className="tp-workbench__empty">暂无商机数据</p>}</div>
-                <div className="tp-workbench__chart"><h3>商机金额（USD 可换算口径）</h3><strong className="tp-workbench__large-value">{money(opportunityTotal)}</strong><p>有效商机 {number(scoped.opportunities.length)} 个；按已填写的成交概率计算加权金额：{money(weightedOpportunityTotal)}。概率缺失的商机不参与加权。</p><Link href="/opportunities" renderIcon={CarbonIcons.ArrowRight}>进入商机管理</Link></div>
+                <div className="tp-workbench__chart"><h3>商机金额（USD 可换算口径）</h3><strong className="tp-workbench__large-value">{money(opportunityTotal)}</strong><p>有效商机 {number(scoped.opportunities.length)} 个；按已填写的成交概率计算加权金额：{money(weightedOpportunityTotal)}。概率缺失的商机不参与加权。</p><Link href="/opportunities" renderIcon={semanticIcons.next}>进入商机管理</Link></div>
                 <div className="tp-workbench__chart"><h3>客户新增趋势</h3><AreaChart data={chartData.daily} options={areaOptions as any}/></div>
-                <div className="tp-workbench__chart"><h3>潜客发现与线索</h3><div className="tp-workbench__mini-metrics"><div><span>发现记录</span><strong>{number(scoped.discovery.length)}</strong></div><div><span>潜客记录</span><strong>{number(scoped.leads.length)}</strong></div><div><span>本期新增发现</span><strong>{number(scoped.newDiscovery.length)}</strong></div><div><span>客户联系人</span><strong>{number(scoped.contacts.length)}</strong></div></div><Link href="/prospect-data" renderIcon={CarbonIcons.ArrowRight}>查看发现结果</Link></div>
+                <div className="tp-workbench__chart"><h3>潜客发现与线索</h3><div className="tp-workbench__mini-metrics"><div><span>发现记录</span><strong>{number(scoped.discovery.length)}</strong></div><div><span>潜客记录</span><strong>{number(scoped.leads.length)}</strong></div><div><span>本期新增发现</span><strong>{number(scoped.newDiscovery.length)}</strong></div><div><span>客户联系人</span><strong>{number(scoped.contacts.length)}</strong></div></div><Link href="/prospect-data" renderIcon={semanticIcons.next}>查看发现结果</Link></div>
               </div>
             </TabPanel>
             <TabPanel>
               <div className="tp-workbench__tab-grid">
                 <div className="tp-workbench__chart"><h3>报价单状态</h3>{scoped.documents.length ? <SimpleBarChart data={Object.entries(scoped.documents.reduce((acc: Record<string, number>, row) => { const key = String(row.status || '未知'); acc[key] = (acc[key] || 0) + 1; return acc; }, {})).map(([group, value]) => ({ group, value }))} options={barOptions as any}/> : <p className="tp-workbench__empty">暂无报价记录</p>}</div>
-                <div className="tp-workbench__chart"><h3>有效报价总额（USD 可换算口径）</h3><strong className="tp-workbench__large-value">{effectiveQuotes.length ? money(quoteTotal) : '暂无有效报价'}</strong><p>金额只汇总已发送、已查看或已接受报价；草稿、拒绝和过期报价单独保留在状态分布中。</p><Link href="/quotes" renderIcon={CarbonIcons.ArrowRight}>进入报价管理</Link></div>
+                <div className="tp-workbench__chart"><h3>有效报价总额（USD 可换算口径）</h3><strong className="tp-workbench__large-value">{effectiveQuotes.length ? money(quoteTotal) : '暂无有效报价'}</strong><p>金额只汇总已发送、已查看或已接受报价；草稿、拒绝和过期报价单独保留在状态分布中。</p><Link href="/quotes" renderIcon={semanticIcons.next}>进入报价管理</Link></div>
                 <div className="tp-workbench__chart"><h3>订单状态</h3><SimpleBarChart data={Object.entries(scoped.orders.reduce((acc: Record<string, number>, row) => { const key = String(row.metadata?.sales_order?.order_status || row.status || '未知'); acc[key] = (acc[key] || 0) + 1; return acc; }, {})).map(([group, value]) => ({ group, value }))} options={barOptions as any}/></div>
-                <div className="tp-workbench__chart"><h3>订单金额（USD 可换算口径）</h3><strong className="tp-workbench__large-value">{money(orderTotal)}</strong><p>仅统计销售订单；采购订单不计入销售额。草稿与有效订单分开展示。</p><Link href="/sales-orders" renderIcon={CarbonIcons.ArrowRight}>进入销售订单</Link></div>
-                <div className="tp-workbench__chart"><h3>产品目录与品类</h3><div className="tp-workbench__mini-metrics"><div><span>有效产品</span><strong>{number(scoped.products.filter(row => row.is_active).length)}</strong></div><div><span>产品品类</span><strong>{number(new Set(scoped.products.map(row => row.category).filter(Boolean)).size)}</strong></div></div><Link href="/products" renderIcon={CarbonIcons.ArrowRight}>进入产品管理</Link></div>
+                <div className="tp-workbench__chart"><h3>订单金额（USD 可换算口径）</h3><strong className="tp-workbench__large-value">{money(orderTotal)}</strong><p>仅统计销售订单；采购订单不计入销售额。草稿与有效订单分开展示。</p><Link href="/sales-orders" renderIcon={semanticIcons.next}>进入销售订单</Link></div>
+                <div className="tp-workbench__chart"><h3>产品目录与品类</h3><div className="tp-workbench__mini-metrics"><div><span>有效产品</span><strong>{number(scoped.products.filter(row => row.is_active).length)}</strong></div><div><span>产品品类</span><strong>{number(new Set(scoped.products.map(row => row.category).filter(Boolean)).size)}</strong></div></div><Link href="/products" renderIcon={semanticIcons.next}>进入产品管理</Link></div>
               </div>
             </TabPanel>
             <TabPanel>
               <div className="tp-workbench__tab-grid">
                 <div className="tp-workbench__chart"><h3>发运状态分布</h3>{scoped.shipments.length ? <SimpleBarChart data={chartData.shipments} options={barOptions as any}/> : <p className="tp-workbench__empty">暂无发运记录</p>}</div>
-                <div className="tp-workbench__chart"><h3>履约关键指标</h3><div className="tp-workbench__mini-metrics"><div><span>全部发运</span><strong>{number(scoped.shipments.length)}</strong></div><div><span>运输中</span><strong>{number(scoped.shipments.filter(row => ['in_transit', 'departed'].includes(row.status)).length)}</strong></div><div><span>已签收</span><strong>{number(scoped.shipments.filter(row => row.status === 'delivered').length)}</strong></div><div><span>异常</span><strong>{number(shipmentExceptions.length)}</strong></div></div><Link href="/shipments" renderIcon={CarbonIcons.ArrowRight}>进入发运管理</Link></div>
+                <div className="tp-workbench__chart"><h3>履约关键指标</h3><div className="tp-workbench__mini-metrics"><div><span>全部发运</span><strong>{number(scoped.shipments.length)}</strong></div><div><span>运输中</span><strong>{number(scoped.shipments.filter(row => ['in_transit', 'departed'].includes(row.status)).length)}</strong></div><div><span>已签收</span><strong>{number(scoped.shipments.filter(row => row.status === 'delivered').length)}</strong></div><div><span>异常</span><strong>{number(shipmentExceptions.length)}</strong></div></div><Link href="/shipments" renderIcon={semanticIcons.next}>进入发运管理</Link></div>
               </div>
             </TabPanel>
             <TabPanel>
               <div className="tp-workbench__tab-grid">
-                <div className="tp-workbench__chart"><h3>实际收款金额</h3><strong className="tp-workbench__large-value">{collected.length || refunds.length ? money(receivedTotal) : '暂无实际收款记录'}</strong><p>仅按收款模块的实际收款记录统计；订单收款计划不计入到账金额。</p><Link href="/payments" renderIcon={CarbonIcons.ArrowRight}>进入收款管理</Link></div>
+                <div className="tp-workbench__chart"><h3>实际收款金额</h3><strong className="tp-workbench__large-value">{collected.length || refunds.length ? money(receivedTotal) : '暂无实际收款记录'}</strong><p>仅按收款模块的实际收款记录统计；订单收款计划不计入到账金额。</p><Link href="/payments" renderIcon={semanticIcons.next}>进入收款管理</Link></div>
                 <div className="tp-workbench__chart"><h3>收款记录状态</h3>{scoped.payments.length ? <SimpleBarChart data={Object.entries(scoped.payments.reduce((acc: Record<string, number>, row) => { const key = String(row.status || '未知'); acc[key] = (acc[key] || 0) + 1; return acc; }, {})).map(([group, value]) => ({ group, value }))} options={barOptions as any}/> : <p className="tp-workbench__empty">数据库当前没有实际收款记录，到账、未收与逾期金额暂不生成汇总值。</p>}</div>
                 <div className="tp-workbench__chart"><h3>币种换算完整性</h3><strong className="tp-workbench__large-value">{unconverted ? number(unconverted) + ' 条待换算' : '当前金额均可按 USD 汇总'}</strong><p>外币只有在记录中存在基础币金额快照时才计入统一总览。缺少汇率或快照的金额不会被估算。</p></div>
               </div>
@@ -448,7 +448,7 @@ export function DashboardPage() {
             <TabPanel>
               <div className="tp-workbench__tab-grid">
                 <div className="tp-workbench__chart"><h3>Agent 任务状态</h3>{chartData.agents.length ? <SimpleBarChart data={chartData.agents} options={agentOptions as any}/> : <p className="tp-workbench__empty">暂无 Agent 任务</p>}</div>
-                <div className="tp-workbench__chart"><h3>任务运行概况</h3><div className="tp-workbench__mini-metrics"><div><span>全部任务</span><strong>{number(scoped.agentRuns.length)}</strong></div><div><span>运行中</span><strong>{number(scoped.agentRuns.filter(row => row.status === 'running').length)}</strong></div><div><span>已成功</span><strong>{number(scoped.agentRuns.filter(row => ['succeeded', 'completed'].includes(row.status)).length)}</strong></div><div><span>失败</span><strong>{number(failedAgents.length)}</strong></div></div><Link href="/agent" renderIcon={CarbonIcons.ArrowRight}>进入 Agent 中心</Link></div>
+                <div className="tp-workbench__chart"><h3>任务运行概况</h3><div className="tp-workbench__mini-metrics"><div><span>全部任务</span><strong>{number(scoped.agentRuns.length)}</strong></div><div><span>运行中</span><strong>{number(scoped.agentRuns.filter(row => row.status === 'running').length)}</strong></div><div><span>已成功</span><strong>{number(scoped.agentRuns.filter(row => ['succeeded', 'completed'].includes(row.status)).length)}</strong></div><div><span>失败</span><strong>{number(failedAgents.length)}</strong></div></div><Link href="/agent" renderIcon={semanticIcons.next}>进入 Agent 中心</Link></div>
                 <div className="tp-workbench__chart"><h3>最近 Agent 活动</h3><div className="tp-workbench__activity-list">{scoped.agentRuns.slice(0, 6).map(row => <ClickableTile key={row.id} className="tp-workbench__activity-item" onClick={() => navigate('/agent')}><span className={'tp-workbench__activity-dot is-' + row.status}/><span><strong>{row.goal || '未命名任务'}</strong><small>{row.status || '状态未知'}</small></span><time>{row.created_at ? new Date(row.created_at).toLocaleDateString('zh-CN') : '—'}</time></ClickableTile>)}</div></div>
               </div>
             </TabPanel>
@@ -459,10 +459,10 @@ export function DashboardPage() {
       <section className="tp-workbench__bottom-grid">
         <Tile className="tp-workbench__panel">
           <div className="tp-workbench__panel-heading"><div><p className="tp-workbench__kicker">ACTION CENTER</p><h2>待处理与风险</h2><p>点击进入对应业务模块处理记录。</p></div><Tag type={riskCount ? 'red' : 'green'}>{riskCount ? number(riskCount) + ' 项关注' : '当前无风险项'}</Tag></div>
-          <ClickableTile className="tp-workbench__risk-row" onClick={() => navigate('/accounts')}><span>逾期跟进活动</span><strong>{number(overdueActivities.length)}</strong><CarbonIcons.ChevronRight size={16}/></ClickableTile>
-          <ClickableTile className="tp-workbench__risk-row" onClick={() => navigate('/payments')}><span>逾期应收节点</span><strong>{number(overdueReceivableCount)}</strong><CarbonIcons.ChevronRight size={16}/></ClickableTile>
-          <ClickableTile className="tp-workbench__risk-row" onClick={() => navigate('/shipments')}><span>发运异常</span><strong>{number(shipmentExceptions.length)}</strong><CarbonIcons.ChevronRight size={16}/></ClickableTile>
-          <ClickableTile className="tp-workbench__risk-row" onClick={() => navigate('/agent')}><span>Agent 失败任务</span><strong>{number(failedAgents.length)}</strong><CarbonIcons.ChevronRight size={16}/></ClickableTile>
+          <ClickableTile className="tp-workbench__risk-row" onClick={() => navigate('/accounts')}><span>逾期跟进活动</span><strong>{number(overdueActivities.length)}</strong><semanticIcons.chevronRight size={16}/></ClickableTile>
+          <ClickableTile className="tp-workbench__risk-row" onClick={() => navigate('/payments')}><span>逾期应收节点</span><strong>{number(overdueReceivableCount)}</strong><semanticIcons.chevronRight size={16}/></ClickableTile>
+          <ClickableTile className="tp-workbench__risk-row" onClick={() => navigate('/shipments')}><span>发运异常</span><strong>{number(shipmentExceptions.length)}</strong><semanticIcons.chevronRight size={16}/></ClickableTile>
+          <ClickableTile className="tp-workbench__risk-row" onClick={() => navigate('/agent')}><span>Agent 失败任务</span><strong>{number(failedAgents.length)}</strong><semanticIcons.chevronRight size={16}/></ClickableTile>
         </Tile>
         <Tile className="tp-workbench__panel">
           <div className="tp-workbench__panel-heading"><div><p className="tp-workbench__kicker">RECENT BUSINESS ACTIVITY</p><h2>最近业务活动</h2><p>来自 CRM 活动和 Agent 执行记录。</p></div></div>
