@@ -1,3 +1,4 @@
+import { PageSkeleton } from '@/design-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button, InlineLoading, InlineNotification, TextInput, Select, SelectItem, Tag, Table, TableHead, TableRow, TableHeader, TableBody, TableCell } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
@@ -111,6 +112,7 @@ export function TradeDocumentSettings({ scope }: { scope: Scope }) {
     }
   };
 
+  if (loading) return <PageSkeleton variant="table" />;
   return (
     <div className="tp-settings__advanced tp-trade-document-settings">
       <div className="tp-trade-document-settings__intro">
