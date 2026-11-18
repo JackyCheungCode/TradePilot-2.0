@@ -312,6 +312,10 @@ export function CustomerCommunicationsWidget({
   const selectCustomer = (customer: Customer) => {
     setActiveCustomerId(customer.id);
     setChannelOverride(null);
+    setAiResult('');
+    setAiResultAction(null);
+    setAiError('');
+    setTranslationBusyId(null);
     setMobileChatOpen(true);
     if (customer.unread > 0) {
       setCustomers((current) => current.map((item) => item.id === customer.id ? { ...item, unread: 0 } : item));
