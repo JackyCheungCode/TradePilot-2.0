@@ -202,10 +202,8 @@ const platformLogoSymbols: Record<string, { file: string; symbol: string }> = {
   allegro: { file: 'platform-sprite-regional.svg', symbol: 'allegro' },
   dailymotion: { file: 'platform-sprite-more.svg', symbol: 'dailymotion' },
   bilibili: { file: 'platform-sprite-more.svg', symbol: 'bilibili' },
-  'yelp-reviews': { file: 'platform-sprite-more.svg', symbol: 'yelp' },
   'yelp-local': { file: 'platform-sprite-more.svg', symbol: 'yelp' },
   'naver-search': { file: 'platform-sprite-regional.svg', symbol: 'naver' },
-  'google-reviews': { file: 'platform-sprite-search.svg', symbol: 'google' },
 };
 const localPlatformLogos: Record<string, string> = {
   'google-maps': 'google_maps.svg', shopify: 'shopify.svg', 'shopify-stores': 'shopify.svg', alibaba: 'alibaba.svg', aliexpress: 'aliexpress.svg', amazon: 'amazon.svg',
