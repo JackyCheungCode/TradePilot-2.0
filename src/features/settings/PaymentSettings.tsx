@@ -204,7 +204,6 @@ export function PaymentSettings() {
     setNotice('字典状态已更新；停用只影响新业务，历史收款记录保留原值。');
   };
 
-  if(loading) return <div className="tp-settings__advanced"><InlineLoading description="正在读取收款设置…" /></div>;
 
   if (loading) return <PageSkeleton variant="table" />;
   return <div className="tp-settings__advanced tp-payment-settings">
