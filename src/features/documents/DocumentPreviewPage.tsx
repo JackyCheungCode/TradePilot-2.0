@@ -175,7 +175,28 @@ export function DocumentPreviewPage() {
 
   if (!doc) return <main className="tp-document-preview"><InlineNotification kind="error" title="无法打开单据" subtitle={error || '单据不存在。'} /><Link href="/documents">返回单据中心</Link></main>;
 
-  if (loading) return <PageSkeleton variant="document-preview" />;
+  if (loading) return <PageSkeleton className="tp-document-preview" layout={[
+  { type: 'group', direction: 'row', gap: 'var(--cds-spacing-05)', className: 'tp-document-preview__toolbar', children: [
+    { type: 'group', direction: 'column', gap: 'var(--cds-spacing-02)', children: [{ type: 'text', width: '12rem' }, { type: 'text', heading: true, width: '18rem' }, { type: 'text', width: '14rem' }] },
+    { type: 'group', direction: 'row', gap: 'var(--cds-spacing-03)', className: 'tp-document-preview__actions', children: Array.from({ length: 5 }, () => ({ type: 'placeholder' as const, width: '6rem', height: '2.5rem' })) },
+  ] },
+  { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-document-preview__policy-snapshot', children: [
+    { type: 'text', heading: true, width: '12rem' },
+    { type: 'group', direction: 'grid', columns: 4, gap: 'var(--cds-spacing-04)', children: Array.from({ length: 4 }, () => ({ type: 'placeholder' as const, height: '2.5rem' })) },
+    { type: 'text', width: '24rem' },
+  ] },
+  { type: 'group', direction: 'column', gap: '2rem', className: 'tp-document-preview__sheet', children: [
+    { type: 'group', direction: 'row', gap: '2rem', className: 'tp-document-preview__paper-header', children: [
+      { type: 'group', direction: 'column', gap: 'var(--cds-spacing-03)', children: [{ type: 'placeholder', width: '4.5rem', height: '4.5rem' }, { type: 'text', heading: true, width: '12rem' }, { type: 'text', width: '10rem' }] },
+      { type: 'group', direction: 'column', gap: 'var(--cds-spacing-03)', children: [{ type: 'text', heading: true, width: '14rem' }, { type: 'text', width: '10rem' }] },
+    ] },
+    { type: 'group', direction: 'grid', columns: 2, gap: '2rem', className: 'tp-document-preview__parties', children: [0, 1].map(() => ({ type: 'group' as const, direction: 'column' as const, gap: 'var(--cds-spacing-03)', children: [{ type: 'text' as const, heading: true, width: '8rem' }, { type: 'text' as const, width: '14rem' }, { type: 'text' as const, width: '90%' }, { type: 'text' as const, width: '80%' }] })) },
+    { type: 'group', direction: 'grid', columns: 3, gap: 'var(--cds-spacing-04)', className: 'tp-document-preview__metadata', children: Array.from({ length: 6 }, () => ({ type: 'placeholder' as const, height: '2.5rem' })) },
+    { type: 'group', direction: 'column', gap: 'var(--cds-spacing-03)', className: 'tp-document-preview__items', children: [{ type: 'text', heading: true, width: '12rem' }, { type: 'table', columns: 7, rows: 5 }] },
+    { type: 'group', direction: 'column', gap: 'var(--cds-spacing-03)', className: 'tp-document-preview__totals', children: Array.from({ length: 4 }, () => ({ type: 'text' as const, width: '100%' })) },
+    { type: 'group', direction: 'row', gap: 'var(--cds-spacing-04)', className: 'tp-document-preview__footer', children: [{ type: 'text', width: '12rem' }, { type: 'text', width: '8rem' }] },
+  ] },
+]} />;
   return <main className="tp-document-preview">
     <header className="tp-document-preview__toolbar">
       <div><p className="tp-document-preview__eyebrow">TRADEPILOT / DOCUMENTS / PREVIEW</p><h1>{doc.document_number}</h1><p>{labels[doc.document_type] || doc.document_type} · V{doc.current_version} · {statusLabel(doc.status)}</p></div>
