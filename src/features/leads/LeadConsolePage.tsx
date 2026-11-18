@@ -61,7 +61,7 @@ function Distribution({ title, description, items, icon }: {
   const data = items.slice(0, 10).map(item => ({ group: item.label, value: item.count }));
   const theme = document.documentElement.dataset.carbonTheme === 'g100' ? 'g100' : 'white';
   const options = {
-    theme, height: '260px', toolbar: { enabled: false }, legend: { enabled: false },
+    theme, height: '260px', color: { pairing: { numberOfVariants: 14, option: 1 } }, toolbar: { enabled: false }, legend: { enabled: false },
     axes: {
       left: { mapsTo: 'group', scaleType: 'labels' },
       bottom: { mapsTo: 'value', scaleType: 'linear' },
