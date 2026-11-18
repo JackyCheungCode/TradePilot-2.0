@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Button, Dropdown, CarbonIcons, InlineLoading, InlineNotification, Modal, Tag, TextInput, Tile } from '@/design-system';
+import { Button, Dropdown, semanticIcons, InlineLoading, InlineNotification, Modal, Tag, TextInput, Tile } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/settings.scss';
 
@@ -63,7 +63,7 @@ async function request<T>(path:string,init:RequestInit={}):Promise<T>{
  const r=await fetch(path,{...init,headers:{Authorization:'Bearer '+data.session.access_token,...(init.body?{'Content-Type':'application/json'}:{}),...init.headers}});
  const b=await r.json() as {data?:T;error?:{message?:string}};if(!r.ok||!('data'in b))throw new Error(b.error?.message||'请求失败');return b.data as T;
 }
-function Logo({logo,initial}:{logo:string;initial:string}){const [bad,setBad]=useState(false);return <span className="tp-integration-logo">{logo&&!bad?<img src={'https://cdn.simpleicons.org/'+logo} alt="" onError={()=>setBad(true)}/>:initial==='PHONE'?<CarbonIcons.Phone size={20}/>:<span>{initial}</span>}</span>;}
+function Logo({logo,initial}:{logo:string;initial:string}){const [bad,setBad]=useState(false);return <span className="tp-integration-logo">{logo&&!bad?<img src={'https://cdn.simpleicons.org/'+logo} alt="" onError={()=>setBad(true)}/>:initial==='PHONE'?<semanticIcons.phone size={20}/>:<span>{initial}</span>}</span>;}
 
 export function IntegrationsSettings({section}:{section:string}){
  const [statuses,setStatuses]=useState<Record<string,boolean>>({});const [values,setValues]=useState<Record<string,string>>({});
