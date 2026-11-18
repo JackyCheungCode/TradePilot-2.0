@@ -13,8 +13,11 @@ type Props = { sources: Source[]; profile: { coreNoun: string; country: string; 
 
 async function api(path: string, token: string, init: RequestInit = {}) {
   const response = await fetch(path, { ...init, headers: { Authorization: 'Bearer ' + token, Accept: 'application/json', ...(init.body ? { 'Content-Type': 'application/json' } : {}), ...init.headers } });
-  const payload = await response.json().catch(() => ({})) as { data?: unknown; error?: { message?: string } };
-  if (!response.ok) throw new Error(payload.error?.message || '请求失败（HTTP ' + response.status + '）');
+  const payload = await response.json().catch(() => ({})) as { data?: unknown; error?: { code?: string; message?: string } };
+  if (!response.ok) {
+    const code = payload.error?.code ? '[' + payload.error.code + '] ' : '';
+    throw new Error(code + (payload.error?.message || '请求失败（HTTP ' + response.status + '）'));
+  }
   return payload.data ?? payload;
 }
 async function accessToken() {
@@ -97,21 +100,26 @@ export function ActorSchemaFields({ sources, profile, onValuesChange }: Props) {
         const failures: string[] = [];
         const loaded = await mapLimit(actorSources, 4, async source => {
           try {
-            const discovery = await api('/api/v1/actor-registry/discover', token, { method: 'POST', body: JSON.stringify({ platform: source.id, query: source.name }) }) as { items?: Array<Record<string, unknown>> };
+            const discovery = await api('/api/v1/actor-registry/discover', token, { method: 'POST', body: JSON.stringify({ platform: source.id, query: source.name }) }) as { items?: Array<Record<string, unknown>>; warnings?: string[] };
+            for (const warning of discovery.warnings ?? []) failures.push(source.name + '：' + warning);
             const candidates = (discovery.items ?? []).filter(actor => typeof actor.actor_id === 'string');
             candidates.sort((a, b) => suitability(b, source) - suitability(a, source));
             if (!candidates.length) { failures.push(source.name + '：暂未发现可用的数据源。'); return null; }
+            const schemaFailures: string[] = [];
             for (const actor of candidates.slice(0, 5)) {
               const actorId = String(actor.actor_id);
               try {
                 const result = await api('/api/v1/actor-registry/schema/' + encodeURIComponent(actorId), token) as { version?: string; schema?: ActorSchema; actor?: { status?: string; quality_score?: number | null; last_test_input_fingerprint?: string } };
-                if (!result.schema || !Object.keys(result.schema.properties ?? {}).length) continue;
+                if (!result.schema || !Object.keys(result.schema.properties ?? {}).length) {
+                  schemaFailures.push(String(actor.title || actor.actor_name || actorId) + '：接口未返回 properties 字段');
+                  continue;
+                }
                 return { source, actorId, actorTitle: String(actor.title || actor.actor_name || '平台专用采集器'), schemaVersion: String(result.version || 'latest'), actorStatus: result.actor?.status, actorQualityScore: result.actor?.quality_score, actorInputFingerprint: result.actor?.last_test_input_fingerprint, schema: result.schema } as LoadedSchema;
-              } catch {
-                continue;
+              } catch (schemaError) {
+                schemaFailures.push(String(actor.title || actor.actor_name || actorId) + '：' + (schemaError instanceof Error ? schemaError.message : String(schemaError)));
               }
             }
-            failures.push(source.name + '：候选数据源均未提供可用的输入结构。');
+            failures.push(source.name + '：候选数据源均未提供可用输入结构。' + (schemaFailures.length ? ' 最近失败：' + schemaFailures.slice(0, 2).join('；') : ''));
             return null;
           } catch (sourceError) {
             failures.push(source.name + '：' + (sourceError instanceof Error ? sourceError.message : String(sourceError)));
@@ -130,7 +138,7 @@ export function ActorSchemaFields({ sources, profile, onValuesChange }: Props) {
       }
     })();
     return () => { active = false; };
-  }, [sourceKey, actorSources]);
+  }, [sourceKey]);
 
   const actorParameters = useMemo(() => ({
     fields: values,
