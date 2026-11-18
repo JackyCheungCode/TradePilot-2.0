@@ -267,7 +267,7 @@ export function AgentWorkspacePage() {
             </Select>
           </div>
           <div className="tp-agent__history-actions">
-            <Button kind="primary" size="md" onClick={() => void createConversation()}>
+            <Button kind="tertiary" size="md" onClick={() => void createConversation()}>
               <CarbonIcons.Add size={16} /> 新建对话
             </Button>
             <Link href="/recent-tasks" renderIcon={CarbonIcons.Task}>任务执行中心</Link>
@@ -317,7 +317,7 @@ export function AgentWorkspacePage() {
                         {item.metadata.runId && <Tag type={item.metadata.runStatus === 'succeeded' ? 'green' : item.metadata.runStatus === 'failed' ? 'red' : 'blue'}>{item.metadata.runStatus === 'succeeded' ? '执行完成' : item.metadata.runStatus === 'failed' ? '执行失败' : item.metadata.runStatus === 'running' ? '正在执行' : item.metadata.runStatus === 'awaiting_approval' ? '等待人工审批' : '任务已排队'} · {item.metadata.runProgress || 0}%</Tag>}
                         <p className="tp-agent__task-meta">执行角色：{item.metadata.task.agentKey} · 目标国家：{item.metadata.task.country}</p>
                         <Button
-                          kind="primary"
+                          kind="tertiary"
                           size="md"
                           disabled={Boolean(startingTask)}
                           onClick={() => item.metadata?.runId ? navigate('/recent-tasks') : void startTask(item.id, item.metadata!.task!)}
