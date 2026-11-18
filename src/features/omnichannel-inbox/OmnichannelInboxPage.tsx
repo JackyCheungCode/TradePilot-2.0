@@ -229,11 +229,11 @@ export function OmnichannelInboxPage() {
       <div className="oi-conversation-scroll">{filteredConversations.map((conversation) => {
         const person = customers.find((item) => item.id === conversation.customer_id)!;
         const last = messages.filter((item) => item.conversation_id === conversation.id).sort((a, b) => b.created_at - a.created_at)[0];
-        return <Button type="button" kind="ghost" size="lg" className={'oi-conversation' + (activeId === conversation.id ? ' is-selected' : '')} key={conversation.id} aria-label={'打开 ' + (person.company_name || person.contact_name) + '，联系人 ' + person.contact_name} aria-current={activeId === conversation.id ? 'true' : undefined} onClick={() => chooseConversation(conversation)}>
+        return <ClickableTile className={'oi-conversation' + (activeId === conversation.id ? ' is-selected' : '')} key={conversation.id} aria-label={'打开 ' + (person.company_name || person.contact_name) + '，联系人 ' + person.contact_name} aria-current={activeId === conversation.id ? 'true' : undefined} onClick={() => chooseConversation(conversation)}>
           <Avatar customer={person} />
           <span className="oi-conversation-copy"><strong>{person.company_name || person.contact_name}</strong><span>{person.contact_name} · {person.role}</span><small>{last?.content_type === 'file' ? '文件：' + last.file_meta?.filename : last?.content_type === 'email_card' ? '邮件：' + last.email_subject : last?.content}</small></span>
           <span className="oi-conversation-meta"><time>{fmtTime(conversation.last_message_at)}</time><ChannelMark channel={conversation.last_channel_type} />{conversation.unread_count > 0 && <b>{conversation.unread_count}</b>}</span>
-        </Button>;
+        </ClickableTile>;
       })}{filteredConversations.length === 0 && <div className="oi-empty">没有符合条件的会话</div>}</div>
     </aside>
 
