@@ -1,5 +1,4 @@
 import { useCallback, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   Button, Link, Tag, Tabs, TabList, Tab, CarbonIcons,
 } from '@/design-system';
@@ -23,7 +22,7 @@ const steps = [
 const EMPTY_DISCOVERY_SOURCES: Array<{ id: string; name: string; category?: string }> = [];
 
 export function ProspectDiscoveryPage() {
-  const navigate = useNavigate();
+  
   const [planTaskCode] = useState(() => createPlanTaskCode());
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [selectedSourceCount, setSelectedSourceCount] = useState(0);
