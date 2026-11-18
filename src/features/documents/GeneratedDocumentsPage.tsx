@@ -1,3 +1,4 @@
+import { PageHeader } from '@/design-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Link, InlineLoading, InlineNotification, TextInput, Tag, Table, TableHead, TableRow,
@@ -38,10 +39,10 @@ export function GeneratedDocumentsPage() {
   useEffect(() => { void load(); }, [load]);
   const filtered = useMemo(() => docs.filter(doc => [doc.document_number, doc.title, labels[doc.document_type] || doc.document_type].some(value => String(value ?? '').toLowerCase().includes(search.toLowerCase()))), [docs, search]);
   return <main className="tp-documents">
-    <header className="tp-documents__header">
+    <PageHeader className="tp-documents__header">
       <div><p className="tp-documents__eyebrow">TRADE OPERATIONS / DOCUMENTS</p><h1>已生成单据</h1><p>集中查看单据状态、版本和业务来源，打开单据可继续校对或查看历史版本。</p></div>
       <div className="tp-documents__actions"><Link href="/documents">返回单据中心</Link><Link href="/documents">新建单据</Link></div>
-    </header>
+    </PageHeader>
     {error && <InlineNotification kind="error" lowContrast title="单据列表读取失败" subtitle={error} />}
     <section className="tp-documents__list">
       <div className="tp-documents__list-head"><div className="tp-documents__list-heading"><h2>单据记录</h2><p>按编号、名称或类型搜索；选择单据可查看内容和版本记录。</p></div><div className="tp-documents__search"><TextInput id="tp-generated-doc-search" labelText="搜索单据" hideLabel placeholder="单据编号、名称或类型" value={search} onChange={event => setSearch(event.currentTarget.value)} /></div></div>
