@@ -5,7 +5,7 @@ import {
 } from '@carbon/charts-react';
 import {
   Button, ClickableTile, InlineLoading, InlineNotification, Tile, Tag, Select, SelectItem,
-  Tabs, TabList, Tab, TabPanels, TabPanel, CarbonIcons, WorldMapChart,
+  Tabs, TabList, Tab, TabPanels, TabPanel, ContentSwitcher, Switch, CarbonIcons, WorldMapChart,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@carbon/charts/styles.css';
@@ -356,14 +356,23 @@ export function DashboardPage() {
           <div className="tp-workbench__global-map-chart">
             <WorldMapChart data={globalMapData} unitLabel="条记录" showRanking={false} selectedCode={country === 'all' ? undefined : country} onCountrySelect={code => setCountry(current => current === code ? 'all' : code)}/>
           </div>
-          <div className="tp-workbench__global-map-switch" role="group" aria-label="地图数据维度">
+          <div className="tp-workbench__global-map-switch" aria-label="地图数据维度">
             <span>查看维度</span>
-            {[
-              ['prospects', '潜客', '发现记录'],
-              ['leads', '线索', 'CRM 线索'],
-              ['opportunities', '商机', '有效商机'],
-              ['customers', '客户', '正式客户'],
-            ].map(([value, label, detail]) => <Button key={value} kind={marketMetric === value ? 'primary' : 'tertiary'} size="md" onClick={() => setMarketMetric(value)}>{label}<small>{detail}</small></Button>)}
+            <ContentSwitcher
+              size="sm"
+              selectedIndex={['prospects', 'leads', 'opportunities', 'customers'].indexOf(marketMetric)}
+              onChange={(selection: { name?: string | number }) => {
+                if (selection.name !== undefined) setMarketMetric(String(selection.name));
+              }}
+            >
+              <Switch name="prospects" text="潜客" />
+              <Switch name="leads" text="线索" />
+              <Switch name="opportunities" text="商机" />
+              <Switch name="customers" text="客户" />
+            </ContentSwitcher>
+            <p className="tp-workbench__global-map-switch-detail">
+              {marketMetric === 'prospects' ? '发现记录' : marketMetric === 'leads' ? 'CRM 线索' : marketMetric === 'opportunities' ? '有效商机' : '正式客户'}
+            </p>
           </div>
         </div>
         <div className="tp-workbench__global-map-ranking">{globalMapData.slice(0, 8).map((item, index) => <div key={item.code}><span>{String(index + 1).padStart(2, '0')}</span><strong>{item.label}</strong><b>{number(item.value)}</b></div>)}</div>
