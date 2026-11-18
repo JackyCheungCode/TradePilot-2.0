@@ -192,7 +192,7 @@ export function PersonalSettingsPage() {
                 <CarbonIcons.Security size={32} />
                 <h3>集中管理账户安全</h3>
                 <p>Passkey、生物识别登录、多因素认证和恢复代码沿用现有安全管理功能，不重复建设或改变认证策略。</p>
-                <Button onClick={() => navigate('/security')}>打开登录与安全设置 <CarbonIcons.ArrowRight size={16} /></Button>
+                <Link href="/security" renderIcon={CarbonIcons.ArrowRight}>打开登录与安全设置</Link>
               </div>
             )}
 
