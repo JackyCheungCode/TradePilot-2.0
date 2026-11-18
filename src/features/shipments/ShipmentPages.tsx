@@ -35,7 +35,23 @@ export function ShipmentConsolePage(){
  const months=Array.from({length:6},(_,i)=>{const d=new Date();d.setMonth(d.getMonth()-5+i);return {key:d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'),label:(d.getMonth()+1)+'月'}});
  const trend=months.map(m=>({group:m.label,key:'发运票数',value:rows.filter(r=>r.created_at?.slice(0,7)===m.key).length}));
  const opts={theme:document.documentElement.dataset.carbonTheme==='g100'?'g100':'white',height:'250px',color:{pairing:{numberOfVariants:14,option:1}},legend:{enabled:false},toolbar:{enabled:false},axes:{bottom:{mapsTo:'group',scaleType:ScaleTypes.LABELS},left:{mapsTo:'value',scaleType:ScaleTypes.LINEAR}}};
- if (loading) return <PageSkeleton variant="analytics-table" metricCount={6} chartCount={2} showMap columns={7} rows={6} />;
+ if (loading) return <PageSkeleton className="tp-shipments" layout={[
+  { type: 'group', direction: 'row', gap: 'var(--cds-spacing-05)', className: 'tp-shipments__header', children: [
+    { type: 'group', direction: 'column', gap: 'var(--cds-spacing-03)', children: [{ type: 'text', width: '8rem' }, { type: 'text', heading: true, width: '14rem' }, { type: 'text', width: '25rem' }] },
+    { type: 'group', direction: 'row', gap: 'var(--cds-spacing-03)', className: 'tp-shipments__actions', children: [{ type: 'placeholder', width: '5rem', height: '2.5rem' }, { type: 'placeholder', width: '8rem', height: '2.5rem' }] },
+  ] },
+  { type: 'group', direction: 'grid', columns: 3, gap: 'var(--cds-spacing-04)', className: 'tp-shipments__metrics', children: Array.from({ length: 6 }, () => ({ type: 'placeholder' as const, minHeight: '8rem' })) },
+  { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-shipments__panel', children: [
+    { type: 'text', heading: true, width: '12rem' }, { type: 'text', width: '25rem' },
+    { type: 'group', direction: 'grid', columns: 2, gap: 'var(--cds-spacing-04)', className: 'tp-shipments__charts', children: Array.from({ length: 2 }, () => ({ type: 'placeholder' as const, minHeight: '16rem' })) },
+  ] },
+  { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-shipments__panel tp-shipments__market-panel', children: [{ type: 'text', heading: true, width: '13rem' }, { type: 'placeholder', minHeight: '20rem' }] },
+  { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-shipments__panel', children: [
+    { type: 'text', heading: true, width: '12rem' },
+    { type: 'group', direction: 'grid', columns: 2, gap: 'var(--cds-spacing-04)', className: 'tp-shipments__filters', children: [{ type: 'placeholder', height: '2.5rem' }, { type: 'placeholder', height: '2.5rem' }] },
+    { type: 'table', columns: 7, rows: 6, className: 'tp-shipments__table-wrap' },
+  ] },
+]} />;
  return <main className="tp-shipments"><header className="tp-shipments__header"><div><p className="tp-shipments__eyebrow">TRADEPILOT / LOGISTICS</p><h1>发运（Shipment）</h1><p>管理订舱、装柜、报关、运输、提单和签收。</p></div><div className="tp-shipments__actions"><Button kind="tertiary" onClick={()=>void load()}>刷新</Button><Link href="/shipments/new" renderIcon={CarbonIcons.Add}>创建发运</Link></div></header>
  {error&&<InlineNotification kind="error" title="读取发运失败" subtitle={error}/>}
  <section className="tp-shipments__metrics"><Metric label="全部发运" value={String(rows.length)} detail="累计发运票数" icon={CarbonIcons.Package}/><Metric label="待订舱" value={String(count('pending_booking'))} detail="等待订舱安排" icon={CarbonIcons.Calendar}/><Metric label="运输中" value={String(count('in_transit')+count('departed'))} detail="已开船或运输中" icon={CarbonIcons.Delivery}/><Metric label="已到港" value={String(count('arrived'))} detail="等待清关 / 提柜" icon={CarbonIcons.Location}/><Metric label="异常发运" value={String(rows.filter(r=>r.exception_flag).length)} detail="需要跟进" icon={CarbonIcons.WarningAlt}/><Metric label="累计票数" value={String(rows.length)} detail="多币种货值不合并" icon={CarbonIcons.ChartLine}/></section>
