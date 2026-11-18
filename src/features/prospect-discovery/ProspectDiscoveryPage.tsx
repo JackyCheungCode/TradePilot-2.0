@@ -1,3 +1,4 @@
+import { PageHeader } from '@/design-system';
 import { useCallback, useState } from 'react';
 import {
   Button, Link, Tag, Tabs, TabList, Tab, CarbonIcons,
@@ -45,7 +46,7 @@ export function ProspectDiscoveryPage() {
 
   return (
     <main className="tp-prospect-discovery">
-      <header className="tp-prospect-discovery__page-header">
+      <PageHeader className="tp-prospect-discovery__page-header">
         <div>
           <p className="tp-prospect-discovery__eyebrow">TRADEPILOT / CRM · PROSPECT DISCOVERY</p>
           <h1>全球外贸智能潜客发现</h1>
@@ -61,7 +62,7 @@ export function ProspectDiscoveryPage() {
             <Link href="/prospect-data" renderIcon={CarbonIcons.DataBase}>潜客数据</Link>
           </div>
         </div>
-      </header>
+      </PageHeader>
 
       <div className="tp-prospect-discovery__task-code"><strong>任务 ID：{planTaskCode}</strong></div>
 
