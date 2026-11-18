@@ -42,7 +42,7 @@ export function ScoringStep({ onContinueToEnrichment }: Props) {
         const { data } = await db.auth.getSession();
         const token = data.session?.access_token;
         if (!token) throw new Error('登录状态已失效，请重新登录。');
-        const response = await fetch('/api/v1/discovery-records?limit=500', {
+        const response = await fetch('/api/v1/discovery-records?ids=' + encodeURIComponent(queue.join(',')), {
           headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' },
         });
         const payload = await response.json() as { data?: Array<Record<string, unknown>>; error?: { message?: string } };
@@ -61,7 +61,7 @@ export function ScoringStep({ onContinueToEnrichment }: Props) {
           };
           return {
             id: String(record.id), name: String(record.name ?? '未命名企业'), domain,
-            country: String(record.country_code ?? ''), source: sourceLabels[channel] ?? channel,
+            country: String(record.country_code ?? ''), source: channel === 'actor_discovery' ? String(occurrence.keyword ?? 'Apify Actor') : sourceLabels[channel] ?? channel,
             email: String(record.email ?? '') || '待补充', address: String(record.address ?? ''),
             phone: String(record.phone ?? ''), runId: String(occurrence.run_id ?? ''),
             confidence: typeof record.confidence_score === 'number' ? record.confidence_score : undefined,

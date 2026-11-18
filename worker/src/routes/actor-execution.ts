@@ -6,13 +6,31 @@ type ActorExecution = NonNullable<DiscoveryRunInput["actorExecutions"]>[number];
 type RawItem = Record<string, unknown>;
 
 async function db<T>(env: DiscoveryEnv, path: string, init: RequestInit = {}): Promise<T> {
-  const response = await fetch(env.SUPABASE_URL + "/rest/v1/" + path, {
-    ...init,
-    headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: "Bearer " + env.SUPABASE_SERVICE_ROLE_KEY, "Content-Type": "application/json", ...init.headers },
-  });
-  const raw = await response.text();
-  if (!response.ok) throw new Error("DATABASE_" + response.status + ": " + raw.slice(0, 240));
-  return raw ? JSON.parse(raw) as T : undefined as T;
+  const method = (init.method ?? "GET").toUpperCase();
+  const retryable = method === "GET" || method === "HEAD" || method === "PATCH" || method === "PUT" || method === "DELETE" || (method === "POST" && path.includes("on_conflict="));
+  let lastError: unknown;
+  for (let attempt = 0; attempt < (retryable ? 3 : 1); attempt++) {
+    try {
+      const response = await fetch(env.SUPABASE_URL + "/rest/v1/" + path, {
+        ...init,
+        headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: "Bearer " + env.SUPABASE_SERVICE_ROLE_KEY, "Content-Type": "application/json", ...init.headers },
+        signal: AbortSignal.timeout(15000),
+      });
+      const raw = await response.text();
+      if (!response.ok) {
+        const error = new Error("DATABASE_" + response.status + ": " + raw.slice(0, 240));
+        if (!retryable || (response.status < 500 && response.status !== 429)) throw error;
+        lastError = error;
+      } else {
+        return raw ? JSON.parse(raw) as T : undefined as T;
+      }
+    } catch (error) {
+      lastError = error;
+      if (!retryable) throw error;
+    }
+    if (attempt < (retryable ? 2 : 0)) await new Promise(resolve => setTimeout(resolve, 250 * (attempt + 1)));
+  }
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
 }
 async function updateRun(env: DiscoveryEnv, runId: string, ownerId: string, patch: Record<string, unknown>) {
   await db(env, "discovery_runs?id=eq." + runId + "&owner_id=eq." + ownerId, {
@@ -135,8 +153,8 @@ export async function processActorDiscoveryRun(env: DiscoveryEnv, runId: string,
   if (!actors.length) throw new Error("ACTOR_EXECUTIONS_REQUIRED");
   const token = await readIntegrationSecret(env, "tradepilot_api_" + String.fromCharCode(97, 112, 105, 102, 121)) || env.ACTOR_GATEWAY_API_TOKEN || env.APIFY_API_TOKEN || "";
   if (!token) throw new Error("ACTOR_GATEWAY_NOT_CONFIGURED");
-  let discovered = 0, created = 0, failedActors = 0;
-  await updateRun(env, runId, ownerId, { status: "running", message: "正在执行所选 Actor Schema 任务…" });
+  let discovered = 0, created = 0, failedActors = 0, failedItems = 0;
+  await updateRun(env, runId, ownerId, { status: "running", progress: 1, message: "正在执行所选 Actor Schema 任务…" });
   await log(env, runId, ownerId, "info", "Actor 任务启动；按 Schema 原样提交参数的数据源：" + actors.map(actor => actor.sourceName).join("、"));
   let completedActors = 0;
   let cursor = 0;
@@ -153,21 +171,60 @@ export async function processActorDiscoveryRun(env: DiscoveryEnv, runId: string,
       if (!actorRunId || status !== "SUCCEEDED" || !datasetId) throw new Error("ACTOR_RUN_" + (status || "NO_STATUS"));
       const dataset = await gateway<unknown>("datasets/" + encodeURIComponent(datasetId) + "/items?format=json&clean=true", token);
       const items = Array.isArray(dataset) ? dataset : Array.isArray(asObject(dataset).data) ? asObject(dataset).data as unknown[] : [];
-      let actorCreated = 0;
+      let actorCreated = 0, actorFailedItems = 0;
       for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
         const raw = asObject(items[itemIndex]);
-        await persistRaw(env, ownerId, runId, actor, actorRunId, datasetId, itemIndex, raw);
-        discovered++;
-        if (await persistCanonical(env, ownerId, runId, actor, actorRunId, itemIndex, raw)) { created++; actorCreated++; }
+        try {
+          await persistRaw(env, ownerId, runId, actor, actorRunId, datasetId, itemIndex, raw);
+          discovered++;
+          try {
+            if (await persistCanonical(env, ownerId, runId, actor, actorRunId, itemIndex, raw)) { created++; actorCreated++; }
+          } catch (error) {
+            failedItems++;
+            actorFailedItems++;
+            try { await log(env, runId, ownerId, "error", actor.sourceName + " 第 " + (itemIndex + 1) + " 条结果标准化失败：" + String(error).slice(0, 220)); } catch (logError) { console.error("ACTOR_ITEM_LOG_FAILED", String(logError).slice(0, 160)); }
+          }
+        } catch (error) {
+          failedItems++;
+          actorFailedItems++;
+          try { await log(env, runId, ownerId, "error", actor.sourceName + " 第 " + (itemIndex + 1) + " 条原始数据保存失败：" + String(error).slice(0, 220)); } catch (logError) { console.error("ACTOR_ITEM_LOG_FAILED", String(logError).slice(0, 160)); }
+        }
+        const captured = normalizeItem(raw);
+        const fieldSummary = [
+          "企业：" + (captured.name || "未识别"),
+          "国家/地区：" + (captured.countryCode || "未提供"),
+          "地址：" + (captured.address || "未提供"),
+          "官网：" + (captured.website || "未提供"),
+          "电话：" + (captured.phone || "未提供"),
+          "邮箱：" + (captured.email || "未提供"),
+          "业务类型：" + (captured.businessType || "未提供"),
+        ].join("；");
+        try {
+          await log(env, runId, ownerId, "info",
+            "[抓取客户数据] " + actor.sourceName + " · 第 " + (itemIndex + 1) + " 条 · 原始数据已保存；" + fieldSummary);
+        } catch (error) { console.error("ACTOR_CUSTOMER_LOG_FAILED", String(error).slice(0, 180)); }
+        const processed = itemIndex + 1;
+        const progress = Math.min(95, 5 + Math.floor((processed / Math.max(items.length, 1)) * 90));
+        try {
+          await updateRun(env, runId, ownerId, {
+            progress, discovered_count: discovered, created_lead_count: created,
+            message: "正在处理 " + actor.sourceName + "：" + processed + " / " + items.length + " 条；失败 " + actorFailedItems + " 条",
+          });
+        } catch (error) { console.error("ACTOR_PROGRESS_UPDATE_FAILED", String(error).slice(0, 200)); }
       }
-      await log(env, runId, ownerId, "info", actor.sourceName + " 完成：读取 " + items.length + " 条原始记录，归一化 " + actorCreated + " 条企业记录。");
+      await log(env, runId, ownerId, actorFailedItems ? "warning" : "info", actor.sourceName + " 完成：读取 " + items.length + " 条原始记录，归一化 " + actorCreated + " 条企业记录，失败 " + actorFailedItems + " 条。");
     } catch (error) {
       failedActors++;
-      await log(env, runId, ownerId, "error", actor.sourceName + " 执行失败：" + String(error).slice(0, 240));
+      try { await log(env, runId, ownerId, "error", actor.sourceName + " 执行失败：" + String(error).slice(0, 240)); } catch (logError) { console.error("ACTOR_FAILURE_LOG_FAILED", String(logError).slice(0, 160)); }
     } finally {
       completedActors++;
-      const progress = Math.round((completedActors / actors.length) * 100);
-      await updateRun(env, runId, ownerId, { progress, discovered_count: discovered, created_lead_count: created, message: "已完成 " + completedActors + " / " + actors.length + " 个数据源" });
+      const progress = Math.min(99, Math.round((completedActors / actors.length) * 100));
+      try {
+        await updateRun(env, runId, ownerId, {
+          progress, discovered_count: discovered, created_lead_count: created,
+          message: "已完成 " + completedActors + " / " + actors.length + " 个数据源；采集 " + discovered + " 条，标准化 " + created + " 条",
+        });
+      } catch (error) { console.error("ACTOR_FINAL_PROGRESS_UPDATE_FAILED", String(error).slice(0, 200)); }
     }
   };
   const workers = Array.from({ length: Math.min(4, actors.length) }, async () => {
@@ -177,8 +234,13 @@ export async function processActorDiscoveryRun(env: DiscoveryEnv, runId: string,
     }
   });
   await Promise.all(workers);
-  const status = created > 0 && failedActors > 0 ? "partial" : created > 0 ? "completed" : "failed";
-  await updateRun(env, runId, ownerId, { status, progress: 100, discovered_count: discovered, created_lead_count: created, message: status === "failed" ? "数据源执行失败或未返回可识别的企业记录" : "数据源采集完成" });
-  await log(env, runId, ownerId, status === "failed" ? "error" : "info", "任务结束；原始记录 " + discovered + " 条；标准化企业记录 " + created + " 条；失败数据源 " + failedActors + " 个。");
-  return { status, discoveredCount: discovered, createdLeadCount: created, failedActors };
+  const hasFailures = failedActors > 0 || failedItems > 0;
+  const status = created > 0 && hasFailures ? "partial" : created > 0 ? "completed" : "failed";
+  const summary = "任务结束；原始记录 " + discovered + " 条；标准化企业记录 " + created + " 条；失败数据源 " + failedActors + " 个；失败记录 " + failedItems + " 条。";
+  await updateRun(env, runId, ownerId, {
+    status, progress: 100, discovered_count: discovered, created_lead_count: created,
+    message: status === "failed" ? "数据源执行失败或未返回可识别的企业记录" : hasFailures ? "采集完成，部分记录处理失败；成功结果已保留" : "数据源采集完成",
+  });
+  await log(env, runId, ownerId, status === "failed" ? "error" : hasFailures ? "warning" : "info", summary);
+  return { status, discoveredCount: discovered, createdLeadCount: created, failedActors, failedItems };
 }
