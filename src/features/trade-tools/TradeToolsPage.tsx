@@ -31,14 +31,14 @@ async function readJson(url: string) {
   return response.json();
 }
 function weatherIcon(code:number) {
-  if (code === 0) return <CarbonIcons.Sun size={20} />;
-  if ([1,2].includes(code)) return <CarbonIcons.PartlyCloudy size={20} />;
-  if (code === 3) return <CarbonIcons.Cloudy size={20} />;
-  if ([45,48].includes(code)) return <CarbonIcons.Fog size={20} />;
-  if ([51,53,55,56,57,61,63,65,66,67,80,81,82].includes(code)) return <CarbonIcons.Rain size={20} />;
-  if ([71,73,75,77,85,86].includes(code)) return <CarbonIcons.Snow size={20} />;
-  if ([95,96,99].includes(code)) return <CarbonIcons.Thunderstorm size={20} />;
-  return <CarbonIcons.Temperature size={20} />;
+  if (code === 0) return <semanticIcons.weatherSun size={20} />;
+  if ([1,2].includes(code)) return <semanticIcons.weatherPartlyCloudy size={20} />;
+  if (code === 3) return <semanticIcons.weatherCloudy size={20} />;
+  if ([45,48].includes(code)) return <semanticIcons.weatherFog size={20} />;
+  if ([51,53,55,56,57,61,63,65,66,67,80,81,82].includes(code)) return <semanticIcons.weatherRain size={20} />;
+  if ([71,73,75,77,85,86].includes(code)) return <semanticIcons.weatherSnow size={20} />;
+  if ([95,96,99].includes(code)) return <semanticIcons.weatherThunderstorm size={20} />;
+  return <semanticIcons.temperature size={20} />;
 }
 
 export function TradeToolsPage() {
@@ -270,7 +270,7 @@ export function TradeToolsPage() {
       <section className="tp-trade-tools__workspace">
         <section className="tp-trade-tools__tool">
           {errors.currency&&<InlineNotification kind="error" title="操作失败" subtitle={errors.currency} onCloseButtonClick={()=>clearToolError('currency')}/>}
-          <div className="tp-trade-tools__tool-title"><CarbonIcons.Currency size={24}/><div><h2>汇率换算</h2><p>Frankfurter 官方参考汇率 · 半年历史走势</p></div></div>
+          <div className="tp-trade-tools__tool-title"><semanticIcons.currency size={24}/><div><h2>汇率换算</h2><p>Frankfurter 官方参考汇率 · 半年历史走势</p></div></div>
           <div className="tp-trade-tools__form-grid">
             <Select id="fx-base" labelText="原币种" value={base} onChange={e=>setBase(e.currentTarget.value)}>{currencies.map(c=><SelectItem key={c} value={c} text={c}/>)}</Select>
             <Select id="fx-quote" labelText="目标币种" value={quote} onChange={e=>setQuote(e.currentTarget.value)}>{currencies.map(c=><SelectItem key={c} value={c} text={c}/>)}</Select>
@@ -288,7 +288,7 @@ export function TradeToolsPage() {
 
         <section className="tp-trade-tools__tool">
           {errors.holidays&&<InlineNotification kind="error" title="操作失败" subtitle={errors.holidays} onCloseButtonClick={()=>clearToolError('holidays')}/>}
-          <div className="tp-trade-tools__tool-title"><CarbonIcons.Calendar size={24}/><div><h2>全球公共假期</h2><p>Nager.Date · 支持国家及一级行政区假期</p></div></div>
+          <div className="tp-trade-tools__tool-title"><semanticIcons.calendar size={24}/><div><h2>全球公共假期</h2><p>Nager.Date · 支持国家及一级行政区假期</p></div></div>
           <div className="tp-trade-tools__form-grid">
             <Dropdown id="holiday-country" titleText="国家或地区" label="选择国家或地区" items={countryOptions} selectedItem={countryOptions.find(item=>item.countryCode===holidayCountry)} itemToString={countryLabel} itemToElement={renderCountryOption} renderSelectedItem={renderCountryOption} onChange={({selectedItem})=>{if(selectedItem){setHolidayCountry(selectedItem.countryCode);setHolidayRegion('all');}}}/>
             <Select id="holiday-year" labelText="年份" value={holidayYear} onChange={e=>setHolidayYear(e.currentTarget.value)}>{[2025,2026,2027,2028].map(y=><SelectItem key={y} value={String(y)} text={String(y)}/>)}</Select>
@@ -300,7 +300,7 @@ export function TradeToolsPage() {
 
         <section className="tp-trade-tools__tool">
           {errors.shipping&&<InlineNotification kind="error" title="操作失败" subtitle={errors.shipping} onCloseButtonClick={()=>clearToolError('shipping')}/>}
-          <div className="tp-trade-tools__tool-title"><CarbonIcons.Delivery size={24}/><div><h2>国际物流追踪</h2><p>通过承运商官方 API 查询运输状态与轨迹</p></div></div>
+          <div className="tp-trade-tools__tool-title"><semanticIcons.delivery size={24}/><div><h2>国际物流追踪</h2><p>通过承运商官方 API 查询运输状态与轨迹</p></div></div>
           <div className="tp-trade-tools__form-grid">
             <Select id="carrier" labelText="物流服务商" value={carrier} onChange={e=>setCarrier(e.currentTarget.value)}><SelectItem value="dhl" text="DHL Express / Shipment Tracking"/><SelectItem value="ups" text="UPS"/><SelectItem value="fedex" text="FedEx"/></Select>
             <TextInput id="tracking-number" labelText="运单号" placeholder="输入物流追踪号码" value={trackingNumber} onChange={e=>setTrackingNumber(e.currentTarget.value)}/>
@@ -313,7 +313,7 @@ export function TradeToolsPage() {
 
         <section className="tp-trade-tools__tool">
           {errors.translation&&<InlineNotification kind="error" title="操作失败" subtitle={errors.translation} onCloseButtonClick={()=>clearToolError('translation')}/>}
-          <div className="tp-trade-tools__tool-title"><CarbonIcons.Translate size={24}/><div><h2>DeepL 在线翻译</h2><p>使用已配置的 DeepL API，密钥仅在 Worker 服务端保存</p></div></div>
+          <div className="tp-trade-tools__tool-title"><semanticIcons.translate size={24}/><div><h2>DeepL 在线翻译</h2><p>使用已配置的 DeepL API，密钥仅在 Worker 服务端保存</p></div></div>
           <div className="tp-trade-tools__form-grid">
             <Select id="translate-source" labelText="源语言" value={sourceLanguage} onChange={e=>setSourceLanguage(e.currentTarget.value)}><SelectItem value="auto" text="自动识别"/>{[['EN','英语'],['DE','德语'],['FR','法语'],['ES','西班牙语'],['JA','日语'],['KO','韩语'],['ZH','中文'],['ZH-HANT','繁体中文'],['PT-BR','葡萄牙语'],['IT','意大利语']].map(([v,l])=><SelectItem key={v} value={v} text={l}/>)}</Select>
             <Select id="translate-target" labelText="目标语言" value={targetLanguage} onChange={e=>setTargetLanguage(e.currentTarget.value)}>{[['ZH','中文'],['ZH-HANT','繁体中文'],['EN-US','英语（美国）'],['EN-GB','英语（英国）'],['DE','德语'],['FR','法语'],['ES','西班牙语'],['JA','日语'],['KO','韩语'],['PT-BR','葡萄牙语（巴西）'],['IT','意大利语']].map(([v,l])=><SelectItem key={v} value={v} text={l}/>)}</Select>
@@ -325,7 +325,7 @@ export function TradeToolsPage() {
 
         <section className="tp-trade-tools__tool">
           {errors['contact-time']&&<InlineNotification kind="error" title="操作失败" subtitle={errors['contact-time']} onCloseButtonClick={()=>clearToolError('contact-time')}/>}
-          <div className="tp-trade-tools__tool-title"><CarbonIcons.Time size={24}/><div><h2>客户联系时机</h2><p>当地时间、工作日状态、昼夜和近三天天气</p></div></div>
+          <div className="tp-trade-tools__tool-title"><semanticIcons.time size={24}/><div><h2>客户联系时机</h2><p>当地时间、工作日状态、昼夜和近三天天气</p></div></div>
           <div className="tp-trade-tools__form-grid">
             <Select id="contact-select" labelText="选择客户／联系人（可选）" value={selectedContact} onChange={e=>void chooseContact(e.currentTarget.value)}><SelectItem value="" text="手动选择地点"/>{contacts.map(c=><SelectItem key={c.id} value={c.id} text={c.label+' · '+c.address}/>)}</Select>
             <Dropdown id="contact-country" titleText="国家或地区" label="选择国家或地区" items={countryOptions} selectedItem={countryOptions.find(item=>item.countryCode===locationCountry)} itemToString={countryLabel} itemToElement={renderCountryOption} renderSelectedItem={renderCountryOption} onChange={({selectedItem})=>{if(selectedItem)setLocationCountry(selectedItem.countryCode);}}/>
@@ -338,7 +338,7 @@ export function TradeToolsPage() {
           {busyTools['contact-time']&&<InlineLoading description="正在解析时区与天气…"/>}
           {location&&timeData&&<div className="tp-trade-tools__contact-result">
             <div className="tp-trade-tools__clock"><div><span>{location.name}{location.admin1?', '+location.admin1:''}, {location.country}</span><strong>{new Date(timeData.datetime).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:location.timezone})}</strong><small>{new Date(timeData.datetime).toLocaleDateString('zh-CN',{year:'numeric',month:'long',day:'numeric',weekday:'long',timeZone:location.timezone})} · {timeData.timezone} ({timeData.utc_offset})</small></div>
-              <div className="tp-trade-tools__day-status">{(()=>{const h=Number(new Intl.DateTimeFormat('en',{hour:'2-digit',hourCycle:'h23',timeZone:location.timezone}).format(new Date(timeData.datetime)));const localWeekday=new Intl.DateTimeFormat('en',{weekday:'short',timeZone:location.timezone}).format(new Date(timeData.datetime));const isDay=h>=6&&h<18;const weekend=localWeekday==='Sun'||localWeekday==='Sat';return <><span>{isDay?<CarbonIcons.Sun size={20}/>:<CarbonIcons.Moon size={20}/>}</span><strong>{isDay?'当地白天':'当地夜晚'}</strong><small>{weekend||holidayToday?<><CarbonIcons.Asleep size={16}/> 休息日</>:<><CarbonIcons.Calendar size={16}/> 工作日</>}{holidayToday?' · '+holidayToday.localName:''}</small></>;})()}</div>
+              <div className="tp-trade-tools__day-status">{(()=>{const h=Number(new Intl.DateTimeFormat('en',{hour:'2-digit',hourCycle:'h23',timeZone:location.timezone}).format(new Date(timeData.datetime)));const localWeekday=new Intl.DateTimeFormat('en',{weekday:'short',timeZone:location.timezone}).format(new Date(timeData.datetime));const isDay=h>=6&&h<18;const weekend=localWeekday==='Sun'||localWeekday==='Sat';return <><span>{isDay?<semanticIcons.weatherSun size={20}/>:<semanticIcons.weatherMoon size={20}/>}</span><strong>{isDay?'当地白天':'当地夜晚'}</strong><small>{weekend||holidayToday?<><semanticIcons.asleep size={16}/> 休息日</>:<><semanticIcons.calendar size={16}/> 工作日</>}{holidayToday?' · '+holidayToday.localName:''}</small></>;})()}</div>
             </div>
             <div className="tp-trade-tools__weather">{weather.map((w,i)=><div key={w.date}><span>{i===0?'昨天':i===1?'今天':'明天'}</span><strong>{weatherIcon(w.code)}</strong><small>{w.high.toFixed(0)}° / {w.low.toFixed(0)}°C</small><small>降雨概率 {w.rain}%</small></div>)}</div>
             <p className="tp-trade-tools__footnote">工作日按当地周末与 Nager.Date 公共假期数据判断；昼夜按当地 06:00–18:00 粗略划分。天气来自 Open-Meteo。时间数据由 <a href="https://time.now" target="_blank" rel="noreferrer">Time.Now</a> 提供。</p>
@@ -346,7 +346,7 @@ export function TradeToolsPage() {
         </section>
 
         <section className="tp-trade-tools__tool">
-          <div className="tp-trade-tools__tool-title"><CarbonIcons.Calculator size={24}/><div><h2>报价利润计算器</h2><p>按目标毛利率反推报价，估算单件与订单利润</p></div></div>
+          <div className="tp-trade-tools__tool-title"><semanticIcons.calculator size={24}/><div><h2>报价利润计算器</h2><p>按目标毛利率反推报价，估算单件与订单利润</p></div></div>
           <div className="tp-trade-tools__form-grid tp-trade-tools__form-grid--profit">
             <TextInput id="profit-cost" labelText="产品成本（单件）" type="number" value={cost} onChange={e=>setCost(e.currentTarget.value)}/>
             <TextInput id="profit-freight" labelText="物流费用（单件）" type="number" value={freight} onChange={e=>setFreight(e.currentTarget.value)}/>
