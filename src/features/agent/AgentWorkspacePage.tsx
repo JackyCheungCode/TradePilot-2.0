@@ -1,3 +1,4 @@
+import { PageHeader } from '@/design-system';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Button, Link, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextArea, Tile, CarbonIcons,
@@ -236,13 +237,13 @@ export function AgentWorkspacePage() {
 
   return (
     <main className="tp-agent">
-      <header className="tp-agent__page-header">
+      <PageHeader className="tp-agent__page-header">
         <div>
           <h1 className="tp-agent__page-title">小雅</h1>
           <p className="tp-agent__page-description">TradePilot 智能业务助理</p>
         </div>
         <Tag type="blue">智能混合对话</Tag>
-      </header>
+      </PageHeader>
 
       {error && <InlineNotification className="tp-agent__notification" kind="error" title="操作失败" subtitle={error} onCloseButtonClick={() => setError('')} />}
       {notice && <InlineNotification className="tp-agent__notification" kind="success" title="任务已创建" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
