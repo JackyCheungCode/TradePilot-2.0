@@ -450,9 +450,9 @@ export function DashboardPage() {
         <Tile className="tp-workbench__panel">
           <div className="tp-workbench__panel-heading"><div><p className="tp-workbench__kicker">ACTION CENTER</p><h2>待处理与风险</h2><p>点击进入对应业务模块处理记录。</p></div><Tag type={riskCount ? 'red' : 'green'}>{riskCount ? number(riskCount) + ' 项关注' : '当前无风险项'}</Tag></div>
           <ClickableTile className="tp-workbench__risk-row" onClick={() => navigate('/accounts')}><span>逾期跟进活动</span><strong>{number(overdueActivities.length)}</strong><CarbonIcons.ChevronRight size={16}/></ClickableTile>
-          <ClickableTile className="tp-workbench__risk-row" onClick={() => navigate('/payments')}><span>逾期应收节点</span><strong>{number(overdueReceivableCount)}</strong><CarbonIcons.ChevronRight size={16}/></button>
-          <ClickableTile className="tp-workbench__risk-row" onClick={() => navigate('/shipments')}><span>发运异常</span><strong>{number(shipmentExceptions.length)}</strong><CarbonIcons.ChevronRight size={16}/></button>
-          <ClickableTile className="tp-workbench__risk-row" onClick={() => navigate('/agent')}><span>Agent 失败任务</span><strong>{number(failedAgents.length)}</strong><CarbonIcons.ChevronRight size={16}/></button>
+          <ClickableTile className="tp-workbench__risk-row" onClick={() => navigate('/payments')}><span>逾期应收节点</span><strong>{number(overdueReceivableCount)}</strong><CarbonIcons.ChevronRight size={16}/></ClickableTile>
+          <ClickableTile className="tp-workbench__risk-row" onClick={() => navigate('/shipments')}><span>发运异常</span><strong>{number(shipmentExceptions.length)}</strong><CarbonIcons.ChevronRight size={16}/></ClickableTile>
+          <ClickableTile className="tp-workbench__risk-row" onClick={() => navigate('/agent')}><span>Agent 失败任务</span><strong>{number(failedAgents.length)}</strong><CarbonIcons.ChevronRight size={16}/></ClickableTile>
         </Tile>
         <Tile className="tp-workbench__panel">
           <div className="tp-workbench__panel-heading"><div><p className="tp-workbench__kicker">RECENT BUSINESS ACTIVITY</p><h2>最近业务活动</h2><p>来自 CRM 活动和 Agent 执行记录。</p></div></div>
