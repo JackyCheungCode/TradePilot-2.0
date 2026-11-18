@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Button, InlineLoading, InlineNotification, Select, SelectItem, TextInput, Toggle, CarbonIcons, useThemePreference,
@@ -35,7 +35,6 @@ function readPreferences(value: unknown): Preferences {
 
 export function PersonalSettingsPage() {
   const navigate = useNavigate();
-  const fileInput = useRef<HTMLInputElement>(null);
   const { preference, setPreference } = useThemePreference();
   const [active, setActive] = useState<SectionId>('profile');
   const [loading, setLoading] = useState(true);
@@ -115,7 +114,7 @@ export function PersonalSettingsPage() {
       }
       setNotice('头像已保存，顶部账户图标已同步更新。');
     } catch (cause) { setError(cause instanceof Error ? cause.message : '头像上传失败。'); }
-    finally { setUploading(false); if (fileInput.current) fileInput.current.value = ''; }
+    finally { setUploading(false); }
   };
 
   const savePreferences = async () => {
@@ -171,12 +170,18 @@ export function PersonalSettingsPage() {
             {active === 'profile' && (
               <div className="tp-personal-settings__fields">
                 <div className="tp-personal-settings__avatar-block">
-                  <Button type="button" kind="ghost" className="tp-personal-settings__avatar-button" onClick={() => fileInput.current?.click()} disabled={uploading} aria-label="点击上传或更换个人头像">
+                  <div className="tp-personal-settings__avatar-preview">
                     {avatarUrl ? <img src={avatarUrl} alt="个人头像" /> : <CarbonIcons.UserAvatar size={64} />}
-                    <span className="tp-personal-settings__avatar-overlay"><CarbonIcons.Camera size={20} /></span>
-                  </Button>
-                  <input ref={fileInput} className="tp-personal-settings__file-input" type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={(event) => void uploadAvatar(event.currentTarget.files?.[0])} />
-                  <div><strong>个人头像</strong><p>点击头像即可上传或更换。支持 JPG、PNG、WebP、AVIF，最大 2 MB。</p><span>{uploading ? '正在上传头像…' : '头像保存后会同步到顶部账户图标。'}</span></div>
+                  </div>
+                  <FileUploaderButton
+                    accept={['.jpg', '.jpeg', '.png', '.webp', '.avif']}
+                    buttonKind="tertiary"
+                    labelText={uploading ? '正在上传头像…' : '上传 / 更换头像'}
+                    name="profile-avatar"
+                    disabled={uploading}
+                    onChange={(event) => void uploadAvatar(event.currentTarget.files?.[0])}
+                  />
+                  <div><strong>个人头像</strong><p>支持 JPG、PNG、WebP、AVIF，最大 2 MB。</p><span>头像保存后会同步到顶部账户图标。</span></div>
                 </div>
                 <div className="tp-personal-settings__field-grid">
                   <TextInput id="tp-profile-display-name" labelText="显示名称" value={displayName} onChange={(event) => setDisplayName(event.currentTarget.value)} placeholder="输入显示名称" />
