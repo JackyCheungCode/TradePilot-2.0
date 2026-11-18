@@ -93,7 +93,7 @@ export function DocumentTemplateSettings() {
           <Checkbox id="tp-template-default" labelText="设为该单据类型默认模板" checked={draft.is_default} onChange={(_,data)=>update({is_default:data.checked})}/>
           <Checkbox id="tp-template-active" labelText="启用模板" checked={draft.is_active} onChange={(_,data)=>update({is_active:data.checked})}/>
         </div>
-        <div className="tp-document-template-settings__actions"><Button kind="primary" disabled={saving} onClick={()=>void save()}>{saving?'正在保存…':'保存模板'}</Button>{draft.id&&draft.is_active&&<Button kind="danger--tertiary" disabled={saving} onClick={()=>void deactivate()}>停用模板</Button>}</div>
+        <div className="tp-document-template-settings__actions">{saving && <InlineLoading status="active" description="正在保存…" />}<Button kind="primary" disabled={saving} onClick={()=>void save()}>保存模板</Button>{draft.id&&draft.is_active&&<Button kind="danger--tertiary" disabled={saving} onClick={()=>void deactivate()}>停用模板</Button>}</div>
       </div>}
       {!rows.length&&!draft&&<p className="tp-settings__empty">尚无自定义模板。可以新建模板，或在单据中心使用系统默认版式。</p>}
       <div className="tp-document-template-settings__list"><h5>模板清单</h5>{rows.map(row=><div key={row.id}><span>{row.name}</span><small>{row.document_type} · {row.locale} · {row.is_default?'默认':'自定义'} · {row.is_active?'启用':'停用'}</small></div>)}</div>
