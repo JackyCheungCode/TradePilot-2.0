@@ -178,8 +178,6 @@ export function PlatformSelectionStep({
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(defaultPlatformPageSize);
-  const [selectionWarning, setSelectionWarning] = useState('');
-  const maxSelectedSources = 20;
 
 
   useEffect(() => { onSelectionCountChange(selected.length); onSelectionChange?.(allPlatforms.filter(source => selected.includes(source.id)).map(source => ({ id: source.id, name: source.name, category: source.category }))); }, [selected, onSelectionCountChange, onSelectionChange]);
@@ -204,32 +202,19 @@ export function PlatformSelectionStep({
   const selectedOnPage = visibleIds.filter(id => selected.includes(id)).length;
   const toggle = (id: string) => {
     if (!isRunnablePlatform(id)) return;
-    setSelected(current => {
-      if (current.includes(id)) return current.filter(value => value !== id);
-      if (current.length >= maxSelectedSources) { setSelectionWarning('每次方案最多选择 ' + maxSelectedSources + ' 个平台，请分批执行。'); return current; }
-      setSelectionWarning('');
-      return [...current, id];
-    });
+    setSelected(current => current.includes(id) ? current.filter(value => value !== id) : [...current, id]);
   };
   const togglePage = () => setSelected(current => {
     if (allVisibleSelected) return current.filter(id => !visibleIds.includes(id));
-    const additions = visibleIds.filter(id => !current.includes(id));
-    const remaining = Math.max(0, maxSelectedSources - current.length);
-    if (additions.length > remaining) setSelectionWarning('本页还有 ' + (additions.length - remaining) + ' 个平台未选中；每次方案最多选择 ' + maxSelectedSources + ' 个。');
-    else setSelectionWarning('');
-    return [...current, ...additions.slice(0, remaining)];
+    return [...current, ...visibleIds.filter(id => !current.includes(id))];
   });
-  const selectAllFiltered = () => setSelected(current => {
-    const additions = filtered.filter(source => isRunnablePlatform(source.id) && !current.includes(source.id)).map(source => source.id);
-    const remaining = Math.max(0, maxSelectedSources - current.length);
-    if (additions.length > remaining) setSelectionWarning('已达到本次方案上限，未选中的平台可在下一批任务中选择。');
-    else setSelectionWarning('');
-    return [...current, ...additions.slice(0, remaining)];
-  });
+  const selectAllFiltered = () => setSelected(current => [
+    ...current,
+    ...filtered.filter(source => isRunnablePlatform(source.id) && !current.includes(source.id)).map(source => source.id),
+  ]);
   const clearAllFiltered = () => {
     const filteredIds = new Set(filtered.map(source => source.id));
     setSelected(current => current.filter(id => !filteredIds.has(id)));
-    setSelectionWarning('');
   };
   const clearFilters = () => {
     setSearchTerm('');
@@ -265,8 +250,6 @@ export function PlatformSelectionStep({
           <Button kind="ghost" size="sm" onClick={clearAllFiltered} disabled={filtered.length === 0}>取消筛选结果</Button>
         </div>
       </div>
-
-      {selectionWarning && <div className="tp-prospect-discovery__selection-warning"><Tag type="red">选择上限</Tag><span>{selectionWarning}</span></div>}
 
       <div className="tp-prospect-discovery__platform-list" aria-live="polite">
         {visiblePlatforms.map(source => {
