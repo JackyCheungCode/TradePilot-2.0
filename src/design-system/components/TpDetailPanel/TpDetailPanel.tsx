@@ -1,5 +1,5 @@
 import { SidePanel } from '@carbon/ibm-products';
-import type { ReactNode, RefObject } from 'react';
+import type { ComponentProps, ReactNode, RefObject } from 'react';
 
 export interface TpDetailPanelProps {
   open: boolean;
@@ -9,7 +9,7 @@ export interface TpDetailPanelProps {
   size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
   onRequestClose: () => void;
   children: ReactNode;
-  actions?: React.ComponentProps<typeof SidePanel>['actions'];
+  actions?: ComponentProps<typeof SidePanel>['actions'];
   launcherButtonRef?: RefObject<HTMLElement>;
   className?: string;
 }
