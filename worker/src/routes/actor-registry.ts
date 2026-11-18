@@ -355,11 +355,49 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
       });
       return successResponse(request, { ...summary, message: passed ? "最小化测试通过，已自动启用该数据源。" : "最小化测试未通过质量门禁，数据源不会进入正式执行。" });
     }
+    if (request.method === "POST" && parts.length >= 6 && parts[3] === "schema" && parts[5] === "save") {
+      const actorId = decodeURIComponent(parts.slice(4, -1).join("/"));
+      if (!actorId || actorId.length > 240) return errorResponse(request, "INVALID_ACTOR_ID", "数据源标识无效。", 400);
+      const body = await request.json().catch(() => ({})) as { version?: string };
+      const version = safeText(body.version, 160);
+      if (!version) return errorResponse(request, "ACTOR_SCHEMA_VERSION_REQUIRED", "缺少需要保存的 Schema 版本。", 400);
+      const versions = await db<Array<{ version: string }>>(env,
+        "actor_schema_versions?owner_id=eq." + ownerId + "&actor_id=eq." + encodeURIComponent(actorId) + "&version=eq." + encodeURIComponent(version) + "&select=version&limit=1");
+      if (!versions?.[0]) return errorResponse(request, "ACTOR_SCHEMA_VERSION_NOT_FOUND", "该 Schema 版本不存在，请重新读取后再保存。", 404);
+      const registryRows = await db<Array<{ source_metadata: Record<string, unknown> }>>(env,
+        "actor_registry?owner_id=eq." + ownerId + "&actor_id=eq." + encodeURIComponent(actorId) + "&select=source_metadata&limit=1");
+      if (!registryRows?.[0]) return errorResponse(request, "ACTOR_NOT_REGISTERED", "该 Actor 尚未加入当前账户目录。", 404);
+      const previousMetadata = registryRows[0].source_metadata && typeof registryRows[0].source_metadata === "object" ? registryRows[0].source_metadata : {};
+      const savedAt = new Date().toISOString();
+      await db(env, "actor_registry?owner_id=eq." + ownerId + "&actor_id=eq." + encodeURIComponent(actorId), {
+        method: "PATCH", headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({ source_metadata: { ...previousMetadata, savedSchemaVersion: version, savedSchemaAt: savedAt } }),
+      });
+      actorSchemaCache.delete(ownerId + ":" + actorId);
+      return successResponse(request, { actorId, version, isSaved: true, savedAt });
+    }
     if (request.method === "GET" && parts.length >= 4 && parts[3] === "schema") {
       const actorId = decodeURIComponent(parts.slice(4).join("/"));
       if (!actorId || actorId.length > 240) return errorResponse(request, "INVALID_ACTOR_ID", "数据源标识无效。", 400);
       const schemaCacheKey = ownerId + ":" + actorId;
-      const schemaCached = actorSchemaCache.get(schemaCacheKey);
+      const refresh = url.searchParams.get("refresh") === "true";
+      const registryRows = await db<Array<{ status: string; quality_score: number | null; last_tested_at: string | null; source_metadata: Record<string, unknown> }>>(env,
+        "actor_registry?owner_id=eq." + ownerId + "&actor_id=eq." + encodeURIComponent(actorId) + "&select=status,quality_score,last_tested_at,source_metadata&limit=1");
+      const registryRow = registryRows?.[0];
+      const metadata = registryRow?.source_metadata ?? {};
+      const savedVersion = safeText(metadata.savedSchemaVersion, 160);
+      if (!refresh && savedVersion) {
+        const savedRows = await db<Array<{ version: string; localized_schema: Record<string, unknown> }>>(env,
+          "actor_schema_versions?owner_id=eq." + ownerId + "&actor_id=eq." + encodeURIComponent(actorId) + "&version=eq." + encodeURIComponent(savedVersion) + "&select=version,localized_schema&limit=1");
+        if (savedRows?.[0]?.localized_schema) {
+          const savedResponse = { actorId, version: savedRows[0].version, schema: savedRows[0].localized_schema, isSaved: true,
+            actor: { status: registryRow?.status ?? "discovered", quality_score: registryRow?.quality_score ?? null,
+              last_test_input_fingerprint: safeText((metadata.lastTest as Record<string, unknown> | undefined)?.inputFingerprint, 40) } };
+          actorSchemaCache.set(schemaCacheKey, { expiresAt: Date.now() + 30 * 60 * 1000, result: savedResponse });
+          return successResponse(request, savedResponse);
+        }
+      }
+      const schemaCached = !refresh ? actorSchemaCache.get(schemaCacheKey) : undefined;
       if (schemaCached && schemaCached.expiresAt > Date.now()) return successResponse(request, schemaCached.result);
       // Apify exposes full input definitions through the default Build, not /acts/{id}/input-schema.
       // If the Actor has no readable default Build, Store search can supply a compact fallback schema.
@@ -407,12 +445,9 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
         method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
         body: JSON.stringify({ owner_id: ownerId, actor_id: actorId, version, input_schema: schema, localized_schema: localized, fetched_at: new Date().toISOString() }),
       });
-      const registryRows = await db<Array<{ status: string; quality_score: number | null; last_tested_at: string | null; source_metadata: Record<string, unknown> }>>(env,
-        "actor_registry?owner_id=eq." + ownerId + "&actor_id=eq." + encodeURIComponent(actorId) + "&select=status,quality_score,last_tested_at,source_metadata&limit=1");
-      const registryRow = registryRows?.[0];
-      const metadata = registryRow?.source_metadata ?? {};
       const lastTest = metadata.lastTest && typeof metadata.lastTest === "object" ? metadata.lastTest as Record<string, unknown> : {};
-      const schemaResponse = { actorId, version, schema: localized, actor: { status: registryRow?.status ?? "discovered", quality_score: registryRow?.quality_score ?? null, last_test_input_fingerprint: safeText(lastTest.inputFingerprint, 40) } };
+      const schemaResponse = { actorId, version, schema: localized, isSaved: savedVersion === version,
+        actor: { status: registryRow?.status ?? "discovered", quality_score: registryRow?.quality_score ?? null, last_test_input_fingerprint: safeText(lastTest.inputFingerprint, 40) } };
       actorSchemaCache.set(schemaCacheKey, { expiresAt: Date.now() + 5 * 60 * 1000, result: schemaResponse });
       return successResponse(request, schemaResponse);
     }
