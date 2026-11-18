@@ -26,7 +26,7 @@ type SelectProps = Omit<
   | 'children'
   | 'hideLabel'
 > & {
-  labelText: ReactNode;
+  labelText: NonNullable<ReactNode>;
   value: string | number;
   hideLabel?: boolean;
   children?: ReactNode;
