@@ -72,7 +72,7 @@ export function SalesOrderConsolePage(){
  rows.forEach(r=>{const key=r.created_at?dayKey(new Date(r.created_at)):'';if(!countMap.has(key))return;countMap.set(key,(countMap.get(key)||0)+1);if(r.currency_code===currency)amountMap.set(key,(amountMap.get(key)||0)+totalFor(r));});
  const dailyAmount=days.map(d=>({group:(d.getMonth()+1)+'/'+d.getDate(),key:currency+' 订单金额',value:Number(amountMap.get(dayKey(d))||0)}));
  const dailyCount=days.map(d=>({group:(d.getMonth()+1)+'/'+d.getDate(),key:'订单数量',value:Number(countMap.get(dayKey(d))||0)}));
- const options={height:'260px',legend:{enabled:false},toolbar:{enabled:false},axes:{bottom:{title:'日期',mapsTo:'group',scaleType:ScaleTypes.LABELS},left:{mapsTo:'value',scaleType:ScaleTypes.LINEAR}}};
+ const options={theme:document.documentElement.dataset.carbonTheme==='g100'?'g100':'white',height:'260px',legend:{enabled:false},toolbar:{enabled:false},axes:{bottom:{title:'日期',mapsTo:'group',scaleType:ScaleTypes.LABELS},left:{mapsTo:'value',scaleType:ScaleTypes.LINEAR}}};
  return <main className="tp-sales-orders">
   <header className="tp-sales-orders__header"><div><p className="tp-sales-orders__eyebrow">TRADEPILOT / SALES</p><h1>销售订单（Sales Order）</h1><p>管理订单承诺、价格锁定、收款计划与交付履约。</p></div><div className="tp-sales-orders__actions"><Button kind="tertiary" onClick={()=>void load()} disabled={loading}><CarbonIcons.Renew size={16}/>刷新</Button><Button kind="primary" onClick={()=>nav('/sales-orders/new')}><CarbonIcons.Add size={16}/>创建销售订单</Button></div></header>
   {error&&<InlineNotification kind="error" title="销售订单读取失败" subtitle={error}/>}
