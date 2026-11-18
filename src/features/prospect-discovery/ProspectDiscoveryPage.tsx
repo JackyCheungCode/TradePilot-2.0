@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Button, Tag, Tabs, TabList, Tab, CarbonIcons,
+  Button, Link, Tag, Tabs, TabList, Tab, CarbonIcons,
 } from '@/design-system';
 import { PlatformSelectionStep } from './PlatformSelectionStep';
 import { ActorSchemaFields } from './ActorSchemaFields';
