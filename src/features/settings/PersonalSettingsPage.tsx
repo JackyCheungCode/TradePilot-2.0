@@ -200,11 +200,11 @@ export function PersonalSettingsPage() {
               <div className="tp-personal-settings__fields">
                 <div className="tp-personal-settings__field">
                   <Select id="tp-personal-theme" labelText="界面主题" value={preference} onChange={(event) => setPreference(event.currentTarget.value as 'system' | 'white' | 'g10' | 'g90' | 'dark')}>
-                    <SelectItem value="g10" text="浅灰色（Carbon G10，推荐）" />
+                    <SelectItem value="dark" text="深色（Carbon G100，系统默认）" />
+                    <SelectItem value="g90" text="深灰色（Carbon G90）" />
+                    <SelectItem value="g10" text="浅灰色（Carbon G10）" />
                     <SelectItem value="white" text="白色（Carbon White）" />
                     <SelectItem value="system" text="跟随设备系统" />
-                    <SelectItem value="g90" text="深灰色（Carbon G90）" />
-                    <SelectItem value="dark" text="深色（Carbon G100）" />
                   </Select>
                   <p className="tp-personal-settings__hint">主题选择会立即保存到当前账户，并同步到顶部主题菜单。</p>
                 </div>
