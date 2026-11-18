@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ChangeEvent } from 'react';
 import {
   Button, Link, FileUploaderButton, InlineLoading, InlineNotification, Select, SelectItem, TextInput, Toggle, CarbonIcons, useThemePreference,
 } from '@/design-system';
@@ -178,7 +178,7 @@ export function PersonalSettingsPage() {
                     labelText={uploading ? '正在上传头像…' : '上传 / 更换头像'}
                     name="profile-avatar"
                     disabled={uploading}
-                    onChange={(event) => void uploadAvatar(event.currentTarget.files?.[0])}
+                    onChange={(event: ChangeEvent<HTMLInputElement>) => void uploadAvatar(event.currentTarget.files?.[0])}
                   />
                   <div><strong>个人头像</strong><p>支持 JPG、PNG、WebP、AVIF，最大 2 MB。</p><span>头像保存后会同步到顶部账户图标。</span></div>
                 </div>
