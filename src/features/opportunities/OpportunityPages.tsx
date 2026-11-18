@@ -55,7 +55,7 @@ function Metric({ title, value, detail }: { title: string; value: string; detail
 function contactName(c?: ContactOption) { return c ? (c.full_name || [c.first_name,c.last_name].filter(Boolean).join(' ')) : ''; }
 
 export function OpportunityConsolePage() {
-  const nav = useNavigate();
+  
   const [rows,setRows] = useState<Opportunity[]>([]);
   const [accounts,setAccounts] = useState<AccountOption[]>([]);
   const [contacts,setContacts] = useState<ContactOption[]>([]);
