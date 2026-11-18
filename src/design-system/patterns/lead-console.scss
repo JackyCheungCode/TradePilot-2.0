@@ -41,3 +41,6 @@
 .tp-leads__loading{min-height:12rem;display:grid;place-items:center}
 @media(max-width:1000px){.tp-leads__analytics{grid-template-columns:1fr 1fr}.tp-leads__map-panel{grid-column:1/-1}.tp-leads__country-list{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:672px){.tp-leads__header{flex-direction:column}.tp-leads__header-actions{width:100%;justify-content:flex-end}.tp-leads__metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--cds-spacing-03)}.tp-leads__metric{padding:var(--cds-spacing-04)}.tp-leads__metric strong{font-size:1.5rem}.tp-leads__analytics,.tp-leads__filters{grid-template-columns:1fr}.tp-leads__panel{padding:var(--cds-spacing-04)}.tp-leads__country-list{grid-template-columns:repeat(2,minmax(0,1fr))}.tp-leads__map{aspect-ratio:1.4/1}.tp-leads__map-legend a{margin-left:0}}
+
+
+.tp-leads__panel .cds--cc--chart-wrapper{width:100%;min-width:0}
