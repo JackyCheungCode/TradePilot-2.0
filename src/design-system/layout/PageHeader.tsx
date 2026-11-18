@@ -1,9 +1,9 @@
 import { Children, cloneElement, createElement, isValidElement, type ReactElement, type ReactNode } from 'react';
-import { Add } from '../icons';
+import { semanticIcons } from '../icons';
 import { Button, ButtonSet, Heading, Link } from '../components';
 import './page-header.scss';
 
-type CarbonActionIcon = typeof Add;
+type CarbonActionIcon = typeof semanticIcons.add;
 
 export type PageHeaderAction = {
   id: string;
