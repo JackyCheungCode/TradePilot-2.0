@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Button, Dropdown, InlineLoading, InlineNotification, Modal, Tag, TextInput, Tile } from '@/design-system';
+import { Button, Dropdown, InlineLoading, InlineNotification, Modal, Tag, TextInput, Tile, PageSkeleton } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/settings.scss';
 
@@ -86,6 +86,7 @@ export function IntegrationsSettings({section}:{section:string}){
  const testSaved=async(p:Provider)=>{setTestingAI(true);try{const r=await request<{ok:boolean;message:string}>('/api/v1/settings/ai-providers/test',{method:'POST',body:JSON.stringify({providerKey:p.providerKey,protocol:p.protocol,baseUrl:p.baseUrl,model:p.model,secretName:p.secretName})});if(!r.ok)throw new Error(r.message);setAiNotice(p.name+'：'+r.message);}catch(e){setAiError(e instanceof Error?e.message:'测试失败');}finally{setTestingAI(false);}};
  const removeAI=async(p:Provider)=>{setSavingAI(true);try{await request('/api/v1/settings/ai-providers/'+encodeURIComponent(p.id),{method:'DELETE'});setAiNotice('AI 配置已删除。');await loadAI();}catch(e){setAiError(e instanceof Error?e.message:'删除失败');}finally{setSavingAI(false);}};
  const setDefault=async(p:Provider)=>{setSavingAI(true);try{const modelRef=p.id+'::'+p.model;const next={...config,defaultModel:modelRef,taskModels:{...config.taskModels,agent_chat:modelRef,agent_planning:modelRef,website_due_diligence:modelRef}};await request('/api/v1/settings/ai-config',{method:'PUT',body:JSON.stringify(next)});setConfig(next);setAiNotice('已将 '+p.name+' 设为小雅默认模型。');}catch(e){setAiError(e instanceof Error?e.message:'设置默认模型失败');}finally{setSavingAI(false);}};
+ if (apiLoading && aiLoading) return <PageSkeleton variant="form" />;
  return <>
  <div className="tp-integrations-settings">
  {section==='api'&&<><div className="tp-integrations-settings__intro"><h3>API 集成</h3><p>统一管理业务模块的第三方服务凭证。凭证在服务端加密保存，页面不会读取或回显密钥。</p></div><InlineNotification kind="info" title="Lusha 接入说明" subtitle="Lusha 当前 API 条款限制将其数据嵌入第三方产品；在取得 Lusha 书面授权前，TradePilot 暂不启用该数据源，避免违反服务条款。"/>
