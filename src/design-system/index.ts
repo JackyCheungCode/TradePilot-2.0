@@ -8,6 +8,8 @@ export * from './layout/PageHeader';
 export * from './hooks';
 export * from './utilities';
 export * from './providers';
+export { semanticIcons } from './icons';
+export type { SemanticIconName } from './icons';
 export * as CarbonIcons from './icons';
 export { typography } from './typography';
 export * from './data-visualization/WorldMapChart';
