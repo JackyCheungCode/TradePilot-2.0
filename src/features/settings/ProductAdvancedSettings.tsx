@@ -1,3 +1,4 @@
+import { PageSkeleton } from '@/design-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button, Checkbox, InlineLoading, InlineNotification, Select, SelectItem, Table, TableHead, TableRow, TableHeader, TableBody, TableCell, Tag, TextArea, TextInput, CarbonIcons } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
@@ -109,6 +110,7 @@ export function ProductAdvancedSettings({ section }: { section: string }) {
     setRows(current=>current.map(item=>item.id===row.id?{...item,is_active:!row.is_active}:item));
   };
   const display=(field:Field,value:unknown)=>field.options?.find(x=>x[0]===String(value))?.[1] ?? (value===true?'是':value===false?'否':String(value??'—'));
+  if (loading) return <PageSkeleton variant="table" />;
   return <div className="tp-settings__advanced">
     {error&&<InlineNotification kind="error" title="配置操作失败" subtitle={error} onCloseButtonClick={()=>setError('')}/>}
     {notice&&<InlineNotification kind="success" title="保存成功" subtitle={notice} onCloseButtonClick={()=>setNotice('')}/>}
