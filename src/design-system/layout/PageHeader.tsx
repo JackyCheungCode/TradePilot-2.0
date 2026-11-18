@@ -35,7 +35,12 @@ function normalizeLegacyActions(node: ReactNode, primaryAssigned: { current: boo
   const props = node.props as Record<string, unknown>;
   const children = props.children as ReactNode;
   if (isActionElement(node)) {
-    const label = nodeText(children);
+    const childNodes = Children.toArray(children);
+    const inlineIconIndex = props.renderIcon === undefined ? childNodes.findIndex((child) => isValidElement(child) && (child.props as Record<string, unknown>).size !== undefined) : -1;
+    const inlineIcon = inlineIconIndex >= 0 ? childNodes[inlineIconIndex] : undefined;
+    const actionChildren = inlineIconIndex >= 0 ? childNodes.filter((_, index) => index !== inlineIconIndex) : children;
+    const renderIcon = props.renderIcon ?? inlineIcon;
+    const label = nodeText(actionChildren);
     const inferredPrimary = /^(新建|创建|新增|添加|导入|保存|生成|开始)/.test(label.trim());
     const requestedPrimary = props.kind === 'primary';
     const primary = !primaryAssigned.current && (requestedPrimary || inferredPrimary);
@@ -45,8 +50,8 @@ function normalizeLegacyActions(node: ReactNode, primaryAssigned: { current: boo
     const kind = primary ? 'primary' : (props.kind === 'danger' || String(props.kind || '').startsWith('danger') ? props.kind : 'tertiary');
     const className = [String(props.className || ''), 'tp-page-header__action'].filter(Boolean).join(' ');
     return isButton
-      ? cloneElement(node, { kind, size: 'lg', className } as Record<string, unknown>)
-      : createElement(Button, { ...(props as Record<string, unknown>), kind, size: 'lg', className } as never, children);
+      ? cloneElement(node, { kind, size: 'lg', className, ...(renderIcon === undefined ? {} : { renderIcon }) } as Record<string, unknown>, actionChildren)
+      : createElement(Button, { ...(props as Record<string, unknown>), kind, size: 'lg', className, ...(renderIcon === undefined ? {} : { renderIcon }) } as never, actionChildren);
   }
   if (children === undefined) return node;
   let normalizedChildren = normalizeLegacyActions(children, primaryAssigned);
