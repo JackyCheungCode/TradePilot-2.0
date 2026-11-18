@@ -90,7 +90,7 @@ export function PageHeader({ breadcrumb, title, description, actions, className 
   }
 
   const primaryCount = (actions || []).filter((action) => action.kind === 'primary').length;
-  if (import.meta.env.DEV && primaryCount > 1) console.warn('PageHeader accepts at most one primary action.');
+  if (primaryCount > 1) console.warn('PageHeader accepts at most one primary action.');
   const explicitPrimary = (actions || []).findIndex((action) => action.kind === 'primary');
   const inferredPrimary = (actions || []).findIndex((action) => /^(新建|创建|新增|添加|导入|保存|生成|开始|create|add|import)/i.test(action.label.trim()));
   const primaryIndex = explicitPrimary >= 0 ? explicitPrimary : inferredPrimary;
