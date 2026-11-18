@@ -58,8 +58,8 @@ export function ProspectDiscoveryPage() {
             <strong>{steps[selectedIndex]}</strong>
           </div>
           <div className="tp-prospect-discovery__hub-actions">
-            <Button kind="secondary" size="md" renderIcon={CarbonIcons.DocumentMultiple_01} onClick={() => navigate('/prospect-history')}>历史任务</Button>
-            <Button kind="tertiary" size="md" renderIcon={CarbonIcons.DataBase} onClick={() => navigate('/prospect-data')}>潜客数据</Button>
+            <Link href="/prospect-history" renderIcon={CarbonIcons.DocumentMultiple_01}>历史任务</Link>
+            <Link href="/prospect-data" renderIcon={CarbonIcons.DataBase}>潜客数据</Link>
           </div>
         </div>
       </header>
