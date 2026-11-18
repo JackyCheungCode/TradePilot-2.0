@@ -207,35 +207,23 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
         const actorId = String(actor.actorId);
         const rows = await db<Array<{ status: string; source_metadata: Record<string, unknown> }>>(env,
           "actor_registry?owner_id=eq." + ownerId + "&actor_id=eq." + encodeURIComponent(actorId) + "&select=status,source_metadata&limit=1");
-        const schemas = await db<Array<{ version: string }>>(env,
-          "actor_schema_versions?owner_id=eq." + ownerId + "&actor_id=eq." + encodeURIComponent(actorId) + "&select=version&order=fetched_at.desc&limit=1");
+        const schemas = await db<Array<{ version: string; input_schema: Record<string, unknown> }>>(env,
+          "actor_schema_versions?owner_id=eq." + ownerId + "&actor_id=eq." + encodeURIComponent(actorId) + "&select=version,input_schema&order=fetched_at.desc&limit=1");
         const savedTest = rows?.[0]?.source_metadata?.lastTest && typeof rows[0].source_metadata.lastTest === "object"
           ? rows[0].source_metadata.lastTest as Record<string, unknown> : {};
-        const currentFingerprint = actor.schemaVersion && actor.input && typeof actor.input === "object"
-          ? inputFingerprint(actor.input, actor.schemaVersion) : "";
+        const schemaProperties = schemas?.[0]?.input_schema?.properties && typeof schemas[0].input_schema.properties === "object"
+          ? schemas[0].input_schema.properties as Record<string, unknown> : {};
+        const submittedInput = actor.input && typeof actor.input === "object" && !Array.isArray(actor.input) ? actor.input as Record<string, unknown> : {};
+        const schemaInput = Object.fromEntries(Object.entries(submittedInput).filter(([key]) => Object.prototype.hasOwnProperty.call(schemaProperties, key)));
+        const currentFingerprint = actor.schemaVersion ? inputFingerprint(schemaInput, actor.schemaVersion) : "";
         const enabled = actor.status === "enabled" && rows?.[0]?.status === "enabled"
           && Boolean(schemas?.[0]?.version) && schemas[0].version === actor.schemaVersion
           && Boolean(currentFingerprint) && currentFingerprint === safeText(savedTest.inputFingerprint, 40)
           && currentFingerprint === safeText(actor.inputFingerprint, 40);
-        return { actor, enabled };
+        return { actor, enabled, schemaInput };
       }));
-      const actors = verified.filter(item => item.enabled).map(({ actor }) => {
-        const schemaKeys = Array.isArray(actor.schemaKeys) ? actor.schemaKeys : [];
-        const input = actor.input && typeof actor.input === "object" ? { ...actor.input } : {};
-        const profile = body.profile ?? {};
-        const country = safeText(profile.country, 2);
-        const city = safeText(profile.city, 120);
-        const countryName = safeText(profile.countryName, 120);
-        const noun = safeText(profile.coreNoun, 240);
-        const intent: Record<string, unknown> = {
-          query: noun, searchQuery: noun, keyword: noun, keywords: noun ? [noun] : [],
-          country, countryCode: country, country_code: country, countryName,
-          location: city || countryName, city,
-        };
-        for (const key of schemaKeys) {
-          if (!(key in input) && key in intent && intent[key] !== "") input[key] = intent[key];
-          if (!(key in input) && ["limit", "maxItems", "maxResults", "resultsLimit"].includes(key)) input[key] = Math.max(1, Math.min(100, Number(body.limitPerCountry) || 20));
-        }
+      const actors = verified.filter(item => item.enabled).map(({ actor, schemaInput }) => {
+        const input = schemaInput;
         return {
           actorId: String(actor.actorId), sourceId: safeText(actor.sourceId, 100),
           sourceName: safeText(actor.sourceName, 160), actorTitle: safeText(actor.actorTitle, 200), schemaVersion: safeText(actor.schemaVersion, 160), inputFingerprint: safeText(actor.inputFingerprint, 40), input,
@@ -282,7 +270,7 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
       const body = await request.json().catch(() => ({})) as { actorId?: string; input?: Record<string, unknown>; expectedFieldCount?: number; schemaVersion?: string; profile?: { coreNoun?: string; country?: string; countryName?: string; city?: string } };
       const actorId = safeText(body.actorId, 240);
       if (!actorId) return errorResponse(request, "ACTOR_ID_REQUIRED", "缺少待测试的数据源标识。", 400);
-      const input = body.input && typeof body.input === "object" && !Array.isArray(body.input) ? { ...body.input } : {};
+      const submittedInput = body.input && typeof body.input === "object" && !Array.isArray(body.input) ? { ...body.input } : {};
       const schemas = await db<Array<{ version: string; input_schema: Record<string, unknown> }>>(env,
         "actor_schema_versions?owner_id=eq." + ownerId + "&actor_id=eq." + encodeURIComponent(actorId) + "&select=version,input_schema&order=fetched_at.desc&limit=1");
       if (!schemas?.[0] || (body.schemaVersion && body.schemaVersion !== schemas[0].version)) {
@@ -291,11 +279,8 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
       const schemaVersion = safeText(body.schemaVersion || schemas[0].version, 120);
       const properties = schemas[0].input_schema?.properties && typeof schemas[0].input_schema.properties === "object"
         ? schemas[0].input_schema.properties as Record<string, unknown> : {};
-      const profile = body.profile ?? {};
-      const noun = safeText(profile.coreNoun, 240), country = safeText(profile.country, 2);
-      const intent: Record<string, unknown> = { query: noun, searchQuery: noun, keyword: noun, keywords: noun ? [noun] : [], country, countryCode: country, country_code: country, countryName: safeText(profile.countryName, 120), city: safeText(profile.city, 120), location: safeText(profile.city || profile.countryName, 120) };
+      const input = Object.fromEntries(Object.entries(submittedInput).filter(([key]) => Object.prototype.hasOwnProperty.call(properties, key)));
       for (const key of Object.keys(properties)) {
-        if (!(key in input) && key in intent && intent[key] !== "") input[key] = intent[key];
         if (key in input && ["maxItems", "maxResults", "maxResultsPerQuery", "resultsLimit", "maxItemsPerRun", "limit"].includes(key)) input[key] = 1;
       }
       const serializedInput = JSON.stringify(input);
