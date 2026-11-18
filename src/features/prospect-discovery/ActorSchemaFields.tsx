@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Button, Checkbox, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextArea, TextInput } from '@/design-system';
+import { Accordion, AccordionItem, Button, Checkbox, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextArea, TextInput } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 
 type Source = { id: string; name: string; category?: string };
@@ -8,7 +8,7 @@ type SchemaField = {
   enum?: unknown[]; default?: unknown; minimum?: number; maximum?: number; required?: boolean;
 };
 type ActorSchema = { properties?: Record<string, SchemaField>; required?: string[]; translatedProperties?: Record<string, { titleZh?: string; descriptionZh?: string; usageZh?: string; translationStatus?: string }> };
-type LoadedSchema = { source: Source; actorId: string; actorTitle: string; schemaVersion: string; actorStatus?: string; actorQualityScore?: number | null; actorInputFingerprint?: string; schema: ActorSchema };
+type LoadedSchema = { source: Source; actorId: string; actorTitle: string; schemaVersion: string; actorStatus?: string; actorQualityScore?: number | null; actorInputFingerprint?: string; isSaved?: boolean; schema: ActorSchema };
 type Props = { sources: Source[]; onValuesChange: (values: Record<string, unknown>) => void };
 
 async function api(path: string, token: string, init: RequestInit = {}) {
@@ -99,6 +99,7 @@ export function ActorSchemaFields({ sources, onValuesChange }: Props) {
   const [expandedHelp, setExpandedHelp] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [refreshingActorId, setRefreshingActorId] = useState('');
   const sourceKey = useMemo(() => sources.map(source => source.id + ':' + source.name).sort().join('|'), [sources]);
 
   useEffect(() => {
@@ -120,12 +121,12 @@ export function ActorSchemaFields({ sources, onValuesChange }: Props) {
             for (const actor of candidates.slice(0, 5)) {
               const actorId = String(actor.actor_id);
               try {
-                const result = await api('/api/v1/actor-registry/schema/' + encodeURIComponent(actorId), token) as { version?: string; schema?: ActorSchema; actor?: { status?: string; quality_score?: number | null; last_test_input_fingerprint?: string } };
+                const result = await api('/api/v1/actor-registry/schema/' + encodeURIComponent(actorId), token) as { version?: string; schema?: ActorSchema; isSaved?: boolean; actor?: { status?: string; quality_score?: number | null; last_test_input_fingerprint?: string } };
                 if (!result.schema || !Object.keys(result.schema.properties ?? {}).length) {
                   schemaFailures.push(String(actor.title || actor.actor_name || actorId) + '：接口未返回 properties 字段');
                   continue;
                 }
-                return { source, actorId, actorTitle: String(actor.title || actor.actor_name || '平台专用采集器'), schemaVersion: String(result.version || 'latest'), actorStatus: result.actor?.status, actorQualityScore: result.actor?.quality_score, actorInputFingerprint: result.actor?.last_test_input_fingerprint, schema: result.schema } as LoadedSchema;
+                return { source, actorId, actorTitle: String(actor.title || actor.actor_name || '平台专用采集器'), schemaVersion: String(result.version || 'latest'), actorStatus: result.actor?.status, actorQualityScore: result.actor?.quality_score, actorInputFingerprint: result.actor?.last_test_input_fingerprint, isSaved: Boolean(result.isSaved), schema: result.schema } as LoadedSchema;
               } catch (schemaError) {
                 schemaFailures.push(String(actor.title || actor.actor_name || actorId) + '：' + (schemaError instanceof Error ? schemaError.message : String(schemaError)));
               }
@@ -168,6 +169,21 @@ export function ActorSchemaFields({ sources, onValuesChange }: Props) {
   useEffect(() => { onValuesChange(actorParameters); }, [actorParameters, onValuesChange]);
 
   const setField = (key: string, value: unknown) => setValues(current => ({ ...current, [key]: value }));
+  const refreshSchema = async (item: LoadedSchema) => {
+    if (refreshingActorId) return;
+    setRefreshingActorId(item.actorId);
+    try {
+      const token = await accessToken();
+      const result = await api('/api/v1/actor-registry/schema/' + encodeURIComponent(item.actorId) + '?refresh=true', token) as { version?: string; schema?: ActorSchema; isSaved?: boolean };
+      if (!result.schema || !Object.keys(result.schema.properties ?? {}).length) throw new Error('刷新后未取得有效 Schema。');
+      setItems(current => current.map(existing => existing.actorId === item.actorId
+        ? { ...existing, schemaVersion: String(result.version || 'latest'), schema: result.schema!, isSaved: Boolean(result.isSaved) }
+        : existing));
+      setError('');
+    } catch (refreshError) {
+      setError(item.source.name + '：' + (refreshError instanceof Error ? refreshError.message : 'Schema 刷新失败。'));
+    } finally { setRefreshingActorId(''); }
+  };
   if (!sources.length) return null;
   return <section className="tp-prospect-discovery__section tp-prospect-discovery__actor-schema" aria-label="数据源动态参数">
     <div className="tp-prospect-discovery__section-heading">
@@ -176,18 +192,23 @@ export function ActorSchemaFields({ sources, onValuesChange }: Props) {
     {loading && <InlineLoading description="正在匹配数据源并读取输入字段…" />}
     {error && <InlineNotification kind="error" title="动态参数读取失败" subtitle={error} />}
     {!loading && !error && !items.length && <InlineNotification kind="info" title="暂无可用参数 Schema" subtitle="当前所选平台尚未找到可读取的 Actor Schema；请检查数据源目录和 API 凭证。" />}
-    {items.map(item => {
+    {items.length > 0 && <Accordion className="tp-prospect-discovery__actor-schema-accordion">{items.map((item, index) => {
       const properties = item.schema.properties ?? {};
       const required = new Set(item.schema.required ?? []);
       const validation = validateActorInput(item, buildActorInput(item, values));
       const isEnabled = validation.valid;
-      return <div className="tp-prospect-discovery__actor-schema-group" key={item.source.id + ':' + item.actorId}>
-        <div className="tp-prospect-discovery__actor-schema-heading">
-          <div><strong>{item.source.name}</strong><span>{item.actorTitle}</span></div>
-          <div className="tp-prospect-discovery__actor-schema-actions">
-            <Tag type={isEnabled ? 'green' : 'blue'}>{isEnabled ? '参数完整 · 可执行' : '待补充必填项'}</Tag>
-          </div>
+      return <AccordionItem key={item.source.id + ':' + item.actorId} open={index === 0} title={<div className="tp-prospect-discovery__actor-schema-heading">
+        <div><strong>{item.source.name}</strong><span>{item.actorTitle}</span></div>
+        <div className="tp-prospect-discovery__actor-schema-actions">
+          {item.isSaved && <Tag type="green">Schema 已保存</Tag>}
+          <Tag type={isEnabled ? 'green' : 'blue'}>{isEnabled ? '参数完整 · 可执行' : '待补充必填项'}</Tag>
         </div>
+      </div>}>
+        <div className="tp-prospect-discovery__actor-schema-group">
+          <div className="tp-prospect-discovery__actor-schema-toolbar">
+            <span>Schema 版本：{item.schemaVersion}</span>
+            <Button kind="ghost" size="sm" disabled={Boolean(refreshingActorId)} onClick={() => void refreshSchema(item)}>{refreshingActorId === item.actorId ? '正在刷新…' : '重新读取 Schema'}</Button>
+          </div>
         {!validation.valid && <InlineNotification kind="warning" lowContrast title="请补全 Schema 参数" subtitle={[...(validation.missing.length ? ['必填：' + validation.missing.join('、')] : []), ...(validation.invalid.length ? ['格式：' + validation.invalid.join('、')] : [])].join('；')} />}
         {validation.valid && <InlineNotification kind="success" lowContrast title="参数校验完成" subtitle="Schema 必填字段与字段类型均符合要求，可以进入执行步骤；不会发起 Actor 测试任务。" />}
         <div className="tp-prospect-discovery__actor-schema-fields">
@@ -221,7 +242,8 @@ export function ActorSchemaFields({ sources, onValuesChange }: Props) {
             </div>;
           })}
         </div>
-      </div>;
-    })}
+        </div>
+      </AccordionItem>;
+    })}</Accordion>}
   </section>;
 }

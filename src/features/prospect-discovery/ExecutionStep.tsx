@@ -66,6 +66,9 @@ export function ExecutionStep({ sources, actorParameters = {}, onEditStep, onCon
   const [starting, setStarting] = useState(false);
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [confirmedExecution, setConfirmedExecution] = useState(false);
+  const [savingSchema, setSavingSchema] = useState(false);
+  const [schemaSaveStatus, setSchemaSaveStatus] = useState<'idle' | 'saved' | 'partial' | 'failed'>('idle');
+  const [schemaSaveMessage, setSchemaSaveMessage] = useState('');
   const appendLog = (message: string) => setLogs(current => [...current.slice(-79), '[' + nowTime() + '] ' + message]);
   const runStorageKey = 'tradepilot.prospectDiscovery.runs.' + planTaskCode;
   const actorPlans = Array.isArray(actorParameters.actors) ? actorParameters.actors as Array<Record<string, unknown>> : [];
@@ -222,6 +225,28 @@ export function ExecutionStep({ sources, actorParameters = {}, onEditStep, onCon
   });
   const hasRunnableSource = configuredChannels.length > 0;
   const allFinished = status === 'completed' || status === 'failed';
+  const saveSchemas = async () => {
+    if (savingSchema || !enabledActorPlans.length) return;
+    setSavingSchema(true); setSchemaSaveMessage('');
+    try {
+      const token = await getAccessToken();
+      const results = await Promise.allSettled(enabledActorPlans.map(actor =>
+        requestApi('/api/v1/actor-registry/schema/' + encodeURIComponent(String(actor.actorId)) + '/save', token, {
+          method: 'POST', body: JSON.stringify({ version: String(actor.schemaVersion || '') }),
+        })
+      ));
+      const saved = results.filter(result => result.status === 'fulfilled').length;
+      const failed = results.length - saved;
+      setSchemaSaveStatus(failed === 0 ? 'saved' : saved > 0 ? 'partial' : 'failed');
+      setSchemaSaveMessage(failed === 0
+        ? '已保存 ' + saved + ' 个 Actor Schema。下次选择相同 Actor 时将优先使用已保存版本，不再重复请求 Apify。'
+        : '成功保存 ' + saved + ' 个，失败 ' + failed + ' 个。可再次点击重试；本次任务结果不受影响。');
+      appendLog('[SCHEMA CACHE] 已保存 ' + saved + ' / ' + results.length + ' 个 Actor Schema。');
+    } catch (error) {
+      setSchemaSaveStatus('failed');
+      setSchemaSaveMessage(error instanceof Error ? error.message : '保存 Schema 失败。');
+    } finally { setSavingSchema(false); }
+  };
 
   return (
     <section className="tp-prospect-discovery__step tp-execution">
@@ -278,9 +303,11 @@ export function ExecutionStep({ sources, actorParameters = {}, onEditStep, onCon
         <div className="tp-execution__actions">
           {status === 'idle' && <Button kind="primary" renderIcon={CarbonIcons.Play} disabled={starting || !hasRunnableSource || !confirmedExecution} onClick={startTask}>{starting ? '正在创建任务…' : '开始执行全网搜索'}</Button>}
           {status === 'running' && <Button kind="secondary" renderIcon={CarbonIcons.Reset} onClick={() => appendLog('[SYSTEM] 状态将在下一次轮询时刷新。')}>刷新状态（自动轮询中）</Button>}
+          {allFinished && enabledActorPlans.length > 0 && schemaSaveStatus !== 'saved' && <Button kind="secondary" disabled={savingSchema} onClick={() => void saveSchemas()}>{savingSchema ? '正在保存 Schema…' : '保存本次 Schema'}</Button>}
           {allFinished && <Button kind="secondary" renderIcon={CarbonIcons.Reset} onClick={resetTask}>开始新一轮任务</Button>}
           {status === 'completed' && <Button kind="primary" renderIcon={CarbonIcons.ArrowRight} disabled={!recordIds.length} onClick={() => onContinueToScoring(recordIds)}>进入第四步：处理 {recordIds.length} 条真实检索结果</Button>}
         </div>
+        {schemaSaveMessage && <InlineNotification kind={schemaSaveStatus === 'failed' ? 'error' : schemaSaveStatus === 'partial' ? 'warning' : 'success'} lowContrast title="Actor Schema 保存状态" subtitle={schemaSaveMessage} />}
         {status === 'completed' && <InlineNotification kind="success" lowContrast title="后端任务已结束" subtitle={'已获取 ' + recordIds.length + ' 条真实结果记录。'} />}
         {status === 'failed' && <InlineNotification kind="error" lowContrast title="任务未能启动" subtitle="请检查上方任务反馈与渠道凭证配置。历史任务不会因此被删除。" />}
       </Tile>

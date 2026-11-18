@@ -180,7 +180,29 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
       const body = await request.json().catch(() => ({})) as { platform?: string; query?: string };
       const search = safeText(body.query || body.platform, 120).trim();
       if (!search) return errorResponse(request, "SEARCH_REQUIRED", "请提供目标平台或能力关键词。", 400);
-      const cacheKey = ownerId + ":" + safeText(body.platform, 80) + ":" + search.toLowerCase();
+      const platform = safeText(body.platform, 80);
+      if (platform) {
+        const registryRows = await db<Array<{ actor_id: string; actor_name: string; title: string; description: string; platforms: string[]; status: string; quality_score: number | null; stability_score: number | null; source_metadata: Record<string, unknown> }>>(env,
+          "actor_registry?owner_id=eq." + ownerId + "&select=actor_id,actor_name,title,description,platforms,status,quality_score,stability_score,source_metadata&limit=1000");
+        const savedActors = (registryRows ?? []).filter(row =>
+          Array.isArray(row.platforms) && row.platforms.includes(platform)
+          && typeof row.source_metadata?.savedSchemaVersion === "string"
+        );
+        if (savedActors.length) {
+          return successResponse(request, {
+            discovered: savedActors.length,
+            items: savedActors.map(row => ({
+              actor_id: row.actor_id, name: row.actor_name, actor_name: row.actor_name,
+              title: row.title || row.actor_name, description: row.description || "",
+              platforms: row.platforms, status: row.status,
+              quality_score: row.quality_score, stability_score: row.stability_score,
+              saved_schema_version: safeText(row.source_metadata.savedSchemaVersion, 160),
+            })),
+            warnings: [], savedSchemaCache: true,
+          });
+        }
+      }
+      const cacheKey = ownerId + ":" + platform + ":" + search.toLowerCase();
       const cacheEntry = actorDiscoveryCache.get(cacheKey);
       let ownedItems: ActorRecord[] = [];
       let storeItems: ActorRecord[] = [];
@@ -355,11 +377,50 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
       });
       return successResponse(request, { ...summary, message: passed ? "最小化测试通过，已自动启用该数据源。" : "最小化测试未通过质量门禁，数据源不会进入正式执行。" });
     }
+    if (request.method === "POST" && parts.length >= 6 && parts[3] === "schema" && parts[5] === "save") {
+      const actorId = decodeURIComponent(parts.slice(4, -1).join("/"));
+      if (!actorId || actorId.length > 240) return errorResponse(request, "INVALID_ACTOR_ID", "数据源标识无效。", 400);
+      const body = await request.json().catch(() => ({})) as { version?: string };
+      const version = safeText(body.version, 160);
+      if (!version) return errorResponse(request, "ACTOR_SCHEMA_VERSION_REQUIRED", "缺少需要保存的 Schema 版本。", 400);
+      const versions = await db<Array<{ version: string }>>(env,
+        "actor_schema_versions?owner_id=eq." + ownerId + "&actor_id=eq." + encodeURIComponent(actorId) + "&select=version&order=fetched_at.desc&limit=1");
+      if (!versions?.[0]) return errorResponse(request, "ACTOR_SCHEMA_VERSION_NOT_FOUND", "该 Actor 尚无可保存的 Schema，请重新读取。", 404);
+      if (versions[0].version !== version) return errorResponse(request, "ACTOR_SCHEMA_VERSION_STALE", "Schema 已有更新版本，请重新读取后再保存。", 409);
+      const registryRows = await db<Array<{ source_metadata: Record<string, unknown> }>>(env,
+        "actor_registry?owner_id=eq." + ownerId + "&actor_id=eq." + encodeURIComponent(actorId) + "&select=source_metadata&limit=1");
+      if (!registryRows?.[0]) return errorResponse(request, "ACTOR_NOT_REGISTERED", "该 Actor 尚未加入当前账户目录。", 404);
+      const previousMetadata = registryRows[0].source_metadata && typeof registryRows[0].source_metadata === "object" ? registryRows[0].source_metadata : {};
+      const savedAt = new Date().toISOString();
+      await db(env, "actor_registry?owner_id=eq." + ownerId + "&actor_id=eq." + encodeURIComponent(actorId), {
+        method: "PATCH", headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({ source_metadata: { ...previousMetadata, savedSchemaVersion: version, savedSchemaAt: savedAt } }),
+      });
+      actorSchemaCache.delete(ownerId + ":" + actorId);
+      return successResponse(request, { actorId, version, isSaved: true, savedAt });
+    }
     if (request.method === "GET" && parts.length >= 4 && parts[3] === "schema") {
       const actorId = decodeURIComponent(parts.slice(4).join("/"));
       if (!actorId || actorId.length > 240) return errorResponse(request, "INVALID_ACTOR_ID", "数据源标识无效。", 400);
       const schemaCacheKey = ownerId + ":" + actorId;
-      const schemaCached = actorSchemaCache.get(schemaCacheKey);
+      const refresh = url.searchParams.get("refresh") === "true";
+      const registryRows = await db<Array<{ status: string; quality_score: number | null; last_tested_at: string | null; source_metadata: Record<string, unknown> }>>(env,
+        "actor_registry?owner_id=eq." + ownerId + "&actor_id=eq." + encodeURIComponent(actorId) + "&select=status,quality_score,last_tested_at,source_metadata&limit=1");
+      const registryRow = registryRows?.[0];
+      const metadata = registryRow?.source_metadata ?? {};
+      const savedVersion = safeText(metadata.savedSchemaVersion, 160);
+      if (!refresh && savedVersion) {
+        const savedRows = await db<Array<{ version: string; localized_schema: Record<string, unknown> }>>(env,
+          "actor_schema_versions?owner_id=eq." + ownerId + "&actor_id=eq." + encodeURIComponent(actorId) + "&version=eq." + encodeURIComponent(savedVersion) + "&select=version,localized_schema&limit=1");
+        if (savedRows?.[0]?.localized_schema) {
+          const savedResponse = { actorId, version: savedRows[0].version, schema: savedRows[0].localized_schema, isSaved: true,
+            actor: { status: registryRow?.status ?? "discovered", quality_score: registryRow?.quality_score ?? null,
+              last_test_input_fingerprint: safeText((metadata.lastTest as Record<string, unknown> | undefined)?.inputFingerprint, 40) } };
+          actorSchemaCache.set(schemaCacheKey, { expiresAt: Date.now() + 30 * 60 * 1000, result: savedResponse });
+          return successResponse(request, savedResponse);
+        }
+      }
+      const schemaCached = !refresh ? actorSchemaCache.get(schemaCacheKey) : undefined;
       if (schemaCached && schemaCached.expiresAt > Date.now()) return successResponse(request, schemaCached.result);
       // Apify exposes full input definitions through the default Build, not /acts/{id}/input-schema.
       // If the Actor has no readable default Build, Store search can supply a compact fallback schema.
@@ -407,12 +468,9 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
         method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
         body: JSON.stringify({ owner_id: ownerId, actor_id: actorId, version, input_schema: schema, localized_schema: localized, fetched_at: new Date().toISOString() }),
       });
-      const registryRows = await db<Array<{ status: string; quality_score: number | null; last_tested_at: string | null; source_metadata: Record<string, unknown> }>>(env,
-        "actor_registry?owner_id=eq." + ownerId + "&actor_id=eq." + encodeURIComponent(actorId) + "&select=status,quality_score,last_tested_at,source_metadata&limit=1");
-      const registryRow = registryRows?.[0];
-      const metadata = registryRow?.source_metadata ?? {};
       const lastTest = metadata.lastTest && typeof metadata.lastTest === "object" ? metadata.lastTest as Record<string, unknown> : {};
-      const schemaResponse = { actorId, version, schema: localized, actor: { status: registryRow?.status ?? "discovered", quality_score: registryRow?.quality_score ?? null, last_test_input_fingerprint: safeText(lastTest.inputFingerprint, 40) } };
+      const schemaResponse = { actorId, version, schema: localized, isSaved: savedVersion === version,
+        actor: { status: registryRow?.status ?? "discovered", quality_score: registryRow?.quality_score ?? null, last_test_input_fingerprint: safeText(lastTest.inputFingerprint, 40) } };
       actorSchemaCache.set(schemaCacheKey, { expiresAt: Date.now() + 5 * 60 * 1000, result: schemaResponse });
       return successResponse(request, schemaResponse);
     }
