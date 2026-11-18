@@ -1,7 +1,7 @@
 import { PageHeader } from '@/design-system';
 import { useCallback, useState } from 'react';
 import {
-  Button, Link, Tag, Tabs, TabList, Tab, CarbonIcons,
+  Button, Link, Tag, Tabs, TabList, Tab, semanticIcons,
 } from '@/design-system';
 import { PlatformSelectionStep } from './PlatformSelectionStep';
 import { ActorSchemaFields } from './ActorSchemaFields';
@@ -58,8 +58,8 @@ export function ProspectDiscoveryPage() {
             <strong>{steps[selectedIndex]}</strong>
           </div>
           <div className="tp-prospect-discovery__hub-actions">
-            <Link href="/prospect-history" renderIcon={CarbonIcons.DocumentMultiple_01}>历史任务</Link>
-            <Link href="/prospect-data" renderIcon={CarbonIcons.DataBase}>潜客数据</Link>
+            <Link href="/prospect-history" renderIcon={semanticIcons.documents}>历史任务</Link>
+            <Link href="/prospect-data" renderIcon={semanticIcons.database}>潜客数据</Link>
           </div>
         </div>
       </PageHeader>
@@ -101,9 +101,9 @@ export function ProspectDiscoveryPage() {
 
       {selectedIndex !== 2 && (
         <div className="tp-prospect-discovery__step-navigation">
-          <Button kind="secondary" renderIcon={CarbonIcons.ArrowLeft} onClick={() => setSelectedIndex(index => Math.max(0, index - 1))} disabled={selectedIndex === 0}>上一步</Button>
+          <Button kind="secondary" renderIcon={semanticIcons.back} onClick={() => setSelectedIndex(index => Math.max(0, index - 1))} disabled={selectedIndex === 0}>上一步</Button>
           <span>第 {selectedIndex + 1} 步，共 5 步</span>
-          <Button kind="primary" renderIcon={CarbonIcons.ArrowRight} onClick={() => setSelectedIndex(index => Math.min(4, index + 1))} disabled={selectedIndex === 3 || selectedIndex === 4 || (selectedIndex === 0 && selectedSourceCount === 0) || (selectedIndex === 1 && !actorSchemaReady)}>下一步</Button>
+          <Button kind="primary" renderIcon={semanticIcons.next} onClick={() => setSelectedIndex(index => Math.min(4, index + 1))} disabled={selectedIndex === 3 || selectedIndex === 4 || (selectedIndex === 0 && selectedSourceCount === 0) || (selectedIndex === 1 && !actorSchemaReady)}>下一步</Button>
         </div>
       )}
     </main>
