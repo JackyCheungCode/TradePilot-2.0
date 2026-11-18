@@ -163,7 +163,7 @@ export function OpportunityFormPage() {
       <TabPanel><div className="tp-opportunities__tab-content"><h2>竞争情况</h2><div className="tp-opportunities__grid">{label('opp-competitor','竞争对手',data.competitor,v=>set('competitor',v),'多个竞争对手以逗号分隔')}{label('opp-competitive-product','竞争产品',data.competitive_product,v=>set('competitive_product',v))}{area('opp-competitive-advantages','我方竞争优势',data.competitive_advantages,v=>set('competitive_advantages',v))}{area('opp-competitive-disadvantages','我方竞争劣势',data.competitive_disadvantages,v=>set('competitive_disadvantages',v))}</div></div></TabPanel>
       <TabPanel><div className="tp-opportunities__tab-content"><h2>跟进记录</h2><div className="tp-opportunities__grid">{area('opp-follow-up-summary','最近跟进结果',data.follow_up_summary,v=>set('follow_up_summary',v))}{area('opp-internal-notes','内部备注',data.internal_notes,v=>set('internal_notes',v))}</div><p className="tp-opportunities__hint">活动中心尚未建立独立活动实体；当前保存下一步行动与跟进摘要，不虚构活动记录。</p></div></TabPanel>
     </TabPanels></Tabs></section>
-    <footer className="tp-opportunities__footer"><span>商机名称、所属客户为必填项；主要联系人只能选择该客户下的联系人。</span><div><Link href="/opportunities">取消</Link><Button kind="primary" disabled={saving} onClick={()=>void save()}>{saving?'保存中…':'保存商机'}</Button></div></footer>
+    <footer className="tp-opportunities__footer"><span>商机名称、所属客户为必填项；主要联系人只能选择该客户下的联系人。</span><div><Link href="/opportunities">取消</Link>{saving && <InlineLoading status="active" description="正在保存商机…" />}<Button kind="primary" disabled={saving} onClick={()=>void save()}>保存商机</Button></div></footer>
   </main>;
 }
 
@@ -260,8 +260,8 @@ export function OpportunityDetailPage() {
        {transitionError&&<InlineNotification kind="error" title="无法提交" subtitle={transitionError}/>}
      </ModalBody>
      <ModalFooter>
-       <Button kind="secondary" disabled={saving} onClick={()=>setLifecycleOpen(false)}>取消</Button>
-       <Button kind="primary" disabled={saving||!confirmed||!nextStage||(nextStage==='lost'&&!transitionNote.trim())} onClick={()=>void submitTransition()}>{saving?'提交中…':'确认并更新'}</Button>
+       {saving && <InlineLoading status="active" description="正在处理：确认并更新…" />}<Button kind="secondary" disabled={saving} onClick={()=>setLifecycleOpen(false)}>取消</Button>
+       <Button kind="primary" disabled={saving||!confirmed||!nextStage||(nextStage==='lost'&&!transitionNote.trim())} onClick={()=>void submitTransition()}>确认并更新</Button>
      </ModalFooter>
    </ComposedModal>
  </main>;
