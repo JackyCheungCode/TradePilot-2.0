@@ -169,7 +169,7 @@ export async function processActorDiscoveryRun(env: DiscoveryEnv, runId: string,
       const status = textValue(run.status).toUpperCase();
       const datasetId = textValue(run.defaultDatasetId);
       if (!actorRunId || status !== "SUCCEEDED" || !datasetId) throw new Error("ACTOR_RUN_" + (status || "NO_STATUS"));
-      const dataset = await gateway<unknown>("datasets/" + encodeURIComponent(datasetId) + "/items?format=json&clean=true");
+      const dataset = await gateway<unknown>("datasets/" + encodeURIComponent(datasetId) + "/items?format=json&clean=true", token);
       const items = Array.isArray(dataset) ? dataset : Array.isArray(asObject(dataset).data) ? asObject(dataset).data as unknown[] : [];
       let actorCreated = 0, actorFailedItems = 0;
       for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
@@ -189,6 +189,20 @@ export async function processActorDiscoveryRun(env: DiscoveryEnv, runId: string,
           actorFailedItems++;
           try { await log(env, runId, ownerId, "error", actor.sourceName + " 第 " + (itemIndex + 1) + " 条原始数据保存失败：" + String(error).slice(0, 220)); } catch (logError) { console.error("ACTOR_ITEM_LOG_FAILED", String(logError).slice(0, 160)); }
         }
+        const captured = normalizeItem(raw);
+        const fieldSummary = [
+          "企业：" + (captured.name || "未识别"),
+          "国家/地区：" + (captured.countryCode || "未提供"),
+          "地址：" + (captured.address || "未提供"),
+          "官网：" + (captured.website || "未提供"),
+          "电话：" + (captured.phone || "未提供"),
+          "邮箱：" + (captured.email || "未提供"),
+          "业务类型：" + (captured.businessType || "未提供"),
+        ].join("；");
+        try {
+          await log(env, runId, ownerId, "info",
+            "[抓取客户数据] " + actor.sourceName + " · 第 " + (itemIndex + 1) + " 条 · 原始数据已保存；" + fieldSummary);
+        } catch (error) { console.error("ACTOR_CUSTOMER_LOG_FAILED", String(error).slice(0, 180)); }
         const processed = itemIndex + 1;
         const progress = Math.min(95, 5 + Math.floor((processed / Math.max(items.length, 1)) * 90));
         try {
