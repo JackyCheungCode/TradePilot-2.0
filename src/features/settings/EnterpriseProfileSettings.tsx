@@ -1,3 +1,4 @@
+import { PageSkeleton } from '@/design-system';
 import { useCallback, useEffect, useState } from 'react';
 import {
   Button, InlineLoading, InlineNotification, TextInput, TextArea, Tag,
@@ -198,6 +199,7 @@ export function EnterpriseProfileSettings() {
     } catch (cause) { setError(cause instanceof Error ? cause.message : '更新默认银行账户失败'); }
   };
 
+  if (loading) return <PageSkeleton variant="table" />;
   return (
     <div className="tp-settings__advanced tp-enterprise-profile">
       <div className="tp-enterprise-profile__intro">
