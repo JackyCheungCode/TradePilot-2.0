@@ -31,14 +31,14 @@ async function readJson(url: string) {
   return response.json();
 }
 function weatherIcon(code:number) {
-  if (code === 0) return '☀️';
-  if ([1,2].includes(code)) return '🌤️';
-  if (code === 3) return '☁️';
-  if ([45,48].includes(code)) return '🌫️';
-  if ([51,53,55,56,57,61,63,65,66,67,80,81,82].includes(code)) return '🌧️';
-  if ([71,73,75,77,85,86].includes(code)) return '❄️';
-  if ([95,96,99].includes(code)) return '⛈️';
-  return '🌡️';
+  if (code === 0) return <CarbonIcons.Sun size={20} />;
+  if ([1,2].includes(code)) return <CarbonIcons.PartlyCloudy size={20} />;
+  if (code === 3) return <CarbonIcons.Cloudy size={20} />;
+  if ([45,48].includes(code)) return <CarbonIcons.Fog size={20} />;
+  if ([51,53,55,56,57,61,63,65,66,67,80,81,82].includes(code)) return <CarbonIcons.Rain size={20} />;
+  if ([71,73,75,77,85,86].includes(code)) return <CarbonIcons.Snow size={20} />;
+  if ([95,96,99].includes(code)) return <CarbonIcons.Thunderstorm size={20} />;
+  return <CarbonIcons.Temperature size={20} />;
 }
 
 export function TradeToolsPage() {
@@ -338,7 +338,7 @@ export function TradeToolsPage() {
           {busyTools['contact-time']&&<InlineLoading description="正在解析时区与天气…"/>}
           {location&&timeData&&<div className="tp-trade-tools__contact-result">
             <div className="tp-trade-tools__clock"><div><span>{location.name}{location.admin1?', '+location.admin1:''}, {location.country}</span><strong>{new Date(timeData.datetime).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:location.timezone})}</strong><small>{new Date(timeData.datetime).toLocaleDateString('zh-CN',{year:'numeric',month:'long',day:'numeric',weekday:'long',timeZone:location.timezone})} · {timeData.timezone} ({timeData.utc_offset})</small></div>
-              <div className="tp-trade-tools__day-status">{(()=>{const h=Number(new Intl.DateTimeFormat('en',{hour:'2-digit',hourCycle:'h23',timeZone:location.timezone}).format(new Date(timeData.datetime)));const localWeekday=new Intl.DateTimeFormat('en',{weekday:'short',timeZone:location.timezone}).format(new Date(timeData.datetime));const isDay=h>=6&&h<18;const weekend=localWeekday==='Sun'||localWeekday==='Sat';return <><span>{isDay?'☀️':'🌙'}</span><strong>{isDay?'当地白天':'当地夜晚'}</strong><small>{weekend||holidayToday?'🛌 休息日':'💼 工作日'}{holidayToday?' · '+holidayToday.localName:''}</small></>;})()}</div>
+              <div className="tp-trade-tools__day-status">{(()=>{const h=Number(new Intl.DateTimeFormat('en',{hour:'2-digit',hourCycle:'h23',timeZone:location.timezone}).format(new Date(timeData.datetime)));const localWeekday=new Intl.DateTimeFormat('en',{weekday:'short',timeZone:location.timezone}).format(new Date(timeData.datetime));const isDay=h>=6&&h<18;const weekend=localWeekday==='Sun'||localWeekday==='Sat';return <><span>{isDay?<CarbonIcons.Sun size={20}/>:<CarbonIcons.Moon size={20}/>}</span><strong>{isDay?'当地白天':'当地夜晚'}</strong><small>{weekend||holidayToday?<><CarbonIcons.Asleep size={16}/> 休息日</>:<><CarbonIcons.Calendar size={16}/> 工作日</>}{holidayToday?' · '+holidayToday.localName:''}</small></>;})()}</div>
             </div>
             <div className="tp-trade-tools__weather">{weather.map((w,i)=><div key={w.date}><span>{i===0?'昨天':i===1?'今天':'明天'}</span><strong>{weatherIcon(w.code)}</strong><small>{w.high.toFixed(0)}° / {w.low.toFixed(0)}°C</small><small>降雨概率 {w.rain}%</small></div>)}</div>
             <p className="tp-trade-tools__footnote">工作日按当地周末与 Nager.Date 公共假期数据判断；昼夜按当地 06:00–18:00 粗略划分。天气来自 Open-Meteo。时间数据由 <a href="https://time.now" target="_blank" rel="noreferrer">Time.Now</a> 提供。</p>
