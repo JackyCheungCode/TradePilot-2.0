@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import './date-field.scss';
 import { DatePicker, DatePickerInput } from '../DatePicker';
 import { TimePicker } from '../TimePicker';
@@ -79,8 +79,13 @@ export interface DateTimeFieldProps {
 export function DateTimeField({ id, label, value, onChange, disabled = false, readOnly = false }: DateTimeFieldProps) {
   const [date, setDate] = useState(value?.split('T')[0] || '');
   const [time, setTime] = useState(value?.split('T')[1]?.slice(0, 5) || '');
+  const lastEmittedValue = useRef<string | null>(null);
 
   useEffect(() => {
+    if (lastEmittedValue.current === value) {
+      lastEmittedValue.current = null;
+      return;
+    }
     setDate(value?.split('T')[0] || '');
     setTime(value?.split('T')[1]?.slice(0, 5) || '');
   }, [value]);
@@ -88,7 +93,9 @@ export function DateTimeField({ id, label, value, onChange, disabled = false, re
   const update = (nextDate: string, nextTime: string) => {
     setDate(nextDate);
     setTime(nextTime);
-    onChange(nextDate && nextTime ? `${nextDate}T${nextTime}` : '');
+    const nextValue = nextDate && nextTime ? `${nextDate}T${nextTime}` : '';
+    lastEmittedValue.current = nextValue;
+    onChange(nextValue);
   };
 
   return (
