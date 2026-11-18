@@ -68,21 +68,22 @@ function extractChildIcon(children: ReactNode): { children: ReactNode; icon?: Re
   return { children: visit(children), icon };
 }
 
-function resolveActionIcon(supplied: unknown, childIcon?: ReactElement<Record<string, unknown>>): ReactNode {
-  if (isValidElement(supplied)) return cloneElement(supplied, { size: 16 } as Record<string, unknown>);
-  if (typeof supplied === 'function' || (typeof supplied === 'object' && supplied !== null)) {
-    return createElement(supplied as CarbonActionIcon, { size: 16 });
+function resolveActionIcon(supplied: unknown, childIcon?: ReactElement<Record<string, unknown>>): CarbonActionIcon | undefined {
+  if (isValidElement(supplied)) {
+    return supplied.type === 'svg' ? undefined : supplied.type as CarbonActionIcon;
   }
-  if (childIcon) return cloneElement(childIcon, { size: 16 });
+  if (typeof supplied === 'function' || (typeof supplied === 'object' && supplied !== null)) {
+    return supplied as CarbonActionIcon;
+  }
+  if (childIcon && childIcon.type !== 'svg') return childIcon.type as CarbonActionIcon;
   return undefined;
 }
 
-function actionContent(children: ReactNode, icon?: ReactNode): ReactNode {
+function actionContent(children: ReactNode): ReactNode {
   return createElement(
     'span',
     { className: 'tp-page-header__action-content' },
     createElement('span', { className: 'tp-page-header__action-label' }, children),
-    icon,
   );
 }
 
@@ -102,17 +103,17 @@ function normalizeLegacyActions(node: ReactNode, primaryAssigned: { current: boo
     const kind = primary ? 'primary' : 'tertiary';
     const className = [String(props.className || ''), 'tp-page-header__action'].filter(Boolean).join(' ');
     const icon = resolveActionIcon(props.renderIcon, extracted.icon);
-    const content = actionContent(extracted.children, icon);
+    const content = actionContent(extracted.children);
 
     if (node.type === Button) {
-      return cloneElement(node, { kind, size: 'lg', className, renderIcon: undefined } as Record<string, unknown>, content);
+      return cloneElement(node, { kind, size: 'lg', className, renderIcon: icon } as Record<string, unknown>, content);
     }
     return createElement(Button, {
       ...(props as Record<string, unknown>),
       kind,
       size: 'lg',
       className,
-      renderIcon: undefined,
+      renderIcon: icon,
     } as never, content);
   }
 
