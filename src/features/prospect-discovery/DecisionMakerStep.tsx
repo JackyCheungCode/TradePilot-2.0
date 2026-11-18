@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   Button, Checkbox, CodeSnippet, InlineNotification, Pagination, ProgressBar, Table, TableBody,
   TableCell, TableHead, TableHeader, TableRow, TableSelectAll, TableSelectRow,
-  TableToolbar, TableToolbarContent, TableToolbarSearch, Link, Tag, Tile, CarbonIcons,
+  TableToolbar, TableToolbarContent, TableToolbarSearch, Link, Tag, Tile, semanticIcons,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 
@@ -248,8 +248,8 @@ export function DecisionMakerStep() {
           <div className="tp-decision__email-policy"><span className="tp-decision__field-label">数据使用规则</span><p>联系人候选来自后端补全工作流；姓名、职位、邮箱和社交资料保留来源与核验信息。CRM 写入必须由你勾选确认。</p></div>
         </div>
         <div className="tp-decision__actions">
-          <Button kind="primary" renderIcon={CarbonIcons.SearchLocate} disabled={running || loading || !rows.length || !providers.length} onClick={startEnrichment}>{running ? '正在穿透组织架构…' : '开始执行联系人穿透'}</Button>
-          <Button kind="tertiary" renderIcon={CarbonIcons.CloudUpload} disabled={!selected.length || !allReady || selectedCandidateCount === 0 || running} onClick={syncSelected}>确认所选联系人并同步至 CRM</Button>
+          <Button kind="primary" renderIcon={semanticIcons.locateSearch} disabled={running || loading || !rows.length || !providers.length} onClick={startEnrichment}>{running ? '正在穿透组织架构…' : '开始执行联系人穿透'}</Button>
+          <Button kind="tertiary" renderIcon={semanticIcons.cloudUpload} disabled={!selected.length || !allReady || selectedCandidateCount === 0 || running} onClick={syncSelected}>确认所选联系人并同步至 CRM</Button>
           <span>先执行补全，再人工确认联系人候选</span>
         </div>
       </Tile>
@@ -278,7 +278,7 @@ export function DecisionMakerStep() {
                 <TableCell><div className="tp-decision__company"><strong>{row.company}</strong><Tag type="blue">{row.source || row.country}</Tag></div><small>{row.domain || '暂无官网'}</small></TableCell>
                 <TableCell>{row.contacts.length ? <div className="tp-decision__person">{row.contacts.map((contact, index) => <div key={contact.key || index}><Checkbox id={'tp-contact-candidate-' + row.id + '-' + index} labelText={contact.name || '姓名待核验'} checked={(selectedCandidateKeys[row.id] ?? []).includes(contact.key)} onChange={event => { const checked = event.currentTarget.checked; setSelectedCandidateKeys(current => ({ ...current, [row.id]: checked ? [...new Set([...(current[row.id] ?? []), contact.key])] : (current[row.id] ?? []).filter(key => key !== contact.key) })); setSelected(current => checked ? [...new Set([...current, row.id])] : current); }} /><span>{contact.title || '职位待核验'}</span>{contact.email && <small>{contact.email}</small>}</div>)}</div> : row.person ? <div className="tp-decision__person"><strong>{row.person}</strong><span>{row.title || '职位待核验'}</span></div> : <Tag type="gray">暂无候选</Tag>}</TableCell>
                 <TableCell><div className="tp-decision__email">{row.email ? <Link href={'mailto:' + row.email}>{row.email}</Link> : <Tag type="gray">待采集</Tag>}{emailTag(row)}{row.phone && <small>{row.phone}</small>}{row.whatsapp && <small>WhatsApp：{row.whatsapp}</small>}</div></TableCell>
-                <TableCell>{row.linkedin ? <Link href={row.linkedin} target="_blank" rel="noreferrer">LinkedIn <CarbonIcons.ArrowUpRight size={12} /></Link> : <Tag type="gray">暂无公开账号</Tag>}</TableCell>
+                <TableCell>{row.linkedin ? <Link href={row.linkedin} target="_blank" rel="noreferrer">LinkedIn <semanticIcons.externalLink size={12} /></Link> : <Tag type="gray">暂无公开账号</Tag>}</TableCell>
                 <TableCell><div className="tp-decision__status">{crmTag(row)}{row.crmId && <small>{row.crmId}</small>}</div></TableCell>
               </TableRow>)}
               {visible.length === 0 && <TableRow><TableCell colSpan={6}>{loading ? '正在加载…' : '没有可显示的真实企业记录。'}</TableCell></TableRow>}
@@ -286,7 +286,7 @@ export function DecisionMakerStep() {
           </Table>
         </div>
         <div className="tp-decision__pagination"><Pagination id="tp-decision-pagination" page={page} pageSize={pageSize} pageSizes={[10, 20, 50]} totalItems={filtered.length} onChange={({ page: nextPage, pageSize: nextSize }) => { setPage(nextPage); setPageSize(nextSize); }} /></div>
-        <div className="tp-decision__footer"><span>当前 {rows.length} 家企业 · 已补全 {enrichedCount} 家 · 联系人候选 {candidateCount} 位 · 已同步 {rows.filter(row => row.crm === 'synced').length} 家</span><Button kind="ghost" size="sm" renderIcon={CarbonIcons.ArrowUp} onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>返回顶部</Button></div>
+        <div className="tp-decision__footer"><span>当前 {rows.length} 家企业 · 已补全 {enrichedCount} 家 · 联系人候选 {candidateCount} 位 · 已同步 {rows.filter(row => row.crm === 'synced').length} 家</span><Button kind="ghost" size="sm" renderIcon={semanticIcons.arrowUp} onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>返回顶部</Button></div>
       </Tile>
     </section>
   );
