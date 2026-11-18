@@ -1,3 +1,4 @@
+import { PageHeader } from '@/design-system';
 import { useCallback, useEffect, useState } from 'react';
 import { startRegistration } from '@simplewebauthn/browser';
 import {
@@ -367,11 +368,11 @@ export function SecuritySettingsPage() {
 
   return (
     <main className="tp-security">
-      <header className="tp-security__header">
+      <PageHeader className="tp-security__header">
         <p className="tp-security__eyebrow">TRADEPILOT / ACCOUNT SECURITY</p>
         <h1>安全与身份认证</h1>
         <p>管理 Passkey、生物识别登录方式与多因子认证。生物识别由你的设备或凭证管理器在本地完成，TradePilot 不会接收或保存指纹、人脸数据。</p>
-      </header>
+      </PageHeader>
 
       {error && <InlineNotification kind="error" lowContrast title="操作未完成" subtitle={error} onCloseButtonClick={() => setError('')} />}
       {notice && <InlineNotification kind="success" lowContrast title="安全设置已更新" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
