@@ -48,7 +48,15 @@ function normalizeLegacyActions(node: ReactNode, primaryAssigned: { current: boo
       : createElement(Button, { ...(props as Record<string, unknown>), kind, size: 'lg', className }, children);
   }
   if (children === undefined) return node;
-  return cloneElement(node, { children: normalizeLegacyActions(children, primaryAssigned) } as Record<string, unknown>);
+  let normalizedChildren = normalizeLegacyActions(children, primaryAssigned);
+  const className = typeof props.className === 'string' ? props.className : '';
+  if (/(?:^|[-_])actions?(?:$|[-_])|header-actions/.test(className)) {
+    const items = Children.toArray(normalizedChildren);
+    if (items.length > 1 && items.every((item) => isValidElement(item) && isActionElement(item))) {
+      normalizedChildren = [...items].sort((a, b) => Number((a as ReactElement).props.kind === 'primary') - Number((b as ReactElement).props.kind === 'primary'));
+    }
+  }
+  return cloneElement(node, { children: normalizedChildren } as Record<string, unknown>);
 }
 
 function markActionContainers(children: ReactNode): ReactNode {
