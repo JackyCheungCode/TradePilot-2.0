@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import {
   Button, Link, InlineLoading, InlineNotification, TextInput, TextArea, Table, TableHead, TableRow,
   TableHeader, TableBody, TableCell,
@@ -36,7 +36,7 @@ const unwrap = (payload: any) => payload?.data ?? payload?.result ?? payload;
 
 export function DocumentPreviewPage() {
   const { id = '' } = useParams();
-  const navigate = useNavigate();
+  
   const [doc, setDoc] = useState<DocumentRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
