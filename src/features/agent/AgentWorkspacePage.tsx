@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   Button, Link, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextArea, Tile, CarbonIcons,
 } from '@/design-system';
@@ -45,7 +44,6 @@ async function agentRequest<T>(path: string, init: RequestInit = {}): Promise<T>
 }
 
 export function AgentWorkspacePage() {
-  const navigate = useNavigate();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [conversationId, setConversationId] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
