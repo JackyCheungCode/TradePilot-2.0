@@ -1,3 +1,4 @@
+import { PageSkeleton } from '@/design-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button, Checkbox, InlineLoading, InlineNotification, Select, SelectItem, Tag } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
@@ -152,6 +153,7 @@ export function DocumentTypeSettings() {
     finally { setSaving(false); }
   };
 
+  if (loading) return <PageSkeleton variant="table" />;
   return <section className="tp-settings__advanced tp-document-type-settings">
     <div className="tp-trade-document-settings__intro">
       <div><h4>单据类型独立规则</h4><p>每种单据分别控制可用来源、空白创建、订单锁定和正式确认要求。规则由后端执行，不只是前端显示设置。</p></div>
