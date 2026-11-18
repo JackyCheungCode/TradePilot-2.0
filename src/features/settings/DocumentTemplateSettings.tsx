@@ -1,5 +1,4 @@
 import { PageSkeleton } from '@/design-system';
-import { PageSkeleton } from '@/design-system';
 import { useCallback, useEffect, useState } from 'react';
 import { Button, Checkbox, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput, TextArea } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
@@ -63,7 +62,6 @@ export function DocumentTemplateSettings() {
     }catch(cause){setError(cause instanceof Error?cause.message:'停用模板失败。');}
     finally{setSaving(false);}
   };
-  if (loading) return <PageSkeleton variant="table" />;
   if (loading) return <PageSkeleton variant="table" />;
   return <section className="tp-settings__advanced tp-document-template-settings">
     <div className="tp-trade-document-settings__intro"><div><h4>单据模板管理</h4><p>模板按单据类型和语言区分。模板只控制版式与展示项，业务字段仍由订单、发运记录或空白草稿提供。</p></div><Tag type="blue">模板与数据分离</Tag></div>
