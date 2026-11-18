@@ -257,7 +257,7 @@ export function DocumentStudioPage() {
   ] },
   { type: 'group', direction: 'grid', columns: 3, gap: 'var(--cds-spacing-04)', className: 'tp-doc-studio__source', children: [
     { type: 'placeholder', height: '3rem' }, { type: 'placeholder', height: '3rem' }, { type: 'placeholder', height: '3rem' },
-    { type: 'text', width: '20rem' },
+    { type: 'text', width: '20rem', className: 'tp-doc-studio__source-detail' },
   ] },
   { type: 'group', direction: 'grid', columns: 3, gap: 'var(--cds-spacing-03)', className: 'tp-doc-studio__workspace', children: [
     { type: 'group', direction: 'column', gap: 'var(--cds-spacing-03)', className: 'tp-doc-studio__tools', children: [
@@ -267,7 +267,7 @@ export function DocumentStudioPage() {
     ] },
     { type: 'group', direction: 'column', gap: 'var(--cds-spacing-03)', className: 'tp-doc-studio__canvas-area', children: [
       { type: 'group', direction: 'row', gap: 'var(--cds-spacing-03)', className: 'tp-doc-studio__canvas-toolbar', children: [{ type: 'text', width: '6rem' }, { type: 'text', width: '10rem' }, { type: 'placeholder', width: '6rem', height: '2rem' }] },
-      { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-doc-studio__canvas-scroll', children: [{ type: 'placeholder', width: 'min(100%, 794px)', minHeight: '60rem', className: 'tp-doc-studio__paper' }] },
+      { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-doc-studio__canvas-scroll', children: [{ type: 'placeholder', className: 'tp-doc-studio__paper' }] },
     ] },
     { type: 'group', direction: 'column', gap: 'var(--cds-spacing-03)', className: 'tp-doc-studio__properties', children: [
       { type: 'text', heading: true, width: '8rem' },
