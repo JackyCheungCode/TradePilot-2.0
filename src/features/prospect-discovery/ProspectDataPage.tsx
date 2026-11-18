@@ -162,7 +162,7 @@ export function ProspectDataPage() {
   const theme = chartTheme();
   const baseOptions = { theme, toolbar: { enabled: false }, legend: { enabled: false } };
   const donutOptions = { ...baseOptions, height: '280px', donut: { center: { label: '潜客' } }, legend: { position: 'bottom' } };
-  const barOptions = { ...baseOptions, height: '280px', axes: { bottom: { mapsTo: 'group', scaleType: 'labels' }, left: { mapsTo: 'value', scaleType: 'linear' } } };
+  const barOptions = { ...baseOptions, height: '280px', color: { pairing: { numberOfVariants: 14, option: 1 } }, axes: { bottom: { mapsTo: 'group', scaleType: 'labels' }, left: { mapsTo: 'value', scaleType: 'linear' } } };
   const areaOptions = { ...baseOptions, height: '300px', axes: { bottom: { title: '月份', mapsTo: 'date', scaleType: 'time' }, left: { title: '新增数量', mapsTo: 'value', scaleType: 'linear' } }, curve: 'curveMonotoneX', points: { enabled: false } };
 
   return (
