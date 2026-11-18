@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  AreaChart, SimpleBarChart, ChoroplethChart, WordCloudChart, BubbleChart,
+  AreaChart, SimpleBarChart, WordCloudChart, BubbleChart,
 } from '@carbon/charts-react';
 import {
   Button, InlineLoading, InlineNotification, Tile, Tag, Select, SelectItem,
-  Tabs, TabList, Tab, TabPanels, TabPanel, CarbonIcons,
+  Tabs, TabList, Tab, TabPanels, TabPanel, CarbonIcons, WorldMapChart,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
-import worldAtlas from 'world-atlas/countries-110m.json';
 import '@carbon/charts/styles.css';
 import '@/design-system/patterns/dashboard.scss';
 
@@ -30,40 +29,6 @@ const countryLabelEnglish = (code: string) => {
   try { return new Intl.DisplayNames(['en'], { type: 'region' }).of(code.toUpperCase()) || code.toUpperCase(); }
   catch { return code.toUpperCase(); }
 };
-const normalizeGeoName = (value: unknown) => String(value || '').trim().toLocaleLowerCase('en');
-const countryGeoName = (code: string) => {
-  const aliases: Record<string, string> = {
-    US: 'United States of America', GB: 'United Kingdom', KR: 'South Korea', KP: 'North Korea',
-    RU: 'Russia', CZ: 'Czechia', CD: 'Democratic Republic of the Congo', CG: 'Republic of the Congo',
-    CI: 'Ivory Coast', BO: 'Bolivia', VE: 'Venezuela', TZ: 'Tanzania', SY: 'Syria',
-    LA: 'Laos', MD: 'Moldova', VN: 'Vietnam', IR: 'Iran', PS: 'Palestine', BN: 'Brunei',
-    TL: 'Timor-Leste', MK: 'North Macedonia', MM: 'Myanmar', SZ: 'Eswatini', TR: 'Turkey',
-  };
-  return aliases[code.toUpperCase()] || countryLabelEnglish(code);
-};
-// Carbon Charts reads properties.NAME from TopoJSON. world-atlas 2.x ships properties.name.
-// Normalize the topology once so Carbon receives the property it actually looks up.
-const worldGeoData = (() => {
-  const source = worldAtlas as any;
-  const countries = source?.objects?.countries;
-  if (!countries?.geometries?.length) return source;
-  return {
-    ...source,
-    objects: {
-      ...source.objects,
-      countries: {
-        ...countries,
-        geometries: countries.geometries.map((geometry: any) => ({
-          ...geometry,
-          properties: {
-            ...(geometry.properties || {}),
-            NAME: String(geometry.properties?.NAME || geometry.properties?.name || ''),
-          },
-        })),
-      },
-    },
-  };
-})();
 const countryLabel = (code: string) => {
   if (!code || code === 'unknown') return '未设置国家';
   try { return new Intl.DisplayNames(['zh-CN'], { type: 'region' }).of(code.toUpperCase()) || code.toUpperCase(); }
@@ -239,37 +204,10 @@ export function DashboardPage() {
       const accountCountries = new Map(scoped.accounts.map(row => [String(row.id), row.country_code]));
       scoped.opportunities.forEach(row => add(accountCountries.get(String(row.account_id))));
     }
-    const geometryByName = new Map<string, any>(
-      (worldGeoData?.objects?.countries?.geometries || []).map((geometry: any) => [
-        normalizeGeoName(geometry.properties?.NAME),
-        geometry,
-      ]),
-    );
-    return [...counts.entries()].flatMap(([code, value]) => {
-      const name = countryGeoName(code);
-      const geometry = geometryByName.get(normalizeGeoName(name));
-      if (!geometry) {
-        console.warn('[TradePilot] No Carbon world geometry matched country code:', code, name);
-        return [];
-      }
-      return [{ group: String(geometry.id), code, name, label: countryLabel(code), value }];
-    }).sort((a, b) => b.value - a.value);
+    return [...counts.entries()].map(([code, value]) => ({
+      code, name: countryLabelEnglish(code), label: countryLabel(code), value,
+    })).sort((a, b) => b.value - a.value);
   }, [marketMetric, scoped]);
-
-  // Only send countries with real records to Carbon. Including every country with
-  // value=0 compresses the useful range when just a few markets are active, making
-  // distinct market volumes appear almost identical. Countries without data remain
-  // unfilled by the native choropleth and are visually treated as geographic context.
-  const choroplethData = useMemo(() => {
-    const activeCountries = new Set(globalMapData.map(item => normalizeGeoName(item.name)));
-    return globalMapData
-      .filter(item => item.value > 0 && activeCountries.has(normalizeGeoName(item.name)))
-      .map(item => ({
-        id: item.group,
-        name: item.name,
-        value: item.value,
-      }));
-  }, [globalMapData]);
 
   const searchKeywords = useMemo(() => {
     const counts = new Map<string, number>();
@@ -365,12 +303,6 @@ export function DashboardPage() {
     axes: { bottom: { title: '日期', mapsTo: 'date', scaleType: 'time' }, left: { title: '新增客户', mapsTo: 'value', scaleType: 'linear' } },
     curve: 'curveMonotoneX', points: { enabled: false },
   };
-  const choroplethOptions = {
-    ...commonOptions, title: '全球业务资产分布', height: '430px',
-    geoData: worldGeoData as any, thematic: { projection: 'geoNaturalEarth1' },
-    choropleth: { colorLegend: { title: '记录数量', type: 'linear' } },
-    color: { gradient: { enabled: true, colors: ['#edf5ff', '#78a9ff', '#4589ff', '#0f62fe', '#002d9c'] } },
-  };
   const wordCloudOptions = {
     ...commonOptions, height: '340px',
     wordCloud: { wordMapsTo: 'word', fontSizeMapsTo: 'count' },
@@ -422,7 +354,7 @@ export function DashboardPage() {
         </div>
         <div className="tp-workbench__global-map-layout">
           <div className="tp-workbench__global-map-chart">
-            <ChoroplethChart data={choroplethData} options={choroplethOptions as any}/>
+            <WorldMapChart data={globalMapData} unitLabel="条记录" showRanking={false} selectedCode={country === 'all' ? undefined : country} onCountrySelect={code => setCountry(current => current === code ? 'all' : code)}/>
           </div>
           <div className="tp-workbench__global-map-switch" role="group" aria-label="地图数据维度">
             <span>查看维度</span>
