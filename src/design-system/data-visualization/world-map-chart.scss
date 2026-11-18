@@ -158,6 +158,6 @@
   }
 }
 
-.tp-world-map__rank.cds--btn{display:grid;width:100%;max-width:none;min-height:3.25rem;align-items:center;justify-content:stretch;padding:var(--cds-spacing-03);white-space:normal;text-align:left}
-.tp-world-map__rank .cds--btn__text{display:block;width:100%}
+.tp-world-map__rank.cds--tile--clickable{display:grid;width:100%;max-width:none;min-height:3.25rem;align-items:center;justify-content:stretch;padding:var(--cds-spacing-03);white-space:normal;text-align:left;background:var(--cds-layer-01);color:var(--cds-text-primary)}
+.tp-world-map__rank.cds--tile--clickable:hover{background:var(--cds-layer-hover-01)}
 .tp-world-map__rank-content{display:grid;width:100%;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:var(--cds-spacing-02);text-align:left}
