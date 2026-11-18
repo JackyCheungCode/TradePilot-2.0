@@ -103,7 +103,7 @@ export function ProspectDiscoveryPage() {
         <div className="tp-prospect-discovery__step-navigation">
           <Button kind="secondary" renderIcon={CarbonIcons.ArrowLeft} onClick={() => setSelectedIndex(index => Math.max(0, index - 1))} disabled={selectedIndex === 0}>上一步</Button>
           <span>第 {selectedIndex + 1} 步，共 5 步</span>
-          <Button kind="primary" renderIcon={CarbonIcons.ArrowRight} onClick={() => setSelectedIndex(index => Math.min(4, index + 1))} disabled={selectedIndex === 4 || (selectedIndex === 0 && selectedSourceCount === 0) || (selectedIndex === 1 && !actorSchemaReady)}>下一步</Button>
+          <Button kind="primary" renderIcon={CarbonIcons.ArrowRight} onClick={() => setSelectedIndex(index => Math.min(4, index + 1))} disabled={selectedIndex === 3 || selectedIndex === 4 || (selectedIndex === 0 && selectedSourceCount === 0) || (selectedIndex === 1 && !actorSchemaReady)}>下一步</Button>
         </div>
       )}
     </main>
