@@ -53,13 +53,31 @@ function buildActorInput(item: LoadedSchema, values: Record<string, unknown>) {
   }
   return input;
 }
-function fingerprint(input: Record<string, unknown>, schemaVersion: string) {
-  const normalized = { ...input };
-  for (const key of ['maxItems', 'maxResults', 'maxResultsPerQuery', 'resultsLimit', 'maxItemsPerRun', 'limit']) if (key in normalized) normalized[key] = 1;
-  const serialized = JSON.stringify({ schemaVersion, input: normalized });
-  let hash = 2166136261;
-  for (let index = 0; index < serialized.length; index++) { hash ^= serialized.charCodeAt(index); hash = Math.imul(hash, 16777619); }
-  return (hash >>> 0).toString(16).padStart(8, '0');
+function validateActorInput(item: LoadedSchema, input: Record<string, unknown>) {
+  const required = new Set(item.schema.required ?? []);
+  const missing: string[] = [];
+  const invalid: string[] = [];
+  for (const [key, field] of Object.entries(item.schema.properties ?? {})) {
+    const value = input[key];
+    const label = item.schema.translatedProperties?.[key]?.titleZh || field.titleZh || field.title || key;
+    if ((required.has(key) || field.required === true) && (value === undefined || value === null || value === '')) {
+      missing.push(label);
+      continue;
+    }
+    if (value === undefined || value === null || value === '') continue;
+    const type = field.type;
+    const valid = type === 'string' ? typeof value === 'string'
+      : type === 'number' ? typeof value === 'number' && Number.isFinite(value)
+      : type === 'integer' ? typeof value === 'number' && Number.isInteger(value)
+      : type === 'boolean' ? typeof value === 'boolean'
+      : type === 'array' ? Array.isArray(value)
+      : type === 'object' ? typeof value === 'object' && !Array.isArray(value)
+      : true;
+    if (!valid) invalid.push(label + '（应为 ' + type + '）');
+    if (Array.isArray(field.enum) && !field.enum.some(option => JSON.stringify(option) === JSON.stringify(value))) invalid.push(label + '（不在允许选项内）');
+    if (typeof value === 'number' && ((typeof field.minimum === 'number' && value < field.minimum) || (typeof field.maximum === 'number' && value > field.maximum))) invalid.push(label + '（超出允许范围）');
+  }
+  return { valid: missing.length === 0 && invalid.length === 0, missing, invalid };
 }
 
 async function mapLimit<T, R>(items: T[], limit: number, mapper: (item: T, index: number) => Promise<R>): Promise<R[]> {
@@ -79,16 +97,14 @@ export function ActorSchemaFields({ sources, onValuesChange }: Props) {
   const [items, setItems] = useState<LoadedSchema[]>([]);
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [expandedHelp, setExpandedHelp] = useState<Record<string, boolean>>({});
-  const [testingActor, setTestingActor] = useState('');
-  const [testResults, setTestResults] = useState<Record<string, { passed: boolean; message: string; qualityScore?: number; inputFingerprint?: string }>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const sourceKey = useMemo(() => sources.map(source => source.id + ':' + source.name).sort().join('|'), [sources]);
 
   useEffect(() => {
     let active = true;
-    if (!actorSources.length) { setItems([]); setValues({}); setExpandedHelp({}); setTestResults({}); setError(''); setLoading(false); onValuesChange({ fields: {}, actors: [] }); return; }
-    setLoading(true); setError(''); setItems([]); setValues({}); setExpandedHelp({}); setTestResults({});
+    if (!actorSources.length) { setItems([]); setValues({}); setExpandedHelp({}); setError(''); setLoading(false); onValuesChange({ fields: {}, actors: [] }); return; }
+    setLoading(true); setError(''); setItems([]); setValues({}); setExpandedHelp({});
     void (async () => {
       try {
         const token = await accessToken();
@@ -139,46 +155,23 @@ export function ActorSchemaFields({ sources, onValuesChange }: Props) {
     fields: values,
     actors: items.map(item => {
       const input = buildActorInput(item, values);
-      const currentFingerprint = fingerprint(input, item.schemaVersion);
-      const key = item.source.id + ':' + item.actorId;
-      const test = testResults[key];
-      const localTestPassed = test?.passed === true && test.inputFingerprint === currentFingerprint;
-      const persistedTestPassed = item.actorStatus === 'enabled' && item.actorInputFingerprint === currentFingerprint;
-      const status = localTestPassed || persistedTestPassed ? 'enabled' : test || item.actorStatus === 'enabled' ? 'needs_retest' : item.actorStatus;
-      return { sourceId: item.source.id, sourceName: item.source.name, actorId: item.actorId, actorTitle: item.actorTitle, schemaVersion: item.schemaVersion, status, schemaKeys: Object.keys(item.schema.properties ?? {}), input, inputFingerprint: currentFingerprint };
+      const validation = validateActorInput(item, input);
+      return {
+        sourceId: item.source.id, sourceName: item.source.name, actorId: item.actorId,
+        actorTitle: item.actorTitle, schemaVersion: item.schemaVersion,
+        status: validation.valid ? 'enabled' : 'needs_input',
+        validationErrors: [...validation.missing.map(field => '必填：' + field), ...validation.invalid],
+        schemaKeys: Object.keys(item.schema.properties ?? {}), input,
+      };
     }),
-  }), [values, items, testResults]);
+  }), [values, items]);
   useEffect(() => { onValuesChange(actorParameters); }, [actorParameters, onValuesChange]);
 
   const setField = (key: string, value: unknown) => setValues(current => ({ ...current, [key]: value }));
-  const runActorTest = async (item: LoadedSchema) => {
-    const testKey = item.source.id + ':' + item.actorId;
-    setTestingActor(testKey);
-    try {
-      const token = await accessToken();
-      const input = buildActorInput(item, values);
-      const requiredFields = new Set(item.schema.required ?? []);
-      const missingFields = Object.entries(item.schema.properties ?? {}).filter(([fieldKey, field]) => {
-        const value = input[fieldKey];
-        return (requiredFields.has(fieldKey) || field.required === true) && (value === undefined || value === null || value === '');
-      }).map(([fieldKey, field]) => (field.titleZh || field.title || fieldKey));
-      if (missingFields.length) throw new Error('请先填写必填字段：' + missingFields.join('、'));
-      const currentFingerprint = fingerprint(input, item.schemaVersion);
-      const result = await api('/api/v1/actor-registry/test', token, {
-        method: 'POST',
-        body: JSON.stringify({ actorId: item.actorId, input, expectedFieldCount: Object.keys(item.schema.properties ?? {}).length, schemaVersion: item.schemaVersion }),
-      }) as { passed?: boolean; qualityScore?: number; inputFingerprint?: string; message?: string };
-      setTestResults(current => ({ ...current, [testKey]: { passed: result.passed === true, qualityScore: result.qualityScore, inputFingerprint: result.inputFingerprint || currentFingerprint, message: result.message || '测试完成' } }));
-    } catch (e) {
-      setTestResults(current => ({ ...current, [testKey]: { passed: false, message: e instanceof Error ? e.message : '测试失败' } }));
-    } finally {
-      setTestingActor('');
-    }
-  };
   if (!sources.length) return null;
   return <section className="tp-prospect-discovery__section tp-prospect-discovery__actor-schema" aria-label="数据源动态参数">
     <div className="tp-prospect-discovery__section-heading">
-      <div><span className="tp-prospect-discovery__section-index">DS</span><div><h2>数据源动态参数</h2><p>根据已选平台匹配候选 Actor，并读取其真实输入 Schema</p><p>参数将纳入方案快照；来源通过运行测试与质量门禁后才会正式执行。</p></div></div>
+      <div><span className="tp-prospect-discovery__section-index">DS</span><div><h2>数据源动态参数</h2><p>根据已选平台匹配候选 Actor，并读取其真实输入 Schema</p><p>根据 Schema 自动标记必填字段；填写完成并通过本地格式校验后即可执行，无需运行测试。</p></div></div>
     </div>
     {loading && <InlineLoading description="正在匹配数据源并读取输入字段…" />}
     {error && <InlineNotification kind="error" title="动态参数读取失败" subtitle={error} />}
@@ -186,26 +179,17 @@ export function ActorSchemaFields({ sources, onValuesChange }: Props) {
     {items.map(item => {
       const properties = item.schema.properties ?? {};
       const required = new Set(item.schema.required ?? []);
-      const testKey = item.source.id + ':' + item.actorId;
-      const localTest = testResults[testKey];
-      const currentFingerprint = fingerprint(buildActorInput(item, values), item.schemaVersion);
-      const isEnabled = (localTest?.passed === true && localTest.inputFingerprint === currentFingerprint)
-        || (item.actorStatus === 'enabled' && item.actorInputFingerprint === currentFingerprint);
-      const needsRetest = Boolean(localTest && (!localTest.passed || localTest.inputFingerprint !== currentFingerprint))
-        || (item.actorStatus === 'enabled' && !isEnabled);
+      const validation = validateActorInput(item, buildActorInput(item, values));
+      const isEnabled = validation.valid;
       return <div className="tp-prospect-discovery__actor-schema-group" key={item.source.id + ':' + item.actorId}>
         <div className="tp-prospect-discovery__actor-schema-heading">
           <div><strong>{item.source.name}</strong><span>{item.actorTitle}</span></div>
           <div className="tp-prospect-discovery__actor-schema-actions">
-            <Tag type={isEnabled ? 'green' : needsRetest || item.actorStatus === 'failed' ? 'red' : 'blue'}>
-              {isEnabled ? '已通过门禁' : needsRetest || item.actorStatus === 'failed' ? '需要重新测试' : '已读取 Schema'}
-            </Tag>
-            <Button kind="secondary" size="sm" disabled={testingActor === item.source.id + ':' + item.actorId} onClick={() => void runActorTest(item)}>
-              {testingActor === item.source.id + ':' + item.actorId ? '正在测试…' : '最小化测试并启用'}
-            </Button>
+            <Tag type={isEnabled ? 'green' : 'blue'}>{isEnabled ? '参数完整 · 可执行' : '待补充必填项'}</Tag>
           </div>
         </div>
-        {localTest && localTest.inputFingerprint === currentFingerprint && <InlineNotification kind={localTest.passed ? 'success' : 'warning'} lowContrast title={localTest.passed ? '质量门禁通过' : '质量门禁未通过'} subtitle={localTest.message + (typeof localTest.qualityScore === 'number' ? ' · 质量评分 ' + localTest.qualityScore : '')} />}
+        {!validation.valid && <InlineNotification kind="warning" lowContrast title="请补全 Schema 参数" subtitle={[...(validation.missing.length ? ['必填：' + validation.missing.join('、')] : []), ...(validation.invalid.length ? ['格式：' + validation.invalid.join('、')] : [])].join('；')} />}
+        {validation.valid && <InlineNotification kind="success" lowContrast title="参数校验完成" subtitle="Schema 必填字段与字段类型均符合要求，可以进入执行步骤；不会发起 Actor 测试任务。" />}
         <div className="tp-prospect-discovery__actor-schema-fields">
           {Object.entries(properties).map(([fieldKey, field]) => {
             const translated = item.schema.translatedProperties?.[fieldKey];
