@@ -12,8 +12,8 @@ interface DesignSystemThemeContextValue {
 }
 
 const DesignSystemThemeContext = createContext<DesignSystemThemeContextValue>({
-  preference: 'system',
-  resolvedTheme: 'white',
+  preference: 'dark',
+  resolvedTheme: 'g100',
   setPreference: () => undefined,
 });
 
@@ -49,7 +49,7 @@ function cachePreference(userId: string, preference: ThemePreference) {
  * local storage is only a per-account cache for a fast initial render.
  */
 export function DesignSystemProvider({ children }: DesignSystemProviderProps) {
-  const [preference, setPreferenceState] = useState<ThemePreference>('system');
+  const [preference, setPreferenceState] = useState<ThemePreference>('dark');
   const [systemDark, setSystemDark] = useState(() =>
     typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
   );
@@ -74,11 +74,11 @@ export function DesignSystemProvider({ children }: DesignSystemProviderProps) {
       if (!alive) return;
       setSession(nextSession);
       const nextUserId = nextSession?.user.id ?? null;
-      if (activeUserId !== nextUserId) setPreferenceState('system');
+      if (activeUserId !== nextUserId) setPreferenceState('dark');
       activeUserId = nextUserId;
       setUserId(nextUserId);
       if (!nextUserId || !nextSession) {
-        setPreferenceState('system');
+        setPreferenceState('dark');
         return;
       }
 
@@ -115,7 +115,7 @@ export function DesignSystemProvider({ children }: DesignSystemProviderProps) {
       if (alive) {
         setSession(null);
         setUserId(null);
-        setPreferenceState('system');
+        setPreferenceState('dark');
       }
     });
 
