@@ -290,8 +290,8 @@ export function PlatformSelectionStep({
     </section>
 
     <div className="tp-prospect-discovery__source-selection-note">
-      <span>已选择 {selected.length} 个平台；每次方案最多 20 个。未通过数据源质量门禁的来源不会启动正式采集。</span>
-      <Button kind="secondary" onClick={() => setSelected(recommended)} disabled={!countryCode}>恢复当前市场智能推荐</Button>
+      <span>已选择 {selected.length} 个平台；进入第二步后将为每个平台读取真实 Input Schema，并按 Schema 配置参数。</span>
+      <Button kind="secondary" onClick={() => setSelected(recommended)}>恢复推荐平台</Button>
     </div>
   </section>;
 }
