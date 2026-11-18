@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Button, Checkbox, MultiSelect, Pagination, Search, Tag } from '@/design-system';
 
-type Country = { name: { common: string }; cca2: string; region: string };
 type Source = { id: string; name: string; description: string; markets: string[] };
 type SourceGroup = { id: string; title: string; description: string; sources: Source[] };
 type RegionalSource = Source & { continent: string };
@@ -132,20 +131,6 @@ const defaults: Record<string, string[]> = {
   NZ: ['trade-me','finda','seek-au','google-maps'],
 };
 const recommendedFor = (code: string) => defaults[code] ?? ['google-maps','linkedin','shopify','europages','kompass'];
-const northAmericaCodes = new Set('AG AI AW BB BL BM BQ BS BZ CA CR CU CW DM DO GD GL GP GT HN HT JM KN KY LC MF MQ MS MX NI PA PR SV SX TC TT US VC VG VI'.split(' '));
-const directoryContinent = (country: Country) => country.region === 'Americas' ? (northAmericaCodes.has(country.cca2) ? 'North America' : 'South America') : country.region;
-
-const categoryLabels = [...globalCatalog.map(group => group.title), '全球通用与全域穿透渠道', '企业名录与本地商业目录'];
-const defaultPlatformPageSize = 10;
-const platformPageSizes = [10, 20, 30];
-const continentLabels = [
-  { value: 'North America', label: '北美洲' },
-  { value: 'South America', label: '南美洲' },
-  { value: 'Europe', label: '欧洲' },
-  { value: 'Asia', label: '亚洲' },
-  { value: 'Africa', label: '非洲' },
-  { value: 'Oceania', label: '大洋洲' },
-];
 const regionalCategory = (source: RegionalSource) => {
   const id = source.id.toLowerCase();
   if (/amazon|ebay|mercado|marktplaats|allegro|coupang|rakuten|1688|jd|taobao|pchome|momo|carousell|lazada|shopee|tokopedia|trade-me|yapo|jiji/.test(id)) return '电商、零售与商品市场';
@@ -161,8 +146,6 @@ const allPlatforms: Array<Source & { category: string; global: boolean }> = [
   ...globalCatalog.flatMap(group => group.sources.map(source => ({ ...source, category: group.title, global: true }))),
   ...regionalSources.map(source => ({ ...source, category: regionalCategory(source), global: false })),
 ];
-const continentLabelForCountry = (country: Country) => directoryContinent(country);
-const continentName = (value: string) => continentLabels.find(item => item.value === value)?.label ?? value;
 
 type PlatformExecutionStatus = 'connected' | 'verify' | 'actor' | 'unavailable';
 const getPlatformExecutionStatus = (id: string): PlatformExecutionStatus => {
@@ -179,17 +162,15 @@ const platformStatusLabels: Record<PlatformExecutionStatus, string> = {
 };
 
 export function PlatformSelectionStep({
-  countryCode, countries, onSelectionCountChange, selectedIds, onSelectionChange,
+  onSelectionCountChange, selectedIds, onSelectionChange,
 }: {
-  countryCode: string; countries: Country[];
+
   onSelectionCountChange: (count: number) => void;
   selectedIds?: string[]; onSelectionChange?: (sources: Array<{ id: string; name: string; category?: string }>) => void;
 }) {
-  const recommended = useMemo(() => recommendedFor(countryCode).filter(isRunnablePlatform), [countryCode]);
+  const recommended = useMemo(() => recommendedFor('').filter(isRunnablePlatform), []);
   const [selected, setSelected] = useState<string[]>(() => selectedIds !== undefined ? selectedIds.filter(isRunnablePlatform) : []);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedContinents, setSelectedContinents] = useState<string[]>([]);
-  const [selectedCountries, setSelectedCountries] = useState<Country[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(defaultPlatformPageSize);
@@ -199,31 +180,18 @@ export function PlatformSelectionStep({
 
   useEffect(() => { onSelectionCountChange(selected.length); onSelectionChange?.(allPlatforms.filter(source => selected.includes(source.id)).map(source => ({ id: source.id, name: source.name, category: source.category }))); }, [selected, onSelectionCountChange, onSelectionChange]);
 
-  const countryOptions = useMemo(() => countries.filter(country =>
-    selectedContinents.length === 0 || selectedContinents.includes(continentLabelForCountry(country))
-  ).sort((a, b) => a.name.common.localeCompare(b.name.common)), [countries, selectedContinents]);
-
   const filtered = useMemo(() => {
-    const countryCodes = selectedCountries.map(country => country.cca2);
-    const continentCountryCodes = new Set(countries
-      .filter(country => selectedContinents.includes(continentLabelForCountry(country)))
-      .map(country => country.cca2));
     const term = searchTerm.trim().toLocaleLowerCase();
     return allPlatforms.filter(source => {
-      const hasGeographyFilter = countryCodes.length > 0 || selectedContinents.length > 0;
-      const geographyMatch = !hasGeographyFilter
-        || source.markets.includes('*')
-        || (countryCodes.length > 0 && countryCodes.some(code => source.markets.includes(code)))
-        || (countryCodes.length === 0 && selectedContinents.length > 0 && source.markets.some(code => continentCountryCodes.has(code)));
       const categoryMatch = selectedCategories.length === 0 || selectedCategories.includes(source.category);
       const searchMatch = !term || source.name.toLocaleLowerCase().includes(term)
         || source.description.toLocaleLowerCase().includes(term)
         || source.category.toLocaleLowerCase().includes(term);
-      return geographyMatch && categoryMatch && searchMatch;
+      return categoryMatch && searchMatch;
     }).sort((a, b) => Number(recommended.includes(b.id)) - Number(recommended.includes(a.id)) || a.name.localeCompare(b.name));
-  }, [countries, recommended, searchTerm, selectedCategories, selectedContinents, selectedCountries]);
+  }, [recommended, searchTerm, selectedCategories]);
 
-  useEffect(() => { setPage(1); }, [searchTerm, selectedContinents, selectedCountries, selectedCategories, pageSize]);
+  useEffect(() => { setPage(1); }, [searchTerm, selectedCategories, pageSize]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const visiblePlatforms = filtered.slice((page - 1) * pageSize, page * pageSize);
@@ -261,8 +229,6 @@ export function PlatformSelectionStep({
   };
   const clearFilters = () => {
     setSearchTerm('');
-    setSelectedContinents([]);
-    setSelectedCountries([]);
     setSelectedCategories([]);
   };
 
@@ -276,12 +242,6 @@ export function PlatformSelectionStep({
       <div className="tp-prospect-discovery__platform-filters">
         <div className="tp-prospect-discovery__platform-search">
           <Search id="platform-catalog-search" labelText="搜索平台" placeholder="搜索平台名称或描述" size="lg" value={searchTerm} onChange={(event) => setSearchTerm(event.currentTarget.value)} />
-        </div>
-        <div className="tp-prospect-discovery__platform-filter">
-          <MultiSelect id="platform-continent-filter" titleText="大洲" label="全部大洲" items={continentLabels.map(item => item.value)} itemToString={(item) => item ? continentName(item) : ''} selectedItems={selectedContinents} onChange={({ selectedItems }) => { const nextItems = selectedItems ?? []; setSelectedContinents(nextItems); setSelectedCountries(current => current.filter(country => nextItems.length === 0 || nextItems.includes(continentLabelForCountry(country)))); }} />
-        </div>
-        <div className="tp-prospect-discovery__platform-filter">
-          <MultiSelect id="platform-country-filter" titleText="平台覆盖国家" label="全部覆盖国家" items={countryOptions} itemToString={(item) => item ? item.name.common : ''} selectedItems={selectedCountries} onChange={({ selectedItems }) => setSelectedCountries(selectedItems ?? [])} />
         </div>
         <div className="tp-prospect-discovery__platform-filter">
           <MultiSelect id="platform-category-filter" titleText="平台分类" label="全部分类" items={categoryLabels} itemToString={(item) => item ?? ''} selectedItems={selectedCategories} onChange={({ selectedItems }) => setSelectedCategories(selectedItems ?? [])} />
