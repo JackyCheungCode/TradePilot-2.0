@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { Button } from '../components/Button';
 import worldAtlas from 'world-atlas/countries-110m.json';
 
 export type WorldMapDatum = {
@@ -210,8 +211,9 @@ export function WorldMapChart({
       {showRanking && (
         <div className="tp-world-map__ranking">
           {ranked.map((item, index) => (
-            <button
-              type="button"
+            <Button
+              kind="ghost"
+              size="sm"
               key={item.code}
               className="tp-world-map__rank"
               data-selected={selectedCode?.toUpperCase() === item.code.toUpperCase() ? 'true' : 'false'}
@@ -221,7 +223,7 @@ export function WorldMapChart({
               <span>{String(index + 1).padStart(2, '0')}</span>
               <strong>{item.label}</strong>
               <b>{item.value.toLocaleString()}</b>
-            </button>
+            </Button>
           ))}
           {!ranked.length && <p className="tp-world-map__empty">{emptyLabel}</p>}
         </div>
