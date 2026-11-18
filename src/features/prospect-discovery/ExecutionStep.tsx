@@ -219,7 +219,7 @@ export function ExecutionStep({ profile, sources, actorParameters = {}, onEditSt
           minFollowers: 0, maxFollowers: 100000000, recentDays: 365, requireContact: true, limit: instagramLimitValue, planSnapshot, guardrailsSnapshot,
         });
       }
-      if (pendingActorPlans.length) appendLog("[ACTOR GATE] " + pendingActorPlans.length + " 个候选来源尚未通过质量门禁，本次不会启动。");
+      if (pendingActorPlans.length) appendLog("[ACTOR GATE] " + pendingActorPlans.length + " 个已选平台的 Actor 尚未通过当前输入参数测试，本次暂不启动这些 Actor。");
       if (enabledActorPlans.length) {
         addTask("actor-discovery", "Actor 智能采集（" + enabledActorPlans.length + " 个来源）", "/api/v1/actor-registry/execute", {
           actors: enabledActorPlans,
