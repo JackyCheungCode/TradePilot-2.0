@@ -105,7 +105,6 @@ export function ProspectHistoryPage() {
   const barOptions = { theme: document.documentElement.dataset.carbonTheme === 'g100' ? 'g100' : 'white', height: '260px', color: { pairing: { numberOfVariants: 14, option: 1 } }, axes: { bottom: { mapsTo: 'group', scaleType: 'labels' }, left: { mapsTo: 'value', scaleType: 'linear' } }, legend: { enabled: false }, toolbar: { enabled: false } };
 
   if (loading) return <PageSkeleton variant="dashboard" />;
-  if (loading) return <PageSkeleton variant="dashboard" />;
   return (
     <main className="tp-prospect-hub">
       <header className="tp-prospect-hub__header">
