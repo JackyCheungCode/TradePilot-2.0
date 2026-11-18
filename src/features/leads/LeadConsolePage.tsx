@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { AreaChart } from '@carbon/charts-react';
 import {
   Button, Link, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput,
@@ -92,7 +91,7 @@ function LeadMap({ rows, selectedCode, onCountrySelect }: {
   </section>;
 }
 export function LeadConsolePage() {
-  const navigate = useNavigate();
+  
   const [rows, setRows] = useState<LeadRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
