@@ -66,7 +66,11 @@ export function ProspectDiscoveryPage() {
 
       <div className="tp-prospect-discovery__task-code"><span>本次方案任务编码</span><strong>{planTaskCode}</strong><span className="tp-prospect-discovery__task-code-note">每次重新打开潜客方案都会生成新的唯一编码</span></div>
 
-      <Tabs selectedIndex={selectedIndex} onChange={({ selectedIndex: nextIndex }) => setSelectedIndex(nextIndex)}>
+      <Tabs selectedIndex={selectedIndex} onChange={({ selectedIndex: nextIndex }) => {
+        if (nextIndex > 0 && selectedSourceCount === 0) return;
+        if (nextIndex > 1 && !actorSchemaReady) return;
+        setSelectedIndex(nextIndex);
+      }}>
         <TabList aria-label="潜客发现五步流程" contained>
           {steps.map(step => <Tab key={step}>{step}</Tab>)}
         </TabList>
