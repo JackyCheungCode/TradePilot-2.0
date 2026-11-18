@@ -11,7 +11,7 @@ import {
   DocumentTasks, DocumentView, Download, Edit, Email, Filter, Folder,
   Globe, Information, Launch, Location, MachineLearningModel, MagicWand,
   Map, ModelBuilder, Network_4, Notebook, Notification, Package, PaintBrush,
-  Phone, Play, Product, Renew, Save, Search, SearchLocate, Security, Send,
+  Link, Phone, Play, Product, Renew, Reset, Save, Search, SearchLocate, Security, Send, Subtract,
   Settings, SettingsAdjust, Share, ShoppingCart, Star, Task, TaskComplete,
   Template, Time, Tools, Translate, TrashCan, Upload, User, UserAvatar,
   UserFollow, UserMultiple, UserSettings, View, ViewOff, Wallet, WarningAlt,
