@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactElement } from 're
 import { useNavigate, useParams } from 'react-router-dom';
 import { DonutChart } from '@carbon/charts-react';
 import {
-  Button, Checkbox, InlineLoading, InlineNotification, Modal, Select, SelectItem,
+  Button, Link, Checkbox, InlineLoading, InlineNotification, Modal, Select, SelectItem,
   Tag, TextArea, TextInput, Tabs, TabList, Tab, TabPanels, TabPanel, Table, TableHead,
   TableRow, TableHeader, TableBody, TableCell, Tile, LineChart, ScaleTypes, CarbonIcons, BusinessLifecycle, WorldMapChart,
 } from '@/design-system';
