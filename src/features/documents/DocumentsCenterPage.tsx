@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Link, ClickableTile, InlineLoading, InlineNotification, Tag, Tile, CarbonIcons } from '@/design-system';
+import { Link, ClickableTile, InlineLoading, InlineNotification, Tag, Tile, CarbonIcons } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/documents.scss';
 
