@@ -219,7 +219,7 @@ export function ExecutionStep({ profile, sources, actorParameters = {}, onEditSt
           minFollowers: 0, maxFollowers: 100000000, recentDays: 365, requireContact: true, limit: instagramLimitValue, planSnapshot, guardrailsSnapshot,
         });
       }
-      if (pendingActorPlans.length) appendLog("[ACTOR GATE] " + pendingActorPlans.length + " 个已选平台的 Actor 尚未通过当前输入参数测试，本次暂不启动这些 Actor。");
+      if (pendingActorPlans.length) appendLog("[SCHEMA VALIDATION] " + pendingActorPlans.length + " 个已选平台仍有必填字段或参数格式未完成校验，本次暂不启动这些 Actor。");
       if (enabledActorPlans.length) {
         addTask("actor-discovery", "Actor 智能采集（" + enabledActorPlans.length + " 个来源）", "/api/v1/actor-registry/execute", {
           actors: enabledActorPlans,
@@ -362,7 +362,7 @@ export function ExecutionStep({ profile, sources, actorParameters = {}, onEditSt
 
       {notice && <InlineNotification kind="info" lowContrast title="任务反馈" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
       <Tile className="tp-execution__configuration">
-        <div className="tp-execution__section-heading"><div><h3>执行参数</h3><p>所有已选平台均按动态 Schema 配置；通过参数测试的 Actor 和原生执行渠道均可执行。数量为每个目标国家或渠道的结果上限。</p></div><Tag type="blue">{configuredChannels.length} 个可执行渠道</Tag></div>
+        <div className="tp-execution__section-heading"><div><h3>执行参数</h3><p>所有已选平台均按动态 Schema 配置；必填字段与参数类型校验通过的 Actor 和原生执行渠道均可执行。数量为每个目标国家或渠道的结果上限。</p></div><Tag type="blue">{configuredChannels.length} 个可执行渠道</Tag></div>
         <div className="tp-execution__configuration-grid">
           {channels.some(item => item.id === 'google-maps') && <div><TextInput id="tp-execution-map-limit" type="number" min={1} max={100} labelText="Google Maps + OSM：每个数据源结果上限" helperText="Google Maps 与 OSM 分别使用此上限。" value={mapLimit} onChange={event => { setMapLimit(event.currentTarget.value); setConfirmedExecution(false); }} /></div>}
           {channels.some(item => item.id === 'google-search') && <div><TextInput id="tp-execution-web-limit" type="number" min={1} max={100} labelText="Web Search：结果上限" value={webLimit} onChange={event => { setWebLimit(event.currentTarget.value); setConfirmedExecution(false); }} /></div>}
