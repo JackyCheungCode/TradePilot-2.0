@@ -1,3 +1,4 @@
+import { PageHeader } from '@/design-system';
 import { useCallback, useEffect, useState, type ChangeEvent } from 'react';
 import {
   Button, Link, FileUploaderButton, InlineLoading, InlineNotification, Select, SelectItem, TextInput, Toggle, CarbonIcons, useThemePreference,
@@ -141,13 +142,13 @@ export function PersonalSettingsPage() {
 
   return (
     <main className="tp-personal-settings">
-      <header className="tp-personal-settings__header">
+      <PageHeader className="tp-personal-settings__header">
         <div>
           <p className="tp-personal-settings__eyebrow">TRADEPILOT / ACCOUNT</p>
           <h1>个人设置</h1>
           <p>管理个人账户、安全选项和 TradePilot 的工作体验。</p>
         </div>
-      </header>
+      </PageHeader>
       {error && <InlineNotification kind="error" lowContrast title="操作未完成" subtitle={error} onCloseButtonClick={() => setError('')} />}
       {notice && <InlineNotification kind="success" lowContrast title="设置已更新" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
       {loading ? <InlineLoading description="正在读取个人设置…" /> : (
