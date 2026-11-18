@@ -1,5 +1,4 @@
 import { SkeletonPlaceholder, SkeletonText } from '../../components/Skeleton';
-import { PageSkeleton } from '@/design-system/components/PageSkeleton';
 import './app-shell-loading-skeleton.scss';
 
 export function AppShellLoadingSkeleton() {
@@ -20,7 +19,11 @@ export function AppShellLoadingSkeleton() {
           {Array.from({ length: 8 }, (_, index) => <SkeletonText key={index} width={index % 2 ? '72%' : '88%'} />)}
         </aside>
         <main className="tp-app-shell-skeleton__content">
-          <PageSkeleton variant="dashboard" metricCount={8} />
+          <div className="tp-app-shell-skeleton__content-loading">
+          <SkeletonText heading width="14rem" />
+          <SkeletonText width="28rem" />
+          <SkeletonPlaceholder className="tp-app-shell-skeleton__content-placeholder" />
+        </div>
         </main>
       </div>
     </div>
