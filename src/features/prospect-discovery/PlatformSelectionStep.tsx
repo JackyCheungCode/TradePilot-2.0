@@ -219,58 +219,21 @@ const localPlatformLogos: Record<string, string> = {
   wechat: 'wechat.svg', whatsapp: 'whatsapp.svg',
 };
 
-const platformLettermarkColors: Record<string, { backgroundColor: string; color: string }> = {
-  'bing-search': { backgroundColor: '#008373', color: '#ffffff' },
-  'yahoo-search': { backgroundColor: '#6001d2', color: '#ffffff' },
-  'brave-search': { backgroundColor: '#fb542b', color: '#ffffff' },
-  'x-twitter': { backgroundColor: '#161616', color: '#ffffff' },
-  facebook: { backgroundColor: '#0866ff', color: '#ffffff' },
-  instagram: { backgroundColor: '#c13584', color: '#ffffff' },
-  'linkedin-global': { backgroundColor: '#0a66c2', color: '#ffffff' },
-  telegram: { backgroundColor: '#229ed9', color: '#ffffff' },
-  amazon: { backgroundColor: '#232f3e', color: '#ff9900' },
-  walmart: { backgroundColor: '#0071ce', color: '#ffffff' },
-  alibaba: { backgroundColor: '#ff6a00', color: '#ffffff' },
-  aliexpress: { backgroundColor: '#e43225', color: '#ffffff' },
-  ebay: { backgroundColor: '#ffffff', color: '#3665f3' },
-  etsy: { backgroundColor: '#f1641e', color: '#ffffff' },
-  temu: { backgroundColor: '#fb7701', color: '#ffffff' },
-  shein: { backgroundColor: '#222222', color: '#ffffff' },
-  'shopify-stores': { backgroundColor: '#95bf47', color: '#ffffff' },
-  woocommerce: { backgroundColor: '#7f54b3', color: '#ffffff' },
-  bigcommerce: { backgroundColor: '#121118', color: '#ffffff' },
-  'tiktok-shop': { backgroundColor: '#111111', color: '#ffffff' },
-  'mercado-libre': { backgroundColor: '#ffe600', color: '#333333' },
-  'google-shopping': { backgroundColor: '#ffffff', color: '#4285f4' },
-  trustpilot: { backgroundColor: '#00b67a', color: '#ffffff' },
-  crunchbase: { backgroundColor: '#0288d1', color: '#ffffff' },
-  'product-hunt': { backgroundColor: '#da552f', color: '#ffffff' },
-  github: { backgroundColor: '#24292f', color: '#ffffff' },
-  'sam-gov': { backgroundColor: '#112e51', color: '#ffffff' },
-  'canton-fair': { backgroundColor: '#b21f2d', color: '#ffffff' },
-  thomasnet: { backgroundColor: '#1c4587', color: '#ffffff' },
-  europages: { backgroundColor: '#174a8b', color: '#ffffff' },
-  kompass: { backgroundColor: '#ed1c24', color: '#ffffff' },
-  wlw: { backgroundColor: '#e30613', color: '#ffffff' },
-  indiamart: { backgroundColor: '#2d5da8', color: '#ffffff' },
-  tradeindia: { backgroundColor: '#f58220', color: '#ffffff' },
-  justdial: { backgroundColor: '#f5c400', color: '#222222' },
-  coupang: { backgroundColor: '#e31837', color: '#ffffff' },
-  'rakuten-jp': { backgroundColor: '#bf0000', color: '#ffffff' },
-  '1688': { backgroundColor: '#ff6a00', color: '#ffffff' },
-  jd: { backgroundColor: '#e2231a', color: '#ffffff' },
-  taobao: { backgroundColor: '#ff5000', color: '#ffffff' },
-  pchome: { backgroundColor: '#e60012', color: '#ffffff' },
-  momo: { backgroundColor: '#e5007d', color: '#ffffff' },
-  carousell: { backgroundColor: '#e84c4f', color: '#ffffff' },
-  lazada: { backgroundColor: '#f36f21', color: '#ffffff' },
-  shopee: { backgroundColor: '#ee4d2d', color: '#ffffff' },
-  'yellowpages-us': { backgroundColor: '#ffd400', color: '#222222' },
-  'yellowpages-ca': { backgroundColor: '#ffd400', color: '#222222' },
-  'yellowpages-au': { backgroundColor: '#ffd400', color: '#222222' },
-  'companies-house': { backgroundColor: '#005ea5', color: '#ffffff' },
-  kvk: { backgroundColor: '#f39200', color: '#ffffff' },
+const platformLettermarkTones: Record<string, string> = {
+  'bing-search': 'teal', 'yahoo-search': 'violet', 'brave-search': 'orange',
+  'x-twitter': 'black', facebook: 'blue', instagram: 'magenta', 'linkedin-global': 'blue',
+  telegram: 'cyan', amazon: 'navy', walmart: 'blue', alibaba: 'orange', aliexpress: 'red',
+  ebay: 'blue', etsy: 'orange', temu: 'orange', shein: 'black', 'shopify-stores': 'green',
+  woocommerce: 'purple', bigcommerce: 'black', 'tiktok-shop': 'black', 'mercado-libre': 'yellow',
+  'google-shopping': 'white', trustpilot: 'green', crunchbase: 'cyan', 'product-hunt': 'orange',
+  github: 'black', 'sam-gov': 'navy', 'canton-fair': 'red', thomasnet: 'navy',
+  europages: 'blue', kompass: 'red', wlw: 'red', indiamart: 'blue', tradeindia: 'orange',
+  justdial: 'yellow', coupang: 'red', 'rakuten-jp': 'red', '1688': 'orange', jd: 'red',
+  taobao: 'orange', pchome: 'red', momo: 'magenta', carousell: 'red', lazada: 'orange',
+  shopee: 'orange', 'yellowpages-us': 'yellow', 'yellowpages-ca': 'yellow',
+  'yellowpages-au': 'yellow', 'companies-house': 'blue', kvk: 'orange',
 };
+const platformLettermarkTone = (id: string) => platformLettermarkTones[id] ?? 'neutral';
 const platformLettermark = (name: string) => {
   const words = name.replace(/[^\p{L}\p{N}]+/gu, ' ').trim().split(/\s+/).filter(Boolean);
   return (words.length > 1 ? words.slice(0, 2).map(word => word[0]) : [name.slice(0, 2)]).join('').toLocaleUpperCase();
@@ -372,7 +335,7 @@ export function PlatformSelectionStep({
           return <div className={'tp-prospect-discovery__platform-row' + (checked ? ' is-selected' : '')} key={source.id}>
             <Checkbox id={'tp-platform-' + source.id} labelText={source.name} hideLabel checked={checked} disabled={!isRunnablePlatform(source.id)} onChange={() => toggle(source.id)} />
             <div className="tp-prospect-discovery__platform-copy">
-              {localPlatformLogos[source.id] ? <img className="tp-prospect-discovery__platform-logo" src={'/platform-logos/' + localPlatformLogos[source.id]} alt="" loading="lazy" /> : platformLogoSymbols[source.id] ? <svg className="tp-prospect-discovery__platform-logo tp-prospect-discovery__platform-logo--sprite" viewBox="0 0 24 24" aria-hidden="true"><use href={'/platform-logos/' + platformLogoSymbols[source.id].file + '#' + platformLogoSymbols[source.id].symbol} /></svg> : <span className="tp-prospect-discovery__platform-monogram" style={platformLettermarkStyle(source.id)} aria-hidden="true">{platformLettermark(source.name)}</span>}
+              {localPlatformLogos[source.id] ? <img className="tp-prospect-discovery__platform-logo" src={'/platform-logos/' + localPlatformLogos[source.id]} alt="" loading="lazy" /> : platformLogoSymbols[source.id] ? <svg className="tp-prospect-discovery__platform-logo tp-prospect-discovery__platform-logo--sprite" viewBox="0 0 24 24" aria-hidden="true"><use href={'/platform-logos/' + platformLogoSymbols[source.id].file + '#' + platformLogoSymbols[source.id].symbol} /></svg> : <span className={"tp-prospect-discovery__platform-monogram tp-prospect-discovery__platform-monogram--" + platformLettermarkTone(source.id)} aria-hidden="true">{platformLettermark(source.name)}</span>}
               <div className="tp-prospect-discovery__platform-name">
                 <strong>{source.name}</strong>{isRecommended && <Tag type="green">智能推荐</Tag>}
               </div>
