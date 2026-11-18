@@ -24,9 +24,9 @@ import { useMemo } from 'react';
 import type { TpDataTableProps } from './TpDataTable.types';
 import './TpDataTable.scss';
 
-function displayValue<T extends Record<string, unknown>>(row: T, column: TpDataTableProps<T>['columns'][number]) {
+function displayValue<T extends object>(row: T, column: TpDataTableProps<T>['columns'][number]) {
   if (column.render) return column.render(row);
-  const value = row[column.key];
+  const value = (row as Record<string, unknown>)[column.key];
   if (value === null || value === undefined || value === '') return '—';
   if (column.type === 'currency' && typeof value === 'number') return value.toLocaleString();
   if (column.type === 'percent' && typeof value === 'number') return `${value}%`;
@@ -83,7 +83,6 @@ export function TpDataTable<T extends Record<string, unknown>>({
                     <TableBatchAction
                       key={action.key}
                       tabIndex={0}
-                      renderIcon={() => null}
                       onClick={() => void action.onClick(carbonSelectedRows.map((selected) => rows.find((row) => String(row[rowKey]) === selected.id)).filter((row): row is T => Boolean(row)))}
                       disabled={action.disabled}
                     >
