@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   Button, Link, FileUploaderButton, InlineLoading, InlineNotification, Select, SelectItem, TextInput, Toggle, CarbonIcons, useThemePreference,
 } from '@/design-system';
@@ -34,7 +33,7 @@ function readPreferences(value: unknown): Preferences {
 }
 
 export function PersonalSettingsPage() {
-  const navigate = useNavigate();
+  
   const { preference, setPreference } = useThemePreference();
   const [active, setActive] = useState<SectionId>('profile');
   const [loading, setLoading] = useState(true);
