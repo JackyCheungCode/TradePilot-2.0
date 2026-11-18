@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-  Button, Link, ContentSwitcher, Switch, FileUploaderButton, InlineLoading, InlineNotification, MultiSelect, Select, SelectItem, Tag, TextInput, TextArea,
+  Button, Link, ContentSwitcher, Switch, FileUploaderButton, InlineLoading, InlineNotification, MultiSelect, Select, SelectItem, Tag, TextInput, TextArea, DateField,
   Tabs, TabList, Tab, TabPanels, TabPanel, Table, TableHead, TableRow, TableHeader, TableBody, TableCell,
   Tile, LineChart, SimpleBarChart, ScaleTypes, CarbonIcons, BusinessLifecycle, WorldMapChart,
 } from '@/design-system';
@@ -29,6 +29,7 @@ function Metric({label,value,detail,icon:Icon}:{label:string;value:string;detail
   return <Tile className="tp-payments__metric"><div className="tp-payments__metric-head"><span>{label}</span><Icon size={20}/></div><strong>{value}</strong><small>{detail}</small></Tile>;
 }
 function Field({id,label,value,onChange,type='text',disabled=false,placeholder=''}:{id:string;label:string;value:any;onChange:(v:string)=>void;type?:string;disabled?:boolean;placeholder?:string}) {
+  if (type === 'date') return <DateField id={id} label={label} value={String(value??'')} disabled={disabled} onChange={onChange}/>;
   return <TextInput id={id} labelText={label} type={type} value={String(value??'')} disabled={disabled} placeholder={placeholder} onChange={e=>onChange(e.currentTarget.value)}/>;
 }
 function Pick({id,label,value,onChange,options,disabled=false}:{id:string;label:string;value:any;onChange:(v:string)=>void;options:Array<string|{value:string;label:string}>;disabled?:boolean}) {
