@@ -235,7 +235,34 @@ export function AgentWorkspacePage() {
     return () => window.clearInterval(timer);
   }, [messages, conversationId]);
 
-  if (loading) return <PageSkeleton variant="workspace" showActions={false} />;
+  if (loading) return <PageSkeleton className="tp-agent" layout={[
+    { type: 'group', direction: 'row', gap: 'var(--tp-space-05)', className: 'tp-agent__page-header', children: [
+      { type: 'group', direction: 'column', gap: 'var(--tp-space-02)', children: [{ type: 'text', heading: true, width: '7rem' }, { type: 'text', width: '12rem' }] },
+      { type: 'placeholder', width: '7rem', height: '2rem' },
+    ] },
+    { type: 'group', direction: 'column', gap: 'var(--tp-space-04)', className: 'tp-agent__workspace', children: [
+      { type: 'group', direction: 'row', gap: 'var(--tp-space-04)', className: 'tp-agent__history', children: [
+        { type: 'placeholder', width: 'min(42rem, 100%)', height: '3.5rem', className: 'tp-agent__history-select' },
+        { type: 'group', direction: 'row', gap: 'var(--tp-space-02)', className: 'tp-agent__history-actions', children: [
+          { type: 'placeholder', width: '8rem', height: '2.5rem' }, { type: 'placeholder', width: '8rem', height: '2.5rem' },
+        ] },
+      ] },
+      { type: 'group', direction: 'column', gap: 'var(--tp-space-04)', className: 'tp-agent__chat', children: [
+        { type: 'group', direction: 'row', gap: 'var(--tp-space-04)', className: 'tp-agent__chat-header', children: [
+          { type: 'placeholder', width: '2.5rem', height: '2.5rem', aspectRatio: '1' }, { type: 'text', heading: true, width: '9rem' },
+        ] },
+        { type: 'group', direction: 'column', gap: 'var(--tp-space-05)', className: 'tp-agent__messages', children: [
+          { type: 'placeholder', width: 'min(60rem, 100%)', minHeight: '8rem', className: 'tp-agent__welcome' },
+          { type: 'placeholder', width: 'min(72rem, 85%)', minHeight: '5rem', className: 'tp-agent__message-content' },
+          { type: 'placeholder', width: 'min(72rem, 85%)', minHeight: '5rem', className: 'tp-agent__message-content' },
+        ] },
+        { type: 'group', direction: 'column', gap: 'var(--tp-space-03)', className: 'tp-agent__composer', children: [
+          { type: 'placeholder', minHeight: '6rem' },
+          { type: 'group', direction: 'row', gap: 'var(--tp-space-04)', children: [{ type: 'text', width: '12rem' }, { type: 'placeholder', width: '6rem', height: '2.5rem' }] },
+        ] },
+      ] },
+    ] },
+  ]} />;
   return (
     <main className="tp-agent">
       <header className="tp-agent__page-header">
