@@ -432,7 +432,7 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
           <p className="tp-payments__hint">内部备注、汇兑损益与差异处理方式仅供内部使用，不会写入对客收款确认函。</p>
         </div></TabPanel>
       </TabPanels></Tabs>
-      <div className="tp-payments__footer"><span>草稿可修改；确认后金额、币种、账户与日期锁定。已对账记录不可直接作废。</span><div><Button kind="ghost" onClick={()=>setActiveTab(Math.max(0,activeTab-1))} disabled={activeTab===0}>上一步</Button><Button kind="tertiary" onClick={()=>setActiveTab(Math.min(3,activeTab+1))} disabled={activeTab===3}>下一步</Button>{!readOnly&&!locked&&<Button kind="primary" onClick={()=>void save()} disabled={saving}>{saving?'保存中…':'保存草稿'}</Button>}</div></div>
+      <div className="tp-payments__footer"><span>草稿可修改；确认后金额、币种、账户与日期锁定。已对账记录不可直接作废。</span><div><Button kind="ghost" onClick={()=>setActiveTab(Math.max(0,activeTab-1))} disabled={activeTab===0}>上一步</Button><Button kind="tertiary" onClick={()=>setActiveTab(Math.min(3,activeTab+1))} disabled={activeTab===3}>下一步</Button>{!readOnly&&!locked&&saving&&<InlineLoading status="active" description="正在保存收款记录…"/>}{!readOnly&&!locked&&<Button kind="primary" onClick={()=>void save()} disabled={saving}>保存草稿</Button>}</div></div>
     </section>
   </main>;
 }
