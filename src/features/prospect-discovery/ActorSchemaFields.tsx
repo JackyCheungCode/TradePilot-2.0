@@ -200,9 +200,11 @@ export function ActorSchemaFields({ sources, onValuesChange }: Props) {
             const value = values[valueKey] ?? field.default ?? '';
             const enumValues = Array.isArray(field.enum) ? field.enum : [];
             const isRequired = required.has(fieldKey) || field.required === true;
+            const isMissingRequired = isRequired && (value === undefined || value === null || (typeof value === 'string' && !value.trim()));
             return <div className="tp-prospect-discovery__actor-schema-field" key={valueKey}>
               <div className="tp-prospect-discovery__actor-schema-label">
-                <span>{title}{isRequired ? ' *' : ''}</span>
+                <span>{title}</span>
+                {isRequired && <Tag type="red">必填</Tag>}
                 <Button kind="ghost" size="sm" onClick={() => setExpandedHelp(current => ({ ...current, [valueKey]: !current[valueKey] }))} aria-expanded={Boolean(expandedHelp[valueKey])} aria-label={'解释字段 ' + title}>!</Button>
                 <code>{fieldKey}</code>
               </div>
@@ -215,6 +217,7 @@ export function ActorSchemaFields({ sources, onValuesChange }: Props) {
                 <SelectItem value="" text="请选择" />
                 {enumValues.map(option => <SelectItem key={String(option)} value={String(option)} text={String(option)} />)}
               </Select> : field.type === 'boolean' ? <Checkbox id={'actor-field-' + valueKey} labelText={title} checked={Boolean(value)} onChange={event => setField(valueKey, event.currentTarget.checked)} /> : field.type === 'number' || field.type === 'integer' ? <TextInput id={'actor-field-' + valueKey} labelText={title} type="number" value={String(value)} onChange={event => setField(valueKey, event.currentTarget.value === '' ? '' : Number(event.currentTarget.value))} /> : field.type === 'object' || field.type === 'array' ? <TextArea id={'actor-field-' + valueKey} labelText={title} rows={3} value={typeof value === 'string' ? value : JSON.stringify(value)} onChange={event => setField(valueKey, event.currentTarget.value)} /> : <TextInput id={'actor-field-' + valueKey} labelText={title} value={String(value)} onChange={event => setField(valueKey, event.currentTarget.value)} />}
+            {isMissingRequired && <InlineNotification kind="error" lowContrast title="此字段为必填项" />}
             </div>;
           })}
         </div>
