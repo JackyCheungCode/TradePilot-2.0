@@ -1,3 +1,4 @@
+import { PageHeader } from '@/design-system';
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
@@ -104,10 +105,10 @@ export function ProspectHistoryPage() {
 
   return (
     <main className="tp-prospect-hub">
-      <header className="tp-prospect-hub__header">
+      <PageHeader className="tp-prospect-hub__header">
         <div><p className="tp-prospect-hub__eyebrow">TRADEPILOT / CRM · PROSPECT INTELLIGENCE</p><h1>潜客发现 · 历史任务</h1><p>集中查看每次潜客发现任务的执行状态、搜索条件、采集数量与运行结果。</p></div>
         <Link href="/prospect-discovery" renderIcon={CarbonIcons.Search}>创建潜客方案</Link>
-      </header>
+      </PageHeader>
       {error && <InlineNotification kind="error" lowContrast title="读取失败" subtitle={error} onCloseButtonClick={() => setError('')} />}
       {!loading && runs.length > 0 && <section className="tp-prospect-history__analytics">
         <Tile className="tp-prospect-hub__panel"><div className="tp-prospect-hub__section-heading"><div><h2>任务执行状态</h2><p>最近 200 条历史任务。</p></div></div><DonutChart data={statusData} options={donutOptions as any}/></Tile>
