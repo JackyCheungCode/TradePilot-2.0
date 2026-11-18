@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { Button, Link, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/documents.scss';
@@ -87,7 +87,7 @@ const readPath = (root: Json, path?: string) => (path || '').split('.').filter(B
 const formatValue = (value: any) => value == null || value === '' ? '—' : typeof value === 'object' ? Object.values(value).filter(Boolean).join(', ') : String(value);
 
 export function DocumentStudioPage() {
-  const navigate = useNavigate();
+  
   const canvasRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ id: string; mode: 'move' | 'resize'; startX: number; startY: number; x: number; y: number; width: number; height: number } | null>(null);
   const [searchParams] = useSearchParams();
