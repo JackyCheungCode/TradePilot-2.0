@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AreaChart } from '@carbon/charts-react';
 import {
   Button, Link, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput,
-  Table, TableHead, TableRow, TableHeader, TableBody, TableCell, TableContainer, CarbonIcons, WorldMapChart, SimpleBarChart,
+  Table, TableHead, TableRow, TableHeader, TableBody, TableCell, TableContainer, semanticIcons, WorldMapChart, SimpleBarChart,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@carbon/charts/styles.css';
@@ -85,7 +85,7 @@ function LeadMap({ rows, selectedCode, onCountrySelect }: {
   })).sort((a, b) => b.value - a.value);
   return <section className="tp-leads__panel tp-leads__map-panel">
     <div className="tp-leads__panel-heading">
-      <div className="tp-leads__panel-title"><CarbonIcons.Globe size={20} /><h2>全球线索分布</h2></div>
+      <div className="tp-leads__panel-title"><semanticIcons.globe size={20} /><h2>全球线索分布</h2></div>
       <p>按线索国家 / 地区汇总；选择地图或排名可筛选线索列表，国家级位置不代表企业精确地址。</p>
     </div>
     <WorldMapChart data={data} unitLabel="条线索" selectedCode={selectedCode === 'all' ? undefined : selectedCode} onCountrySelect={onCountrySelect}/>
@@ -195,27 +195,27 @@ export function LeadConsolePage() {
     <PageHeader className="tp-leads__header">
       <div><p className="tp-leads__eyebrow">TRADEPILOT / CRM</p><h1>线索（Lead）</h1><p>集中管理已建立的正式线索，分析来源、状态、评级与国家 / 地区分布。</p></div>
       <div className="tp-leads__header-actions">
-        <Button kind="tertiary" onClick={() => { setRefreshing(true); void load(); }} disabled={loading || refreshing}><CarbonIcons.Renew size={16} />刷新</Button>
-        <Link href="/leads/new" renderIcon={CarbonIcons.Add}>新建线索</Link>
+        <Button kind="tertiary" onClick={() => { setRefreshing(true); void load(); }} disabled={loading || refreshing}><semanticIcons.refresh size={16} />刷新</Button>
+        <Link href="/leads/new" renderIcon={semanticIcons.add}>新建线索</Link>
       </div>
     </PageHeader>
     {error && <InlineNotification kind="error" title="线索数据读取失败" subtitle={error} onCloseButtonClick={() => setError('')} />}
     {loading ? <div className="tp-leads__loading"><InlineLoading description="正在读取线索数据…" /></div> : <>
       <div className="tp-leads__metrics">
-        <Metric label="全部线索" value={total} icon={<CarbonIcons.UserMultiple size={20} />} detail="正式线索总数" />
-        <Metric label="待跟进" value={followUp} icon={<CarbonIcons.Time size={20} />} detail="新建、联系中及待审核" />
-        <Metric label="已确认" value={confirmed} icon={<CarbonIcons.CheckmarkFilled size={20} />} detail="已确认或已转换" />
-        <Metric label="已失效" value={invalid} icon={<CarbonIcons.WarningAlt size={20} />} detail="已失效或审核拒绝" />
+        <Metric label="全部线索" value={total} icon={<semanticIcons.users size={20} />} detail="正式线索总数" />
+        <Metric label="待跟进" value={followUp} icon={<semanticIcons.time size={20} />} detail="新建、联系中及待审核" />
+        <Metric label="已确认" value={confirmed} icon={<semanticIcons.success size={20} />} detail="已确认或已转换" />
+        <Metric label="已失效" value={invalid} icon={<semanticIcons.warning size={20} />} detail="已失效或审核拒绝" />
       </div>
       <div className="tp-leads__analytics">
-        <Distribution title="线索来源" description="按正式线索资料中的来源字段统计。" items={sourceItems} icon={<CarbonIcons.DataVis_4 size={20} />} />
-        <Distribution title="线索状态" description="反映线索当前所处的业务阶段。" items={statusItems} icon={<CarbonIcons.TaskComplete size={20} />} />
-        <Distribution title="线索评级" description="按热、温、冷及未评级统计。" items={ratingItems} icon={<CarbonIcons.Star size={20} />} />
+        <Distribution title="线索来源" description="按正式线索资料中的来源字段统计。" items={sourceItems} icon={<semanticIcons.dataVisualization size={20} />} />
+        <Distribution title="线索状态" description="反映线索当前所处的业务阶段。" items={statusItems} icon={<semanticIcons.taskComplete size={20} />} />
+        <Distribution title="线索评级" description="按热、温、冷及未评级统计。" items={ratingItems} icon={<semanticIcons.star size={20} />} />
       </div>
       <LeadMap rows={rows} selectedCode={countryFilter} onCountrySelect={code => setCountryFilter(current => current === code ? 'all' : code)} />
-      <section className="tp-leads__panel"><div className="tp-leads__panel-heading"><div className="tp-leads__panel-title"><CarbonIcons.ChartLine size={20}/><h2>线索新增趋势</h2></div><p>最近 30 天正式线索创建数量。</p></div><AreaChart data={trendData} options={trendOptions as any}/></section>
+      <section className="tp-leads__panel"><div className="tp-leads__panel-heading"><div className="tp-leads__panel-title"><semanticIcons.chart size={20}/><h2>线索新增趋势</h2></div><p>最近 30 天正式线索创建数量。</p></div><AreaChart data={trendData} options={trendOptions as any}/></section>
       <section className="tp-leads__panel tp-leads__records">
-        <div className="tp-leads__panel-heading"><div className="tp-leads__panel-title"><CarbonIcons.UserMultiple size={20} /><h2>线索列表</h2></div><p>支持按名称、编号、国家及联系方式搜索，并按来源和状态筛选。</p></div>
+        <div className="tp-leads__panel-heading"><div className="tp-leads__panel-title"><semanticIcons.users size={20} /><h2>线索列表</h2></div><p>支持按名称、编号、国家及联系方式搜索，并按来源和状态筛选。</p></div>
         <div className="tp-leads__filters">
           <TextInput id="lead-console-search" labelText="搜索线索" placeholder="线索名称、编号、国家、邮箱或电话" value={search} onChange={event => setSearch(event.currentTarget.value)} />
           <Select id="lead-console-status" labelText="线索状态" value={statusFilter} onChange={event => setStatusFilter(event.currentTarget.value)}>
