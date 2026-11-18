@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-  Button, InlineLoading, InlineNotification, Tag, Tile, Table, TableHead,
+  Button, Link, InlineLoading, InlineNotification, Tag, Tile, Table, TableHead,
   TableRow, TableHeader, TableBody, TableCell, CarbonIcons, WorldMapChart,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
