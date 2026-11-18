@@ -15,10 +15,10 @@ type Lead = {
   address?: string; phone?: string; runId?: string; confidence?: number; reviewed?: boolean; guardrailReview?: boolean; duplicateReview?: boolean;
   status: 'pending' | 'scored'; score?: number; fit?: number; persona?: number; scale?: number; intent?: number; comment?: string;
 };
-type Props = { profile: { coreNoun: string; countryName: string; buyers: string[] }; onContinueToEnrichment: () => void };
+type Props = { onContinueToEnrichment: () => void };
 
 
-export function ScoringStep({ profile, onContinueToEnrichment }: Props) {
+export function ScoringStep({ onContinueToEnrichment }: Props) {
   const [rows, setRows] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -115,7 +115,7 @@ export function ScoringStep({ profile, onContinueToEnrichment }: Props) {
         const response = await fetch('/api/v1/discovery-records/score', {
           method: 'POST',
           headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify({ recordIds: batch, profile }),
+          body: JSON.stringify({ recordIds: batch }),
         });
         const payload = await response.json() as { data?: { scores?: Array<Record<string, unknown>> }; error?: { message?: string } };
         if (!response.ok) throw new Error(payload.error?.message || 'AI 评分失败（HTTP ' + response.status + '）');
@@ -210,19 +210,17 @@ export function ScoringStep({ profile, onContinueToEnrichment }: Props) {
   return (
     <section className="tp-prospect-discovery__step tp-scoring">
       <div className="tp-scoring__heading">
-        <div><span className="tp-execution__eyebrow">AI FILTERING & SCORING</span><h2>AI 智能清洗与打分工作台</h2><p>目标市场：{profile.countryName || '未指定'} · 核心产品：{profile.coreNoun || '未指定'} · 目标买家：{profile.buyers.length} 类</p></div>
+        <div><span className="tp-execution__eyebrow">AI FILTERING & SCORING</span><h2>AI 智能清洗与打分工作台</h2><p>仅依据各数据源返回的企业公开信息与证据进行评分，不依赖预设关键词或目标国家。</p></div>
         <div className="tp-scoring__heading-actions"><Tag type="blue">{rows.length} 条待处理记录</Tag><Button kind="primary" size="md" renderIcon={CarbonIcons.ArrowRight} disabled={!selected.length || loading || !rows.length} onClick={sendToEnrichment}>将已选企业送入第六步</Button></div>
       </div>
 
       {notice && <InlineNotification kind="info" lowContrast title="操作反馈" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
 
       <Tile className="tp-scoring__snapshot">
-        <div className="tp-scoring__method-heading"><CarbonIcons.DocumentView size={18} /><strong>前序搜索条件快照 / Previous Search Snapshot</strong></div>
+        <div className="tp-scoring__method-heading"><CarbonIcons.DocumentView size={18} /><strong>数据来源快照 / Source Snapshot</strong></div>
         <div className="tp-scoring__snapshot-grid">
-          <div><span>目标市场 / Target Market</span><strong>{profile.countryName || '未指定'}</strong></div>
-          <div><span>核心产品 / Core Product</span><strong>{profile.coreNoun || '未指定'}</strong></div>
-          <div><span>目标买家 / Target Buyers</span><strong>{profile.buyers.length ? profile.buyers.map(id => ({ importer: '进口商', distributor: '分销商 / 批发商', brand: '品牌方', contractor: '工程商 / 零售商' }[id] ?? id)).join('、') : '未指定'}</strong></div>
-          <div><span>检索记录 / Retrieved Records</span><strong>{rows.length} 条 · {sourceOptions.length} 个来源</strong></div>
+          <div><span>检索记录 / Retrieved Records</span><strong>{rows.length} 条</strong></div>
+          <div><span>数据来源 / Sources</span><strong>{sourceOptions.length} 个</strong></div>
         </div>
       </Tile>
 
