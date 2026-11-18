@@ -131,7 +131,6 @@ const defaults: Record<string, string[]> = {
   NZ: ['trade-me','finda','seek-au','google-maps'],
 };
 const recommendedFor = (code: string) => defaults[code] ?? ['google-maps','linkedin','shopify','europages','kompass'];
-const categoryLabels = [...globalCatalog.map(group => group.title), '全球通用与全域穿透渠道', '企业名录与本地商业目录'];
 const defaultPlatformPageSize = 10;
 const platformPageSizes = [10, 20, 30];
 
@@ -151,7 +150,10 @@ const allPlatforms: Array<Source & { category: string; global: boolean }> = [
   ...regionalSources.map(source => ({ ...source, category: regionalCategory(source), global: false })),
 ];
 
-const isRunnablePlatform = (id: string) => allPlatforms.some(source => source.id === id);
+const excludedFromProspectDiscovery = new Set(["youtube","vimeo","twitch","dailymotion","rumble","bilibili","nicovideo","reddit","quora","medium","tumblr","hackernews","nextdoor","snapchat","threads","pinterest","tiktok","indeed","glassdoor","linkedin-jobs","monster","ziprecruiter","workday","greenhouse","lever","stepstone","seek","naukri","xing-jobs","seek-au","builtwith","wappalyzer","similarweb","google-news"]);
+const allPlatformsForDiscovery = allPlatforms.filter(source => !excludedFromProspectDiscovery.has(source.id));
+const categoryLabels = [...new Set(allPlatformsForDiscovery.map(source => source.category))];
+const isRunnablePlatform = (id: string) => allPlatformsForDiscovery.some(source => source.id === id);
 const platformLogoSymbols: Record<string, { file: string; symbol: string }> = {
   'google-search': { file: 'platform-sprite-search.svg', symbol: 'google' },
   'google-news': { file: 'platform-sprite-search.svg', symbol: 'googlenews' },
@@ -217,6 +219,25 @@ const localPlatformLogos: Record<string, string> = {
   wechat: 'wechat.svg', whatsapp: 'whatsapp.svg',
 };
 
+const platformLettermarkTones: Record<string, string> = {
+  'bing-search': 'teal', 'yahoo-search': 'violet', 'brave-search': 'orange',
+  'x-twitter': 'black', facebook: 'blue', instagram: 'magenta', 'linkedin-global': 'blue',
+  telegram: 'cyan', amazon: 'navy', walmart: 'blue', alibaba: 'orange', aliexpress: 'red',
+  ebay: 'blue', etsy: 'orange', temu: 'orange', shein: 'black', 'shopify-stores': 'green',
+  woocommerce: 'purple', bigcommerce: 'black', 'tiktok-shop': 'black', 'mercado-libre': 'yellow',
+  'google-shopping': 'white', trustpilot: 'green', crunchbase: 'cyan', 'product-hunt': 'orange',
+  github: 'black', 'sam-gov': 'navy', 'canton-fair': 'red', thomasnet: 'navy',
+  europages: 'blue', kompass: 'red', wlw: 'red', indiamart: 'blue', tradeindia: 'orange',
+  justdial: 'yellow', coupang: 'red', 'rakuten-jp': 'red', '1688': 'orange', jd: 'red',
+  taobao: 'orange', pchome: 'red', momo: 'magenta', carousell: 'red', lazada: 'orange',
+  shopee: 'orange', 'yellowpages-us': 'yellow', 'yellowpages-ca': 'yellow',
+  'yellowpages-au': 'yellow', 'companies-house': 'blue', kvk: 'orange',
+};
+const platformLettermarkTone = (id: string) => platformLettermarkTones[id] ?? 'neutral';
+const platformLettermark = (name: string) => {
+  const words = name.replace(/[^\p{L}\p{N}]+/gu, ' ').trim().split(/\s+/).filter(Boolean);
+  return (words.length > 1 ? words.slice(0, 2).map(word => word[0]) : [name.slice(0, 2)]).join('').toLocaleUpperCase();
+};
 export function PlatformSelectionStep({
   onSelectionCountChange, selectedIds, onSelectionChange,
 }: {
@@ -232,11 +253,11 @@ export function PlatformSelectionStep({
   const [pageSize, setPageSize] = useState(defaultPlatformPageSize);
 
 
-  useEffect(() => { onSelectionCountChange(selected.length); onSelectionChange?.(allPlatforms.filter(source => selected.includes(source.id)).map(source => ({ id: source.id, name: source.name, category: source.category }))); }, [selected, onSelectionCountChange, onSelectionChange]);
+  useEffect(() => { onSelectionCountChange(selected.length); onSelectionChange?.(allPlatformsForDiscovery.filter(source => selected.includes(source.id)).map(source => ({ id: source.id, name: source.name, category: source.category }))); }, [selected, onSelectionCountChange, onSelectionChange]);
 
   const filtered = useMemo(() => {
     const term = searchTerm.trim().toLocaleLowerCase();
-    return allPlatforms.filter(source => {
+    return allPlatformsForDiscovery.filter(source => {
       const categoryMatch = selectedCategories.length === 0 || selectedCategories.includes(source.category);
       const searchMatch = !term || source.name.toLocaleLowerCase().includes(term)
         || source.description.toLocaleLowerCase().includes(term)
@@ -278,7 +299,7 @@ export function PlatformSelectionStep({
       <div className="tp-prospect-discovery__platform-browser-heading">
         <div><h3>全球平台筛选与选择</h3><p>同一筛选维度内为“或”关系，不同维度之间为“且”关系。</p>
         </div>
-        <Tag type="blue">{allPlatforms.length} 个平台</Tag>
+        <Tag type="blue">{allPlatformsForDiscovery.length} 个平台</Tag>
       </div>
       <div className="tp-prospect-discovery__platform-filters">
         <div className="tp-prospect-discovery__platform-search">
@@ -310,8 +331,8 @@ export function PlatformSelectionStep({
           return <div className={'tp-prospect-discovery__platform-row' + (checked ? ' is-selected' : '')} key={source.id}>
             <Checkbox id={'tp-platform-' + source.id} labelText={source.name} hideLabel checked={checked} disabled={!isRunnablePlatform(source.id)} onChange={() => toggle(source.id)} />
             <div className="tp-prospect-discovery__platform-copy">
+              {localPlatformLogos[source.id] ? <img className="tp-prospect-discovery__platform-logo" src={'/platform-logos/' + localPlatformLogos[source.id]} alt="" loading="lazy" /> : platformLogoSymbols[source.id] ? <svg className="tp-prospect-discovery__platform-logo tp-prospect-discovery__platform-logo--sprite" viewBox="0 0 24 24" aria-hidden="true"><use href={'/platform-logos/' + platformLogoSymbols[source.id].file + '#' + platformLogoSymbols[source.id].symbol} /></svg> : <span className={"tp-prospect-discovery__platform-monogram tp-prospect-discovery__platform-monogram--" + platformLettermarkTone(source.id)} aria-hidden="true">{platformLettermark(source.name)}</span>}
               <div className="tp-prospect-discovery__platform-name">
-                {localPlatformLogos[source.id] ? <img className="tp-prospect-discovery__platform-logo" src={'/platform-logos/' + localPlatformLogos[source.id]} alt="" loading="lazy" /> : platformLogoSymbols[source.id] ? <svg className="tp-prospect-discovery__platform-logo tp-prospect-discovery__platform-logo--sprite" viewBox="0 0 24 24" aria-hidden="true"><use href={'/platform-logos/' + platformLogoSymbols[source.id].file + '#' + platformLogoSymbols[source.id].symbol} /></svg> : <span className="tp-prospect-discovery__platform-monogram" aria-hidden="true">{source.name.slice(0, 1).toUpperCase()}</span>}
                 <strong>{source.name}</strong>{isRecommended && <Tag type="green">智能推荐</Tag>}
               </div>
               <p>{source.description}</p>

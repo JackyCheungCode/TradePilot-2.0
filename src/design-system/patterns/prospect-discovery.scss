@@ -980,39 +980,76 @@
 }
 
 
-/* Local platform marks: fixed circular geometry keeps the 165-source catalog aligned. */
+/* Local brand marks use one fixed Carbon-sized slot; text content shares a single baseline. */
 .tp-prospect-discovery__platform-logo,
 .tp-prospect-discovery__platform-monogram {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex: 0 0 2rem;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 50%;
+  flex: 0 0 2.5rem;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.25rem;
   object-fit: contain;
   background: var(--cds-layer-02);
 }
 
 .tp-prospect-discovery__platform-logo {
-  padding: 0.25rem;
+  padding: 0.375rem;
 }
 
 .tp-prospect-discovery__platform-monogram {
   color: var(--cds-text-secondary);
   font-size: 0.75rem;
   font-weight: 600;
+  letter-spacing: 0.01em;
 }
+.tp-prospect-discovery__platform-monogram--teal { background-color: #008373; color: #ffffff; }
+.tp-prospect-discovery__platform-monogram--violet { background-color: #6001d2; color: #ffffff; }
+.tp-prospect-discovery__platform-monogram--orange { background-color: #f1641e; color: #ffffff; }
+.tp-prospect-discovery__platform-monogram--black { background-color: #24292f; color: #ffffff; }
+.tp-prospect-discovery__platform-monogram--blue { background-color: #0f62fe; color: #ffffff; }
+.tp-prospect-discovery__platform-monogram--magenta { background-color: #c13584; color: #ffffff; }
+.tp-prospect-discovery__platform-monogram--cyan { background-color: #229ed9; color: #ffffff; }
+.tp-prospect-discovery__platform-monogram--navy { background-color: #232f3e; color: #ffffff; }
+.tp-prospect-discovery__platform-monogram--green { background-color: #198038; color: #ffffff; }
+.tp-prospect-discovery__platform-monogram--purple { background-color: #7f54b3; color: #ffffff; }
+.tp-prospect-discovery__platform-monogram--red { background-color: #da1e28; color: #ffffff; }
+.tp-prospect-discovery__platform-monogram--yellow { background-color: #f1c21b; color: #161616; }
+.tp-prospect-discovery__platform-monogram--white { background-color: #ffffff; color: #0f62fe; }
 
-
-/* Prospect discovery alignment: left-aligned platform copy and Carbon-sized source marks. */
+/* The logo occupies column one; title and description both start in column two. */
 .tp-prospect-discovery__platform-row { align-items: flex-start; }
-.tp-prospect-discovery__platform-copy { align-items: flex-start; text-align: left; }
-.tp-prospect-discovery__platform-name { justify-content: flex-start; text-align: left; }
-.tp-prospect-discovery__platform-copy > p { width: 100%; text-align: left; }
-.tp-prospect-discovery__platform-logo,
-.tp-prospect-discovery__platform-monogram { flex-basis: 2.5rem; width: 2.5rem; height: 2.5rem; }
-.tp-prospect-discovery__platform-logo { padding: .375rem; }
+.tp-prospect-discovery__platform-copy {
+  display: grid;
+  grid-template-columns: 2.5rem minmax(0, 1fr);
+  align-items: start;
+  column-gap: 1rem;
+  row-gap: 0.125rem;
+  min-width: 0;
+  text-align: left;
+}
+.tp-prospect-discovery__platform-copy > .tp-prospect-discovery__platform-logo,
+.tp-prospect-discovery__platform-copy > .tp-prospect-discovery__platform-monogram {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+}
+.tp-prospect-discovery__platform-name {
+  grid-column: 2;
+  justify-content: flex-start;
+  min-width: 0;
+  text-align: left;
+}
+.tp-prospect-discovery__platform-copy > p {
+  grid-column: 2;
+  width: 100%;
+  margin: 0;
+  text-align: left;
+}
+.tp-prospect-discovery__platform-logo--sprite {
+  color: var(--cds-icon-primary);
+  fill: currentColor;
+}
 .tp-prospect-discovery__actor-schema .tp-prospect-discovery__section-heading > div { align-items: flex-start; }
 .tp-prospect-discovery__actor-schema .tp-prospect-discovery__section-heading svg { width: 24px; height: 24px; flex: 0 0 24px; }
 .tp-prospect-discovery__actor-schema-heading > div:first-child { align-items: center; flex-direction: row; gap: .75rem; }
