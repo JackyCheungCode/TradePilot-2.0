@@ -1,3 +1,4 @@
+import { PageSkeleton } from '@/design-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
@@ -74,6 +75,7 @@ export function QuoteConsolePage() {
     return (status==='all'||s===status) && (marketCountry==='all'||countryCode===marketCountry) && [r.document_number,r.title,r.content?.account_snapshot?.account_name].join(' ').toLowerCase().includes(query.trim().toLowerCase());
   });
   const count=(s:string)=>rows.filter(r=>String(r.content?.quote_status||(r.status==='draft'?'draft':r.status==='issued'?'sent':r.status))===s).length;
+  if (loading) return <PageSkeleton variant="table" />;
   return <main className="tp-quotes">
     <header className="tp-quotes__header"><div><p className="tp-quotes__eyebrow">TRADEPILOT / SALES</p><h1>报价单（Quote）</h1><p>管理客户报价、版本、发送确认和销售订单转换。</p></div><div className="tp-quotes__actions"><Button kind="tertiary" onClick={()=>void load()} disabled={loading}><CarbonIcons.Renew size={16}/>刷新</Button><Link href="/quotes/new" renderIcon={CarbonIcons.Add}>创建报价单</Link></div></header>
     {error&&<InlineNotification kind="error" title="报价单读取失败" subtitle={error}/>}
@@ -118,6 +120,7 @@ export function QuoteFormPage() {
       else {const seq=await db.rpc('next_trade_document_number',{p_owner_id:user.id,p_sequence_key:'quotation',p_sequence_year:new Date().getFullYear()});if(seq.error)throw seq.error;const quotePrefix=String(settingsSnapshot.shared.quotePrefix||'QT');const quoteDigits=Math.max(1,Math.min(10,Number(settingsSnapshot.shared.quoteDigits)||4));const quoteNo=quotePrefix+'-'+new Date().getFullYear()+'-'+String(seq.data).padStart(quoteDigits,'0');const title=data.title||((account?.account_name||'Customer')+' - Quotation');const created=await db.from('trade_documents').insert({owner_id:user.id,document_type:'quotation',document_number:quoteNo,title,status:send?'issued':'draft',locale:data.locale,currency_code:data.currency_code,current_version:1,content,totals,issued_at:send?new Date().toISOString():null}).select('id').single();if(created.error)throw created.error;const [v,e]=await Promise.all([db.from('trade_document_versions').insert({owner_id:user.id,document_id:created.data.id,version_number:1,content_snapshot:content,totals_snapshot:totals,locale:data.locale,created_by:user.id}),db.from('trade_document_events').insert({owner_id:user.id,document_id:created.data.id,event_type:send?'issued':'created',payload:{version:1,quote_no:quoteNo}})]);if(v.error)throw v.error;if(e.error)throw e.error;nav('/quotes/'+created.data.id,{replace:true});}
     }catch(e){setError(e instanceof Error?e.message:'保存报价单失败')}finally{setSaving(false)}};
   if(loading)return <main className="tp-quotes"><InlineLoading description="正在准备报价单…"/></main>;
+  if (loading) return <PageSkeleton variant="form" />;
   return <main className="tp-quotes"><header className="tp-quotes__header"><div><p className="tp-quotes__eyebrow">TRADEPILOT / SALES / QUOTE</p><h1>{revisionId?'创建报价修订版本':'创建报价单'}</h1><p>报价编号保存时生成；已发送版本的商业信息通过新版本修订。</p></div><div className="tp-quotes__actions"><Link href="/quotes">返回列表</Link><Button kind="primary" disabled={saving} onClick={()=>void save(false)}>{saving?'保存中…':'保存草稿'}</Button></div></header>
     {error&&<InlineNotification kind="error" title="报价单保存失败" subtitle={error}/>}
     <section className="tp-quotes__form-shell"><div className="tp-quotes__form-summary"><span>{revisionId?'新修订版本':'新报价'}</span><Tag type="cool-gray">草稿</Tag></div>
@@ -143,6 +146,7 @@ export function QuoteDetailPage() {
   if(loading)return <main className="tp-quotes"><InlineLoading description="正在读取报价详情…"/></main>;
   if(!doc)return <main className="tp-quotes"><InlineNotification kind="error" title="报价单不可用" subtitle={error||'报价单不存在'}/><Link href="/quotes">返回列表</Link></main>;
   const rawState=String(doc.content?.quote_status||(doc.status==='draft'?'draft':doc.status==='issued'?'sent':doc.status==='approved'?'accepted':doc.status==='void'?'cancelled':doc.status));const state=rawState==='void'?'cancelled':rawState;const lines=(doc.content?.lines||[]) as QuoteLine[];const totals=doc.totals||{};
+  if (loading) return <PageSkeleton variant="detail" />;
   return <main className="tp-quotes"><header className="tp-quotes__header"><div><p className="tp-quotes__eyebrow">TRADEPILOT / SALES / QUOTE</p><h1>{doc.document_number}</h1><p>{doc.title} · {account} · V{doc.current_version}</p></div><div className="tp-responsive-header-actions">{state==='draft'&&<Link className="tp-responsive-header-actions__primary" href={'/quotes/'+doc.id+'/edit'}>编辑草稿</Link>}{['sent','viewed'].includes(state)&&<Button className="tp-responsive-header-actions__primary" kind="primary" onClick={()=>changeStatus('accepted')}>记录客户接受</Button>}<div className="tp-responsive-header-actions__secondary"><Link href="/quotes">返回列表</Link>{!['accepted','cancelled'].includes(state)&&<Link href={'/quotes/new?revision='+doc.id}>创建新版本</Link>}{['sent','viewed'].includes(state)&&<Button kind="tertiary" onClick={()=>changeStatus('rejected')}>记录客户拒绝</Button>}</div></div></header>
     {error&&<InlineNotification kind="error" title="报价操作失败" subtitle={error}/>}
     <section className="tp-quotes__detail-hero"><div><Tag type={state==='accepted'?'green':state==='expired'||state==='rejected'?'red':state==='draft'?'cool-gray':'blue'}>{quoteStatusLabel[state]||state}</Tag><h2>{money(Number(totals.grand_total||0),doc.currency_code)}</h2><p>{doc.content?.quote?.quote_date||'—'} · 有效期至 {doc.content?.quote?.valid_until||'—'}</p></div><div className="tp-quotes__detail-actions">{state==='accepted'&&<Link href={'/sales-orders/new?quote='+doc.id} renderIcon={CarbonIcons.Add}>从报价创建销售订单</Link>}</div></section>
