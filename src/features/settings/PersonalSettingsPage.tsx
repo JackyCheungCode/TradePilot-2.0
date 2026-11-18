@@ -171,7 +171,7 @@ export function PersonalSettingsPage() {
               <div className="tp-personal-settings__fields">
                 <div className="tp-personal-settings__avatar-block">
                   <div className="tp-personal-settings__avatar-preview">
-                    {avatarUrl ? <img src={avatarUrl} alt="个人头像" /> : <semanticIcons.userAvatar size={64} />}
+                    {avatarUrl ? <img src={avatarUrl} alt="个人头像" /> : <semanticIcons.avatar size={64} />}
                   </div>
                   <FileUploaderButton
                     accept={['.jpg', '.jpeg', '.png', '.webp', '.avif']}
