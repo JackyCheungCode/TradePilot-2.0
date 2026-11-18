@@ -131,7 +131,6 @@ const defaults: Record<string, string[]> = {
   NZ: ['trade-me','finda','seek-au','google-maps'],
 };
 const recommendedFor = (code: string) => defaults[code] ?? ['google-maps','linkedin','shopify','europages','kompass'];
-const categoryLabels = [...globalCatalog.map(group => group.title), '全球通用与全域穿透渠道', '企业名录与本地商业目录'];
 const defaultPlatformPageSize = 10;
 const platformPageSizes = [10, 20, 30];
 
@@ -151,8 +150,9 @@ const allPlatforms: Array<Source & { category: string; global: boolean }> = [
   ...regionalSources.map(source => ({ ...source, category: regionalCategory(source), global: false })),
 ];
 
-const excludedFromProspectDiscovery = new Set(["vimeo","twitch","dailymotion","rumble","bilibili","nicovideo","reddit","quora","medium","tumblr","hackernews","nextdoor","snapchat","threads","pinterest","tiktok","indeed","glassdoor","linkedin-jobs","monster","ziprecruiter","workday","greenhouse","lever","stepstone","seek","naukri","xing-jobs","seek-au","builtwith","wappalyzer","similarweb","google-news"]);
+const excludedFromProspectDiscovery = new Set(["youtube","vimeo","twitch","dailymotion","rumble","bilibili","nicovideo","reddit","quora","medium","tumblr","hackernews","nextdoor","snapchat","threads","pinterest","tiktok","indeed","glassdoor","linkedin-jobs","monster","ziprecruiter","workday","greenhouse","lever","stepstone","seek","naukri","xing-jobs","seek-au","builtwith","wappalyzer","similarweb","google-news"]);
 const allPlatformsForDiscovery = allPlatforms.filter(source => !excludedFromProspectDiscovery.has(source.id));
+const categoryLabels = [...new Set(allPlatformsForDiscovery.map(source => source.category))];
 const isRunnablePlatform = (id: string) => allPlatformsForDiscovery.some(source => source.id === id);
 const platformLogoSymbols: Record<string, { file: string; symbol: string }> = {
   'google-search': { file: 'platform-sprite-search.svg', symbol: 'google' },
