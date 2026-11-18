@@ -1,4 +1,4 @@
-import { Children, cloneElement, isValidElement, type ReactElement, type ReactNode } from 'react';
+import { Children, cloneElement, createElement, isValidElement, type ReactElement, type ReactNode } from 'react';
 import { Button, ButtonSet, Heading } from '../components';
 import './page-header.scss';
 
@@ -41,9 +41,11 @@ function normalizeLegacyActions(node: ReactNode, primaryAssigned: { current: boo
     const primary = !primaryAssigned.current && (requestedPrimary || inferredPrimary);
     if (primary) primaryAssigned.current = true;
     const isButton = (node.type as { name?: string }).name === 'Button' || props.kind !== undefined;
+    const kind = primary ? 'primary' : (props.kind === 'danger' || String(props.kind || '').startsWith('danger') ? props.kind : 'tertiary');
+    const className = [String(props.className || ''), 'tp-page-header__action'].filter(Boolean).join(' ');
     return isButton
-      ? cloneElement(node, { kind: primary ? 'primary' : (props.kind === 'danger' || String(props.kind || '').startsWith('danger') ? props.kind : 'tertiary'), size: 'lg', className: [String(props.className || ''), 'tp-page-header__action'].filter(Boolean).join(' ') } as Record<string, unknown>)
-      : cloneElement(node, { className: [String(props.className || ''), 'tp-page-header__action-link'].filter(Boolean).join(' ') } as Record<string, unknown>);
+      ? cloneElement(node, { kind, size: 'lg', className } as Record<string, unknown>)
+      : createElement(Button, { ...(props as Record<string, unknown>), kind, size: 'lg', className }, children);
   }
   if (children === undefined) return node;
   return cloneElement(node, { children: normalizeLegacyActions(children, primaryAssigned) } as Record<string, unknown>);
