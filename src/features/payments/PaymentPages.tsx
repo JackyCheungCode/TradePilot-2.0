@@ -4,7 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   Button, Link, ContentSwitcher, Switch, FileUploaderButton, InlineLoading, InlineNotification, MultiSelect, Select, SelectItem, Tag, TextInput, TextArea,
   Tabs, TabList, Tab, TabPanels, TabPanel, Table, TableHead, TableRow, TableHeader, TableBody, TableCell,
-  Tile, LineChart, SimpleBarChart, ScaleTypes, CarbonIcons, BusinessLifecycle, WorldMapChart,
+  Tile, LineChart, SimpleBarChart, ScaleTypes, semanticIcons, BusinessLifecycle, WorldMapChart,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@carbon/charts/styles.css';
@@ -117,15 +117,15 @@ export function PaymentConsolePage() {
   const chartOpts={theme:document.documentElement.dataset.carbonTheme==='g100'?'g100':'white',height:'240px',color:{pairing:{numberOfVariants:14,option:1}},legend:{enabled:false},toolbar:{enabled:false},axes:{bottom:{mapsTo:'group',scaleType:ScaleTypes.LABELS},left:{mapsTo:'value',scaleType:ScaleTypes.LINEAR}}};
 
   return <main className="tp-payments">
-    <PageHeader className="tp-payments__header"><div><p className="tp-payments__eyebrow">TRADEPILOT / FINANCE / ACCOUNTS RECEIVABLE</p><h1>收款（Payment）</h1><p>管理到账、预收款、订单核销、银行对账与应收催款。</p></div><div className="tp-payments__actions"><Button kind="tertiary" onClick={()=>void load()} disabled={loading}><CarbonIcons.Renew size={16}/>刷新</Button><Link href="/payments/new" renderIcon={CarbonIcons.Add}>创建收款</Link></div></PageHeader>
+    <PageHeader className="tp-payments__header"><div><p className="tp-payments__eyebrow">TRADEPILOT / FINANCE / ACCOUNTS RECEIVABLE</p><h1>收款（Payment）</h1><p>管理到账、预收款、订单核销、银行对账与应收催款。</p></div><div className="tp-payments__actions"><Button kind="tertiary" onClick={()=>void load()} disabled={loading}><semanticIcons.refresh size={16}/>刷新</Button><Link href="/payments/new" renderIcon={semanticIcons.add}>创建收款</Link></div></PageHeader>
     {error&&<InlineNotification kind="error" title="收款数据读取失败" subtitle={error}/>}
     <section className="tp-payments__metrics">
-      <Metric label="累计到账" value={money(totalReceived,currency)} detail={currency+' · 已确认收款'} icon={CarbonIcons.Currency}/>
-      <Metric label="未分配预收" value={money(unallocated,currency)} detail="可继续分配到后续订单" icon={CarbonIcons.Wallet}/>
-      <Metric label="应收未收" value={money(outstandingTotal,currency)} detail={currency+' · 订单收款计划'} icon={CarbonIcons.Document}/>
-      <Metric label="逾期应收" value={money(overdueTotal,currency)} detail="按到账确认后的未收余额计算" icon={CarbonIcons.WarningAlt}/>
-      <Metric label="待确认记录" value={String(pending)} detail="草稿或待确认" icon={CarbonIcons.Time}/>
-      <Metric label="第三方付款" value={String(thirdParty)} detail="需关注付款关系及水单" icon={CarbonIcons.UserMultiple}/>
+      <Metric label="累计到账" value={money(totalReceived,currency)} detail={currency+' · 已确认收款'} icon={semanticIcons.currency}/>
+      <Metric label="未分配预收" value={money(unallocated,currency)} detail="可继续分配到后续订单" icon={semanticIcons.wallet}/>
+      <Metric label="应收未收" value={money(outstandingTotal,currency)} detail={currency+' · 订单收款计划'} icon={semanticIcons.document}/>
+      <Metric label="逾期应收" value={money(overdueTotal,currency)} detail="按到账确认后的未收余额计算" icon={semanticIcons.warning}/>
+      <Metric label="待确认记录" value={String(pending)} detail="草稿或待确认" icon={semanticIcons.time}/>
+      <Metric label="第三方付款" value={String(thirdParty)} detail="需关注付款关系及水单" icon={semanticIcons.users}/>
     </section>
     <section className="tp-payments__panel">
       <div className="tp-payments__panel-head"><div><h2>收款与应收分析</h2><p>按币种、收款状态、方式、到账趋势和应收账龄分析。</p></div><Pick id="payment-currency" label="统计币种" value={currency} onChange={setCurrency} options={CURRENCIES}/></div>
@@ -381,7 +381,7 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
           </div></>}
         </div></TabPanel>
         <TabPanel><div className="tp-payments__tab-content">
-          <div className="tp-payments__panel-head"><div><h2>来源与分配</h2><p>一笔到账可分配给同一客户的多个已确认订单收款节点；未分配余额保留为预收款。</p></div><Button kind="tertiary" onClick={addAllocation} disabled={locked}><CarbonIcons.Add/>添加分配</Button></div>
+          <div className="tp-payments__panel-head"><div><h2>来源与分配</h2><p>一笔到账可分配给同一客户的多个已确认订单收款节点；未分配余额保留为预收款。</p></div><Button kind="tertiary" onClick={addAllocation} disabled={locked}><semanticIcons.add/>添加分配</Button></div>
           {allocations.map((a,i)=><div className="tp-payments__allocation" key={i}>
             <div className="tp-payments__allocation-head"><strong>分配 {i+1}</strong><Button kind="ghost" size="sm" disabled={locked} onClick={()=>removeAllocation(i)}>移除</Button></div>
             <div className="tp-payments__form-grid">
@@ -481,7 +481,7 @@ export function PaymentAllocationPage() {
     <PageHeader className="tp-payments__header"><div><p className="tp-payments__eyebrow">TRADEPILOT / FINANCE / PREPAYMENT ALLOCATION</p><h1>分配预收余额</h1><p>{payment.payment_no} · {payment.currency} · {payment.status==='confirmed'?'已确认':'部分核销'}</p></div><div className="tp-payments__actions"><Link href={'/payments/'+id}>返回收款记录</Link><Button kind="primary" onClick={()=>void save()} disabled={saving||total<=0||total>Number(payment.unallocated_amount||0)}>确认分配</Button></div></PageHeader>
     {error&&<InlineNotification kind="error" title="分配未完成" subtitle={error}/>}
     <section className="tp-payments__amount-strip"><div><span>客户</span><strong>{payment.payer_name}</strong></div><div><span>未分配余额</span><strong>{money(Number(payment.unallocated_amount||0),payment.currency)}</strong></div><div><span>本次分配</span><strong>{money(total,payment.currency)}</strong></div><div><span>分配后余额</span><strong>{money(Math.max(0,Number(payment.unallocated_amount||0)-total),payment.currency)}</strong></div></section>
-    <section className="tp-payments__panel"><div className="tp-payments__panel-head"><div><h2>订单与收款节点</h2><p>仅可选择同一客户已确认及之后状态的订单；金额折算使用订单汇率与本次收款汇率。</p></div><Button kind="tertiary" onClick={addRow}><CarbonIcons.Add/>添加分配</Button></div>
+    <section className="tp-payments__panel"><div className="tp-payments__panel-head"><div><h2>订单与收款节点</h2><p>仅可选择同一客户已确认及之后状态的订单；金额折算使用订单汇率与本次收款汇率。</p></div><Button kind="tertiary" onClick={addRow}><semanticIcons.add/>添加分配</Button></div>
       {allocations.map((a,i)=><div className="tp-payments__allocation" key={i}><div className="tp-payments__allocation-head"><strong>分配 {i+1}</strong><Button kind="ghost" size="sm" onClick={()=>removeRow(i)}>移除</Button></div><div className="tp-payments__form-grid">
         <Pick id={'prepay-order-'+i} label="订单" value={a.order_id} onChange={v=>setRow(i,'order_id',v)} options={eligibleOrders.map(o=>({value:o.id,label:o.order_number+' · '+o.title}))}/>
         <Pick id={'prepay-node-'+i} label="收款节点" value={a.schedule_node_id} onChange={v=>setRow(i,'schedule_node_id',v)} options={nodesFor(a.order_id).map((n:AnyRow)=>({value:String(n.id),label:(n.milestone||'收款节点')+' · '+money(Math.max(0,Number(n.amount||0)-Number(n.paid_amount||0)-Number(n.writeoff_amount||0)),orders.find(o=>o.id===a.order_id)?.currency_code||'USD')+' 待收'}))}/>
