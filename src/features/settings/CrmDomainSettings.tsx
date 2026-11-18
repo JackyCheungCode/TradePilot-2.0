@@ -239,7 +239,7 @@ export function CrmDomainSettings({domain,section}:{domain:CrmSettingsDomain;sec
   }catch(e){setError(e instanceof Error?e.message:'更新配置状态失败')}
  };
  const display=(field:Field,value:unknown)=>field.options?.find(([v])=>v===String(value))?.[1]??(value===true?'是':value===false?'否':String(value??'—'));
- if (loading) return <PageSkeleton variant="table" />;
+ if (loading) return <PageSkeleton variant="form" />;
  return <div className="tp-settings__advanced">
   {error&&<InlineNotification kind="error" title="设置操作失败" subtitle={error} onCloseButtonClick={()=>setError('')}/>}
   {notice&&<InlineNotification kind="info" title="提示" subtitle={notice} onCloseButtonClick={()=>setNotice('')}/>}
