@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import type { Session } from '@supabase/supabase-js';
-import { InlineLoading } from '@/design-system';
+import { AppShellLoadingSkeleton } from '@/design-system/layout/AppShell/AppShellLoadingSkeleton';
 import { getSupabaseClient } from '@/lib/supabase';
 
 /** Protect business routes and keep enrolled MFA factors mandatory at the UI boundary. */
@@ -95,7 +95,7 @@ export function RequireAuth() {
   }, []);
 
   if (!ready) {
-    return <main className="tp-discovery tp-login__loading"><InlineLoading description="正在验证登录状态…" /></main>;
+    return <AppShellLoadingSkeleton />;
   }
 
   if (!session) {
