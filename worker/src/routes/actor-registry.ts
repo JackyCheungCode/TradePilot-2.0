@@ -354,16 +354,44 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
       const schemaCacheKey = ownerId + ":" + actorId;
       const schemaCached = actorSchemaCache.get(schemaCacheKey);
       if (schemaCached && schemaCached.expiresAt > Date.now()) return successResponse(request, schemaCached.result);
-      // Apify exposes Actor input schemas through the default Build, not /acts/{id}/input-schema.
-      // Prefer the current Actor definition and retain the deprecated inputSchema string as a compatibility fallback.
-      const buildResult = await gatewayFetch("actors/" + encodeURIComponent(actorId) + "/builds/default", token);
-      const build = (buildResult.data && typeof buildResult.data === "object" ? buildResult.data : buildResult) as Record<string, unknown>;
-      const schema = parseActorInputSchema(build);
+      // Apify exposes full input definitions through the default Build, not /acts/{id}/input-schema.
+      // If the Actor has no readable default Build, Store search can supply a compact fallback schema.
+      let schema: Record<string, unknown> | null = null;
+      let sourceVersion = "latest";
+      let buildError = "";
+      try {
+        const buildResult = await gatewayFetch("actors/" + encodeURIComponent(actorId) + "/builds/default", token);
+        const build = (buildResult.data && typeof buildResult.data === "object" ? buildResult.data : buildResult) as Record<string, unknown>;
+        schema = parseActorInputSchema(build);
+        sourceVersion = safeText(build.buildNumber, 80) || "latest";
+      } catch (error) {
+        buildError = error instanceof Error ? error.message : String(error);
+      }
       if (!schema) {
-        throw new Error("APIFY_ACTOR_SCHEMA_UNAVAILABLE: Actor 默认 Build 未提供有效的 actorDefinition.input 或兼容 inputSchema；请确认该 Actor 存在可用 Build。");
+        try {
+          const actorSearchTerm = actorId.includes("~") ? actorId.split("~").slice(1).join(" ") : actorId;
+          const storeResult = await gatewayFetch("store?search=" + encodeURIComponent(actorSearchTerm) + "&limit=10&offset=0&includeInputSchema=true", token);
+          const storeData = storeResult.data && typeof storeResult.data === "object" ? storeResult.data as Record<string, unknown> : {};
+          const storeItems = Array.isArray(storeData.items) ? storeData.items as Array<Record<string, unknown>> : [];
+          const matched = storeItems.find(item => item.id === actorId || (item.username && item.name && item.username + "~" + item.name === actorId));
+          const compact = matched?.inputSchema;
+          if (compact && typeof compact === "object" && !Array.isArray(compact)) {
+            const candidate = compact as Record<string, unknown>;
+            if (candidate.type === "object" && candidate.properties && typeof candidate.properties === "object") {
+              schema = candidate;
+              sourceVersion = "store-compact";
+            }
+          }
+        } catch (error) {
+          const storeError = error instanceof Error ? error.message : String(error);
+          if (!buildError) buildError = storeError;
+          else buildError += "；Store 备用读取失败：" + storeError;
+        }
+      }
+      if (!schema) {
+        throw new Error("APIFY_ACTOR_SCHEMA_UNAVAILABLE: 无法取得 Actor 输入结构。" + (buildError ? " Build：" + buildError : "") + "；Store 备用结构也未提供可用 properties。");
       }
       const localized = await translateSchema(schema, env);
-      const sourceVersion = safeText(build.buildNumber || schema.version as string || "latest", 80);
       const snapshotBytes = new TextEncoder().encode(JSON.stringify({ schema, localized }));
       const snapshotDigest = await crypto.subtle.digest("SHA-256", snapshotBytes);
       const fingerprint = [...new Uint8Array(snapshotDigest)].map(byte => byte.toString(16).padStart(2, "0")).join("").slice(0, 16);
