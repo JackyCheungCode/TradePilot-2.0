@@ -234,7 +234,7 @@ export function LoginPage() {
 
         {step === 'credentials' ? (
           <>
-            <Button kind="secondary" className="tp-login__passkey" onClick={() => void signInWithPasskey()} disabled={!client || busy}>
+            <Button kind="tertiary" className="tp-login__passkey" onClick={() => void signInWithPasskey()} disabled={!client || busy}>
               使用 Passkey 登录（指纹 / 面部 / PIN）
             </Button>
             <div className="tp-login__divider"><span>或使用邮箱密码</span></div>
@@ -298,7 +298,7 @@ export function LoginPage() {
         ) : (
           <div className="tp-login__form">
             <InlineLoading description="正在等待设备完成 WebAuthn 生物识别验证…" />
-            <Button kind="secondary" disabled={busy} onClick={() => void startTotpFallback()}>使用 TOTP 备用验证</Button>
+            <Button kind="tertiary" disabled={busy} onClick={() => void startTotpFallback()}>使用 TOTP 备用验证</Button>
             <Button kind="ghost" onClick={async () => {
               await client?.auth.signOut();
               setTotpFallbackActive(false);
