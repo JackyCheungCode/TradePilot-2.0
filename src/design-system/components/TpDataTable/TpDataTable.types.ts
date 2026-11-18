@@ -37,7 +37,7 @@ export interface TpPaginationConfig {
   onChange: (page: number, pageSize: 10 | 20 | 50 | 100) => void;
 }
 
-export interface TpDataTableProps<T extends Record<string, unknown>> {
+export interface TpDataTableProps<T extends object> {
   columns: TpTableColumn<T>[];
   rows: T[];
   rowKey: keyof T;
