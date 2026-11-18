@@ -105,7 +105,6 @@ export function ExecutionStep({ sources, actorParameters = {}, onEditStep, onCon
 
   const startTask = async () => {
     if (starting || status === 'running') return;
-    if (!confirmedExecution) { setNotice('请先勾选执行确认。'); return; }
     setStarting(true); setNotice(''); setSnapshots({}); setRuns([]); setRecordIds([]);
     setProgress(0); setCaptured(0); setElapsed(0); setStartedAt(Date.now());
     setLogs(['[' + nowTime() + '] [SYSTEM] 正在创建所选 Actor Schema 任务…']);
@@ -278,7 +277,7 @@ export function ExecutionStep({ sources, actorParameters = {}, onEditStep, onCon
       <Tile className="tp-execution__configuration">
         <div className="tp-execution__section-heading"><div><h3>执行参数</h3><p>直接使用第二步各平台 Schema 中填写的参数启动 Actor，不追加关键词、国家或结果数量参数。</p></div><Tag type="blue">{configuredChannels.length} 个可执行渠道</Tag></div>
         <div className="tp-execution__confirmation-summary"><strong>本次执行平台</strong>{configuredChannels.length ? configuredChannels.map(item => <span key={item.name}>{item.name}：使用 Schema 参数执行</span>) : <span>请返回第二步读取所选平台的 Schema 并填写参数。</span>}</div>
-        <Checkbox id="tp-execution-confirm" labelText="我确认启动上述平台的 Actor 采集任务。" checked={confirmedExecution} disabled={!hasRunnableSource || status !== 'idle'} onChange={event => setConfirmedExecution(event.currentTarget.checked)} />
+        <Checkbox id="tp-execution-confirm" labelText="我已检查本次执行平台与参数（可选确认）。" checked={confirmedExecution} disabled={!hasRunnableSource || status !== 'idle'} onChange={event => setConfirmedExecution(event.currentTarget.checked)} />
       </Tile>
       <div className="tp-execution__dashboard-heading">
         <div><span className="tp-execution__eyebrow">MULTI-CHANNEL EXECUTION</span><h2>全网搜索大盘</h2><p>显示 Actor 后端任务真实状态、进度、结果数量与运行日志</p></div>
@@ -301,8 +300,8 @@ export function ExecutionStep({ sources, actorParameters = {}, onEditStep, onCon
         <div className="tp-execution__control-heading"><div><span className="tp-execution__eyebrow">GLOBAL PROGRESS</span><h2>全局任务进度</h2><p>汇总各渠道后端任务返回的进度（按已创建任务统计）</p></div><strong className="tp-execution__percent">{progress}%</strong></div>
         <ProgressBar label="任务总进度" helperText={status === 'completed' ? '所有已创建渠道任务均已结束' : status === 'failed' ? '没有成功启动可执行渠道任务' : status === 'idle' ? '确认配置后启动真实后端任务' : '每 5 秒同步一次后端任务状态'} max={100} value={progress} status="active" />
         <div className="tp-execution__actions">
-          {status === 'idle' && <Button kind="primary" renderIcon={CarbonIcons.Play} disabled={starting || !hasRunnableSource || !confirmedExecution} onClick={startTask}>{starting ? '正在创建任务…' : '开始执行全网搜索'}</Button>}
-          {status === 'running' && <Button kind="secondary" renderIcon={CarbonIcons.Reset} onClick={() => appendLog('[SYSTEM] 状态将在下一次轮询时刷新。')}>刷新状态（自动轮询中）</Button>}
+          {status === 'idle' && <Button kind="primary" renderIcon={CarbonIcons.Play} disabled={starting || !hasRunnableSource} onClick={startTask}>{starting ? '正在创建任务…' : '开始执行全网搜索'}</Button>}
+          
           {allFinished && enabledActorPlans.length > 0 && schemaSaveStatus !== 'saved' && <Button kind="secondary" disabled={savingSchema} onClick={() => void saveSchemas()}>{savingSchema ? '正在保存 Schema…' : '保存本次 Schema'}</Button>}
           {allFinished && <Button kind="secondary" renderIcon={CarbonIcons.Reset} onClick={resetTask}>开始新一轮任务</Button>}
           {status === 'completed' && <Button kind="primary" renderIcon={CarbonIcons.ArrowRight} disabled={!recordIds.length} onClick={() => onContinueToScoring(recordIds)}>进入第四步：处理 {recordIds.length} 条真实检索结果</Button>}
