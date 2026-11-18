@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { getSupabaseClient } from '@/lib/supabase';
-import { Button, CarbonIcons, ClickableTile, ContentSwitcher, Switch, Dropdown, Search, TextArea, TextInput } from '@/design-system';
+import { Button, semanticIcons, ClickableTile, ContentSwitcher, Switch, Dropdown, Search, TextArea, TextInput } from '@/design-system';
 
 type Channel = 'whatsapp' | 'messenger' | 'instagram' | 'email' | 'telegram' | 'wechat' | 'line';
 type Filter = 'all' | 'unread' | 'pending' | 'resolved';
@@ -110,7 +110,7 @@ function contentFallback(contentType: string): string {
 function ChannelBadge({ channel, compact = false }: { channel: Channel; compact?: boolean }) {
   const logo = channel === 'email' ? null : '/platform-logos/' + channel + '.svg';
   return <span className={'cc-channel cc-channel--' + channel}>
-    {logo ? <img src={logo} alt="" aria-hidden="true" /> : <CarbonIcons.Email size={16} aria-hidden="true" />}
+    {logo ? <img src={logo} alt="" aria-hidden="true" /> : <semanticIcons.email size={16} aria-hidden="true" />}
     {!compact && channelNames[channel]}
   </span>;
 }
@@ -119,7 +119,7 @@ function ActionIconButton({ label, onClick }: { label: string; onClick: () => vo
 }
 function Avatar({ name, size = 'normal', placeholder = false }: { name: string; size?: 'normal' | 'small'; placeholder?: boolean }) {
   const initials = name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
-  return <span className={'cc-avatar cc-avatar--' + size + (placeholder ? ' cc-avatar--placeholder' : '')} aria-label={name} role="img">{placeholder ? <CarbonIcons.User size={size === "small" ? 16 : 20} /> : initials}</span>;
+  return <span className={'cc-avatar cc-avatar--' + size + (placeholder ? ' cc-avatar--placeholder' : '')} aria-label={name} role="img">{placeholder ? <semanticIcons.user size={size === "small" ? 16 : 20} /> : initials}</span>;
 }
 function formatTime(timestamp: number) {
   const date = new Date(timestamp);
@@ -415,7 +415,7 @@ export function CustomerCommunicationsWidget({
 
   if (!open) return null;
   if (minimized && !fullPage) {
-    return <div className="cc-minimized"><Button type="button" kind="primary" renderIcon={CarbonIcons.Chat} onClick={onRestore}>客户沟通{unreadTotal > 0 ? ' · ' + unreadTotal : ''}</Button></div>;
+    return <div className="cc-minimized"><Button type="button" kind="primary" renderIcon={semanticIcons.chat} onClick={onRestore}>客户沟通{unreadTotal > 0 ? ' · ' + unreadTotal : ''}</Button></div>;
   }
 
   if (!activeCustomer) {
