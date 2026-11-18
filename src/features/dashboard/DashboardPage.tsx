@@ -321,7 +321,7 @@ export function DashboardPage() {
   const barOptions = { ...commonOptions, height: '260px', axes: { bottom: { mapsTo: 'group', scaleType: 'labels' }, left: { mapsTo: 'value', scaleType: 'linear' } } };
   const agentOptions = { ...commonOptions, height: '260px', axes: { bottom: { mapsTo: 'group', scaleType: 'labels' }, left: { mapsTo: 'value', scaleType: 'linear' } } };
 
-  if (loading) return <PageSkeleton variant="dashboard" />;
+  if (loading) return <PageSkeleton variant="dashboard" metricCount={8} />;
   return <main className="tp-workbench">
     <header className="tp-workbench__header">
       <div>

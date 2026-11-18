@@ -20,7 +20,7 @@ export function AppShellLoadingSkeleton() {
           {Array.from({ length: 8 }, (_, index) => <SkeletonText key={index} width={index % 2 ? '72%' : '88%'} />)}
         </aside>
         <main className="tp-app-shell-skeleton__content">
-          <PageSkeleton variant="dashboard" />
+          <PageSkeleton variant="dashboard" metricCount={8} />
         </main>
       </div>
     </div>

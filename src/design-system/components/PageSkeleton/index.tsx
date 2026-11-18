@@ -27,10 +27,10 @@ export function PageSkeleton({
   showToolbar,
 }: PageSkeletonProps) {
   const hasActions = showActions ?? ['table', 'dashboard', 'analytics-table'].includes(variant);
-  const hasToolbar = showToolbar ?? ['table', 'dashboard', 'analytics-table'].includes(variant);
+  const hasToolbar = showToolbar ?? ['table', 'analytics-table'].includes(variant);
   const hasTable = variant === 'table' || variant === 'analytics-table';
-  const hasMetrics = ['dashboard', 'detail', 'analytics-table'].includes(variant) && metricCount > 0;
-  const hasCharts = ['dashboard', 'chart', 'analytics-table'].includes(variant);
+  const hasMetrics = ['detail', 'analytics-table'].includes(variant) && metricCount > 0;
+  const hasCharts = ['chart', 'analytics-table'].includes(variant);
 
   return (
     <section className={`tp-page-skeleton tp-page-skeleton--${variant}`} aria-busy="true" aria-label="正在加载页面内容">
@@ -52,6 +52,39 @@ export function PageSkeleton({
           <SkeletonPlaceholder className="tp-page-skeleton__search" />
           <SkeletonPlaceholder className="tp-page-skeleton__filter" />
           <SkeletonPlaceholder className="tp-page-skeleton__filter" />
+        </div>
+      )}
+
+      {variant === 'dashboard' && (
+        <div className="tp-page-skeleton__dashboard">
+          <div className="tp-page-skeleton__dashboard-filters">
+            <SkeletonPlaceholder className="tp-page-skeleton__dashboard-filter" />
+            <SkeletonPlaceholder className="tp-page-skeleton__dashboard-filter" />
+            <SkeletonText width="8rem" />
+            <SkeletonPlaceholder className="tp-page-skeleton__dashboard-reset" />
+          </div>
+          <SkeletonPlaceholder className="tp-page-skeleton__dashboard-map" />
+          <div className="tp-page-skeleton__dashboard-intelligence">
+            <SkeletonPlaceholder className="tp-page-skeleton__dashboard-panel" />
+            <SkeletonPlaceholder className="tp-page-skeleton__dashboard-panel" />
+          </div>
+          <div className="tp-page-skeleton__dashboard-metrics" style={{ '--tp-skeleton-metric-count': metricCount } as CSSProperties}>
+            {Array.from({ length: metricCount }, (_, index) => <SkeletonPlaceholder key={index} className="tp-page-skeleton__metric" />)}
+          </div>
+          <SkeletonPlaceholder className="tp-page-skeleton__dashboard-wide-panel" />
+          <div className="tp-page-skeleton__dashboard-tabs">
+            <SkeletonText heading width="14rem" />
+            <div className="tp-page-skeleton__dashboard-tabbar">
+              {Array.from({ length: 5 }, (_, index) => <SkeletonPlaceholder key={index} className="tp-page-skeleton__dashboard-tab" />)}
+            </div>
+            <div className="tp-page-skeleton__dashboard-tab-grid">
+              {Array.from({ length: 4 }, (_, index) => <SkeletonPlaceholder key={index} className="tp-page-skeleton__dashboard-panel" />)}
+            </div>
+          </div>
+          <div className="tp-page-skeleton__dashboard-bottom">
+            <SkeletonPlaceholder className="tp-page-skeleton__dashboard-panel" />
+            <SkeletonPlaceholder className="tp-page-skeleton__dashboard-panel" />
+          </div>
         </div>
       )}
 
