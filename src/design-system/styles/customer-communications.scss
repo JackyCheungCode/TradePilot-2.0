@@ -607,3 +607,16 @@
 .cc-window--page .cc-ai-error { margin: 0; color: var(--cds-support-error); font-size: var(--cds-body-compact-01-font-size); }
 .cc-window--page .cc-message-translation { margin-top: var(--cds-spacing-03); padding-top: var(--cds-spacing-03); border-top: 1px solid var(--cds-border-subtle-01); color: var(--cds-text-secondary); white-space: pre-wrap; }
 .cc-window--page .cc-message-bubble .cds--btn { min-height: 2rem; margin-top: var(--cds-spacing-02); }
+
+.cc-window--page .cc-channel-filters {
+  display: flex;
+  gap: var(--cds-spacing-02);
+  overflow-x: auto;
+  padding: 0 var(--cds-spacing-04) var(--cds-spacing-03);
+  border-bottom: 1px solid var(--cds-border-subtle-01);
+  scrollbar-width: thin;
+}
+.cc-window--page .cc-channel-filters .cds--btn { flex: 0 0 auto; min-height: 2rem; padding-inline: var(--cds-spacing-03); }
+.cc-window--page .cc-channel-filters .cc-channel { display: inline-flex; align-items: center; margin-right: var(--cds-spacing-02); }
+.cc-window--page .cc-channel-filters .cc-channel img,
+.cc-window--page .cc-channel-filters .cc-channel svg { width: 1rem; height: 1rem; }
