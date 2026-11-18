@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Button, InlineLoading, InlineNotification, Select, SelectItem, TextInput, Toggle, CarbonIcons, useThemePreference,
+  Button, Link, FileUploaderButton, InlineLoading, InlineNotification, Select, SelectItem, TextInput, Toggle, CarbonIcons, useThemePreference,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/personal-settings.scss';
