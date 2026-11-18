@@ -229,7 +229,24 @@ export function SettingsCenterPage() {
 
   const sectionGroups = [...new Set(activeSections.map((item) => item.group))].map((group) => ({ group, items: activeSections.filter((item) => item.group === group) }));
 
-  if (loading) return <PageSkeleton variant="settings" showActions={false} />;
+  if (loading) return <PageSkeleton className="tp-settings" layout={[
+  { type: 'group', direction: 'column', gap: 'var(--cds-spacing-03)', className: 'tp-settings__header', children: [
+    { type: 'text', width: '12rem' }, { type: 'text', heading: true, width: '12rem' }, { type: 'text', width: '30rem' },
+  ] },
+  { type: 'group', direction: 'grid', columns: 4, gap: 'var(--cds-spacing-05)', className: 'tp-settings__skeleton-layout', children: [
+    { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-settings__sidebar', children: [
+      { type: 'text', heading: true, width: '8rem' },
+      ...Array.from({ length: 8 }, () => ({ type: 'placeholder' as const, height: '2.75rem' })),
+    ] },
+    { type: 'group', direction: 'column', gap: 'var(--cds-spacing-05)', className: 'tp-settings__workspace', children: [
+      { type: 'group', direction: 'column', gap: 'var(--cds-spacing-03)', className: 'tp-settings__workspace-heading', children: [{ type: 'text', width: '12rem' }, { type: 'text', heading: true, width: '14rem' }, { type: 'text', width: '28rem' }] },
+      { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', children: [
+        { type: 'placeholder', height: '2.5rem' },
+        { type: 'placeholder', minHeight: '18rem' },
+      ] },
+    ] },
+  ] },
+]} />;
   return (
     <main className="tp-settings">
       <header className="tp-settings__header">
