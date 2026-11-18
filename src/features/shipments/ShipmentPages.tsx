@@ -1,7 +1,7 @@
 import { PageHeader } from '@/design-system';
 import {useCallback,useEffect,useMemo,useState} from 'react';
 import {useNavigate,useParams} from 'react-router-dom';
-import {Button,Link,InlineLoading,InlineNotification,Select,SelectItem,Tag,TextInput,TextArea,Tabs,TabList,Tab,TabPanels,TabPanel,Table,TableHead,TableRow,TableHeader,TableBody,TableCell,Tile,LineChart,SimpleBarChart,ScaleTypes,CarbonIcons,BusinessLifecycle,WorldMapChart} from '@/design-system';
+import {Button,Link,InlineLoading,InlineNotification,Select,SelectItem,Tag,TextInput,TextArea,Tabs,TabList,Tab,TabPanels,TabPanel,Table,TableHead,TableRow,TableHeader,TableBody,TableCell,Tile,LineChart,SimpleBarChart,ScaleTypes,semanticIcons,BusinessLifecycle,WorldMapChart} from '@/design-system';
 import '@carbon/charts/styles.css';
 import '@/design-system/patterns/shipments.scss';
 import { useBusinessTransitionEvents } from '@/lib/useBusinessTransitionEvents';
