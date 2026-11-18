@@ -1,4 +1,6 @@
-import { DataTableSkeleton, SkeletonPlaceholder, SkeletonText } from '@/design-system';
+import './page-skeleton.scss';
+import { DataTableSkeleton } from '../DataTableSkeleton';
+import { SkeletonPlaceholder, SkeletonText } from '../Skeleton';
 
 export type PageSkeletonVariant = 'table' | 'dashboard' | 'form' | 'detail' | 'chart';
 
