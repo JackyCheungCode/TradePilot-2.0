@@ -86,10 +86,27 @@ export function ExecutionStep({ profile, sources, actorParameters = {}, onEditSt
   });
   const appendLog = (message: string) => setLogs(current => [...current.slice(-79), '[' + nowTime() + '] ' + message]);
   const runStorageKey = 'tradepilot.prospectDiscovery.runs.' + planTaskCode;
+  // Native adapters keep their dedicated endpoints. Every other selected platform is
+  // executable through its dynamically discovered Actor Schema; platform connection
+  // labels/whitelists must never be used as an additional admission check.
   const nativeChannels = new Set(['google-maps', 'google-search', 'facebook', 'instagram']);
   const actorPlans = Array.isArray(actorParameters.actors) ? actorParameters.actors as Array<Record<string, unknown>> : [];
-  const enabledActorPlans = actorPlans.filter(actor => actor.status === 'enabled' && typeof actor.actorId === 'string' && !nativeChannels.has(String(actor.sourceId)));
-  const pendingActorPlans = actorPlans.filter(actor => !nativeChannels.has(String(actor.sourceId)) && actor.status !== 'enabled');
+  const enabledActorPlans = actorPlans.filter(actor =>
+    actor.status === 'enabled'
+    && typeof actor.actorId === 'string'
+    && typeof actor.sourceId === 'string'
+    && channels.some(source => source.id === actor.sourceId)
+    && !nativeChannels.has(String(actor.sourceId))
+  );
+  const pendingActorPlans = actorPlans.filter(actor =>
+    typeof actor.sourceId === 'string'
+    && channels.some(source => source.id === actor.sourceId)
+    && !nativeChannels.has(String(actor.sourceId))
+    && actor.status !== 'enabled'
+  );
+  const schemaLoadedSourceIds = new Set(actorPlans
+    .filter(actor => typeof actor.sourceId === 'string' && typeof actor.actorId === 'string')
+    .map(actor => String(actor.sourceId)));
 
   useEffect(() => {
     setRuns([]); setSnapshots({}); setRecordIds([]); setStatus('idle'); setStartedAt(null);
@@ -284,23 +301,29 @@ export function ExecutionStep({ profile, sources, actorParameters = {}, onEditSt
       ...channel,
       channelProgress: Number(snapshot?.progress) || 0,
       count: Number(snapshot?.discoveredCount) || 0,
-      state: run ? statusLabel(state) : '未执行 / 未接入',
+      state: run ? statusLabel(state) : '尚未执行',
       statusType: run ? statusTag(state) : 'gray' as const,
     };
   });
   const elapsedText = '00:' + String(Math.floor(elapsed / 60)).padStart(2, '0') + ':' + String(elapsed % 60).padStart(2, '0');
-  const hasRunnableSource = channels.some(item => nativeChannels.has(item.id)) || enabledActorPlans.length > 0;
   const mapLimitValue = clampLimit(mapLimit, 2);
   const webLimitValue = clampLimit(webLimit, 5);
   const facebookLimitValue = clampLimit(facebookLimit, 5);
   const instagramLimitValue = clampLimit(instagramLimit, 5);
+  // This is the single source of truth for the preview, confirmation checkbox,
+  // and start button. Native adapters are included directly; all other platforms
+  // are included once their real Actor Schema has passed its input-specific test.
   const configuredChannels = [
-    ...(channels.some(item => item.id === 'google-maps') ? [{ name: 'Google Maps + OpenStreetMap', limit: mapLimitValue, detail: '每个数据源上限' }] : []),
-    ...(channels.some(item => item.id === 'google-search') ? [{ name: 'Web Search', limit: webLimitValue, detail: '结果上限' }] : []),
-    ...(channels.some(item => item.id === 'facebook') ? [{ name: 'Facebook 主页', limit: facebookLimitValue, detail: '主页结果上限' }] : []),
-    ...(channels.some(item => item.id === 'instagram') ? [{ name: 'Instagram 公开商业账号', limit: instagramLimitValue, detail: '账号结果上限' }] : []),
-    ...(enabledActorPlans.length ? [{ name: 'Apify Actor（' + enabledActorPlans.length + ' 个已通过门禁）', limit: webLimitValue, detail: '每个 Actor 的结果上限' }] : []),
+    ...(channels.some(item => item.id === 'google-maps') ? [{ name: 'Google Maps + OpenStreetMap', limit: mapLimitValue, detail: '每个目标国家 / 数据源结果上限' }] : []),
+    ...(channels.some(item => item.id === 'google-search') ? [{ name: 'Web Search', limit: webLimitValue, detail: '每个目标国家结果上限' }] : []),
+    ...(channels.some(item => item.id === 'facebook') ? [{ name: 'Facebook 主页', limit: facebookLimitValue, detail: '每个目标国家结果上限' }] : []),
+    ...(channels.some(item => item.id === 'instagram') ? [{ name: 'Instagram 公开商业账号', limit: instagramLimitValue, detail: '每个目标国家结果上限' }] : []),
+    ...enabledActorPlans.map(actor => {
+      const source = channels.find(item => item.id === actor.sourceId);
+      return { name: String(source?.name || actor.sourceName || actor.sourceId) + ' · Actor', limit: webLimitValue, detail: '每个目标国家 / 渠道结果上限' };
+    }),
   ];
+  const hasRunnableSource = configuredChannels.length > 0;
   const allFinished = status === 'completed' || status === 'failed';
 
   return (
@@ -339,7 +362,7 @@ export function ExecutionStep({ profile, sources, actorParameters = {}, onEditSt
 
       {notice && <InlineNotification kind="info" lowContrast title="任务反馈" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
       <Tile className="tp-execution__configuration">
-        <div className="tp-execution__section-heading"><div><h3>执行参数</h3><p>只配置当前已接入的真实渠道；数量为每个目标国家或渠道的结果上限。</p></div><Tag type="blue">{configuredChannels.length} 个可执行渠道</Tag></div>
+        <div className="tp-execution__section-heading"><div><h3>执行参数</h3><p>所有已选平台均按动态 Schema 配置；通过参数测试的 Actor 和原生执行渠道均可执行。数量为每个目标国家或渠道的结果上限。</p></div><Tag type="blue">{configuredChannels.length} 个可执行渠道</Tag></div>
         <div className="tp-execution__configuration-grid">
           {channels.some(item => item.id === 'google-maps') && <div><TextInput id="tp-execution-map-limit" type="number" min={1} max={100} labelText="Google Maps + OSM：每个数据源结果上限" helperText="Google Maps 与 OSM 分别使用此上限。" value={mapLimit} onChange={event => { setMapLimit(event.currentTarget.value); setConfirmedExecution(false); }} /></div>}
           {channels.some(item => item.id === 'google-search') && <div><TextInput id="tp-execution-web-limit" type="number" min={1} max={100} labelText="Web Search：结果上限" value={webLimit} onChange={event => { setWebLimit(event.currentTarget.value); setConfirmedExecution(false); }} /></div>}
@@ -347,6 +370,8 @@ export function ExecutionStep({ profile, sources, actorParameters = {}, onEditSt
           {channels.some(item => item.id === 'instagram') && <div><TextInput id="tp-execution-instagram-limit" type="number" min={1} max={100} labelText="Instagram：公开商业账号结果上限" helperText="仅检索公开商业 / 创作者账号。" value={instagramLimit} onChange={event => { setInstagramLimit(event.currentTarget.value); setConfirmedExecution(false); }} /></div>}
         </div>
         <div className="tp-execution__confirmation-summary"><strong>本次执行预览</strong>{configuredChannels.length ? configuredChannels.map(item => <span key={item.name}>{item.name}：{item.limit} 条（{item.detail}）</span>) : <span>尚未选择可执行渠道。</span>}</div>
+        {pendingActorPlans.length > 0 && <InlineNotification kind="warning" lowContrast title="部分平台尚未完成参数测试" subtitle={pendingActorPlans.length + " 个已选平台已读取 Schema，但当前参数尚未通过测试；通过测试的渠道仍可独立执行。"} />}
+        {channels.length > 0 && !hasRunnableSource && <InlineNotification kind="info" lowContrast title="尚无可执行渠道" subtitle={schemaLoadedSourceIds.size > 0 ? "已读取 Actor Schema；请在第二步对当前参数执行最小化测试并启用。" : "已选平台会自动读取动态 Schema；请检查第二步是否加载成功。"} />}
         <Checkbox id="tp-execution-confirm" labelText="我已核对本次执行渠道、目标市场和数量上限，确认创建真实采集任务。" checked={confirmedExecution} disabled={!hasRunnableSource || status !== 'idle'} onChange={event => setConfirmedExecution(event.currentTarget.checked)} />
       </Tile>
       <div className="tp-execution__dashboard-heading">
