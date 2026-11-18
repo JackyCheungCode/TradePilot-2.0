@@ -131,6 +131,10 @@ const defaults: Record<string, string[]> = {
   NZ: ['trade-me','finda','seek-au','google-maps'],
 };
 const recommendedFor = (code: string) => defaults[code] ?? ['google-maps','linkedin','shopify','europages','kompass'];
+const categoryLabels = [...globalCatalog.map(group => group.title), '全球通用与全域穿透渠道', '企业名录与本地商业目录'];
+const defaultPlatformPageSize = 10;
+const platformPageSizes = [10, 20, 30];
+
 const regionalCategory = (source: RegionalSource) => {
   const id = source.id.toLowerCase();
   if (/amazon|ebay|mercado|marktplaats|allegro|coupang|rakuten|1688|jd|taobao|pchome|momo|carousell|lazada|shopee|tokopedia|trade-me|yapo|jiji/.test(id)) return '电商、零售与商品市场';
