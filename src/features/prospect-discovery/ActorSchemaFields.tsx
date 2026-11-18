@@ -198,7 +198,7 @@ export function ActorSchemaFields({ sources, onValuesChange }: Props) {
       const validation = validateActorInput(item, buildActorInput(item, values));
       const isEnabled = validation.valid;
       return <AccordionItem key={item.source.id + ':' + item.actorId} open={index === 0} title={<div className="tp-prospect-discovery__actor-schema-heading">
-        <div><strong>{item.source.name}</strong><span>{item.actorTitle}</span></div>
+        <div><CarbonIcons.DataBase size={16} aria-hidden="true" /><strong>{item.source.name}</strong><span>{item.actorTitle}</span></div>
         <div className="tp-prospect-discovery__actor-schema-actions">
           {item.isSaved && <Tag type="green">Schema 已保存</Tag>}
           <Tag type={isEnabled ? 'green' : 'blue'}>{isEnabled ? '参数完整 · 可执行' : '待补充必填项'}</Tag>
