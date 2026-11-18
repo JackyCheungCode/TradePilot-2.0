@@ -305,7 +305,6 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
     catch(e){setError(e instanceof Error?e.message:'无法打开附件');}
   };
 
-  if(loading)return <main className="tp-payments"><InlineLoading description="正在加载收款资料…"/></main>;
   const statusText=statusLabel(payment.status);
   if (loading) return <PageSkeleton variant="form" />;
   return <main className="tp-payments">
@@ -478,7 +477,6 @@ export function PaymentAllocationPage() {
     }catch(e){setError(e instanceof Error?e.message:'分配预收款失败');}
     finally{setSaving(false);}
   };
-  if(loading)return <main className="tp-payments"><InlineLoading description="正在加载预收余额…"/></main>;
   if(!payment)return <main className="tp-payments"><InlineNotification kind="error" title="收款记录不存在" subtitle={error||'无法读取该收款记录。'}/></main>;
   if (loading) return <PageSkeleton variant="table" />;
   return <main className="tp-payments">
