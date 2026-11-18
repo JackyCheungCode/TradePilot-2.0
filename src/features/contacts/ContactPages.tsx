@@ -123,8 +123,8 @@ function groupValue(row:ContactRow, fieldName:string, verifiedIds:Set<string>) {
   }
 }
 export function ContactConsolePage() {
-  
-  const [rows,setRows]=useState<ContactRow[]>([]);
+  const navigate=useNavigate();
+    const [rows,setRows]=useState<ContactRow[]>([]);
   const [countryStats,setCountryStats]=useState<CountryStat[]>([]);
   const [dailyStats,setDailyStats]=useState<DailyStat[]>([]);
   const [verifiedIds,setVerifiedIds]=useState<Set<string>>(new Set());
@@ -360,7 +360,7 @@ export function ContactFormPage() {
   </main>;
 }
 export function ContactDetailPage() {
-  const navigate=useNavigate();const {id}=useParams();const [row,setRow]=useState<ContactRow|null>(null);const [methods,setMethods]=useState<ContactMethod[]>([]);const [loading,setLoading]=useState(true);const [error,setError]=useState('');const [statusEvents,setStatusEvents]=useState<any[]>([]);const [statusModalOpen,setStatusModalOpen]=useState(false);const [nextActive,setNextActive]=useState('active');const [statusNote,setStatusNote]=useState('');const [statusSaving,setStatusSaving]=useState(false);const [statusError,setStatusError]=useState('');
+  const {id}=useParams();const [row,setRow]=useState<ContactRow|null>(null);const [methods,setMethods]=useState<ContactMethod[]>([]);const [loading,setLoading]=useState(true);const [error,setError]=useState('');const [statusEvents,setStatusEvents]=useState<any[]>([]);const [statusModalOpen,setStatusModalOpen]=useState(false);const [nextActive,setNextActive]=useState('active');const [statusNote,setStatusNote]=useState('');const [statusSaving,setStatusSaving]=useState(false);const [statusError,setStatusError]=useState('');
   useEffect(()=>{let alive=true;(async()=>{try{const client=await getSupabaseClient();const {data,error:e}=await client.from('crm_contacts').select('*,crm_accounts(account_name)').eq('id',id).single();if(e)throw e;const {data:m,error:me}=await client.from('crm_contact_methods').select('*').eq('contact_id',id).order('sort_order');if(me)throw me;if(alive){setRow(data as unknown as ContactRow);setMethods((m??[]) as ContactMethod[]);const h=await client.from('business_transition_events').select('id,event_type,from_status,to_status,note,actor_id,created_at').eq('record_type','contact').eq('record_id',id).order('created_at',{ascending:false}).limit(20);setStatusEvents(h.data||[]);}}catch(e){if(alive)setError(e instanceof Error?e.message:'读取联系人详情失败');}finally{if(alive)setLoading(false);}})();return()=>{alive=false};},[id]);
   if(loading)return <main className="tp-contacts"><InlineLoading description="正在载入联系人详情…"/></main>;
   if(error||!row)return <main className="tp-contacts"><InlineNotification kind="error" title="无法打开联系人" subtitle={error||'联系人不存在。'}/><Link href="/contacts">返回联系人列表</Link></main>;
