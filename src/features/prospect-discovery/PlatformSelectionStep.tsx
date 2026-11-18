@@ -155,10 +155,10 @@ const getPlatformExecutionStatus = (id: string): PlatformExecutionStatus => {
 };
 const isRunnablePlatform = (id: string) => allPlatforms.some(source => source.id === id);
 const platformStatusLabels: Record<PlatformExecutionStatus, string> = {
-  connected: '执行链已接入',
-  verify: '需验证连接 / 凭证',
-  actor: '需通过数据源质量门禁',
-  unavailable: '尚未接入执行器',
+  connected: '动态 Schema 参数配置',
+  verify: '动态 Schema 参数配置',
+  actor: '动态 Schema 参数配置',
+  unavailable: '动态 Schema 参数配置',
 };
 
 export function PlatformSelectionStep({
