@@ -989,9 +989,10 @@
   flex: 0 0 2.5rem;
   width: 2.5rem;
   height: 2.5rem;
-  border-radius: 0.25rem;
+  border-radius: 50%;
   object-fit: contain;
   background: var(--cds-layer-02);
+  overflow: hidden;
 }
 
 .tp-prospect-discovery__platform-logo {
