@@ -109,7 +109,7 @@ export function OpportunityConsolePage() {
       <div className="tp-opportunities__panel-head"><div><h2>商机多维分析</h2><p>按销售阶段、来源和客户所在国家 / 地区查看机会分布；地图可联动筛选列表。</p></div></div>
       <div className="tp-opportunities__analytics-grid">
         <div className="tp-opportunities__chart"><h3>销售阶段构成</h3>{stageData.length?<DonutChart data={stageData} options={{theme:document.documentElement.dataset.carbonTheme==='g100'?'g100':'white',height:'280px',donut:{center:{label:'商机'}},legend:{position:'bottom'},toolbar:{enabled:false}} as any}/>:<p className="tp-opportunities__empty">暂无阶段数据</p>}</div>
-        <div className="tp-opportunities__chart"><h3>商机来源</h3>{sourceData.length?<SimpleBarChart data={sourceData} options={{height:'280px',axes:{bottom:{mapsTo:'group',scaleType:'labels'},left:{mapsTo:'value',scaleType:'linear'}},legend:{enabled:false},toolbar:{enabled:false}} as any}/>:<p className="tp-opportunities__empty">暂无来源数据</p>}</div>
+        <div className="tp-opportunities__chart"><h3>商机来源</h3>{sourceData.length?<SimpleBarChart data={sourceData} options={{theme:document.documentElement.dataset.carbonTheme==='g100'?'g100':'white',height:'280px',axes:{bottom:{mapsTo:'group',scaleType:'labels'},left:{mapsTo:'value',scaleType:'linear'}},legend:{enabled:false},toolbar:{enabled:false}} as any}/>:<p className="tp-opportunities__empty">暂无来源数据</p>}</div>
       </div>
       <div className="tp-opportunities__chart"><h3>全球商机市场分布</h3>{opportunityMarketData.length?<WorldMapChart data={opportunityMarketData} unitLabel="个商机" selectedCode={marketCountry==='all'?undefined:marketCountry} onCountrySelect={code=>setMarketCountry(current=>current===code?'all':code)}/>:<p className="tp-opportunities__empty">客户资料尚未提供可识别的国家 / 地区信息。</p>}</div>
     </section>
