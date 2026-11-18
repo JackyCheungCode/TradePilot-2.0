@@ -220,9 +220,11 @@ export function WorldMapChart({
               onClick={() => onCountrySelect?.(item.code)}
               disabled={!onCountrySelect}
             >
-              <span>{String(index + 1).padStart(2, '0')}</span>
-              <strong>{item.label}</strong>
-              <b>{item.value.toLocaleString()}</b>
+              <span className="tp-world-map__rank-content">
+                <span>{String(index + 1).padStart(2, '0')}</span>
+                <strong>{item.label}</strong>
+                <b>{item.value.toLocaleString()}</b>
+              </span>
             </Button>
           ))}
           {!ranked.length && <p className="tp-world-map__empty">{emptyLabel}</p>}
