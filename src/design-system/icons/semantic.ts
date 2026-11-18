@@ -4,7 +4,7 @@
  */
 import {
   Add, Analytics, Api, Archive, ArrowLeft, ArrowRight,
-  Asleep, Attachment, Building, Calculator, Calendar, Catalog, Certificate,
+  Activity, ArrowUp, Asleep, Attachment, Building, Calculator, Calendar, Catalog, Certificate,
   ChartLine, Chat, Checkmark, CheckmarkFilled, ChevronDown, ChevronLeft,
   ChevronRight, Close, CloudUpload, Currency, CurrencyDollar, Dashboard,
   DataBase, DataVis_4, Delivery, Document, DocumentMultiple_01, DocumentPdf,
@@ -20,8 +20,8 @@ import {
 } from '@carbon/icons-react';
 
 export const semanticIcons = {
-  add: Add, analytics: Analytics, api: Api, archive: Archive, asleep: Asleep,
-  back: ArrowLeft, next: ArrowRight, externalLink: Launch, attachment: Attachment,
+  activity: Activity, add: Add, analytics: Analytics, api: Api, archive: Archive, asleep: Asleep,
+  back: ArrowLeft, next: ArrowRight, arrowUp: ArrowUp, externalLink: Launch, attachment: Attachment,
   building: Building, calculator: Calculator, calendar: Calendar, catalog: Catalog,
   certificate: Certificate, chart: ChartLine, chat: Chat, check: Checkmark,
   success: CheckmarkFilled, chevronDown: ChevronDown, chevronLeft: ChevronLeft,
@@ -38,7 +38,7 @@ export const semanticIcons = {
   search: Search, locateSearch: SearchLocate, reset: Reset, security: Security, send: Send,
   settings: Settings, adjust: SettingsAdjust, share: Share,
   shoppingCart: ShoppingCart, star: Star, task: Task, taskComplete: TaskComplete,
-  template: Template, time: Time, tools: Tools, translate: Translate,
+  template: Template, time: Time, tools: Tools, translate: Translate, subtract: Subtract,
   delete: TrashCan, upload: Upload, user: User, avatar: UserAvatar,
   userFollow: UserFollow, users: UserMultiple, userSettings: UserSettings,
   view: View, viewOff: ViewOff, wallet: Wallet, warning: WarningAlt,
