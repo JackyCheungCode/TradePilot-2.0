@@ -100,7 +100,23 @@ export function OpportunityConsolePage() {
   const pageRows = filtered.slice((page-1)*pageSize,page*pageSize);
   const accountMap = new Map(accounts.map(a=>[a.id,a.account_name] as [string,string]));
   const contactMap = new Map(contacts.map(c=>[c.id,contactName(c)]));
-  if (loading) return <PageSkeleton variant="analytics-table" metricCount={4} chartCount={2} showMap columns={8} rows={6} />;
+  if (loading) return <PageSkeleton className="tp-opportunities" layout={[
+  { type: 'group', direction: 'row', gap: 'var(--cds-spacing-05)', className: 'tp-opportunities__header', children: [
+    { type: 'group', direction: 'column', gap: 'var(--cds-spacing-03)', children: [{ type: 'text', width: '8rem' }, { type: 'text', heading: true, width: '14rem' }, { type: 'text', width: '25rem' }] },
+    { type: 'group', direction: 'row', gap: 'var(--cds-spacing-03)', className: 'tp-opportunities__actions', children: [{ type: 'placeholder', width: '5rem', height: '2.5rem' }, { type: 'placeholder', width: '8rem', height: '2.5rem' }] },
+  ] },
+  { type: 'group', direction: 'grid', columns: 4, gap: 'var(--cds-spacing-04)', className: 'tp-opportunities__metrics', children: Array.from({ length: 4 }, () => ({ type: 'placeholder' as const, minHeight: '7rem' })) },
+  { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-opportunities__panel tp-opportunities__analytics', children: [
+    { type: 'text', heading: true, width: '14rem' },
+    { type: 'group', direction: 'grid', columns: 2, gap: 'var(--cds-spacing-04)', className: 'tp-opportunities__analytics-grid', children: Array.from({ length: 2 }, () => ({ type: 'placeholder' as const, minHeight: '17rem', className: 'tp-opportunities__chart' })) },
+    { type: 'placeholder', minHeight: '20rem', className: 'tp-opportunities__chart' },
+  ] },
+  { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-opportunities__panel', children: [
+    { type: 'text', heading: true, width: '12rem' },
+    { type: 'group', direction: 'grid', columns: 2, gap: 'var(--cds-spacing-04)', className: 'tp-opportunities__filters', children: [{ type: 'placeholder', height: '2.5rem' }, { type: 'placeholder', height: '2.5rem' }] },
+    { type: 'table', columns: 8, rows: 6, className: 'tp-opportunities__table-wrap' },
+  ] },
+]} />;
   return <main className="tp-opportunities">
     <header className="tp-opportunities__header"><div><p className="tp-opportunities__eyebrow">TRADEPILOT / CRM</p><h1>商机（Opportunity）</h1><p>管理销售机会、阶段、预测金额、客户关系与跟进计划。</p></div>
       <div className="tp-opportunities__actions"><Button kind="tertiary" onClick={()=>void load()} disabled={loading}><CarbonIcons.Renew size={16}/>刷新</Button><Link href="/opportunities/new" renderIcon={CarbonIcons.Add}>新建商机</Link></div>
