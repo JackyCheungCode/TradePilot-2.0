@@ -180,7 +180,29 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
       const body = await request.json().catch(() => ({})) as { platform?: string; query?: string };
       const search = safeText(body.query || body.platform, 120).trim();
       if (!search) return errorResponse(request, "SEARCH_REQUIRED", "请提供目标平台或能力关键词。", 400);
-      const cacheKey = ownerId + ":" + safeText(body.platform, 80) + ":" + search.toLowerCase();
+      const platform = safeText(body.platform, 80);
+      if (platform) {
+        const registryRows = await db<Array<{ actor_id: string; actor_name: string; title: string; description: string; platforms: string[]; status: string; quality_score: number | null; stability_score: number | null; source_metadata: Record<string, unknown> }>>(env,
+          "actor_registry?owner_id=eq." + ownerId + "&select=actor_id,actor_name,title,description,platforms,status,quality_score,stability_score,source_metadata&limit=1000");
+        const savedActors = (registryRows ?? []).filter(row =>
+          Array.isArray(row.platforms) && row.platforms.includes(platform)
+          && typeof row.source_metadata?.savedSchemaVersion === "string"
+        );
+        if (savedActors.length) {
+          return successResponse(request, {
+            discovered: savedActors.length,
+            items: savedActors.map(row => ({
+              actor_id: row.actor_id, name: row.actor_name, actor_name: row.actor_name,
+              title: row.title || row.actor_name, description: row.description || "",
+              platforms: row.platforms, status: row.status,
+              quality_score: row.quality_score, stability_score: row.stability_score,
+              saved_schema_version: safeText(row.source_metadata.savedSchemaVersion, 160),
+            })),
+            warnings: [], savedSchemaCache: true,
+          });
+        }
+      }
+      const cacheKey = ownerId + ":" + platform + ":" + search.toLowerCase();
       const cacheEntry = actorDiscoveryCache.get(cacheKey);
       let ownedItems: ActorRecord[] = [];
       let storeItems: ActorRecord[] = [];
