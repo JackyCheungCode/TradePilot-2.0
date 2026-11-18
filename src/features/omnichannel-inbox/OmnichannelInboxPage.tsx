@@ -267,7 +267,7 @@ export function OmnichannelInboxPage() {
       </div>
     </section>
 
-    {profileOpen && <Button className="oi-profile-backdrop" kind="ghost" aria-label="关闭客户档案" onClick={() => setProfileOpen(false)} />}
+    {profileOpen && <div className="oi-profile-backdrop" aria-hidden="true" onClick={() => setProfileOpen(false)} />}
     {profileOpen && <aside ref={profilePanelRef} className="oi-profile-panel" role={typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches ? 'dialog' : 'complementary'} aria-modal={typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches ? true : undefined} aria-labelledby="oi-profile-title" tabIndex={-1}>
       <div className="oi-profile-header"><h2 id="oi-profile-title">客户 360 档案</h2><IconButton kind="ghost" label="关闭档案" onClick={() => setProfileOpen(false)}><CarbonIcons.Close /></IconButton></div>
       <div className="oi-profile-scroll">
