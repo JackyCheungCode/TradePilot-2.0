@@ -4,7 +4,7 @@
  */
 import {
   Add, Analytics, Api, Archive, ArrowLeft, ArrowRight,
-  Attachment, Building, Calculator, Calendar, Catalog, Certificate,
+  Asleep, Attachment, Building, Calculator, Calendar, Catalog, Certificate,
   ChartLine, Chat, Checkmark, CheckmarkFilled, ChevronDown, ChevronLeft,
   ChevronRight, Close, CloudUpload, Currency, CurrencyDollar, Dashboard,
   DataBase, Delivery, Document, DocumentMultiple_01, DocumentPdf,
@@ -20,7 +20,7 @@ import {
 } from '@carbon/icons-react';
 
 export const semanticIcons = {
-  add: Add, analytics: Analytics, api: Api, archive: Archive,
+  add: Add, analytics: Analytics, api: Api, archive: Archive, asleep: Asleep,
   back: ArrowLeft, next: ArrowRight, externalLink: Launch, attachment: Attachment,
   building: Building, calculator: Calculator, calendar: Calendar, catalog: Catalog,
   certificate: Certificate, chart: ChartLine, chat: Chat, check: Checkmark,
