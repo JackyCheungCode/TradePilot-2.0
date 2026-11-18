@@ -39,3 +39,13 @@
 
 
 .tp-shipments__market-panel .tp-world-map{margin-top:var(--cds-spacing-04)}
+
+
+.tp-shipments__metric{position:relative;overflow:hidden}
+.tp-shipments__metric::before{content:'';position:absolute;inset:0 0 auto;height:3px;background:var(--tp-metric-accent,var(--cds-support-info))}
+.tp-shipments__metric:nth-child(5n+1){--tp-metric-accent:var(--cds-support-info)}
+.tp-shipments__metric:nth-child(5n+2){--tp-metric-accent:var(--cds-support-success)}
+.tp-shipments__metric:nth-child(5n+3){--tp-metric-accent:var(--cds-support-warning)}
+.tp-shipments__metric:nth-child(5n+4){--tp-metric-accent:var(--cds-support-error)}
+.tp-shipments__metric:nth-child(5n+5){--tp-metric-accent:var(--cds-interactive)}
+.tp-shipments__metric-head svg{color:var(--tp-metric-accent,var(--cds-icon-secondary))}
