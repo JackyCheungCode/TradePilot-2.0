@@ -1,2 +1,2 @@
-export { DateField, DateRangeField, DateTimeField } from './index.tsx';
-export type { DateFieldProps, DateRangeFieldProps, DateTimeFieldProps } from './index.tsx';
+export { DateField, DateRangeField, DateTimeField } from './DateField';
+export type { DateFieldProps, DateRangeFieldProps, DateTimeFieldProps } from './DateField';
