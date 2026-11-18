@@ -1,5 +1,5 @@
 import { Children, cloneElement, createElement, isValidElement, type ReactElement, type ReactNode } from 'react';
-import { ArrowLeft, ArrowRight, Add, Checkmark, Download, Edit, Renew, Save, Send, TrashCan, Upload } from '../icons';
+import { Add } from '../icons';
 import { Button, ButtonSet, Heading, Link } from '../components';
 import './page-header.scss';
 
