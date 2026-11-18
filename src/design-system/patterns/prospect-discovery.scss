@@ -1017,3 +1017,10 @@
 .tp-prospect-discovery__actor-schema .tp-prospect-discovery__section-heading svg { width: 24px; height: 24px; flex: 0 0 24px; }
 .tp-prospect-discovery__actor-schema-heading > div:first-child { align-items: center; flex-direction: row; gap: .75rem; }
 .tp-prospect-discovery__actor-schema-heading > div:first-child svg { width: 20px; height: 20px; flex: 0 0 20px; }
+
+
+.tp-prospect-discovery__platform-logo--sprite {
+  color: var(--cds-icon-primary);
+  fill: currentColor;
+  padding: .375rem;
+}
