@@ -147,7 +147,7 @@ export function ActorSchemaFields({ sources, onValuesChange }: Props) {
       const status = localTestPassed || persistedTestPassed ? 'enabled' : test || item.actorStatus === 'enabled' ? 'needs_retest' : item.actorStatus;
       return { sourceId: item.source.id, sourceName: item.source.name, actorId: item.actorId, actorTitle: item.actorTitle, schemaVersion: item.schemaVersion, status, schemaKeys: Object.keys(item.schema.properties ?? {}), input, inputFingerprint: currentFingerprint };
     }),
-  }), [values, items, testResults, profile]);
+  }), [values, items, testResults]);
   useEffect(() => { onValuesChange(actorParameters); }, [actorParameters, onValuesChange]);
 
   const setField = (key: string, value: unknown) => setValues(current => ({ ...current, [key]: value }));
@@ -156,7 +156,7 @@ export function ActorSchemaFields({ sources, onValuesChange }: Props) {
     setTestingActor(testKey);
     try {
       const token = await accessToken();
-      const input = buildActorInput(item, values, profile);
+      const input = buildActorInput(item, values);
       const requiredFields = new Set(item.schema.required ?? []);
       const missingFields = Object.entries(item.schema.properties ?? {}).filter(([fieldKey, field]) => {
         const value = input[fieldKey];
@@ -188,7 +188,7 @@ export function ActorSchemaFields({ sources, onValuesChange }: Props) {
       const required = new Set(item.schema.required ?? []);
       const testKey = item.source.id + ':' + item.actorId;
       const localTest = testResults[testKey];
-      const currentFingerprint = fingerprint(buildActorInput(item, values, profile), item.schemaVersion);
+      const currentFingerprint = fingerprint(buildActorInput(item, values), item.schemaVersion);
       const isEnabled = (localTest?.passed === true && localTest.inputFingerprint === currentFingerprint)
         || (item.actorStatus === 'enabled' && item.actorInputFingerprint === currentFingerprint);
       const needsRetest = Boolean(localTest && (!localTest.passed || localTest.inputFingerprint !== currentFingerprint))
