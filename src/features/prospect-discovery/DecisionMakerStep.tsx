@@ -231,10 +231,6 @@ export function DecisionMakerStep() {
 
   return (
     <section className="tp-prospect-discovery__step tp-decision">
-      <div className="tp-decision__heading">
-        <div><span className="tp-decision__eyebrow">DECISION-MAKER ENRICHMENT & CRM SYNC</span><h2>决策人穿透与 CRM 同步</h2><p>根据已发现企业记录补全公开联系方式与决策人信息。</p></div>
-        <Tag type="blue">{rows.length} 家真实企业</Tag>
-      </div>
       {notice && <InlineNotification kind="info" lowContrast title="操作反馈" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
       {loading && <InlineNotification kind="info" lowContrast title="正在读取真实潜客记录" subtitle="读取第四步已交接的企业。" />}
 

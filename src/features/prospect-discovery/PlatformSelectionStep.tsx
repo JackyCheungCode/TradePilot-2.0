@@ -151,18 +151,12 @@ const allPlatforms: Array<Source & { category: string; global: boolean }> = [
   ...regionalSources.map(source => ({ ...source, category: regionalCategory(source), global: false })),
 ];
 
-type PlatformExecutionStatus = 'connected' | 'verify' | 'actor' | 'unavailable';
-const getPlatformExecutionStatus = (id: string): PlatformExecutionStatus => {
-  if (id === 'google-maps') return 'connected';
-  if (id === 'facebook' || id === 'instagram' || id === 'google-search') return 'verify';
-  return 'actor';
-};
 const isRunnablePlatform = (id: string) => allPlatforms.some(source => source.id === id);
-const platformStatusLabels: Record<PlatformExecutionStatus, string> = {
-  connected: '动态 Schema 参数配置',
-  verify: '动态 Schema 参数配置',
-  actor: '动态 Schema 参数配置',
-  unavailable: '动态 Schema 参数配置',
+const localPlatformLogos: Record<string, string> = {
+  'google-maps': 'google_maps.svg', alibaba: 'alibaba.svg', aliexpress: 'aliexpress.svg', amazon: 'amazon.svg',
+  facebook: 'facebook.svg', instagram: 'instagram.svg', linkedin: 'linkedin.svg', 'linkedin-global': 'linkedin.svg',
+  line: 'line.svg', messenger: 'messenger.svg', telegram: 'telegram.svg', tiktok: 'tiktok.svg',
+  'tiktok-shop': 'tiktok.svg', wechat: 'wechat.svg', whatsapp: 'whatsapp.svg',
 };
 
 export function PlatformSelectionStep({
@@ -259,15 +253,14 @@ export function PlatformSelectionStep({
             <Checkbox id={'tp-platform-' + source.id} labelText={source.name} hideLabel checked={checked} disabled={!isRunnablePlatform(source.id)} onChange={() => toggle(source.id)} />
             <div className="tp-prospect-discovery__platform-copy">
               <div className="tp-prospect-discovery__platform-name">
-                <span className={`tp-prospect-discovery__platform-status is-${getPlatformExecutionStatus(source.id)}`} role="img" aria-label={platformStatusLabels[getPlatformExecutionStatus(source.id)]} title={platformStatusLabels[getPlatformExecutionStatus(source.id)]}><i aria-hidden="true" /></span>
-                <strong>{source.name}</strong>{isRecommended && <Tag type="green">智能推荐</Tag>}{source.global && <Tag type="blue">全球通用</Tag>}
+                {localPlatformLogos[source.id] ? <img className="tp-prospect-discovery__platform-logo" src={'/platform-logos/' + localPlatformLogos[source.id]} alt="" loading="lazy" /> : <span className="tp-prospect-discovery__platform-monogram" aria-hidden="true">{source.name.slice(0, 1).toUpperCase()}</span>}
+                <strong>{source.name}</strong>{isRecommended && <Tag type="green">智能推荐</Tag>}
               </div>
               <p>{source.description}</p>
             </div>
-            <div className="tp-prospect-discovery__platform-classification"><Tag type="gray">{source.category}</Tag></div>
           </div>;
         })}
-        {visiblePlatforms.length === 0 && <div className="tp-prospect-discovery__platform-empty"><strong>没有找到符合条件的平台</strong><p>请调整大洲、国家、分类或关键词筛选条件。</p><Button kind="ghost" onClick={clearFilters}>清除筛选条件</Button></div>}
+        {visiblePlatforms.length === 0 && <div className="tp-prospect-discovery__platform-empty"><strong>没有找到符合条件的平台</strong><p>请调整分类或关键词筛选条件。</p><Button kind="ghost" onClick={clearFilters}>清除筛选条件</Button></div>}
       </div>
 
       <div className="tp-prospect-discovery__platform-pagination">

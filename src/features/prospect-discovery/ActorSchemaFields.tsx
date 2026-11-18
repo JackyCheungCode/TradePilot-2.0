@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Accordion, AccordionItem, Button, Checkbox, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextArea, TextInput } from '@/design-system';
+import { Accordion, AccordionItem, Button, Checkbox, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextArea, TextInput, CarbonIcons } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 
 type Source = { id: string; name: string; category?: string };
@@ -187,7 +187,7 @@ export function ActorSchemaFields({ sources, onValuesChange }: Props) {
   if (!sources.length) return null;
   return <section className="tp-prospect-discovery__section tp-prospect-discovery__actor-schema" aria-label="数据源动态参数">
     <div className="tp-prospect-discovery__section-heading">
-      <div><span className="tp-prospect-discovery__section-index">DS</span><div><h2>数据源动态参数</h2><p>根据已选平台匹配候选 Actor，并读取其真实输入 Schema</p><p>根据 Schema 自动标记必填字段；填写完成并通过本地格式校验后即可执行，无需运行测试。</p></div></div>
+      <div><CarbonIcons.DataBase size={20} aria-hidden="true" /><div><h2>数据源动态参数</h2><p>根据已选平台匹配候选 Actor，并读取其真实输入 Schema</p><p>根据 Schema 自动标记必填字段；填写完成并通过本地格式校验后即可执行，无需运行测试。</p></div></div>
     </div>
     {loading && <InlineLoading description="正在匹配数据源并读取输入字段…" />}
     {error && <InlineNotification kind={items.length ? 'warning' : 'error'} title={items.length ? '部分平台未加载' : '动态参数读取失败'} subtitle={error} />}
@@ -198,7 +198,7 @@ export function ActorSchemaFields({ sources, onValuesChange }: Props) {
       const validation = validateActorInput(item, buildActorInput(item, values));
       const isEnabled = validation.valid;
       return <AccordionItem key={item.source.id + ':' + item.actorId} open={index === 0} title={<div className="tp-prospect-discovery__actor-schema-heading">
-        <div><strong>{item.source.name}</strong><span>{item.actorTitle}</span></div>
+        <div><CarbonIcons.DataBase size={16} aria-hidden="true" /><strong>{item.source.name}</strong><span>{item.actorTitle}</span></div>
         <div className="tp-prospect-discovery__actor-schema-actions">
           {item.isSaved && <Tag type="green">Schema 已保存</Tag>}
           <Tag type={isEnabled ? 'green' : 'blue'}>{isEnabled ? '参数完整 · 可执行' : '待补充必填项'}</Tag>

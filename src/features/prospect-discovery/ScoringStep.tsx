@@ -209,10 +209,7 @@ export function ScoringStep({ onContinueToEnrichment }: Props) {
 
   return (
     <section className="tp-prospect-discovery__step tp-scoring">
-      <div className="tp-scoring__heading">
-        <div><span className="tp-execution__eyebrow">AI FILTERING & SCORING</span><h2>AI 智能清洗与打分工作台</h2><p>仅依据各数据源返回的企业公开信息与证据进行评分，不依赖预设关键词或目标国家。</p></div>
-        <div className="tp-scoring__heading-actions"><Tag type="blue">{rows.length} 条待处理记录</Tag><Button kind="primary" size="md" renderIcon={CarbonIcons.ArrowRight} disabled={!selected.length || loading || !rows.length} onClick={sendToEnrichment}>将已选企业送入第五步</Button></div>
-      </div>
+
 
       {notice && <InlineNotification kind="info" lowContrast title="操作反馈" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
 
@@ -224,29 +221,7 @@ export function ScoringStep({ onContinueToEnrichment }: Props) {
         </div>
       </Tile>
 
-      <Tile className="tp-scoring__methodology">
-        <div className="tp-scoring__method-heading"><CarbonIcons.MachineLearningModel size={18} /><strong>AI 模型、清洗方法与评分依据 / AI Model, Cleaning & Scoring</strong></div>
-        <Grid narrow>
-          <Column sm={4} md={4} lg={5}>
-            <Tile className="tp-scoring__info-tile"><div className="tp-scoring__info-title"><CarbonIcons.ModelBuilder size={18} /><strong>所用清洗与大模型</strong></div>
-              <dl><dt>评分模型</dt><dd>由 AI 与 API 集成中的 prospect_scoring 任务配置决定</dd><dt>向量模型</dt><dd>当前评分链路未调用向量检索</dd></dl>
-              <p>模型根据目标画像、企业基础字段、公开资料摘要和来源证据生成结构化评分。</p>
-            </Tile>
-          </Column>
-          <Column sm={4} md={4} lg={5}>
-            <Tile className="tp-scoring__info-tile"><div className="tp-scoring__info-title"><CarbonIcons.Filter size={18} /><strong>清洗与过滤方法</strong></div>
-              <ul><li><strong>真实记录：</strong>读取后端持久化的企业与渠道来源记录</li><li><strong>证据输入：</strong>提交企业字段、公开资料摘要及来源出现记录</li><li><strong>结构化输出：</strong>保存四项维度分数、证据、风险和模型信息</li></ul>
-            </Tile>
-          </Column>
-          <Column sm={4} md={8} lg={6}>
-            <Tile className="tp-scoring__info-tile"><div className="tp-scoring__info-title"><CarbonIcons.ChartLine size={18} /><strong>综合评分公式</strong></div>
-              <div className="tp-scoring__formula">Score = (Fit × 40%) + (Persona × 30%) + (Scale × 20%) + (Intent × 10%)</div>
-              <ul className="tp-scoring__weights"><li><span>Fit · 产品契合度</span><strong>40%</strong></li><li><span>Persona · 身位匹配度</span><strong>30%</strong></li><li><span>Scale · 规模实力</span><strong>20%</strong></li><li><span>Intent · 采购意图</span><strong>10%</strong></li></ul>
-            </Tile>
-          </Column>
-        </Grid>
-        <p className="tp-scoring__method-note">模型名称与评分权重按产品方案展示。使用 AI 与 API 集成中为潜客评分配置的模型。评分维度、证据、风险、模型版本与评分时间会持久化到潜客记录。</p>
-      </Tile>
+
 
       <div className="tp-scoring__summary">
         <div><span>当前原始记录</span><strong>{rows.length}</strong></div>
@@ -258,7 +233,7 @@ export function ScoringStep({ onContinueToEnrichment }: Props) {
       <Tile className="tp-scoring__table-panel">
         <div className="tp-execution__section-heading"><div><h3>原始检索结果</h3><p>人工复核企业主体、官网与来源，再决定是否纳入 AI 清洗打分</p></div><Tag type="blue">{filtered.length} 条匹配</Tag></div>
         <div className="tp-scoring__table-controls">
-          {selected.length > 0 && <div className="tp-scoring__batch-actions"><span>已勾选 {selected.length} / {rows.length} 条记录</span><div><Button kind="primary" size="md" renderIcon={CarbonIcons.MagicWand} onClick={() => scoreRows(selected)}>AI 清洗与打分</Button><Button kind="tertiary" size="md" renderIcon={CarbonIcons.TrashCan} onClick={removeSelected}>批量移除</Button><Button kind="tertiary" size="md" renderIcon={CarbonIcons.Download} onClick={exportSelected}>导出 XLSX</Button><Button kind="ghost" size="md" onClick={() => setSelected([])}>取消选择</Button></div></div>}
+          {selected.length > 0 && <div className="tp-scoring__batch-actions"><span>已勾选 {selected.length} / {rows.length} 条记录</span><div><Button kind="primary" size="md" renderIcon={CarbonIcons.MagicWand} onClick={() => scoreRows(selected)}>AI 清洗与打分</Button><Button kind="tertiary" size="md" renderIcon={CarbonIcons.TrashCan} onClick={removeSelected}>批量移除</Button><Button kind="tertiary" size="md" renderIcon={CarbonIcons.Download} onClick={exportSelected}>导出 XLSX</Button><Button kind="primary" size="md" renderIcon={CarbonIcons.ArrowRight} disabled={loading || !selected.length} onClick={sendToEnrichment}>确认所选企业并进入第五步</Button><Button kind="ghost" size="md" onClick={() => setSelected([])}>取消选择</Button></div></div>}
           <div className="tp-scoring__toolbar">
             <TextInput
               id="tp-scoring-search"
@@ -296,6 +271,29 @@ export function ScoringStep({ onContinueToEnrichment }: Props) {
           </Table>
         </div>
         <div className="tp-scoring__pagination"><Pagination id="tp-scoring-pagination" page={page} pageSize={pageSize} pageSizes={[10, 20, 50]} totalItems={filtered.length} onChange={({ page: nextPage, pageSize: nextSize }) => { setPage(nextPage); setPageSize(nextSize); }} /></div>
+      </Tile>
+      <Tile className="tp-scoring__methodology">
+        <div className="tp-scoring__method-heading"><CarbonIcons.MachineLearningModel size={18} /><strong>AI 模型、清洗方法与评分依据 / AI Model, Cleaning & Scoring</strong></div>
+        <Grid narrow>
+          <Column sm={4} md={4} lg={5}>
+            <Tile className="tp-scoring__info-tile"><div className="tp-scoring__info-title"><CarbonIcons.ModelBuilder size={18} /><strong>所用清洗与大模型</strong></div>
+              <dl><dt>评分模型</dt><dd>由 AI 与 API 集成中的 prospect_scoring 任务配置决定</dd><dt>向量模型</dt><dd>当前评分链路未调用向量检索</dd></dl>
+              <p>模型根据目标画像、企业基础字段、公开资料摘要和来源证据生成结构化评分。</p>
+            </Tile>
+          </Column>
+          <Column sm={4} md={4} lg={5}>
+            <Tile className="tp-scoring__info-tile"><div className="tp-scoring__info-title"><CarbonIcons.Filter size={18} /><strong>清洗与过滤方法</strong></div>
+              <ul><li><strong>真实记录：</strong>读取后端持久化的企业与渠道来源记录</li><li><strong>证据输入：</strong>提交企业字段、公开资料摘要及来源出现记录</li><li><strong>结构化输出：</strong>保存四项维度分数、证据、风险和模型信息</li></ul>
+            </Tile>
+          </Column>
+          <Column sm={4} md={8} lg={6}>
+            <Tile className="tp-scoring__info-tile"><div className="tp-scoring__info-title"><CarbonIcons.ChartLine size={18} /><strong>综合评分公式</strong></div>
+              <div className="tp-scoring__formula">Score = (Fit × 40%) + (Persona × 30%) + (Scale × 20%) + (Intent × 10%)</div>
+              <ul className="tp-scoring__weights"><li><span>Fit · 产品契合度</span><strong>40%</strong></li><li><span>Persona · 身位匹配度</span><strong>30%</strong></li><li><span>Scale · 规模实力</span><strong>20%</strong></li><li><span>Intent · 采购意图</span><strong>10%</strong></li></ul>
+            </Tile>
+          </Column>
+        </Grid>
+        <p className="tp-scoring__method-note">模型名称与评分权重按产品方案展示。使用 AI 与 API 集成中为潜客评分配置的模型。评分维度、证据、风险、模型版本与评分时间会持久化到潜客记录。</p>
       </Tile>
     </section>
   );
