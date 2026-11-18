@@ -265,7 +265,7 @@ export function ExecutionStep({ sources, actorParameters = {}, onEditStep, onCon
           <Tile className="tp-execution__metric-tile"><div className="tp-execution__metric-label"><CarbonIcons.DataBase size={20} /><span>已发现原始线索数</span></div><strong>{captured}</strong><small>来自后端任务状态</small></Tile>
         </Column>
         <Column sm={4} md={4} lg={5}>
-          <Tile className="tp-execution__metric-tile"><div className="tp-execution__metric-label"><CarbonIcons.Security size={20} /><span>护盾拦截数量</span></div><strong>—</strong><small>当前接口尚未返回统一拦截计数</small></Tile>
+          <Tile className="tp-execution__metric-tile"><div className="tp-execution__metric-label"><CarbonIcons.Security size={20} /><span>已创建 Actor 任务</span></div><strong>{runs.length}</strong><small>由所选平台 Schema 任务生成</small></Tile>
         </Column>
         <Column sm={4} md={8} lg={6}>
           <Tile className="tp-execution__metric-tile"><div className="tp-execution__metric-label"><CarbonIcons.Time size={20} /><span>运行耗时与任务状态</span></div><strong className="tp-execution__metric-time">{elapsedText}</strong><small>{status === 'running' ? '正在读取后端任务状态' : status === 'completed' ? '所有已创建任务已结束' : status === 'failed' ? '任务创建失败' : '等待启动'}</small></Tile>
