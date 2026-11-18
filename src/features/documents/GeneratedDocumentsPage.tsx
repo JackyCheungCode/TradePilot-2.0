@@ -42,7 +42,7 @@ export function GeneratedDocumentsPage() {
   return <main className="tp-documents">
     <header className="tp-documents__header">
       <div><p className="tp-documents__eyebrow">TRADE OPERATIONS / DOCUMENTS</p><h1>已生成单据</h1><p>集中查看单据状态、版本和业务来源，打开单据可继续校对或查看历史版本。</p></div>
-      <div className="tp-documents__actions"><Button kind="tertiary" onClick={() => navigate('/documents')}>返回单据中心</Button><Button kind="primary" onClick={() => navigate('/documents')}>新建单据</Button></div>
+      <div className="tp-documents__actions"><Link href="/documents">返回单据中心</Link><Link href="/documents">新建单据</Link></div>
     </header>
     {error && <InlineNotification kind="error" lowContrast title="单据列表读取失败" subtitle={error} />}
     <section className="tp-documents__list">
