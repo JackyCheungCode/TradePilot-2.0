@@ -1,4 +1,3 @@
-import { PageSkeleton } from '@/design-system';
 import { useEffect, useMemo, useState } from 'react';
 import {
   Button, Checkbox, InlineLoading, InlineNotification, Modal,
@@ -109,16 +108,6 @@ export function AgentHistoryManagement() {
     }
   };
 
-  if (loading) return <PageSkeleton className="tp-settings__editor" layout={[
-  { type: 'group', direction: 'row', gap: 'var(--cds-spacing-05)', className: 'tp-settings__editor-title', children: [
-    { type: 'group', direction: 'column', gap: 'var(--cds-spacing-02)', children: [{ type: 'text', heading: true, width: '12rem' }, { type: 'text', width: '30rem' }] },
-    { type: 'placeholder', width: '7rem', height: '2.5rem' },
-  ] },
-  { type: 'group', direction: 'row', gap: 'var(--cds-spacing-05)', className: 'tp-settings__editor-title', children: [
-    { type: 'placeholder', width: '7rem', height: '2rem' }, { type: 'placeholder', width: '9rem', height: '2.5rem' },
-  ] },
-  { type: 'table', columns: 5, rows: 7, className: 'tp-settings__table-wrap' },
-]} />;
   return (
     <section className="tp-settings__editor">
       <div className="tp-settings__editor-title">

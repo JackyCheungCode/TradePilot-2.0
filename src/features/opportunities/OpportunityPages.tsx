@@ -1,4 +1,3 @@
-import { PageSkeleton, pageSkeletonHeader, pageSkeletonFormSection, pageSkeletonPanel } from '@/design-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
@@ -100,23 +99,6 @@ export function OpportunityConsolePage() {
   const pageRows = filtered.slice((page-1)*pageSize,page*pageSize);
   const accountMap = new Map(accounts.map(a=>[a.id,a.account_name] as [string,string]));
   const contactMap = new Map(contacts.map(c=>[c.id,contactName(c)]));
-  if (loading) return <PageSkeleton className="tp-opportunities" layout={[
-  { type: 'group', direction: 'row', gap: 'var(--cds-spacing-05)', className: 'tp-opportunities__header', children: [
-    { type: 'group', direction: 'column', gap: 'var(--cds-spacing-03)', children: [{ type: 'text', width: '8rem' }, { type: 'text', heading: true, width: '14rem' }, { type: 'text', width: '25rem' }] },
-    { type: 'group', direction: 'row', gap: 'var(--cds-spacing-03)', className: 'tp-opportunities__actions', children: [{ type: 'placeholder', width: '5rem', height: '2.5rem' }, { type: 'placeholder', width: '8rem', height: '2.5rem' }] },
-  ] },
-  { type: 'group', direction: 'grid', columns: 4, gap: 'var(--cds-spacing-04)', className: 'tp-opportunities__metrics', children: Array.from({ length: 4 }, () => ({ type: 'placeholder' as const, minHeight: '7rem' })) },
-  { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-opportunities__panel tp-opportunities__analytics', children: [
-    { type: 'text', heading: true, width: '14rem' },
-    { type: 'group', direction: 'grid', columns: 2, gap: 'var(--cds-spacing-04)', className: 'tp-opportunities__analytics-grid', children: Array.from({ length: 2 }, () => ({ type: 'placeholder' as const, minHeight: '17rem', className: 'tp-opportunities__chart' })) },
-    { type: 'placeholder', minHeight: '20rem', className: 'tp-opportunities__chart' },
-  ] },
-  { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-opportunities__panel', children: [
-    { type: 'text', heading: true, width: '12rem' },
-    { type: 'group', direction: 'grid', columns: 2, gap: 'var(--cds-spacing-04)', className: 'tp-opportunities__filters', children: [{ type: 'placeholder', height: '2.5rem' }, { type: 'placeholder', height: '2.5rem' }] },
-    { type: 'table', columns: 8, rows: 6, className: 'tp-opportunities__table-wrap' },
-  ] },
-]} />;
   return <main className="tp-opportunities">
     <header className="tp-opportunities__header"><div><p className="tp-opportunities__eyebrow">TRADEPILOT / CRM</p><h1>商机（Opportunity）</h1><p>管理销售机会、阶段、预测金额、客户关系与跟进计划。</p></div>
       <div className="tp-opportunities__actions"><Button kind="tertiary" onClick={()=>void load()} disabled={loading}><CarbonIcons.Renew size={16}/>刷新</Button><Link href="/opportunities/new" renderIcon={CarbonIcons.Add}>新建商机</Link></div>
@@ -166,12 +148,8 @@ export function OpportunityFormPage() {
       if(result.error)throw result.error;nav('/opportunities/'+result.data.id,{replace:true});
     }catch(e){setError(e instanceof Error?e.message:'保存商机失败')}finally{setSaving(false)}
   };
-  if (loading) return <PageSkeleton className="tp-opportunities" layout={[
-  pageSkeletonHeader('tp-opportunities__header', 'tp-opportunities__actions'),
-  pageSkeletonFormSection('tp-opportunities__primary', 'tp-opportunities__grid', 2, 8),
-  pageSkeletonPanel('tp-opportunities__panel', '12rem', '13rem'),
-]} />;
-  return <main className="tp-opportunities"><header className="tp-opportunities__header"><div><p className="tp-opportunities__eyebrow">TRADEPILOT / CRM / OPPORTUNITY</p><h1>{editing?'编辑商机':'新建商机'}</h1><p>按业务分组维护商机信息；客户与联系人保持独立关联。</p></div><div className="tp-opportunities__actions"><Link href="/opportunities">返回列表</Link>{saving&&<InlineLoading status="active" description="正在保存商机…"/>}<Button kind="primary" disabled={saving} onClick={()=>void save()}>保存商机</Button></div></header>
+  if(loading)return <main className="tp-opportunities"><InlineLoading description="正在读取商机资料…"/></main>;
+  return <main className="tp-opportunities"><header className="tp-opportunities__header"><div><p className="tp-opportunities__eyebrow">TRADEPILOT / CRM / OPPORTUNITY</p><h1>{editing?'编辑商机':'新建商机'}</h1><p>按业务分组维护商机信息；客户与联系人保持独立关联。</p></div><div className="tp-opportunities__actions"><Link href="/opportunities">返回列表</Link><Button kind="primary" disabled={saving} onClick={()=>void save()}>{saving?'保存中…':'保存商机'}</Button></div></header>
     {error&&<InlineNotification kind="error" title="商机保存失败" subtitle={error}/>}
     <section className="tp-opportunities__primary"><div className="tp-opportunities__grid"><div className="tp-opportunities__field tp-opportunities__field--wide"><TextInput id="opp-name" labelText="商机名称 *" value={data.name} onChange={e=>set('name',e.currentTarget.value)} placeholder="例如：欧洲市场智能音箱采购项目"/></div><div className="tp-opportunities__field tp-opportunities__number-note"><span>商机编号</span><p>{editing?'保存时保留系统编号':'保存后自动生成'}</p></div>{select('opp-account','所属客户 *',data.account_id,v=>{set('account_id',v);set('primary_contact_id','')},accounts.map(a=>[a.id,a.account_name]))}{select('opp-contact','主要联系人',data.primary_contact_id,v=>set('primary_contact_id',v),[['','请选择联系人'],...availableContacts.map(c=>[c.id,contactName(c)] as [string,string])])}</div></section>
     <section className="tp-opportunities__tabs"><Tabs><TabList aria-label="商机字段分组" contained>{['商机信息','销售阶段','商业金额','销售管理','时间计划','竞争情况','跟进记录'].map(t=><Tab key={t}>{t}</Tab>)}</TabList><TabPanels>
@@ -183,7 +161,7 @@ export function OpportunityFormPage() {
       <TabPanel><div className="tp-opportunities__tab-content"><h2>竞争情况</h2><div className="tp-opportunities__grid">{label('opp-competitor','竞争对手',data.competitor,v=>set('competitor',v),'多个竞争对手以逗号分隔')}{label('opp-competitive-product','竞争产品',data.competitive_product,v=>set('competitive_product',v))}{area('opp-competitive-advantages','我方竞争优势',data.competitive_advantages,v=>set('competitive_advantages',v))}{area('opp-competitive-disadvantages','我方竞争劣势',data.competitive_disadvantages,v=>set('competitive_disadvantages',v))}</div></div></TabPanel>
       <TabPanel><div className="tp-opportunities__tab-content"><h2>跟进记录</h2><div className="tp-opportunities__grid">{area('opp-follow-up-summary','最近跟进结果',data.follow_up_summary,v=>set('follow_up_summary',v))}{area('opp-internal-notes','内部备注',data.internal_notes,v=>set('internal_notes',v))}</div><p className="tp-opportunities__hint">活动中心尚未建立独立活动实体；当前保存下一步行动与跟进摘要，不虚构活动记录。</p></div></TabPanel>
     </TabPanels></Tabs></section>
-    <footer className="tp-opportunities__footer"><span>商机名称、所属客户为必填项；主要联系人只能选择该客户下的联系人。</span><div><Link href="/opportunities">取消</Link>{saving && <InlineLoading status="active" description="正在保存商机…" />}<Button kind="primary" disabled={saving} onClick={()=>void save()}>保存商机</Button></div></footer>
+    <footer className="tp-opportunities__footer"><span>商机名称、所属客户为必填项；主要联系人只能选择该客户下的联系人。</span><div><Link href="/opportunities">取消</Link><Button kind="primary" disabled={saving} onClick={()=>void save()}>{saving?'保存中…':'保存商机'}</Button></div></footer>
   </main>;
 }
 
@@ -235,13 +213,8 @@ export function OpportunityDetailPage() {
    }catch(e){setTransitionError(e instanceof Error?e.message:'阶段变更失败')}
    finally{setSaving(false)}
  };
+ if(loading)return <main className="tp-opportunities"><InlineLoading description="正在读取商机详情…"/></main>;
  if(error||!row)return <main className="tp-opportunities"><InlineNotification kind="error" title="无法打开商机" subtitle={error||'商机不存在'}/><Link href="/opportunities">返回列表</Link></main>;
- if (loading) return <PageSkeleton className="tp-opportunities" layout={[
-  pageSkeletonHeader('tp-opportunities__header', 'tp-opportunities__actions'),
-  { type: 'group', direction: 'grid', columns: 4, gap: 'var(--cds-spacing-05)', className: 'tp-opportunities__detail-grid', children: Array.from({ length: 12 }, () => ({ type: 'group' as const, direction: 'column' as const, gap: 'var(--cds-spacing-02)' as const, children: [{ type: 'text' as const, width: '6rem' }, { type: 'placeholder' as const, height: '2.5rem' }] })) },
-  pageSkeletonPanel('tp-opportunities__panel', '12rem', '12rem'),
-  pageSkeletonPanel('tp-opportunities__panel', '16rem', '12rem'),
-]} />;
  return <main className="tp-opportunities">
    <header className="tp-opportunities__header"><div><p className="tp-opportunities__eyebrow">TRADEPILOT / CRM / OPPORTUNITY</p><h1>{row.name}</h1><p>{row.opportunity_number} · {account} · {stageLabel(row.stage)}</p></div>
      <div className="tp-opportunities__actions tp-responsive-header-actions"><Link className="tp-opportunities__primary-action tp-responsive-header-actions__primary" href={'/opportunities/'+row.id+'/edit'} renderIcon={CarbonIcons.Edit}>编辑商机</Link><div className="tp-opportunities__secondary-actions tp-responsive-header-actions__secondary"><Link href="/opportunities">返回列表</Link><Link href={'/quotes/new?opportunity='+row.id} renderIcon={CarbonIcons.Document}>创建报价单</Link><Button kind="tertiary" disabled={terminal} onClick={openLifecycle}>管理生命周期</Button></div></div>
@@ -285,8 +258,8 @@ export function OpportunityDetailPage() {
        {transitionError&&<InlineNotification kind="error" title="无法提交" subtitle={transitionError}/>}
      </ModalBody>
      <ModalFooter>
-       {saving && <InlineLoading status="active" description="正在处理：确认并更新…" />}<Button kind="secondary" disabled={saving} onClick={()=>setLifecycleOpen(false)}>取消</Button>
-       <Button kind="primary" disabled={saving||!confirmed||!nextStage||(nextStage==='lost'&&!transitionNote.trim())} onClick={()=>void submitTransition()}>确认并更新</Button>
+       <Button kind="secondary" disabled={saving} onClick={()=>setLifecycleOpen(false)}>取消</Button>
+       <Button kind="primary" disabled={saving||!confirmed||!nextStage||(nextStage==='lost'&&!transitionNote.trim())} onClick={()=>void submitTransition()}>{saving?'提交中…':'确认并更新'}</Button>
      </ModalFooter>
    </ComposedModal>
  </main>;

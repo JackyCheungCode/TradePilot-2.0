@@ -1,4 +1,3 @@
-import { PageSkeleton } from '@/design-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Link, InlineLoading, InlineNotification, TextInput, Tag, Table, TableHead, TableRow,
@@ -38,19 +37,6 @@ export function GeneratedDocumentsPage() {
   }, []);
   useEffect(() => { void load(); }, [load]);
   const filtered = useMemo(() => docs.filter(doc => [doc.document_number, doc.title, labels[doc.document_type] || doc.document_type].some(value => String(value ?? '').toLowerCase().includes(search.toLowerCase()))), [docs, search]);
-  if (loading) return <PageSkeleton className="tp-documents" layout={[
-  { type: 'group', direction: 'row', gap: 'var(--cds-spacing-05)', className: 'tp-documents__header', children: [
-    { type: 'group', direction: 'column', gap: 'var(--cds-spacing-03)', children: [{ type: 'text', width: '14rem' }, { type: 'text', heading: true, width: '12rem' }, { type: 'text', width: '30rem' }] },
-    { type: 'group', direction: 'row', gap: 'var(--cds-spacing-03)', className: 'tp-documents__actions', children: [{ type: 'placeholder', width: '7rem', height: '2.5rem' }, { type: 'placeholder', width: '7rem', height: '2.5rem' }] },
-  ] },
-  { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-documents__list', children: [
-    { type: 'group', direction: 'row', gap: 'var(--cds-spacing-05)', className: 'tp-documents__list-head', children: [
-      { type: 'group', direction: 'column', gap: 'var(--cds-spacing-02)', className: 'tp-documents__list-heading', children: [{ type: 'text', heading: true, width: '10rem' }, { type: 'text', width: '25rem' }] },
-      { type: 'placeholder', width: 'min(22rem, 100%)', height: '2.5rem', className: 'tp-documents__search' },
-    ] },
-    { type: 'table', columns: 8, rows: 8, className: 'tp-documents__table-wrap' },
-  ] },
-]} />;
   return <main className="tp-documents">
     <header className="tp-documents__header">
       <div><p className="tp-documents__eyebrow">TRADE OPERATIONS / DOCUMENTS</p><h1>已生成单据</h1><p>集中查看单据状态、版本和业务来源，打开单据可继续校对或查看历史版本。</p></div>

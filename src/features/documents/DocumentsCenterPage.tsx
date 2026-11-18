@@ -1,4 +1,3 @@
-import { PageSkeleton } from '@/design-system';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Link, ClickableTile, InlineLoading, InlineNotification, Tag, Tile, CarbonIcons } from '@/design-system';
@@ -35,21 +34,6 @@ export function DocumentsCenterPage(){
  const [error,setError]=useState('');
  useEffect(()=>{let active=true;void(async()=>{try{const db=await getSupabaseClient();const {data:{session}}=await db.auth.getSession();if(!session?.user.id)throw new Error('登录状态已失效，请重新登录。');const {data,error:queryError}=await db.from('trade_documents').select('id,document_number,title,document_type,status,created_at').eq('owner_id',session.user.id).order('created_at',{ascending:false}).limit(6);if(queryError)throw queryError;if(active)setRecent((data??[]) as RecentDocument[]);}catch(cause){if(active)setError(cause instanceof Error?cause.message:'最近单据读取失败。');}finally{if(active)setLoading(false);}})();return()=>{active=false;};},[]);
  const openStudio=(type?:string,mode?:string)=>navigate('/documents/studio'+(type?'?document_type='+encodeURIComponent(type)+(mode?'&mode='+mode:''):mode?'?mode='+mode:''));
- if (loading) return <PageSkeleton className="tp-documents tp-document-home" layout={[
-  { type: 'group', direction: 'row', gap: 'var(--cds-spacing-05)', className: 'tp-documents__header', children: [
-    { type: 'group', direction: 'column', gap: 'var(--cds-spacing-03)', children: [{ type: 'text', width: '16rem' }, { type: 'text', heading: true, width: '18rem' }, { type: 'text', width: '32rem' }] },
-    { type: 'group', direction: 'row', gap: 'var(--cds-spacing-03)', className: 'tp-documents__actions', children: [{ type: 'placeholder', width: '8rem', height: '2.5rem' }, { type: 'placeholder', width: '8rem', height: '2.5rem' }] },
-  ] },
-  { type: 'group', direction: 'grid', columns: 2, gap: 'var(--cds-spacing-04)', className: 'tp-document-home__quick', children: Array.from({ length: 4 }, () => ({ type: 'placeholder' as const, minHeight: '8rem', className: 'tp-document-home__quick-tile' })) },
-  { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-document-home__section', children: [
-    { type: 'text', heading: true, width: '14rem' },
-    { type: 'group', direction: 'grid', columns: 2, gap: 'var(--cds-spacing-04)', className: 'tp-document-home__groups', children: Array.from({ length: 4 }, () => ({ type: 'placeholder' as const, minHeight: '10rem', className: 'tp-document-home__group' })) },
-  ] },
-  { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-document-home__section', children: [
-    { type: 'text', heading: true, width: '12rem' },
-    ...Array.from({ length: 4 }, () => ({ type: 'placeholder' as const, height: '4rem', className: 'tp-document-home__recent-row' })),
-  ] },
-]} />;
  return <main className="tp-documents tp-document-home">
   <header className="tp-documents__header"><div><p className="tp-documents__eyebrow">TRADE OPERATIONS / DOCUMENT STUDIO</p><h1>外贸单据智能制作中心</h1><p>Trade Document Studio · 从业务数据生成专业外贸单据，并自由设计、管理和复用模板。</p></div><div className="tp-documents__actions"><Link href="/documents/studio?mode=instant" renderIcon={CarbonIcons.Add}>即时单据</Link><Link href="/documents/templates" renderIcon={CarbonIcons.Template}>模板中心</Link></div></header>
   {error&&<InlineNotification kind="warning" lowContrast title="部分内容未能加载" subtitle={error} onCloseButtonClick={()=>setError('')}/>}

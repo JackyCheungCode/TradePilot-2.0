@@ -723,34 +723,3 @@
   .tp-document-template-settings__options { grid-template-columns: minmax(0, 1fr); }
   .tp-document-template-settings__toolbar { grid-template-columns: minmax(0, 1fr); }
 }
-
-
-/* Page-owned loading layout: mirrors the Carbon settings sidebar/workspace split. */
-.tp-settings__skeleton-layout {
-  display: grid;
-  grid-template-columns: minmax(12rem, 1fr) minmax(0, 3fr);
-  gap: var(--cds-spacing-05);
-  min-width: 0;
-}
-.tp-settings__skeleton-layout > .tp-settings__sidebar,
-.tp-settings__skeleton-layout > .tp-settings__workspace {
-  min-width: 0;
-}
-.tp-settings__skeleton-layout > .tp-settings__sidebar {
-  display: flex;
-  flex-direction: column;
-  gap: var(--cds-spacing-04);
-}
-.tp-settings__skeleton-layout > .tp-settings__workspace {
-  display: flex;
-  flex-direction: column;
-  gap: var(--cds-spacing-05);
-}
-@media (max-width: 672px) {
-  .tp-settings__skeleton-layout {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .tp-settings__skeleton-layout > .tp-settings__sidebar {
-    display: none;
-  }
-}
