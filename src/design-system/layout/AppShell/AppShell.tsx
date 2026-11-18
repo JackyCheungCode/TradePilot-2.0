@@ -130,23 +130,23 @@ export function AppShell() {
             className="tp-theme-menu"
           >
             <OverflowMenuItem
-              itemText={preference === 'system' ? '跟随设备系统（当前）' : '跟随设备系统'}
+              itemText={preference === 'system' ? <><CarbonIcons.Checkmark size={16} /> 跟随设备系统</> : '跟随设备系统'}
               onClick={() => setPreference('system')}
             />
             <OverflowMenuItem
-              itemText={preference === 'white' ? '白色（当前）' : '白色'}
+              itemText={preference === 'white' ? <><CarbonIcons.Checkmark size={16} /> 白色</> : '白色'}
               onClick={() => setPreference('white')}
             />
             <OverflowMenuItem
-              itemText={preference === 'g10' ? '浅灰色（当前）' : '浅灰色'}
+              itemText={preference === 'g10' ? <><CarbonIcons.Checkmark size={16} /> 浅灰色</> : '浅灰色'}
               onClick={() => setPreference('g10')}
             />
             <OverflowMenuItem
-              itemText={preference === 'g90' ? '深灰色（当前）' : '深灰色'}
+              itemText={preference === 'g90' ? <><CarbonIcons.Checkmark size={16} /> 深灰色</> : '深灰色'}
               onClick={() => setPreference('g90')}
             />
             <OverflowMenuItem
-              itemText={preference === 'dark' ? '深色（当前）' : '深色'}
+              itemText={preference === 'dark' ? <><CarbonIcons.Checkmark size={16} /> 深色</> : '深色'}
               onClick={() => setPreference('dark')}
             />
           </OverflowMenu>
