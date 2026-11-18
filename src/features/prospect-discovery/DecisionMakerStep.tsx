@@ -14,7 +14,7 @@ type ContactRow = {
   candidateCount: number; contacts: Array<{ key: string; name: string; title: string; email: string; phone: string; linkedin: string; whatsapp: string }>;
 };
 type Candidate = Record<string, unknown>;
-type Props = { profile: { coreNoun: string; countryName: string } };
+type Props = {};
 type ApiPayload = { data?: unknown; error?: { message?: string }; message?: string };
 
 const candidateKey = (candidate: Candidate) => String(candidate.provider ?? '') + '：' + String(candidate.provider_person_id ?? candidate.email ?? candidate.linkedin_url ?? candidate.full_name ?? '');
@@ -66,7 +66,7 @@ function mapRecord(record: Record<string, unknown>): ContactRow {
   };
 }
 
-export function DecisionMakerStep({ profile }: Props) {
+export function DecisionMakerStep() {
   const [rows, setRows] = useState<ContactRow[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [selectedCandidateKeys, setSelectedCandidateKeys] = useState<Record<string, string[]>>({});
@@ -233,11 +233,11 @@ export function DecisionMakerStep({ profile }: Props) {
   return (
     <section className="tp-prospect-discovery__step tp-decision">
       <div className="tp-decision__heading">
-        <div><span className="tp-decision__eyebrow">DECISION-MAKER ENRICHMENT & CRM SYNC</span><h2>决策人穿透与 CRM 同步</h2><p>目标市场：{profile.countryName || '未指定'} · 核心产品：{profile.coreNoun || '未指定'}</p></div>
+        <div><span className="tp-decision__eyebrow">DECISION-MAKER ENRICHMENT & CRM SYNC</span><h2>决策人穿透与 CRM 同步</h2><p>根据已发现企业记录补全公开联系方式与决策人信息。</p></div>
         <Tag type="blue">{rows.length} 家真实企业</Tag>
       </div>
       {notice && <InlineNotification kind="info" lowContrast title="操作反馈" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
-      {loading && <InlineNotification kind="info" lowContrast title="正在读取真实潜客记录" subtitle="读取第五步已审核并交接的企业。" />}
+      {loading && <InlineNotification kind="info" lowContrast title="正在读取真实潜客记录" subtitle="读取第四步已交接的企业。" />}
 
       <Tile className="tp-decision__preferences">
         <div className="tp-decision__preferences-heading"><div><h3>联系方式采集配置</h3><p>仅调用已配置的现有补全服务；当前批次最多 50 家企业</p></div><Tag type="blue">已选 {selected.length} 家</Tag></div>
