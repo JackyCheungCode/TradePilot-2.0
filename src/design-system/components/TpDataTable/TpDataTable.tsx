@@ -20,7 +20,7 @@ import {
   TableToolbarSearch,
   Tag,
 } from '@carbon/react';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import type { TpDataTableProps } from './TpDataTable.types';
 import './TpDataTable.scss';
 
@@ -54,8 +54,6 @@ export function TpDataTable<T extends Record<string, unknown>>({
   toolbarActions,
   ariaLabel = '数据列表',
 }: TpDataTableProps<T>) {
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
-  const [sort, setSort] = useState<{ key: string; direction: 'ASC' | 'DESC' } | null>(null);
   const visibleColumns = useMemo(
     () => columns.filter((column) => column.defaultVisible !== false || column.required || column.primary),
     [columns],
@@ -69,10 +67,6 @@ export function TpDataTable<T extends Record<string, unknown>>({
     ...Object.fromEntries(visibleColumns.map((column) => [column.key, displayValue(row, column)])),
     __source: row,
   })), [rows, rowKey, visibleColumns]);
-  const selectedRows = rows.filter((row) => selectedIds.has(String(row[rowKey])));
-  const handleSort = (key: string) => setSort((current) => current?.key === key
-    ? { key, direction: current.direction === 'ASC' ? 'DESC' : 'ASC' }
-    : { key, direction: 'ASC' });
 
   if (loading) return <DataTableSkeleton columnCount={headers.length || 1} rowCount={8} showToolbar />;
   if (error) return <div className="tp-data-table__message" role="alert">{String(error)}</div>;
@@ -90,7 +84,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
                       key={action.key}
                       tabIndex={0}
                       renderIcon={() => null}
-                      onClick={() => void action.onClick(selectedRows)}
+                      onClick={() => void action.onClick(carbonSelectedRows.map((selected) => rows.find((row) => String(row[rowKey]) === selected.id)).filter((row): row is T => Boolean(row)))}
                       disabled={action.disabled}
                     >
                       {action.label}
@@ -104,7 +98,6 @@ export function TpDataTable<T extends Record<string, unknown>>({
                     persistent
                     value={searchValue ?? ''}
                     onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
-                      setSelectedIds(new Set());
                       onSearchChange(event.target.value);
                       onInputChange(event);
                     }}
@@ -123,8 +116,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
                         key={header.key}
                         {...getHeaderProps({ header })}
                         className={header.key === '__actions' ? 'tp-data-table__actions-heading' : undefined}
-                        onClick={header.key === '__actions' ? undefined : () => handleSort(header.key)}
-                      >
+                        >
                         {header.header}
                       </TableHeader>
                     ))}
