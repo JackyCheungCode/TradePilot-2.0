@@ -7,7 +7,6 @@ import {
 import { getSupabaseClient } from '@/lib/supabase';
 import { XiaoyaAvatar } from '@/features/agent/XiaoyaAvatar';
 import { XiaoyaSidePanel } from '@/features/agent/XiaoyaSidePanel';
-import { CustomerCommunicationsWidget } from '@/features/customer-communications/CustomerCommunicationsWidget';
 
 /**
  * Shared Carbon application frame.
@@ -19,8 +18,6 @@ export function AppShell() {
     typeof window !== 'undefined' && window.matchMedia('(max-width: 1055px)').matches
   );
   const [xiaoyaOpen, setXiaoyaOpen] = useState(false);
-  const [communicationsOpen, setCommunicationsOpen] = useState(false);
-  const [communicationsMinimized, setCommunicationsMinimized] = useState(false);
   const [communicationsUnreadCount, setCommunicationsUnreadCount] = useState(0);
   const [signingOut, setSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState('');
@@ -42,6 +39,24 @@ export function AppShell() {
       syncAvatar(data.session?.user ?? null);
     }).catch(() => { if (active) setAvatarUrl(null); });
     return () => { active = false; subscription?.unsubscribe(); };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    let timer: number | undefined;
+    const loadUnreadCount = async () => {
+      try {
+        const client = await getSupabaseClient();
+        const { data, error } = await client.from('inbox_conversations').select('unread_count');
+        if (error) throw error;
+        if (active) setCommunicationsUnreadCount((data ?? []).reduce((total, row) => total + Math.max(0, Number(row.unread_count ?? 0)), 0));
+      } catch {
+        if (active) setCommunicationsUnreadCount(0);
+      }
+    };
+    void loadUnreadCount();
+    timer = window.setInterval(() => { void loadUnreadCount(); }, 30_000);
+    return () => { active = false; if (timer !== undefined) window.clearInterval(timer); };
   }, []);
 
   useEffect(() => {
@@ -87,12 +102,12 @@ export function AppShell() {
         </HeaderName>
         <HeaderGlobalBar>
           <HeaderGlobalAction
-            aria-label={communicationsUnreadCount > 0 ? `客户沟通，${communicationsUnreadCount} 条未读消息` : '客户沟通'}
+            aria-label={communicationsUnreadCount > 0 ? `全渠道消息中心，${communicationsUnreadCount} 条未读消息` : '全渠道消息中心'}
             tooltipAlignment="end"
             className="tp-header-communications"
-            isActive={communicationsOpen && !communicationsMinimized}
-            aria-expanded={communicationsOpen && !communicationsMinimized}
-            onClick={() => { setCommunicationsOpen(true); setCommunicationsMinimized(false); }}
+            isActive={location.pathname.startsWith('/inbox')}
+            aria-expanded={location.pathname.startsWith('/inbox')}
+            onClick={() => navigate('/inbox')}
           >
             <CarbonIcons.Chat size={20} />
             {communicationsUnreadCount > 0 && <span className="tp-header-unread-badge" aria-label={`${communicationsUnreadCount} 条未读消息`} aria-live="polite">{communicationsUnreadCount > 99 ? '99+' : communicationsUnreadCount}</span>}
@@ -215,15 +230,6 @@ export function AppShell() {
         </div>
       </Content>
       <XiaoyaSidePanel isOpen={xiaoyaOpen} onClose={() => setXiaoyaOpen(false)} pathname={location.pathname} />
-      <CustomerCommunicationsWidget
-        open={communicationsOpen}
-        minimized={communicationsMinimized}
-        onClose={() => { setCommunicationsOpen(false); setCommunicationsMinimized(false); }}
-        onMinimize={() => setCommunicationsMinimized(true)}
-        onRestore={() => setCommunicationsMinimized(false)}
-        navigationExpanded={sideNavExpanded}
-        onUnreadCountChange={setCommunicationsUnreadCount}
-      />
     </>
   );
 }
