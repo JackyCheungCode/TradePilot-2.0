@@ -248,36 +248,7 @@ export function ExecutionStep({ sources, actorParameters = {}, onEditStep, onCon
 
   return (
     <section className="tp-prospect-discovery__step tp-execution">
-      <Accordion className="tp-execution__context">
-        <AccordionItem
-          open
-          title={<span className="tp-execution__context-title"><CarbonIcons.Document size={16} aria-hidden="true" /><span>执行方案快照：已选 {channels.length} 个平台 · 已加载 {actorPlans.length} 个 Actor Schema</span></span>}
-        >
-          <Grid narrow>
-            <Column sm={4} md={8} lg={8}>
-              <Tile className="tp-execution__summary-tile">
-                <div className="tp-execution__tile-heading"><strong>数据源路由</strong><Button kind="ghost" size="sm" renderIcon={CarbonIcons.Edit} onClick={() => onEditStep(0)}>返回修改</Button></div>
-                <div className="tp-execution__tags">{channels.slice(0, 12).map(item => <Tag key={item.id} type="gray">{item.name}</Tag>)}{channels.length > 12 && <Tag type="gray">+{channels.length - 12}</Tag>}</div>
-                <small>所有平台统一通过动态 Actor Schema 配置</small>
-              </Tile>
-            </Column>
-            <Column sm={4} md={8} lg={8}>
-              <Tile className="tp-execution__summary-tile">
-                <div className="tp-execution__tile-heading"><strong>Schema 参数</strong><Button kind="ghost" size="sm" renderIcon={CarbonIcons.Edit} onClick={() => onEditStep(1)}>返回修改</Button></div>
-                <p><strong>{enabledActorPlans.length} 个参数完整的数据源</strong></p>
-                <small>不叠加关键词、国家、护盾或渠道专属参数</small>
-              </Tile>
-            </Column>
-          </Grid>
-        </AccordionItem>
-      </Accordion>
-
       {notice && <InlineNotification kind="info" lowContrast title="任务反馈" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
-
-      <div className="tp-execution__dashboard-heading">
-        <div><span className="tp-execution__eyebrow">MULTI-CHANNEL EXECUTION</span><h2>全网搜索大盘</h2><p>显示 Actor 后端任务真实状态、进度、结果数量与运行日志</p></div>
-        <Tag type={status === 'completed' ? 'green' : status === 'running' ? 'blue' : status === 'failed' ? 'red' : 'gray'}>{status === 'completed' ? '任务已结束' : status === 'running' ? '后端任务运行中' : status === 'failed' ? '任务启动失败' : '待启动'}</Tag>
-      </div>
 
       <Grid narrow className="tp-execution__metrics">
         <Column sm={4} md={4} lg={5}>
@@ -286,14 +257,17 @@ export function ExecutionStep({ sources, actorParameters = {}, onEditStep, onCon
         <Column sm={4} md={4} lg={5}>
           <Tile className="tp-execution__metric-tile"><div className="tp-execution__metric-label"><CarbonIcons.Security size={20} /><span>已创建 Actor 任务</span></div><strong>{runs.length}</strong><small>由所选平台 Schema 任务生成</small></Tile>
         </Column>
-        <Column sm={4} md={8} lg={6}>
-          <Tile className="tp-execution__metric-tile"><div className="tp-execution__metric-label"><CarbonIcons.Time size={20} /><span>运行耗时与任务状态</span></div><strong className="tp-execution__metric-time">{elapsedText}</strong><small>{status === 'running' ? '正在读取后端任务状态' : status === 'completed' ? '所有已创建任务已结束' : status === 'failed' ? '任务创建失败' : '等待启动'}</small></Tile>
+        <Column sm={4} md={8} lg={4}>
+          <Tile className="tp-execution__metric-tile"><div className="tp-execution__metric-label"><CarbonIcons.Time size={20} /><span>运行耗时</span></div><strong className="tp-execution__metric-time">{elapsedText}</strong><small>{status === 'running' ? '正在读取后端任务状态' : status === 'completed' ? '所有已创建任务已结束' : status === 'failed' ? '任务创建失败' : '尚未创建后端任务'}</small></Tile>
+        </Column>
+        <Column sm={4} md={8} lg={4}>
+          <Tile className="tp-execution__metric-tile"><div className="tp-execution__metric-label"><CarbonIcons.Document size={20} /><span>已取得结果记录</span></div><strong>{recordIds.length}</strong><small>来自后端结果接口</small></Tile>
         </Column>
       </Grid>
 
       <Tile className="tp-execution__control">
         <div className="tp-execution__control-heading"><div><span className="tp-execution__eyebrow">GLOBAL PROGRESS</span><h2>全局任务进度</h2><p>汇总各渠道后端任务返回的进度（按已创建任务统计）</p></div><strong className="tp-execution__percent">{progress}%</strong></div>
-        <ProgressBar label="任务总进度" helperText={status === 'completed' ? '所有已创建渠道任务均已结束' : status === 'failed' ? '没有成功启动可执行渠道任务' : status === 'idle' ? '确认配置后启动真实后端任务' : '每 5 秒同步一次后端任务状态'} max={100} value={progress} status="active" />
+        <ProgressBar label="任务总进度" helperText={status === 'completed' ? '所有已创建渠道任务均已结束' : status === 'failed' ? '没有成功启动可执行渠道任务' : status === 'idle' ? '配置校验通过后可创建真实后端任务' : '每 5 秒同步一次后端任务状态'} max={100} value={progress} status="active" />
         <div className="tp-execution__actions">
           {status === 'idle' && <Button kind="primary" renderIcon={CarbonIcons.Play} disabled={starting || !hasRunnableSource} onClick={startTask}>{starting ? '正在创建任务…' : '开始执行全网搜索'}</Button>}
           
