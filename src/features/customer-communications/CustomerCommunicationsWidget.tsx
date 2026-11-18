@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { getSupabaseClient } from '@/lib/supabase';
-import { Button, Dropdown, IconButton, Search, TextArea, TextInput, CarbonIcons } from '@/design-system';
+import { Button, Dropdown, Search, TextArea, TextInput, CarbonIcons } from '@/design-system';
 
 type Channel = 'whatsapp' | 'messenger' | 'instagram' | 'email' | 'telegram' | 'wechat' | 'line';
 type Filter = 'all' | 'unread' | 'pending' | 'resolved';
@@ -113,9 +113,8 @@ function ChannelBadge({ channel, compact = false }: { channel: Channel; compact?
     {!compact && channelNames[channel]}
   </span>;
 }
-type CarbonIconComponent = typeof CarbonIcons.Close;
-function ActionIconButton({ label, icon, onClick }: { label: string; icon: CarbonIconComponent; onClick: () => void }) {
-  return <IconButton label={label} renderIcon={icon} size="sm" onClick={onClick} />;
+function ActionIconButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return <Button kind="ghost" size="sm" onClick={onClick}>{label}</Button>;
 }
 function Avatar({ name, size = 'normal', placeholder = false }: { name: string; size?: 'normal' | 'small'; placeholder?: boolean }) {
   const initials = name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
@@ -408,7 +407,7 @@ export function CustomerCommunicationsWidget({
   if (!activeCustomer) {
     return <div className={"cc-floating-root" + (fullPage ? " cc-floating-root--page" : "") + (navigationExpanded ? " cc-floating-root--nav-expanded" : "")}>
       <section className={"cc-window" + (fullPage ? " cc-window--page" : "")} role="region" aria-label="全渠道消息中心">
-        <header className="cc-window-header"><div className="cc-window-brand"><span className="cc-brand-mark">TP</span><div><strong>客户沟通</strong><small>CRM 联系人与统一收件箱</small></div></div><div className="cc-window-tools"><ActionIconButton label="关闭聊天窗口" icon={CarbonIcons.Close} onClick={onClose} /></div></header>
+        <header className="cc-window-header"><div className="cc-window-brand"><span className="cc-brand-mark">TP</span><div><strong>客户沟通</strong><small>CRM 联系人与统一收件箱</small></div></div><div className="cc-window-tools"><ActionIconButton label="关闭聊天窗口" onClick={onClose} /></div></header>
         <div className="cc-empty">{loading ? '正在读取系统联系人…' : loadError || 'CRM 中暂无可显示的联系人。请先在联系人模块添加联系人。'}</div>
       </section>
     </div>;
@@ -420,11 +419,11 @@ export function CustomerCommunicationsWidget({
         <header className="cc-window-header">
           <div className="cc-window-brand"><span className="cc-brand-mark">TP</span><div><strong>客户沟通</strong><small>CRM 联系人与统一收件箱</small><span className="cc-mobile-app-label">聊天 App</span></div></div>
           <div className="cc-window-tools">
-            {fullPage && <ActionIconButton label="返回工作台" icon={CarbonIcons.ArrowLeft} onClick={onClose} />}
-            <ActionIconButton label={profileOpen ? '收起客户资料' : '显示客户资料'} icon={CarbonIcons.User} onClick={() => setProfileOpen((value) => !value)} />
+            {fullPage && <ActionIconButton label="返回工作台" onClick={onClose} />}
+            <ActionIconButton label={profileOpen ? '收起客户资料' : '显示客户资料'} onClick={() => setProfileOpen((value) => !value)} />
             {!fullPage && <ActionIconButton label={maximized ? '还原窗口' : '最大化窗口'} icon={maximized ? CarbonIcons.Minimize : CarbonIcons.Maximize} onClick={() => setMaximized((value) => !value)} />}
-            {!fullPage && <ActionIconButton label="最小化聊天窗口" icon={CarbonIcons.Subtract} onClick={onMinimize} />}
-            {!fullPage && <ActionIconButton label="关闭聊天窗口" icon={CarbonIcons.Close} onClick={onClose} />}
+            {!fullPage && <ActionIconButton label="最小化聊天窗口" onClick={onMinimize} />}
+            {!fullPage && <ActionIconButton label="关闭聊天窗口" onClick={onClose} />}
           </div>
         </header>
 
@@ -450,7 +449,7 @@ export function CustomerCommunicationsWidget({
 
           <main className="cc-chat">
             <div className="cc-chat-header">
-              <ActionIconButton label="返回客户列表" icon={CarbonIcons.ArrowLeft} onClick={() => setMobileChatOpen(false)} />
+              <ActionIconButton label="返回客户列表" onClick={() => setMobileChatOpen(false)} />
               <Avatar name={activeCustomer.name} size="small"/>
               <div className="cc-chat-title"><strong>{activeCustomer.name}</strong><span>{activeCustomer.company} · {activeCustomer.country}</span></div>
               <div className="cc-chat-header-actions"><span className="cc-online-dot"/> <span>统一客户时间线</span></div>
