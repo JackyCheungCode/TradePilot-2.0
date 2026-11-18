@@ -190,7 +190,7 @@ export function ActorSchemaFields({ sources, onValuesChange }: Props) {
       <div><span className="tp-prospect-discovery__section-index">DS</span><div><h2>数据源动态参数</h2><p>根据已选平台匹配候选 Actor，并读取其真实输入 Schema</p><p>根据 Schema 自动标记必填字段；填写完成并通过本地格式校验后即可执行，无需运行测试。</p></div></div>
     </div>
     {loading && <InlineLoading description="正在匹配数据源并读取输入字段…" />}
-    {error && <InlineNotification kind="error" title="动态参数读取失败" subtitle={error} />}
+    {error && <InlineNotification kind={items.length ? 'warning' : 'error'} title={items.length ? '部分平台未加载' : '动态参数读取失败'} subtitle={error} />}
     {!loading && !error && !items.length && <InlineNotification kind="info" title="暂无可用参数 Schema" subtitle="当前所选平台尚未找到可读取的 Actor Schema；请检查数据源目录和 API 凭证。" />}
     {items.length > 0 && <Accordion className="tp-prospect-discovery__actor-schema-accordion">{items.map((item, index) => {
       const properties = item.schema.properties ?? {};

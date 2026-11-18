@@ -40,7 +40,7 @@ export function ProspectDiscoveryPage() {
   const handleActorParametersChange = useCallback((parameters: Record<string, unknown>) => {
     setActorParameters(parameters);
     const actors = Array.isArray(parameters.actors) ? parameters.actors as Array<Record<string, unknown>> : [];
-    setActorSchemaReady(Boolean(selectedSources?.length) && actors.length === selectedSources!.length && actors.every(actor => actor.status === 'enabled'));
+    setActorSchemaReady(actors.some(actor => actor.status === 'enabled'));
   }, [selectedSources]);
   const actorSourcesForSchema = selectedSources ?? EMPTY_DISCOVERY_SOURCES;
 
@@ -64,7 +64,7 @@ export function ProspectDiscoveryPage() {
         </div>
       </header>
 
-      <div className="tp-prospect-discovery__task-code"><span>本次方案任务编码</span><strong>{planTaskCode}</strong><span className="tp-prospect-discovery__task-code-note">每次重新打开潜客方案都会生成新的唯一编码</span></div>
+      <div className="tp-prospect-discovery__task-code"><span>方案会话编号</span><strong>{planTaskCode}</strong><span className="tp-prospect-discovery__task-code-note">用于关联本次配置与执行记录</span></div>
 
       <Tabs selectedIndex={selectedIndex} onChange={({ selectedIndex: nextIndex }) => {
         if (nextIndex > 0 && selectedSourceCount === 0) return;
@@ -104,11 +104,13 @@ export function ProspectDiscoveryPage() {
         <div className="tp-prospect-discovery__future-step" aria-label="后续步骤暂未开放"><h2>{steps[selectedIndex]}</h2><p>此步骤将在前序配置确认后启用。</p></div>
       )}
 
-      <div className="tp-prospect-discovery__step-navigation">
-        <Button kind="secondary" renderIcon={CarbonIcons.ArrowLeft} onClick={() => setSelectedIndex(index => Math.max(0, index - 1))} disabled={selectedIndex === 0}>上一步</Button>
-        <span>第 {selectedIndex + 1} 步，共 5 步</span>
-        <Button kind="primary" renderIcon={CarbonIcons.ArrowRight} onClick={() => setSelectedIndex(index => Math.min(4, index + 1))} disabled={selectedIndex === 4 || (selectedIndex === 0 && selectedSourceCount === 0) || (selectedIndex === 1 && !actorSchemaReady)}>下一步</Button>
-      </div>
+      {selectedIndex !== 2 && (
+        <div className="tp-prospect-discovery__step-navigation">
+          <Button kind="secondary" renderIcon={CarbonIcons.ArrowLeft} onClick={() => setSelectedIndex(index => Math.max(0, index - 1))} disabled={selectedIndex === 0}>上一步</Button>
+          <span>第 {selectedIndex + 1} 步，共 5 步</span>
+          <Button kind="primary" renderIcon={CarbonIcons.ArrowRight} onClick={() => setSelectedIndex(index => Math.min(4, index + 1))} disabled={selectedIndex === 4 || (selectedIndex === 0 && selectedSourceCount === 0) || (selectedIndex === 1 && !actorSchemaReady)}>下一步</Button>
+        </div>
+      )}
     </main>
   );
 }
