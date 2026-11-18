@@ -55,7 +55,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
   ariaLabel = '数据列表',
 }: TpDataTableProps<T>) {
   const visibleColumns = useMemo(
-    () => columns.filter((column) => column.defaultVisible !== false || column.required || column.primary),
+    () => columns.filter((column) => !column.longText && (column.defaultVisible !== false || column.required || column.primary)),
     [columns],
   );
   const headers = useMemo(() => [
@@ -73,7 +73,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
 
   return (
     <div className={`tp-data-table${refreshing ? ' tp-data-table--refreshing' : ''}`}>
-      <DataTable rows={carbonRows} headers={headers} isSortable>
+      <DataTable rows={carbonRows} headers={headers} isSortable batchActions={selectable}>
         {({ rows: renderedRows, getHeaderProps, getRowProps, getSelectionProps, getBatchActionProps, selectedRows: carbonSelectedRows, onInputChange }) => (
           <TableContainer aria-label={ariaLabel}>
             <TableToolbar>
