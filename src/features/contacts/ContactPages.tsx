@@ -314,7 +314,7 @@ export function ContactFormPage() {
     navigate('/contacts/'+contactId,{replace:true});
   }catch(e){setError(e instanceof Error?e.message:'保存联系人失败；请检查必填项及数据库权限。');}finally{setSaving(false);}};
   if (loading) return <PageSkeleton variant="form" />;
-  return <main className="tp-contacts tp-contacts--form"><header className="tp-contacts__header"><div><p className="tp-contacts__eyebrow">TRADEPILOT / CRM / CONTACT</p><h1>{editing?'编辑联系人':'创建联系人'}</h1><p>先维护主数据，扩展资料在下方标签页中维护。</p></div><div className="tp-contacts__actions"><Button kind="ghost" onClick={()=>navigate(-1)}>取消</Button><Button kind="primary" onClick={()=>void save()} disabled={saving}><CarbonIcons.Save size={16}/>{saving?'保存中…':'保存联系人'}</Button></div></header>
+  return <main className="tp-contacts tp-contacts--form"><header className="tp-contacts__header"><div><p className="tp-contacts__eyebrow">TRADEPILOT / CRM / CONTACT</p><h1>{editing?'编辑联系人':'创建联系人'}</h1><p>先维护主数据，扩展资料在下方标签页中维护。</p></div><div className="tp-contacts__actions"><Button kind="ghost" onClick={()=>navigate(-1)}>取消</Button>{saving&&<InlineLoading status="active" description="正在保存联系人…"/>}<Button kind="primary" onClick={()=>void save()} disabled={saving}><CarbonIcons.Save size={16}/>保存联系人</Button></div></header>
     {error&&<InlineNotification kind="error" title="无法保存联系人" subtitle={error} onCloseButtonClick={()=>setError('')}/>}
     {accounts.length===0&&<InlineNotification kind="warning" title="尚无可选客户" subtitle="请先创建 Account，再创建联系人。所属客户为必填项。"/>}
     <section className="tp-contacts__primary"><div className="tp-contacts__section-head"><div><h2 className="tp-contacts__heading"><CarbonIcons.UserAvatar size={20} aria-hidden="true"/><span>主数据</span></h2><p>联系人身份、所属客户、组织关系及主要联系方式。</p></div><Tag type="blue">核心资料</Tag></div>
