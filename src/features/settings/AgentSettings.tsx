@@ -1,5 +1,4 @@
 import { PageSkeleton } from '@/design-system';
-import { PageSkeleton } from '@/design-system';
 import { useEffect, useState } from 'react';
 import { Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextArea, TextInput } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
@@ -87,8 +86,6 @@ export function AgentSettings({ section }: { section: string }) {
     } catch (cause) { setError(cause instanceof Error ? cause.message : '头像设置保存失败。'); }
     finally { setSaving(false); }
   };
-  if (loading) return <InlineLoading description="正在读取 Agent 设置…" />;
-  if (loading) return <PageSkeleton variant="table" />;
   if (loading) return <PageSkeleton variant="table" />;
   return <div className="tp-settings-agent">
     {error && <InlineNotification kind="error" title="设置失败" subtitle={error} onCloseButtonClick={() => setError('')} />}
