@@ -227,7 +227,7 @@ export function EnterpriseProfileSettings() {
           ))}
           <div className="tp-enterprise-profile__actions">
             <p className="tp-settings__hint">企业资料修改不会追溯覆盖已签发的单据。单据创建时应保存卖方资料快照，避免后续修改企业资料影响历史凭证。</p>
-            <Button kind="primary" disabled={saving} onClick={() => void saveProfile()}>{saving ? '正在保存…' : '保存企业档案'}</Button>
+            {saving && <InlineLoading status="active" description="正在保存…" />}<Button kind="primary" disabled={saving} onClick={() => void saveProfile()}>保存企业档案</Button>
           </div>
 
           <section className="tp-enterprise-profile__group">
