@@ -1,3 +1,4 @@
+import { PageSkeleton } from '@/design-system';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Button, Link, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput } from '@/design-system';
@@ -249,6 +250,7 @@ export function DocumentStudioPage() {
   const displayValue = (item: StudioElement) => item.type === 'text' ? item.text : item.type === 'field' ? formatValue(readPath({ ...previewContent, totals: previewTotals, document: createdDoc ?? {} }, item.binding)) : '';
   const labels: Record<string, string> = Object.fromEntries(FIELD_OPTIONS.map(([key, label]) => [key, label]));
 
+  if (loading) return <PageSkeleton variant="form" />;
   return <main className="tp-doc-studio">
     <header className="tp-doc-studio__header">
       <div><p className="tp-documents__eyebrow">TRADEPILOT / DOCUMENT STUDIO</p><h1>单据自由制作</h1><p>选择业务数据，自动填充内容，再自由调整模板上的每一个元素。</p></div>

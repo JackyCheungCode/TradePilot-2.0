@@ -1,3 +1,4 @@
+import { PageSkeleton } from '@/design-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button, InlineLoading, InlineNotification, Select, SelectItem, Table, TableHead, TableRow, TableHeader, TableBody, TableCell, Tag, TextInput } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
@@ -56,6 +57,7 @@ export function OpportunitySettings({section}:{section:string}) {
  const edit=(item:Item)=>{if(item.id.startsWith('default-')){setName(item.name);setCode(item.code||'');setConfig({...item.config});setEditing(null);setNotice('这是系统默认值，保存将创建一条自定义配置。');return}setName(item.name);setCode(item.code||'');setConfig({...item.config});setEditing(item.id);setNotice('')};
  const toggle=async(item:Item)=>{const db=await getSupabaseClient();if(item.id.startsWith('default-')){try{const {data:s}=await db.auth.getSession();const owner=s.session?.user.id;if(!owner)throw new Error('登录状态已失效，请重新登录。');const r=await db.from('crm_opportunity_setting_items').insert({owner_id:owner,setting_type:section,name:item.name,code:item.code,config:item.config,sequence:item.sequence,is_active:false}).select('id,name,code,config,sequence,is_active').single();if(r.error)throw r.error;setRows(old=>[...old,r.data as Item])}catch(e){setError(e instanceof Error?e.message:'停用默认项失败')}return}const r=await db.from('crm_opportunity_setting_items').update({is_active:!item.is_active,updated_at:new Date().toISOString()}).eq('id',item.id);if(r.error){setError(r.error.message);return}setRows(old=>old.map(x=>x.id===item.id?{...x,is_active:!item.is_active}:x))};
  const display=(f:Field,v:unknown)=>f.options?.find(x=>x[0]===String(v))?.[1]??(v===true?'是':v===false?'否':String(v??'—'));
+ if (loading) return <PageSkeleton variant="table" />;
  return <div className="tp-settings__advanced">
  {error&&<InlineNotification kind="error" title="操作失败" subtitle={error} onCloseButtonClick={()=>setError('')}/>}
  {notice&&<InlineNotification kind="info" title="提示" subtitle={notice} onCloseButtonClick={()=>setNotice('')}/>}

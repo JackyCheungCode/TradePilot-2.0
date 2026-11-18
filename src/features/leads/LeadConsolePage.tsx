@@ -1,3 +1,4 @@
+import { PageSkeleton } from '@/design-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AreaChart } from '@carbon/charts-react';
 import {
@@ -190,6 +191,7 @@ export function LeadConsolePage() {
     const key = valueOf(row.profile, 'source') || 'unknown';
     return sourceNames[key] ?? (key === 'unknown' ? '未标记' : key);
   };
+  if (loading) return <PageSkeleton variant="table" />;
   return <main className="tp-leads">
     <header className="tp-leads__header">
       <div><p className="tp-leads__eyebrow">TRADEPILOT / CRM</p><h1>线索（Lead）</h1><p>集中管理已建立的正式线索，分析来源、状态、评级与国家 / 地区分布。</p></div>

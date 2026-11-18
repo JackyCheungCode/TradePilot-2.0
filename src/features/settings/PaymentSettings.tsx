@@ -1,3 +1,4 @@
+import { PageSkeleton } from '@/design-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput,
@@ -203,8 +204,8 @@ export function PaymentSettings() {
     setNotice('字典状态已更新；停用只影响新业务，历史收款记录保留原值。');
   };
 
-  if(loading) return <div className="tp-settings__advanced"><InlineLoading description="正在读取收款设置…" /></div>;
 
+  if (loading) return <PageSkeleton variant="form" />;
   return <div className="tp-settings__advanced tp-payment-settings">
     {error&&<InlineNotification kind="error" title="收款设置操作失败" subtitle={error} onCloseButtonClick={()=>setError('')}/>}
     {notice&&<InlineNotification kind="success" title="操作成功" subtitle={notice} onCloseButtonClick={()=>setNotice('')}/>}
@@ -291,6 +292,6 @@ export function PaymentSettings() {
         {!history.length&&<p className="tp-settings__empty">暂无配置变更记录。</p>}
       </div>
     </section>
-    <div className="tp-settings__actions"><Button kind="primary" disabled={saving} onClick={()=>void save()}>{saving?'正在保存…':'保存收款设置'}</Button></div>
+    <div className="tp-settings__actions">{saving && <InlineLoading status="active" description="正在保存…" />}<Button kind="primary" disabled={saving} onClick={()=>void save()}>保存收款设置</Button></div>
   </div>;
 }

@@ -1,3 +1,4 @@
+import { PageSkeleton } from '@/design-system';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Button, Link, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextArea, Tile, CarbonIcons,
@@ -234,6 +235,7 @@ export function AgentWorkspacePage() {
     return () => window.clearInterval(timer);
   }, [messages, conversationId]);
 
+  if (loading) return <PageSkeleton variant="detail" />;
   return (
     <main className="tp-agent">
       <header className="tp-agent__page-header">

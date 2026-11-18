@@ -1,3 +1,4 @@
+import { PageSkeleton } from '@/design-system';
 import { useCallback, useEffect, useState } from 'react';
 import { Button, Checkbox, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput, TextArea } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
@@ -61,6 +62,7 @@ export function DocumentTemplateSettings() {
     }catch(cause){setError(cause instanceof Error?cause.message:'停用模板失败。');}
     finally{setSaving(false);}
   };
+  if (loading) return <PageSkeleton variant="table" />;
   return <section className="tp-settings__advanced tp-document-template-settings">
     <div className="tp-trade-document-settings__intro"><div><h4>单据模板管理</h4><p>模板按单据类型和语言区分。模板只控制版式与展示项，业务字段仍由订单、发运记录或空白草稿提供。</p></div><Tag type="blue">模板与数据分离</Tag></div>
     {error&&<InlineNotification kind="error" title="模板操作失败" subtitle={error} onCloseButtonClick={()=>setError('')}/>}
@@ -91,7 +93,7 @@ export function DocumentTemplateSettings() {
           <Checkbox id="tp-template-default" labelText="设为该单据类型默认模板" checked={draft.is_default} onChange={(_,data)=>update({is_default:data.checked})}/>
           <Checkbox id="tp-template-active" labelText="启用模板" checked={draft.is_active} onChange={(_,data)=>update({is_active:data.checked})}/>
         </div>
-        <div className="tp-document-template-settings__actions"><Button kind="primary" disabled={saving} onClick={()=>void save()}>{saving?'正在保存…':'保存模板'}</Button>{draft.id&&draft.is_active&&<Button kind="danger--tertiary" disabled={saving} onClick={()=>void deactivate()}>停用模板</Button>}</div>
+        <div className="tp-document-template-settings__actions">{saving && <InlineLoading status="active" description="正在保存…" />}<Button kind="primary" disabled={saving} onClick={()=>void save()}>保存模板</Button>{draft.id&&draft.is_active&&<Button kind="danger--tertiary" disabled={saving} onClick={()=>void deactivate()}>停用模板</Button>}</div>
       </div>}
       {!rows.length&&!draft&&<p className="tp-settings__empty">尚无自定义模板。可以新建模板，或在单据中心使用系统默认版式。</p>}
       <div className="tp-document-template-settings__list"><h5>模板清单</h5>{rows.map(row=><div key={row.id}><span>{row.name}</span><small>{row.document_type} · {row.locale} · {row.is_default?'默认':'自定义'} · {row.is_active?'启用':'停用'}</small></div>)}</div>

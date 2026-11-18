@@ -1,3 +1,4 @@
+import { PageSkeleton } from '@/design-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -320,6 +321,7 @@ export function DashboardPage() {
   const barOptions = { ...commonOptions, height: '260px', axes: { bottom: { mapsTo: 'group', scaleType: 'labels' }, left: { mapsTo: 'value', scaleType: 'linear' } } };
   const agentOptions = { ...commonOptions, height: '260px', axes: { bottom: { mapsTo: 'group', scaleType: 'labels' }, left: { mapsTo: 'value', scaleType: 'linear' } } };
 
+  if (loading) return <PageSkeleton variant="dashboard" />;
   return <main className="tp-workbench">
     <header className="tp-workbench__header">
       <div>

@@ -1,3 +1,4 @@
+import { PageSkeleton } from '@/design-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Link, InlineLoading, InlineNotification, TextInput, Tag, Table, TableHead, TableRow,
@@ -37,6 +38,7 @@ export function GeneratedDocumentsPage() {
   }, []);
   useEffect(() => { void load(); }, [load]);
   const filtered = useMemo(() => docs.filter(doc => [doc.document_number, doc.title, labels[doc.document_type] || doc.document_type].some(value => String(value ?? '').toLowerCase().includes(search.toLowerCase()))), [docs, search]);
+  if (loading) return <PageSkeleton variant="table" />;
   return <main className="tp-documents">
     <header className="tp-documents__header">
       <div><p className="tp-documents__eyebrow">TRADE OPERATIONS / DOCUMENTS</p><h1>已生成单据</h1><p>集中查看单据状态、版本和业务来源，打开单据可继续校对或查看历史版本。</p></div>

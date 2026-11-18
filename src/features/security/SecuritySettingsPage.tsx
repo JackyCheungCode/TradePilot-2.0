@@ -1,3 +1,4 @@
+import { PageSkeleton } from '@/design-system';
 import { useCallback, useEffect, useState } from 'react';
 import { startRegistration } from '@simplewebauthn/browser';
 import {
@@ -365,6 +366,7 @@ export function SecuritySettingsPage() {
 
   const verifiedTotp = totpFactors.some((factor) => factor.status === 'verified');
 
+  if (loading) return <PageSkeleton variant="form" />;
   return (
     <main className="tp-security">
       <header className="tp-security__header">
