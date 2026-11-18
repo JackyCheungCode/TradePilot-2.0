@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, InlineLoading, InlineNotification, Tile } from '@/design-system';
+import { Link, InlineLoading, InlineNotification, Tile } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 
 type Stage = { key: string; label: string; count: number; href: string };
@@ -83,10 +83,8 @@ export function SalesConversionFunnel({ startDate, endDate }: { startDate: strin
         const conversion = index > 0 && stages[index - 1]?.count
           ? ((stage.count / stages[index - 1].count) * 100).toFixed(1) + '% 转化'
           : index === 0 ? '起始阶段' : '—';
-        return <Button
-          kind="ghost"
-          key={stage.key}
-          onClick={() => navigate(stage.href)}
+        return <Link
+          href={stage.href}
           className={"tp-dashboard__funnel-stage tp-dashboard__funnel-stage--width-" + widthLevel}
           aria-label={stage.label + '，' + stage.count.toLocaleString() + ' 条，' + conversion + '，打开对应列表'}
           title={stage.label + ' · ' + stage.count.toLocaleString()}
@@ -94,7 +92,7 @@ export function SalesConversionFunnel({ startDate, endDate }: { startDate: strin
           <span className="tp-dashboard__funnel-stage-label">{stage.label}</span>
           <strong>{stage.count.toLocaleString()}</strong>
           <small>{conversion}</small>
-        </Button>;
+        </Link>;
       })}
     </div>}
   </Tile>;
