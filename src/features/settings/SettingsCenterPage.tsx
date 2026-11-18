@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput,
-  Table, TableHead, TableRow, TableHeader, TableBody, TableCell, CarbonIcons,
+  Table, TableHead, TableRow, TableHeader, TableBody, TableCell, semanticIcons,
   Grid, Column, ContainedList, ContainedListItem,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
@@ -26,15 +26,15 @@ type Attribute = { id: string; name: string; display_type: string; create_varian
 type AttributeValue = { id: string; attribute_id: string; name: string; html_color: string | null; sequence: number; is_active: boolean };
 
 const domains: Domain[] = [
-  { id: 'products', label: '产品', icon: <CarbonIcons.Product size={20} />, available: true },
-  { id: 'opportunities', label: '商机', icon: <CarbonIcons.UserMultiple size={20} />, available: true },
-  { id: 'contacts', label: '联系人', icon: <CarbonIcons.User size={20} />, available: true },
-  { id: 'accounts', label: '客户', icon: <CarbonIcons.Building size={20} />, available: true },
-  { id: 'leads', label: '线索', icon: <CarbonIcons.UserMultiple size={20} />, available: true },
-  { id: 'enterprise', label: '企业档案', icon: <CarbonIcons.Building size={20} />, available: true },
-  { id: 'trade-documents', label: '单据配置', icon: <CarbonIcons.Document size={20} />, available: true },
-  { id: 'trade-operations', label: '发运与收款', icon: <CarbonIcons.Delivery size={20} />, available: true },
-  { id: 'agent', label: 'Agent 设置', icon: <CarbonIcons.Settings size={20} />, available: true },
+  { id: 'products', label: '产品', icon: <semanticIcons.product size={20} />, available: true },
+  { id: 'opportunities', label: '商机', icon: <semanticIcons.users size={20} />, available: true },
+  { id: 'contacts', label: '联系人', icon: <semanticIcons.user size={20} />, available: true },
+  { id: 'accounts', label: '客户', icon: <semanticIcons.building size={20} />, available: true },
+  { id: 'leads', label: '线索', icon: <semanticIcons.users size={20} />, available: true },
+  { id: 'enterprise', label: '企业档案', icon: <semanticIcons.building size={20} />, available: true },
+  { id: 'trade-documents', label: '单据配置', icon: <semanticIcons.document size={20} />, available: true },
+  { id: 'trade-operations', label: '发运与收款', icon: <semanticIcons.delivery size={20} />, available: true },
+  { id: 'agent', label: 'Agent 设置', icon: <semanticIcons.settings size={20} />, available: true },
 ];
 
 const integrationSections: Section[] = [
@@ -252,11 +252,11 @@ export function SettingsCenterPage() {
           </ContainedList>
           <ContainedList kind="on-page" label="系统设置" size="md" className="tp-settings__domain-list">
           <ContainedListItem className={"tp-settings__domain-item " + (domain === "integrations" ? "is-active" : "")} onClick={() => { setDomain("integrations"); setSection("api"); setQuery(""); }}>
-            <span className="tp-settings__domain-icon"><CarbonIcons.Api size={20} /></span>
+            <span className="tp-settings__domain-icon"><semanticIcons.api size={20} /></span>
             <span className="tp-settings__domain-copy"><strong>集成与 API</strong></span>
           </ContainedListItem>
-          <ContainedListItem className="tp-settings__domain-item"><span className="tp-settings__domain-icon"><CarbonIcons.User size={18} /></span><span className="tp-settings__domain-copy"><strong>用户与权限</strong></span><Tag type="cool-gray">后续接入</Tag></ContainedListItem>
-          <ContainedListItem className="tp-settings__domain-item"><span className="tp-settings__domain-icon"><CarbonIcons.Settings size={18} /></span><span className="tp-settings__domain-copy"><strong>通用数据</strong></span><Tag type="cool-gray">后续接入</Tag></ContainedListItem>
+          <ContainedListItem className="tp-settings__domain-item"><span className="tp-settings__domain-icon"><semanticIcons.user size={18} /></span><span className="tp-settings__domain-copy"><strong>用户与权限</strong></span><Tag type="cool-gray">后续接入</Tag></ContainedListItem>
+          <ContainedListItem className="tp-settings__domain-item"><span className="tp-settings__domain-icon"><semanticIcons.settings size={18} /></span><span className="tp-settings__domain-copy"><strong>通用数据</strong></span><Tag type="cool-gray">后续接入</Tag></ContainedListItem>
           </ContainedList>
         </aside></Column>
 
