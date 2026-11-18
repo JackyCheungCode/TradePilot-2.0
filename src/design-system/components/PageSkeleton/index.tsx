@@ -120,7 +120,7 @@ export function PageSkeleton({
 
       {variant === 'document-preview' && (
         <div className="tp-page-skeleton__document-preview">
-          <SkeletonPlaceholder className="tp-page-skeleton__document-paper">
+          <div className="tp-page-skeleton__document-paper">
             <SkeletonText heading width="38%" />
             <SkeletonText width="76%" />
             <SkeletonText width="92%" />
@@ -128,7 +128,7 @@ export function PageSkeleton({
             <SkeletonPlaceholder className="tp-page-skeleton__document-table" />
             <SkeletonText width="84%" />
             <SkeletonText width="54%" />
-          </SkeletonPlaceholder>
+          </div>
         </div>
       )}
 
