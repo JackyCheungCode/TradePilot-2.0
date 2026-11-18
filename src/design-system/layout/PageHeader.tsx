@@ -1,4 +1,4 @@
-import { Children, cloneElement, createElement, isValidElement, type ReactElement, type ReactNode } from 'react';
+import { Children, Fragment, cloneElement, createElement, isValidElement, type ReactElement, type ReactNode } from 'react';
 import { ArrowLeft, ArrowRight, Add, Checkmark, Download, Edit, Renew, Save, Send, TrashCan, Upload } from '../icons';
 import { Button, ButtonSet, Heading, Link } from '../components';
 import './page-header.scss';
@@ -70,7 +70,7 @@ function extractChildIcon(children: ReactNode): { children: ReactNode; icon?: Ca
       icon = node.type as CarbonActionIcon;
       return null;
     }
-    if (node.type === Symbol.for('react.fragment')) {
+    if (node.type === Fragment) {
       return cloneElement(node, { children: visit((node.props as Record<string, unknown>).children as ReactNode) } as Record<string, unknown>);
     }
     return node;
