@@ -1,3 +1,4 @@
+import { PageHeader } from '@/design-system';
 import { useMemo, useState } from 'react';
 import { Accordion, AccordionItem, Button, Link, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput, TextArea, CarbonIcons } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
@@ -101,7 +102,7 @@ export function TradeToolsHubPage() {
   const selectTool = (id: ToolKey) => { setActive(id); setError(''); setResult(null); };
   const renderToolRow = (tool: ToolMeta) => <Button key={tool.id} kind="ghost" className="tp-tool-center__row" onClick={() => selectTool(tool.id)}><span className="tp-tool-center__row-icon">{tool.icon}</span><span className="tp-tool-center__row-copy"><strong>{tool.name}</strong><small>{tool.description}</small></span><CarbonIcons.ChevronRight size={16}/></Button>;
   return <main className="tp-trade-tools tp-tool-center">
-    <header className="tp-trade-tools__header"><div><p className="tp-trade-tools__eyebrow">TRADE TOOLS</p><h1>外贸工具</h1><p>集中查询外贸业务所需的信息与合规数据。</p></div><Tag type="blue">工具中心</Tag></header>
+    <PageHeader className="tp-trade-tools__header"><div><p className="tp-trade-tools__eyebrow">TRADE TOOLS</p><h1>外贸工具</h1><p>集中查询外贸业务所需的信息与合规数据。</p></div><Tag type="blue">工具中心</Tag></PageHeader>
     <div className="tp-tool-center__search"><TextInput id="trade-tool-search" labelText="搜索工具" placeholder="输入工具名称或功能关键词" value={query} onChange={e => setQuery(e.currentTarget.value)}/></div>
     <div className="tp-tool-center__layout">
       <section className="tp-tool-center__catalog">
