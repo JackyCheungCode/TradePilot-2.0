@@ -306,8 +306,10 @@
   &__platform-name {
     display: flex;
     align-items: center;
+    justify-content: flex-start;
     flex-wrap: wrap;
-    gap: $spacing-02;
+    gap: $spacing-03;
+    text-align: left;
     @include type-style('heading-compact-01');
   }
 
@@ -350,7 +352,8 @@
   &__platform-copy p {
     @include type-style('body-compact-01');
     color: var(--cds-text-secondary);
-    margin: $spacing-02 0 0;
+    margin: $spacing-02 0 0 3rem;
+    text-align: left;
   }
   &__platform-row .cds--checkbox-wrapper .cds--checkbox-label {
     min-height: 1.25rem;
@@ -908,11 +911,12 @@
 }
 .tp-prospect-discovery__actor-schema-heading > div {
   display: flex;
-  flex-direction: column;
-  gap: .25rem;
+  align-items: center;
+  flex-direction: row;
+  gap: .75rem;
   min-width: 0;
 }
-.tp-prospect-discovery__actor-schema-heading span,
+.tp-prospect-discovery__actor-schema-heading > div > span,
 .tp-prospect-discovery__actor-schema-label code,
 .tp-prospect-discovery__actor-schema-help span {
   color: var(--cds-text-secondary);
@@ -986,9 +990,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex: 0 0 2rem;
-  width: 2rem;
-  height: 2rem;
+  flex: 0 0 2.5rem;
+  width: 2.5rem;
+  height: 2.5rem;
   border-radius: 50%;
   object-fit: contain;
   background: var(--cds-layer-02);
