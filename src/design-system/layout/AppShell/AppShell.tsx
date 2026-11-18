@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, Outlet } from 'react-router-dom';
 import {
   Header, HeaderName, HeaderMenuButton, HeaderGlobalBar, HeaderGlobalAction, SkipToContent,
-  SideNav, SideNavItems, SideNavLink, Content, CarbonIcons, InlineNotification, OverflowMenu, OverflowMenuItem, useThemePreference,
+  SideNav, SideNavItems, SideNavLink, Content, semanticIcons, InlineNotification, OverflowMenu, OverflowMenuItem, useThemePreference,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import { XiaoyaAvatar } from '@/features/agent/XiaoyaAvatar';
@@ -109,7 +109,7 @@ export function AppShell() {
             aria-expanded={location.pathname.startsWith('/inbox')}
             onClick={() => navigate('/inbox')}
           >
-            <CarbonIcons.Chat size={20} />
+            <semanticIcons.chat size={20} />
             {communicationsUnreadCount > 0 && <span className="tp-header-unread-badge" aria-label={`${communicationsUnreadCount} 条未读消息`} aria-live="polite">{communicationsUnreadCount > 99 ? '99+' : communicationsUnreadCount}</span>}
           </HeaderGlobalAction>
           <HeaderGlobalAction
@@ -124,36 +124,36 @@ export function AppShell() {
           <OverflowMenu
             ariaLabel="主题设置"
             iconDescription="主题设置"
-            renderIcon={CarbonIcons.Asleep}
+            renderIcon={semanticIcons.asleep}
             flipped
             size="lg"
             className="tp-theme-menu"
           >
             <OverflowMenuItem
-              itemText={preference === 'system' ? '✓ 跟随设备系统' : '跟随设备系统'}
+              itemText={preference === 'system' ? <><semanticIcons.check size={16} /> 跟随设备系统</> : '跟随设备系统'}
               onClick={() => setPreference('system')}
             />
             <OverflowMenuItem
-              itemText={preference === 'white' ? '✓ 白色' : '白色'}
+              itemText={preference === 'white' ? <><semanticIcons.check size={16} /> 白色</> : '白色'}
               onClick={() => setPreference('white')}
             />
             <OverflowMenuItem
-              itemText={preference === 'g10' ? '✓ 浅灰色' : '浅灰色'}
+              itemText={preference === 'g10' ? <><semanticIcons.check size={16} /> 浅灰色</> : '浅灰色'}
               onClick={() => setPreference('g10')}
             />
             <OverflowMenuItem
-              itemText={preference === 'g90' ? '✓ 深灰色' : '深灰色'}
+              itemText={preference === 'g90' ? <><semanticIcons.check size={16} /> 深灰色</> : '深灰色'}
               onClick={() => setPreference('g90')}
             />
             <OverflowMenuItem
-              itemText={preference === 'dark' ? '✓ 深色' : '深色'}
+              itemText={preference === 'dark' ? <><semanticIcons.check size={16} /> 深色</> : '深色'}
               onClick={() => setPreference('dark')}
             />
           </OverflowMenu>
           <OverflowMenu
             ariaLabel="账户菜单"
             iconDescription="账户菜单"
-            renderIcon={() => avatarUrl ? <img className="tp-account-menu__avatar" src={avatarUrl} alt="" /> : <CarbonIcons.UserAvatar size={20} />}
+            renderIcon={() => avatarUrl ? <img className="tp-account-menu__avatar" src={avatarUrl} alt="" /> : <semanticIcons.avatar size={20} />}
             flipped
             size="lg"
             className="tp-account-menu"
@@ -178,41 +178,41 @@ export function AppShell() {
         <div className="tp-sidenav__group">
           <div className="tp-sidenav__group-label">工作台（Workspace）</div>
           <SideNavItems>
-            <SideNavLink href="/dashboard" isActive={location.pathname === '/dashboard' || location.pathname === '/'} title="概览（Overview）" renderIcon={CarbonIcons.Dashboard}>概览（Overview）</SideNavLink>
+            <SideNavLink href="/dashboard" isActive={location.pathname === '/dashboard' || location.pathname === '/'} title="概览（Overview）" renderIcon={semanticIcons.dashboard}>概览（Overview）</SideNavLink>
           </SideNavItems>
         </div>
         <div className="tp-sidenav__group">
           <div className="tp-sidenav__group-label">情报与线索</div>
           <SideNavItems>
-            <SideNavLink href="/prospect-data" isActive={location.pathname.startsWith('/prospect-data') || location.pathname.startsWith('/prospect-history')} title="潜客数据（Prospect Data）" renderIcon={CarbonIcons.DataBase}>潜客数据（Prospect Data）</SideNavLink>
-            <SideNavLink href="/leads" isActive={location.pathname.startsWith('/leads')} title="线索（Lead）" renderIcon={CarbonIcons.UserFollow}>线索（Lead）</SideNavLink>
+            <SideNavLink href="/prospect-data" isActive={location.pathname.startsWith('/prospect-data') || location.pathname.startsWith('/prospect-history')} title="潜客数据（Prospect Data）" renderIcon={semanticIcons.database}>潜客数据（Prospect Data）</SideNavLink>
+            <SideNavLink href="/leads" isActive={location.pathname.startsWith('/leads')} title="线索（Lead）" renderIcon={semanticIcons.userFollow}>线索（Lead）</SideNavLink>
           </SideNavItems>
         </div>
         <div className="tp-sidenav__group">
           <div className="tp-sidenav__group-label">客户管理</div>
           <SideNavItems>
-            <SideNavLink href="/contacts" isActive={location.pathname.startsWith('/contacts')} title="联系人（Contact）" renderIcon={CarbonIcons.User}>联系人（Contact）</SideNavLink>
-            <SideNavLink href="/accounts" isActive={location.pathname.startsWith('/accounts')} title="客户（Account）" renderIcon={CarbonIcons.Building}>客户（Account）</SideNavLink>
-            <SideNavLink href="/opportunities" isActive={location.pathname.startsWith('/opportunities')} title="商机（Opportunity）" renderIcon={CarbonIcons.ChartLine}>商机（Opportunity）</SideNavLink>
+            <SideNavLink href="/contacts" isActive={location.pathname.startsWith('/contacts')} title="联系人（Contact）" renderIcon={semanticIcons.user}>联系人（Contact）</SideNavLink>
+            <SideNavLink href="/accounts" isActive={location.pathname.startsWith('/accounts')} title="客户（Account）" renderIcon={semanticIcons.building}>客户（Account）</SideNavLink>
+            <SideNavLink href="/opportunities" isActive={location.pathname.startsWith('/opportunities')} title="商机（Opportunity）" renderIcon={semanticIcons.chart}>商机（Opportunity）</SideNavLink>
           </SideNavItems>
         </div>
         <div className="tp-sidenav__group">
           <div className="tp-sidenav__group-label">贸易业务</div>
           <SideNavItems>
-            <SideNavLink href="/quotes" isActive={location.pathname.startsWith('/quotes')} title="报价单（Quote）" renderIcon={CarbonIcons.Document}>报价单（Quote）</SideNavLink>
-            <SideNavLink href="/sales-orders" isActive={location.pathname.startsWith('/sales-orders')} title="销售订单（Sales Order）" renderIcon={CarbonIcons.DocumentTasks}>销售订单（Sales Order）</SideNavLink>
-            <SideNavLink href="/documents" isActive={location.pathname.startsWith('/documents')} title="外贸单据智能制作中心（Trade Document Studio）" renderIcon={CarbonIcons.DocumentMultiple_01}>外贸单据智能制作中心</SideNavLink>
-            <SideNavLink href="/shipments" isActive={location.pathname.startsWith('/shipments')} title="发运（Shipment）" renderIcon={CarbonIcons.Delivery}>发运（Shipment）</SideNavLink>
-            <SideNavLink href="/payments" isActive={location.pathname.startsWith('/payments')} title="收款（Payment）" renderIcon={CarbonIcons.Currency}>收款（Payment）</SideNavLink>
-            <SideNavLink href="/products" isActive={location.pathname.startsWith('/products')} title="产品（Product）" renderIcon={CarbonIcons.Product}>产品（Product）</SideNavLink>
+            <SideNavLink href="/quotes" isActive={location.pathname.startsWith('/quotes')} title="报价单（Quote）" renderIcon={semanticIcons.document}>报价单（Quote）</SideNavLink>
+            <SideNavLink href="/sales-orders" isActive={location.pathname.startsWith('/sales-orders')} title="销售订单（Sales Order）" renderIcon={semanticIcons.tasks}>销售订单（Sales Order）</SideNavLink>
+            <SideNavLink href="/documents" isActive={location.pathname.startsWith('/documents')} title="外贸单据智能制作中心（Trade Document Studio）" renderIcon={semanticIcons.documents}>外贸单据智能制作中心</SideNavLink>
+            <SideNavLink href="/shipments" isActive={location.pathname.startsWith('/shipments')} title="发运（Shipment）" renderIcon={semanticIcons.delivery}>发运（Shipment）</SideNavLink>
+            <SideNavLink href="/payments" isActive={location.pathname.startsWith('/payments')} title="收款（Payment）" renderIcon={semanticIcons.currency}>收款（Payment）</SideNavLink>
+            <SideNavLink href="/products" isActive={location.pathname.startsWith('/products')} title="产品（Product）" renderIcon={semanticIcons.product}>产品（Product）</SideNavLink>
           </SideNavItems>
         </div>
         <div className="tp-sidenav__group">
           <div className="tp-sidenav__group-label">工具与系统</div>
           <SideNavItems>
-            <SideNavLink href="/trade-tools" isActive={location.pathname.startsWith('/trade-tools')} title="外贸工具（Trade tools）" renderIcon={CarbonIcons.Calculator}>外贸工具（Trade tools）</SideNavLink>
-            <SideNavLink href="/settings" isActive={location.pathname.startsWith('/settings')} title="设置（Setting）" renderIcon={CarbonIcons.Settings}>设置（Setting）</SideNavLink>
-            <SideNavLink href="/security" isActive={location.pathname.startsWith('/security')} title="安全与身份认证（Security）" renderIcon={CarbonIcons.Security}>安全与身份认证（Security）</SideNavLink>
+            <SideNavLink href="/trade-tools" isActive={location.pathname.startsWith('/trade-tools')} title="外贸工具（Trade tools）" renderIcon={semanticIcons.calculator}>外贸工具（Trade tools）</SideNavLink>
+            <SideNavLink href="/settings" isActive={location.pathname.startsWith('/settings')} title="设置（Setting）" renderIcon={semanticIcons.settings}>设置（Setting）</SideNavLink>
+            <SideNavLink href="/security" isActive={location.pathname.startsWith('/security')} title="安全与身份认证（Security）" renderIcon={semanticIcons.security}>安全与身份认证（Security）</SideNavLink>
           </SideNavItems>
         </div>
         <div className="tp-sidenav__footer">

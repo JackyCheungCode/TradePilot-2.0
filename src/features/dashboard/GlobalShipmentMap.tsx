@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, CarbonIcons } from '@/design-system';
+import { Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, semanticIcons } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/global-shipment-map.scss';
 
@@ -212,7 +212,7 @@ export function GlobalShipmentMap() {
       </div>
       <div className="tp-shipment-map__actions">
         <Tag type="blue" size="sm">演示数据</Tag>
-        <Button kind="ghost" size="sm" renderIcon={CarbonIcons.Renew} onClick={() => setRefresh(value => value + 1)} disabled={loading}>刷新数据</Button>
+        <Button kind="ghost" size="sm" renderIcon={semanticIcons.refresh} onClick={() => setRefresh(value => value + 1)} disabled={loading}>刷新数据</Button>
       </div>
     </div>
     <div className="tp-shipment-map__metrics">
@@ -265,8 +265,8 @@ export function GlobalShipmentMap() {
           <text x={originX + 12} y={originY - 12} className="tp-shipment-map__origin-label">SHENZHEN</text>
         </svg>
         <div className="tp-shipment-map__controls">
-          <Button kind="tertiary" size="sm" hasIconOnly renderIcon={CarbonIcons.Add} iconDescription="放大地图" onClick={() => changeZoom(zoom + 1)} disabled={zoom >= MAX_ZOOM}/>
-          <Button kind="tertiary" size="sm" hasIconOnly renderIcon={CarbonIcons.Subtract} iconDescription="缩小地图" onClick={() => changeZoom(zoom - 1)} disabled={zoom <= MIN_ZOOM}/>
+          <Button kind="tertiary" size="sm" hasIconOnly renderIcon={semanticIcons.add} iconDescription="放大地图" onClick={() => changeZoom(zoom + 1)} disabled={zoom >= MAX_ZOOM}/>
+          <Button kind="tertiary" size="sm" hasIconOnly renderIcon={semanticIcons.subtract} iconDescription="缩小地图" onClick={() => changeZoom(zoom - 1)} disabled={zoom <= MIN_ZOOM}/>
           <Button kind="tertiary" size="sm" onClick={() => { setCenter({ lat: 24, lon: 35 }); setZoom(2); }}>重置视图</Button>
         </div>
         <div className="tp-shipment-map__attribution">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a></div>

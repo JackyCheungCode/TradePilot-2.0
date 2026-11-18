@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Button, Dropdown, InlineLoading, InlineNotification, Modal, Tag, TextInput, Tile } from '@/design-system';
+import { Button, Dropdown, semanticIcons, InlineLoading, InlineNotification, Modal, Tag, TextInput, Tile } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/settings.scss';
 
@@ -42,7 +42,7 @@ const apiCards=[
 {id:'apollo',name:'Apollo.io',logo:'apollo',initial:'A',description:'企业联系人搜索、职位识别与工作邮箱补全。',fields:[{key:'apollo',label:'API Key'}],test:'apollo'},
 {id:'zoominfo',name:'ZoomInfo',logo:'zoominfo',initial:'Z',description:'联系人搜索、组织架构与企业决策人数据；补全操作可能消耗账户额度。',fields:[{key:'zoominfoClientId',label:'OAuth Client ID'},{key:'zoominfoClientSecret',label:'OAuth Client Secret'}],test:'zoominfo'},
 {id:'abstractEmailValidation',name:'Abstract · 邮箱验证',logo:'',initial:'@',description:'验证邮箱格式、域名与邮件服务器可投递性；全平台同一邮箱仅验证一次。',fields:[{key:'abstractEmailValidation',label:'Abstract Email Validation API Key'}],test:'abstractEmailValidation'},
-{id:'abstractPhoneValidation',name:'Abstract · 电话验证',logo:'',initial:'☎',description:'验证国际电话号码有效性、国家、线路类型与运营商。',fields:[{key:'abstractPhoneValidation',label:'Abstract Phone Validation API Key'}],test:'abstractPhoneValidation'},
+{id:'abstractPhoneValidation',name:'Abstract · 电话验证',logo:'',initial:'PHONE',description:'验证国际电话号码有效性、国家、线路类型与运营商。',fields:[{key:'abstractPhoneValidation',label:'Abstract Phone Validation API Key'}],test:'abstractPhoneValidation'},
 {id:'whatsappCheck',name:'WhatsApp 注册检测',logo:'',initial:'WA',description:'WA Lookup 独立 WhatsApp 注册检测 API；每次成功检测约 USD 0.001，未能确认的结果不会标记为未注册。',fields:[{key:'whatsappCheckKey',label:'WA Lookup API Key'}],test:'whatsappCheck'},
 {id:'jinaReader',name:'Jina Reader',logo:'',initial:'J',description:'读取客户官网内容，用于公开联系方式提取与 AI 企业背调。',fields:[{key:'jinaReader',label:'Jina Reader API Key'}],test:'jinaReader'},
 {id:'whatsappCloud',name:'WhatsApp Business Cloud API',logo:'whatsapp',initial:'WA',description:'Meta 官方 WhatsApp Cloud API。配置号码、业务账户、长期访问令牌及 Webhook 校验信息。',fields:[{key:'whatsappAccessToken',label:'Access Token'},{key:'whatsappPhoneNumberId',label:'Phone Number ID',type:'text'},{key:'whatsappBusinessAccountId',label:'WhatsApp Business Account ID',type:'text'},{key:'whatsappAppSecret',label:'Meta App Secret'},{key:'whatsappVerifyToken',label:'Webhook Verify Token'}],test:'whatsappCloud'},
@@ -63,7 +63,7 @@ async function request<T>(path:string,init:RequestInit={}):Promise<T>{
  const r=await fetch(path,{...init,headers:{Authorization:'Bearer '+data.session.access_token,...(init.body?{'Content-Type':'application/json'}:{}),...init.headers}});
  const b=await r.json() as {data?:T;error?:{message?:string}};if(!r.ok||!('data'in b))throw new Error(b.error?.message||'请求失败');return b.data as T;
 }
-function Logo({logo,initial}:{logo:string;initial:string}){const [bad,setBad]=useState(false);return <span className="tp-integration-logo">{logo&&!bad?<img src={'https://cdn.simpleicons.org/'+logo} alt="" onError={()=>setBad(true)}/>:<span>{initial}</span>}</span>;}
+function Logo({logo,initial}:{logo:string;initial:string}){const [bad,setBad]=useState(false);return <span className="tp-integration-logo">{logo&&!bad?<img src={'https://cdn.simpleicons.org/'+logo} alt="" onError={()=>setBad(true)}/>:initial==='PHONE'?<semanticIcons.phone size={20}/>:<span>{initial}</span>}</span>;}
 
 export function IntegrationsSettings({section}:{section:string}){
  const [statuses,setStatuses]=useState<Record<string,boolean>>({});const [values,setValues]=useState<Record<string,string>>({});

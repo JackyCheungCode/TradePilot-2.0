@@ -1,7 +1,7 @@
 import { PageHeader } from '@/design-system';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Button, Link, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextArea, Tile, CarbonIcons,
+  Button, Link, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextArea, Tile, semanticIcons,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/layout/AgentWorkspace.scss';
@@ -267,9 +267,9 @@ export function AgentWorkspacePage() {
           </div>
           <div className="tp-agent__history-actions">
             <Button kind="tertiary" size="md" onClick={() => void createConversation()}>
-              <CarbonIcons.Add size={16} /> 新建对话
+              <semanticIcons.add size={16} /> 新建对话
             </Button>
-            <Link href="/recent-tasks" renderIcon={CarbonIcons.Task}>任务执行中心</Link>
+            <Link href="/recent-tasks" renderIcon={semanticIcons.task}>任务执行中心</Link>
           </div>
           {loading && <InlineLoading description="正在加载对话…" />}
         </section>
@@ -308,7 +308,7 @@ export function AgentWorkspacePage() {
                     {item.metadata?.task && (
                       <Tile className="tp-agent__task-card">
                         <div className="tp-agent__task-card-heading">
-                          <CarbonIcons.Task size={20} />
+                          <semanticIcons.task size={20} />
                           <h3>任务方案</h3>
                         </div>
                         <p>{item.metadata.task.goal}</p>
@@ -316,7 +316,7 @@ export function AgentWorkspacePage() {
                         {item.metadata.runId && <Tag type={item.metadata.runStatus === 'succeeded' ? 'green' : item.metadata.runStatus === 'failed' ? 'red' : 'blue'}>{item.metadata.runStatus === 'succeeded' ? '执行完成' : item.metadata.runStatus === 'failed' ? '执行失败' : item.metadata.runStatus === 'running' ? '正在执行' : item.metadata.runStatus === 'awaiting_approval' ? '等待人工审批' : '任务已排队'} · {item.metadata.runProgress || 0}%</Tag>}
                         <p className="tp-agent__task-meta">执行角色：{item.metadata.task.agentKey} · 目标国家：{item.metadata.task.country}</p>
                         {item.metadata.runId ? (
-                          <Link href="/recent-tasks" renderIcon={CarbonIcons.Task}>已启动，查看任务中心</Link>
+                          <Link href="/recent-tasks" renderIcon={semanticIcons.task}>已启动，查看任务中心</Link>
                         ) : (
                           <Button
                             kind="tertiary"
@@ -359,7 +359,7 @@ export function AgentWorkspacePage() {
             <div className="tp-agent__composer-footer">
               <span>Enter 发送 · Shift + Enter 换行</span>
               <Button kind="primary" disabled={!draft.trim() || sending || !conversationId} onClick={() => void sendMessage()}>
-                <CarbonIcons.Send size={16} /> 发送
+                <semanticIcons.send size={16} /> 发送
               </Button>
             </div>
           </div>

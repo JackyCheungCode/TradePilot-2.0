@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Dropdown, Heading, CarbonIcons, ChatCustomElement, MessageResponseTypes, type ChatInstance, type CustomSendMessageOptions, type MessageRequest, type PublicConfig, type HistoryItem } from '@/design-system';
+import { Button, Dropdown, Heading, semanticIcons, ChatCustomElement, MessageResponseTypes, type ChatInstance, type CustomSendMessageOptions, type MessageRequest, type PublicConfig, type HistoryItem } from '@/design-system';
 import { XiaoyaAvatar } from './XiaoyaAvatar';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/layout/XiaoyaSidePanel.scss';
@@ -289,11 +289,11 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
       <aside className="tp-xiaoya-drawer" role="dialog" aria-modal="true" aria-label="小雅 AI 助手">
         <div className="tp-xiaoya-drawer__toolbar">
           <div className="tp-xiaoya-drawer__title">
-            <CarbonIcons.Chat size={20} />
+            <semanticIcons.chat size={20} />
             <Heading className="tp-xiaoya-drawer__heading">小雅 AI 助手</Heading>
           </div>
           <Button kind="ghost" size="sm" onClick={onClose}>
-            <CarbonIcons.Close size={16} />
+            <semanticIcons.close size={16} />
             关闭
           </Button>
         </div>
@@ -313,7 +313,7 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
             />
           </div>
           <Button kind="tertiary" size="sm" onClick={() => void startNewConversation()}>
-            <CarbonIcons.Add size={16} />
+            <semanticIcons.add size={16} />
             新建聊天
           </Button>
         </div>

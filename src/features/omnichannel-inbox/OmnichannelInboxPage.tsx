@@ -1,7 +1,7 @@
 import { PageHeader } from '@/design-system';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Button, Search, ClickableTile, TextInput, TextArea, Dropdown, Tag, InlineNotification, Modal, ModalBody, IconButton, Heading, Tile, LineChart, ScaleTypes, CarbonIcons, Breadcrumb, BreadcrumbItem, ContentSwitcher, Switch,
+  Button, Search, ClickableTile, TextInput, TextArea, Dropdown, Tag, InlineNotification, Modal, ModalBody, IconButton, Heading, Tile, LineChart, ScaleTypes, semanticIcons, Breadcrumb, BreadcrumbItem, ContentSwitcher, Switch,
 } from '@/design-system';
 import {
   channelLabels, conversationsSeed, customersSeed, identitiesSeed, messagesSeed,
@@ -16,7 +16,7 @@ const fmtSize = (bytes: number) => bytes > 1_000_000 ? (bytes / 1_000_000).toFix
 const channelOptions = Object.keys(channelLabels).map((id) => ({ id, text: channelLabels[id as ChannelType] }));
 
 function ChannelMark({ channel }: { channel: ChannelType }) {
-  const ChannelIcon = channel === 'email' ? CarbonIcons.Email : CarbonIcons.Chat;
+  const ChannelIcon = channel === 'email' ? semanticIcons.email : semanticIcons.chat;
   return <Tag type="cool-gray"><ChannelIcon size={16} /> {channelLabels[channel]}</Tag>;
 }
 function avatarFallback(contactName: string) {
@@ -30,13 +30,13 @@ function avatarFallback(contactName: string) {
 function Avatar({ customer, small = false }: { customer: Customer; small?: boolean }) {
   const fallback = avatarFallback(customer.contact_name);
   const avatarText = customer.avatar?.trim() || fallback;
-  return <span className="oi-avatar" role="img" aria-label={customer.contact_name}><CarbonIcons.User size={small ? 24 : 32} /><span className="oi-avatar-label">{avatarText}</span></span>;
+  return <span className="oi-avatar" role="img" aria-label={customer.contact_name}><semanticIcons.user size={small ? 24 : 32} /><span className="oi-avatar-label">{avatarText}</span></span>;
 }
 function StatusText({ status }: { status: Message['status'] }) {
   if (status === 'local') return <span className="oi-message-status">仅本地演示</span>;
-  if (status === 'failed') return <span className="oi-message-status oi-message-status--failed"><CarbonIcons.WarningAlt size={12} /> 发送失败</span>;
-  if (status === 'read') return <span className="oi-message-status oi-message-status--read"><CarbonIcons.Checkmark size={13} /><CarbonIcons.Checkmark size={13} /> 已读</span>;
-  if (status === 'delivered') return <span className="oi-message-status"><CarbonIcons.Checkmark size={13} /><CarbonIcons.Checkmark size={13} /> 已送达</span>;
+  if (status === 'failed') return <span className="oi-message-status oi-message-status--failed"><semanticIcons.warning size={12} /> 发送失败</span>;
+  if (status === 'read') return <span className="oi-message-status oi-message-status--read"><semanticIcons.check size={13} /><semanticIcons.check size={13} /> 已读</span>;
+  if (status === 'delivered') return <span className="oi-message-status"><semanticIcons.check size={13} /><semanticIcons.check size={13} /> 已送达</span>;
   return <span className="oi-message-status">{status === 'sending' ? '发送中…' : '已发送'}</span>;
 }
 
@@ -241,19 +241,19 @@ export function OmnichannelInboxPage() {
     <section className="oi-chat-panel">
       <header className="oi-chat-header">
         <div className="oi-chat-heading">
-          <Button className="oi-mobile-back" kind="ghost" size="sm" hasIconOnly renderIcon={CarbonIcons.ArrowLeft} iconDescription="返回会话列表" onClick={() => setMobileChat(false)} />
+          <Button className="oi-mobile-back" kind="ghost" size="sm" hasIconOnly renderIcon={semanticIcons.back} iconDescription="返回会话列表" onClick={() => setMobileChat(false)} />
           <Avatar customer={customer} small />
           <div><Heading className="oi-chat-title">{customer.company_name || customer.contact_name}</Heading><span>{customer.contact_name} · {customer.role}</span></div>
         </div>
         <div className="oi-chat-actions">
           <Button kind="ghost" size="sm" onClick={() => updateConversation({ status: activeConversation.status === 'resolved' ? 'open' : 'resolved' })}>{activeConversation.status === 'resolved' ? '重新打开' : '标记已解决'}</Button>
-          <IconButton kind="ghost" label="客户档案" onClick={() => setProfileOpen((value) => !value)}>{profileOpen ? <CarbonIcons.ViewOff /> : <CarbonIcons.View />}</IconButton>
+          <IconButton kind="ghost" label="客户档案" onClick={() => setProfileOpen((value) => !value)}>{profileOpen ? <semanticIcons.viewOff /> : <semanticIcons.view />}</IconButton>
         </div>
       </header>
       <div className="oi-timeline" aria-label="统一消息时间线">{timeline.map((message) => <article key={message.id} className={'oi-message oi-message--' + message.direction}>
         <div className="oi-message-meta"><ChannelMark channel={message.channel_type} /><time>{fmtTime(message.created_at)}</time></div>
-        {message.content_type === 'email_card' ? <Tile className="oi-email-card"><div className="oi-email-title"><CarbonIcons.Email size={18} /><strong>{message.email_subject}</strong><Button type="button" kind="ghost" size="sm" onClick={() => setExpandedEmail((current) => current.includes(message.id) ? current.filter((id) => id !== message.id) : [...current, message.id])}>{expandedEmail.includes(message.id) ? '收起' : '展开'} <CarbonIcons.ChevronDown size={14} /></Button></div><div className="oi-email-from">发件人：{customer.email}</div>{expandedEmail.includes(message.id) && <p>{message.content}</p>}</Tile>
-          : message.content_type === 'file' ? <Tile className="oi-file-card"><CarbonIcons.DocumentPdf size={28} /><div><strong>{message.file_meta?.filename}</strong><span>{fmtSize(message.file_meta?.size ?? 0)} · PDF 文档</span></div><Button type="button" kind="ghost" size="sm" hasIconOnly renderIcon={CarbonIcons.Attachment} iconDescription="演示文件不可下载" disabled /></Tile>
+        {message.content_type === 'email_card' ? <Tile className="oi-email-card"><div className="oi-email-title"><semanticIcons.email size={18} /><strong>{message.email_subject}</strong><Button type="button" kind="ghost" size="sm" onClick={() => setExpandedEmail((current) => current.includes(message.id) ? current.filter((id) => id !== message.id) : [...current, message.id])}>{expandedEmail.includes(message.id) ? '收起' : '展开'} <semanticIcons.chevronDown size={14} /></Button></div><div className="oi-email-from">发件人：{customer.email}</div>{expandedEmail.includes(message.id) && <p>{message.content}</p>}</Tile>
+          : message.content_type === 'file' ? <Tile className="oi-file-card"><semanticIcons.pdf size={28} /><div><strong>{message.file_meta?.filename}</strong><span>{fmtSize(message.file_meta?.size ?? 0)} · PDF 文档</span></div><Button type="button" kind="ghost" size="sm" hasIconOnly renderIcon={semanticIcons.attachment} iconDescription="演示文件不可下载" disabled /></Tile>
           : <Tile className="oi-bubble">{message.content}</Tile>}
         {message.direction === 'outbound' && <div className="oi-message-foot"><StatusText status={message.status} />{message.status === 'failed' && <Button kind="ghost" size="sm" onClick={() => retryMessage(message)}>点击重试</Button>}</div>}
       </article>)}</div>
@@ -264,13 +264,13 @@ export function OmnichannelInboxPage() {
         {whatsappClosed && <><InlineNotification kind="warning" lowContrast hideCloseButton title="WhatsApp 24 小时自由回复窗口已关闭" subtitle="请使用官方审核模板触达客户。" /><Button size="sm" kind="tertiary" onClick={() => setTemplateOpen(true)}>选择模板消息</Button></>}
         {channel === 'email' && <div className="oi-subject"><TextInput id="oi-subject" labelText="邮件主题（Subject）" placeholder="输入邮件主题" value={subject} onChange={(event: React.ChangeEvent<HTMLInputElement>) => setSubject(event.currentTarget.value)} /></div>}
         {actionNotice && <InlineNotification kind="info" lowContrast title={actionNotice} hideCloseButton />}
-        <div className="oi-compose-row"><TextArea id="oi-message" labelText="消息内容" hideLabel placeholder={whatsappClosed ? '自由文本已禁用，请选择模板消息' : '输入消息…（Enter 发送，Shift + Enter 换行）'} rows={2} value={draft} disabled={whatsappClosed} onChange={(event: React.ChangeEvent<HTMLTextAreaElement>) => setDraft(event.currentTarget.value)} onKeyDown={(event: React.KeyboardEvent<HTMLTextAreaElement>) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(); } }} /><Button hasIconOnly renderIcon={CarbonIcons.Send} iconDescription="发送消息" disabled={!draft.trim() || whatsappClosed} onClick={sendMessage} /></div>
+        <div className="oi-compose-row"><TextArea id="oi-message" labelText="消息内容" hideLabel placeholder={whatsappClosed ? '自由文本已禁用，请选择模板消息' : '输入消息…（Enter 发送，Shift + Enter 换行）'} rows={2} value={draft} disabled={whatsappClosed} onChange={(event: React.ChangeEvent<HTMLTextAreaElement>) => setDraft(event.currentTarget.value)} onKeyDown={(event: React.KeyboardEvent<HTMLTextAreaElement>) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(); } }} /><Button hasIconOnly renderIcon={semanticIcons.send} iconDescription="发送消息" disabled={!draft.trim() || whatsappClosed} onClick={sendMessage} /></div>
       </div>
     </section>
 
     {profileOpen && <div className="oi-profile-backdrop" aria-hidden="true" onClick={() => setProfileOpen(false)} />}
     {profileOpen && <aside ref={profilePanelRef} className="oi-profile-panel" role={typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches ? 'dialog' : 'complementary'} aria-modal={typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches ? true : undefined} aria-labelledby="oi-profile-title" tabIndex={-1}>
-      <div className="oi-profile-header"><h2 id="oi-profile-title">客户 360 档案</h2><IconButton kind="ghost" label="关闭档案" onClick={() => setProfileOpen(false)}><CarbonIcons.Close /></IconButton></div>
+      <div className="oi-profile-header"><h2 id="oi-profile-title">客户 360 档案</h2><IconButton kind="ghost" label="关闭档案" onClick={() => setProfileOpen(false)}><semanticIcons.close /></IconButton></div>
       <div className="oi-profile-scroll">
         <Tile className="oi-profile-identity"><Avatar customer={customer} /><div><strong>{customer.company_name || customer.contact_name}</strong><span>{customer.contact_name}</span></div></Tile>
         <Tile className="oi-profile-section"><div className="oi-section-heading"><h3>基础信息</h3><Button kind="ghost" size="sm" onClick={() => { setProfileDraft({ ...customer, tags: [...customer.tags] }); setEditing(true); }}>编辑</Button></div>
@@ -284,8 +284,8 @@ export function OmnichannelInboxPage() {
             <div className="oi-edit-actions"><Button size="sm" onClick={saveProfile}>保存</Button><Button size="sm" kind="secondary" onClick={() => setEditing(false)}>取消</Button></div>
           </div> : <dl className="oi-details"><dt>联系人</dt><dd>{customer.contact_name} · {customer.role}</dd><dt>邮箱</dt><dd>{customer.email}</dd><dt>电话</dt><dd className="oi-mono">{customer.phone}</dd></dl>}
         </Tile>
-        <Tile className="oi-profile-section"><div className="oi-section-heading"><h3>渠道身份绑定</h3><Button kind="ghost" size="sm" renderIcon={CarbonIcons.Add} onClick={() => setIdentityOpen(true)}>绑定新渠道</Button></div>
-          {customerIdentities.map((identity) => <div className="oi-identity-row" key={identity.id}><ChannelMark channel={identity.channel_type} /><span>{identity.external_user_id}</span>{identity.is_primary && <Tag type="green">主要</Tag>}<IconButton kind="ghost" label={'移除 ' + channelLabels[identity.channel_type] + ' 身份'} disabled={customerIdentities.length <= 1} onClick={() => removeIdentity(identity)}><CarbonIcons.TrashCan /></IconButton></div>)}
+        <Tile className="oi-profile-section"><div className="oi-section-heading"><h3>渠道身份绑定</h3><Button kind="ghost" size="sm" renderIcon={semanticIcons.add} onClick={() => setIdentityOpen(true)}>绑定新渠道</Button></div>
+          {customerIdentities.map((identity) => <div className="oi-identity-row" key={identity.id}><ChannelMark channel={identity.channel_type} /><span>{identity.external_user_id}</span>{identity.is_primary && <Tag type="green">主要</Tag>}<IconButton kind="ghost" label={'移除 ' + channelLabels[identity.channel_type] + ' 身份'} disabled={customerIdentities.length <= 1} onClick={() => removeIdentity(identity)}><semanticIcons.delete /></IconButton></div>)}
         </Tile>
         <Tile className="oi-profile-section"><h3>客户标签</h3><div className="oi-tags">{customer.tags.map((tag) => <Tag key={tag} type="cool-gray">{tag}</Tag>)}</div></Tile>
       </div>

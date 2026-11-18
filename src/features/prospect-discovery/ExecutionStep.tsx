@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   Button, CodeSnippet, Column, CopyButton, Grid,
   InlineNotification, ProgressBar, StructuredListBody, StructuredListCell,
-  StructuredListHead, StructuredListRow, StructuredListWrapper, Tag, Tile, CarbonIcons,
+  StructuredListHead, StructuredListRow, StructuredListWrapper, Tag, Tile, semanticIcons,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 
@@ -252,16 +252,16 @@ export function ExecutionStep({ sources, actorParameters = {}, onContinueToScori
 
       <Grid narrow className="tp-execution__metrics">
         <Column sm={4} md={4} lg={5}>
-          <Tile className="tp-execution__metric-tile"><div className="tp-execution__metric-label"><CarbonIcons.DataBase size={20} /><span>已发现原始线索数</span></div><strong>{captured}</strong><small>来自后端任务状态</small></Tile>
+          <Tile className="tp-execution__metric-tile"><div className="tp-execution__metric-label"><semanticIcons.database size={20} /><span>已发现原始线索数</span></div><strong>{captured}</strong><small>来自后端任务状态</small></Tile>
         </Column>
         <Column sm={4} md={4} lg={5}>
-          <Tile className="tp-execution__metric-tile"><div className="tp-execution__metric-label"><CarbonIcons.Security size={20} /><span>已创建 Actor 任务</span></div><strong>{runs.length}</strong><small>由所选平台 Schema 任务生成</small></Tile>
+          <Tile className="tp-execution__metric-tile"><div className="tp-execution__metric-label"><semanticIcons.security size={20} /><span>已创建 Actor 任务</span></div><strong>{runs.length}</strong><small>由所选平台 Schema 任务生成</small></Tile>
         </Column>
         <Column sm={4} md={8} lg={3}>
-          <Tile className="tp-execution__metric-tile"><div className="tp-execution__metric-label"><CarbonIcons.Time size={20} /><span>运行耗时</span></div><strong className="tp-execution__metric-time">{elapsedText}</strong><small>{status === 'running' ? '正在读取后端任务状态' : status === 'completed' ? '所有已创建任务已结束' : status === 'failed' ? '任务创建失败' : '尚未创建后端任务'}</small></Tile>
+          <Tile className="tp-execution__metric-tile"><div className="tp-execution__metric-label"><semanticIcons.time size={20} /><span>运行耗时</span></div><strong className="tp-execution__metric-time">{elapsedText}</strong><small>{status === 'running' ? '正在读取后端任务状态' : status === 'completed' ? '所有已创建任务已结束' : status === 'failed' ? '任务创建失败' : '尚未创建后端任务'}</small></Tile>
         </Column>
         <Column sm={4} md={8} lg={3}>
-          <Tile className="tp-execution__metric-tile"><div className="tp-execution__metric-label"><CarbonIcons.Document size={20} /><span>已取得结果记录</span></div><strong>{recordIds.length}</strong><small>来自后端结果接口</small></Tile>
+          <Tile className="tp-execution__metric-tile"><div className="tp-execution__metric-label"><semanticIcons.document size={20} /><span>已取得结果记录</span></div><strong>{recordIds.length}</strong><small>来自后端结果接口</small></Tile>
         </Column>
       </Grid>
 
@@ -269,11 +269,11 @@ export function ExecutionStep({ sources, actorParameters = {}, onContinueToScori
         <div className="tp-execution__control-heading"><div><span className="tp-execution__eyebrow">GLOBAL PROGRESS</span><h2>全局任务进度</h2><p>汇总各渠道后端任务返回的进度（按已创建任务统计）</p></div><strong className="tp-execution__percent">{progress}%</strong></div>
         <ProgressBar label="任务总进度" helperText={status === 'completed' ? '所有已创建渠道任务均已结束' : status === 'failed' ? '没有成功启动可执行渠道任务' : status === 'idle' ? '配置校验通过后可创建真实后端任务' : '每 5 秒同步一次后端任务状态'} max={100} value={progress} status="active" />
         <div className="tp-execution__actions">
-          {status === 'idle' && <Button kind="primary" renderIcon={CarbonIcons.Play} disabled={starting || !hasRunnableSource} onClick={startTask}>{starting ? '正在创建任务…' : '开始执行全网搜索'}</Button>}
+          {status === 'idle' && <Button kind="primary" renderIcon={semanticIcons.play} disabled={starting || !hasRunnableSource} onClick={startTask}>{starting ? '正在创建任务…' : '开始执行全网搜索'}</Button>}
           
           {allFinished && enabledActorPlans.length > 0 && schemaSaveStatus !== 'saved' && <Button kind="tertiary" disabled={savingSchema} onClick={() => void saveSchemas()}>{savingSchema ? '正在保存 Schema…' : '保存本次 Schema'}</Button>}
-          {allFinished && <Button kind="tertiary" renderIcon={CarbonIcons.Reset} onClick={resetTask}>开始新一轮任务</Button>}
-          {status === 'completed' && <Button kind="primary" renderIcon={CarbonIcons.ArrowRight} disabled={!recordIds.length} onClick={() => onContinueToScoring(recordIds)}>进入第四步：处理 {recordIds.length} 条真实检索结果</Button>}
+          {allFinished && <Button kind="tertiary" renderIcon={semanticIcons.reset} onClick={resetTask}>开始新一轮任务</Button>}
+          {status === 'completed' && <Button kind="primary" renderIcon={semanticIcons.next} disabled={!recordIds.length} onClick={() => onContinueToScoring(recordIds)}>进入第四步：处理 {recordIds.length} 条真实检索结果</Button>}
         </div>
         {schemaSaveMessage && <InlineNotification kind={schemaSaveStatus === 'failed' ? 'error' : schemaSaveStatus === 'partial' ? 'warning' : 'success'} lowContrast title="Actor Schema 保存状态" subtitle={schemaSaveMessage} />}
         {status === 'completed' && <InlineNotification kind="success" lowContrast title="后端任务已结束" subtitle={'已获取 ' + recordIds.length + ' 条真实结果记录。'} />}

@@ -5,7 +5,7 @@ import {
   Button, Link, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput, TextArea,
   Tabs, TabList, Tab, TabPanels, TabPanel, Table, TableHead, TableRow, TableHeader, TableBody, TableCell,
   ComposedModal, ModalHeader, ModalBody, ModalFooter, Checkbox, RadioButtonGroup, RadioButton,
-  CarbonIcons, BusinessLifecycle, WorldMapChart,
+  semanticIcons, BusinessLifecycle, WorldMapChart,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import { DonutChart, SimpleBarChart } from '@carbon/charts-react';
@@ -102,7 +102,7 @@ export function OpportunityConsolePage() {
   const contactMap = new Map(contacts.map(c=>[c.id,contactName(c)]));
   return <main className="tp-opportunities">
     <PageHeader className="tp-opportunities__header"><div><p className="tp-opportunities__eyebrow">TRADEPILOT / CRM</p><h1>商机（Opportunity）</h1><p>管理销售机会、阶段、预测金额、客户关系与跟进计划。</p></div>
-      <div className="tp-opportunities__actions"><Button kind="tertiary" onClick={()=>void load()} disabled={loading}><CarbonIcons.Renew size={16}/>刷新</Button><Link href="/opportunities/new" renderIcon={CarbonIcons.Add}>新建商机</Link></div>
+      <div className="tp-opportunities__actions"><Button kind="tertiary" onClick={()=>void load()} disabled={loading}><semanticIcons.refresh size={16}/>刷新</Button><Link href="/opportunities/new" renderIcon={semanticIcons.add}>新建商机</Link></div>
     </PageHeader>
     {error&&<InlineNotification kind="error" title="商机数据读取失败" subtitle={error}/>}
     <div className="tp-opportunities__metrics"><Metric title="全部商机" value={String(rows.length)} detail="当前可见商机"/><Metric title="进行中" value={String(open.length)} detail="尚未关闭"/><Metric title="预计管道金额" value={pipeline} detail="按商机金额汇总"/><Metric title="加权预测金额" value={weighted} detail="金额 × 赢率"/></div>
@@ -218,7 +218,7 @@ export function OpportunityDetailPage() {
  if(error||!row)return <main className="tp-opportunities"><InlineNotification kind="error" title="无法打开商机" subtitle={error||'商机不存在'}/><Link href="/opportunities">返回列表</Link></main>;
  return <main className="tp-opportunities">
    <PageHeader className="tp-opportunities__header"><div><p className="tp-opportunities__eyebrow">TRADEPILOT / CRM / OPPORTUNITY</p><h1>{row.name}</h1><p>{row.opportunity_number} · {account} · {stageLabel(row.stage)}</p></div>
-     <div className="tp-opportunities__actions tp-responsive-header-actions"><Link className="tp-opportunities__primary-action tp-responsive-header-actions__primary" href={'/opportunities/'+row.id+'/edit'} renderIcon={CarbonIcons.Edit}>编辑商机</Link><div className="tp-opportunities__secondary-actions tp-responsive-header-actions__secondary"><Link href="/opportunities">返回列表</Link><Link href={'/quotes/new?opportunity='+row.id} renderIcon={CarbonIcons.Document}>创建报价单</Link><Button kind="tertiary" disabled={terminal} onClick={openLifecycle}>管理生命周期</Button></div></div>
+     <div className="tp-opportunities__actions tp-responsive-header-actions"><Link className="tp-opportunities__primary-action tp-responsive-header-actions__primary" href={'/opportunities/'+row.id+'/edit'} renderIcon={semanticIcons.edit}>编辑商机</Link><div className="tp-opportunities__secondary-actions tp-responsive-header-actions__secondary"><Link href="/opportunities">返回列表</Link><Link href={'/quotes/new?opportunity='+row.id} renderIcon={semanticIcons.document}>创建报价单</Link><Button kind="tertiary" disabled={terminal} onClick={openLifecycle}>管理生命周期</Button></div></div>
    </PageHeader>
    <BusinessLifecycle title="商机生命周期" steps={lifecycleStages.map(([value,label])=>({value,label}))} current={row.stage} terminal={terminal} terminalKind={row.stage==='won'?'success':'warning'} terminalTitle={row.stage==='won'?'商机已赢单':'商机已输单'} description={terminal?'商机已进入终止阶段':`当前阶段：${stageLabel(row.stage)}`} events={lifecycleEvents}>
      <div className="tp-opportunities__lifecycle-foot"><span>阶段变更需要人工确认；报价、订单等下游记录的生成不会仅凭阶段按钮自动发生。</span>{!terminal&&<Button kind="tertiary" size="sm" onClick={openLifecycle}>确认下一阶段</Button>}</div>
@@ -252,7 +252,7 @@ export function OpportunityDetailPage() {
    <ComposedModal open={lifecycleOpen} onClose={()=>{if(!saving)setLifecycleOpen(false)}}>
      <ModalHeader title="确认商机生命周期变更" label={row.opportunity_number}/>
      <ModalBody hasForm>
-       <div className="tp-opportunities__transition-summary"><span>当前阶段</span><strong>{stageLabel(row.stage)}</strong><CarbonIcons.ArrowRight size={16}/><span>目标阶段</span><strong>{stageLabel(nextStage)||'请选择'}</strong></div>
+       <div className="tp-opportunities__transition-summary"><span>当前阶段</span><strong>{stageLabel(row.stage)}</strong><semanticIcons.next size={16}/><span>目标阶段</span><strong>{stageLabel(nextStage)||'请选择'}</strong></div>
        <div className="tp-opportunities__field"><Select id="opportunity-next-stage" labelText="目标阶段" value={nextStage} onChange={e=>setNextStage(e.currentTarget.value)}>{nextOptions.map(([value,title])=><SelectItem key={value} value={value} text={title}/>)}</Select></div>
        <div className="tp-opportunities__field"><TextArea id="opportunity-transition-note" labelText={nextStage==='lost'?'输单原因 / 备注 *':'确认说明'} value={transitionNote} rows={3} onChange={e=>setTransitionNote(e.currentTarget.value)} placeholder="说明本次阶段变更的业务依据"/></div>
        <Checkbox id="opportunity-transition-confirm" labelText="我已核实商机信息，并确认进入所选阶段。" checked={confirmed} onChange={(_,data)=>setConfirmed(Boolean(data.checked))}/>

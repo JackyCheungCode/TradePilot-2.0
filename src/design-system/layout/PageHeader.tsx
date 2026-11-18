@@ -1,9 +1,9 @@
 import { Children, cloneElement, createElement, isValidElement, type ReactElement, type ReactNode } from 'react';
-import { ArrowLeft, ArrowRight, Add, Checkmark, Download, Edit, Renew, Save, Send, TrashCan, Upload } from '../icons';
+import { semanticIcons } from '../icons';
 import { Button, ButtonSet, Heading, Link } from '../components';
 import './page-header.scss';
 
-type CarbonActionIcon = typeof Add;
+type CarbonActionIcon = typeof semanticIcons.add;
 
 export type PageHeaderAction = {
   id: string;
@@ -23,25 +23,6 @@ export type PageHeaderProps = {
   className?: string;
   children?: ReactNode;
 };
-
-const actionIconRules: Array<[RegExp, CarbonActionIcon]> = [
-  [/^(返回|取消|上一步|返回列表|返回单据中心|返回制作中心)/, ArrowLeft],
-  [/^(保存|存储|草稿|更新|提交保存)/, Save],
-  [/^(新建|创建|新增|添加|导入|绑定)/, Add],
-  [/^(刷新|重试|重新载入)/, Renew],
-  [/^(编辑|修改)/, Edit],
-  [/^(导出|下载)/, Download],
-  [/^(上传|导入文件)/, Upload],
-  [/^(删除|移除|撤销|作废)/, TrashCan],
-  [/^(确认|完成|通过|接受|核销|提交)/, Checkmark],
-  [/^(发送|发出|通知)/, Send],
-  [/^(查看|进入|下一步|打开|继续|管理|生成)/, ArrowRight],
-];
-
-function inferActionIcon(label: string): CarbonActionIcon | undefined {
-  const normalized = label.trim().replace(/[：:…]+$/, '');
-  return actionIconRules.find(([pattern]) => pattern.test(normalized))?.[1] ?? (normalized ? ArrowRight : undefined);
-}
 
 function isActionElement(node: ReactNode): node is ReactElement<Record<string, unknown>> {
   return isValidElement(node) && (node.type === Button || node.type === Link);
@@ -87,21 +68,21 @@ function extractChildIcon(children: ReactNode): { children: ReactNode; icon?: Re
   return { children: visit(children), icon };
 }
 
-function resolveActionIcon(label: string, supplied: unknown, childIcon?: ReactElement<Record<string, unknown>>): ReactNode {
-  if (isValidElement(supplied)) return cloneElement(supplied, { size: 16 } as Record<string, unknown>);
-  if (typeof supplied === 'function' || (typeof supplied === 'object' && supplied !== null)) {
-    return createElement(supplied as CarbonActionIcon, { size: 16 });
+function resolveActionIcon(supplied: unknown, childIcon?: ReactElement<Record<string, unknown>>): CarbonActionIcon | undefined {
+  if (isValidElement(supplied)) {
+    return supplied.type === 'svg' ? undefined : supplied.type as CarbonActionIcon;
   }
-  if (childIcon) return cloneElement(childIcon, { size: 16 });
-  const inferred = inferActionIcon(label);
-  return inferred ? createElement(inferred, { size: 16 }) : undefined;
+  if (typeof supplied === 'function' || (typeof supplied === 'object' && supplied !== null)) {
+    return supplied as CarbonActionIcon;
+  }
+  if (childIcon && childIcon.type !== 'svg') return childIcon.type as CarbonActionIcon;
+  return undefined;
 }
 
-function actionContent(children: ReactNode, icon?: ReactNode): ReactNode {
+function actionContent(children: ReactNode): ReactNode {
   return createElement(
     'span',
     { className: 'tp-page-header__action-content' },
-    icon,
     createElement('span', { className: 'tp-page-header__action-label' }, children),
   );
 }
@@ -121,18 +102,18 @@ function normalizeLegacyActions(node: ReactNode, primaryAssigned: { current: boo
     if (primary) primaryAssigned.current = true;
     const kind = primary ? 'primary' : 'tertiary';
     const className = [String(props.className || ''), 'tp-page-header__action'].filter(Boolean).join(' ');
-    const icon = resolveActionIcon(label, props.renderIcon, extracted.icon);
-    const content = actionContent(extracted.children, icon);
+    const icon = resolveActionIcon(props.renderIcon, extracted.icon);
+    const content = actionContent(extracted.children);
 
     if (node.type === Button) {
-      return cloneElement(node, { kind, size: 'lg', className, renderIcon: undefined } as Record<string, unknown>, content);
+      return cloneElement(node, { kind, size: 'lg', className, renderIcon: icon } as Record<string, unknown>, content);
     }
     return createElement(Button, {
       ...(props as Record<string, unknown>),
       kind,
       size: 'lg',
       className,
-      renderIcon: undefined,
+      renderIcon: icon,
     } as never, content);
   }
 
@@ -197,8 +178,8 @@ export function PageHeader({ breadcrumb, title, description, actions, className 
       {normalizedActions.length > 0 && (
         <ButtonSet className="tp-page-header__actions">
           {normalizedActions.map((action) => (
-            <Button key={action.id} kind={action.kind} size="lg" href={action.href} onClick={action.onClick} disabled={action.disabled}>
-              {actionContent(action.label, resolveActionIcon(action.label, action.icon))}
+            <Button key={action.id} kind={action.kind} size="lg" href={action.href} onClick={action.onClick} disabled={action.disabled} renderIcon={resolveActionIcon(action.icon)}>
+              {actionContent(action.label)}
             </Button>
           ))}
         </ButtonSet>
