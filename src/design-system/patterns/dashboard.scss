@@ -43,7 +43,7 @@
   margin-bottom: 1.25rem;
   background: var(--cds-border-subtle-01);
 }
-.tp-workbench__metric {
+.tp-workbench__metric.cds--tile--clickable {
   position: relative;
   display: flex;
   min-width: 0;
@@ -182,7 +182,7 @@
   gap: 1.25rem;
   margin-top: 1.25rem;
 }
-.tp-workbench__risk-row {
+.tp-workbench__risk-row.cds--tile--clickable {
   display: grid;
   width: 100%;
   grid-template-columns: minmax(0,1fr) auto 1.25rem;
@@ -196,10 +196,10 @@
   text-align: left;
   cursor: pointer;
 }
-.tp-workbench__risk-row:hover { color: var(--cds-link-primary); }
+.tp-workbench__risk-row.cds--tile--clickable:hover { color: var(--cds-link-primary); }
 .tp-workbench__risk-row strong { font-size: 1rem; font-variant-numeric: tabular-nums; }
 .tp-workbench__activity-list { display: grid; }
-.tp-workbench__activity-list button {
+.tp-workbench__activity-list .tp-workbench__activity-item.cds--tile--clickable {
   display: grid;
   width: 100%;
   grid-template-columns: .625rem minmax(0,1fr) auto;
@@ -213,7 +213,7 @@
   text-align: left;
   cursor: pointer;
 }
-.tp-workbench__activity-list button:hover strong { color: var(--cds-link-primary); }
+.tp-workbench__activity-list .tp-workbench__activity-item.cds--tile--clickable:hover strong { color: var(--cds-link-primary); }
 .tp-workbench__activity-list button > span:nth-child(2) { display: flex; min-width: 0; flex-direction: column; gap: .2rem; }
 .tp-workbench__activity-list strong { overflow: hidden; font-size: .8125rem; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
 .tp-workbench__activity-list small,.tp-workbench__activity-list time { color: var(--cds-text-secondary); font-size: .6875rem; }
@@ -367,7 +367,7 @@
 }
 
 
-.tp-workbench__metric{position:relative;overflow:hidden}
+.tp-workbench__metric.cds--tile--clickable{position:relative;overflow:hidden;width:100%;text-align:left;text-decoration:none;}
 .tp-workbench__metric::before{content:'';position:absolute;inset:0 0 auto;height:3px;background:var(--tp-metric-accent,var(--cds-support-info))}
 .tp-workbench__metric:nth-child(5n+1){--tp-metric-accent:var(--cds-support-info)}
 .tp-workbench__metric:nth-child(5n+2){--tp-metric-accent:var(--cds-support-success)}
