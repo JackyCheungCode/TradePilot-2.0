@@ -1,4 +1,4 @@
-import { PageSkeleton, pageSkeletonHeader, pageSkeletonFormSection, pageSkeletonPanel } from '@/design-system';
+import { PageSkeleton, pageSkeletonHeader, pageSkeletonPanel } from '@/design-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
