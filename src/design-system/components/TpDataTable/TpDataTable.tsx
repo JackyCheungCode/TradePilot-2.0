@@ -73,11 +73,11 @@ export function TpDataTable<T extends Record<string, unknown>>({
 
   return (
     <div className={`tp-data-table${refreshing ? ' tp-data-table--refreshing' : ''}`}>
-      <DataTable rows={carbonRows} headers={headers} isSortable batchActions={selectable}>
-        {({ rows: renderedRows, getHeaderProps, getRowProps, getSelectionProps, getBatchActionProps, selectedRows: carbonSelectedRows, onInputChange }) => (
+      <DataTable rows={carbonRows} headers={headers} isSortable>
+        {({ rows: renderedRows, getHeaderProps, getRowProps, getSelectionProps, getBatchActionProps, selectedRows: carbonSelectedRows }) => (
           <TableContainer aria-label={ariaLabel}>
             <TableToolbar>
-              {selectable && (
+              {selectable && carbonSelectedRows.length > 0 && (
                 <TableBatchActions {...getBatchActionProps()}>
                   {batchActions.map((action) => (
                     <TableBatchAction
