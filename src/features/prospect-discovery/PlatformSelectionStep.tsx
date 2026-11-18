@@ -14,20 +14,17 @@ const preservedGroups: SourceGroup[] = [
 ];
 
 const globalCatalog: SourceGroup[] = [
-  { id: 'search', title: '搜索引擎与网页发现', description: '网页、关键词、新闻、图片、商品搜索与网站发现', sources: [
-    ['google-search','Google Search','网页、企业、产品与关键词结果'],['bing-search','Bing Search','网页、新闻与图片搜索'],['yahoo-search','Yahoo Search','网页与新闻发现'],['duckduckgo','DuckDuckGo','网页搜索与主题发现'],['google-news','Google News','行业新闻与企业动态'],['google-shopping','Google Shopping','商品、价格与零售商信息'],['yandex','Yandex','区域网页、图片与商品搜索'],['baidu','Baidu','中文网页与资讯搜索'],['naver-search','Naver Search','韩国网页与内容搜索'],['brave-search','Brave Search','网页索引与发现'],
+  { id: 'search', title: '搜索引擎与网页发现', description: '网页、关键词、新闻、图片与企业网站发现', sources: [
+    ['google-search','Google Search','网页、企业、产品与关键词结果'],['bing-search','Bing Search','网页、新闻与图片搜索'],['yahoo-search','Yahoo Search','网页与新闻发现'],['duckduckgo','DuckDuckGo','网页搜索与主题发现'],['google-news','Google News','行业新闻与企业动态'],['yandex','Yandex','区域网页与图片搜索'],['baidu','Baidu','中文网页与资讯搜索'],['naver-search','Naver Search','韩国网页与内容搜索'],['brave-search','Brave Search','网页索引与发现'],
   ].map(([id,name,description])=>({id,name,description,markets:['*']})) },
-  { id: 'social', title: '社交媒体与专业网络', description: '企业主页、个人资料、帖子、评论、粉丝与互动', sources: [
-    ['instagram','Instagram','公开账号、帖子、Reels、话题与互动'],['facebook','Facebook','公开主页、帖子、群组与评论'],['tiktok','TikTok','公开账号、视频、话题与评论'],['linkedin-global','LinkedIn','企业、个人职业资料、职位与公开帖子'],['x-twitter','X','公开帖子、账号、话题与互动'],['reddit','Reddit','社区、帖子、评论与需求讨论'],['pinterest','Pinterest','Pins、Boards 与视觉趋势'],['threads','Threads','公开帖子与账号'],['snapchat','Snapchat','公开内容与创作者资料'],['telegram','Telegram','公开频道与群组内容'],['quora','Quora','问答、主题与用户讨论'],['medium','Medium','文章、作者与行业话题'],['tumblr','Tumblr','公开博客与内容'],['nextdoor','Nextdoor','公开本地社区内容'],
+  { id: 'social', title: '社交媒体与专业网络', description: '企业主页、品牌与商家账号、个人资料及公开商业线索', sources: [
+    ['instagram','Instagram','公开账号、帖子、Reels、话题与互动'],['facebook','Facebook','公开主页、帖子、群组与评论'],['tiktok','TikTok','公开商家与品牌账号、主页及商业联系线索'],['linkedin-global','LinkedIn','企业、个人职业资料、职位与公开帖子'],['x-twitter','X','公开帖子、账号、话题与互动'],['reddit','Reddit','社区、帖子、评论与需求讨论'],['pinterest','Pinterest','Pins、Boards 与视觉趋势'],['threads','Threads','公开帖子与账号'],['snapchat','Snapchat','公开内容与创作者资料'],['telegram','Telegram','公开频道与群组内容'],['quora','Quora','问答、主题与用户讨论'],['medium','Medium','文章、作者与行业话题'],['tumblr','Tumblr','公开博客与内容'],['nextdoor','Nextdoor','公开本地社区内容'],
   ].map(([id,name,description])=>({id,name,description,markets:['*']})) },
   { id: 'video', title: '视频、直播与内容平台', description: '频道、视频、创作者、评论与内容趋势', sources: [
     ['youtube','YouTube','频道、视频、评论、字幕与关键词'],['vimeo','Vimeo','视频与创作者资料'],['twitch','Twitch','频道、直播与公开互动'],['dailymotion','Dailymotion','视频与频道'],['rumble','Rumble','视频、频道与内容'],['bilibili','Bilibili','视频、UP 主、评论与弹幕'],['nicovideo','Niconico','日本视频与创作者内容'],
   ].map(([id,name,description])=>({id,name,description,markets:['*']})) },
-  { id: 'ecommerce', title: '电商、零售与商品市场', description: '商品、卖家、品牌、价格、排名、评价与店铺', sources: [
-    ['amazon','Amazon','商品、卖家、品牌、价格与评论'],['ebay','eBay','商品、卖家、成交与价格信号'],['walmart','Walmart','商品、品牌、卖家与评价'],['alibaba','Alibaba.com','B2B 供应商、产品与报价'],['aliexpress','AliExpress','商品、店铺、价格与评价'],['etsy','Etsy','商品、店铺与评价'],['temu','Temu','商品、价格与品类趋势'],['shein','SHEIN','商品、款式与价格'],['shopify-stores','Shopify Stores','独立站、商品与品牌目录'],['woocommerce','WooCommerce','独立站商品与店铺'],['bigcommerce','BigCommerce','独立站商品与品牌'],['rakuten','Rakuten','商品、商家与价格'],['target','Target','商品、品牌与零售价格'],['bestbuy','Best Buy','消费电子商品与评价'],['costco','Costco','商品与零售价格'],['newegg','Newegg','电脑硬件、消费电子与卖家'],['wayfair','Wayfair','家居与智能家居商品'],['flipkart','Flipkart','印度电商商品与卖家'],['lazada','Lazada','东南亚商品与店铺'],['shopee','Shopee','东南亚商品、卖家与评价'],['tiktok-shop','TikTok Shop','商品、店铺与创作者带货'],['mercado-libre','Mercado Libre','拉美商品、店铺与卖家'],
-  ].map(([id,name,description])=>({id,name,description,markets:['*']})) },
-  { id: 'reviews', title: '评价、口碑与消费者反馈', description: '品牌声誉、商品体验、评分与用户痛点', sources: [
-    ['trustpilot','Trustpilot','企业评分、评论与口碑'],['g2','G2','软件与企业服务评价'],['capterra','Capterra','软件产品与供应商评价'],['trustradius','TrustRadius','产品评测与企业评价'],['sitejabber','Sitejabber','网站与商家评价'],['tripadvisor','Tripadvisor','本地商家与服务评价'],['yelp-reviews','Yelp','本地商家评分与评论'],['google-reviews','Google Reviews','企业地点与用户评价'],['amazon-reviews','Amazon Reviews','商品评价与用户反馈'],
+  { id: 'ecommerce', title: '电商、零售与商品市场', description: '商家、卖家、品牌与店铺经营主体发现', sources: [
+    ['amazon','Amazon','Marketplace 卖家、品牌与店铺经营主体'],['ebay','eBay','卖家账号、店铺与经营主体'],['walmart','Walmart','Marketplace 商家、品牌与卖家'],['alibaba','Alibaba.com','B2B 供应商、制造商与批发商'],['aliexpress','AliExpress','店铺经营者、卖家与品牌主体'],['etsy','Etsy','店铺经营者、品牌与商家'],['temu','Temu','平台商家与品牌经营主体（以可识别商家为准）'],['shein','SHEIN','品牌与可识别商家经营主体'],['shopify-stores','Shopify Stores','独立站品牌、店铺与经营主体'],['woocommerce','WooCommerce','WooCommerce 独立站与经营主体'],['bigcommerce','BigCommerce','BigCommerce 独立站与经营主体'],['rakuten','Rakuten','店铺、卖家与品牌经营主体'],['target','Target','Marketplace 商家、品牌与供应商'],['bestbuy','Best Buy','消费电子品牌、商家与供应商'],['costco','Costco','品牌、供应商与商业合作主体'],['newegg','Newegg','电脑硬件与消费电子卖家、品牌'],['wayfair','Wayfair','家居品牌、店铺与供应商'],['flipkart','Flipkart','印度 Marketplace 卖家与店铺'],['lazada','Lazada','东南亚商家、卖家与店铺'],['shopee','Shopee','东南亚商家、卖家与店铺'],['tiktok-shop','TikTok Shop','商家、品牌店铺与经营主体'],['mercado-libre','Mercado Libre','拉美商家、卖家与店铺'],
   ].map(([id,name,description])=>({id,name,description,markets:['*']})) },
   { id: 'web-tech', title: '独立站、网站与技术情报', description: '网站发现、技术栈、店铺识别与流量线索', sources: [
     ['builtwith','BuiltWith','网站技术栈与技术使用情况'],['wappalyzer','Wappalyzer','网站技术识别'],['similarweb','Similarweb','网站流量与竞争情报'],['website-crawl','网站内容采集','官网、产品页、联系页与经销商页面'],['domain-discovery','域名与品牌发现','品牌域名、子域名与网站关联线索'],['webflow','Webflow','基于 Webflow 的独立站发现'],['wix','Wix','基于 Wix 的独立站发现'],['squarespace','Squarespace','基于 Squarespace 的独立站发现'],['magento','Magento / Adobe Commerce','电商网站与商品目录'],['prestashop','PrestaShop','电商网站与商品目录'],
@@ -140,7 +137,7 @@ const regionalCategory = (source: RegionalSource) => {
   if (/seek|naukri|xing/.test(id)) return '招聘、人才与企业扩张信号';
   if (/companies-house|kvk/.test(id)) return '企业、投融资与产品创新';
   if (/naver|yahoo/.test(id)) return '搜索引擎与网页发现';
-  if (/bbb|yelp/.test(id)) return '评价、口碑与消费者反馈';
+  if (/bbb/.test(id)) return '企业名录与本地商业目录';
   if (/thomasnet|macraes|europages|kompass|wlw|yellow|gelbe|das-oertliche|11880|section|telelistas|braby|vconnect|justdial|hitta|truelocal|finda|townpage|hktdc/.test(id)) return '企业名录与本地商业目录';
   return '企业名录与本地商业目录';
 };
@@ -150,7 +147,7 @@ const allPlatforms: Array<Source & { category: string; global: boolean }> = [
   ...regionalSources.map(source => ({ ...source, category: regionalCategory(source), global: false })),
 ];
 
-const excludedFromProspectDiscovery = new Set(["youtube","vimeo","twitch","dailymotion","rumble","bilibili","nicovideo","reddit","quora","medium","tumblr","hackernews","nextdoor","snapchat","threads","pinterest","tiktok","indeed","glassdoor","linkedin-jobs","monster","ziprecruiter","workday","greenhouse","lever","stepstone","seek","naukri","xing-jobs","seek-au","builtwith","wappalyzer","similarweb","google-news"]);
+const excludedFromProspectDiscovery = new Set(["youtube","vimeo","twitch","dailymotion","rumble","bilibili","nicovideo","reddit","quora","medium","tumblr","hackernews","nextdoor","snapchat","threads","pinterest","indeed","glassdoor","linkedin-jobs","monster","ziprecruiter","workday","greenhouse","lever","stepstone","seek","naukri","xing-jobs","seek-au","builtwith","wappalyzer","similarweb","google-news"]);
 const allPlatformsForDiscovery = allPlatforms.filter(source => !excludedFromProspectDiscovery.has(source.id));
 const categoryLabels = [...new Set(allPlatformsForDiscovery.map(source => source.category))];
 const isRunnablePlatform = (id: string) => allPlatformsForDiscovery.some(source => source.id === id);
@@ -212,10 +209,10 @@ const platformLogoSymbols: Record<string, { file: string; symbol: string }> = {
   'google-reviews': { file: 'platform-sprite-search.svg', symbol: 'google' },
 };
 const localPlatformLogos: Record<string, string> = {
-  'google-maps': 'google_maps.svg', alibaba: 'alibaba.svg', aliexpress: 'aliexpress.svg', amazon: 'amazon.svg',
+  'google-maps': 'google_maps.svg', shopify: 'shopify.svg', 'shopify-stores': 'shopify.svg', alibaba: 'alibaba.svg', aliexpress: 'aliexpress.svg', amazon: 'amazon.svg',
   facebook: 'facebook.svg', instagram: 'instagram.svg', linkedin: 'linkedin.svg', 'linkedin-global': 'linkedin.svg',
   line: 'line.svg', messenger: 'messenger.svg', telegram: 'telegram.svg', tiktok: 'tiktok.svg',
-  'tiktok-shop': 'tiktok.svg', 'linkedin-jobs': 'linkedin.svg', 'amazon-reviews': 'amazon.svg',
+  'tiktok-shop': 'tiktok.svg', 'linkedin-jobs': 'linkedin.svg',
   wechat: 'wechat.svg', whatsapp: 'whatsapp.svg',
 };
 
