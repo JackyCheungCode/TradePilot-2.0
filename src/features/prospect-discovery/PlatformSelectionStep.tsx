@@ -201,12 +201,20 @@ const platformLogoSymbols: Record<string, { file: string; symbol: string }> = {
   naver: { file: 'platform-sprite-regional.svg', symbol: 'naver' },
   xing: { file: 'platform-sprite-regional.svg', symbol: 'xing' },
   allegro: { file: 'platform-sprite-regional.svg', symbol: 'allegro' },
+  dailymotion: { file: 'platform-sprite-more.svg', symbol: 'dailymotion' },
+  bilibili: { file: 'platform-sprite-more.svg', symbol: 'bilibili' },
+  'yelp-reviews': { file: 'platform-sprite-more.svg', symbol: 'yelp' },
+  'yelp-local': { file: 'platform-sprite-more.svg', symbol: 'yelp' },
+  'naver-search': { file: 'platform-sprite-regional.svg', symbol: 'naver' },
+  'google-shopping': { file: 'platform-sprite-search.svg', symbol: 'google' },
+  'google-reviews': { file: 'platform-sprite-search.svg', symbol: 'google' },
 };
 const localPlatformLogos: Record<string, string> = {
   'google-maps': 'google_maps.svg', alibaba: 'alibaba.svg', aliexpress: 'aliexpress.svg', amazon: 'amazon.svg',
   facebook: 'facebook.svg', instagram: 'instagram.svg', linkedin: 'linkedin.svg', 'linkedin-global': 'linkedin.svg',
   line: 'line.svg', messenger: 'messenger.svg', telegram: 'telegram.svg', tiktok: 'tiktok.svg',
-  'tiktok-shop': 'tiktok.svg', wechat: 'wechat.svg', whatsapp: 'whatsapp.svg',
+  'tiktok-shop': 'tiktok.svg', 'linkedin-jobs': 'linkedin.svg', 'amazon-reviews': 'amazon.svg',
+  instagram: 'instagram.svg', tiktok: 'tiktok.svg', telegram: 'telegram.svg', wechat: 'wechat.svg', whatsapp: 'whatsapp.svg',
 };
 
 export function PlatformSelectionStep({
