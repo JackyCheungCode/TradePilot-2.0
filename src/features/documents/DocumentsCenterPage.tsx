@@ -6,7 +6,7 @@ import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/documents.scss';
 
 type RecentDocument = { id:string; document_number:string; title:string; document_type:string; status:string; created_at:string };
-const groups: Array<{ id: string; title: string; description: string; items: Array<{ type: string; label: string; detail: string; disabled?: boolean }> }> = [
+const groups: Array<{ id: string; title: string; description: string; icon: typeof semanticIcons.document; items: Array<{ type: string; label: string; detail: string; disabled?: boolean }> }> = [
   { id:'transaction', title:'交易单据', description:'报价、成交确认与合同文件', icon:semanticIcons.document, items:[
     {type:'quotation',label:'报价单',detail:'商业报价与有效期'},
     {type:'proforma_invoice',label:'形式发票（PI）',detail:'预付款与开证依据'},
