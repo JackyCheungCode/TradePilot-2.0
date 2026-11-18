@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Button, Search, TextInput, TextArea, Dropdown, Tag, InlineNotification, Modal, ModalBody, IconButton, Heading, Tile, LineChart, ScaleTypes, CarbonIcons, Breadcrumb, BreadcrumbItem, ContentSwitcher, Switch,
+  Button, Search, ClickableTile, TextInput, TextArea, Dropdown, Tag, InlineNotification, Modal, ModalBody, IconButton, Heading, Tile, LineChart, ScaleTypes, CarbonIcons, Breadcrumb, BreadcrumbItem, ContentSwitcher, Switch,
 } from '@/design-system';
 import {
   channelLabels, conversationsSeed, customersSeed, identitiesSeed, messagesSeed,
