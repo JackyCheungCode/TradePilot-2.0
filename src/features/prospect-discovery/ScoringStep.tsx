@@ -4,7 +4,7 @@ import {
   Button, Column, Dropdown, Grid, InlineNotification, Link, OverflowMenu,
   OverflowMenuItem, Pagination, Table, TableBody,
   TableCell, TableHead, TableHeader, TableRow, TableSelectAll, TableSelectRow,
-  TextInput, Tag, Tile, CarbonIcons,
+  TextInput, Tag, Tile, semanticIcons,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 
@@ -214,7 +214,7 @@ export function ScoringStep({ onContinueToEnrichment }: Props) {
       {notice && <InlineNotification kind="info" lowContrast title="操作反馈" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
 
       <Tile className="tp-scoring__snapshot">
-        <div className="tp-scoring__method-heading"><CarbonIcons.DocumentView size={18} /><strong>数据来源快照 / Source Snapshot</strong></div>
+        <div className="tp-scoring__method-heading"><semanticIcons.documentView size={18} /><strong>数据来源快照 / Source Snapshot</strong></div>
         <div className="tp-scoring__snapshot-grid">
           <div><span>检索记录 / Retrieved Records</span><strong>{rows.length} 条</strong></div>
           <div><span>数据来源 / Sources</span><strong>{sourceOptions.length} 个</strong></div>
@@ -233,7 +233,7 @@ export function ScoringStep({ onContinueToEnrichment }: Props) {
       <Tile className="tp-scoring__table-panel">
         <div className="tp-execution__section-heading"><div><h3>原始检索结果</h3><p>人工复核企业主体、官网与来源，再决定是否纳入 AI 清洗打分</p></div><Tag type="blue">{filtered.length} 条匹配</Tag></div>
         <div className="tp-scoring__table-controls">
-          {selected.length > 0 && <div className="tp-scoring__batch-actions"><span>已勾选 {selected.length} / {rows.length} 条记录</span><div><Button kind="primary" size="md" renderIcon={CarbonIcons.MagicWand} onClick={() => scoreRows(selected)}>AI 清洗与打分</Button><Button kind="tertiary" size="md" renderIcon={CarbonIcons.TrashCan} onClick={removeSelected}>批量移除</Button><Button kind="tertiary" size="md" renderIcon={CarbonIcons.Download} onClick={exportSelected}>导出 XLSX</Button><Button kind="primary" size="md" renderIcon={CarbonIcons.ArrowRight} disabled={loading || !selected.length} onClick={sendToEnrichment}>确认所选企业并进入第五步</Button><Button kind="ghost" size="md" onClick={() => setSelected([])}>取消选择</Button></div></div>}
+          {selected.length > 0 && <div className="tp-scoring__batch-actions"><span>已勾选 {selected.length} / {rows.length} 条记录</span><div><Button kind="primary" size="md" renderIcon={semanticIcons.magicWand} onClick={() => scoreRows(selected)}>AI 清洗与打分</Button><Button kind="tertiary" size="md" renderIcon={semanticIcons.delete} onClick={removeSelected}>批量移除</Button><Button kind="tertiary" size="md" renderIcon={semanticIcons.download} onClick={exportSelected}>导出 XLSX</Button><Button kind="primary" size="md" renderIcon={semanticIcons.next} disabled={loading || !selected.length} onClick={sendToEnrichment}>确认所选企业并进入第五步</Button><Button kind="ghost" size="md" onClick={() => setSelected([])}>取消选择</Button></div></div>}
           <div className="tp-scoring__toolbar">
             <TextInput
               id="tp-scoring-search"
@@ -260,7 +260,7 @@ export function ScoringStep({ onContinueToEnrichment }: Props) {
               {visible.map(row => <TableRow key={row.id}>
                 <TableSelectRow id={'scoring-' + row.id} name={'scoring-' + row.id} checked={selected.includes(row.id)} onSelect={() => toggleOne(row.id)} />
                 <TableCell><div className="tp-scoring__company"><strong>{row.name}</strong>{scoreTag(row.score)}{row.guardrailReview && <Tag type="warm-gray">护盾待审核</Tag>}{row.duplicateReview && <Tag type="warm-gray">重复待复核</Tag>}</div></TableCell>
-                <TableCell>{row.domain ? <Link href={row.domain.startsWith('http') ? row.domain : 'https://' + row.domain} target="_blank" rel="noreferrer">{row.domain}<CarbonIcons.ArrowUpRight size={12} /></Link> : <span>暂无官网</span>}<small>{row.email}</small></TableCell>
+                <TableCell>{row.domain ? <Link href={row.domain.startsWith('http') ? row.domain : 'https://' + row.domain} target="_blank" rel="noreferrer">{row.domain}<semanticIcons.externalLink size={12} /></Link> : <span>暂无官网</span>}<small>{row.email}</small></TableCell>
                 <TableCell><Tag type="blue">{row.source}</Tag></TableCell>
                 <TableCell>{row.score === undefined ? <span className="tp-scoring__score-empty">—</span> : <Button kind="ghost" size="sm" className="tp-scoring__score" title={'Fit ' + row.fit + ' · Persona ' + row.persona + ' · Scale ' + row.scale + ' · Intent ' + row.intent} onClick={() => setNotice('评分明细：Fit ' + row.fit + ' · Persona ' + row.persona + ' · Scale ' + row.scale + ' · Intent ' + row.intent)}>{row.score} 分</Button>}</TableCell>
                 <TableCell><span className="tp-scoring__comment">{row.comment || '尚未评分；选择记录后可调用已配置的评分模型。'}</span></TableCell>
@@ -273,21 +273,21 @@ export function ScoringStep({ onContinueToEnrichment }: Props) {
         <div className="tp-scoring__pagination"><Pagination id="tp-scoring-pagination" page={page} pageSize={pageSize} pageSizes={[10, 20, 50]} totalItems={filtered.length} onChange={({ page: nextPage, pageSize: nextSize }) => { setPage(nextPage); setPageSize(nextSize); }} /></div>
       </Tile>
       <Tile className="tp-scoring__methodology">
-        <div className="tp-scoring__method-heading"><CarbonIcons.MachineLearningModel size={18} /><strong>AI 模型、清洗方法与评分依据 / AI Model, Cleaning & Scoring</strong></div>
+        <div className="tp-scoring__method-heading"><semanticIcons.model size={18} /><strong>AI 模型、清洗方法与评分依据 / AI Model, Cleaning & Scoring</strong></div>
         <Grid narrow>
           <Column sm={4} md={4} lg={5}>
-            <Tile className="tp-scoring__info-tile"><div className="tp-scoring__info-title"><CarbonIcons.ModelBuilder size={18} /><strong>所用清洗与大模型</strong></div>
+            <Tile className="tp-scoring__info-tile"><div className="tp-scoring__info-title"><semanticIcons.modelBuilder size={18} /><strong>所用清洗与大模型</strong></div>
               <dl><dt>评分模型</dt><dd>由 AI 与 API 集成中的 prospect_scoring 任务配置决定</dd><dt>向量模型</dt><dd>当前评分链路未调用向量检索</dd></dl>
               <p>模型根据目标画像、企业基础字段、公开资料摘要和来源证据生成结构化评分。</p>
             </Tile>
           </Column>
           <Column sm={4} md={4} lg={5}>
-            <Tile className="tp-scoring__info-tile"><div className="tp-scoring__info-title"><CarbonIcons.Filter size={18} /><strong>清洗与过滤方法</strong></div>
+            <Tile className="tp-scoring__info-tile"><div className="tp-scoring__info-title"><semanticIcons.filter size={18} /><strong>清洗与过滤方法</strong></div>
               <ul><li><strong>真实记录：</strong>读取后端持久化的企业与渠道来源记录</li><li><strong>证据输入：</strong>提交企业字段、公开资料摘要及来源出现记录</li><li><strong>结构化输出：</strong>保存四项维度分数、证据、风险和模型信息</li></ul>
             </Tile>
           </Column>
           <Column sm={4} md={8} lg={6}>
-            <Tile className="tp-scoring__info-tile"><div className="tp-scoring__info-title"><CarbonIcons.ChartLine size={18} /><strong>综合评分公式</strong></div>
+            <Tile className="tp-scoring__info-tile"><div className="tp-scoring__info-title"><semanticIcons.chart size={18} /><strong>综合评分公式</strong></div>
               <div className="tp-scoring__formula">Score = (Fit × 40%) + (Persona × 30%) + (Scale × 20%) + (Intent × 10%)</div>
               <ul className="tp-scoring__weights"><li><span>Fit · 产品契合度</span><strong>40%</strong></li><li><span>Persona · 身位匹配度</span><strong>30%</strong></li><li><span>Scale · 规模实力</span><strong>20%</strong></li><li><span>Intent · 采购意图</span><strong>10%</strong></li></ul>
             </Tile>
