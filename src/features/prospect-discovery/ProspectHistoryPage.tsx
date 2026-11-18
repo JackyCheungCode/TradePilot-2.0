@@ -103,7 +103,20 @@ export function ProspectHistoryPage() {
   const donutOptions = { theme: document.documentElement.dataset.carbonTheme === 'g100' ? 'g100' : 'white', height: '260px', donut: { center: { label: '任务' } }, legend: { position: 'bottom' }, toolbar: { enabled: false } };
   const barOptions = { theme: document.documentElement.dataset.carbonTheme === 'g100' ? 'g100' : 'white', height: '260px', color: { pairing: { numberOfVariants: 14, option: 1 } }, axes: { bottom: { mapsTo: 'group', scaleType: 'labels' }, left: { mapsTo: 'value', scaleType: 'linear' } }, legend: { enabled: false }, toolbar: { enabled: false } };
 
-  if (loading) return <PageSkeleton variant="analytics-table" metricCount={0} chartCount={2} showMap showToolbar={false} columns={8} rows={6} />;
+  if (loading) return <PageSkeleton className="tp-prospect-hub" layout={[
+  { type: 'group', direction: 'row', gap: 'var(--cds-spacing-04)', className: 'tp-prospect-hub__header', children: [
+    { type: 'group', direction: 'column', gap: 'var(--cds-spacing-02)', children: [{ type: 'text', width: '18rem' }, { type: 'text', heading: true, width: '16rem' }, { type: 'text', width: '28rem' }] },
+    { type: 'placeholder', width: '9rem', height: '2.5rem' },
+  ] },
+  { type: 'group', direction: 'grid', columns: 2, gap: 'var(--cds-spacing-05)', className: 'tp-prospect-history__analytics', children: [
+    { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-prospect-hub__panel', children: [{ type: 'text', heading: true, width: '12rem' }, { type: 'placeholder', minHeight: '17rem' }] },
+    { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-prospect-hub__panel', children: [{ type: 'text', heading: true, width: '12rem' }, { type: 'placeholder', minHeight: '17rem' }] },
+    { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-prospect-hub__panel tp-prospect-history__market', children: [{ type: 'text', heading: true, width: '12rem' }, { type: 'placeholder', minHeight: '20rem' }] },
+  ] },
+  { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-prospect-hub__panel', children: [
+    { type: 'text', heading: true, width: '14rem' }, { type: 'table', columns: 8, rows: 6, className: 'tp-prospect-hub__table-wrap' },
+  ] },
+]} />;
   return (
     <main className="tp-prospect-hub">
       <header className="tp-prospect-hub__header">
