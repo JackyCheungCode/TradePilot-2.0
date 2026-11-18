@@ -24,25 +24,6 @@ export type PageHeaderProps = {
   children?: ReactNode;
 };
 
-const actionIconRules: Array<[RegExp, CarbonActionIcon]> = [
-  [/^(返回|取消|上一步|返回列表|返回单据中心|返回制作中心)/, ArrowLeft],
-  [/^(保存|存储|草稿|更新|提交保存)/, Save],
-  [/^(新建|创建|新增|添加|导入|绑定)/, Add],
-  [/^(刷新|重试|重新载入)/, Renew],
-  [/^(编辑|修改)/, Edit],
-  [/^(导出|下载)/, Download],
-  [/^(上传|导入文件)/, Upload],
-  [/^(删除|移除|撤销|作废)/, TrashCan],
-  [/^(确认|完成|通过|接受|核销|提交)/, Checkmark],
-  [/^(发送|发出|通知)/, Send],
-  [/^(查看|进入|下一步|打开|继续|管理|生成)/, ArrowRight],
-];
-
-function inferActionIcon(label: string): CarbonActionIcon | undefined {
-  const normalized = label.trim().replace(/[：:…]+$/, '');
-  return actionIconRules.find(([pattern]) => pattern.test(normalized))?.[1] ?? (normalized ? ArrowRight : undefined);
-}
-
 function isActionElement(node: ReactNode): node is ReactElement<Record<string, unknown>> {
   return isValidElement(node) && (node.type === Button || node.type === Link);
 }
@@ -87,22 +68,21 @@ function extractChildIcon(children: ReactNode): { children: ReactNode; icon?: Re
   return { children: visit(children), icon };
 }
 
-function resolveActionIcon(label: string, supplied: unknown, childIcon?: ReactElement<Record<string, unknown>>): ReactNode {
+function resolveActionIcon(supplied: unknown, childIcon?: ReactElement<Record<string, unknown>>): ReactNode {
   if (isValidElement(supplied)) return cloneElement(supplied, { size: 16 } as Record<string, unknown>);
   if (typeof supplied === 'function' || (typeof supplied === 'object' && supplied !== null)) {
     return createElement(supplied as CarbonActionIcon, { size: 16 });
   }
   if (childIcon) return cloneElement(childIcon, { size: 16 });
-  const inferred = inferActionIcon(label);
-  return inferred ? createElement(inferred, { size: 16 }) : undefined;
+  return undefined;
 }
 
 function actionContent(children: ReactNode, icon?: ReactNode): ReactNode {
   return createElement(
     'span',
     { className: 'tp-page-header__action-content' },
-    icon,
     createElement('span', { className: 'tp-page-header__action-label' }, children),
+    icon,
   );
 }
 
@@ -121,7 +101,7 @@ function normalizeLegacyActions(node: ReactNode, primaryAssigned: { current: boo
     if (primary) primaryAssigned.current = true;
     const kind = primary ? 'primary' : 'tertiary';
     const className = [String(props.className || ''), 'tp-page-header__action'].filter(Boolean).join(' ');
-    const icon = resolveActionIcon(label, props.renderIcon, extracted.icon);
+    const icon = resolveActionIcon(props.renderIcon, extracted.icon);
     const content = actionContent(extracted.children, icon);
 
     if (node.type === Button) {
@@ -198,7 +178,7 @@ export function PageHeader({ breadcrumb, title, description, actions, className 
         <ButtonSet className="tp-page-header__actions">
           {normalizedActions.map((action) => (
             <Button key={action.id} kind={action.kind} size="lg" href={action.href} onClick={action.onClick} disabled={action.disabled}>
-              {actionContent(action.label, resolveActionIcon(action.label, action.icon))}
+              {actionContent(action.label, resolveActionIcon(action.icon))}
             </Button>
           ))}
         </ButtonSet>
