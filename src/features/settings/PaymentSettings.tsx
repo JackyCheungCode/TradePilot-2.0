@@ -292,6 +292,6 @@ export function PaymentSettings() {
         {!history.length&&<p className="tp-settings__empty">暂无配置变更记录。</p>}
       </div>
     </section>
-    <div className="tp-settings__actions"><Button kind="primary" disabled={saving} onClick={()=>void save()}>{saving?'正在保存…':'保存收款设置'}</Button></div>
+    <div className="tp-settings__actions">{saving && <InlineLoading status="active" description="正在保存…" />}<Button kind="primary" disabled={saving} onClick={()=>void save()}>保存收款设置</Button></div>
   </div>;
 }
