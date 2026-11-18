@@ -139,7 +139,7 @@ export function ProspectHistoryPage() {
       </Tile>
       {runId && (
         <Tile className="tp-prospect-hub__panel tp-prospect-hub__detail">
-          <div className="tp-prospect-hub__section-heading"><div><p className="tp-prospect-hub__eyebrow">TASK DETAIL</p><h2>{selected ? codeOf(selected) : '任务详情'}</h2><p>{selected?.query || '未找到对应任务记录'}</p></div><Button kind="tertiary" renderIcon={CarbonIcons.ArrowLeft} onClick={() => navigate('/prospect-history')}>返回历史任务</Button></div>
+          <div className="tp-prospect-hub__section-heading"><div><p className="tp-prospect-hub__eyebrow">TASK DETAIL</p><h2>{selected ? codeOf(selected) : '任务详情'}</h2><p>{selected?.query || '未找到对应任务记录'}</p></div><Link href="/prospect-history" renderIcon={CarbonIcons.ArrowLeft}>返回历史任务</Link></div>
           {selected && <div className="tp-prospect-hub__detail-grid">
             <div><span>执行状态</span><Tag type={statusType(selected.status)}>{statusLabel(selected.status)}</Tag></div>
             <div><span>目标市场</span><strong>{(selected.countries ?? []).join(', ') || '—'}</strong></div>
