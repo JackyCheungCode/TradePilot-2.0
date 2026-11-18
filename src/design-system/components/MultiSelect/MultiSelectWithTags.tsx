@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import './multi-select.scss';
-import { DismissibleTag, FilterableMultiSelect as CarbonFilterableMultiSelect, MultiSelect as CarbonMultiSelect } from '@carbon/react';
+import { FilterableMultiSelect as CarbonFilterableMultiSelect, MultiSelect as CarbonMultiSelect } from '@carbon/react';
+import { DismissibleTag } from '../Tag';
 
 type SelectionChange<Item> = (data: { selectedItems: Item[] | null }) => void;
 type MultiSelectWithTagsProps<Item> = {
