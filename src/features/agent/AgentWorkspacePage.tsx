@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextArea, Tile, CarbonIcons,
+  Button, Link, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextArea, Tile, CarbonIcons,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/layout/AgentWorkspace.scss';
@@ -270,9 +270,7 @@ export function AgentWorkspacePage() {
             <Button kind="primary" size="md" onClick={() => void createConversation()}>
               <CarbonIcons.Add size={16} /> 新建对话
             </Button>
-            <Button kind="ghost" size="md" onClick={() => navigate('/recent-tasks')}>
-              <CarbonIcons.Task size={16} /> 任务执行中心
-            </Button>
+            <Link href="/recent-tasks" renderIcon={CarbonIcons.Task}>任务执行中心</Link>
           </div>
           {loading && <InlineLoading description="正在加载对话…" />}
         </section>
