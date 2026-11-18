@@ -165,7 +165,30 @@ export function ProspectDataPage() {
   const barOptions = { ...baseOptions, height: '280px', color: { pairing: { numberOfVariants: 14, option: 1 } }, axes: { bottom: { mapsTo: 'group', scaleType: 'labels' }, left: { mapsTo: 'value', scaleType: 'linear' } } };
   const areaOptions = { ...baseOptions, height: '300px', axes: { bottom: { title: '月份', mapsTo: 'date', scaleType: 'time' }, left: { title: '新增数量', mapsTo: 'value', scaleType: 'linear' } }, curve: 'curveMonotoneX', points: { enabled: false } };
 
-  if (loading) return <PageSkeleton variant="analytics-table" metricCount={3} chartCount={2} showMap columns={8} rows={6} />;
+  if (loading) return <PageSkeleton className="tp-prospect-hub tp-prospect-data" layout={[
+    { type: 'group', direction: 'row', gap: 'var(--cds-spacing-04)', className: 'tp-prospect-hub__header tp-prospect-data__header', children: [
+      { type: 'group', direction: 'column', gap: 'var(--cds-spacing-02)', children: [{ type: 'text', width: '18rem' }, { type: 'text', heading: true, width: '12rem' }, { type: 'text', width: '28rem' }] },
+      { type: 'group', direction: 'row', gap: 'var(--cds-spacing-03)', className: 'tp-prospect-data__actions', children: Array.from({ length: 3 }, () => ({ type: 'placeholder' as const, width: '7rem', height: '2.5rem' })) },
+    ] },
+    { type: 'group', direction: 'grid', columns: 2, gap: 'var(--cds-spacing-05)', className: 'tp-prospect-data__overview', children: [
+      { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-prospect-data__panel tp-prospect-data__market', children: [
+        { type: 'text', heading: true, width: '13rem' }, { type: 'placeholder', minHeight: '24rem' },
+      ] },
+      { type: 'group', direction: 'column', gap: 'var(--cds-spacing-05)', className: 'tp-prospect-data__overview-side', children: [0, 1].map(() => ({ type: 'group' as const, direction: 'column' as const, gap: 'var(--cds-spacing-04)', className: 'tp-prospect-data__panel', children: [{ type: 'text' as const, heading: true, width: '12rem' }, { type: 'placeholder' as const, minHeight: '12rem' }] })) },
+    ] },
+    { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-prospect-data__panel tp-prospect-data__trend', children: [{ type: 'text', heading: true, width: '13rem' }, { type: 'placeholder', minHeight: '18rem' }] },
+    { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-prospect-data__panel tp-prospect-data__dimensions', children: [
+      { type: 'text', heading: true, width: '13rem' },
+      { type: 'group', direction: 'row', gap: 'var(--cds-spacing-03)', children: Array.from({ length: 4 }, () => ({ type: 'placeholder' as const, width: '8rem', height: '2.5rem' })) },
+      { type: 'placeholder', minHeight: '17rem' },
+    ] },
+    { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-prospect-data__panel tp-prospect-data__all', children: [
+      { type: 'text', heading: true, width: '12rem' },
+      { type: 'group', direction: 'grid', columns: 4, gap: 'var(--cds-spacing-04)', className: 'tp-prospect-hub__filters tp-prospect-data__filters', children: Array.from({ length: 4 }, () => ({ type: 'placeholder' as const, height: '2.5rem' })) },
+      { type: 'table', columns: 8, rows: 6, className: 'tp-prospect-hub__table-wrap' },
+    ] },
+    { type: 'text', width: '30rem' },
+  ]} />;
   return (
     <main className="tp-prospect-hub tp-prospect-data">
       <header className="tp-prospect-hub__header tp-prospect-data__header">
