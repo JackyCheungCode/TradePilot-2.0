@@ -64,6 +64,6 @@ export function LeadCreatePage(){
    <TabPanel><div className="lead-form__tab-content"><h2>转换信息</h2><p className="lead-form__muted">线索尚未转换为 CRM Account、Contact 或 Opportunity。转换将在后续线索控制台中执行。</p><div className="lead-form__grid lead-form__grid--three">{['转换时间','关联 Account ID','关联 Contact ID','关联 Opportunity ID'].map(x=><Field key={x} label={x}><TextInput id={'converted-'+x} labelText={x} hideLabel value="—" readOnly/></Field>)}</div></div></TabPanel>
    <TabPanel><div className="lead-form__tab-content"><h2>系统信息</h2><div className="lead-form__grid lead-form__grid--three"><Field label="创建时间"><TextInput id="created-at" labelText="创建时间" hideLabel value="保存后自动记录" readOnly/></Field><Field label="更新时间"><TextInput id="updated-at" labelText="更新时间" hideLabel value="保存后自动记录" readOnly/></Field><Field label="创建方式"><TextInput id="created-method" labelText="创建方式" hideLabel value={recordId?'潜客转化':'手动创建'} readOnly/></Field></div></div></TabPanel>
   </TabPanels></Tabs></section>
-  <footer className="lead-form__footer"><span>带 * 为必填项 · 保存后自动生成线索编号</span><div><Button kind="ghost" onClick={()=>navigate(-1)}>取消</Button><Button kind="primary" disabled={saving||loadingSource} onClick={()=>void save()}>{saving?'保存中…':'保存线索'}</Button></div></footer>
+  <footer className="lead-form__footer"><span>带 * 为必填项 · 保存后自动生成线索编号</span><div>{saving && <InlineLoading status="active" description="正在保存线索…" />}<Button kind="ghost" onClick={()=>navigate(-1)}>取消</Button><Button kind="primary" disabled={saving||loadingSource} onClick={()=>void save()}>保存线索</Button></div></footer>
  </main>
 }
