@@ -41,7 +41,7 @@ function normalizeLegacyActions(node: ReactNode, primaryAssigned: { current: boo
     const primary = !primaryAssigned.current && (requestedPrimary || inferredPrimary);
     if (primary) primaryAssigned.current = true;
     const typeName = typeof node.type === 'string' ? node.type : (node.type as { displayName?: string; name?: string }).displayName || (node.type as { name?: string }).name || '';
-    const isButton = typeName === 'Button' || props.kind !== undefined || props.renderIcon !== undefined || props.disabled !== undefined || props.size !== undefined || props.onClick !== undefined;
+    const isButton = typeName === 'Button' || (props.href === undefined && (props.kind !== undefined || props.renderIcon !== undefined || props.disabled !== undefined || props.size !== undefined || props.onClick !== undefined));
     const kind = primary ? 'primary' : (props.kind === 'danger' || String(props.kind || '').startsWith('danger') ? props.kind : 'tertiary');
     const className = [String(props.className || ''), 'tp-page-header__action'].filter(Boolean).join(' ');
     return isButton
