@@ -87,6 +87,17 @@ function redactActorInput(value: unknown, depth = 0): unknown {
   }
   return output;
 }
+function inputFingerprint(value: Record<string, unknown>, schemaVersion: string): string {
+  const normalized = { ...value };
+  for (const key of ["maxItems", "maxResults", "maxResultsPerQuery", "resultsLimit", "maxItemsPerRun", "limit"]) if (key in normalized) normalized[key] = 1;
+  const serialized = JSON.stringify({ schemaVersion, input: normalized });
+  let hash = 2166136261;
+  for (let index = 0; index < serialized.length; index++) {
+    hash ^= serialized.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
 function validateActorInputAgainstSchema(input: Record<string, unknown>, schema: Record<string, unknown>): string[] {
   const properties = schema.properties && typeof schema.properties === "object" && !Array.isArray(schema.properties)
     ? schema.properties as Record<string, unknown> : {};
