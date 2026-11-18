@@ -75,7 +75,7 @@ export function QuoteConsolePage() {
     return (status==='all'||s===status) && (marketCountry==='all'||countryCode===marketCountry) && [r.document_number,r.title,r.content?.account_snapshot?.account_name].join(' ').toLowerCase().includes(query.trim().toLowerCase());
   });
   const count=(s:string)=>rows.filter(r=>String(r.content?.quote_status||(r.status==='draft'?'draft':r.status==='issued'?'sent':r.status))===s).length;
-  if (loading) return <PageSkeleton variant="table" />;
+  if (loading) return <PageSkeleton variant="analytics-table" metricCount={4} chartCount={2} showMap columns={7} rows={6} />;
   return <main className="tp-quotes">
     <header className="tp-quotes__header"><div><p className="tp-quotes__eyebrow">TRADEPILOT / SALES</p><h1>报价单（Quote）</h1><p>管理客户报价、版本、发送确认和销售订单转换。</p></div><div className="tp-quotes__actions"><Button kind="tertiary" onClick={()=>void load()} disabled={loading}><CarbonIcons.Renew size={16}/>刷新</Button><Link href="/quotes/new" renderIcon={CarbonIcons.Add}>创建报价单</Link></div></header>
     {error&&<InlineNotification kind="error" title="报价单读取失败" subtitle={error}/>}

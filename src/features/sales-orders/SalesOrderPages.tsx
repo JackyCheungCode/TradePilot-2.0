@@ -74,7 +74,7 @@ export function SalesOrderConsolePage(){
  const dailyAmount=days.map(d=>({group:(d.getMonth()+1)+'/'+d.getDate(),key:currency+' 订单金额',value:Number(amountMap.get(dayKey(d))||0)}));
  const dailyCount=days.map(d=>({group:(d.getMonth()+1)+'/'+d.getDate(),key:'订单数量',value:Number(countMap.get(dayKey(d))||0)}));
  const options={theme:document.documentElement.dataset.carbonTheme==='g100'?'g100':'white',height:'260px',color:{pairing:{numberOfVariants:14,option:1}},legend:{enabled:false},toolbar:{enabled:false},axes:{bottom:{title:'日期',mapsTo:'group',scaleType:ScaleTypes.LABELS},left:{mapsTo:'value',scaleType:ScaleTypes.LINEAR}}};
- if (loading) return <PageSkeleton variant="table" />;
+ if (loading) return <PageSkeleton variant="analytics-table" metricCount={8} chartCount={2} showMap columns={8} rows={6} />;
  return <main className="tp-sales-orders">
   <header className="tp-sales-orders__header"><div><p className="tp-sales-orders__eyebrow">TRADEPILOT / SALES</p><h1>销售订单（Sales Order）</h1><p>管理订单承诺、价格锁定、收款计划与交付履约。</p></div><div className="tp-sales-orders__actions"><Button kind="tertiary" onClick={()=>void load()} disabled={loading}><CarbonIcons.Renew size={16}/>刷新</Button><Link href="/sales-orders/new" renderIcon={CarbonIcons.Add}>创建销售订单</Link></div></header>
   {error&&<InlineNotification kind="error" title="销售订单读取失败" subtitle={error}/>}

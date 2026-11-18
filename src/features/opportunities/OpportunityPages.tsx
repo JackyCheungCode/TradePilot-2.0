@@ -100,7 +100,7 @@ export function OpportunityConsolePage() {
   const pageRows = filtered.slice((page-1)*pageSize,page*pageSize);
   const accountMap = new Map(accounts.map(a=>[a.id,a.account_name] as [string,string]));
   const contactMap = new Map(contacts.map(c=>[c.id,contactName(c)]));
-  if (loading) return <PageSkeleton variant="table" />;
+  if (loading) return <PageSkeleton variant="analytics-table" metricCount={4} chartCount={2} showMap columns={8} rows={6} />;
   return <main className="tp-opportunities">
     <header className="tp-opportunities__header"><div><p className="tp-opportunities__eyebrow">TRADEPILOT / CRM</p><h1>商机（Opportunity）</h1><p>管理销售机会、阶段、预测金额、客户关系与跟进计划。</p></div>
       <div className="tp-opportunities__actions"><Button kind="tertiary" onClick={()=>void load()} disabled={loading}><CarbonIcons.Renew size={16}/>刷新</Button><Link href="/opportunities/new" renderIcon={CarbonIcons.Add}>新建商机</Link></div>
