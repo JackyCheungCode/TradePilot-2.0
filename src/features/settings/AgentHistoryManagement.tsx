@@ -1,4 +1,5 @@
 import { PageSkeleton } from '@/design-system';
+import { PageSkeleton } from '@/design-system';
 import { useEffect, useMemo, useState } from 'react';
 import {
   Button, Checkbox, InlineLoading, InlineNotification, Modal,
@@ -109,6 +110,7 @@ export function AgentHistoryManagement() {
     }
   };
 
+  if (loading) return <PageSkeleton variant="table" />;
   if (loading) return <PageSkeleton variant="table" />;
   return (
     <section className="tp-settings__editor">
