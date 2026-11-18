@@ -366,7 +366,7 @@ export function SecuritySettingsPage() {
 
   const verifiedTotp = totpFactors.some((factor) => factor.status === 'verified');
 
-  if (loading) return <PageSkeleton variant="table" />;
+  if (loading) return <PageSkeleton variant="form" />;
   return (
     <main className="tp-security">
       <header className="tp-security__header">
