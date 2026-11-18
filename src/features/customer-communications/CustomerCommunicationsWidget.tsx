@@ -4,6 +4,7 @@ import { Button, Dropdown, Search, TextArea, TextInput, CarbonIcons } from '@/de
 
 type Channel = 'whatsapp' | 'messenger' | 'instagram' | 'email' | 'telegram' | 'wechat' | 'line';
 type Filter = 'all' | 'unread' | 'pending' | 'resolved';
+type ChannelFilter = 'all' | Channel;
 type Customer = {
   id: string;
   name: string;
@@ -151,6 +152,7 @@ export function CustomerCommunicationsWidget({
   const [messages, setMessages] = useState<Message[]>([]);
   const [activeCustomerId, setActiveCustomerId] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
+  const [channelFilter, setChannelFilter] = useState<ChannelFilter>('all');
   const [search, setSearch] = useState('');
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [emailSubject, setEmailSubject] = useState('');
@@ -305,9 +307,12 @@ export function CustomerCommunicationsWidget({
       const messageText = messages.filter((message) => message.customerId === customer.id).map((message) => message.body + ' ' + (message.subject ?? '')).join(' ').toLowerCase();
       const matchesSearch = !search || customerText.includes(search.toLowerCase()) || messageText.includes(search.toLowerCase());
       const matchesFilter = filter === 'all' || (filter === 'unread' ? customer.unread > 0 : customer.status === filter);
-      return matchesSearch && matchesFilter;
+      const matchesChannel = channelFilter === 'all' ||
+        identities.some((identity) => identity.customerId === customer.id && identity.channel === channelFilter) ||
+        messages.some((message) => message.customerId === customer.id && message.channel === channelFilter);
+      return matchesSearch && matchesFilter && matchesChannel;
     })
-    .sort((a, b) => b.lastActivityAt - a.lastActivityAt), [customers, messages, search, filter]);
+    .sort((a, b) => b.lastActivityAt - a.lastActivityAt), [customers, identities, messages, search, filter, channelFilter]);
 
   const selectCustomer = (customer: Customer) => {
     setActiveCustomerId(customer.id);
@@ -435,6 +440,14 @@ export function CustomerCommunicationsWidget({
           <aside className="cc-inbox">
             <div className="cc-inbox-heading"><div><strong>联系人</strong><span>{customers.length} 位 CRM 联系人</span></div></div>
             <div className="cc-search"><Search size="lg" labelText="搜索客户、公司或消息" placeholder="搜索客户、公司或消息" value={search} onChange={(event) => setSearch(event.currentTarget.value)} /></div>
+            <div className="cc-channel-filters" aria-label="按消息渠道筛选">
+              <Button type="button" kind={channelFilter === 'all' ? 'primary' : 'ghost'} size="sm" onClick={() => setChannelFilter('all')}>全部渠道</Button>
+              {Array.from(new Set([...identities.map((identity) => identity.channel), ...messages.map((message) => message.channel)])).map((channel) =>
+                <Button key={channel} type="button" kind={channelFilter === channel ? 'primary' : 'ghost'} size="sm" onClick={() => setChannelFilter(channel)}>
+                  <ChannelBadge channel={channel} compact />{channelNames[channel]}
+                </Button>
+              )}
+            </div>
             <div className="cc-filters">
               {([{ id: 'all', label: '全部' }, { id: 'unread', label: '未读' }, { id: 'pending', label: '待处理' }, { id: 'resolved', label: '已解决' }] as { id: Filter; label: string }[]).map((item) => <Button key={item.id} type="button" kind={filter === item.id ? 'primary' : 'ghost'} size="sm" className="cc-filter-button" onClick={() => setFilter(item.id)}>{item.label}{item.id === 'unread' && unreadTotal > 0 ? ' · ' + unreadTotal : ''}</Button>)}
             </div>
