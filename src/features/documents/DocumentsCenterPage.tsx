@@ -1,3 +1,4 @@
+import { PageSkeleton } from '@/design-system';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Link, ClickableTile, InlineLoading, InlineNotification, Tag, Tile, CarbonIcons } from '@/design-system';
@@ -34,6 +35,7 @@ export function DocumentsCenterPage(){
  const [error,setError]=useState('');
  useEffect(()=>{let active=true;void(async()=>{try{const db=await getSupabaseClient();const {data:{session}}=await db.auth.getSession();if(!session?.user.id)throw new Error('登录状态已失效，请重新登录。');const {data,error:queryError}=await db.from('trade_documents').select('id,document_number,title,document_type,status,created_at').eq('owner_id',session.user.id).order('created_at',{ascending:false}).limit(6);if(queryError)throw queryError;if(active)setRecent((data??[]) as RecentDocument[]);}catch(cause){if(active)setError(cause instanceof Error?cause.message:'最近单据读取失败。');}finally{if(active)setLoading(false);}})();return()=>{active=false;};},[]);
  const openStudio=(type?:string,mode?:string)=>navigate('/documents/studio'+(type?'?document_type='+encodeURIComponent(type)+(mode?'&mode='+mode:''):mode?'?mode='+mode:''));
+ if (loading) return <PageSkeleton variant="table" />;
  return <main className="tp-documents tp-document-home">
   <header className="tp-documents__header"><div><p className="tp-documents__eyebrow">TRADE OPERATIONS / DOCUMENT STUDIO</p><h1>外贸单据智能制作中心</h1><p>Trade Document Studio · 从业务数据生成专业外贸单据，并自由设计、管理和复用模板。</p></div><div className="tp-documents__actions"><Link href="/documents/studio?mode=instant" renderIcon={CarbonIcons.Add}>即时单据</Link><Link href="/documents/templates" renderIcon={CarbonIcons.Template}>模板中心</Link></div></header>
   {error&&<InlineNotification kind="warning" lowContrast title="部分内容未能加载" subtitle={error} onCloseButtonClick={()=>setError('')}/>}
