@@ -69,7 +69,7 @@ function RowsEditor({title,rows,fields,onChange,addLabel='添加一行'}:{title:
 }
 function Metric({label,value,icon}:{label:string;value:string;icon:React.ReactNode}){return <section className="tp-products__metric"><div><span>{label}</span>{icon}</div><strong>{value}</strong></section>}
 function ProductHeader({editing,onSave,saving,onExport}:{editing:boolean;onSave?:()=>void;saving?:boolean;onExport?:()=>void}){
- return <header className="tp-products__header"><div><p className="tp-products__eyebrow">TRADEPILOT / CATALOG</p><h1>{editing?'编辑产品':'新建产品'}</h1><p>维护产品主数据，供报价、订单与贸易单据统一引用。</p></div><div className="tp-products__actions"><Link href="/products">返回列表</Link>{onExport&&<Button kind="tertiary" onClick={onExport}><CarbonIcons.Download size={16}/>导出</Button>}{onSave&&<Button kind="primary" disabled={saving} onClick={onSave}>{saving?'保存中…':'保存产品'}</Button>}</div></header>;
+ return <header className="tp-products__header"><div><p className="tp-products__eyebrow">TRADEPILOT / CATALOG</p><h1>{editing?'编辑产品':'新建产品'}</h1><p>维护产品主数据，供报价、订单与贸易单据统一引用。</p></div><div className="tp-products__actions"><Link href="/products">返回列表</Link>{onExport&&<Button kind="tertiary" onClick={onExport}><CarbonIcons.Download size={16}/>导出</Button>}{onSave&&saving&&<InlineLoading status="active" description="正在保存产品…"/>}{onSave&&<Button kind="primary" disabled={saving} onClick={onSave}>保存产品</Button>}</div></header>;
 }
 
 export function ProductConsolePage(){
