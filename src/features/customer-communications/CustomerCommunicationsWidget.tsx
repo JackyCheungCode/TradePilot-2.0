@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { getSupabaseClient } from '@/lib/supabase';
+import { Button, Dropdown, Search, TextArea, TextInput, CarbonIcons } from '@/design-system';
 
-type Channel = 'whatsapp' | 'messenger' | 'instagram' | 'email' | 'telegram' | 'wechat';
+type Channel = 'whatsapp' | 'messenger' | 'instagram' | 'email' | 'telegram' | 'wechat' | 'line';
 type Filter = 'all' | 'unread' | 'pending' | 'resolved';
+type ChannelFilter = 'all' | Channel;
 type Customer = {
   id: string;
   name: string;
@@ -17,10 +19,13 @@ type Customer = {
   lastActivityAt: number;
   lastPreview: string;
   lastChannel?: Channel;
+  latestConversationId: string | null;
+  aiSummary?: string;
 };
 type Identity = { id: string; customerId: string; channel: Channel; handle: string; account: string; connected: boolean };
 type Message = {
   id: string;
+  conversationId: string;
   customerId: string;
   channel: Channel;
   direction: 'inbound' | 'outbound';
@@ -29,6 +34,7 @@ type Message = {
   status: 'read' | 'delivered' | 'sent' | 'local' | 'failed';
   subject?: string;
   attachment?: string;
+  translatedContent?: string;
 };
 
 const channelNames: Record<Channel, string> = {
@@ -38,14 +44,7 @@ const channelNames: Record<Channel, string> = {
   email: 'Email',
   telegram: 'Telegram',
   wechat: 'WeChat',
-};
-const channelGlyphs: Record<Channel, string> = {
-  whatsapp: '◉',
-  messenger: 'ϟ',
-  instagram: '◎',
-  email: '✉',
-  telegram: '➤',
-  wechat: '◌',
+  line: 'LINE',
 };
 type ContactDbRow = {
   id: string; first_name: string | null; last_name: string | null; full_name: string | null;
@@ -56,7 +55,7 @@ type ContactDbRow = {
 };
 type ConversationDbRow = {
   id: string; contact_id: string; unread_count: number | null; last_message_at: string | null;
-  last_channel_type: string | null; last_message_preview: string | null; status: string | null;
+  last_channel_type: string | null; last_message_preview: string | null; status: string | null; ai_summary: string | null;
 };
 type IdentityDbRow = {
   id: string; contact_id: string; channel_connection_id: string | null; channel_type: string;
@@ -67,11 +66,11 @@ type ConnectionDbRow = { id: string; channel_type: string; display_name: string 
 type MessageDbRow = {
   id: string; conversation_id: string; channel_type: string; direction: string; content_type: string;
   content: string | null; email_subject: string | null; media_url: string | null; attachments: unknown;
-  status: string | null; created_at: string;
+  status: string | null; created_at: string; translated_content: string | null;
 };
 const channelAliases: Record<string, Channel> = {
   whatsapp: 'whatsapp', messenger: 'messenger', facebook_messenger: 'messenger', facebook: 'messenger',
-  instagram: 'instagram', email: 'email', telegram: 'telegram', wechat: 'wechat',
+  instagram: 'instagram', email: 'email', telegram: 'telegram', wechat: 'wechat', line: 'line',
 };
 function normalizeChannel(value: string | null | undefined): Channel {
   return channelAliases[(value ?? '').toLowerCase()] ?? 'email';
@@ -87,6 +86,19 @@ function messageStatus(value: string | null): Message['status'] {
   if (value === 'sent' || value === 'accepted') return 'sent';
   return 'local';
 }
+async function postInboxAction<T>(path: string, body: Record<string, unknown>): Promise<T> {
+  const client = await getSupabaseClient();
+  const { data, error } = await client.auth.getSession();
+  if (error || !data.session?.access_token) throw new Error('登录状态已失效，请重新登录。');
+  const response = await fetch(path, {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + data.session.access_token, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const payload = await response.json().catch(() => ({})) as { data?: T; error?: { message?: string } };
+  if (!response.ok || !payload.data) throw new Error(payload.error?.message || '请求失败，请稍后重试。');
+  return payload.data;
+}
 function contentFallback(contentType: string): string {
   if (contentType === 'image') return '图片';
   if (contentType === 'video') return '视频';
@@ -96,14 +108,18 @@ function contentFallback(contentType: string): string {
   return '暂不支持显示的消息类型';
 }
 function ChannelBadge({ channel, compact = false }: { channel: Channel; compact?: boolean }) {
-  return <span className={'cc-channel cc-channel--' + channel}><span aria-hidden="true">{channelGlyphs[channel]}</span>{!compact && channelNames[channel]}</span>;
+  const logo = channel === 'email' ? null : '/platform-logos/' + channel + '.svg';
+  return <span className={'cc-channel cc-channel--' + channel}>
+    {logo ? <img src={logo} alt="" aria-hidden="true" /> : <CarbonIcons.Email size={16} aria-hidden="true" />}
+    {!compact && channelNames[channel]}
+  </span>;
+}
+function ActionIconButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return <Button kind="ghost" size="sm" onClick={onClick}>{label}</Button>;
 }
 function Avatar({ name, size = 'normal', placeholder = false }: { name: string; size?: 'normal' | 'small'; placeholder?: boolean }) {
   const initials = name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
   return <span className={'cc-avatar cc-avatar--' + size + (placeholder ? ' cc-avatar--placeholder' : '')} aria-label={name} role="img">{placeholder ? <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4.25 4.25 0 1 0 0-8.5 4.25 4.25 0 0 0 0 8.5Zm0 2c-4.2 0-7.5 2.15-7.5 4.85V21h15v-2.15C19.5 16.15 16.2 14 12 14Z" fill="currentColor"/></svg> : initials}</span>;
-}
-function IconButton({ label, children, onClick }: { label: string; children: string; onClick: () => void }) {
-  return <button className="cc-icon-button" type="button" aria-label={label} title={label} onClick={onClick}>{children}</button>;
 }
 function formatTime(timestamp: number) {
   const date = new Date(timestamp);
@@ -120,6 +136,7 @@ export function CustomerCommunicationsWidget({
   onRestore,
   navigationExpanded,
   onUnreadCountChange,
+  fullPage = false,
 }: {
   open: boolean;
   minimized: boolean;
@@ -128,21 +145,28 @@ export function CustomerCommunicationsWidget({
   onRestore: () => void;
   navigationExpanded: boolean;
   onUnreadCountChange: (count: number) => void;
+  fullPage?: boolean;
 }) {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [identities, setIdentities] = useState<Identity[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [activeCustomerId, setActiveCustomerId] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
+  const [channelFilter, setChannelFilter] = useState<ChannelFilter>('all');
   const [search, setSearch] = useState('');
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [emailSubject, setEmailSubject] = useState('');
-  const [channelPickerOpen, setChannelPickerOpen] = useState(false);
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
   const [channelOverride, setChannelOverride] = useState<Channel | null>(null);
   const [profileOpen, setProfileOpen] = useState(true);
   const [notice, setNotice] = useState('');
   const [maximized, setMaximized] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [aiBusyAction, setAiBusyAction] = useState<'summary' | 'reply_draft' | 'intent' | null>(null);
+  const [aiResult, setAiResult] = useState('');
+  const [aiResultAction, setAiResultAction] = useState<'reply_draft' | 'intent' | null>(null);
+  const [aiError, setAiError] = useState('');
+  const [translationBusyId, setTranslationBusyId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
 
@@ -154,7 +178,7 @@ export function CustomerCommunicationsWidget({
           .select('id,first_name,last_name,full_name,job_title,decision_role,email,phone,mobile,is_active,is_archived,updated_at,custom_fields,crm_accounts(account_name,country_code)')
           .eq('is_archived', false).order('updated_at', { ascending: false }),
         client.from('inbox_conversations')
-          .select('id,contact_id,unread_count,last_message_at,last_channel_type,last_message_preview,status')
+          .select('id,contact_id,unread_count,last_message_at,last_channel_type,last_message_preview,status,ai_summary')
           .order('last_message_at', { ascending: false }),
         client.from('inbox_customer_identities')
           .select('id,contact_id,channel_connection_id,channel_type,external_user_id,external_display_name,external_username,is_primary'),
@@ -170,7 +194,7 @@ export function CustomerCommunicationsWidget({
       const connections = (connectionsResult.data ?? []) as unknown as ConnectionDbRow[];
       const messagesResult = conversations.length
         ? await client.from('inbox_messages')
-          .select('id,conversation_id,channel_type,direction,content_type,content,email_subject,media_url,attachments,status,created_at')
+          .select('id,conversation_id,channel_type,direction,content_type,content,email_subject,media_url,attachments,status,created_at,translated_content')
           .in('conversation_id', conversations.map((conversation) => conversation.id))
           .order('created_at', { ascending: true })
         : { data: [], error: null };
@@ -206,6 +230,8 @@ export function CustomerCommunicationsWidget({
           unread,
           lastActivityAt: timestamp(latestConversation?.last_message_at) || timestamp(contact.updated_at),
           lastPreview: latestConversation?.last_message_preview || '尚无消息',
+          latestConversationId: latestConversation?.id ?? null,
+          ...(latestConversation?.ai_summary ? { aiSummary: latestConversation.ai_summary } : {}),
           ...(latestConversation?.last_channel_type ? { lastChannel: normalizeChannel(latestConversation.last_channel_type) } : {}),
         };
       });
@@ -230,6 +256,7 @@ export function CustomerCommunicationsWidget({
         const attachment = attachmentList[0]?.filename || attachmentList[0]?.name || (message.media_url ? '附件' : undefined);
         return [{
           id: message.id,
+          conversationId: message.conversation_id,
           customerId,
           channel: normalizeChannel(message.channel_type),
           direction: message.direction === 'outbound' ? 'outbound' : 'inbound',
@@ -237,6 +264,7 @@ export function CustomerCommunicationsWidget({
           timestamp: timestamp(message.created_at),
           status: messageStatus(message.status),
           ...(message.email_subject ? { subject: message.email_subject } : {}),
+          ...(message.translated_content ? { translatedContent: message.translated_content } : {}),
           ...(attachment ? { attachment } : {}),
         }];
       });
@@ -270,6 +298,7 @@ export function CustomerCommunicationsWidget({
   const defaultChannel = lastInbound?.channel ?? latestMessage?.channel ?? activeCustomer?.lastChannel ?? customerIdentities[0]?.channel ?? 'email';
   const replyChannel = channelOverride ?? defaultChannel;
   const replyIdentity = customerIdentities.find((identity) => identity.channel === replyChannel);
+  const channelCanSend = ['whatsapp', 'messenger', 'telegram', 'line'].includes(replyChannel);
   const unreadTotal = customers.reduce((total, customer) => total + customer.unread, 0);
 
   const sortedCustomers = useMemo(() => customers
@@ -278,14 +307,20 @@ export function CustomerCommunicationsWidget({
       const messageText = messages.filter((message) => message.customerId === customer.id).map((message) => message.body + ' ' + (message.subject ?? '')).join(' ').toLowerCase();
       const matchesSearch = !search || customerText.includes(search.toLowerCase()) || messageText.includes(search.toLowerCase());
       const matchesFilter = filter === 'all' || (filter === 'unread' ? customer.unread > 0 : customer.status === filter);
-      return matchesSearch && matchesFilter;
+      const matchesChannel = channelFilter === 'all' ||
+        identities.some((identity) => identity.customerId === customer.id && identity.channel === channelFilter) ||
+        messages.some((message) => message.customerId === customer.id && message.channel === channelFilter);
+      return matchesSearch && matchesFilter && matchesChannel;
     })
-    .sort((a, b) => b.lastActivityAt - a.lastActivityAt), [customers, messages, search, filter]);
+    .sort((a, b) => b.lastActivityAt - a.lastActivityAt), [customers, identities, messages, search, filter, channelFilter]);
 
   const selectCustomer = (customer: Customer) => {
     setActiveCustomerId(customer.id);
     setChannelOverride(null);
-    setChannelPickerOpen(false);
+    setAiResult('');
+    setAiResultAction(null);
+    setAiError('');
+    setTranslationBusyId(null);
     setMobileChatOpen(true);
     if (customer.unread > 0) {
       setCustomers((current) => current.map((item) => item.id === customer.id ? { ...item, unread: 0 } : item));
@@ -297,72 +332,133 @@ export function CustomerCommunicationsWidget({
     }
   };
 
-  const sendMessage = (event: FormEvent<HTMLFormElement>) => {
+  const generateSummary = async () => {
+    if (!activeCustomer?.latestConversationId || aiBusyAction) return;
+    setAiBusyAction('summary'); setAiError('');
+    try {
+      const result = await postInboxAction<{ ai_summary: string }>(
+        '/api/v1/inbox/conversations/' + activeCustomer.latestConversationId + '/summary', {},
+      );
+      setCustomers((current) => current.map((item) => item.id === activeCustomer.id ? { ...item, aiSummary: result.ai_summary } : item));
+    } catch (cause) {
+      setAiError(cause instanceof Error ? cause.message : 'AI 摘要生成失败。');
+    } finally { setAiBusyAction(null); }
+  };
+
+  const runAiAssistant = async (action: 'reply_draft' | 'intent') => {
+    if (!activeCustomer?.latestConversationId || aiBusyAction) return;
+    setAiBusyAction(action); setAiError(''); setAiResult('');
+    try {
+      const result = await postInboxAction<{ result: string }>(
+        '/api/v1/inbox/conversations/' + activeCustomer.latestConversationId + '/assist', { action },
+      );
+      setAiResult(result.result); setAiResultAction(action);
+    } catch (cause) {
+      setAiError(cause instanceof Error ? cause.message : 'AI 助手暂时不可用。');
+    } finally { setAiBusyAction(null); }
+  };
+
+  const translateMessage = async (message: Message) => {
+    if (translationBusyId) return;
+    setTranslationBusyId(message.id); setAiError('');
+    try {
+      const result = await postInboxAction<{ translated_content: string }>(
+        '/api/v1/inbox/messages/' + message.id + '/translate', {},
+      );
+      setMessages((current) => current.map((item) => item.id === message.id ? { ...item, translatedContent: result.translated_content } : item));
+    } catch (cause) {
+      setAiError(cause instanceof Error ? cause.message : '消息翻译失败。');
+    } finally { setTranslationBusyId(null); }
+  };
+
+  const sendMessage = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const content = draft.trim();
-    if (!content || !replyIdentity?.connected) return;
-    const now = Date.now();
-    const next: Message = {
-      id: 'local-' + now,
-      customerId: activeCustomerId,
-      channel: replyChannel,
-      direction: 'outbound',
-      body: content,
-      timestamp: now,
-      status: 'local',
-      ...(replyChannel === 'email' ? { subject: emailSubject.trim() || 'Re: ' + (lastInbound?.subject ?? 'Customer inquiry') } : {}),
-    };
-    setMessages((current) => [...current, next]);
-    setCustomers((current) => current.map((item) => item.id === activeCustomerId ? { ...item, status: 'pending' } : item));
-    setDrafts((current) => ({ ...current, [activeCustomerId]: '' }));
-    setEmailSubject('');
-    setNotice('演示模式：消息仅保存在当前页面的本地状态中，尚未发送到真实渠道。');
+    if (!content || !replyIdentity?.connected || sending) return;
+    if (!activeCustomer?.latestConversationId) {
+      setNotice('当前联系人尚无可发送的真实会话。');
+      return;
+    }
+    if (!['whatsapp', 'messenger', 'telegram', 'line'].includes(replyChannel)) {
+      setNotice(channelNames[replyChannel] + ' 尚未开放真实消息发送，请选择已接入的渠道。');
+      return;
+    }
+    setSending(true);
+    try {
+      const client = await getSupabaseClient();
+      const { data, error } = await client.auth.getSession();
+      if (error || !data.session?.access_token) throw new Error('登录状态已失效，请重新登录。');
+      const response = await fetch('/api/v1/inbox/conversations/' + activeCustomer.latestConversationId + '/messages', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + data.session.access_token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content, channel_type: replyChannel }),
+      });
+      const payload = await response.json().catch(() => ({})) as { error?: { message?: string }; message?: string };
+      if (!response.ok) throw new Error(payload.error?.message || payload.message || '渠道发送失败，请稍后重试。');
+      setDrafts((current) => ({ ...current, [activeCustomerId]: '' }));
+      setEmailSubject('');
+      setNotice('消息已提交到 ' + channelNames[replyChannel] + '，正在同步会话状态。');
+      await loadInbox();
+    } catch (cause) {
+      setNotice(cause instanceof Error ? cause.message : '消息发送失败。');
+    } finally {
+      setSending(false);
+    }
   };
 
 
 
   if (!open) return null;
-  if (minimized) {
-    return <div className="cc-minimized"><button type="button" className="cc-restore" onClick={onRestore}><span className="cc-restore-icon">✉</span><span>客户沟通</span>{unreadTotal > 0 && <b>{unreadTotal}</b>}</button></div>;
+  if (minimized && !fullPage) {
+    return <div className="cc-minimized"><Button type="button" kind="primary" renderIcon={CarbonIcons.Chat} onClick={onRestore}>客户沟通{unreadTotal > 0 ? ' · ' + unreadTotal : ''}</Button></div>;
   }
 
   if (!activeCustomer) {
-    return <div className={"cc-floating-root" + (navigationExpanded ? " cc-floating-root--nav-expanded" : "")}>
-      <section className="cc-window" role="dialog" aria-label="客户沟通工作台" aria-modal="false">
-        <header className="cc-window-header"><div className="cc-window-brand"><span className="cc-brand-mark">TP</span><div><strong>客户沟通</strong><small>CRM 联系人与统一收件箱</small></div></div><div className="cc-window-tools"><IconButton label="关闭聊天窗口" onClick={onClose}>×</IconButton></div></header>
+    return <div className={"cc-floating-root" + (fullPage ? " cc-floating-root--page" : "") + (navigationExpanded ? " cc-floating-root--nav-expanded" : "")}>
+      <section className={"cc-window" + (fullPage ? " cc-window--page" : "")} role="region" aria-label="全渠道消息中心">
+        <header className="cc-window-header"><div className="cc-window-brand"><span className="cc-brand-mark">TP</span><div><strong>客户沟通</strong><small>CRM 联系人与统一收件箱</small></div></div><div className="cc-window-tools"><ActionIconButton label="关闭聊天窗口" onClick={onClose} /></div></header>
         <div className="cc-empty">{loading ? '正在读取系统联系人…' : loadError || 'CRM 中暂无可显示的联系人。请先在联系人模块添加联系人。'}</div>
       </section>
     </div>;
   }
 
   return (
-    <div className={"cc-floating-root" + (navigationExpanded ? " cc-floating-root--nav-expanded" : "")}>
-      <section className={'cc-window' + (maximized ? ' cc-window--maximized' : '')} role="dialog" aria-label="客户沟通工作台" aria-modal="false">
+    <div className={"cc-floating-root" + (fullPage ? " cc-floating-root--page" : "") + (navigationExpanded ? " cc-floating-root--nav-expanded" : "")}>
+      <section className={'cc-window' + (maximized ? ' cc-window--maximized' : '') + (fullPage ? ' cc-window--page' : '')} role={fullPage ? "region" : "dialog"} aria-label="全渠道消息中心" aria-modal={fullPage ? undefined : "false"}>
         <header className="cc-window-header">
           <div className="cc-window-brand"><span className="cc-brand-mark">TP</span><div><strong>客户沟通</strong><small>CRM 联系人与统一收件箱</small><span className="cc-mobile-app-label">聊天 App</span></div></div>
           <div className="cc-window-tools">
-            <IconButton label={profileOpen ? '收起客户资料' : '显示客户资料'} onClick={() => setProfileOpen((value) => !value)}>{profileOpen ? '▣' : '▤'}</IconButton>
-            <IconButton label={maximized ? '还原窗口' : '最大化窗口'} onClick={() => setMaximized((value) => !value)}>{maximized ? '❐' : '□'}</IconButton>
-            <IconButton label="最小化聊天窗口" onClick={onMinimize}>−</IconButton>
-            <IconButton label="关闭聊天窗口" onClick={onClose}>×</IconButton>
+            {fullPage && <ActionIconButton label="返回工作台" onClick={onClose} />}
+            <ActionIconButton label={profileOpen ? '收起客户资料' : '显示客户资料'} onClick={() => setProfileOpen((value) => !value)} />
+            {!fullPage && <ActionIconButton label={maximized ? '还原窗口' : '最大化窗口'} onClick={() => setMaximized((value) => !value)} />}
+            {!fullPage && <ActionIconButton label="最小化聊天窗口" onClick={onMinimize} />}
+            {!fullPage && <ActionIconButton label="关闭聊天窗口" onClick={onClose} />}
           </div>
         </header>
 
         <div className={'cc-workspace' + (!profileOpen ? ' cc-workspace--no-profile' : '') + (mobileChatOpen ? ' cc-workspace--mobile-chat' : '')}>
           <aside className="cc-inbox">
             <div className="cc-inbox-heading"><div><strong>联系人</strong><span>{customers.length} 位 CRM 联系人</span></div></div>
-            <label className="cc-search"><span aria-hidden="true">⌕</span><input value={search} onChange={(event) => setSearch(event.currentTarget.value)} placeholder="搜索客户、公司或消息"/></label>
+            <div className="cc-search"><Search size="lg" labelText="搜索客户、公司或消息" placeholder="搜索客户、公司或消息" value={search} onChange={(event) => setSearch(event.currentTarget.value)} /></div>
+            <div className="cc-channel-filters" aria-label="按消息渠道筛选">
+              <Button type="button" kind={channelFilter === 'all' ? 'primary' : 'ghost'} size="sm" onClick={() => setChannelFilter('all')}>全部渠道</Button>
+              {Array.from(new Set([...identities.map((identity) => identity.channel), ...messages.map((message) => message.channel)])).map((channel) =>
+                <Button key={channel} type="button" kind={channelFilter === channel ? 'primary' : 'ghost'} size="sm" onClick={() => setChannelFilter(channel)}>
+                  <ChannelBadge channel={channel} compact />{channelNames[channel]}
+                </Button>
+              )}
+            </div>
             <div className="cc-filters">
-              {([{ id: 'all', label: '全部' }, { id: 'unread', label: '未读' }, { id: 'pending', label: '待处理' }, { id: 'resolved', label: '已解决' }] as { id: Filter; label: string }[]).map((item) => <button key={item.id} type="button" className={filter === item.id ? 'is-active' : ''} onClick={() => setFilter(item.id)}>{item.label}{item.id === 'unread' && unreadTotal > 0 ? <span>{unreadTotal}</span> : null}</button>)}
+              {([{ id: 'all', label: '全部' }, { id: 'unread', label: '未读' }, { id: 'pending', label: '待处理' }, { id: 'resolved', label: '已解决' }] as { id: Filter; label: string }[]).map((item) => <Button key={item.id} type="button" kind={filter === item.id ? 'primary' : 'ghost'} size="sm" className="cc-filter-button" onClick={() => setFilter(item.id)}>{item.label}{item.id === 'unread' && unreadTotal > 0 ? ' · ' + unreadTotal : ''}</Button>)}
             </div>
             <div className="cc-customer-list">
               {sortedCustomers.map((customer) => {
                 const last = messages.filter((message) => message.customerId === customer.id).sort((a, b) => b.timestamp - a.timestamp)[0];
-                return <button type="button" key={customer.id} className={'cc-customer-row' + (activeCustomerId === customer.id ? ' is-selected' : '')} onClick={() => selectCustomer(customer)}>
+                return <Button type="button" key={customer.id} kind="ghost" size="lg" className={'cc-customer-row' + (activeCustomerId === customer.id ? ' is-selected' : '')} onClick={() => selectCustomer(customer)}>
                   <Avatar name={customer.name}/>
                   <span className="cc-customer-copy"><span className="cc-customer-top"><strong>{customer.name}</strong><time>{last ? formatTime(last.timestamp) : customer.lastActivityAt ? formatTime(customer.lastActivityAt) : '—'}</time></span><span className="cc-company">{customer.company}</span><span className="cc-preview">{last?.body ?? customer.lastPreview}</span><span className="cc-customer-bottom">{(last?.channel || customer.lastChannel) && <ChannelBadge channel={last?.channel || customer.lastChannel!} compact/>}<span>{customerIdentitiesCount(identities, customer.id)} 个渠道</span></span></span>
                   {customer.unread > 0 && <b className="cc-unread-count">{customer.unread}</b>}
-                </button>;
+                </Button>;
               })}
               {sortedCustomers.length === 0 && <div className="cc-empty">没有符合条件的客户</div>}
             </div>
@@ -370,7 +466,7 @@ export function CustomerCommunicationsWidget({
 
           <main className="cc-chat">
             <div className="cc-chat-header">
-              <button type="button" className="cc-mobile-back" onClick={() => setMobileChatOpen(false)} aria-label="返回客户列表">‹</button>
+              <ActionIconButton label="返回客户列表" onClick={() => setMobileChatOpen(false)} />
               <Avatar name={activeCustomer.name} size="small"/>
               <div className="cc-chat-title"><strong>{activeCustomer.name}</strong><span>{activeCustomer.company} · {activeCustomer.country}</span></div>
               <div className="cc-chat-header-actions"><span className="cc-online-dot"/> <span>统一客户时间线</span></div>
@@ -389,6 +485,8 @@ export function CustomerCommunicationsWidget({
                       {message.subject && <strong className="cc-email-subject">{message.subject}</strong>}
                       <p>{message.body}</p>
                       {message.attachment && <span className="cc-attachment">▤ {message.attachment}</span>}
+                      {message.translatedContent && <p className="cc-message-translation">{message.translatedContent}</p>}
+                      {message.direction === 'inbound' && !message.translatedContent && <Button type="button" kind="ghost" size="sm" disabled={translationBusyId === message.id} onClick={() => void translateMessage(message)}>{translationBusyId === message.id ? '翻译中…' : '翻译消息'}</Button>}
                     </div>
                   </div>
                   {message.direction === 'outbound' && <span className="cc-message-status">{message.status === 'local' ? '本地演示 · 未发送' : message.status === 'delivered' ? '已送达' : '已发送'}</span>}
@@ -401,26 +499,50 @@ export function CustomerCommunicationsWidget({
               <div className="cc-reply-routing">
                 <span>回复渠道</span>
                 <div className="cc-channel-picker">
-                <button type="button" className="cc-channel-trigger" aria-expanded={channelPickerOpen} onClick={() => setChannelPickerOpen((value) => !value)}><ChannelBadge channel={replyChannel}/><span>⌄</span></button>
-                {channelPickerOpen && <div className="cc-channel-menu">{customerIdentities.map((identity) => <button key={identity.id} type="button" onClick={() => { setChannelOverride(identity.channel); setChannelPickerOpen(false); }}><ChannelBadge channel={identity.channel}/><small>{identity.handle}</small></button>)}</div>}
-              </div>
+                  <Dropdown
+                    id="cc-reply-channel"
+                    titleText="回复渠道"
+                    label="选择渠道"
+                    size="sm"
+                    items={customerIdentities.map((identity) => ({ id: identity.id, channel: identity.channel, text: channelNames[identity.channel] + ' · ' + identity.handle }))}
+                    itemToString={(item) => item?.text ?? ''}
+                    selectedItem={customerIdentities.find((identity) => identity.channel === replyChannel) ? {
+                      id: customerIdentities.find((identity) => identity.channel === replyChannel)!.id,
+                      channel: replyChannel,
+                      text: channelNames[replyChannel] + ' · ' + customerIdentities.find((identity) => identity.channel === replyChannel)!.handle,
+                    } : null}
+                    onChange={({ selectedItem }) => setChannelOverride(selectedItem?.channel ?? null)}
+                  />
+                </div>
               <span className="cc-route-hint">{channelOverride ? '已手动切换' : '跟随客户最后一条入站消息'}</span>
               </div>
-              {replyChannel === 'email' && <input className="cc-email-subject-input" value={emailSubject} onChange={(event) => setEmailSubject(event.currentTarget.value)} placeholder="邮件主题"/>}
-              <textarea value={draft} onChange={(event) => { const value = event.currentTarget.value; setDrafts((current) => ({ ...current, [activeCustomerId]: value })); }} placeholder={'通过 ' + channelNames[replyChannel] + ' 回复 ' + activeCustomer.name + '…'} rows={3}/>
-              <div className="cc-composer-footer"><span>附件和真实发送将在后端接入阶段启用</span><button type="submit" disabled={!draft.trim() || !replyIdentity?.connected}>发送消息 <span>↗</span></button></div>
+              {replyChannel === 'email' && <TextInput id="cc-email-subject" labelText="邮件主题" hideLabel value={emailSubject} onChange={(event) => setEmailSubject(event.currentTarget.value)} placeholder="邮件主题" />}
+              <TextArea id="cc-message-draft" labelText="消息内容" hideLabel value={draft} onChange={(event) => { const value = event.currentTarget.value; setDrafts((current) => ({ ...current, [activeCustomerId]: value })); }} placeholder={'通过 ' + channelNames[replyChannel] + ' 回复 ' + activeCustomer.name + '…'} rows={3} />
+              <div className="cc-composer-footer"><span>{channelCanSend ? '发送将调用已连接渠道的真实 API' : '该渠道暂未开放真实发送'}</span><Button type="submit" kind="primary" size="md" disabled={!channelCanSend || !draft.trim() || !replyIdentity?.connected || sending || !activeCustomer.latestConversationId}>{sending ? '发送中…' : '发送消息'}</Button></div>
             </form>
           </main>
 
           {profileOpen && <aside className="cc-profile">
             <div className="cc-profile-top"><Avatar name={activeCustomer.name}/><strong>{activeCustomer.name}</strong><span>{activeCustomer.role}</span><small>{activeCustomer.company}</small></div>
+            <section className="cc-profile-section cc-ai-assistant">
+              <h3>AI 助手</h3>
+              <div className="cc-ai-actions">
+                <Button type="button" kind="tertiary" size="sm" disabled={aiBusyAction !== null || !activeCustomer.latestConversationId} onClick={() => void generateSummary()}>{aiBusyAction === 'summary' ? '摘要生成中…' : '生成会话摘要'}</Button>
+                <Button type="button" kind="ghost" size="sm" disabled={aiBusyAction !== null || !activeCustomer.latestConversationId} onClick={() => void runAiAssistant('intent')}>{aiBusyAction === 'intent' ? '识别中…' : '识别客户意图'}</Button>
+                <Button type="button" kind="ghost" size="sm" disabled={aiBusyAction !== null || !activeCustomer.latestConversationId} onClick={() => void runAiAssistant('reply_draft')}>{aiBusyAction === 'reply_draft' ? '生成中…' : '推荐回复'}</Button>
+              </div>
+              {activeCustomer.aiSummary && <div className="cc-ai-summary"><strong>会话摘要</strong><p>{activeCustomer.aiSummary}</p></div>}
+              {aiResult && <div className="cc-ai-result"><strong>{aiResultAction === 'reply_draft' ? '回复建议' : '客户意图分析'}</strong><p>{aiResult}</p>{aiResultAction === 'reply_draft' && <Button type="button" kind="primary" size="sm" onClick={() => { setDrafts((current) => ({ ...current, [activeCustomerId]: aiResult })); setAiResult(''); setAiResultAction(null); }}>采用回复草稿</Button>}</div>}
+              {aiError && <p className="cc-ai-error" role="alert">{aiError}</p>}
+              <span className="cc-ai-disclaimer">AI 仅提供辅助建议；消息必须由你确认后发送。</span>
+            </section>
             <section className="cc-profile-section"><h3>客户信息</h3><dl><dt>国家 / 地区</dt><dd>{activeCustomer.country}</dd><dt>邮箱</dt><dd>{activeCustomer.email || '—'}</dd><dt>电话</dt><dd>{activeCustomer.phone || '—'}</dd></dl></section>
             <section className="cc-profile-section"><h3>渠道身份 <span>{customerIdentities.length}</span></h3>{customerIdentities.map((identity) => <div className="cc-identity" key={identity.id}><ChannelBadge channel={identity.channel}/><div><strong>{identity.handle}</strong><small>{identity.account}</small></div><i className={identity.connected ? 'is-connected' : ''}/></div>)}</section>
             <section className="cc-profile-section"><h3>客户标签</h3><div className="cc-tags">{activeCustomer.tags.map((tag) => <span key={tag}>{tag}</span>)}</div></section>
             <div className="cc-profile-foot">CRM 联系人档案</div>
           </aside>}
         </div>
-        {notice && <div className="cc-notice" role="status"><span>{notice}</span><button type="button" onClick={() => setNotice('')}>知道了</button></div>}
+        {notice && <div className="cc-notice" role="status"><span>{notice}</span><Button type="button" kind="ghost" size="sm" onClick={() => setNotice('')}>知道了</Button></div>}
       </section>
     </div>
   );
