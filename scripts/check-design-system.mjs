@@ -6,7 +6,7 @@ const allowedRoot = path.resolve('src/design-system');
 const violations = [];
 const forbiddenPackages = /(?:from\s*|import\s*|@use\s*|@forward\s*|@import\s*)['"](?:@carbon\/(?:react|icons-react|pictograms-react)|@fontsource[^'"]*|lucide-react|react-icons(?:\/[^'"]*)?|@fortawesome\/|@tabler\/)[^'"]*['"]/g;
 const cssDeclaration = /(?:^|[;{}\s])[-a-zA-Z]+\s*:\s*[^;{}]+;/m;
-const nativeSelectElement = /<(?:select|option|datalist)\b|<input\b[^>]*\blist\s*=/is;
+const nativeSelectElement = /<(?:select|option|datalist)\b|<input\b[^>]*\blist\s*=/s;
 
 async function scan(directory) {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
