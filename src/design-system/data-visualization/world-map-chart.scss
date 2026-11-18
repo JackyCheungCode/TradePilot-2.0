@@ -157,3 +157,5 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+.tp-world-map__rank.cds--btn{display:grid;width:100%;max-width:none;min-height:3.25rem;align-items:center;justify-content:stretch;white-space:normal;text-align:left}
