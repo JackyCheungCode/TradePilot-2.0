@@ -152,6 +152,21 @@ const allPlatforms: Array<Source & { category: string; global: boolean }> = [
 ];
 
 const isRunnablePlatform = (id: string) => allPlatforms.some(source => source.id === id);
+const platformLogoSymbols: Record<string, { file: string; symbol: string }> = {
+  'google-search': { file: 'platform-sprite-search.svg', symbol: 'google' },
+  'google-news': { file: 'platform-sprite-search.svg', symbol: 'googlenews' },
+  duckduckgo: { file: 'platform-sprite-search.svg', symbol: 'duckduckgo' },
+  baidu: { file: 'platform-sprite-search.svg', symbol: 'baidu' },
+  'x-twitter': { file: 'platform-sprite-social.svg', symbol: 'x' },
+  reddit: { file: 'platform-sprite-social.svg', symbol: 'reddit' },
+  pinterest: { file: 'platform-sprite-social.svg', symbol: 'pinterest' },
+  threads: { file: 'platform-sprite-social.svg', symbol: 'threads' },
+  youtube: { file: 'platform-sprite-media.svg', symbol: 'youtube' },
+  vimeo: { file: 'platform-sprite-media.svg', symbol: 'vimeo' },
+  twitch: { file: 'platform-sprite-media.svg', symbol: 'twitch' },
+  ebay: { file: 'platform-sprite-media.svg', symbol: 'ebay' },
+  etsy: { file: 'platform-sprite-social-media.svg', symbol: 'etsy' },
+};
 const localPlatformLogos: Record<string, string> = {
   'google-maps': 'google_maps.svg', alibaba: 'alibaba.svg', aliexpress: 'aliexpress.svg', amazon: 'amazon.svg',
   facebook: 'facebook.svg', instagram: 'instagram.svg', linkedin: 'linkedin.svg', 'linkedin-global': 'linkedin.svg',
@@ -253,7 +268,7 @@ export function PlatformSelectionStep({
             <Checkbox id={'tp-platform-' + source.id} labelText={source.name} hideLabel checked={checked} disabled={!isRunnablePlatform(source.id)} onChange={() => toggle(source.id)} />
             <div className="tp-prospect-discovery__platform-copy">
               <div className="tp-prospect-discovery__platform-name">
-                {localPlatformLogos[source.id] ? <img className="tp-prospect-discovery__platform-logo" src={'/platform-logos/' + localPlatformLogos[source.id]} alt="" loading="lazy" /> : <span className="tp-prospect-discovery__platform-monogram" aria-hidden="true">{source.name.slice(0, 1).toUpperCase()}</span>}
+                {localPlatformLogos[source.id] ? <img className="tp-prospect-discovery__platform-logo" src={'/platform-logos/' + localPlatformLogos[source.id]} alt="" loading="lazy" /> : platformLogoSymbols[source.id] ? <svg className="tp-prospect-discovery__platform-logo tp-prospect-discovery__platform-logo--sprite" viewBox="0 0 24 24" aria-hidden="true"><use href={'/platform-logos/' + platformLogoSymbols[source.id].file + '#' + platformLogoSymbols[source.id].symbol} /></svg> : <span className="tp-prospect-discovery__platform-monogram" aria-hidden="true">{source.name.slice(0, 1).toUpperCase()}</span>}
                 <strong>{source.name}</strong>{isRecommended && <Tag type="green">智能推荐</Tag>}
               </div>
               <p>{source.description}</p>
