@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Accordion, AccordionItem, Button, Checkbox, CodeSnippet, Column, CopyButton, Grid,
+  Accordion, AccordionItem, Button, CodeSnippet, Column, CopyButton, Grid,
   InlineNotification, ProgressBar, StructuredListBody, StructuredListCell,
   StructuredListHead, StructuredListRow, StructuredListWrapper, Tag, Tile, CarbonIcons,
 } from '@/design-system';
