@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import {
   Button, Link, InlineLoading, InlineNotification, Tag, Tile, Table, TableHead,
   TableRow, TableHeader, TableBody, TableCell, CarbonIcons, WorldMapChart,
@@ -32,7 +32,7 @@ const codeOf = (run: Run) => run.task_code || ('TPD-' + (run.created_at || '').r
 
 export function ProspectHistoryPage() {
   const { runId } = useParams();
-  const navigate = useNavigate();
+  
   const [runs, setRuns] = useState<Run[]>([]);
   const [logs, setLogs] = useState<RunLog[]>([]);
   const [results, setResults] = useState<RunResult[]>([]);
