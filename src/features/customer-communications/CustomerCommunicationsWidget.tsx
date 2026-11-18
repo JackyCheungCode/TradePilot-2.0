@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { getSupabaseClient } from '@/lib/supabase';
-import { Button, ContentSwitcher, Switch, Dropdown, Search, TextArea, TextInput, CarbonIcons } from '@/design-system';
+import { Button, ClickableTile, ContentSwitcher, Switch, Dropdown, Search, TextArea, TextInput, CarbonIcons } from '@/design-system';
 
 type Channel = 'whatsapp' | 'messenger' | 'instagram' | 'email' | 'telegram' | 'wechat' | 'line';
 type Filter = 'all' | 'unread' | 'pending' | 'resolved';
@@ -474,11 +474,11 @@ export function CustomerCommunicationsWidget({
             <div className="cc-customer-list">
               {sortedCustomers.map((customer) => {
                 const last = messages.filter((message) => message.customerId === customer.id).sort((a, b) => b.timestamp - a.timestamp)[0];
-                return <Button type="button" key={customer.id} kind="ghost" size="lg" className={'cc-customer-row' + (activeCustomerId === customer.id ? ' is-selected' : '')} onClick={() => selectCustomer(customer)}>
+                return <ClickableTile key={customer.id} className={'cc-customer-row' + (activeCustomerId === customer.id ? ' is-selected' : '')} onClick={() => selectCustomer(customer)} aria-current={activeCustomerId === customer.id ? 'true' : undefined}>
                   <Avatar name={customer.name}/>
                   <span className="cc-customer-copy"><span className="cc-customer-top"><strong>{customer.name}</strong><time>{last ? formatTime(last.timestamp) : customer.lastActivityAt ? formatTime(customer.lastActivityAt) : '—'}</time></span><span className="cc-company">{customer.company}</span><span className="cc-preview">{last?.body ?? customer.lastPreview}</span><span className="cc-customer-bottom">{(last?.channel || customer.lastChannel) && <ChannelBadge channel={last?.channel || customer.lastChannel!} compact/>}<span>{customerIdentitiesCount(identities, customer.id)} 个渠道</span></span></span>
                   {customer.unread > 0 && <b className="cc-unread-count">{customer.unread}</b>}
-                </Button>;
+                </ClickableTile>;
               })}
               {sortedCustomers.length === 0 && <div className="cc-empty">没有符合条件的客户</div>}
             </div>
