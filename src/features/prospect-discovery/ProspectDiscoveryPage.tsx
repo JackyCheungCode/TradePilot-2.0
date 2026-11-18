@@ -29,9 +29,19 @@ export function ProspectDiscoveryPage() {
   const [selectedSourceCount, setSelectedSourceCount] = useState(0);
   const [selectedSources, setSelectedSources] = useState<Array<{ id: string; name: string; category?: string }> | null>(null);
   const [actorParameters, setActorParameters] = useState<Record<string, unknown>>({});
+  const [actorSchemaReady, setActorSchemaReady] = useState(false);
 
   const handleSelectionCountChange = useCallback((count: number) => setSelectedSourceCount(count), []);
-  const handleSelectionChange = useCallback((sources: Array<{ id: string; name: string; category?: string }>) => setSelectedSources(sources), []);
+  const handleSelectionChange = useCallback((sources: Array<{ id: string; name: string; category?: string }>) => {
+    setSelectedSources(sources);
+    setActorParameters({});
+    setActorSchemaReady(false);
+  }, []);
+  const handleActorParametersChange = useCallback((parameters: Record<string, unknown>) => {
+    setActorParameters(parameters);
+    const actors = Array.isArray(parameters.actors) ? parameters.actors as Array<Record<string, unknown>> : [];
+    setActorSchemaReady(Boolean(selectedSources?.length) && actors.length === selectedSources!.length && actors.every(actor => actor.status === 'enabled'));
+  }, [selectedSources]);
   const actorSourcesForSchema = selectedSources ?? EMPTY_DISCOVERY_SOURCES;
 
   return (
@@ -69,7 +79,7 @@ export function ProspectDiscoveryPage() {
           <div className="tp-prospect-discovery__section-heading">
             <div><span className="tp-prospect-discovery__section-index">02</span><div><h2>Actor 动态参数配置</h2><p>仅展示所选数据源 Input Schema 实际定义的参数；不再提供预设画像字段。</p></div></div>
           </div>
-          <ActorSchemaFields sources={actorSourcesForSchema} onValuesChange={setActorParameters} />
+          <ActorSchemaFields sources={actorSourcesForSchema} onValuesChange={handleActorParametersChange} />
         </section>
       ) : selectedIndex === 2 ? (
         <ExecutionStep
@@ -93,7 +103,7 @@ export function ProspectDiscoveryPage() {
       <div className="tp-prospect-discovery__step-navigation">
         <Button kind="secondary" renderIcon={CarbonIcons.ArrowLeft} onClick={() => setSelectedIndex(index => Math.max(0, index - 1))} disabled={selectedIndex === 0}>上一步</Button>
         <span>第 {selectedIndex + 1} 步，共 5 步</span>
-        <Button kind="primary" renderIcon={CarbonIcons.ArrowRight} onClick={() => setSelectedIndex(index => Math.min(4, index + 1))} disabled={selectedIndex === 4 || (selectedIndex === 0 && selectedSourceCount === 0)}>下一步</Button>
+        <Button kind="primary" renderIcon={CarbonIcons.ArrowRight} onClick={() => setSelectedIndex(index => Math.min(4, index + 1))} disabled={selectedIndex === 4 || (selectedIndex === 0 && selectedSourceCount === 0) || (selectedIndex === 1 && !actorSchemaReady)}>下一步</Button>
       </div>
     </main>
   );
