@@ -65,7 +65,6 @@ export function ExecutionStep({ sources, actorParameters = {}, onEditStep, onCon
   const [notice, setNotice] = useState('');
   const [starting, setStarting] = useState(false);
   const [startedAt, setStartedAt] = useState<number | null>(null);
-  const [confirmedExecution, setConfirmedExecution] = useState(false);
   const [savingSchema, setSavingSchema] = useState(false);
   const [schemaSaveStatus, setSchemaSaveStatus] = useState<'idle' | 'saved' | 'partial' | 'failed'>('idle');
   const [schemaSaveMessage, setSchemaSaveMessage] = useState('');
@@ -97,7 +96,7 @@ export function ExecutionStep({ sources, actorParameters = {}, onEditStep, onCon
 
   const resetTask = () => {
     try { localStorage.removeItem(runStorageKey); } catch { /* Backend history remains untouched. */ }
-    setStatus('idle'); setProgress(0); setElapsed(0); setCaptured(0); setConfirmedExecution(false);
+    setStatus('idle'); setProgress(0); setElapsed(0); setCaptured(0);
     setRuns([]); setSnapshots({}); setRecordIds([]); setStartedAt(null);
     setLogs(['[' + nowTime() + '] [SYSTEM] 已清空当前页面任务引用；历史后端任务不会被删除。']);
     setNotice('');
