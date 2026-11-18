@@ -74,7 +74,24 @@ export function SalesOrderConsolePage(){
  const dailyAmount=days.map(d=>({group:(d.getMonth()+1)+'/'+d.getDate(),key:currency+' 订单金额',value:Number(amountMap.get(dayKey(d))||0)}));
  const dailyCount=days.map(d=>({group:(d.getMonth()+1)+'/'+d.getDate(),key:'订单数量',value:Number(countMap.get(dayKey(d))||0)}));
  const options={theme:document.documentElement.dataset.carbonTheme==='g100'?'g100':'white',height:'260px',color:{pairing:{numberOfVariants:14,option:1}},legend:{enabled:false},toolbar:{enabled:false},axes:{bottom:{title:'日期',mapsTo:'group',scaleType:ScaleTypes.LABELS},left:{mapsTo:'value',scaleType:ScaleTypes.LINEAR}}};
- if (loading) return <PageSkeleton variant="analytics-table" metricCount={8} chartCount={2} showMap columns={8} rows={6} />;
+ if (loading) return <PageSkeleton className="tp-sales-orders" layout={[
+  { type: 'group', direction: 'row', gap: 'var(--cds-spacing-05)', className: 'tp-sales-orders__header', children: [
+    { type: 'group', direction: 'column', gap: 'var(--cds-spacing-03)', children: [{ type: 'text', width: '8rem' }, { type: 'text', heading: true, width: '16rem' }, { type: 'text', width: '28rem' }] },
+    { type: 'group', direction: 'row', gap: 'var(--cds-spacing-03)', className: 'tp-sales-orders__actions', children: [{ type: 'placeholder', width: '5rem', height: '2.5rem' }, { type: 'placeholder', width: '9rem', height: '2.5rem' }] },
+  ] },
+  { type: 'group', direction: 'grid', columns: 4, gap: 'var(--cds-spacing-04)', className: 'tp-sales-orders__metrics', children: Array.from({ length: 8 }, () => ({ type: 'placeholder' as const, minHeight: '8rem' })) },
+  { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-sales-orders__panel', children: [
+    { type: 'text', heading: true, width: '12rem' },
+    { type: 'group', direction: 'row', gap: 'var(--cds-spacing-04)', children: [{ type: 'placeholder', width: '10rem', height: '3rem' }] },
+    { type: 'group', direction: 'grid', columns: 2, gap: 'var(--cds-spacing-04)', className: 'tp-sales-orders__charts', children: Array.from({ length: 7 }, () => ({ type: 'placeholder' as const, minHeight: '16rem', className: 'tp-sales-orders__chart' })) },
+  ] },
+  { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-sales-orders__panel tp-sales-orders__market-panel', children: [{ type: 'text', heading: true, width: '13rem' }, { type: 'placeholder', minHeight: '20rem' }] },
+  { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-sales-orders__panel', children: [
+    { type: 'text', heading: true, width: '12rem' },
+    { type: 'group', direction: 'grid', columns: 2, gap: 'var(--cds-spacing-04)', className: 'tp-sales-orders__filters', children: [{ type: 'placeholder', height: '2.5rem' }, { type: 'placeholder', height: '2.5rem' }] },
+    { type: 'table', columns: 8, rows: 6, className: 'tp-sales-orders__table-wrap' },
+  ] },
+]} />;
  return <main className="tp-sales-orders">
   <header className="tp-sales-orders__header"><div><p className="tp-sales-orders__eyebrow">TRADEPILOT / SALES</p><h1>销售订单（Sales Order）</h1><p>管理订单承诺、价格锁定、收款计划与交付履约。</p></div><div className="tp-sales-orders__actions"><Button kind="tertiary" onClick={()=>void load()} disabled={loading}><CarbonIcons.Renew size={16}/>刷新</Button><Link href="/sales-orders/new" renderIcon={CarbonIcons.Add}>创建销售订单</Link></div></header>
   {error&&<InlineNotification kind="error" title="销售订单读取失败" subtitle={error}/>}
