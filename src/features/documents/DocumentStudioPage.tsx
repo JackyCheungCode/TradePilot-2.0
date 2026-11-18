@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput } from '@/design-system';
+import { Button, Link, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/documents.scss';
 
@@ -252,7 +252,7 @@ export function DocumentStudioPage() {
   return <main className="tp-doc-studio">
     <header className="tp-doc-studio__header">
       <div><p className="tp-documents__eyebrow">TRADEPILOT / DOCUMENT STUDIO</p><h1>单据自由制作</h1><p>选择业务数据，自动填充内容，再自由调整模板上的每一个元素。</p></div>
-      <div className="tp-documents__actions"><Button kind="tertiary" onClick={() => navigate('/documents')}>返回单据中心</Button><Button kind="secondary" onClick={() => void saveTemplate()} disabled={saving}>保存为模板</Button><Button kind="primary" onClick={() => void loadBusinessData()} disabled={saving || loading}>{saving ? '处理中…' : createdDoc ? '重新载入数据' : '载入业务数据'}</Button></div>
+      <div className="tp-documents__actions"><Link href="/documents">返回单据中心</Link><Button kind="secondary" onClick={() => void saveTemplate()} disabled={saving}>保存为模板</Button><Button kind="primary" onClick={() => void loadBusinessData()} disabled={saving || loading}>{saving ? '处理中…' : createdDoc ? '重新载入数据' : '载入业务数据'}</Button></div>
     </header>
     {error && <InlineNotification kind="error" lowContrast title="操作未完成" subtitle={error} onCloseButtonClick={() => setError('')} />}
     {notice && <InlineNotification kind="success" lowContrast title="已完成" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
@@ -315,6 +315,6 @@ export function DocumentStudioPage() {
         <div className="tp-doc-studio__save"><Button kind="primary" onClick={() => void saveDocumentLayout()} disabled={saving}>{saving ? '保存中…' : createdDoc ? '保存模板与单据版本' : '保存模板设计'}</Button></div>
       </aside>
     </section>
-    <footer className="tp-doc-studio__footer"><span>模板元素使用毫米坐标保存；正式 PDF 使用相同模板快照渲染。</span>{createdDoc && <Button kind="secondary" onClick={() => navigate('/documents/' + createdDoc.id)}>打开正式单据预览</Button>}</footer>
+    <footer className="tp-doc-studio__footer"><span>模板元素使用毫米坐标保存；正式 PDF 使用相同模板快照渲染。</span>{createdDoc && <Link href={'/documents/' + createdDoc.id}>打开正式单据预览</Link>}</footer>
   </main>;
 }
