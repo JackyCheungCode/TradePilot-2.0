@@ -24,8 +24,10 @@ export type PageHeaderProps = {
 function isActionElement(node: ReactNode): node is ReactElement<Record<string, unknown>> {
   if (!isValidElement(node)) return false;
   const typeName = typeof node.type === 'string' ? node.type : (node.type as { displayName?: string; name?: string }).displayName || (node.type as { name?: string }).name || '';
-  return typeName === 'Button' || typeName === 'Link' || node.props.kind !== undefined;
+  return typeName === 'Button' || typeName === 'Link' || node.props.kind !== undefined || node.props.renderIcon !== undefined || node.props.disabled !== undefined || node.props.size !== undefined;
 }
+
+function nodeText(node: ReactNode): string { if (typeof node === 'string' || typeof node === 'number') return String(node); if (Array.isArray(node)) return node.map(nodeText).join(' '); if (isValidElement(node)) return nodeText((node.props as Record<string, unknown>).children as ReactNode); return ''; }
 
 function normalizeLegacyActions(node: ReactNode, primaryAssigned: { current: boolean }): ReactNode {
   if (Array.isArray(node)) return node.map((child) => normalizeLegacyActions(child, primaryAssigned));
@@ -33,7 +35,7 @@ function normalizeLegacyActions(node: ReactNode, primaryAssigned: { current: boo
   const props = node.props as Record<string, unknown>;
   const children = props.children as ReactNode;
   if (isActionElement(node)) {
-    const label = typeof children === 'string' ? children : '';
+    const label = nodeText(children);
     const inferredPrimary = /^(新建|创建|新增|添加|导入|保存|生成|开始)/.test(label.trim());
     const requestedPrimary = props.kind === 'primary';
     const primary = !primaryAssigned.current && (requestedPrimary || inferredPrimary);
