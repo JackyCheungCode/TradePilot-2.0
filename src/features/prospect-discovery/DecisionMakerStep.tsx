@@ -249,7 +249,7 @@ export function DecisionMakerStep() {
         </div>
         <div className="tp-decision__actions">
           <Button kind="primary" renderIcon={CarbonIcons.SearchLocate} disabled={running || loading || !rows.length || !providers.length} onClick={startEnrichment}>{running ? '正在穿透组织架构…' : '开始执行联系人穿透'}</Button>
-          <Button kind="secondary" renderIcon={CarbonIcons.CloudUpload} disabled={!selected.length || !allReady || selectedCandidateCount === 0 || running} onClick={syncSelected}>确认所选联系人并同步至 CRM</Button>
+          <Button kind="tertiary" renderIcon={CarbonIcons.CloudUpload} disabled={!selected.length || !allReady || selectedCandidateCount === 0 || running} onClick={syncSelected}>确认所选联系人并同步至 CRM</Button>
           <span>先执行补全，再人工确认联系人候选</span>
         </div>
       </Tile>
