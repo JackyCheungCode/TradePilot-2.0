@@ -1,4 +1,5 @@
 import { PageSkeleton } from '@/design-system';
+import { PageSkeleton } from '@/design-system';
 import { useEffect, useMemo, useState } from 'react';
 import { strToU8, zipSync } from 'fflate';
 import {
@@ -208,6 +209,7 @@ export function ScoringStep({ onContinueToEnrichment }: Props) {
   };
   const scoreTag = (score?: number) => score === undefined ? <Tag type="gray">待清洗</Tag> : <Tag type={score >= 90 ? 'green' : score >= 80 ? 'blue' : 'warm-gray'}>{score >= 90 ? 'Tier A' : score >= 80 ? 'Tier B' : 'Tier C'}</Tag>;
 
+  if (loading) return <PageSkeleton variant="table" />;
   if (loading) return <PageSkeleton variant="table" />;
   return (
     <section className="tp-prospect-discovery__step tp-scoring">
