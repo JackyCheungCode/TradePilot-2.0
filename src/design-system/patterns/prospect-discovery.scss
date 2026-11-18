@@ -1024,3 +1024,22 @@
   fill: currentColor;
   padding: .375rem;
 }
+
+
+/* Carbon-aligned platform catalog alignment and icon sizing. */
+.tp-prospect-discovery__platform-row { align-items: start; }
+.tp-prospect-discovery__platform-copy { min-width: 0; text-align: left; }
+.tp-prospect-discovery__platform-name { justify-content: flex-start; text-align: left; }
+.tp-prospect-discovery__platform-copy p { width: 100%; text-align: left; }
+.tp-prospect-discovery__platform-logo,
+.tp-prospect-discovery__platform-monogram {
+  display: inline-flex;
+  flex: 0 0 2.5rem;
+  width: 2.5rem;
+  height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  object-fit: contain;
+}
+.tp-prospect-discovery__platform-logo { padding: .375rem; }
+.tp-prospect-discovery__platform-logo--sprite { fill: currentColor; color: var(--cds-icon-primary); }
