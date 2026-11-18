@@ -421,7 +421,7 @@ export function CustomerCommunicationsWidget({
           <div className="cc-window-tools">
             {fullPage && <ActionIconButton label="返回工作台" onClick={onClose} />}
             <ActionIconButton label={profileOpen ? '收起客户资料' : '显示客户资料'} onClick={() => setProfileOpen((value) => !value)} />
-            {!fullPage && <ActionIconButton label={maximized ? '还原窗口' : '最大化窗口'} icon={maximized ? CarbonIcons.Minimize : CarbonIcons.Maximize} onClick={() => setMaximized((value) => !value)} />}
+            {!fullPage && <ActionIconButton label={maximized ? '还原窗口' : '最大化窗口'} onClick={() => setMaximized((value) => !value)} />}
             {!fullPage && <ActionIconButton label="最小化聊天窗口" onClick={onMinimize} />}
             {!fullPage && <ActionIconButton label="关闭聊天窗口" onClick={onClose} />}
           </div>
