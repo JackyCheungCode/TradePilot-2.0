@@ -99,7 +99,7 @@ export function ProspectHistoryPage() {
     results.forEach(item => { const code = String(item.record?.country_code || '').trim().toUpperCase(); if (code && code !== 'UNKNOWN') counts.set(code, (counts.get(code) || 0) + 1); });
     return [...counts.entries()].map(([code, value]) => { let label = code; try { label = new Intl.DisplayNames(['zh-TW'], { type: 'region' }).of(code) || code; } catch {} return { code, label, value }; }).sort((a, b) => b.value - a.value);
   }, [results]);
-  const donutOptions = { height: '260px', donut: { center: { label: '任务' } }, legend: { position: 'bottom' }, toolbar: { enabled: false } };
+  const donutOptions = { theme: document.documentElement.dataset.carbonTheme === 'g100' ? 'g100' : 'white', height: '260px', donut: { center: { label: '任务' } }, legend: { position: 'bottom' }, toolbar: { enabled: false } };
   const barOptions = { height: '260px', axes: { bottom: { mapsTo: 'group', scaleType: 'labels' }, left: { mapsTo: 'value', scaleType: 'linear' } }, legend: { enabled: false }, toolbar: { enabled: false } };
 
   return (
