@@ -112,7 +112,7 @@ export function TradeDocumentSettings({ scope }: { scope: Scope }) {
     }
   };
 
-  if (loading) return <PageSkeleton variant="table" />;
+  if (loading) return <PageSkeleton variant="form" />;
   return (
     <div className="tp-settings__advanced tp-trade-document-settings">
       <div className="tp-trade-document-settings__intro">
