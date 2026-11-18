@@ -3,7 +3,7 @@
  * Feature code should use semanticIcons rather than selecting arbitrary glyphs.
  */
 import {
-  Add, Analytics, Api, Archive, ArrowLeft, ArrowRight, ArrowUpRight,
+  Add, Analytics, Api, Archive, ArrowLeft, ArrowRight,
   Attachment, Building, Calculator, Calendar, Catalog, Certificate,
   ChartLine, Chat, Checkmark, CheckmarkFilled, ChevronDown, ChevronLeft,
   ChevronRight, Close, CloudUpload, Currency, CurrencyDollar, Dashboard,
