@@ -171,10 +171,10 @@ export function PersonalSettingsPage() {
             {active === 'profile' && (
               <div className="tp-personal-settings__fields">
                 <div className="tp-personal-settings__avatar-block">
-                  <button type="button" className="tp-personal-settings__avatar-button" onClick={() => fileInput.current?.click()} disabled={uploading} aria-label="点击上传或更换个人头像">
+                  <Button type="button" kind="ghost" className="tp-personal-settings__avatar-button" onClick={() => fileInput.current?.click()} disabled={uploading} aria-label="点击上传或更换个人头像">
                     {avatarUrl ? <img src={avatarUrl} alt="个人头像" /> : <CarbonIcons.UserAvatar size={64} />}
                     <span className="tp-personal-settings__avatar-overlay"><CarbonIcons.Camera size={20} /></span>
-                  </button>
+                  </Button>
                   <input ref={fileInput} className="tp-personal-settings__file-input" type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={(event) => void uploadAvatar(event.currentTarget.files?.[0])} />
                   <div><strong>个人头像</strong><p>点击头像即可上传或更换。支持 JPG、PNG、WebP、AVIF，最大 2 MB。</p><span>{uploading ? '正在上传头像…' : '头像保存后会同步到顶部账户图标。'}</span></div>
                 </div>
