@@ -216,7 +216,7 @@ const platformLettermarkTones: Record<string, string> = {
   telegram: 'cyan', amazon: 'navy', walmart: 'blue', alibaba: 'orange', aliexpress: 'red',
   ebay: 'blue', etsy: 'orange', temu: 'orange', shein: 'black', 'shopify-stores': 'green',
   woocommerce: 'purple', bigcommerce: 'black', 'tiktok-shop': 'black', 'mercado-libre': 'yellow',
-trustpilot: 'green', crunchbase: 'cyan', 'product-hunt': 'orange',
+crunchbase: 'cyan', 'product-hunt': 'orange',
   github: 'black', 'sam-gov': 'navy', 'canton-fair': 'red', thomasnet: 'navy',
   europages: 'blue', kompass: 'red', wlw: 'red', indiamart: 'blue', tradeindia: 'orange',
   justdial: 'yellow', coupang: 'red', 'rakuten-jp': 'red', '1688': 'orange', jd: 'red',
