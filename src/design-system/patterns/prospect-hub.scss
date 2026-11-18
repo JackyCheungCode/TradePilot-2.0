@@ -115,3 +115,9 @@
     &__footer { flex-direction:column; }
   }
 }
+
+.tp-prospect-history__analytics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--cds-spacing-05);margin-bottom:var(--cds-spacing-05);min-width:0}
+.tp-prospect-history__analytics>.tp-prospect-hub__panel{min-width:0}
+.tp-prospect-history__market{grid-column:1/-1}
+.tp-prospect-history__analytics .cds--cc--chart-wrapper{width:100%;min-width:0}
+@media(max-width:850px){.tp-prospect-history__analytics{grid-template-columns:1fr}.tp-prospect-history__market{grid-column:auto}}
