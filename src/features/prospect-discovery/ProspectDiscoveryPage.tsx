@@ -182,12 +182,6 @@ export function ProspectDiscoveryPage() {
 
   const handleSelectionCountChange = useCallback((count: number) => setSelectedSourceCount(count), []);
   const handleSelectionChange = useCallback((sources: Array<{ id: string; name: string; category?: string }>) => setSelectedSources(sources), []);
-  const actorProfile = useMemo(() => ({
-    coreNoun: profile.coreNoun,
-    country: profile.country,
-    countryName: profile.countryName,
-    city: profile.city,
-  }), [profile.coreNoun, profile.country, profile.countryName, profile.city]);
   const actorSourcesForSchema = selectedSources ?? EMPTY_DISCOVERY_SOURCES;
 
   const [googleQueries, setGoogleQueries] = useState<string[]>([]);
@@ -634,7 +628,7 @@ export function ProspectDiscoveryPage() {
             </section>
           )}
         </section>
-          <ActorSchemaFields sources={actorSourcesForSchema} profile={actorProfile} onValuesChange={setActorParameters} />
+          <ActorSchemaFields sources={actorSourcesForSchema} onValuesChange={setActorParameters} />
         </>
        ) : selectedIndex === 0 ? (
         <PlatformSelectionStep countryCode={profile.country} countries={countries} onSelectionCountChange={handleSelectionCountChange} selectedIds={selectedSources?.map(item => item.id)} onSelectionChange={handleSelectionChange} />
