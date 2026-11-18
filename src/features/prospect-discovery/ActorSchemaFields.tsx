@@ -60,7 +60,7 @@ function validateActorInput(item: LoadedSchema, input: Record<string, unknown>) 
   for (const [key, field] of Object.entries(item.schema.properties ?? {})) {
     const value = input[key];
     const label = item.schema.translatedProperties?.[key]?.titleZh || field.titleZh || field.title || key;
-    if ((required.has(key) || field.required === true) && (value === undefined || value === null || value === '')) {
+    if ((required.has(key) || field.required === true) && (value === undefined || value === null || value === '' || (typeof value === 'string' && !value.trim()))) {
       missing.push(label);
       continue;
     }
@@ -207,7 +207,11 @@ export function ActorSchemaFields({ sources, onValuesChange }: Props) {
                 <code>{fieldKey}</code>
               </div>
               {expandedHelp[valueKey] && <div className="tp-prospect-discovery__actor-schema-help"><p>{description}</p><p>{usage}</p><span>原始类型：{field.type || '未声明'} · {isRequired ? '必填字段' : '选填字段'}</span></div>}
-              {enumValues.length > 0 ? <Select id={'actor-field-' + valueKey} labelText={title} hideLabel value={String(value)} onChange={event => setField(valueKey, event.currentTarget.value)}>
+              {enumValues.length > 0 ? <Select id={'actor-field-' + valueKey} labelText={title} hideLabel value={String(value)} onChange={event => {
+                const raw = event.currentTarget.value;
+                const parsed = raw === '' ? '' : field.type === 'number' || field.type === 'integer' ? Number(raw) : field.type === 'boolean' ? raw === 'true' : field.type === 'object' || field.type === 'array' ? (() => { try { return JSON.parse(raw); } catch { return raw; } })() : raw;
+                setField(valueKey, parsed);
+              }}>
                 <SelectItem value="" text="请选择" />
                 {enumValues.map(option => <SelectItem key={String(option)} value={String(option)} text={String(option)} />)}
               </Select> : field.type === 'boolean' ? <Checkbox id={'actor-field-' + valueKey} labelText={title} checked={Boolean(value)} onChange={event => setField(valueKey, event.currentTarget.checked)} /> : field.type === 'number' || field.type === 'integer' ? <TextInput id={'actor-field-' + valueKey} labelText={title} type="number" value={String(value)} onChange={event => setField(valueKey, event.currentTarget.value === '' ? '' : Number(event.currentTarget.value))} /> : field.type === 'object' || field.type === 'array' ? <TextArea id={'actor-field-' + valueKey} labelText={title} rows={3} value={typeof value === 'string' ? value : JSON.stringify(value)} onChange={event => setField(valueKey, event.currentTarget.value)} /> : <TextInput id={'actor-field-' + valueKey} labelText={title} value={String(value)} onChange={event => setField(valueKey, event.currentTarget.value)} />}
