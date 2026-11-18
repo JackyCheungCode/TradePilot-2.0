@@ -228,7 +228,7 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
         actors?: Array<{ actorId?: string; sourceId?: string; sourceName?: string; actorTitle?: string; schemaVersion?: string; inputFingerprint?: string; status?: string; schemaKeys?: string[]; input?: Record<string, unknown> }>;
         planSnapshot?: Record<string, unknown>;
       };
-      const selected = (body.actors ?? []).filter(actor => actor && typeof actor.actorId === "string").slice(0, 20);
+      const selected = (body.actors ?? []).filter(actor => actor && typeof actor.actorId === "string");
       if (!selected.length) return errorResponse(request, "ACTOR_EXECUTIONS_REQUIRED", "没有可执行的数据源。", 400);
       const verified = await Promise.all(selected.map(async actor => {
         const actorId = String(actor.actorId);
