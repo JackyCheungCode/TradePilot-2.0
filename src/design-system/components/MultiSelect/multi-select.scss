@@ -1,0 +1,13 @@
+.tp-multiselect {
+  min-width: 0;
+  width: 100%;
+}
+
+.tp-multiselect__selected-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--cds-spacing-03);
+  margin-top: var(--cds-spacing-03);
+  min-width: 0;
+}
