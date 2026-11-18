@@ -4,8 +4,9 @@ import path from 'node:path';
 const sourceRoot = path.resolve('src');
 const allowedRoot = path.resolve('src/design-system');
 const violations = [];
-const forbiddenPackages = /(?:from\s*|import\s*|@use\s*|@forward\s*|@import\s*)['"](?:@carbon\/(?:react|icons-react|pictograms-react)|@fontsource[^'"]*|lucide-react|react-icons(?:\/[^'"]*)?|@fortawesome\/|@tabler\/)[^'"]*['"]/g;
-const cssDeclaration = /(?:^|[;{}\s])[-a-zA-Z]+\s*:\s*[^;{}]+;/m;
+const forbiddenPackages = /(?:from\\s*|import\\s*|@use\\s*|@forward\\s*|@import\\s*)['"](?:@carbon\\/(?:react|icons-react|pictograms-react)|@fontsource[^'"]*|lucide-react|react-icons(?:\\/[^'"]*)?|@fortawesome\\/|@tabler\\/)[^'"]*['"]/g;
+const cssDeclaration = /(?:^|[;{}\\s])[-a-zA-Z]+\\s*:\\s*[^;{}]+;/m;
+const nativeSelectElement = /<(?:select|option)\\b/i;
 
 async function scan(directory) {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
@@ -14,7 +15,7 @@ async function scan(directory) {
       await scan(fullPath);
       continue;
     }
-    if (!/\.[cm]?[jt]sx?$|\.s[ac]ss$|\.css$/.test(entry.name)) continue;
+    if (!/\\.[cm]?[jt]sx?$|\\.s[ac]ss$|\\.css$/.test(entry.name)) continue;
     if (fullPath.startsWith(allowedRoot + path.sep)) continue;
 
     const source = await readFile(fullPath, 'utf8');
@@ -25,14 +26,18 @@ async function scan(directory) {
     }
     forbiddenPackages.lastIndex = 0;
 
-    if (/\.s[ac]ss$|\.css$/.test(entry.name)) {
-      const withoutComments = source.replace(/\/\*[\s\S]*?\*\//g, '');
+    if (/\\.tsx?$/.test(entry.name) && nativeSelectElement.test(source)) {
+      violations.push(relative + ': native <select>/<option> elements are forbidden; use Carbon Dropdown, ComboBox, or MultiSelect');
+    }
+
+    if (/\\.s[ac]ss$|\\.css$/.test(entry.name)) {
+      const withoutComments = source.replace(/\\/\\*[\\s\\S]*?\\*\\//g, '');
       if (cssDeclaration.test(withoutComments)) {
         violations.push(relative + ': feature-owned CSS declarations are forbidden; compose Carbon and design-system resources');
       }
     }
 
-    if (/\.tsx?$/.test(entry.name) && /\bstyle\s*=/.test(source)) {
+    if (/\\.tsx?$/.test(entry.name) && /\\bstyle\\s*=/.test(source)) {
       violations.push(relative + ': inline styles are forbidden; use Carbon components and design-system tokens');
     }
   }
