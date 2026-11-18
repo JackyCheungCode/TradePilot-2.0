@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AreaChart } from '@carbon/charts-react';
 import {
-  Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput,
+  Button, Link, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput,
   Table, TableHead, TableRow, TableHeader, TableBody, TableCell, TableContainer, CarbonIcons, WorldMapChart, SimpleBarChart,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
