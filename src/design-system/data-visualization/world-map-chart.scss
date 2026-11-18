@@ -125,13 +125,13 @@
   background: var(--cds-layer-hover-01);
 }
 
-.tp-world-map__rank > span {
+.tp-world-map__rank-content > span {
   color: var(--cds-text-helper);
   font-size: 0.6875rem;
   font-variant-numeric: tabular-nums;
 }
 
-.tp-world-map__rank > strong {
+.tp-world-map__rank-content > strong {
   overflow: hidden;
   font-size: 0.8125rem;
   font-weight: 500;
@@ -139,7 +139,7 @@
   white-space: nowrap;
 }
 
-.tp-world-map__rank > b {
+.tp-world-map__rank-content > b {
   color: var(--cds-text-primary);
   font-size: 0.8125rem;
   font-variant-numeric: tabular-nums;
