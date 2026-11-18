@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   Accordion, AccordionItem, Button, Checkbox, ComboBox, InlineLoading, InlineNotification, Modal, MultiSelect,
   Select, SelectItem, Tab, TabList, TabPanel, TabPanels, Tabs, Tag, TextArea, TextInput, Tile, FileUploader, LineChart, ScaleTypes,
-  CarbonIcons, Table, TableHead, TableRow, TableHeader, TableBody, TableCell, BusinessLifecycle,
+  CarbonIcons, Table, TableHead, TableRow, TableHeader, TableBody, TableCell, BusinessLifecycle, WorldMapChart,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import { useCrmSettingOptions } from '../settings/CrmDomainSettings';
@@ -229,13 +229,7 @@ export function ContactConsolePage() {
     return [...parents.entries()].map(([label,children])=>({label,children:[...children.entries()].map(([childLabel,items])=>({label:childLabel,items}))}));
   },[rows,groupBy,thenBy,verifiedIds]);
   const renderTable=(items:ContactRow[])=><div className="tp-contacts__table-scroll"><Table><TableHead><TableRow><TableHeader>联系人</TableHeader><TableHeader>所属客户</TableHeader><TableHeader>职位 / 部门</TableHeader><TableHeader>主要联系方式</TableHeader><TableHeader>角色</TableHeader><TableHeader>状态</TableHeader><TableHeader>主联系人</TableHeader></TableRow></TableHead><TableBody>{items.map(r=><TableRow key={r.id} onClick={()=>navigate('/contacts/'+r.id)} className="tp-contacts__click-row"><TableCell><strong>{r.full_name||[r.first_name,r.last_name].filter(Boolean).join(' ')||'未命名'}</strong><small>{r.email||'—'}</small></TableCell><TableCell>{r.crm_accounts?.account_name||'—'}</TableCell><TableCell>{r.job_title||'—'}<small>{r.department||''}</small></TableCell><TableCell>{r.email||r.mobile||r.phone||r.whatsapp||'—'}</TableCell><TableCell>{r.decision_role||'—'}</TableCell><TableCell><Tag type={r.is_active?'green':'cool-gray'}>{r.is_active?'在职':'非在职'}</Tag></TableCell><TableCell>{r.is_primary?'是':'—'}</TableCell></TableRow>)}</TableBody></Table></div>;
-  const chartCountries=useMemo(()=>{
-    if(countryStats.length<=12) return countryStats;
-    const top=countryStats.slice(0,11);
-    const rest=countryStats.slice(11).reduce((acc,item)=>({total:acc.total+item.total,verified:acc.verified+item.verified,active:acc.active+item.active}),{total:0,verified:0,active:0});
-    return [...top,{key:'__other__',label:'其他国家 / 地区',...rest}].sort((a,b)=>b.total-a.total);
-  },[countryStats]);
-  const maxCountry=chartCountries[0]?.total??1;
+  const countryMapData=countryStats.filter(item=>item.key!=='unknown').map(item=>({code:item.key,label:item.label,value:item.total,detail:'已验证 '+item.verified+' · 在职 '+item.active}));
   const dailyChartData=dailyStats.map(item=>({group:'每日新增',date:new Date(item.date+'T00:00:00'),value:item.count}));
   const dailyChartOptions={title:'每日新增联系人',axes:{bottom:{title:'日期',mapsTo:'date',scaleType:ScaleTypes.TIME},left:{title:'新增联系人',mapsTo:'value',scaleType:ScaleTypes.LINEAR}},curve:'curveMonotoneX',points:{enabled:true},legend:{enabled:false},toolbar:{enabled:false},height:'280px'} as const;
   const pages=Math.max(1,Math.ceil(total/PAGE_SIZE));
@@ -254,8 +248,8 @@ export function ContactConsolePage() {
       ].map(card=><Tile key={card.label} className="tp-contacts__stat-tile"><div className="tp-contacts__stat-top"><span>{card.label}</span><span className="tp-contacts__stat-icon" aria-hidden="true">{card.icon}</span></div><strong>{card.value.toLocaleString()}</strong><small>{card.description}</small></Tile>)}
     </section>
     <section className="tp-contacts__country-panel">
-        <div className="tp-contacts__section-head"><div><h2 className="tp-contacts__heading"><CarbonIcons.Globe size={20} aria-hidden="true"/><span>国家 / 地区分布</span></h2><p>按联系人国家汇总；验证数按已验证联系方式去重统计。</p></div></div>
-        {analyticsLoading&&!countryStats.length?<InlineLoading description="正在汇总国家 / 地区…" />:chartCountries.length?<div className="tp-contacts__country-chart">{chartCountries.map(item=><div className="tp-contacts__country-row" key={item.key}><div className="tp-contacts__country-label"><span>{item.label}</span><strong>{item.total}</strong></div><svg className="tp-contacts__country-chart-bar" viewBox="0 0 100 8" preserveAspectRatio="none" role="img" aria-label={item.label+' 联系人数 '+item.total}><rect className="tp-contacts__country-chart-track" x="0" y="0" width="100" height="8"/><rect className="tp-contacts__country-chart-fill" x="0" y="0" width={Math.max(2,item.total/maxCountry*100)} height="8"/></svg><div className="tp-contacts__country-meta"><span>已验证 {item.verified}</span><span>在职 {item.active}</span></div></div>)}</div>:<p className="tp-contacts__empty">暂无可用于统计的联系人国家 / 地区数据。</p>}
+        <div className="tp-contacts__section-head"><div><h2 className="tp-contacts__heading"><CarbonIcons.Globe size={20} aria-hidden="true"/><span>全球联系人分布</span></h2><p>按联系人国家 / 地区汇总；悬停地图可查看已验证联系方式和在职人数。</p></div></div>
+        {analyticsLoading&&!countryStats.length?<InlineLoading description="正在汇总国家 / 地区…" />:countryMapData.length?<WorldMapChart data={countryMapData} unitLabel="位联系人"/>:<p className="tp-contacts__empty">暂无可用于统计的联系人国家 / 地区数据。</p>}
     </section>
     <section className="tp-contacts__daily-panel">
       <div className="tp-contacts__section-head"><div><h2 className="tp-contacts__heading"><CarbonIcons.ChartLine size={20} aria-hidden="true"/><span>每日新增</span></h2><p>按联系人创建时间统计最近 30 天每日新增数量。</p></div></div>
