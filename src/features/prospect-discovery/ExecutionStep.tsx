@@ -177,8 +177,9 @@ export function ExecutionStep({ profile, sources, actorParameters = {}, onEditSt
       const addTask = (sourceId: string, name: string, endpoint: string, body: Record<string, unknown>) => {
         tasks.push((async () => {
           try {
-            const result = await requestApi(endpoint, token, { method: 'POST', body: JSON.stringify(body) }) as { id?: string; taskCode?: string; channel?: string };
+            const result = await requestApi(endpoint, token, { method: 'POST', body: JSON.stringify(body) }) as { id?: string; taskCode?: string; channel?: string; rejectedActorCount?: number; rejectedActors?: Array<{ sourceName?: string; errors?: string[] }> };
             if (!result.id) throw new Error('服务端未返回任务 ID');
+            if (result.rejectedActorCount) appendLog('[SCHEMA VALIDATION] ' + result.rejectedActorCount + ' 个 Actor 因必填字段或格式问题未启动：' + (result.rejectedActors ?? []).map(item => (item.sourceName || '未知来源') + ' ' + (item.errors ?? []).join('、')).join('；'));
             created.push({ id: result.id, sourceId, name });
             appendLog('[TASK CREATED] ' + name + ' · ' + (result.taskCode || result.id));
           } catch (error) {
@@ -219,7 +220,7 @@ export function ExecutionStep({ profile, sources, actorParameters = {}, onEditSt
           minFollowers: 0, maxFollowers: 100000000, recentDays: 365, requireContact: true, limit: instagramLimitValue, planSnapshot, guardrailsSnapshot,
         });
       }
-      if (pendingActorPlans.length) appendLog("[ACTOR GATE] " + pendingActorPlans.length + " 个已选平台的 Actor 尚未通过当前输入参数测试，本次暂不启动这些 Actor。");
+      if (pendingActorPlans.length) appendLog("[SCHEMA VALIDATION] " + pendingActorPlans.length + " 个已选平台仍有必填字段或参数格式未完成校验，本次暂不启动这些 Actor。");
       if (enabledActorPlans.length) {
         addTask("actor-discovery", "Actor 智能采集（" + enabledActorPlans.length + " 个来源）", "/api/v1/actor-registry/execute", {
           actors: enabledActorPlans,
@@ -362,7 +363,7 @@ export function ExecutionStep({ profile, sources, actorParameters = {}, onEditSt
 
       {notice && <InlineNotification kind="info" lowContrast title="任务反馈" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
       <Tile className="tp-execution__configuration">
-        <div className="tp-execution__section-heading"><div><h3>执行参数</h3><p>所有已选平台均按动态 Schema 配置；通过参数测试的 Actor 和原生执行渠道均可执行。数量为每个目标国家或渠道的结果上限。</p></div><Tag type="blue">{configuredChannels.length} 个可执行渠道</Tag></div>
+        <div className="tp-execution__section-heading"><div><h3>执行参数</h3><p>所有已选平台均按动态 Schema 配置；必填字段与参数类型校验通过的 Actor 和原生执行渠道均可执行。数量为每个目标国家或渠道的结果上限。</p></div><Tag type="blue">{configuredChannels.length} 个可执行渠道</Tag></div>
         <div className="tp-execution__configuration-grid">
           {channels.some(item => item.id === 'google-maps') && <div><TextInput id="tp-execution-map-limit" type="number" min={1} max={100} labelText="Google Maps + OSM：每个数据源结果上限" helperText="Google Maps 与 OSM 分别使用此上限。" value={mapLimit} onChange={event => { setMapLimit(event.currentTarget.value); setConfirmedExecution(false); }} /></div>}
           {channels.some(item => item.id === 'google-search') && <div><TextInput id="tp-execution-web-limit" type="number" min={1} max={100} labelText="Web Search：结果上限" value={webLimit} onChange={event => { setWebLimit(event.currentTarget.value); setConfirmedExecution(false); }} /></div>}
@@ -370,8 +371,8 @@ export function ExecutionStep({ profile, sources, actorParameters = {}, onEditSt
           {channels.some(item => item.id === 'instagram') && <div><TextInput id="tp-execution-instagram-limit" type="number" min={1} max={100} labelText="Instagram：公开商业账号结果上限" helperText="仅检索公开商业 / 创作者账号。" value={instagramLimit} onChange={event => { setInstagramLimit(event.currentTarget.value); setConfirmedExecution(false); }} /></div>}
         </div>
         <div className="tp-execution__confirmation-summary"><strong>本次执行预览</strong>{configuredChannels.length ? configuredChannels.map(item => <span key={item.name}>{item.name}：{item.limit} 条（{item.detail}）</span>) : <span>尚未选择可执行渠道。</span>}</div>
-        {pendingActorPlans.length > 0 && <InlineNotification kind="warning" lowContrast title="部分平台尚未完成参数测试" subtitle={pendingActorPlans.length + " 个已选平台已读取 Schema，但当前参数尚未通过测试；通过测试的渠道仍可独立执行。"} />}
-        {channels.length > 0 && !hasRunnableSource && <InlineNotification kind="info" lowContrast title="尚无可执行渠道" subtitle={schemaLoadedSourceIds.size > 0 ? "已读取 Actor Schema；请在第二步对当前参数执行最小化测试并启用。" : "已选平台会自动读取动态 Schema；请检查第二步是否加载成功。"} />}
+        {pendingActorPlans.length > 0 && <InlineNotification kind="warning" lowContrast title="部分平台仍有参数待补全" subtitle={pendingActorPlans.length + " 个已选平台的 Schema 必填项或字段格式尚未完成；补齐后会自动放行，不需要运行测试。"} />}
+        {channels.length > 0 && !hasRunnableSource && <InlineNotification kind="info" lowContrast title="尚无可执行渠道" subtitle={schemaLoadedSourceIds.size > 0 ? "已读取 Actor Schema；请返回第二步补齐必填字段或修正字段格式，完成后自动放行。" : "已选平台会自动读取动态 Schema；请检查第二步是否成功加载参数结构。"} />}
         <Checkbox id="tp-execution-confirm" labelText="我已核对本次执行渠道、目标市场和数量上限，确认创建真实采集任务。" checked={confirmedExecution} disabled={!hasRunnableSource || status !== 'idle'} onChange={event => setConfirmedExecution(event.currentTarget.checked)} />
       </Tile>
       <div className="tp-execution__dashboard-heading">

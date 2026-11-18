@@ -98,6 +98,34 @@ function inputFingerprint(value: Record<string, unknown>, schemaVersion: string)
   }
   return (hash >>> 0).toString(16).padStart(8, "0");
 }
+function validateActorInputAgainstSchema(input: Record<string, unknown>, schema: Record<string, unknown>): string[] {
+  const properties = schema.properties && typeof schema.properties === "object" && !Array.isArray(schema.properties)
+    ? schema.properties as Record<string, unknown> : {};
+  const required = new Set(Array.isArray(schema.required) ? schema.required.filter((item): item is string => typeof item === "string") : []);
+  const errors: string[] = [];
+  for (const [key, rawField] of Object.entries(properties)) {
+    const field = rawField && typeof rawField === "object" && !Array.isArray(rawField) ? rawField as Record<string, unknown> : {};
+    const value = input[key];
+    const label = safeText(field.title, 120) || key;
+    if ((required.has(key) || field.required === true) && (value === undefined || value === null || value === "")) {
+      errors.push("缺少必填字段：" + label);
+      continue;
+    }
+    if (value === undefined || value === null || value === "") continue;
+    const type = field.type;
+    const valid = type === "string" ? typeof value === "string"
+      : type === "number" ? typeof value === "number" && Number.isFinite(value)
+      : type === "integer" ? typeof value === "number" && Number.isInteger(value)
+      : type === "boolean" ? typeof value === "boolean"
+      : type === "array" ? Array.isArray(value)
+      : type === "object" ? typeof value === "object" && !Array.isArray(value)
+      : true;
+    if (!valid) errors.push("字段类型不匹配：" + label + "（" + String(type) + "）");
+    if (Array.isArray(field.enum) && !field.enum.some(option => JSON.stringify(option) === JSON.stringify(value))) errors.push("字段不在允许选项内：" + label);
+    if (typeof value === "number" && ((typeof field.minimum === "number" && value < field.minimum) || (typeof field.maximum === "number" && value > field.maximum))) errors.push("字段超出允许范围：" + label);
+  }
+  return errors;
+}
 
 async function translateSchema(schema: Record<string, unknown>, env: ActorRegistryEnv): Promise<Record<string, unknown>> {
   const properties = schema.properties && typeof schema.properties === "object" ? schema.properties as Record<string, unknown> : {};
@@ -205,31 +233,30 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
       if (!selected.length) return errorResponse(request, "ACTOR_EXECUTIONS_REQUIRED", "没有可执行的数据源。", 400);
       const verified = await Promise.all(selected.map(async actor => {
         const actorId = String(actor.actorId);
-        const rows = await db<Array<{ status: string; source_metadata: Record<string, unknown> }>>(env,
-          "actor_registry?owner_id=eq." + ownerId + "&actor_id=eq." + encodeURIComponent(actorId) + "&select=status,source_metadata&limit=1");
         const schemas = await db<Array<{ version: string; input_schema: Record<string, unknown> }>>(env,
           "actor_schema_versions?owner_id=eq." + ownerId + "&actor_id=eq." + encodeURIComponent(actorId) + "&select=version,input_schema&order=fetched_at.desc&limit=1");
-        const savedTest = rows?.[0]?.source_metadata?.lastTest && typeof rows[0].source_metadata.lastTest === "object"
-          ? rows[0].source_metadata.lastTest as Record<string, unknown> : {};
-        const schemaProperties = schemas?.[0]?.input_schema?.properties && typeof schemas[0].input_schema.properties === "object"
-          ? schemas[0].input_schema.properties as Record<string, unknown> : {};
+        const latestSchema = schemas?.[0];
+        if (!latestSchema?.version || latestSchema.version !== safeText(actor.schemaVersion, 160)) {
+          return { actor, schemaInput: {}, errors: ["Schema 已更新或失效，请返回第二步重新读取参数。"] };
+        }
+        const schemaProperties = latestSchema.input_schema?.properties && typeof latestSchema.input_schema.properties === "object" && !Array.isArray(latestSchema.input_schema.properties)
+          ? latestSchema.input_schema.properties as Record<string, unknown> : {};
+        if (!Object.keys(schemaProperties).length) return { actor, schemaInput: {}, errors: ["当前 Schema 没有可用的 properties 字段。"] };
         const submittedInput = actor.input && typeof actor.input === "object" && !Array.isArray(actor.input) ? actor.input as Record<string, unknown> : {};
         const schemaInput = Object.fromEntries(Object.entries(submittedInput).filter(([key]) => Object.prototype.hasOwnProperty.call(schemaProperties, key)));
-        const currentFingerprint = actor.schemaVersion ? inputFingerprint(schemaInput, actor.schemaVersion) : "";
-        const enabled = actor.status === "enabled" && rows?.[0]?.status === "enabled"
-          && Boolean(schemas?.[0]?.version) && schemas[0].version === actor.schemaVersion
-          && Boolean(currentFingerprint) && currentFingerprint === safeText(savedTest.inputFingerprint, 40)
-          && currentFingerprint === safeText(actor.inputFingerprint, 40);
-        return { actor, enabled, schemaInput };
+        const errors = validateActorInputAgainstSchema(schemaInput, latestSchema.input_schema);
+        return { actor, schemaInput, errors };
       }));
-      const actors = verified.filter(item => item.enabled).map(({ actor, schemaInput }) => {
-        const input = schemaInput;
-        return {
-          actorId: String(actor.actorId), sourceId: safeText(actor.sourceId, 100),
-          sourceName: safeText(actor.sourceName, 160), actorTitle: safeText(actor.actorTitle, 200), schemaVersion: safeText(actor.schemaVersion, 160), inputFingerprint: safeText(actor.inputFingerprint, 40), input,
-        };
-      });
-      if (!actors.length) return errorResponse(request, "ACTOR_QUALITY_GATE_REQUIRED", "所选数据源尚未通过质量门禁，不能正式执行。", 400);
+      const actors = verified.filter(item => item.errors.length === 0).map(({ actor, schemaInput }) => ({
+        actorId: String(actor.actorId), sourceId: safeText(actor.sourceId, 100),
+        sourceName: safeText(actor.sourceName, 160), actorTitle: safeText(actor.actorTitle, 200),
+        schemaVersion: safeText(actor.schemaVersion, 160), input: schemaInput,
+      }));
+      const rejected = verified.filter(item => item.errors.length > 0);
+      if (!actors.length) {
+        const details = rejected.map(item => safeText(item.actor.sourceName, 120) + "：" + item.errors.join("、")).join("；");
+        return errorResponse(request, "ACTOR_INPUT_INVALID", "所选 Actor 参数未通过 Schema 必填项或类型校验。" + (details ? " " + details : ""), 400);
+      }
       const country = safeText(body.profile?.country, 2);
       const noun = safeText(body.profile?.coreNoun, 240);
       if (!/^[A-Z]{2}$/.test(country) || !noun) return errorResponse(request, "INVALID_ACTOR_TASK_PROFILE", "请先完成目标国家与核心产品画像。", 400);
@@ -239,7 +266,7 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
         countries: [country], query: noun, limitPerCountry: limit, providers: [], channel: "actor_discovery",
         actorExecutions: actors, planSnapshot: body.planSnapshot, guardrailsSnapshot: body.guardrailsSnapshot,
       };
-      const config = { actorExecutions: actors.map(actor => ({ actorId: actor.actorId, sourceId: actor.sourceId, sourceName: actor.sourceName, actorTitle: actor.actorTitle, schemaVersion: actor.schemaVersion, inputFingerprint: actor.inputFingerprint, input: redactActorInput(actor.input) })), planSnapshot: body.planSnapshot ?? null, guardrailsSnapshot: body.guardrailsSnapshot ?? null };
+      const config = { actorExecutions: actors.map(actor => ({ actorId: actor.actorId, sourceId: actor.sourceId, sourceName: actor.sourceName, actorTitle: actor.actorTitle, schemaVersion: actor.schemaVersion, input: redactActorInput(actor.input) })), planSnapshot: body.planSnapshot ?? null, guardrailsSnapshot: body.guardrailsSnapshot ?? null };
       const rows = await db<Array<{ id: string }>>(env, "discovery_runs", {
         method: "POST", headers: { Prefer: "return=representation" },
         body: JSON.stringify({
@@ -253,7 +280,7 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
       if (!run?.id) return errorResponse(request, "ACTOR_RUN_CREATE_FAILED", "无法创建数据源任务。", 500);
       await db(env, "discovery_run_logs", {
         method: "POST", headers: { Prefer: "return=minimal" },
-        body: JSON.stringify({ run_id: run.id, owner_id: ownerId, level: "info", message: "任务编号：" + code + "；已启用数据源：" + actors.map(actor => actor.sourceName).join("、") }),
+        body: JSON.stringify({ run_id: run.id, owner_id: ownerId, level: "info", message: "任务编号：" + code + "；已校验 Schema 并放行数据源：" + actors.map(actor => actor.sourceName).join("、") }),
       });
       try {
         await env.LEAD_DISCOVERY_WORKFLOW.create({ id: run.id, params: { runId: run.id, ownerId, input } });
@@ -264,7 +291,7 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
         });
         return errorResponse(request, "ACTOR_WORKFLOW_START_FAILED", "任务已创建，但后台工作流启动失败。", 503);
       }
-      return successResponse(request, { id: run.id, taskCode: code, channel: "actor_discovery", status: "queued", progress: 0, message: "数据源任务已排队", actorCount: actors.length }, 202);
+      return successResponse(request, { id: run.id, taskCode: code, channel: "actor_discovery", status: "queued", progress: 0, message: "数据源任务已排队", actorCount: actors.length, rejectedActorCount: rejected.length, rejectedActors: rejected.map(item => ({ sourceName: safeText(item.actor.sourceName, 120), errors: item.errors })) }, 202);
     }
     if (request.method === "POST" && parts[3] === "test") {
       const body = await request.json().catch(() => ({})) as { actorId?: string; input?: Record<string, unknown>; expectedFieldCount?: number; schemaVersion?: string; profile?: { coreNoun?: string; country?: string; countryName?: string; city?: string } };

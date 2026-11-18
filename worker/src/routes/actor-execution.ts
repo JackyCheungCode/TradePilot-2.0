@@ -153,8 +153,8 @@ export async function processActorDiscoveryRun(env: DiscoveryEnv, runId: string,
   if (!token) throw new Error("ACTOR_GATEWAY_NOT_CONFIGURED");
   const countryCode = input.countries[0] ?? "";
   let discovered = 0, created = 0, failedActors = 0;
-  await updateRun(env, runId, ownerId, { status: "running", message: "正在执行已通过质量门禁的数据源…" });
-  await log(env, runId, ownerId, "info", "Actor 任务启动；已选数据源：" + actors.map(actor => actor.sourceName).join("、"));
+  await updateRun(env, runId, ownerId, { status: "running", message: "正在执行已通过 Schema 参数校验的数据源…" });
+  await log(env, runId, ownerId, "info", "Actor 任务启动；Schema 参数已校验的数据源：" + actors.map(actor => actor.sourceName).join("、"));
   let completedActors = 0;
   let cursor = 0;
   const executeOne = async (actor: ActorExecution) => {
