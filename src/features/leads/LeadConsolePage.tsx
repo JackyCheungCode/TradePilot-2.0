@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AreaChart } from '@carbon/charts-react';
 import {
   Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput,
-  Table, TableHead, TableRow, TableHeader, TableBody, TableCell, TableContainer, CarbonIcons,
+  Table, TableHead, TableRow, TableHeader, TableBody, TableCell, TableContainer, CarbonIcons, WorldMapChart, SimpleBarChart,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
+import '@carbon/charts/styles.css';
 import '@/design-system/patterns/lead-console.scss';
 
 type LeadProfile = Record<string, unknown>;
@@ -22,15 +24,6 @@ interface LeadRow {
   created_at: string;
   profile: LeadProfile | null;
 }
-const countryCenters: Record<string, [number, number]> = {
-  US: [-98, 39], CA: [-106, 57], MX: [-102, 23], BR: [-52, -10], AR: [-64, -34],
-  GB: [-3, 55], IE: [-8, 53], FR: [2, 46], DE: [10, 51], ES: [-4, 40], IT: [12, 42],
-  NL: [5, 52], SE: [15, 62], NO: [10, 62], PL: [19, 52], TR: [35, 39], AE: [54, 24],
-  SA: [45, 24], ZA: [24, -29], EG: [30, 27], NG: [8, 9], IN: [79, 22], PK: [69, 30],
-  BD: [90, 24], CN: [104, 35], TW: [121, 24], HK: [114, 22], JP: [138, 37], KR: [128, 36],
-  SG: [104, 1], TH: [101, 15], VN: [108, 16], MY: [102, 4], ID: [118, -2], AU: [134, -25],
-  NZ: [172, -41], RU: [90, 60], UA: [32, 49], CH: [8, 47], AT: [14, 47], BE: [4, 51],
-};
 const sourceNames: Record<string, string> = {
   prospect_conversion: '全网情报', manual: '手动录入', website: '官网询盘',
   exhibition: '展会', social: '社交媒体', email: '邮件', referral: '客户推荐',
@@ -65,56 +58,37 @@ function Metric({ label, value, icon, detail }: { label: string; value: number; 
 function Distribution({ title, description, items, icon }: {
   title: string; description: string; items: Array<{ key: string; label: string; count: number }>; icon: React.ReactNode;
 }) {
-  const max = Math.max(1, ...items.map(item => item.count));
+  const data = items.slice(0, 10).map(item => ({ group: item.label, value: item.count }));
+  const theme = document.documentElement.dataset.carbonTheme === 'g100' ? 'g100' : 'white';
+  const options = {
+    theme, height: '260px', toolbar: { enabled: false }, legend: { enabled: false },
+    axes: {
+      left: { mapsTo: 'group', scaleType: 'labels' },
+      bottom: { mapsTo: 'value', scaleType: 'linear' },
+    },
+  };
   return <section className="tp-leads__panel">
     <div className="tp-leads__panel-heading"><div className="tp-leads__panel-title">{icon}<h2>{title}</h2></div><p>{description}</p></div>
-    {items.length ? <div className="tp-leads__distribution">{items.slice(0, 8).map(item =>
-      <div className="tp-leads__distribution-row" key={item.key}>
-        <span title={item.label}>{item.label}</span>
-        <div className="tp-leads__bar-track"><svg viewBox="0 0 100 12" preserveAspectRatio="none" aria-hidden="true"><rect x="0" y="0" width={item.count / max * 100} height="12" /></svg></div>
-        <strong>{item.count.toLocaleString()}</strong>
-      </div>)}</div> : <p className="tp-leads__empty">暂无可统计数据</p>}
+    {data.length ? <SimpleBarChart data={data} options={options as any}/> : <p className="tp-leads__empty">暂无可统计数据</p>}
   </section>;
 }
-function LeadMap({ rows }: { rows: LeadRow[] }) {
+function LeadMap({ rows, selectedCode, onCountrySelect }: {
+  rows: LeadRow[]; selectedCode: string; onCountrySelect: (code: string) => void;
+}) {
   const counts = new Map<string, number>();
   rows.forEach(row => {
     const code = row.country_code?.trim().toUpperCase();
     if (code) counts.set(code, (counts.get(code) ?? 0) + 1);
   });
-  const located = [...counts.entries()].flatMap(([code, count]) => {
-    const center = countryCenters[code];
-    if (!center) return [];
-    const latitude = center[1] * Math.PI / 180;
-    const x = (center[0] + 180) / 360 * 512;
-    const y = (1 - Math.log(Math.tan(latitude) + 1 / Math.cos(latitude)) / Math.PI) / 2 * 256;
-    return [{ code, count, x, y }];
-  });
-  const max = Math.max(1, ...located.map(item => item.count));
-  const unlocated = [...counts.entries()].filter(([code]) => !countryCenters[code]);
+  const data = [...counts.entries()].map(([code, value]) => ({
+    code, label: countryName(code), value,
+  })).sort((a, b) => b.value - a.value);
   return <section className="tp-leads__panel tp-leads__map-panel">
     <div className="tp-leads__panel-heading">
-      <div className="tp-leads__panel-title"><CarbonIcons.Globe size={20} /><h2>线索国家 / 地区分布</h2></div>
-      <p>按线索国家代码汇总；地图标记为国家 / 地区中心点示意，不代表企业的精确地址。</p>
+      <div className="tp-leads__panel-title"><CarbonIcons.Globe size={20} /><h2>全球线索分布</h2></div>
+      <p>按线索国家 / 地区汇总；选择地图或排名可筛选线索列表，国家级位置不代表企业精确地址。</p>
     </div>
-    <div className="tp-leads__map">
-      <svg viewBox="0 128 512 256" role="img" aria-label={'地图显示 ' + counts.size + ' 个国家或地区的线索分布'}>
-        <g aria-hidden="true">
-          {[0, 1].map(x => [0, 1].map(y => <image key={x + '-' + y} href={'https://tile.openstreetmap.org/1/' + x + '/' + y + '.png'} x={x * 256} y={y * 256} width="256" height="256" />))}
-        </g>
-        {located.map(item => <g key={item.code}>
-          <circle cx={item.x} cy={item.y} r={7 + Math.sqrt(item.count / max) * 9} className="tp-leads__map-halo" />
-          <circle cx={item.x} cy={item.y} r={4 + Math.sqrt(item.count / max) * 4} className="tp-leads__map-dot">
-            <title>{countryName(item.code)}：{item.count} 条线索</title>
-          </circle>
-        </g>)}
-      </svg>
-    </div>
-    <div className="tp-leads__map-legend"><span><i /> 国家 / 地区线索量</span><span>圆点大小表示数量</span><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap</a></div>
-    <div className="tp-leads__country-list">{[...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([code, count]) =>
-      <div key={code}><span>{countryName(code)}</span><strong>{count}</strong></div>)}</div>
-    {unlocated.length > 0 && <p className="tp-leads__map-note">{unlocated.length} 个国家 / 地区未配置地图中心点，仍计入国家分布统计。</p>}
-    {counts.size === 0 && <p className="tp-leads__empty">目前没有填写国家 / 地区的线索。</p>}
+    <WorldMapChart data={data} unitLabel="条线索" selectedCode={selectedCode === 'all' ? undefined : selectedCode} onCountrySelect={onCountrySelect}/>
   </section>;
 }
 export function LeadConsolePage() {
@@ -126,6 +100,7 @@ export function LeadConsolePage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sourceFilter, setSourceFilter] = useState('all');
+  const [countryFilter, setCountryFilter] = useState('all');
   const load = useCallback(async () => {
     setError('');
     try {
@@ -155,11 +130,12 @@ export function LeadConsolePage() {
       const source = valueOf(row.profile, 'source') || 'unknown';
       const matchesStatus = statusFilter === 'all' || status === statusFilter;
       const matchesSource = sourceFilter === 'all' || source === sourceFilter;
+      const matchesCountry = countryFilter === 'all' || row.country_code?.toUpperCase() === countryFilter;
       const matchesQuery = !query || [row.name, row.lead_number, row.country_code, row.address, row.phone, row.email, row.website]
         .join(' ').toLocaleLowerCase().includes(query);
-      return matchesStatus && matchesSource && matchesQuery;
+      return matchesStatus && matchesSource && matchesCountry && matchesQuery;
     });
-  }, [rows, search, statusFilter, sourceFilter]);
+  }, [rows, search, statusFilter, sourceFilter, countryFilter]);
   const total = rows.length;
   const followUp = rows.filter(row => ['new', 'contacting', 'draft', 'review'].includes(normalizeStatus(row))).length;
   const confirmed = rows.filter(row => ['confirmed', 'qualified', 'converted'].includes(normalizeStatus(row))).length;
@@ -188,6 +164,29 @@ export function LeadConsolePage() {
     const labels: Record<string, string> = { hot: '热', warm: '温', cold: '冷', unknown: '未评级' };
     return [...counts.entries()].map(([key, count]) => ({ key, label: labels[key] ?? key, count })).sort((a, b) => b.count - a.count);
   }, [rows]);
+  const trendData = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (let offset = 29; offset >= 0; offset -= 1) {
+      const date = new Date();
+      date.setHours(0, 0, 0, 0);
+      date.setDate(date.getDate() - offset);
+      const key = [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
+      counts.set(key, 0);
+    }
+    rows.forEach(row => {
+      const date = new Date(row.created_at);
+      if (Number.isNaN(date.getTime())) return;
+      const key = [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
+      if (counts.has(key)) counts.set(key, (counts.get(key) || 0) + 1);
+    });
+    return [...counts.entries()].map(([key, value]) => ({ group: '新增线索', date: new Date(key + 'T00:00:00'), value }));
+  }, [rows]);
+  const trendOptions = {
+    theme: document.documentElement.dataset.carbonTheme === 'g100' ? 'g100' : 'white',
+    height: '280px', toolbar: { enabled: false }, legend: { enabled: false },
+    axes: { bottom: { mapsTo: 'date', scaleType: 'time' }, left: { mapsTo: 'value', scaleType: 'linear' } },
+    curve: 'curveMonotoneX', points: { enabled: false },
+  };
   const sourceLabel = (row: LeadRow) => {
     const key = valueOf(row.profile, 'source') || 'unknown';
     return sourceNames[key] ?? (key === 'unknown' ? '未标记' : key);
@@ -213,7 +212,8 @@ export function LeadConsolePage() {
         <Distribution title="线索状态" description="反映线索当前所处的业务阶段。" items={statusItems} icon={<CarbonIcons.TaskComplete size={20} />} />
         <Distribution title="线索评级" description="按热、温、冷及未评级统计。" items={ratingItems} icon={<CarbonIcons.Star size={20} />} />
       </div>
-      <LeadMap rows={rows} />
+      <LeadMap rows={rows} selectedCode={countryFilter} onCountrySelect={code => setCountryFilter(current => current === code ? 'all' : code)} />
+      <section className="tp-leads__panel"><div className="tp-leads__panel-heading"><div className="tp-leads__panel-title"><CarbonIcons.ChartLine size={20}/><h2>线索新增趋势</h2></div><p>最近 30 天正式线索创建数量。</p></div><AreaChart data={trendData} options={trendOptions as any}/></section>
       <section className="tp-leads__panel tp-leads__records">
         <div className="tp-leads__panel-heading"><div className="tp-leads__panel-title"><CarbonIcons.UserMultiple size={20} /><h2>线索列表</h2></div><p>支持按名称、编号、国家及联系方式搜索，并按来源和状态筛选。</p></div>
         <div className="tp-leads__filters">
