@@ -1,4 +1,4 @@
-import { SkeletonPlaceholder, SkeletonText } from '@/design-system';
+import { SkeletonPlaceholder, SkeletonText } from '../../components/Skeleton';
 import { PageSkeleton } from '@/design-system/components/PageSkeleton';
 import './app-shell-loading-skeleton.scss';
 
