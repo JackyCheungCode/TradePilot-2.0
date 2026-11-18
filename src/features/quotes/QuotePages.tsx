@@ -38,7 +38,7 @@ function calculate(lines: QuoteLine[], charges: Array<{name:string;amount:string
 function QuoteMetric({label,value,icon:Icon}:{label:string;value:string;icon:React.ElementType}) { return <div className="tp-quotes__metric"><div className="tp-quotes__metric-heading"><span>{label}</span><Icon size={24} aria-hidden="true"/></div><strong>{value}</strong></div>; }
 
 export function QuoteConsolePage() {
-  const nav=useNavigate();
+  
   const [rows,setRows]=useState<QuoteDoc[]>([]);
   const [trendRows,setTrendRows]=useState<QuoteDoc[]>([]);
   const [trendCurrency,setTrendCurrency]=useState('USD');
@@ -90,7 +90,7 @@ export function QuoteConsolePage() {
 }
 
 export function QuoteFormPage() {
-  const nav=useNavigate();const [params]=useSearchParams();const revisionId=params.get('revision');
+  const [params]=useSearchParams();const revisionId=params.get('revision');
   const [accounts,setAccounts]=useState<Account[]>([]);const [contacts,setContacts]=useState<Contact[]>([]);const [opportunities,setOpportunities]=useState<Array<{id:string;name:string;opportunity_number:string;account_id:string;primary_contact_id:string|null}>>([]);const [products,setProducts]=useState<Product[]>([]);
   const [loading,setLoading]=useState(true);const [saving,setSaving]=useState(false);const [error,setError]=useState('');const [tab,setTab]=useState(0);
   const [data,setData]=useState({title:'',account_id:'',contact_id:'',opportunity_id:'',customer_reference:'',quote_date:new Date().toISOString().slice(0,10),valid_until:new Date(Date.now()+30*86400000).toISOString().slice(0,10),currency_code:'USD',incoterms_code:'FOB',incoterms_version:'2020',named_place:'',payment_terms:'30% T/T deposit, 70% balance before shipment',delivery_date:'',locale:'en',internal_notes:'',customer_notes:'',terms:'',order_discount:'0'});
