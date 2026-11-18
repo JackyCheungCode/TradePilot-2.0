@@ -250,7 +250,32 @@ export function DocumentStudioPage() {
   const displayValue = (item: StudioElement) => item.type === 'text' ? item.text : item.type === 'field' ? formatValue(readPath({ ...previewContent, totals: previewTotals, document: createdDoc ?? {} }, item.binding)) : '';
   const labels: Record<string, string> = Object.fromEntries(FIELD_OPTIONS.map(([key, label]) => [key, label]));
 
-  if (loading) return <PageSkeleton variant="form" />;
+  if (loading) return <PageSkeleton className="tp-doc-studio" layout={[
+  { type: 'group', direction: 'row', gap: 'var(--cds-spacing-05)', className: 'tp-doc-studio__header', children: [
+    { type: 'group', direction: 'column', gap: 'var(--cds-spacing-03)', children: [{ type: 'text', width: '12rem' }, { type: 'text', heading: true, width: '14rem' }, { type: 'text', width: '28rem' }] },
+    { type: 'group', direction: 'row', gap: 'var(--cds-spacing-03)', className: 'tp-documents__actions', children: Array.from({ length: 3 }, () => ({ type: 'placeholder' as const, width: '8rem', height: '2.5rem' })) },
+  ] },
+  { type: 'group', direction: 'grid', columns: 3, gap: 'var(--cds-spacing-04)', className: 'tp-doc-studio__source', children: [
+    { type: 'placeholder', height: '3rem' }, { type: 'placeholder', height: '3rem' }, { type: 'placeholder', height: '3rem' },
+    { type: 'text', width: '20rem', className: 'tp-doc-studio__source-detail' },
+  ] },
+  { type: 'group', direction: 'grid', columns: 3, gap: 'var(--cds-spacing-03)', className: 'tp-doc-studio__workspace', children: [
+    { type: 'group', direction: 'column', gap: 'var(--cds-spacing-03)', className: 'tp-doc-studio__tools', children: [
+      { type: 'text', heading: true, width: '6rem' },
+      ...Array.from({ length: 6 }, () => ({ type: 'placeholder' as const, height: '2.5rem' })),
+      { type: 'text', width: '8rem' },
+    ] },
+    { type: 'group', direction: 'column', gap: 'var(--cds-spacing-03)', className: 'tp-doc-studio__canvas-area', children: [
+      { type: 'group', direction: 'row', gap: 'var(--cds-spacing-03)', className: 'tp-doc-studio__canvas-toolbar', children: [{ type: 'text', width: '6rem' }, { type: 'text', width: '10rem' }, { type: 'placeholder', width: '6rem', height: '2rem' }] },
+      { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-doc-studio__canvas-scroll', children: [{ type: 'placeholder', className: 'tp-doc-studio__paper' }] },
+    ] },
+    { type: 'group', direction: 'column', gap: 'var(--cds-spacing-03)', className: 'tp-doc-studio__properties', children: [
+      { type: 'text', heading: true, width: '8rem' },
+      ...Array.from({ length: 6 }, () => ({ type: 'placeholder' as const, height: '2.5rem' })),
+      { type: 'placeholder', height: '2.5rem' },
+    ] },
+  ] },
+]} />;
   return <main className="tp-doc-studio">
     <header className="tp-doc-studio__header">
       <div><p className="tp-documents__eyebrow">TRADEPILOT / DOCUMENT STUDIO</p><h1>单据自由制作</h1><p>选择业务数据，自动填充内容，再自由调整模板上的每一个元素。</p></div>

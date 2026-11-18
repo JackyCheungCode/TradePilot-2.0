@@ -117,7 +117,24 @@ export function PaymentConsolePage() {
   const agingData=['未到期','1–30','31–60','61–90','90+'].map(k=>({group:k,key:'未收金额',value:receivables.filter(r=>r.currency===currency&&r.aging_bucket===k).reduce((s,r)=>s+r.outstanding,0)})).filter(x=>x.value>0);
   const chartOpts={theme:document.documentElement.dataset.carbonTheme==='g100'?'g100':'white',height:'240px',color:{pairing:{numberOfVariants:14,option:1}},legend:{enabled:false},toolbar:{enabled:false},axes:{bottom:{mapsTo:'group',scaleType:ScaleTypes.LABELS},left:{mapsTo:'value',scaleType:ScaleTypes.LINEAR}}};
 
-  if (loading) return <PageSkeleton variant="analytics-table" metricCount={6} chartCount={2} columns={8} rows={6} />;
+  if (loading) return <PageSkeleton className="tp-payments" layout={[
+  { type: 'group', direction: 'row', gap: 'var(--cds-spacing-05)', className: 'tp-payments__header', children: [
+    { type: 'group', direction: 'column', gap: 'var(--cds-spacing-03)', children: [{ type: 'text', width: '12rem' }, { type: 'text', heading: true, width: '12rem' }, { type: 'text', width: '28rem' }] },
+    { type: 'group', direction: 'row', gap: 'var(--cds-spacing-03)', className: 'tp-payments__actions', children: [{ type: 'placeholder', width: '5rem', height: '2.5rem' }, { type: 'placeholder', width: '8rem', height: '2.5rem' }] },
+  ] },
+  { type: 'group', direction: 'grid', columns: 3, gap: 'var(--cds-spacing-04)', className: 'tp-payments__metrics', children: Array.from({ length: 6 }, () => ({ type: 'placeholder' as const, minHeight: '8rem' })) },
+  { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-payments__panel', children: [
+    { type: 'text', heading: true, width: '14rem' },
+    { type: 'placeholder', width: '10rem', height: '3rem' },
+    { type: 'group', direction: 'grid', columns: 2, gap: 'var(--cds-spacing-04)', className: 'tp-payments__charts', children: Array.from({ length: 4 }, () => ({ type: 'placeholder' as const, minHeight: '16rem', className: 'tp-payments__chart' })) },
+  ] },
+  { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-payments__panel tp-payments__market-panel', children: [{ type: 'text', heading: true, width: '14rem' }, { type: 'placeholder', minHeight: '20rem' }] },
+  { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-payments__panel', children: [
+    { type: 'placeholder', width: '18rem', height: '2.5rem', className: 'tp-payments__view-switch' },
+    { type: 'group', direction: 'grid', columns: 2, gap: 'var(--cds-spacing-04)', className: 'tp-payments__filters', children: [{ type: 'placeholder', height: '2.5rem' }, { type: 'placeholder', height: '2.5rem' }] },
+    { type: 'table', columns: 9, rows: 6, className: 'tp-payments__table-wrap' },
+  ] },
+]} />;
   return <main className="tp-payments">
     <header className="tp-payments__header"><div><p className="tp-payments__eyebrow">TRADEPILOT / FINANCE / ACCOUNTS RECEIVABLE</p><h1>收款（Payment）</h1><p>管理到账、预收款、订单核销、银行对账与应收催款。</p></div><div className="tp-payments__actions"><Button kind="tertiary" onClick={()=>void load()} disabled={loading}><CarbonIcons.Renew size={16}/>刷新</Button><Link href="/payments/new" renderIcon={CarbonIcons.Add}>创建收款</Link></div></header>
     {error&&<InlineNotification kind="error" title="收款数据读取失败" subtitle={error}/>}
@@ -306,7 +323,7 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
   };
 
   const statusText=statusLabel(payment.status);
-  if (loading) return <PageSkeleton variant="form" />;
+  if (loading) return <PageSkeleton variant="form" className="tp-payments" />;
   return <main className="tp-payments">
     <header className="tp-payments__header"><div><p className="tp-payments__eyebrow">TRADEPILOT / FINANCE / PAYMENT</p><h1>{editing?paymentNo:'创建收款（Payment）'}</h1><p>{editing?'维护收款资料、分配与核销记录。':'录入真实到账，可分配多个订单节点，也可保留为预收款。'}</p></div><div className="tp-responsive-header-actions">
       {readOnly&&['draft','pending_confirmation'].includes(payment.status)&&<Button className="tp-responsive-header-actions__primary" kind="primary" disabled={saving} onClick={()=>void confirm()}>{payment.payment_type==='refund'?'确认退款 / 红冲':'确认收款并核销'}</Button>}
@@ -478,7 +495,7 @@ export function PaymentAllocationPage() {
     finally{setSaving(false);}
   };
   if(!payment)return <main className="tp-payments"><InlineNotification kind="error" title="收款记录不存在" subtitle={error||'无法读取该收款记录。'}/></main>;
-  if (loading) return <PageSkeleton variant="table" />;
+  if (loading) return <PageSkeleton variant="table" className="tp-payments" />;
   return <main className="tp-payments">
     <header className="tp-payments__header"><div><p className="tp-payments__eyebrow">TRADEPILOT / FINANCE / PREPAYMENT ALLOCATION</p><h1>分配预收余额</h1><p>{payment.payment_no} · {payment.currency} · {payment.status==='confirmed'?'已确认':'部分核销'}</p></div><div className="tp-payments__actions"><Link href={'/payments/'+id}>返回收款记录</Link><Button kind="primary" onClick={()=>void save()} disabled={saving||total<=0||total>Number(payment.unallocated_amount||0)}>确认分配</Button></div></header>
     {error&&<InlineNotification kind="error" title="分配未完成" subtitle={error}/>}
