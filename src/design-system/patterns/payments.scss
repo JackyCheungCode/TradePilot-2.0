@@ -58,3 +58,16 @@
 .tp-payments__upload-label{display:block;margin-bottom:var(--cds-spacing-03);color:var(--cds-text-secondary);font-size:.875rem}
 .tp-payments__upload-row{display:flex;align-items:center;gap:var(--cds-spacing-03);flex-wrap:wrap;min-width:0}
 .tp-payments__file-link{padding:0;border:0;background:none;color:var(--cds-link-primary);font:inherit;cursor:pointer;text-decoration:underline}
+
+
+.tp-payments__market-panel .tp-world-map{margin-top:var(--cds-spacing-04)}
+
+
+.tp-payments__metric{position:relative;overflow:hidden}
+.tp-payments__metric::before{content:'';position:absolute;inset:0 0 auto;height:3px;background:var(--tp-metric-accent,var(--cds-support-info))}
+.tp-payments__metric:nth-child(5n+1){--tp-metric-accent:var(--cds-support-info)}
+.tp-payments__metric:nth-child(5n+2){--tp-metric-accent:var(--cds-support-success)}
+.tp-payments__metric:nth-child(5n+3){--tp-metric-accent:var(--cds-support-warning)}
+.tp-payments__metric:nth-child(5n+4){--tp-metric-accent:var(--cds-support-error)}
+.tp-payments__metric:nth-child(5n+5){--tp-metric-accent:var(--cds-interactive)}
+.tp-payments__metric-head svg{color:var(--tp-metric-accent,var(--cds-icon-secondary))}

@@ -65,3 +65,20 @@
 .tp-products__detail-grid strong{font-size:.875rem;font-weight:500;overflow-wrap:anywhere}
 @media(max-width:1056px){.tp-products__metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.tp-products__detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:672px){.tp-products__header{flex-direction:column}.tp-products__actions{width:100%;justify-content:flex-end}.tp-products__metrics{gap:var(--cds-spacing-03)}.tp-products__metric{padding:var(--cds-spacing-04)}.tp-products__filters,.tp-products__grid{grid-template-columns:1fr}.tp-products__field--wide{grid-column:auto}.tp-products__panel,.tp-products__form-shell{padding:var(--cds-spacing-04)}.tp-products__panel-head,.tp-products__footer{align-items:flex-start;flex-direction:column}.tp-products__footer>div{width:100%;justify-content:flex-end;flex-wrap:wrap}.tp-products__pagination{align-items:flex-start;flex-direction:column}.tp-products__pagination>div{width:100%;justify-content:space-between}.tp-products__detail-hero{grid-template-columns:1fr}.tp-products__detail-image{min-height:10rem}.tp-products__detail-grid{grid-template-columns:1fr}.tp-products__repeat-row{grid-template-columns:1fr}.tp-products__inline-create{align-items:stretch;flex-direction:column}.tp-products__identity{align-items:flex-start;flex-direction:column}}
+
+
+.tp-products__analytics-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--cds-spacing-05);min-width:0}
+.tp-products__chart{min-width:0;padding:var(--cds-spacing-04);background:var(--cds-layer-02)}
+.tp-products__chart h3{margin:0 0 var(--cds-spacing-04);font-size:1rem;font-weight:500}
+.tp-products__chart .cds--cc--chart-wrapper{width:100%;min-width:0}
+@media(max-width:850px){.tp-products__analytics-grid{grid-template-columns:1fr}}
+
+
+.tp-products__metric{position:relative;overflow:hidden}
+.tp-products__metric::before{content:'';position:absolute;inset:0 0 auto;height:3px;background:var(--tp-metric-accent,var(--cds-support-info))}
+.tp-products__metric:nth-child(5n+1){--tp-metric-accent:var(--cds-support-info)}
+.tp-products__metric:nth-child(5n+2){--tp-metric-accent:var(--cds-support-success)}
+.tp-products__metric:nth-child(5n+3){--tp-metric-accent:var(--cds-support-warning)}
+.tp-products__metric:nth-child(5n+4){--tp-metric-accent:var(--cds-support-error)}
+.tp-products__metric:nth-child(5n+5){--tp-metric-accent:var(--cds-interactive)}
+.tp-products__metric>div svg{color:var(--tp-metric-accent,var(--cds-icon-secondary))}

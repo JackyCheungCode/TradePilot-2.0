@@ -9,3 +9,4 @@ export * from './utilities';
 export * from './providers';
 export * as CarbonIcons from './icons';
 export { typography } from './typography';
+export * from './data-visualization/WorldMapChart';

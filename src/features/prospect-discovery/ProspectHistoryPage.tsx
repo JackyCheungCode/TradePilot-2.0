@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Button, InlineLoading, InlineNotification, Tag, Tile, Table, TableHead,
-  TableRow, TableHeader, TableBody, TableCell, CarbonIcons,
+  TableRow, TableHeader, TableBody, TableCell, CarbonIcons, WorldMapChart,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
+import { DonutChart, SimpleBarChart } from '@carbon/charts-react';
+import '@carbon/charts/styles.css';
 import '@/design-system/patterns/prospect-hub.scss';
 
 type Run = {
@@ -77,6 +79,29 @@ export function ProspectHistoryPage() {
     return () => { active = false; };
   }, [runId]);
 
+  const statusData = useMemo(() => {
+    const counts = new Map<string, number>();
+    runs.forEach(run => { const key = statusLabel(run.status); counts.set(key, (counts.get(key) || 0) + 1); });
+    return [...counts.entries()].map(([group, value]) => ({ group, value }));
+  }, [runs]);
+  const channelData = useMemo(() => {
+    const counts = new Map<string, number>();
+    runs.forEach(run => { const key = channelLabel(run.channel) !== '—' ? channelLabel(run.channel) : (run.providers || []).map(providerLabel).join(' / ') || '未标记渠道'; counts.set(key, (counts.get(key) || 0) + 1); });
+    return [...counts.entries()].map(([group, value]) => ({ group, value })).sort((a, b) => b.value - a.value).slice(0, 8);
+  }, [runs]);
+  const targetMarketData = useMemo(() => {
+    const counts = new Map<string, number>();
+    runs.forEach(run => (run.countries || []).forEach(country => { const code = String(country).trim().toUpperCase(); if (code) counts.set(code, (counts.get(code) || 0) + 1); }));
+    return [...counts.entries()].map(([code, value]) => { let label = code; try { label = new Intl.DisplayNames(['zh-TW'], { type: 'region' }).of(code) || code; } catch {} return { code, label, value }; }).sort((a, b) => b.value - a.value);
+  }, [runs]);
+  const resultCountryData = useMemo(() => {
+    const counts = new Map<string, number>();
+    results.forEach(item => { const code = String(item.record?.country_code || '').trim().toUpperCase(); if (code && code !== 'UNKNOWN') counts.set(code, (counts.get(code) || 0) + 1); });
+    return [...counts.entries()].map(([code, value]) => { let label = code; try { label = new Intl.DisplayNames(['zh-TW'], { type: 'region' }).of(code) || code; } catch {} return { code, label, value }; }).sort((a, b) => b.value - a.value);
+  }, [results]);
+  const donutOptions = { theme: document.documentElement.dataset.carbonTheme === 'g100' ? 'g100' : 'white', height: '260px', donut: { center: { label: '任务' } }, legend: { position: 'bottom' }, toolbar: { enabled: false } };
+  const barOptions = { theme: document.documentElement.dataset.carbonTheme === 'g100' ? 'g100' : 'white', height: '260px', color: { pairing: { numberOfVariants: 14, option: 1 } }, axes: { bottom: { mapsTo: 'group', scaleType: 'labels' }, left: { mapsTo: 'value', scaleType: 'linear' } }, legend: { enabled: false }, toolbar: { enabled: false } };
+
   return (
     <main className="tp-prospect-hub">
       <header className="tp-prospect-hub__header">
@@ -84,6 +109,11 @@ export function ProspectHistoryPage() {
         <Button kind="primary" renderIcon={CarbonIcons.Search} onClick={() => navigate('/prospect-discovery')}>创建潜客方案</Button>
       </header>
       {error && <InlineNotification kind="error" lowContrast title="读取失败" subtitle={error} onCloseButtonClick={() => setError('')} />}
+      {!loading && runs.length > 0 && <section className="tp-prospect-history__analytics">
+        <Tile className="tp-prospect-hub__panel"><div className="tp-prospect-hub__section-heading"><div><h2>任务执行状态</h2><p>最近 200 条历史任务。</p></div></div><DonutChart data={statusData} options={donutOptions as any}/></Tile>
+        <Tile className="tp-prospect-hub__panel"><div className="tp-prospect-hub__section-heading"><div><h2>发现渠道分布</h2><p>按任务配置的发现渠道归类。</p></div></div><SimpleBarChart data={channelData} options={barOptions as any}/></Tile>
+        <Tile className="tp-prospect-hub__panel tp-prospect-history__market"><div className="tp-prospect-hub__section-heading"><div><h2>目标市场覆盖</h2><p>按历史任务设置的目标国家 / 地区统计，不代表实际捕获量。</p></div></div><WorldMapChart data={targetMarketData} unitLabel="次任务" showRanking={false}/></Tile>
+      </section>}
       <Tile className="tp-prospect-hub__panel">
         <div className="tp-prospect-hub__section-heading"><div><h2>全部发现任务</h2><p>最近 200 条任务记录 · 点击任务查看详情与结果</p></div><Tag type="blue">{runs.length} 条任务</Tag></div>
         {loading ? <div className="tp-prospect-hub__loading"><InlineLoading description="正在读取历史任务…" /></div> : (
@@ -121,6 +151,9 @@ export function ProspectHistoryPage() {
             <div><span>最后更新</span><strong>{fmt(selected.updated_at)}</strong></div>
           </div>}
           {selected?.message && <p className="tp-prospect-hub__task-message">{selected.message}</p>}
+          <div className="tp-prospect-hub__section-heading"><div><h3>本次任务国家分布</h3><p>基于当前任务关联的实际发现记录。</p></div></div>
+          {resultCountryData.length ? <WorldMapChart data={resultCountryData} unitLabel="条记录"/> : <p className="tp-prospect-hub__empty">当前任务的结果尚无可识别国家 / 地区数据。</p>}
+
           <div className="tp-prospect-hub__section-heading"><div><h3>执行日志</h3><p>任务的后台运行轨迹与结果反馈</p></div></div>
           <div className="tp-prospect-hub__section-heading"><div><h3>本次任务捕获结果</h3><p>仅显示关联到当前任务的企业记录</p></div><Tag type="blue">{results.length} 条结果</Tag></div>
           <div className="tp-prospect-hub__table-wrap">

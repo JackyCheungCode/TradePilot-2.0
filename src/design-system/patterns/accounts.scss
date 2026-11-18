@@ -7,3 +7,13 @@
 .tp-accounts__payment-list>div{display:flex;align-items:center;justify-content:space-between;gap:var(--cds-spacing-03);flex-wrap:wrap;font-size:.8125rem}
 .tp-accounts__payment-list>div span{color:var(--cds-text-secondary)}
 @media(max-width:672px){.tp-accounts__balance-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+
+.tp-accounts__metric{position:relative;overflow:hidden}
+.tp-accounts__metric::before{content:'';position:absolute;inset:0 0 auto;height:3px;background:var(--tp-metric-accent,var(--cds-support-info))}
+.tp-accounts__metric:nth-child(5n+1){--tp-metric-accent:var(--cds-support-info)}
+.tp-accounts__metric:nth-child(5n+2){--tp-metric-accent:var(--cds-support-success)}
+.tp-accounts__metric:nth-child(5n+3){--tp-metric-accent:var(--cds-support-warning)}
+.tp-accounts__metric:nth-child(5n+4){--tp-metric-accent:var(--cds-support-error)}
+.tp-accounts__metric:nth-child(5n+5){--tp-metric-accent:var(--cds-interactive)}
+.tp-accounts__metric>div svg{color:var(--tp-metric-accent,var(--cds-icon-secondary))}

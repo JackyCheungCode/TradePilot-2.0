@@ -4,14 +4,16 @@ import {
   Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput, TextArea,
   Tabs, TabList, Tab, TabPanels, TabPanel, Table, TableHead, TableRow, TableHeader, TableBody, TableCell,
   ComposedModal, ModalHeader, ModalBody, ModalFooter, Checkbox, RadioButtonGroup, RadioButton,
-  CarbonIcons, BusinessLifecycle,
+  CarbonIcons, BusinessLifecycle, WorldMapChart,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
+import { DonutChart, SimpleBarChart } from '@carbon/charts-react';
+import '@carbon/charts/styles.css';
 import { useBusinessTransitionEvents } from '@/lib/useBusinessTransitionEvents';
 import '@/design-system/patterns/opportunities.scss';
 import '@/design-system/patterns/responsive-actions.scss';
 
-type AccountOption = { id: string; account_name: string };
+type AccountOption = { id: string; account_name: string; country_code?: string | null };
 type ContactOption = { id: string; account_id: string; full_name: string | null; first_name: string; last_name: string | null };
 type Opportunity = {
   id: string; owner_id: string; opportunity_number: string; account_id: string; primary_contact_id: string | null;
@@ -61,6 +63,7 @@ export function OpportunityConsolePage() {
   const [error,setError] = useState('');
   const [query,setQuery] = useState('');
   const [stage,setStage] = useState('all');
+  const [marketCountry,setMarketCountry] = useState('all');
   const [page,setPage] = useState(1);
   const pageSize = 15;
   const load = useCallback(async () => {
@@ -69,7 +72,7 @@ export function OpportunityConsolePage() {
       const db = await getSupabaseClient();
       const [o,a,c] = await Promise.all([
         db.from('crm_opportunities').select('*').eq('is_archived',false).order('created_at',{ascending:false}).range(0,1999),
-        db.from('crm_accounts').select('id,account_name').eq('is_archived',false).order('account_name'),
+        db.from('crm_accounts').select('id,account_name,country_code').eq('is_archived',false).order('account_name'),
         db.from('crm_contacts').select('id,account_id,full_name,first_name,last_name').eq('is_archived',false).eq('is_active',true).order('first_name'),
       ]);
       if(o.error) throw o.error; if(a.error) throw a.error; if(c.error) throw c.error;
@@ -79,8 +82,12 @@ export function OpportunityConsolePage() {
   },[]);
   useEffect(()=>{void load()},[load]);
 
-  const filtered = useMemo(()=>rows.filter(r=>(stage==='all'||r.stage===stage)&&[r.name,r.opportunity_number,r.source,r.sales_person,r.sales_team].join(' ').toLowerCase().includes(query.trim().toLowerCase())),[rows,stage,query]);
-  useEffect(()=>setPage(1),[query,stage]);
+  const accountCountries = useMemo(()=>new Map(accounts.map(account=>[account.id,String(account.country_code||'').toUpperCase()])),[accounts]);
+  const opportunityMarketData = useMemo(()=>{const counts=new Map<string,number>();rows.forEach(row=>{const code=accountCountries.get(row.account_id)||'';if(code)counts.set(code,(counts.get(code)||0)+1)});return [...counts.entries()].map(([code,value])=>{let label=code;try{label=new Intl.DisplayNames(['zh-TW'],{type:'region'}).of(code)||code}catch{}return {code,label,value}}).sort((a,b)=>b.value-a.value)},[rows,accountCountries]);
+  const stageData = useMemo(()=>stages.map(([key,label])=>({group:label,value:rows.filter(row=>row.stage===key).length})).filter(item=>item.value>0),[rows]);
+  const sourceData = useMemo(()=>{const counts=new Map<string,number>();rows.forEach(row=>{const key=row.source||'未标记来源';counts.set(key,(counts.get(key)||0)+1)});return [...counts.entries()].map(([group,value])=>({group,value})).sort((a,b)=>b.value-a.value).slice(0,8)},[rows]);
+  const filtered = useMemo(()=>rows.filter(r=>(stage==='all'||r.stage===stage)&&(marketCountry==='all'||accountCountries.get(r.account_id)===marketCountry)&&[r.name,r.opportunity_number,r.source,r.sales_person,r.sales_team].join(' ').toLowerCase().includes(query.trim().toLowerCase())),[rows,stage,marketCountry,accountCountries,query]);
+  useEffect(()=>setPage(1),[query,stage,marketCountry]);
   const open = rows.filter(r=>r.status==='open');
   const currencyTotals = (items: Opportunity[], weightedAmount = false) => {
     const totals = new Map<string,number>();
@@ -98,6 +105,14 @@ export function OpportunityConsolePage() {
     </header>
     {error&&<InlineNotification kind="error" title="商机数据读取失败" subtitle={error}/>}
     <div className="tp-opportunities__metrics"><Metric title="全部商机" value={String(rows.length)} detail="当前可见商机"/><Metric title="进行中" value={String(open.length)} detail="尚未关闭"/><Metric title="预计管道金额" value={pipeline} detail="按商机金额汇总"/><Metric title="加权预测金额" value={weighted} detail="金额 × 赢率"/></div>
+    <section className="tp-opportunities__panel tp-opportunities__analytics">
+      <div className="tp-opportunities__panel-head"><div><h2>商机多维分析</h2><p>按销售阶段、来源和客户所在国家 / 地区查看机会分布；地图可联动筛选列表。</p></div></div>
+      <div className="tp-opportunities__analytics-grid">
+        <div className="tp-opportunities__chart"><h3>销售阶段构成</h3>{stageData.length?<DonutChart data={stageData} options={{theme:document.documentElement.dataset.carbonTheme==='g100'?'g100':'white',height:'280px',donut:{center:{label:'商机'}},legend:{position:'bottom'},toolbar:{enabled:false}} as any}/>:<p className="tp-opportunities__empty">暂无阶段数据</p>}</div>
+        <div className="tp-opportunities__chart"><h3>商机来源</h3>{sourceData.length?<SimpleBarChart data={sourceData} options={{theme:document.documentElement.dataset.carbonTheme==='g100'?'g100':'white',height:'280px',color:{pairing:{numberOfVariants:14,option:1}},axes:{bottom:{mapsTo:'group',scaleType:'labels'},left:{mapsTo:'value',scaleType:'linear'}},legend:{enabled:false},toolbar:{enabled:false}} as any}/>:<p className="tp-opportunities__empty">暂无来源数据</p>}</div>
+      </div>
+      <div className="tp-opportunities__chart"><h3>全球商机市场分布</h3>{opportunityMarketData.length?<WorldMapChart data={opportunityMarketData} unitLabel="个商机" selectedCode={marketCountry==='all'?undefined:marketCountry} onCountrySelect={code=>setMarketCountry(current=>current===code?'all':code)}/>:<p className="tp-opportunities__empty">客户资料尚未提供可识别的国家 / 地区信息。</p>}</div>
+    </section>
     <section className="tp-opportunities__panel">
       <div className="tp-opportunities__panel-head"><div><h2>商机列表</h2><p>可按商机名称、编号、阶段和负责人检索；列表每页最多 15 条。</p></div><Tag type="blue">{filtered.length} 条记录</Tag></div>
       <div className="tp-opportunities__filters"><TextInput id="opportunity-search" labelText="搜索商机" placeholder="名称、编号、来源或负责人" value={query} onChange={e=>setQuery(e.currentTarget.value)}/><Select id="opportunity-stage-filter" labelText="销售阶段" value={stage} onChange={e=>setStage(e.currentTarget.value)}><SelectItem value="all" text="全部阶段"/>{stages.map(([v,t])=><SelectItem key={v} value={v} text={t}/>)}</Select></div>
