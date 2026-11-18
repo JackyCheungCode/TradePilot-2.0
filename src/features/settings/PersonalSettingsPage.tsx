@@ -140,7 +140,7 @@ export function PersonalSettingsPage() {
 
   const activeSection = sections.find((item) => item.id === active) ?? sections[0];
 
-  if (loading) return <PageSkeleton variant="table" />;
+  if (loading) return <PageSkeleton variant="form" />;
   return (
     <main className="tp-personal-settings">
       <header className="tp-personal-settings__header">
