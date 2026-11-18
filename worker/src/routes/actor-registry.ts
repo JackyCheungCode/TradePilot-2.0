@@ -226,10 +226,9 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
     if (request.method === "POST" && parts[3] === "execute") {
       const body = await request.json().catch(() => ({})) as {
         actors?: Array<{ actorId?: string; sourceId?: string; sourceName?: string; actorTitle?: string; schemaVersion?: string; inputFingerprint?: string; status?: string; schemaKeys?: string[]; input?: Record<string, unknown> }>;
-        profile?: { coreNoun?: string; country?: string; countryName?: string; city?: string };
-        limitPerCountry?: number; planSnapshot?: Record<string, unknown>; guardrailsSnapshot?: Record<string, unknown>;
+        planSnapshot?: Record<string, unknown>;
       };
-      const selected = (body.actors ?? []).filter(actor => actor && typeof actor.actorId === "string").slice(0, 20);
+      const selected = (body.actors ?? []).filter(actor => actor && typeof actor.actorId === "string");
       if (!selected.length) return errorResponse(request, "ACTOR_EXECUTIONS_REQUIRED", "没有可执行的数据源。", 400);
       const verified = await Promise.all(selected.map(async actor => {
         const actorId = String(actor.actorId);
@@ -257,20 +256,16 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
         const details = rejected.map(item => safeText(item.actor.sourceName, 120) + "：" + item.errors.join("、")).join("；");
         return errorResponse(request, "ACTOR_INPUT_INVALID", "所选 Actor 参数未通过 Schema 必填项或类型校验。" + (details ? " " + details : ""), 400);
       }
-      const country = safeText(body.profile?.country, 2);
-      const noun = safeText(body.profile?.coreNoun, 240);
-      if (!/^[A-Z]{2}$/.test(country) || !noun) return errorResponse(request, "INVALID_ACTOR_TASK_PROFILE", "请先完成目标国家与核心产品画像。", 400);
-      const limit = Math.max(1, Math.min(100, Number(body.limitPerCountry) || 20));
-      const code = "ACT-" + country + "-" + new Date().toISOString().slice(0, 10).replace(/-/g, "") + "-" + crypto.randomUUID().replace(/-/g, "").slice(0, 6).toUpperCase();
+      const code = "ACT-" + new Date().toISOString().slice(0, 10).replace(/-/g, "") + "-" + crypto.randomUUID().replace(/-/g, "").slice(0, 6).toUpperCase();
       const input: DiscoveryRunInput = {
-        countries: [country], query: noun, limitPerCountry: limit, providers: [], channel: "actor_discovery",
-        actorExecutions: actors, planSnapshot: body.planSnapshot, guardrailsSnapshot: body.guardrailsSnapshot,
+        countries: [], query: "", limitPerCountry: 0, providers: [], channel: "actor_discovery",
+        actorExecutions: actors, planSnapshot: body.planSnapshot,
       };
-      const config = { actorExecutions: actors.map(actor => ({ actorId: actor.actorId, sourceId: actor.sourceId, sourceName: actor.sourceName, actorTitle: actor.actorTitle, schemaVersion: actor.schemaVersion, input: redactActorInput(actor.input) })), planSnapshot: body.planSnapshot ?? null, guardrailsSnapshot: body.guardrailsSnapshot ?? null };
+      const config = { actorExecutions: actors.map(actor => ({ actorId: actor.actorId, sourceId: actor.sourceId, sourceName: actor.sourceName, actorTitle: actor.actorTitle, schemaVersion: actor.schemaVersion, input: redactActorInput(actor.input) })), planSnapshot: body.planSnapshot ?? null };
       const rows = await db<Array<{ id: string }>>(env, "discovery_runs", {
         method: "POST", headers: { Prefer: "return=representation" },
         body: JSON.stringify({
-          owner_id: ownerId, query: noun, countries: [country], limit_per_country: limit,
+          owner_id: ownerId, query: "", countries: [], limit_per_country: 1,
           providers: ["actor_gateway"], channel: "actor_discovery", search_config: config,
           status: "queued", progress: 0, discovered_count: 0, created_lead_count: 0,
           message: "数据源任务已排队", task_code: code,
@@ -280,7 +275,7 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
       if (!run?.id) return errorResponse(request, "ACTOR_RUN_CREATE_FAILED", "无法创建数据源任务。", 500);
       await db(env, "discovery_run_logs", {
         method: "POST", headers: { Prefer: "return=minimal" },
-        body: JSON.stringify({ run_id: run.id, owner_id: ownerId, level: "info", message: "任务编号：" + code + "；已校验 Schema 并放行数据源：" + actors.map(actor => actor.sourceName).join("、") }),
+        body: JSON.stringify({ run_id: run.id, owner_id: ownerId, level: "info", message: "任务编号：" + code + "；按 Schema 参数启动数据源：" + actors.map(actor => actor.sourceName).join("、") }),
       });
       try {
         await env.LEAD_DISCOVERY_WORKFLOW.create({ id: run.id, params: { runId: run.id, ownerId, input } });

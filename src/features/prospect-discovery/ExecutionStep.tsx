@@ -2,14 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   Accordion, AccordionItem, Button, Checkbox, CodeSnippet, Column, CopyButton, Grid,
   InlineNotification, ProgressBar, StructuredListBody, StructuredListCell,
-  StructuredListHead, StructuredListRow, StructuredListWrapper, Tag, TextInput, Tile, CarbonIcons,
+  StructuredListHead, StructuredListRow, StructuredListWrapper, Tag, Tile, CarbonIcons,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 
 type SourceItem = { id: string; name: string; category?: string };
-type ProfileSnapshot = {
-  coreNoun: string; buyers: string[]; continent: string; country: string; countryName: string; city: string;
-};
 type RunSnapshot = {
   id: string; taskCode?: string; channel: string; status: string; progress: number;
   discoveredCount: number; createdLeadCount: number; message?: string;
@@ -17,7 +14,6 @@ type RunSnapshot = {
 };
 type RunRef = { id: string; sourceId: string; name: string };
 type Props = {
-  profile: ProfileSnapshot;
   sources: SourceItem[];
   actorParameters?: Record<string, unknown>;
   onEditStep: (step: number) => void;
@@ -25,10 +21,6 @@ type Props = {
   planTaskCode: string;
 };
 
-const clampLimit = (value: string, fallback: number) => { const parsed = Number.parseInt(value, 10); return Number.isFinite(parsed) ? Math.min(100, Math.max(1, parsed)) : fallback; };
-const buyerLabels: Record<string, string> = {
-  importer: '进口商', distributor: '分销商 / 批发商', brand: '品牌方', contractor: '工程商 / 零售商',
-};
 const nowTime = () => new Date().toLocaleTimeString('en-GB', { hour12: false });
 const terminalStatuses = new Set(['completed', 'partial', 'partially_completed', 'failed', 'cancelled', 'timed_out']);
 const statusLabel = (status: string) => ({
@@ -57,7 +49,7 @@ async function getAccessToken() {
   return data.session.access_token;
 }
 
-export function ExecutionStep({ profile, sources, actorParameters = {}, onEditStep, onContinueToScoring, planTaskCode }: Props) {
+export function ExecutionStep({ sources, actorParameters = {}, onEditStep, onContinueToScoring, planTaskCode }: Props) {
   const channels = useMemo(() => sources, [sources]);
   const [status, setStatus] = useState<'idle' | 'running' | 'completed' | 'failed'>('idle');
   const [progress, setProgress] = useState(0);
@@ -73,40 +65,16 @@ export function ExecutionStep({ profile, sources, actorParameters = {}, onEditSt
   const [notice, setNotice] = useState('');
   const [starting, setStarting] = useState(false);
   const [startedAt, setStartedAt] = useState<number | null>(null);
-  const [mapLimit, setMapLimit] = useState('2');
-  const [webLimit, setWebLimit] = useState('5');
-  const [facebookLimit, setFacebookLimit] = useState('5');
-  const [instagramLimit, setInstagramLimit] = useState('5');
   const [confirmedExecution, setConfirmedExecution] = useState(false);
-  const [guardrailCount] = useState(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem('tradepilot.guardrails.frontend.v1') || '{}');
-      return Object.values(saved.enabled || {}).filter(Boolean).length;
-    } catch { return 0; }
-  });
   const appendLog = (message: string) => setLogs(current => [...current.slice(-79), '[' + nowTime() + '] ' + message]);
   const runStorageKey = 'tradepilot.prospectDiscovery.runs.' + planTaskCode;
-  // Native adapters keep their dedicated endpoints. Every other selected platform is
-  // executable through its dynamically discovered Actor Schema; platform connection
-  // labels/whitelists must never be used as an additional admission check.
-  const nativeChannels = new Set(['google-maps', 'google-search', 'facebook', 'instagram']);
   const actorPlans = Array.isArray(actorParameters.actors) ? actorParameters.actors as Array<Record<string, unknown>> : [];
   const enabledActorPlans = actorPlans.filter(actor =>
     actor.status === 'enabled'
     && typeof actor.actorId === 'string'
     && typeof actor.sourceId === 'string'
     && channels.some(source => source.id === actor.sourceId)
-    && !nativeChannels.has(String(actor.sourceId))
   );
-  const pendingActorPlans = actorPlans.filter(actor =>
-    typeof actor.sourceId === 'string'
-    && channels.some(source => source.id === actor.sourceId)
-    && !nativeChannels.has(String(actor.sourceId))
-    && actor.status !== 'enabled'
-  );
-  const schemaLoadedSourceIds = new Set(actorPlans
-    .filter(actor => typeof actor.sourceId === 'string' && typeof actor.actorId === 'string')
-    .map(actor => String(actor.sourceId)));
 
   useEffect(() => {
     setRuns([]); setSnapshots({}); setRecordIds([]); setStatus('idle'); setStartedAt(null);
@@ -134,39 +102,14 @@ export function ExecutionStep({ profile, sources, actorParameters = {}, onEditSt
 
   const startTask = async () => {
     if (starting || status === 'running') return;
-    if (!confirmedExecution) { setNotice('请先核对本次渠道和数量上限，并勾选执行确认。'); return; }
+    if (!confirmedExecution) { setNotice('请先勾选执行确认。'); return; }
     setStarting(true); setNotice(''); setSnapshots({}); setRuns([]); setRecordIds([]);
     setProgress(0); setCaptured(0); setElapsed(0); setStartedAt(Date.now());
-    setLogs(['[' + nowTime() + '] [SYSTEM] 正在校验渠道并创建真实后端任务…']);
+    setLogs(['[' + nowTime() + '] [SYSTEM] 正在创建所选 Actor Schema 任务…']);
     try {
-      if (!profile.country || !profile.coreNoun.trim()) throw new Error('请先完成目标国家和核心产品画像。');
       const token = await getAccessToken();
-      let guardrailsSnapshot: Record<string, unknown> = {};
-      try {
-        const savedGuardrails = localStorage.getItem('tradepilot.guardrails.frontend.v1');
-        if (savedGuardrails) guardrailsSnapshot = JSON.parse(savedGuardrails) as Record<string, unknown>;
-      } catch { /* Preserve task execution even if an older browser snapshot is malformed. */ }
-      const guardrailScope = guardrailsSnapshot.scope === 'global' || guardrailsSnapshot.scope === 'both' ? guardrailsSnapshot.scope : 'task';
-      if (guardrailScope === 'global' || guardrailScope === 'both') {
-        const savedGlobal = await requestApi('/api/v1/settings/prospect-guardrails', token) as { config?: Record<string, unknown> | null };
-        const globalConfig = savedGlobal.config;
-        if (guardrailScope === 'global' && !globalConfig) throw new Error('尚未保存全局护盾配置。请先在第三步保存全局规则。');
-        if (globalConfig) {
-          const taskConfig = guardrailsSnapshot;
-          guardrailsSnapshot = guardrailScope === 'global' ? globalConfig : {
-            ...globalConfig,
-            ...taskConfig,
-            enabled: { ...(globalConfig.enabled as Record<string, boolean> ?? {}), ...(taskConfig.enabled as Record<string, boolean> ?? {}) },
-            rules: { ...(globalConfig.rules as Record<string, string> ?? {}), ...(taskConfig.rules as Record<string, string> ?? {}) },
-            contactEntries: { ...(globalConfig.contactEntries as Record<string, string> ?? {}), ...(taskConfig.contactEntries as Record<string, string> ?? {}) },
-            websiteRows: [...(Array.isArray(globalConfig.websiteRows) ? globalConfig.websiteRows : []), ...(Array.isArray(taskConfig.websiteRows) ? taskConfig.websiteRows : [])],
-            excludedCountries: [...(Array.isArray(globalConfig.excludedCountries) ? globalConfig.excludedCountries : []), ...(Array.isArray(taskConfig.excludedCountries) ? taskConfig.excludedCountries : [])],
-          };
-        }
-      }
       const planSnapshot = {
         planTaskCode,
-        profile: { ...profile },
         selectedSources: channels.map(source => ({ id: source.id, name: source.name, category: source.category ?? null })),
         actorParameters: Object.fromEntries(Object.entries(actorParameters).slice(0, 200)),
         capturedAt: new Date().toISOString(),
@@ -189,44 +132,10 @@ export function ExecutionStep({ profile, sources, actorParameters = {}, onEditSt
         })());
       };
 
-      if (channels.some(item => item.id === 'google-maps')) {
-        addTask('google-maps', 'Google Maps', '/api/v1/discovery-runs', {
-          countries: [profile.country], query: profile.coreNoun.trim(), limitPerCountry: mapLimitValue, osmTags: [
-            { key: 'shop', value: 'electronics' }, { key: 'shop', value: 'computer' },
-            { key: 'shop', value: 'mobile_phone' }, { key: 'shop', value: 'telecommunication' },
-            { key: 'shop', value: 'trade' }, { key: 'shop', value: 'wholesale' },
-            { key: 'office', value: 'company' },
-          ],
-          providers: ['google_maps', 'openstreetmap'], city: profile.city || undefined,
-          businessTypes: [], filters: {}, planSnapshot, guardrailsSnapshot,
-        });
-      }
-      if (channels.some(item => item.id === 'google-search')) {
-        addTask('google-search', 'Google Search', '/api/v1/search-discovery-runs', {
-          country: profile.country, city: profile.city || undefined, query: profile.coreNoun.trim(),
-          advancedQuery: '"' + profile.coreNoun.trim() + '"', limitPerCountry: webLimitValue,
-          searchEngines: ['serper'], searchTypes: ['web'], searchLanguage: 'en', planSnapshot, guardrailsSnapshot,
-        });
-      }
-      if (channels.some(item => item.id === 'facebook')) {
-        addTask('facebook', 'Facebook', '/api/v1/facebook-discovery-runs', {
-          country: profile.country, city: profile.city || undefined, query: profile.coreNoun.trim(),
-          objectTypes: ['page'], limitPerType: facebookLimitValue, planSnapshot, guardrailsSnapshot,
-        });
-      }
-      if (channels.some(item => item.id === 'instagram')) {
-        addTask('instagram', 'Instagram', '/api/v1/instagram-discovery-runs', {
-          countries: [profile.country], keywords: [profile.coreNoun.trim()], accountTypes: ['business', 'creator'],
-          minFollowers: 0, maxFollowers: 100000000, recentDays: 365, requireContact: true, limit: instagramLimitValue, planSnapshot, guardrailsSnapshot,
-        });
-      }
-      if (pendingActorPlans.length) appendLog("[SCHEMA VALIDATION] " + pendingActorPlans.length + " 个已选平台仍有必填字段或参数格式未完成校验，本次暂不启动这些 Actor。");
       if (enabledActorPlans.length) {
         addTask("actor-discovery", "Actor 智能采集（" + enabledActorPlans.length + " 个来源）", "/api/v1/actor-registry/execute", {
           actors: enabledActorPlans,
-          profile: { coreNoun: profile.coreNoun, country: profile.country, countryName: profile.countryName, city: profile.city },
-          limitPerCountry: clampLimit(webLimit, 5),
-          planSnapshot, guardrailsSnapshot,
+          planSnapshot,
         });
       }
       await Promise.all(tasks);
@@ -234,7 +143,7 @@ export function ExecutionStep({ profile, sources, actorParameters = {}, onEditSt
       setRuns(created);
       try { localStorage.setItem(runStorageKey, JSON.stringify(created)); } catch { appendLog('[WARNING] 浏览器无法保存任务引用；离开页面后需从任务列表恢复。'); }
       setStatus('running');
-      setLogs(current => [...current, '[' + nowTime() + '] [SYSTEM] 已创建 ' + created.length + ' 个真实任务。画像与护盾配置快照已写入各任务。' + (failures.length ? '另有 ' + failures.length + ' 个渠道创建失败。' : '')]);
+      setLogs(current => [...current, '[' + nowTime() + '] [SYSTEM] 已创建 ' + created.length + ' 个真实任务。所选平台参数按各自 Schema 原样提交。' + (failures.length ? '另有 ' + failures.length + ' 个渠道创建失败。' : '')]);
       if (failures.length) setNotice('部分渠道创建失败，已成功启动的任务会继续运行：' + failures.join('；'));
     } catch (error) {
       setStatus('failed');
@@ -295,7 +204,7 @@ export function ExecutionStep({ profile, sources, actorParameters = {}, onEditSt
   }, [status, startedAt]);
 
   const channelRows = channels.map(channel => {
-    const run = runs.find(item => item.sourceId === channel.id);
+    const run = runs.find(item => item.sourceId === channel.id) ?? runs.find(item => item.sourceId === 'actor-discovery');
     const snapshot = run ? snapshots[run.id] : undefined;
     const state = snapshot?.status ?? (run ? 'queued' : 'not_started');
     return {
@@ -307,23 +216,10 @@ export function ExecutionStep({ profile, sources, actorParameters = {}, onEditSt
     };
   });
   const elapsedText = '00:' + String(Math.floor(elapsed / 60)).padStart(2, '0') + ':' + String(elapsed % 60).padStart(2, '0');
-  const mapLimitValue = clampLimit(mapLimit, 2);
-  const webLimitValue = clampLimit(webLimit, 5);
-  const facebookLimitValue = clampLimit(facebookLimit, 5);
-  const instagramLimitValue = clampLimit(instagramLimit, 5);
-  // This is the single source of truth for the preview, confirmation checkbox,
-  // and start button. Native adapters are included directly; all other platforms
-  // are included once their real Actor Schema has passed its input-specific test.
-  const configuredChannels = [
-    ...(channels.some(item => item.id === 'google-maps') ? [{ name: 'Google Maps + OpenStreetMap', limit: mapLimitValue, detail: '每个目标国家 / 数据源结果上限' }] : []),
-    ...(channels.some(item => item.id === 'google-search') ? [{ name: 'Web Search', limit: webLimitValue, detail: '每个目标国家结果上限' }] : []),
-    ...(channels.some(item => item.id === 'facebook') ? [{ name: 'Facebook 主页', limit: facebookLimitValue, detail: '每个目标国家结果上限' }] : []),
-    ...(channels.some(item => item.id === 'instagram') ? [{ name: 'Instagram 公开商业账号', limit: instagramLimitValue, detail: '每个目标国家结果上限' }] : []),
-    ...enabledActorPlans.map(actor => {
-      const source = channels.find(item => item.id === actor.sourceId);
-      return { name: String(source?.name || actor.sourceName || actor.sourceId) + ' · Actor', limit: webLimitValue, detail: '每个目标国家 / 渠道结果上限' };
-    }),
-  ];
+  const configuredChannels = enabledActorPlans.map(actor => {
+    const source = channels.find(item => item.id === actor.sourceId);
+    return { name: String(source?.name || actor.sourceName || actor.sourceId), detail: '使用第二步读取的 Actor Schema 参数' };
+  });
   const hasRunnableSource = configuredChannels.length > 0;
   const allFinished = status === 'completed' || status === 'failed';
 
@@ -332,29 +228,21 @@ export function ExecutionStep({ profile, sources, actorParameters = {}, onEditSt
       <Accordion className="tp-execution__context">
         <AccordionItem
           open
-          title={<span className="tp-execution__context-title"><CarbonIcons.Document size={16} aria-hidden="true" /><span>前序搜索条件快照：{profile.continent || '未选择大洲'} · {profile.countryName || profile.country} ({profile.country}) · 核心产品：{profile.coreNoun || '未填写'} · {channels.length} 个数据源</span></span>}
+          title={<span className="tp-execution__context-title"><CarbonIcons.Document size={16} aria-hidden="true" /><span>执行方案快照：已选 {channels.length} 个平台 · 已加载 {actorPlans.length} 个 Actor Schema</span></span>}
         >
           <Grid narrow>
-            <Column sm={4} md={4} lg={5}>
+            <Column sm={4} md={8} lg={8}>
               <Tile className="tp-execution__summary-tile">
-                <div className="tp-execution__tile-heading"><strong>目标画像</strong><Button kind="ghost" size="sm" renderIcon={CarbonIcons.Edit} onClick={() => onEditStep(0)}>返回修改</Button></div>
-                <p><strong>{profile.coreNoun || '未填写核心产品词'}</strong></p>
-                <div className="tp-execution__tags">{(profile.buyers.length ? profile.buyers : []).map(item => <Tag key={item} type="blue">{buyerLabels[item] ?? item}</Tag>)}</div>
-                <small>{profile.countryName || '未选择国家'} · {profile.city || '未指定城市'}</small>
+                <div className="tp-execution__tile-heading"><strong>数据源路由</strong><Button kind="ghost" size="sm" renderIcon={CarbonIcons.Edit} onClick={() => onEditStep(0)}>返回修改</Button></div>
+                <div className="tp-execution__tags">{channels.slice(0, 12).map(item => <Tag key={item.id} type="gray">{item.name}</Tag>)}{channels.length > 12 && <Tag type="gray">+{channels.length - 12}</Tag>}</div>
+                <small>所有平台统一通过动态 Actor Schema 配置</small>
               </Tile>
             </Column>
-            <Column sm={4} md={4} lg={5}>
+            <Column sm={4} md={8} lg={8}>
               <Tile className="tp-execution__summary-tile">
-                <div className="tp-execution__tile-heading"><strong>数据源路由</strong><Button kind="ghost" size="sm" renderIcon={CarbonIcons.Edit} onClick={() => onEditStep(1)}>返回修改</Button></div>
-                <div className="tp-execution__tags">{channels.slice(0, 6).map(item => <Tag key={item.id} type="gray">{item.name}</Tag>)}{channels.length > 6 && <Tag type="gray">+{channels.length - 6}</Tag>}</div>
-                <small>已选 {channels.length} 个搜索通道</small>
-              </Tile>
-            </Column>
-            <Column sm={4} md={8} lg={6}>
-              <Tile className="tp-execution__summary-tile">
-                <div className="tp-execution__tile-heading"><strong>拦截护盾</strong><Button kind="ghost" size="sm" renderIcon={CarbonIcons.Edit} onClick={() => onEditStep(2)}>返回修改</Button></div>
-                <p><Tag type="green">已配置 {guardrailCount} 项规则</Tag></p>
-                <small>任务配置快照已提交；已接入渠道在结果入库前执行服务端护盾。</small>
+                <div className="tp-execution__tile-heading"><strong>Schema 参数</strong><Button kind="ghost" size="sm" renderIcon={CarbonIcons.Edit} onClick={() => onEditStep(1)}>返回修改</Button></div>
+                <p><strong>{enabledActorPlans.length} 个参数完整的数据源</strong></p>
+                <small>不叠加关键词、国家、护盾或渠道专属参数</small>
               </Tile>
             </Column>
           </Grid>
@@ -363,20 +251,12 @@ export function ExecutionStep({ profile, sources, actorParameters = {}, onEditSt
 
       {notice && <InlineNotification kind="info" lowContrast title="任务反馈" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
       <Tile className="tp-execution__configuration">
-        <div className="tp-execution__section-heading"><div><h3>执行参数</h3><p>所有已选平台均按动态 Schema 配置；必填字段与参数类型校验通过的 Actor 和原生执行渠道均可执行。数量为每个目标国家或渠道的结果上限。</p></div><Tag type="blue">{configuredChannels.length} 个可执行渠道</Tag></div>
-        <div className="tp-execution__configuration-grid">
-          {channels.some(item => item.id === 'google-maps') && <div><TextInput id="tp-execution-map-limit" type="number" min={1} max={100} labelText="Google Maps + OSM：每个数据源结果上限" helperText="Google Maps 与 OSM 分别使用此上限。" value={mapLimit} onChange={event => { setMapLimit(event.currentTarget.value); setConfirmedExecution(false); }} /></div>}
-          {channels.some(item => item.id === 'google-search') && <div><TextInput id="tp-execution-web-limit" type="number" min={1} max={100} labelText="Web Search：结果上限" value={webLimit} onChange={event => { setWebLimit(event.currentTarget.value); setConfirmedExecution(false); }} /></div>}
-          {channels.some(item => item.id === 'facebook') && <div><TextInput id="tp-execution-facebook-limit" type="number" min={1} max={100} labelText="Facebook：主页结果上限" helperText="本轮仅执行公开主页，不启动个人或帖子检索。" value={facebookLimit} onChange={event => { setFacebookLimit(event.currentTarget.value); setConfirmedExecution(false); }} /></div>}
-          {channels.some(item => item.id === 'instagram') && <div><TextInput id="tp-execution-instagram-limit" type="number" min={1} max={100} labelText="Instagram：公开商业账号结果上限" helperText="仅检索公开商业 / 创作者账号。" value={instagramLimit} onChange={event => { setInstagramLimit(event.currentTarget.value); setConfirmedExecution(false); }} /></div>}
-        </div>
-        <div className="tp-execution__confirmation-summary"><strong>本次执行预览</strong>{configuredChannels.length ? configuredChannels.map(item => <span key={item.name}>{item.name}：{item.limit} 条（{item.detail}）</span>) : <span>尚未选择可执行渠道。</span>}</div>
-        {pendingActorPlans.length > 0 && <InlineNotification kind="warning" lowContrast title="部分平台仍有参数待补全" subtitle={pendingActorPlans.length + " 个已选平台的 Schema 必填项或字段格式尚未完成；补齐后会自动放行，不需要运行测试。"} />}
-        {channels.length > 0 && !hasRunnableSource && <InlineNotification kind="info" lowContrast title="尚无可执行渠道" subtitle={schemaLoadedSourceIds.size > 0 ? "已读取 Actor Schema；请返回第二步补齐必填字段或修正字段格式，完成后自动放行。" : "已选平台会自动读取动态 Schema；请检查第二步是否成功加载参数结构。"} />}
-        <Checkbox id="tp-execution-confirm" labelText="我已核对本次执行渠道、目标市场和数量上限，确认创建真实采集任务。" checked={confirmedExecution} disabled={!hasRunnableSource || status !== 'idle'} onChange={event => setConfirmedExecution(event.currentTarget.checked)} />
+        <div className="tp-execution__section-heading"><div><h3>执行参数</h3><p>直接使用第二步各平台 Schema 中填写的参数启动 Actor，不追加关键词、国家或结果数量参数。</p></div><Tag type="blue">{configuredChannels.length} 个可执行渠道</Tag></div>
+        <div className="tp-execution__confirmation-summary"><strong>本次执行平台</strong>{configuredChannels.length ? configuredChannels.map(item => <span key={item.name}>{item.name}：使用 Schema 参数执行</span>) : <span>请返回第二步读取所选平台的 Schema 并填写参数。</span>}</div>
+        <Checkbox id="tp-execution-confirm" labelText="我确认启动上述平台的 Actor 采集任务。" checked={confirmedExecution} disabled={!hasRunnableSource || status !== 'idle'} onChange={event => setConfirmedExecution(event.currentTarget.checked)} />
       </Tile>
       <div className="tp-execution__dashboard-heading">
-        <div><span className="tp-execution__eyebrow">MULTI-CHANNEL EXECUTION</span><h2>全网搜索大盘</h2><p>显示后端任务真实状态、进度、结果数量与运行日志</p></div>
+        <div><span className="tp-execution__eyebrow">MULTI-CHANNEL EXECUTION</span><h2>全网搜索大盘</h2><p>显示 Actor 后端任务真实状态、进度、结果数量与运行日志</p></div>
         <Tag type={status === 'completed' ? 'green' : status === 'running' ? 'blue' : status === 'failed' ? 'red' : 'gray'}>{status === 'completed' ? '任务已结束' : status === 'running' ? '后端任务运行中' : status === 'failed' ? '任务启动失败' : '待启动'}</Tag>
       </div>
 
@@ -385,7 +265,7 @@ export function ExecutionStep({ profile, sources, actorParameters = {}, onEditSt
           <Tile className="tp-execution__metric-tile"><div className="tp-execution__metric-label"><CarbonIcons.DataBase size={20} /><span>已发现原始线索数</span></div><strong>{captured}</strong><small>来自后端任务状态</small></Tile>
         </Column>
         <Column sm={4} md={4} lg={5}>
-          <Tile className="tp-execution__metric-tile"><div className="tp-execution__metric-label"><CarbonIcons.Security size={20} /><span>护盾拦截数量</span></div><strong>—</strong><small>当前接口尚未返回统一拦截计数</small></Tile>
+          <Tile className="tp-execution__metric-tile"><div className="tp-execution__metric-label"><CarbonIcons.Security size={20} /><span>已创建 Actor 任务</span></div><strong>{runs.length}</strong><small>由所选平台 Schema 任务生成</small></Tile>
         </Column>
         <Column sm={4} md={8} lg={6}>
           <Tile className="tp-execution__metric-tile"><div className="tp-execution__metric-label"><CarbonIcons.Time size={20} /><span>运行耗时与任务状态</span></div><strong className="tp-execution__metric-time">{elapsedText}</strong><small>{status === 'running' ? '正在读取后端任务状态' : status === 'completed' ? '所有已创建任务已结束' : status === 'failed' ? '任务创建失败' : '等待启动'}</small></Tile>
@@ -393,13 +273,13 @@ export function ExecutionStep({ profile, sources, actorParameters = {}, onEditSt
       </Grid>
 
       <Tile className="tp-execution__control">
-        <div className="tp-execution__control-heading"><div><span className="tp-execution__eyebrow">GLOBAL PROGRESS</span><h2>全局任务进度</h2><p>汇总各渠道后端任务返回的进度（未接入渠道不计入）</p></div><strong className="tp-execution__percent">{progress}%</strong></div>
+        <div className="tp-execution__control-heading"><div><span className="tp-execution__eyebrow">GLOBAL PROGRESS</span><h2>全局任务进度</h2><p>汇总各渠道后端任务返回的进度（按已创建任务统计）</p></div><strong className="tp-execution__percent">{progress}%</strong></div>
         <ProgressBar label="任务总进度" helperText={status === 'completed' ? '所有已创建渠道任务均已结束' : status === 'failed' ? '没有成功启动可执行渠道任务' : status === 'idle' ? '确认配置后启动真实后端任务' : '每 5 秒同步一次后端任务状态'} max={100} value={progress} status="active" />
         <div className="tp-execution__actions">
           {status === 'idle' && <Button kind="primary" renderIcon={CarbonIcons.Play} disabled={starting || !hasRunnableSource || !confirmedExecution} onClick={startTask}>{starting ? '正在创建任务…' : '开始执行全网搜索'}</Button>}
           {status === 'running' && <Button kind="secondary" renderIcon={CarbonIcons.Reset} onClick={() => appendLog('[SYSTEM] 状态将在下一次轮询时刷新。')}>刷新状态（自动轮询中）</Button>}
           {allFinished && <Button kind="secondary" renderIcon={CarbonIcons.Reset} onClick={resetTask}>开始新一轮任务</Button>}
-          {status === 'completed' && <Button kind="primary" renderIcon={CarbonIcons.ArrowRight} disabled={!recordIds.length} onClick={() => onContinueToScoring(recordIds)}>进入第五步：处理 {recordIds.length} 条真实检索结果</Button>}
+          {status === 'completed' && <Button kind="primary" renderIcon={CarbonIcons.ArrowRight} disabled={!recordIds.length} onClick={() => onContinueToScoring(recordIds)}>进入第四步：处理 {recordIds.length} 条真实检索结果</Button>}
         </div>
         {status === 'completed' && <InlineNotification kind="success" lowContrast title="后端任务已结束" subtitle={'已获取 ' + recordIds.length + ' 条真实结果记录。'} />}
         {status === 'failed' && <InlineNotification kind="error" lowContrast title="任务未能启动" subtitle="请检查上方任务反馈与渠道凭证配置。历史任务不会因此被删除。" />}
