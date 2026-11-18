@@ -255,7 +255,7 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
         countries: [country], query: noun, limitPerCountry: limit, providers: [], channel: "actor_discovery",
         actorExecutions: actors, planSnapshot: body.planSnapshot, guardrailsSnapshot: body.guardrailsSnapshot,
       };
-      const config = { actorExecutions: actors.map(actor => ({ actorId: actor.actorId, sourceId: actor.sourceId, sourceName: actor.sourceName, actorTitle: actor.actorTitle, schemaVersion: actor.schemaVersion, inputFingerprint: actor.inputFingerprint, input: redactActorInput(actor.input) })), planSnapshot: body.planSnapshot ?? null, guardrailsSnapshot: body.guardrailsSnapshot ?? null };
+      const config = { actorExecutions: actors.map(actor => ({ actorId: actor.actorId, sourceId: actor.sourceId, sourceName: actor.sourceName, actorTitle: actor.actorTitle, schemaVersion: actor.schemaVersion, input: redactActorInput(actor.input) })), planSnapshot: body.planSnapshot ?? null, guardrailsSnapshot: body.guardrailsSnapshot ?? null };
       const rows = await db<Array<{ id: string }>>(env, "discovery_runs", {
         method: "POST", headers: { Prefer: "return=representation" },
         body: JSON.stringify({
