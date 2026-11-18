@@ -1,4 +1,4 @@
-import { Children, Fragment, cloneElement, createElement, isValidElement, type ReactElement, type ReactNode } from 'react';
+import { Children, cloneElement, createElement, isValidElement, type ReactElement, type ReactNode } from 'react';
 import { ArrowLeft, ArrowRight, Add, Checkmark, Download, Edit, Renew, Save, Send, TrashCan, Upload } from '../icons';
 import { Button, ButtonSet, Heading, Link } from '../components';
 import './page-header.scss';
@@ -58,8 +58,9 @@ function isIconElement(node: ReactNode): node is ReactElement<Record<string, unk
   if (!isValidElement(node)) return false;
   const props = node.props as Record<string, unknown>;
   const type = node.type as unknown as Record<string, unknown>;
+  const componentType = node.type as unknown as { displayName?: string; name?: string };
   const componentName = typeof node.type === 'function'
-    ? node.type.displayName || node.type.name
+    ? componentType.displayName || componentType.name || ''
     : typeof node.type === 'object' && node.type !== null
       ? String(type.displayName || (type.render as { displayName?: string; name?: string } | undefined)?.displayName || (type.render as { name?: string } | undefined)?.name || '')
       : '';
