@@ -237,7 +237,7 @@ export function ContactConsolePage() {
   const start=total===0?0:(page-1)*PAGE_SIZE+1;
   const end=Math.min(page*PAGE_SIZE,total);
   const refresh=()=>{void Promise.all([loadAnalytics(),loadRows()]);};
-  if (loading) return <PageSkeleton variant="table" />;
+  if (loading) return <PageSkeleton variant="analytics-table" metricCount={4} chartCount={2} showMap columns={8} rows={6} />;
   return <main className="tp-contacts">
     <header className="tp-contacts__header"><div><p className="tp-contacts__eyebrow">TRADEPILOT / CRM</p><h1>联系人（Contact）</h1><p>管理客户组织中的联系人及其关系、联系方式与沟通偏好。</p></div><div className="tp-contacts__actions"><Button kind="tertiary" onClick={refresh} disabled={loading||analyticsLoading}><CarbonIcons.Renew size={16}/>刷新</Button><Link href="/contacts/new" renderIcon={CarbonIcons.Add}>创建联系人</Link></div></header>
     {error&&<InlineNotification kind="error" title="联系人读取失败" subtitle={error} onCloseButtonClick={()=>setError('')}/>}

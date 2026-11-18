@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import './page-skeleton.scss';
 import { DataTableSkeleton } from '../DataTableSkeleton';
 import { SkeletonPlaceholder, SkeletonText } from '../Skeleton';
@@ -50,6 +51,21 @@ export function PageSkeleton({ variant = 'table', columns = 6, rows = 8 }: PageS
           <SkeletonPlaceholder className="tp-page-skeleton__chart" />
         </div>
       )}
+      {variant === 'settings' && (
+        <div className="tp-page-skeleton__settings">
+          <div className="tp-page-skeleton__settings-nav">
+            {Array.from({ length: 7 }, (_, index) => <SkeletonText key={index} width={index % 2 ? '72%' : '88%'} />)}
+          </div>
+          <div className="tp-page-skeleton__settings-main">
+            <SkeletonText heading width="34%" />
+            <SkeletonText width="58%" />
+            <div className="tp-page-skeleton__settings-panel">
+              {Array.from({ length: 5 }, (_, index) => <div className="tp-page-skeleton__form-field" key={index}><SkeletonText width="32%" /><SkeletonPlaceholder className="tp-page-skeleton__field" /></div>)}
+            </div>
+          </div>
+        </div>
+      )}
+
       {variant === 'form' && (
         <div className="tp-page-skeleton__form">
           {Array.from({ length: 6 }, (_, index) => <div key={index}><SkeletonText width="34%" /><SkeletonPlaceholder className="tp-page-skeleton__field" /></div>)}
