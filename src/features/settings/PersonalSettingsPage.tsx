@@ -1,3 +1,4 @@
+import { PageSkeleton } from '@/design-system';
 import { useCallback, useEffect, useState, type ChangeEvent } from 'react';
 import {
   Button, Link, FileUploaderButton, InlineLoading, InlineNotification, Select, SelectItem, TextInput, Toggle, CarbonIcons, useThemePreference,
@@ -139,6 +140,7 @@ export function PersonalSettingsPage() {
 
   const activeSection = sections.find((item) => item.id === active) ?? sections[0];
 
+  if (loading) return <PageSkeleton variant="table" />;
   return (
     <main className="tp-personal-settings">
       <header className="tp-personal-settings__header">
