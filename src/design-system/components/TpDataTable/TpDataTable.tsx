@@ -96,9 +96,8 @@ export function TpDataTable<T extends Record<string, unknown>>({
                   <TableToolbarSearch
                     persistent
                     value={searchValue ?? ''}
-                    onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
-                      onSearchChange(event.target.value);
-                      onInputChange(event);
+                    onChange={(_event, value) => {
+                      onSearchChange(value ?? '');
                     }}
                   />
                 )}
@@ -112,7 +111,6 @@ export function TpDataTable<T extends Record<string, unknown>>({
                     {selectable && <TableSelectAll {...getSelectionProps()} />}
                     {headers.map((header) => (
                       <TableHeader
-                        key={header.key}
                         {...getHeaderProps({ header })}
                         className={header.key === '__actions' ? 'tp-data-table__actions-heading' : undefined}
                         >
@@ -127,7 +125,6 @@ export function TpDataTable<T extends Record<string, unknown>>({
                     if (!source) return null;
                     return (
                       <TableRow
-                        key={carbonRow.id}
                         {...getRowProps({ row: carbonRow })}
                         className={`${activeRowId === carbonRow.id ? 'tp-data-table__row--active' : ''}`}
                         onClick={() => onRowOpen?.(source)}
@@ -142,7 +139,6 @@ export function TpDataTable<T extends Record<string, unknown>>({
                         {selectable && (
                           <TableSelectRow
                             {...getSelectionProps({ row: carbonRow })}
-                            onClick={(event: React.MouseEvent) => event.stopPropagation()}
                           />
                         )}
                         {visibleColumns.map((column) => (
