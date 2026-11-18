@@ -16,9 +16,10 @@ function renderLayoutNode(node: PageSkeletonLayoutNode, key: string): ReactNode 
   if (node.type === 'text') return <SkeletonText key={key} heading={node.heading} width={node.width} className={node.className} />;
   if (node.type === 'placeholder') return <SkeletonPlaceholder key={key} className={node.className} style={{ width: node.width, height: node.height, minHeight: node.minHeight, aspectRatio: node.aspectRatio }} />;
   if (node.type === 'table') return <div key={key} className={node.className}><DataTableSkeleton columnCount={node.columns ?? 6} rowCount={node.rows ?? 6} showHeader showToolbar={false} /></div>;
-  const style: CSSProperties = node.className ? {} : node.direction === 'grid'
-    ? { display: 'grid', gridTemplateColumns: `repeat(${node.columns ?? 2}, minmax(0, 1fr))`, gap: node.gap }
-    : { display: 'flex', flexDirection: node.direction === 'row' ? 'row' : 'column', gap: node.gap };
+  const layoutStyle: CSSProperties = node.className ? {} : node.direction === 'grid'
+    ? { display: 'grid', gridTemplateColumns: `repeat(${node.columns ?? 2}, minmax(0, 1fr))` }
+    : { display: 'flex', flexDirection: node.direction === 'row' ? 'row' : 'column' };
+  const style: CSSProperties = { ...layoutStyle, gap: node.gap };
   return <div key={key} className={node.className} style={style}>{node.children.map((child, index) => renderLayoutNode(child, `${key}-${index}`))}</div>;
 }
 
