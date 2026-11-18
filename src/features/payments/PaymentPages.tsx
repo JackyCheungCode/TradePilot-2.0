@@ -36,7 +36,7 @@ function Pick({id,label,value,onChange,options,disabled=false}:{id:string;label:
 }
 
 export function PaymentConsolePage() {
-  const nav=useNavigate();
+  
   const [rows,setRows]=useState<AnyRow[]>([]);
   const [allocations,setAllocations]=useState<AnyRow[]>([]);
   const [accounts,setAccounts]=useState<AnyRow[]>([]);
