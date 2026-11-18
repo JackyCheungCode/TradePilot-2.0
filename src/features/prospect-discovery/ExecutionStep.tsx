@@ -86,6 +86,10 @@ export function ExecutionStep({ profile, sources, actorParameters = {}, onEditSt
   });
   const appendLog = (message: string) => setLogs(current => [...current.slice(-79), '[' + nowTime() + '] ' + message]);
   const runStorageKey = 'tradepilot.prospectDiscovery.runs.' + planTaskCode;
+  const nativeChannels = new Set(['google-maps', 'google-search', 'facebook', 'instagram']);
+  const actorPlans = Array.isArray(actorParameters.actors) ? actorParameters.actors as Array<Record<string, unknown>> : [];
+  const enabledActorPlans = actorPlans.filter(actor => actor.status === 'enabled' && typeof actor.actorId === 'string' && !nativeChannels.has(String(actor.sourceId)));
+  const pendingActorPlans = actorPlans.filter(actor => !nativeChannels.has(String(actor.sourceId)) && actor.status !== 'enabled');
 
   useEffect(() => {
     setRuns([]); setSnapshots({}); setRecordIds([]); setStatus('idle'); setStartedAt(null);
@@ -198,10 +202,6 @@ export function ExecutionStep({ profile, sources, actorParameters = {}, onEditSt
           minFollowers: 0, maxFollowers: 100000000, recentDays: 365, requireContact: true, limit: instagramLimitValue, planSnapshot, guardrailsSnapshot,
         });
       }
-      const actorPlans = Array.isArray(actorParameters.actors) ? actorParameters.actors as Array<Record<string, unknown>> : [];
-      const nativeChannels = new Set(["google-maps", "google-search", "facebook", "instagram"]);
-      const enabledActorPlans = actorPlans.filter(actor => actor.status === "enabled" && typeof actor.actorId === "string" && !nativeChannels.has(String(actor.sourceId)));
-      const pendingActorPlans = actorPlans.filter(actor => !nativeChannels.has(String(actor.sourceId)) && actor.status !== "enabled");
       if (pendingActorPlans.length) appendLog("[ACTOR GATE] " + pendingActorPlans.length + " 个候选来源尚未通过质量门禁，本次不会启动。");
       if (enabledActorPlans.length) {
         addTask("actor-discovery", "Actor 智能采集（" + enabledActorPlans.length + " 个来源）", "/api/v1/actor-registry/execute", {
@@ -289,7 +289,7 @@ export function ExecutionStep({ profile, sources, actorParameters = {}, onEditSt
     };
   });
   const elapsedText = '00:' + String(Math.floor(elapsed / 60)).padStart(2, '0') + ':' + String(elapsed % 60).padStart(2, '0');
-  const hasRunnableSource = channels.some(item => ['google-maps', 'google-search', 'facebook', 'instagram'].includes(item.id));
+  const hasRunnableSource = channels.some(item => nativeChannels.has(item.id)) || enabledActorPlans.length > 0;
   const mapLimitValue = clampLimit(mapLimit, 2);
   const webLimitValue = clampLimit(webLimit, 5);
   const facebookLimitValue = clampLimit(facebookLimit, 5);
@@ -299,6 +299,7 @@ export function ExecutionStep({ profile, sources, actorParameters = {}, onEditSt
     ...(channels.some(item => item.id === 'google-search') ? [{ name: 'Web Search', limit: webLimitValue, detail: '结果上限' }] : []),
     ...(channels.some(item => item.id === 'facebook') ? [{ name: 'Facebook 主页', limit: facebookLimitValue, detail: '主页结果上限' }] : []),
     ...(channels.some(item => item.id === 'instagram') ? [{ name: 'Instagram 公开商业账号', limit: instagramLimitValue, detail: '账号结果上限' }] : []),
+    ...(enabledActorPlans.length ? [{ name: 'Apify Actor（' + enabledActorPlans.length + ' 个已通过门禁）', limit: webLimitValue, detail: '每个 Actor 的结果上限' }] : []),
   ];
   const allFinished = status === 'completed' || status === 'failed';
 

@@ -9,7 +9,7 @@ type SchemaField = {
 };
 type ActorSchema = { properties?: Record<string, SchemaField>; required?: string[]; translatedProperties?: Record<string, { titleZh?: string; descriptionZh?: string; usageZh?: string; translationStatus?: string }> };
 type LoadedSchema = { source: Source; actorId: string; actorTitle: string; schemaVersion: string; actorStatus?: string; actorQualityScore?: number | null; actorInputFingerprint?: string; schema: ActorSchema };
-type Props = { sources: Source[]; profile: { coreNoun: string; country: string; countryName: string; city: string }; onValuesChange: (values: Record<string, unknown>) => void };
+type Props = { sources: Source[]; onValuesChange: (values: Record<string, unknown>) => void };
 
 async function api(path: string, token: string, init: RequestInit = {}) {
   const response = await fetch(path, { ...init, headers: { Authorization: 'Bearer ' + token, Accept: 'application/json', ...(init.body ? { 'Content-Type': 'application/json' } : {}), ...init.headers } });
@@ -40,16 +40,11 @@ function suitability(actor: Record<string, unknown>, source: Source) {
   return match * 40 + quality * 0.5 + stability * 0.25 + (status === 'enabled' ? 30 : status === 'failed' ? -20 : 0)
     + Math.log10(Math.max(0, users) + 1) * 12 + Math.log10(Math.max(0, runs) + 1) * 16 + rating * 8;
 }
-function buildActorInput(item: LoadedSchema, values: Record<string, unknown>, profile: Props['profile']) {
+function buildActorInput(item: LoadedSchema, values: Record<string, unknown>) {
   const input: Record<string, unknown> = {};
-  const intent: Record<string, unknown> = {
-    query: profile.coreNoun, searchQuery: profile.coreNoun, keyword: profile.coreNoun, keywords: profile.coreNoun ? [profile.coreNoun] : [],
-    country: profile.country, countryCode: profile.country, country_code: profile.country, countryName: profile.countryName,
-    city: profile.city, location: profile.city || profile.countryName,
-  };
   for (const [fieldKey, field] of Object.entries(item.schema.properties ?? {})) {
     const valueKey = item.source.id + ':' + item.actorId + ':' + fieldKey;
-    const value = values[valueKey] ?? field.default ?? intent[fieldKey];
+    const value = values[valueKey] ?? field.default ?? '';
     if (value !== undefined && value !== '') {
       if ((field.type === 'object' || field.type === 'array') && typeof value === 'string') {
         try { input[fieldKey] = JSON.parse(value); } catch { input[fieldKey] = value; }
@@ -79,7 +74,7 @@ async function mapLimit<T, R>(items: T[], limit: number, mapper: (item: T, index
   return results;
 }
 
-export function ActorSchemaFields({ sources, profile, onValuesChange }: Props) {
+export function ActorSchemaFields({ sources, onValuesChange }: Props) {
   const actorSources = useMemo(() => sources.filter(source => !['google-maps', 'google-search', 'facebook', 'instagram'].includes(source.id)), [sources]);
   const [items, setItems] = useState<LoadedSchema[]>([]);
   const [values, setValues] = useState<Record<string, unknown>>({});
@@ -143,7 +138,7 @@ export function ActorSchemaFields({ sources, profile, onValuesChange }: Props) {
   const actorParameters = useMemo(() => ({
     fields: values,
     actors: items.map(item => {
-      const input = buildActorInput(item, values, profile);
+      const input = buildActorInput(item, values);
       const currentFingerprint = fingerprint(input, item.schemaVersion);
       const key = item.source.id + ':' + item.actorId;
       const test = testResults[key];
@@ -152,7 +147,7 @@ export function ActorSchemaFields({ sources, profile, onValuesChange }: Props) {
       const status = localTestPassed || persistedTestPassed ? 'enabled' : test || item.actorStatus === 'enabled' ? 'needs_retest' : item.actorStatus;
       return { sourceId: item.source.id, sourceName: item.source.name, actorId: item.actorId, actorTitle: item.actorTitle, schemaVersion: item.schemaVersion, status, schemaKeys: Object.keys(item.schema.properties ?? {}), input, inputFingerprint: currentFingerprint };
     }),
-  }), [values, items, testResults, profile]);
+  }), [values, items, testResults]);
   useEffect(() => { onValuesChange(actorParameters); }, [actorParameters, onValuesChange]);
 
   const setField = (key: string, value: unknown) => setValues(current => ({ ...current, [key]: value }));
@@ -161,7 +156,7 @@ export function ActorSchemaFields({ sources, profile, onValuesChange }: Props) {
     setTestingActor(testKey);
     try {
       const token = await accessToken();
-      const input = buildActorInput(item, values, profile);
+      const input = buildActorInput(item, values);
       const requiredFields = new Set(item.schema.required ?? []);
       const missingFields = Object.entries(item.schema.properties ?? {}).filter(([fieldKey, field]) => {
         const value = input[fieldKey];
@@ -171,7 +166,7 @@ export function ActorSchemaFields({ sources, profile, onValuesChange }: Props) {
       const currentFingerprint = fingerprint(input, item.schemaVersion);
       const result = await api('/api/v1/actor-registry/test', token, {
         method: 'POST',
-        body: JSON.stringify({ actorId: item.actorId, input, profile, expectedFieldCount: Object.keys(item.schema.properties ?? {}).length, schemaVersion: item.schemaVersion }),
+        body: JSON.stringify({ actorId: item.actorId, input, expectedFieldCount: Object.keys(item.schema.properties ?? {}).length, schemaVersion: item.schemaVersion }),
       }) as { passed?: boolean; qualityScore?: number; inputFingerprint?: string; message?: string };
       setTestResults(current => ({ ...current, [testKey]: { passed: result.passed === true, qualityScore: result.qualityScore, inputFingerprint: result.inputFingerprint || currentFingerprint, message: result.message || '测试完成' } }));
     } catch (e) {
@@ -193,7 +188,7 @@ export function ActorSchemaFields({ sources, profile, onValuesChange }: Props) {
       const required = new Set(item.schema.required ?? []);
       const testKey = item.source.id + ':' + item.actorId;
       const localTest = testResults[testKey];
-      const currentFingerprint = fingerprint(buildActorInput(item, values, profile), item.schemaVersion);
+      const currentFingerprint = fingerprint(buildActorInput(item, values), item.schemaVersion);
       const isEnabled = (localTest?.passed === true && localTest.inputFingerprint === currentFingerprint)
         || (item.actorStatus === 'enabled' && item.actorInputFingerprint === currentFingerprint);
       const needsRetest = Boolean(localTest && (!localTest.passed || localTest.inputFingerprint !== currentFingerprint))
