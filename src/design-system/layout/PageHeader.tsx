@@ -52,8 +52,14 @@ function normalizeLegacyActions(node: ReactNode, primaryAssigned: { current: boo
   let normalizedChildren = normalizeLegacyActions(children, primaryAssigned);
   const className = typeof props.className === 'string' ? props.className : '';
   if (/(?:^|[-_])actions?(?:$|[-_])|header-actions/.test(className)) {
-    const items = Children.toArray(normalizedChildren);
-    if (items.length > 1 && items.every((item) => isValidElement(item) && isActionElement(item))) {
+    const items = Children.toArray(normalizedChildren).flatMap((item) => {
+      if (isValidElement(item) && /secondary/.test(String((item.props as Record<string, unknown>).className || ''))) {
+        const nested = Children.toArray((item.props as Record<string, unknown>).children as ReactNode);
+        if (nested.length > 0 && nested.every((nestedItem) => isValidElement(nestedItem) && isActionElement(nestedItem))) return nested;
+      }
+      return [item];
+    });
+    if (items.length > 0 && items.every((item) => isValidElement(item) && isActionElement(item))) {
       normalizedChildren = [...items].sort((a, b) => Number((a as ReactElement).props.kind === 'primary') - Number((b as ReactElement).props.kind === 'primary'));
     }
   }
