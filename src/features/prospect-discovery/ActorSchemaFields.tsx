@@ -198,9 +198,9 @@ export function ActorSchemaFields({ sources, onValuesChange }: Props) {
             const usage = translated?.usageZh || field.usageZh || '请结合字段要求填写；不确定时保留默认值。';
             const valueKey = item.source.id + ':' + item.actorId + ':' + fieldKey;
             const value = values[valueKey] ?? field.default ?? '';
-            const isMissingRequired = isRequired && (value === undefined || value === null || (typeof value === 'string' && !value.trim()));
             const enumValues = Array.isArray(field.enum) ? field.enum : [];
             const isRequired = required.has(fieldKey) || field.required === true;
+            const isMissingRequired = isRequired && (value === undefined || value === null || (typeof value === 'string' && !value.trim()));
             return <div className="tp-prospect-discovery__actor-schema-field" key={valueKey}>
               <div className="tp-prospect-discovery__actor-schema-label">
                 <span>{title}</span>
