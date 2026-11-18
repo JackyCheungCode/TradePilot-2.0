@@ -434,7 +434,7 @@ export function GuardrailsStep({ countries, profile }: { countries: CountryOptio
           <span>重复处理：{duplicatePolicy === 'merge' ? '归并并保留来源' : duplicatePolicy === 'skip' ? '跳过重复' : '待验证'}</span>
         </div>
         <div className="tp-guardrails__footer-actions">
-          <Button kind="secondary" onClick={() => { setRules(emptyRules); setWebsiteRows([]); setNotice('已清空当前页面的文本规则。'); }}>清空文本规则</Button>
+          <Button kind="danger--tertiary" onClick={() => { setRules(emptyRules); setWebsiteRows([]); setNotice('已清空当前页面的文本规则。'); }}>清空文本规则</Button>
           <Button kind="primary" onClick={saveLocal}>保存本地配置</Button>
         </div>
       </div>
