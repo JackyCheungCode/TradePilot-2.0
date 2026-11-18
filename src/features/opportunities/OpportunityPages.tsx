@@ -150,7 +150,6 @@ export function OpportunityFormPage() {
       if(result.error)throw result.error;nav('/opportunities/'+result.data.id,{replace:true});
     }catch(e){setError(e instanceof Error?e.message:'保存商机失败')}finally{setSaving(false)}
   };
-  if(loading)return <main className="tp-opportunities"><InlineLoading description="正在读取商机资料…"/></main>;
   if (loading) return <PageSkeleton variant="form" />;
   return <main className="tp-opportunities"><header className="tp-opportunities__header"><div><p className="tp-opportunities__eyebrow">TRADEPILOT / CRM / OPPORTUNITY</p><h1>{editing?'编辑商机':'新建商机'}</h1><p>按业务分组维护商机信息；客户与联系人保持独立关联。</p></div><div className="tp-opportunities__actions"><Link href="/opportunities">返回列表</Link><Button kind="primary" disabled={saving} onClick={()=>void save()}>{saving?'保存中…':'保存商机'}</Button></div></header>
     {error&&<InlineNotification kind="error" title="商机保存失败" subtitle={error}/>}
@@ -216,7 +215,6 @@ export function OpportunityDetailPage() {
    }catch(e){setTransitionError(e instanceof Error?e.message:'阶段变更失败')}
    finally{setSaving(false)}
  };
- if(loading)return <main className="tp-opportunities"><InlineLoading description="正在读取商机详情…"/></main>;
  if(error||!row)return <main className="tp-opportunities"><InlineNotification kind="error" title="无法打开商机" subtitle={error||'商机不存在'}/><Link href="/opportunities">返回列表</Link></main>;
  if (loading) return <PageSkeleton variant="detail" />;
  return <main className="tp-opportunities">
