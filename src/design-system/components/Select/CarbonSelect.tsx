@@ -54,19 +54,21 @@ export function Select({
 
     const visit = (nodes: ReactNode) => {
       React.Children.forEach(nodes, (node) => {
-        if (!React.isValidElement<SelectItemProps>(node)) return;
+        if (!React.isValidElement(node)) return;
 
-        if (node.type === React.Fragment) {
-          visit(node.props.children);
+        const element = node as React.ReactElement<SelectItemProps & { children?: ReactNode }>;
+
+        if (element.type === React.Fragment) {
+          visit(element.props.children);
           return;
         }
 
-        if (node.type !== SelectItem) return;
+        if (element.type !== SelectItem) return;
 
         collected.push({
-          value: String(node.props.value),
-          text: String(node.props.text ?? ''),
-          disabled: node.props.disabled,
+          value: String(element.props.value),
+          text: String(element.props.text ?? ''),
+          disabled: element.props.disabled,
         });
       });
     };
