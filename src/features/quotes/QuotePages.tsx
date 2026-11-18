@@ -75,7 +75,23 @@ export function QuoteConsolePage() {
     return (status==='all'||s===status) && (marketCountry==='all'||countryCode===marketCountry) && [r.document_number,r.title,r.content?.account_snapshot?.account_name].join(' ').toLowerCase().includes(query.trim().toLowerCase());
   });
   const count=(s:string)=>rows.filter(r=>String(r.content?.quote_status||(r.status==='draft'?'draft':r.status==='issued'?'sent':r.status))===s).length;
-  if (loading) return <PageSkeleton variant="analytics-table" metricCount={4} chartCount={2} showMap columns={7} rows={6} />;
+  if (loading) return <PageSkeleton className="tp-quotes" layout={[
+  { type: 'group', direction: 'row', gap: 'var(--cds-spacing-05)', className: 'tp-quotes__header', children: [
+    { type: 'group', direction: 'column', gap: 'var(--cds-spacing-03)', children: [{ type: 'text', width: '8rem' }, { type: 'text', heading: true, width: '14rem' }, { type: 'text', width: '25rem' }] },
+    { type: 'group', direction: 'row', gap: 'var(--cds-spacing-03)', className: 'tp-quotes__actions', children: [{ type: 'placeholder', width: '5rem', height: '2.5rem' }, { type: 'placeholder', width: '9rem', height: '2.5rem' }] },
+  ] },
+  { type: 'group', direction: 'grid', columns: 4, gap: 'var(--cds-spacing-04)', className: 'tp-quotes__metrics', children: Array.from({ length: 4 }, () => ({ type: 'placeholder' as const, minHeight: '7rem' })) },
+  { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-quotes__panel tp-quotes__trends', children: [
+    { type: 'text', heading: true, width: '12rem' },
+    { type: 'group', direction: 'grid', columns: 2, gap: 'var(--cds-spacing-04)', className: 'tp-quotes__charts', children: Array.from({ length: 2 }, () => ({ type: 'placeholder' as const, minHeight: '17rem', className: 'tp-quotes__chart' })) },
+  ] },
+  { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-quotes__panel tp-quotes__market-panel', children: [{ type: 'text', heading: true, width: '14rem' }, { type: 'placeholder', minHeight: '20rem' }] },
+  { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-quotes__panel', children: [
+    { type: 'text', heading: true, width: '12rem' },
+    { type: 'group', direction: 'grid', columns: 2, gap: 'var(--cds-spacing-04)', className: 'tp-quotes__filters', children: [{ type: 'placeholder', height: '2.5rem' }, { type: 'placeholder', height: '2.5rem' }] },
+    { type: 'table', columns: 7, rows: 6, className: 'tp-quotes__table-wrap' },
+  ] },
+]} />;
   return <main className="tp-quotes">
     <header className="tp-quotes__header"><div><p className="tp-quotes__eyebrow">TRADEPILOT / SALES</p><h1>报价单（Quote）</h1><p>管理客户报价、版本、发送确认和销售订单转换。</p></div><div className="tp-quotes__actions"><Button kind="tertiary" onClick={()=>void load()} disabled={loading}><CarbonIcons.Renew size={16}/>刷新</Button><Link href="/quotes/new" renderIcon={CarbonIcons.Add}>创建报价单</Link></div></header>
     {error&&<InlineNotification kind="error" title="报价单读取失败" subtitle={error}/>}
