@@ -1,5 +1,4 @@
 import { PageSkeleton } from '@/design-system';
-import { PageSkeleton } from '@/design-system';
 import { useCallback, useEffect, useState } from 'react';
 import { startRegistration } from '@simplewebauthn/browser';
 import {
@@ -367,7 +366,6 @@ export function SecuritySettingsPage() {
 
   const verifiedTotp = totpFactors.some((factor) => factor.status === 'verified');
 
-  if (loading) return <PageSkeleton variant="table" />;
   if (loading) return <PageSkeleton variant="table" />;
   return (
     <main className="tp-security">
