@@ -428,7 +428,7 @@ export function CustomerCommunicationsWidget({
     </div>;
   }
 
-  if (loading) return <PageSkeleton variant="table" />;
+  if (loading) return <PageSkeleton variant="detail" />;
   return (
     <div className={"cc-floating-root" + (fullPage ? " cc-floating-root--page" : "") + (navigationExpanded ? " cc-floating-root--nav-expanded" : "")}>
       <section className={'cc-window' + (maximized ? ' cc-window--maximized' : '') + (fullPage ? ' cc-window--page' : '')} role={fullPage ? "region" : "dialog"} aria-label="全渠道消息中心" aria-modal={fullPage ? undefined : "false"}>
