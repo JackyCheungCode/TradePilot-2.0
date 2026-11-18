@@ -1,4 +1,3 @@
-import { PageSkeleton } from '@/design-system';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, CarbonIcons } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
@@ -204,7 +203,6 @@ export function GlobalShipmentMap() {
     changeZoom(zoom + (event.deltaY < 0 ? 1 : -1));
   };
 
-  if (loading) return <PageSkeleton variant="chart" />;
   return <section className="tp-shipment-map" aria-labelledby="tp-shipment-map-title">
     <div className="tp-shipment-map__heading">
       <div>

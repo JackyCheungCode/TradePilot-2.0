@@ -1,4 +1,3 @@
-import { PageSkeleton } from '@/design-system';
 import { useEffect, useMemo, useState } from 'react';
 import {
   Button, Checkbox, CodeSnippet, InlineNotification, Pagination, ProgressBar, Table, TableBody,
@@ -230,7 +229,6 @@ export function DecisionMakerStep() {
     : row.crm === 'failed' ? <Tag type="red">转换失败</Tag>
       : row.candidateCount > 0 ? <Tag type="blue">待人工确认</Tag> : row.enrichment === 'complete' ? <Tag type="warm-gray">未发现候选</Tag> : <Tag type="gray">待穿透</Tag>;
 
-  if (loading) return <PageSkeleton variant="table" />;
   return (
     <section className="tp-prospect-discovery__step tp-decision">
       {notice && <InlineNotification kind="info" lowContrast title="操作反馈" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}

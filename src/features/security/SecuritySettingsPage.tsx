@@ -1,4 +1,3 @@
-import { PageSkeleton } from '@/design-system';
 import { useCallback, useEffect, useState } from 'react';
 import { startRegistration } from '@simplewebauthn/browser';
 import {
@@ -366,29 +365,6 @@ export function SecuritySettingsPage() {
 
   const verifiedTotp = totpFactors.some((factor) => factor.status === 'verified');
 
-  if (loading) return <PageSkeleton className="tp-security" layout={[
-  { type: 'group', direction: 'column', gap: 'var(--cds-spacing-03)', className: 'tp-security__header', children: [
-    { type: 'text', width: '12rem' }, { type: 'text', heading: true, width: '14rem' }, { type: 'text', width: '24rem' },
-  ] },
-  { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-security__section', children: [
-    { type: 'group', direction: 'row', gap: 'var(--cds-spacing-04)', className: 'tp-security__section-heading', children: [{ type: 'text', heading: true, width: '12rem' }, { type: 'text', width: '16rem' }] },
-    { type: 'group', direction: 'row', gap: 'var(--cds-spacing-03)', className: 'tp-security__actions', children: [{ type: 'placeholder', width: '8rem', height: '2.5rem' }] },
-    { type: 'group', direction: 'column', gap: 'var(--cds-spacing-03)', className: 'tp-security__credential-list', children: Array.from({ length: 2 }, () => ({ type: 'placeholder' as const, height: '4rem' })) },
-  ] },
-  { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-security__section', children: [
-    { type: 'group', direction: 'row', gap: 'var(--cds-spacing-04)', className: 'tp-security__section-heading', children: [{ type: 'text', heading: true, width: '14rem' }, { type: 'text', width: '20rem' }] },
-    { type: 'placeholder', minHeight: '4rem', className: 'tp-security__toggle-row' },
-    { type: 'group', direction: 'column', gap: 'var(--cds-spacing-03)', className: 'tp-security__passkey-list', children: Array.from({ length: 2 }, () => ({ type: 'placeholder' as const, height: '4rem' })) },
-  ] },
-  { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-security__section', children: [
-    { type: 'group', direction: 'row', gap: 'var(--cds-spacing-04)', className: 'tp-security__section-heading', children: [{ type: 'text', heading: true, width: '14rem' }, { type: 'text', width: '20rem' }] },
-    { type: 'placeholder', minHeight: '4rem', className: 'tp-security__toggle-row' },
-    { type: 'placeholder', minHeight: '10rem', className: 'tp-security__enrollment' },
-  ] },
-  { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-security__section tp-security__recovery', children: [
-    { type: 'text', heading: true, width: '12rem' }, { type: 'placeholder', minHeight: '6rem' },
-  ] },
-]} />;
   return (
     <main className="tp-security">
       <header className="tp-security__header">

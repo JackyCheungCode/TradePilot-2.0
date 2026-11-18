@@ -1,4 +1,3 @@
-import { PageSkeleton } from '@/design-system';
 import { useCallback, useEffect, useState } from 'react';
 import {
   Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput,
@@ -183,7 +182,6 @@ export function TradeOperationsSettings({ scope }: { scope: Scope }) {
 
   if(scope==='payment') return <PaymentSettings />;
 
-  if (loading) return <PageSkeleton variant="form" />;
   return <div className="tp-settings__advanced">
     {error&&<InlineNotification kind="error" title="设置操作失败" subtitle={error} onCloseButtonClick={()=>setError('')}/>}
     {notice&&<InlineNotification kind="success" title="操作成功" subtitle={notice} onCloseButtonClick={()=>setNotice('')}/>}
@@ -194,7 +192,7 @@ export function TradeOperationsSettings({ scope }: { scope: Scope }) {
           <div className="tp-settings__editor-grid">
             <Select id="trade-shared-base-currency" labelText="企业本位币" value={baseCurrency} disabled>{activeCurrency.map(x=><SelectItem key={x.code} value={x.code} text={x.code+' · '+x.name}/>)}</Select>
             <Select id="trade-shared-incoterm-version" labelText="贸易术语版本" value={incotermVersion} onChange={e=>setIncotermVersion(e.currentTarget.value)}><SelectItem value="2020" text="Incoterms 2020"/><SelectItem value="2010" text="Incoterms 2010"/></Select>
-            {saving && <InlineLoading status="active" description="正在保存…" />}<Button kind="primary" disabled={saving} onClick={()=>void saveShared()}>保存共享规则</Button>
+            <Button kind="primary" disabled={saving} onClick={()=>void saveShared()}>{saving?'正在保存…':'保存共享规则'}</Button>
           </div>
         </section>
         <section className="tp-settings__editor">
@@ -213,7 +211,7 @@ export function TradeOperationsSettings({ scope }: { scope: Scope }) {
           <div className="tp-settings__editor-grid">
             {shipmentFields.map(field=>field.kind==='select' ? <Select key={field.key} id={'shipment-'+field.key} labelText={field.label} value={String(businessConfig[field.key])} onChange={e=>setBusinessConfig(current=>({...current,[field.key]:e.currentTarget.value}))}>{field.options?.map(option=><SelectItem key={option.value} value={option.value} text={option.label}/>)}</Select> : field.kind==='boolean' ? <Select key={field.key} id={'shipment-'+field.key} labelText={field.label} value={String(businessConfig[field.key])} onChange={e=>setBusinessConfig(current=>({...current,[field.key]:e.currentTarget.value==='true'}))}><SelectItem value="true" text="启用"/><SelectItem value="false" text="停用"/></Select> : <TextInput key={field.key} id={'shipment-'+field.key} labelText={field.label} type="number" min="0" value={String(businessConfig[field.key])} onChange={e=>setBusinessConfig(current=>({...current,[field.key]:Math.max(0,Number(e.currentTarget.value)||0)}))}/>)}
           </div>
-          <div className="tp-settings__actions">{saving && <InlineLoading status="active" description="正在保存…" />}<Button kind="primary" disabled={saving} onClick={()=>void saveShipment()}>保存发运规则</Button></div>
+          <div className="tp-settings__actions"><Button kind="primary" disabled={saving} onClick={()=>void saveShipment()}>{saving?'正在保存…':'保存发运规则'}</Button></div>
         </section>
         <section className="tp-settings__editor">
           <h4>发运业务字典</h4><p className="tp-settings__hint">维护运输方式、箱型、包装、费用、跟踪节点和异常类型。停用后不再用于新建发运。</p>

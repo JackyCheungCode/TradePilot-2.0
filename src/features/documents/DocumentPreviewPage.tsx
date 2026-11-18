@@ -1,4 +1,3 @@
-import { PageSkeleton } from '@/design-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
@@ -173,25 +172,9 @@ export function DocumentPreviewPage() {
   const isPackingList = doc?.document_type === 'packing_list';
   const showPricing = templateConfig.showPrices !== false && ['quotation','request_for_quotation','commercial_invoice','proforma_invoice','sales_contract','sales_confirmation','purchase_order','purchase_confirmation','tax_invoice','credit_note','debit_note','bill_of_exchange'].includes(doc?.document_type || '');
 
+  if (loading) return <main className="tp-document-preview"><div className="tp-document-preview__loading"><InlineLoading description="正在读取单据与版本快照…" /></div></main>;
   if (!doc) return <main className="tp-document-preview"><InlineNotification kind="error" title="无法打开单据" subtitle={error || '单据不存在。'} /><Link href="/documents">返回单据中心</Link></main>;
 
-  if (loading) return <PageSkeleton className="tp-document-preview" layout={[
-  { type: 'group', direction: 'row', gap: 'var(--cds-spacing-05)', className: 'tp-document-preview__toolbar', children: [
-    { type: 'group', direction: 'column', gap: 'var(--cds-spacing-02)', children: [{ type: 'text', width: '12rem' }, { type: 'text', heading: true, width: '18rem' }, { type: 'text', width: '14rem' }] },
-    { type: 'group', direction: 'row', gap: 'var(--cds-spacing-03)', className: 'tp-document-preview__actions', children: Array.from({ length: 5 }, () => ({ type: 'placeholder' as const, width: '6rem', height: '2.5rem' })) },
-  ] },
-  { type: 'group', direction: 'column', gap: '2rem', className: 'tp-document-preview__sheet', children: [
-    { type: 'group', direction: 'row', gap: '2rem', className: 'tp-document-preview__paper-header', children: [
-      { type: 'group', direction: 'column', gap: 'var(--cds-spacing-03)', children: [{ type: 'placeholder', width: '4.5rem', height: '4.5rem' }, { type: 'text', heading: true, width: '12rem' }, { type: 'text', width: '10rem' }] },
-      { type: 'group', direction: 'column', gap: 'var(--cds-spacing-03)', children: [{ type: 'text', heading: true, width: '14rem' }, { type: 'text', width: '10rem' }] },
-    ] },
-    { type: 'group', direction: 'grid', columns: 2, gap: '2rem', className: 'tp-document-preview__parties', children: [0, 1].map(() => ({ type: 'group' as const, direction: 'column' as const, gap: 'var(--cds-spacing-03)', children: [{ type: 'text' as const, heading: true, width: '8rem' }, { type: 'text' as const, width: '14rem' }, { type: 'text' as const, width: '90%' }, { type: 'text' as const, width: '80%' }] })) },
-    { type: 'group', direction: 'grid', columns: 3, gap: 'var(--cds-spacing-04)', className: 'tp-document-preview__metadata', children: Array.from({ length: 6 }, () => ({ type: 'placeholder' as const, height: '2.5rem' })) },
-    { type: 'group', direction: 'column', gap: 'var(--cds-spacing-03)', className: 'tp-document-preview__items', children: [{ type: 'text', heading: true, width: '12rem' }, { type: 'table', columns: 7, rows: 5 }] },
-    { type: 'group', direction: 'column', gap: 'var(--cds-spacing-03)', className: 'tp-document-preview__totals', children: Array.from({ length: 4 }, () => ({ type: 'text' as const, width: '100%' })) },
-    { type: 'group', direction: 'row', gap: 'var(--cds-spacing-04)', className: 'tp-document-preview__footer', children: [{ type: 'text', width: '12rem' }, { type: 'text', width: '8rem' }] },
-  ] },
-]} />;
   return <main className="tp-document-preview">
     <header className="tp-document-preview__toolbar">
       <div><p className="tp-document-preview__eyebrow">TRADEPILOT / DOCUMENTS / PREVIEW</p><h1>{doc.document_number}</h1><p>{labels[doc.document_type] || doc.document_type} · V{doc.current_version} · {statusLabel(doc.status)}</p></div>
@@ -215,7 +198,7 @@ export function DocumentPreviewPage() {
       {canEditField('delivery_date') && <TextInput id="doc-edit-delivery-date" labelText="交付日期" value={String(draftContent.delivery_date || '')} onChange={e => setDraftField('delivery_date', e.currentTarget.value)} />}
       {canEditField('contact_phone') && (<TextInput id="doc-edit-contact-phone" labelText="联系人电话" value={String(draftContent.contact_phone || '')} onChange={e => setDraftField('contact_phone', e.currentTarget.value)} />)}
       {canEditField('notes') && (<TextArea id="doc-edit-notes" labelText="单据备注" rows={3} value={String(draftContent.notes || '')} onChange={e => setDraftField('notes', e.currentTarget.value)} />)}\n      {canEditField('items') && !doc.order_id && <TextArea id="doc-edit-items" labelText="货物明细（每行：品名 | SKU | 数量 | 单位 | 单价 | HS Code）" helperText="例如：Wireless Mouse | WM-01 | 100 | pcs | 8.5 | 847160" rows={6} value={draftItemsText} onChange={e => setDraftItemsText(e.currentTarget.value)} />}
-    </div><div className="tp-document-preview__editor-actions">{saving && <InlineLoading status="active" description="正在保存并创建新版本…" />}<Button kind="tertiary" disabled={saving} onClick={() => { setEditing(false); setDraftContent(null); }}>取消</Button><Button kind="primary" disabled={saving} onClick={() => void saveDraft()}>保存并创建新版本</Button></div></section>}
+    </div><div className="tp-document-preview__editor-actions"><Button kind="tertiary" disabled={saving} onClick={() => { setEditing(false); setDraftContent(null); }}>取消</Button><Button kind="primary" disabled={saving} onClick={() => void saveDraft()}>{saving ? '保存中…' : '保存并创建新版本'}</Button></div></section>}
     <article className={"tp-document-preview__sheet tp-document-preview__sheet--" + pageOrientation + " tp-document-preview__sheet--" + pageSize}>
       <header className="tp-document-preview__paper-header">
         <div className="tp-document-preview__brand">{templateConfig.headerText && <small>{text(templateConfig.headerText)}</small>}

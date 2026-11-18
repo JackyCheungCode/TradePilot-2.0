@@ -1,4 +1,3 @@
-import { PageSkeleton } from '@/design-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button, Checkbox, InlineLoading, InlineNotification, Select, SelectItem, Tag } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
@@ -153,7 +152,6 @@ export function DocumentTypeSettings() {
     finally { setSaving(false); }
   };
 
-  if (loading) return <PageSkeleton variant="table" />;
   return <section className="tp-settings__advanced tp-document-type-settings">
     <div className="tp-trade-document-settings__intro">
       <div><h4>单据类型独立规则</h4><p>每种单据分别控制可用来源、空白创建、订单锁定和正式确认要求。规则由后端执行，不只是前端显示设置。</p></div>
@@ -182,7 +180,7 @@ export function DocumentTypeSettings() {
         <div className="tp-document-type-settings__field-group"><h5>草稿保存时必填字段（可选）</h5><p>仅在此处勾选的字段会在保存草稿时校验，不影响未配置的草稿。</p><div className="tp-document-type-settings__field-options">{fieldOptions.filter(option=>!option.id.startsWith('shipment.')).map(option=><Checkbox key={option.id} id={'tp-document-draft-required-'+option.id.replaceAll('.','-')} labelText={option.label} checked={(policy.requiredOnDraftFields??[]).includes(option.id)} onChange={(_,data)=>update('requiredOnDraftFields',data.checked?[...new Set([...(policy.requiredOnDraftFields??[]),option.id])]: (policy.requiredOnDraftFields??[]).filter(value=>value!==option.id))}/>)}</div></div>
         <div className="tp-document-type-settings__field-group"><h5>草稿允许编辑的字段</h5><p>成交订单中的商品、价格、数量、币种和锁定条款不允许通过单据编辑器修改；空白单据可按配置编辑货物明细。</p><div className="tp-document-type-settings__field-options">{editableFieldOptions.map(option=><Checkbox key={option.id} id={'tp-document-editable-'+option.id} labelText={option.label} checked={(policy.editableFields??[]).includes(option.id)} onChange={(_,data)=>update('editableFields',data.checked?[...new Set([...(policy.editableFields??[]),option.id])]: (policy.editableFields??[]).filter(value=>value!==option.id))}/>)}</div></div>
       </div>
-      <div className="tp-document-type-settings__footer"><p>空白草稿是否允许保存，与正式确认要求分开判断。修改配置不会追溯改变已生成单据。</p>{saving && <InlineLoading status="active" description="正在保存…" />}<Button kind="primary" disabled={saving} onClick={() => void save()}>保存当前单据配置</Button></div>
+      <div className="tp-document-type-settings__footer"><p>空白草稿是否允许保存，与正式确认要求分开判断。修改配置不会追溯改变已生成单据。</p><Button kind="primary" disabled={saving} onClick={() => void save()}>{saving ? '正在保存…' : '保存当前单据配置'}</Button></div>
       <section className="tp-document-type-settings__history">
         <h5>配置变更历史</h5>
         {history.length ? <ul>{history.map(row => {

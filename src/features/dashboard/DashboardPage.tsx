@@ -1,4 +1,3 @@
-import { PageSkeleton } from '@/design-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -321,42 +320,6 @@ export function DashboardPage() {
   const barOptions = { ...commonOptions, height: '260px', axes: { bottom: { mapsTo: 'group', scaleType: 'labels' }, left: { mapsTo: 'value', scaleType: 'linear' } } };
   const agentOptions = { ...commonOptions, height: '260px', axes: { bottom: { mapsTo: 'group', scaleType: 'labels' }, left: { mapsTo: 'value', scaleType: 'linear' } } };
 
-  if (loading) return <PageSkeleton className="tp-workbench" layout={[
-    { type: 'group', direction: 'row', gap: '2rem', className: 'tp-workbench__header', children: [
-      { type: 'group', direction: 'column', gap: 'var(--cds-spacing-03)', children: [
-        { type: 'text', width: '18rem' }, { type: 'text', heading: true, width: '18rem' }, { type: 'text', width: '32rem' },
-      ] },
-      { type: 'placeholder', width: '8rem', height: '2.5rem' },
-    ] },
-    { type: 'group', direction: 'row', gap: '1rem', className: 'tp-workbench__filters', children: [
-      { type: 'placeholder', width: '12rem', height: '3.5rem' }, { type: 'placeholder', width: '12rem', height: '3.5rem' },
-      { type: 'placeholder', width: '7rem', height: '2rem' }, { type: 'placeholder', width: '6rem', height: '2rem' },
-      { type: 'text', width: '18rem' },
-    ] },
-    { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-workbench__global-map', children: [
-      { type: 'group', direction: 'row', gap: 'var(--cds-spacing-04)', children: [
-        { type: 'group', direction: 'column', gap: 'var(--cds-spacing-02)', children: [{ type: 'text', width: '13rem' }, { type: 'text', heading: true, width: '16rem' }, { type: 'text', width: '24rem' }] },
-        { type: 'placeholder', width: '8rem', height: '2rem' },
-      ] },
-      { type: 'group', direction: 'grid', columns: 2, gap: '1rem', className: 'tp-workbench__global-map-layout', children: [
-        { type: 'placeholder', minHeight: '26rem', className: 'tp-workbench__global-map-chart' },
-        { type: 'placeholder', minHeight: '20rem', className: 'tp-workbench__global-map-switch' },
-      ] },
-      { type: 'group', direction: 'grid', columns: 4, gap: '1rem', className: 'tp-workbench__global-map-ranking', children: Array.from({ length: 8 }, () => ({ type: 'placeholder' as const, height: '2.5rem' })) },
-    ] },
-    { type: 'group', direction: 'grid', columns: 2, gap: 'var(--cds-spacing-05)', className: 'tp-workbench__intelligence-grid', children: [0, 1].map(() => ({ type: 'group' as const, direction: 'column' as const, gap: 'var(--cds-spacing-04)', className: 'tp-workbench__panel', children: [{ type: 'text' as const, heading: true, width: '14rem' }, { type: 'placeholder' as const, minHeight: '22rem' }] })) },
-    { type: 'group', direction: 'grid', columns: 4, gap: '1px', className: 'tp-workbench__metrics', children: Array.from({ length: 8 }, () => ({ type: 'placeholder' as const, minHeight: '10rem', className: 'tp-workbench__metric' })) },
-    { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-workbench__panel tp-workbench__conversion', children: [
-      { type: 'text', heading: true, width: '12rem' }, { type: 'placeholder', minHeight: '16rem' },
-    ] },
-    { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-workbench__panel tp-workbench__tabs-panel', children: [
-      { type: 'text', heading: true, width: '12rem' },
-      { type: 'group', direction: 'row', gap: 'var(--cds-spacing-03)', children: Array.from({ length: 5 }, () => ({ type: 'placeholder' as const, width: '8rem', height: '2.5rem' })) },
-      { type: 'group', direction: 'grid', columns: 2, gap: '1px', className: 'tp-workbench__tab-grid', children: Array.from({ length: 4 }, () => ({ type: 'placeholder' as const, minHeight: '16rem', className: 'tp-workbench__chart' })) },
-    ] },
-    { type: 'group', direction: 'grid', columns: 2, gap: 'var(--cds-spacing-05)', className: 'tp-workbench__bottom-grid', children: [0, 1].map(() => ({ type: 'group' as const, direction: 'column' as const, gap: 'var(--cds-spacing-04)', className: 'tp-workbench__panel', children: [{ type: 'text' as const, heading: true, width: '12rem' }, { type: 'placeholder' as const, minHeight: '15rem' }] })) },
-    { type: 'text', width: '28rem' },
-  ]} />;
   return <main className="tp-workbench">
     <header className="tp-workbench__header">
       <div>

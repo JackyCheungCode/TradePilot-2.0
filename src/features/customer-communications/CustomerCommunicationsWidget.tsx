@@ -1,4 +1,3 @@
-import { PageSkeleton } from '@/design-system';
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { getSupabaseClient } from '@/lib/supabase';
 import { Button, ClickableTile, ContentSwitcher, Switch, Dropdown, Search, TextArea, TextInput, CarbonIcons } from '@/design-system';
@@ -428,7 +427,6 @@ export function CustomerCommunicationsWidget({
     </div>;
   }
 
-  if (loading) return <PageSkeleton variant="detail" />;
   return (
     <div className={"cc-floating-root" + (fullPage ? " cc-floating-root--page" : "") + (navigationExpanded ? " cc-floating-root--nav-expanded" : "")}>
       <section className={'cc-window' + (maximized ? ' cc-window--maximized' : '') + (fullPage ? ' cc-window--page' : '')} role={fullPage ? "region" : "dialog"} aria-label="全渠道消息中心" aria-modal={fullPage ? undefined : "false"}>
