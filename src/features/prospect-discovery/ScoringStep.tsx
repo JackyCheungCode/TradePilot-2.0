@@ -42,7 +42,7 @@ export function ScoringStep({ onContinueToEnrichment }: Props) {
         const { data } = await db.auth.getSession();
         const token = data.session?.access_token;
         if (!token) throw new Error('登录状态已失效，请重新登录。');
-        const response = await fetch('/api/v1/discovery-records?limit=500', {
+        const response = await fetch('/api/v1/discovery-records?ids=' + encodeURIComponent(queue.join(',')), {
           headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' },
         });
         const payload = await response.json() as { data?: Array<Record<string, unknown>>; error?: { message?: string } };
