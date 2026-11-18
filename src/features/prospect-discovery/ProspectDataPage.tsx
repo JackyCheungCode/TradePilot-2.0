@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { AreaChart, DonutChart, SimpleBarChart } from '@carbon/charts-react';
 import {
   Button, Link, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput, Tile,
@@ -65,7 +64,7 @@ const countryLabel = (code: string) => {
 };
 
 export function ProspectDataPage() {
-  const navigate = useNavigate();
+  
   const [rows, setRows] = useState<Prospect[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
