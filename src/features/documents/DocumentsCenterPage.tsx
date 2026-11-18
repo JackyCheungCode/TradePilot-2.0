@@ -45,8 +45,9 @@ export function DocumentsCenterPage(){
     { type: 'text', heading: true, width: '14rem' },
     { type: 'group', direction: 'grid', columns: 2, gap: 'var(--cds-spacing-04)', className: 'tp-document-home__groups', children: Array.from({ length: 6 }, () => ({ type: 'placeholder' as const, minHeight: '10rem', className: 'tp-document-home__group' })) },
   ] },
-  { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-documents__list', children: [
-    { type: 'text', heading: true, width: '12rem' }, { type: 'table', columns: 7, rows: 4, className: 'tp-documents__table-wrap' },
+  { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-document-home__section', children: [
+    { type: 'text', heading: true, width: '12rem' },
+    ...Array.from({ length: 4 }, () => ({ type: 'placeholder' as const, height: '4rem', className: 'tp-document-home__recent-row' })),
   ] },
 ]} />;
  return <main className="tp-documents tp-document-home">
