@@ -44,7 +44,21 @@ export function AccountConsolePage(){
  const industryData=useMemo(()=>{const counts=new Map<string,number>();rows.forEach(row=>{const key=row.industry||'未分类';counts.set(key,(counts.get(key)||0)+1)});return [...counts.entries()].map(([group,value])=>({group,value})).sort((a,b)=>b.value-a.value).slice(0,8)},[rows]);
  const daily=useMemo(()=>{const m=new Map<string,number>();for(let i=29;i>=0;i--){const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-i);m.set(d.toISOString().slice(0,10),0)}rows.forEach(r=>{const k=r.created_at.slice(0,10);if(m.has(k))m.set(k,(m.get(k)||0)+1)});return [...m].map(([date,count])=>({group:'每日新增客户',date:new Date(date+'T00:00:00'),value:count}))},[rows]);
  const chartOptions={theme:document.documentElement.dataset.carbonTheme==='g100'?'g100':'white',title:'每日新增客户',axes:{bottom:{title:'日期',mapsTo:'date',scaleType:ScaleTypes.TIME},left:{title:'新增客户',mapsTo:'value',scaleType:ScaleTypes.LINEAR}},curve:'curveMonotoneX',height:'280px'};
- if (loading) return <PageSkeleton variant="analytics-table" metricCount={4} chartCount={2} showMap columns={8} rows={6} />;
+ if (loading) return <PageSkeleton className="tp-accounts" layout={[
+  { type: 'group', direction: 'row', gap: 'var(--cds-spacing-05)', className: 'tp-accounts__header', children: [
+    { type: 'group', direction: 'column', gap: 'var(--cds-spacing-03)', children: [{ type: 'text', width: '8rem' }, { type: 'text', heading: true, width: '14rem' }, { type: 'text', width: '24rem' }] },
+    { type: 'group', direction: 'row', gap: 'var(--cds-spacing-03)', className: 'tp-accounts__actions', children: [{ type: 'placeholder', width: '5rem', height: '2.5rem' }, { type: 'placeholder', width: '7rem', height: '2.5rem' }] },
+  ] },
+  { type: 'group', direction: 'grid', columns: 4, gap: 'var(--cds-spacing-04)', className: 'tp-accounts__metrics', children: Array.from({ length: 4 }, () => ({ type: 'placeholder' as const, minHeight: '8rem', className: 'tp-accounts__metric' })) },
+  { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-accounts__panel', children: [{ type: 'text', heading: true, width: '12rem' }, { type: 'placeholder', minHeight: '17rem' }] },
+  { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-accounts__panel', children: [{ type: 'text', heading: true, width: '12rem' }, { type: 'placeholder', minHeight: '17rem' }] },
+  { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-accounts__panel', children: [{ type: 'text', heading: true, width: '12rem' }, { type: 'placeholder', minHeight: '20rem' }] },
+  { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-accounts__panel', children: [
+    { type: 'text', heading: true, width: '12rem' },
+    { type: 'group', direction: 'grid', columns: 2, gap: 'var(--cds-spacing-04)', className: 'tp-accounts__filters', children: [{ type: 'placeholder', height: '2.5rem' }, { type: 'placeholder', height: '2.5rem' }] },
+    { type: 'table', columns: 8, rows: 6, className: 'tp-accounts__table-wrap' },
+  ] },
+]} />;
  return <main className="tp-accounts"><header className="tp-accounts__header"><div><p className="tp-accounts__eyebrow">TRADEPILOT / CRM</p><h1>客户（Account）</h1><p>管理公司级客户资料、联系人、地址、交易与财务规则。</p></div><div className="tp-accounts__actions"><Button kind="tertiary" onClick={()=>void load()} disabled={loading}><CarbonIcons.Renew size={16}/>刷新</Button><Link href="/accounts/new" renderIcon={CarbonIcons.Add}>新建客户</Link></div></header>
  {error&&<InlineNotification kind="error" title="客户数据读取失败" subtitle={error}/>}
  {loading?<div className="tp-accounts__loading"><InlineLoading description="正在读取客户数据…"/></div>:<>
