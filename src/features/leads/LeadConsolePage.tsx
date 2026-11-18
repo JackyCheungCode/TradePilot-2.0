@@ -191,7 +191,27 @@ export function LeadConsolePage() {
     const key = valueOf(row.profile, 'source') || 'unknown';
     return sourceNames[key] ?? (key === 'unknown' ? '未标记' : key);
   };
-  if (loading) return <PageSkeleton variant="analytics-table" metricCount={4} chartCount={2} showMap columns={8} rows={6} />;
+  if (loading) return <PageSkeleton className="tp-leads" layout={[
+    { type: 'group', direction: 'row', gap: 'var(--cds-spacing-05)', className: 'tp-leads__header', children: [
+      { type: 'group', direction: 'column', gap: 'var(--cds-spacing-03)', children: [
+        { type: 'text', width: '8rem' }, { type: 'text', heading: true, width: '14rem' }, { type: 'text', width: '24rem' },
+      ] },
+      { type: 'group', direction: 'row', gap: 'var(--cds-spacing-03)', className: 'tp-leads__header-actions', children: [
+        { type: 'placeholder', width: '5rem', height: '2.5rem' }, { type: 'placeholder', width: '7rem', height: '2.5rem' },
+      ] },
+    ] },
+    { type: 'group', direction: 'grid', columns: 4, gap: 'var(--cds-spacing-04)', className: 'tp-leads__metrics', children: Array.from({ length: 4 }, () => ({ type: 'placeholder' as const, minHeight: '7rem', className: 'tp-leads__metric' })) },
+    { type: 'group', direction: 'grid', columns: 3, gap: 'var(--cds-spacing-04)', className: 'tp-leads__analytics', children: Array.from({ length: 3 }, () => ({ type: 'placeholder' as const, minHeight: '13rem', className: 'tp-leads__panel' })) },
+    { type: 'placeholder', minHeight: '20rem', aspectRatio: '2 / 1', className: 'tp-leads__map' },
+    { type: 'group', direction: 'column', gap: 'var(--cds-spacing-05)', className: 'tp-leads__panel', children: [
+      { type: 'text', heading: true, width: '12rem' }, { type: 'placeholder', minHeight: '17rem' },
+    ] },
+    { type: 'group', direction: 'column', gap: 'var(--cds-spacing-05)', className: 'tp-leads__panel tp-leads__records', children: [
+      { type: 'text', heading: true, width: '12rem' },
+      { type: 'group', direction: 'grid', columns: 3, gap: 'var(--cds-spacing-04)', className: 'tp-leads__filters', children: Array.from({ length: 3 }, () => ({ type: 'placeholder' as const, height: '2.5rem' })) },
+      { type: 'table', columns: 7, rows: 6, className: 'tp-leads__table-wrap' },
+    ] },
+  ]} />;
   return <main className="tp-leads">
     <header className="tp-leads__header">
       <div><p className="tp-leads__eyebrow">TRADEPILOT / CRM</p><h1>线索（Lead）</h1><p>集中管理已建立的正式线索，分析来源、状态、评级与国家 / 地区分布。</p></div>
