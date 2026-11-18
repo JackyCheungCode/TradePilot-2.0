@@ -260,7 +260,7 @@ export function ExecutionStep({ sources, actorParameters = {}, onEditStep, onCon
         <Column sm={4} md={8} lg={3}>
           <Tile className="tp-execution__metric-tile"><div className="tp-execution__metric-label"><CarbonIcons.Time size={20} /><span>运行耗时</span></div><strong className="tp-execution__metric-time">{elapsedText}</strong><small>{status === 'running' ? '正在读取后端任务状态' : status === 'completed' ? '所有已创建任务已结束' : status === 'failed' ? '任务创建失败' : '尚未创建后端任务'}</small></Tile>
         </Column>
-        <Column sm={4} md={8} lg={4}>
+        <Column sm={4} md={8} lg={3}>
           <Tile className="tp-execution__metric-tile"><div className="tp-execution__metric-label"><CarbonIcons.Document size={20} /><span>已取得结果记录</span></div><strong>{recordIds.length}</strong><small>来自后端结果接口</small></Tile>
         </Column>
       </Grid>
