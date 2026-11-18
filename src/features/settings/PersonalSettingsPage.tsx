@@ -21,7 +21,7 @@ const sections: Array<{ id: SectionId; label: string; description: string; icon:
   { id: 'appearance', label: '外观与显示', description: '主题、语言、时区与格式', icon: <CarbonIcons.PaintBrush size={20} /> },
   { id: 'notifications', label: '通知偏好', description: '任务、分析与系统提醒', icon: <CarbonIcons.Notification size={20} /> },
   { id: 'work', label: '工作偏好', description: '默认页面、市场与列表密度', icon: <CarbonIcons.Workspace size={20} /> },
-  { id: 'privacy', label: '隐私与账户管理', description: '个人设置导出与账户信息', icon: <CarbonIcons.Lock size={20} /> },
+  { id: 'privacy', label: '隐私与账户管理', description: '个人设置导出与账户信息', icon: <CarbonIcons.Security size={20} /> },
 ];
 
 function readPreferences(value: unknown): Preferences {
@@ -255,7 +255,7 @@ export function PersonalSettingsPage() {
 
             {active === 'privacy' && (
               <div className="tp-personal-settings__info">
-                <CarbonIcons.DataPrivacy size={32} />
+                <CarbonIcons.Document size={32} />
                 <h3>个人数据与账户控制</h3>
                 <p>可以导出当前个人资料摘要和偏好设置。此导出不包含业务记录、客户数据或集成密钥。</p>
                 <Button kind="secondary" onClick={exportSettings}>导出个人设置 <CarbonIcons.Download size={16} /></Button>
