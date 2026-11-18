@@ -341,7 +341,7 @@ export function PlatformSelectionStep({
 
     <div className="tp-prospect-discovery__source-selection-note">
       <span>已选择 {selected.length} 个平台；进入第二步后将为每个平台读取真实 Input Schema，并按 Schema 配置参数。</span>
-      <Button kind="secondary" onClick={() => setSelected(recommended)}>恢复推荐平台</Button>
+      <Button kind="tertiary" onClick={() => setSelected(recommended)}>恢复推荐平台</Button>
     </div>
   </section>;
 }
