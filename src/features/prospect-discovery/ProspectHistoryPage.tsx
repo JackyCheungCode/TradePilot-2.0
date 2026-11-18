@@ -1,5 +1,4 @@
 import { PageSkeleton } from '@/design-system';
-import { PageSkeleton } from '@/design-system';
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
