@@ -22,6 +22,51 @@ function renderLayoutNode(node: PageSkeletonLayoutNode, key: string): ReactNode 
   return <div key={key} className={node.className} style={style}>{node.children.map((child, index) => renderLayoutNode(child, `${key}-${index}`))}</div>;
 }
 
+
+export function pageSkeletonHeader(headerClassName: string, actionsClassName: string, actionCount = 2): PageSkeletonLayoutNode {
+  return {
+    type: 'group', direction: 'row', gap: 'var(--cds-spacing-05)', className: headerClassName, children: [
+      { type: 'group', direction: 'column', gap: 'var(--cds-spacing-03)', children: [
+        { type: 'text', width: '9rem' }, { type: 'text', heading: true, width: '14rem' }, { type: 'text', width: '26rem' },
+      ] },
+      { type: 'group', direction: 'row', gap: 'var(--cds-spacing-03)', className: actionsClassName, children:
+        Array.from({ length: actionCount }, () => ({ type: 'placeholder' as const, width: '7rem', height: '2.5rem' })),
+      },
+    ],
+  };
+}
+
+export function pageSkeletonFormSection(
+  sectionClassName: string,
+  gridClassName: string,
+  columns: number,
+  fieldCount: number,
+  fieldClassName?: string,
+  headingWidth = '12rem',
+): PageSkeletonLayoutNode {
+  return {
+    type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: sectionClassName, children: [
+      { type: 'text', heading: true, width: headingWidth },
+      {
+        type: 'group', direction: 'grid', columns, gap: 'var(--cds-spacing-04)', className: gridClassName,
+        children: Array.from({ length: fieldCount }, () => ({
+          type: 'group' as const, direction: 'column' as const, gap: 'var(--cds-spacing-02)' as const, className: fieldClassName,
+          children: [{ type: 'text' as const, width: '6rem' }, { type: 'placeholder' as const, height: '2.5rem' }],
+        })),
+      },
+    ],
+  };
+}
+
+export function pageSkeletonPanel(sectionClassName: string, contentHeight = '16rem', headingWidth = '12rem'): PageSkeletonLayoutNode {
+  return {
+    type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: sectionClassName, children: [
+      { type: 'text', heading: true, width: headingWidth },
+      { type: 'placeholder', minHeight: contentHeight },
+    ],
+  };
+}
+
 export interface PageSkeletonProps {
   /** Explicit page-owned layout. Prefer this over a guessed generic variant. */
   layout?: PageSkeletonLayoutNode[];
