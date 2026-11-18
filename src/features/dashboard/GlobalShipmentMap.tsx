@@ -204,7 +204,7 @@ export function GlobalShipmentMap() {
     changeZoom(zoom + (event.deltaY < 0 ? 1 : -1));
   };
 
-  if (loading) return <PageSkeleton variant="table" />;
+  if (loading) return <PageSkeleton variant="chart" />;
   return <section className="tp-shipment-map" aria-labelledby="tp-shipment-map-title">
     <div className="tp-shipment-map__heading">
       <div>
