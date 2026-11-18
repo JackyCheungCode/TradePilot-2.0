@@ -56,15 +56,6 @@ async function gatewayFetch(path: string, token: string): Promise<Record<string,
 }
 const actorDiscoveryCache = new Map<string, { expiresAt: number; items: ActorRecord[] }>();
 const actorSchemaCache = new Map<string, { expiresAt: number; result: Record<string, unknown> }>();
-function cached<T>(store: Map<string, { expiresAt: number; [key: string]: unknown }>, key: string): T | null {
-  const entry = store.get(key);
-  if (!entry) return null;
-  if (entry.expiresAt <= Date.now()) { store.delete(key); return null; }
-  return (entry as unknown as { value?: T; items?: T; result?: T }).value
-    ?? (entry as unknown as { items?: T }).items
-    ?? (entry as unknown as { result?: T }).result
-    ?? null;
-}
 function actorKey(actor: ActorRecord): string { return actor.username ? actor.username + "~" + actor.name : actor.id; }
 function safeText(value: unknown, max = 4000): string { return typeof value === "string" ? value.slice(0, max) : ""; }
 function redactActorInput(value: unknown, depth = 0): unknown {
@@ -164,7 +155,7 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
         if (ownedResult.status === "rejected" && storeResult.status === "rejected") {
           return errorResponse(request, "ACTOR_DISCOVERY_UPSTREAM_FAILED", "两个数据源查询均失败。 " + warnings.join("；"), 502);
         }
-        actorDiscoveryCache.set(cacheKey, { expiresAt: Date.now() + 2 * 60 * 1000, items: ownedItems });
+        actorDiscoveryCache.set(cacheKey, { expiresAt: Date.now() + 2 * 60 * 1000, items: [...ownedItems, ...storeItems] });
       }
       const merged = new Map<string, ActorRecord>();
       for (const actor of [...ownedItems, ...storeItems]) if (actor?.id) merged.set(actor.id, actor);
