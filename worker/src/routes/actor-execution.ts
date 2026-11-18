@@ -1,6 +1,5 @@
 import { readIntegrationSecret } from "../lib/integrations";
 import { buildLeadDedupeKey, normalizeWebsiteHost } from "../lib/deduplication";
-import { evaluateGuardrails, getDuplicatePolicy } from "../lib/guardrails";
 import type { DiscoveryEnv, DiscoveryRunInput } from "./discovery";
 
 type ActorExecution = NonNullable<DiscoveryRunInput["actorExecutions"]>[number];
@@ -57,7 +56,7 @@ function numberValue(item: RawItem, keys: string[]): number | null {
   for (const key of keys) { const value = Number(item[key]); if (item[key] !== undefined && item[key] !== null && Number.isFinite(value)) return value; }
   return null;
 }
-function normalizeItem(item: RawItem, countryCode: string) {
+function normalizeItem(item: RawItem, fallbackCountryCode = "") {
   const website = first(item, ["website", "websiteUrl", "companyWebsite", "domain", "url", "storeUrl", "homepage"]);
   const name = first(item, ["companyName", "businessName", "organizationName", "company", "business", "name", "brandName", "brand", "storeName", "sellerName", "title"]) || normalizeWebsiteHost(website);
   const email = first(item, ["email", "emailAddress", "contactEmail", "businessEmail"]);
@@ -67,6 +66,7 @@ function normalizeItem(item: RawItem, countryCode: string) {
   const sourceUrl = first(item, ["sourceUrl", "profileUrl", "url", "website", "websiteUrl"]);
   const latitude = numberValue(item, ["latitude", "lat"]);
   const longitude = numberValue(item, ["longitude", "lng", "lon"]);
+  const countryCode = first(item, ["countryCode", "country_code", "country"]) || fallbackCountryCode;
   return { name, website: website || null, email: email || null, phone: phone || null, address: address || null, businessType: businessType || null, sourceUrl: sourceUrl || null, latitude, longitude, countryCode };
 }
 async function persistRaw(env: DiscoveryEnv, ownerId: string, runId: string, actor: ActorExecution, actorRunId: string, datasetId: string, itemIndex: number, item: RawItem) {
@@ -79,19 +79,13 @@ async function persistRaw(env: DiscoveryEnv, ownerId: string, runId: string, act
     }),
   });
 }
-async function persistCanonical(env: DiscoveryEnv, ownerId: string, runId: string, actor: ActorExecution, actorRunId: string, itemIndex: number, raw: RawItem, countryCode: string, guardrailsSnapshot: unknown, keyword: string): Promise<boolean> {
+async function persistCanonical(env: DiscoveryEnv, ownerId: string, runId: string, actor: ActorExecution, actorRunId: string, itemIndex: number, raw: RawItem): Promise<boolean> {
   const item = normalizeItem(raw, countryCode);
   if (!item.name) return false;
-  const guardrail = evaluateGuardrails({
-    name: item.name, country: item.countryCode, address: item.address, website: item.website,
-    phone: item.phone, email: item.email, businessType: item.businessType, raw,
-  }, guardrailsSnapshot);
-  if (guardrail.blocked) return false;
   const dedupeKey = buildLeadDedupeKey({ countryCode, name: item.name, website: item.website, phone: item.phone, latitude: item.latitude, longitude: item.longitude });
   const previousRows = await db<Array<Record<string, unknown>>>(env,
     "discovery_records?owner_id=eq." + ownerId + "&channel=eq.actor_discovery&dedupe_key=eq." + encodeURIComponent(dedupeKey) + "&select=id,address,phone,email,website,business_type,confidence_score,raw_data&limit=1");
   const previous = previousRows?.[0] ?? {};
-  const duplicatePolicy = getDuplicatePolicy(guardrailsSnapshot);
   const entities = await db<Array<{ id: string }>>(env, "discovery_entities?on_conflict=owner_id,dedupe_key", {
     method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" },
     body: JSON.stringify({ owner_id: ownerId, entity_type: "business", display_name: item.name, dedupe_key: dedupeKey, attributes: { country_code: countryCode } }),
@@ -105,11 +99,9 @@ async function persistCanonical(env: DiscoveryEnv, ownerId: string, runId: strin
   const rawData = {
     ...(previous.raw_data && typeof previous.raw_data === "object" ? previous.raw_data as Record<string, unknown> : {}),
     ...raw, _source: { actorId: actor.actorId, actorRunId, sourceId: actor.sourceId, sourceName: actor.sourceName },
-    ...(guardrail.review ? { guardrail_review_required: true, guardrail_reasons: guardrail.reasons } : {}),
-    ...(duplicatePolicy === "review" && previous.id ? { duplicate_review_required: true } : {}),
   };
-  let recordId = duplicatePolicy === "skip" && typeof previous.id === "string" ? previous.id : undefined;
-  const rows = recordId ? [] : await db<Array<{ id: string }>>(env, "discovery_records?on_conflict=owner_id,channel,dedupe_key", {
+  let recordId: string | undefined;
+  const rows = await db<Array<{ id: string }>>(env, "discovery_records?on_conflict=owner_id,channel,dedupe_key", {
     method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" },
     body: JSON.stringify({
       owner_id: ownerId, channel: "actor_discovery", record_type: "business", entity_id: entityId,
@@ -129,53 +121,43 @@ async function persistCanonical(env: DiscoveryEnv, ownerId: string, runId: strin
     method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
     body: JSON.stringify({
       owner_id: ownerId, record_id: recordId, run_id: runId, provider: "actor_gateway",
-      keyword, external_id: actorRunId + ":" + itemIndex,
+      keyword: actor.sourceName, external_id: actorRunId + ":" + itemIndex,
       source_url: item.sourceUrl, license: null, attribution: actor.actorTitle ?? actor.actorId, raw_data: rawData,
     }),
   });
   return true;
 }
-function limitActorInput(input: Record<string, unknown>, limit: number): Record<string, unknown> {
-  const result = { ...input };
-  for (const key of ["maxItems", "maxResults", "maxResultsPerQuery", "resultsLimit", "maxItemsPerRun", "limit"]) {
-    if (key in result) {
-      const current = Number(result[key]);
-      result[key] = Number.isFinite(current) && current > 0 ? Math.min(current, limit) : limit;
-    }
-  }
-  return result;
-}
+
 
 export async function processActorDiscoveryRun(env: DiscoveryEnv, runId: string, ownerId: string, input: DiscoveryRunInput) {
   const actors = input.actorExecutions ?? [];
   if (!actors.length) throw new Error("ACTOR_EXECUTIONS_REQUIRED");
   const token = await readIntegrationSecret(env, "tradepilot_api_" + String.fromCharCode(97, 112, 105, 102, 121)) || env.ACTOR_GATEWAY_API_TOKEN || env.APIFY_API_TOKEN || "";
   if (!token) throw new Error("ACTOR_GATEWAY_NOT_CONFIGURED");
-  const countryCode = input.countries[0] ?? "";
   let discovered = 0, created = 0, failedActors = 0;
-  await updateRun(env, runId, ownerId, { status: "running", message: "正在执行已通过 Schema 参数校验的数据源…" });
-  await log(env, runId, ownerId, "info", "Actor 任务启动；Schema 参数已校验的数据源：" + actors.map(actor => actor.sourceName).join("、"));
+  await updateRun(env, runId, ownerId, { status: "running", message: "正在执行所选 Actor Schema 任务…" });
+  await log(env, runId, ownerId, "info", "Actor 任务启动；按 Schema 原样提交参数的数据源：" + actors.map(actor => actor.sourceName).join("、"));
   let completedActors = 0;
   let cursor = 0;
   const executeOne = async (actor: ActorExecution) => {
     try {
       await log(env, runId, ownerId, "info", "开始执行：" + actor.sourceName + " · " + actor.actorId);
       const started = await gateway<Record<string, unknown>>("acts/" + encodeURIComponent(actor.actorId) + "/runs?waitForFinish=300", token, {
-        method: "POST", body: JSON.stringify(limitActorInput(actor.input ?? {}, Math.max(1, Math.min(100, input.limitPerCountry || 20)))),
+        method: "POST", body: JSON.stringify(actor.input ?? {}),
       }, 310000);
       const run = asObject(started.data);
       const actorRunId = textValue(run.id);
       const status = textValue(run.status).toUpperCase();
       const datasetId = textValue(run.defaultDatasetId);
       if (!actorRunId || status !== "SUCCEEDED" || !datasetId) throw new Error("ACTOR_RUN_" + (status || "NO_STATUS"));
-      const dataset = await gateway<unknown>("datasets/" + encodeURIComponent(datasetId) + "/items?format=json&clean=true&limit=" + Math.max(1, Math.min(500, input.limitPerCountry || 100)), token);
+      const dataset = await gateway<unknown>("datasets/" + encodeURIComponent(datasetId) + "/items?format=json&clean=true", token);
       const items = Array.isArray(dataset) ? dataset : Array.isArray(asObject(dataset).data) ? asObject(dataset).data as unknown[] : [];
       let actorCreated = 0;
       for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
         const raw = asObject(items[itemIndex]);
         await persistRaw(env, ownerId, runId, actor, actorRunId, datasetId, itemIndex, raw);
         discovered++;
-        if (await persistCanonical(env, ownerId, runId, actor, actorRunId, itemIndex, raw, countryCode, input.guardrailsSnapshot, input.query)) { created++; actorCreated++; }
+        if (await persistCanonical(env, ownerId, runId, actor, actorRunId, itemIndex, raw)) { created++; actorCreated++; }
       }
       await log(env, runId, ownerId, "info", actor.sourceName + " 完成：读取 " + items.length + " 条原始记录，归一化 " + actorCreated + " 条企业记录。");
     } catch (error) {
