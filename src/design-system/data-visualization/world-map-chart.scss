@@ -26,11 +26,11 @@
   transition: fill 140ms ease, stroke 140ms ease, opacity 140ms ease;
 }
 
-.tp-world-map__country[data-level='1'] { fill: var(--cds-chart-sequential-color-1); }
-.tp-world-map__country[data-level='2'] { fill: var(--cds-chart-sequential-color-2); }
-.tp-world-map__country[data-level='3'] { fill: var(--cds-chart-sequential-color-3); }
-.tp-world-map__country[data-level='4'] { fill: var(--cds-chart-sequential-color-4); }
-.tp-world-map__country[data-level='5'] { fill: var(--cds-chart-sequential-color-5); }
+ .tp-world-map__country[data-level='1'] { fill: var(--cds-support-info); opacity: .2; }
+.tp-world-map__country[data-level='2'] { fill: var(--cds-support-info); opacity: .38; }
+.tp-world-map__country[data-level='3'] { fill: var(--cds-support-info); opacity: .56; }
+.tp-world-map__country[data-level='4'] { fill: var(--cds-support-info); opacity: .76; }
+.tp-world-map__country[data-level='5'] { fill: var(--cds-support-info); opacity: 1; }
 
 .tp-world-map__country[role='button'] {
   cursor: pointer;
@@ -65,11 +65,11 @@
   background: var(--cds-layer-02);
 }
 
-.tp-world-map__legend > i[data-level='1'] { background: var(--cds-chart-sequential-color-1); }
-.tp-world-map__legend > i[data-level='2'] { background: var(--cds-chart-sequential-color-2); }
-.tp-world-map__legend > i[data-level='3'] { background: var(--cds-chart-sequential-color-3); }
-.tp-world-map__legend > i[data-level='4'] { background: var(--cds-chart-sequential-color-4); }
-.tp-world-map__legend > i[data-level='5'] { background: var(--cds-chart-sequential-color-5); }
+ .tp-world-map__legend > i[data-level='1'] { background: var(--cds-support-info); opacity: .2; }
+.tp-world-map__legend > i[data-level='2'] { background: var(--cds-support-info); opacity: .38; }
+.tp-world-map__legend > i[data-level='3'] { background: var(--cds-support-info); opacity: .56; }
+.tp-world-map__legend > i[data-level='4'] { background: var(--cds-support-info); opacity: .76; }
+.tp-world-map__legend > i[data-level='5'] { background: var(--cds-support-info); opacity: 1; }
 
 .tp-world-map__legend-empty {
   display: inline-flex;
