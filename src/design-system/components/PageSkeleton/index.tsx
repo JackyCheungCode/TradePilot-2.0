@@ -62,7 +62,7 @@ export function PageSkeleton({
   const hasCharts = ['chart', 'analytics-table'].includes(variant);
 
   return (
-    <section className={`tp-page-skeleton tp-page-skeleton--${variant}${className ? ` ${className}` : ''}`} aria-busy="true" aria-label="正在加载页面内容">
+    <section className={`tp-page-skeleton tp-page-skeleton--${variant}`} aria-busy="true" aria-label="正在加载页面内容">
       <div className="tp-page-skeleton__header">
         <div className="tp-page-skeleton__heading">
           <SkeletonText heading width="38%" />
