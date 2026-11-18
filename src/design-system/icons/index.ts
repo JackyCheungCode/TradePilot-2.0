@@ -7,6 +7,7 @@ export type { IconSizeName } from './sizes';
 // Explicit compatibility exports while feature imports are migrated in batches.
 export {
   Activity, Add, Analytics, Api, Archive, ArrowLeft, ArrowRight, ArrowUp,
+  Sun, Moon, Cloudy, PartlyCloudy, Fog, Rain, Snow, Thunderstorm, Temperature,
   ArrowUpRight, Asleep, Attachment, Building, Calculator, Calendar, Catalog,
   Certificate, ChartLine, Chat, Checkmark, CheckmarkFilled, ChevronDown,
   ChevronLeft, ChevronRight, Close, CloudUpload, Currency, CurrencyDollar,
