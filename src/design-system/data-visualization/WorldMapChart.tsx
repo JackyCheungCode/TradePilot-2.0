@@ -78,6 +78,8 @@ const NAME_ALIASES: Record<string, string> = {
   ivorycoast: 'cotedivoire',
   palestine: 'palestine',
   taiwan: 'taiwan',
+  northmacedonia: 'macedonia',
+  eswatini: 'swaziland',
 };
 
 function decodeArc(index: number, cache: Map<number, Array<[number, number]>>) {
