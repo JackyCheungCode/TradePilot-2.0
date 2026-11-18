@@ -237,7 +237,21 @@ export function ContactConsolePage() {
   const start=total===0?0:(page-1)*PAGE_SIZE+1;
   const end=Math.min(page*PAGE_SIZE,total);
   const refresh=()=>{void Promise.all([loadAnalytics(),loadRows()]);};
-  if (loading) return <PageSkeleton variant="analytics-table" metricCount={4} chartCount={2} showMap columns={8} rows={6} />;
+  if (loading) return <PageSkeleton className="tp-contacts" layout={[
+  { type: 'group', direction: 'row', gap: 'var(--cds-spacing-05)', className: 'tp-contacts__header', children: [
+    { type: 'group', direction: 'column', gap: 'var(--cds-spacing-03)', children: [{ type: 'text', width: '8rem' }, { type: 'text', heading: true, width: '14rem' }, { type: 'text', width: '25rem' }] },
+    { type: 'group', direction: 'row', gap: 'var(--cds-spacing-03)', className: 'tp-contacts__actions', children: [{ type: 'placeholder', width: '5rem', height: '2.5rem' }, { type: 'placeholder', width: '8rem', height: '2.5rem' }] },
+  ] },
+  { type: 'group', direction: 'grid', columns: 4, gap: 'var(--cds-spacing-04)', className: 'tp-contacts__stats', children: Array.from({ length: 4 }, () => ({ type: 'placeholder' as const, minHeight: '7rem', className: 'tp-contacts__stat-tile' })) },
+  { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-contacts__country-panel', children: [{ type: 'text', heading: true, width: '13rem' }, { type: 'placeholder', minHeight: '20rem' }] },
+  { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-contacts__daily-panel', children: [{ type: 'text', heading: true, width: '12rem' }, { type: 'placeholder', minHeight: '17rem' }] },
+  { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-contacts__list-panel', children: [
+    { type: 'text', heading: true, width: '12rem' },
+    { type: 'group', direction: 'grid', columns: 5, gap: 'var(--cds-spacing-03)', className: 'tp-contacts__filters', children: Array.from({ length: 5 }, () => ({ type: 'placeholder' as const, height: '2.5rem' })) },
+    { type: 'placeholder', height: '2.5rem' },
+    { type: 'table', columns: 7, rows: 6, className: 'tp-contacts__table-scroll' },
+  ] },
+]} />;
   return <main className="tp-contacts">
     <header className="tp-contacts__header"><div><p className="tp-contacts__eyebrow">TRADEPILOT / CRM</p><h1>联系人（Contact）</h1><p>管理客户组织中的联系人及其关系、联系方式与沟通偏好。</p></div><div className="tp-contacts__actions"><Button kind="tertiary" onClick={refresh} disabled={loading||analyticsLoading}><CarbonIcons.Renew size={16}/>刷新</Button><Link href="/contacts/new" renderIcon={CarbonIcons.Add}>创建联系人</Link></div></header>
     {error&&<InlineNotification kind="error" title="联系人读取失败" subtitle={error} onCloseButtonClick={()=>setError('')}/>}
