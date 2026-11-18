@@ -180,7 +180,7 @@ export function DocumentPreviewPage() {
     <PageHeader className="tp-document-preview__toolbar">
       <div><p className="tp-document-preview__eyebrow">TRADEPILOT / DOCUMENTS / PREVIEW</p><h1>{doc.document_number}</h1><p>{labels[doc.document_type] || doc.document_type} · V{doc.current_version} · {statusLabel(doc.status)}</p></div>
       <div className="tp-document-preview__actions"><Link href="/documents">返回单据中心</Link>{doc.status === 'draft' && !editing && <><Button kind="tertiary" onClick={beginEdit}>编辑草稿</Button><Button kind="primary" disabled={saving} onClick={() => void runDocumentAction('confirm')}>提交审核 / 正式确认</Button></>}{doc.status === 'review' && <Button kind="primary" disabled={saving} onClick={() => void runDocumentAction('approve')}>审核通过</Button>}{doc.status === 'approved' && <Button kind="primary" disabled={saving} onClick={() => void runDocumentAction('confirm')}>正式确认</Button>}<Button kind="ghost" onClick={() => void load()}>刷新</Button><Button kind="tertiary" disabled={pdfBusy} onClick={() => void generateAndDownloadPdf()}>{pdfBusy ? 'PDF 处理中…' : hasArchivedPdf ? '下载归档 PDF' : '生成并下载 PDF'}</Button>{hasArchivedPdf && <Button kind="tertiary" disabled={pdfBusy} onClick={() => void generateAndDownloadPdf(true)}>重新生成 PDF</Button>}<Button kind="tertiary" onClick={() => window.print()}>打印预览</Button></div>
-    </header>
+    </PageHeader>
 
     {Object.keys(sourceSnapshot).length > 0 && <section className="tp-document-preview__policy-snapshot"><div><h2>来源与规则快照</h2><p>本单据创建时保存的配置，不会随设置中心后续修改而变化。</p></div><dl><div><dt>数据来源</dt><dd>{sourceSummary}</dd></div><div><dt>关联订单</dt><dd>{sourceSnapshot.order_id ? '已关联' : '未关联'}</dd></div><div><dt>发运批次</dt><dd>{sourceSnapshot.shipment_id ? '已关联' : '未关联'}</dd></div><div><dt>设置更新时间</dt><dd>{systemSnapshot.document_settings_updated_at ? new Date(String(systemSnapshot.document_settings_updated_at)).toLocaleString() : '系统默认规则'}</dd></div></dl><p>{policySummary}</p></section>}
     {error && <InlineNotification kind="error" lowContrast title="操作未完成" subtitle={error} onCloseButtonClick={() => setError('')} />}
@@ -207,7 +207,7 @@ export function DocumentPreviewPage() {
           <div><strong>{text(content.seller_name)}</strong><span>{text(content.seller_website)}</span></div>
         </div>
         <div className="tp-document-preview__paper-title"><h2>{labels[doc.document_type] || doc.title}</h2><strong>{doc.document_number}</strong><span>{text(content.order_date || dateOnly(doc.created_at))}</span></div>
-      </PageHeader>
+      </header>
 
       <section className="tp-document-preview__parties">
         <div><h3>卖方 / Seller</h3><strong>{text(content.seller_name)}</strong><p>{address(content.seller_address)}</p><p>{[content.seller_email || content.company_email, content.seller_phone || content.company_phone].filter(Boolean).join(' · ') || '—'}</p><p>Registration: {text(content.seller_registration_number)} · Tax: {text(content.seller_tax_number || content.seller_vat_number)}</p></div>
