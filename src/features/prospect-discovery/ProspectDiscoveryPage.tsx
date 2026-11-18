@@ -13,11 +13,11 @@ import '@/design-system/patterns/prospect-discovery.scss';
 const createPlanTaskCode = () => 'TPD-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-' + Math.random().toString(36).slice(2, 8).toUpperCase();
 
 const steps = [
-  '数据源与平台选择（Platform Selection）',
-  'Actor 动态参数配置（Actor Input Schema）',
-  '执行全网搜索（Multi-Channel Execution）',
-  'AI 智能清洗与打分（AI Filtering & Scoring）',
-  '决策人穿透与入库（Decision-Maker Enrichment & CRM Sync）',
+  '数据源与平台选择',
+  '动态参数配置',
+  '执行全网搜索',
+  'AI 智能清洗与打分',
+  '决策人穿透与入库',
 ] as const;
 
 const EMPTY_DISCOVERY_SOURCES: Array<{ id: string; name: string; category?: string }> = [];
@@ -54,7 +54,7 @@ export function ProspectDiscoveryPage() {
         </div>
         <div className="tp-prospect-discovery__header-actions">
           <div className="tp-prospect-discovery__header-meta">
-            <Tag type="blue">步骤 / STEP {String(selectedIndex + 1).padStart(2, '0')} / 05</Tag>
+            <Tag type="blue">步骤：STEP {String(selectedIndex + 1).padStart(2, '0')} / 05</Tag>
             <strong>{steps[selectedIndex]}</strong>
           </div>
           <div className="tp-prospect-discovery__hub-actions">
@@ -64,7 +64,7 @@ export function ProspectDiscoveryPage() {
         </div>
       </header>
 
-      <div className="tp-prospect-discovery__task-code"><span>方案会话编号</span><strong>{planTaskCode}</strong><span className="tp-prospect-discovery__task-code-note">用于关联本次配置与执行记录</span></div>
+      <div className="tp-prospect-discovery__task-code"><strong>任务 ID：{planTaskCode}</strong></div>
 
       <Tabs selectedIndex={selectedIndex} onChange={({ selectedIndex: nextIndex }) => {
         if (nextIndex > 0 && selectedSourceCount === 0) return;
@@ -79,12 +79,7 @@ export function ProspectDiscoveryPage() {
       {selectedIndex === 0 ? (
         <PlatformSelectionStep onSelectionCountChange={handleSelectionCountChange} selectedIds={selectedSources?.map(item => item.id)} onSelectionChange={handleSelectionChange} />
       ) : selectedIndex === 1 ? (
-        <section className="tp-prospect-discovery__step">
-          <div className="tp-prospect-discovery__section-heading">
-            <div><span className="tp-prospect-discovery__section-index">02</span><div><h2>Actor 动态参数配置</h2></div></div>
-          </div>
-          <ActorSchemaFields sources={actorSourcesForSchema} onValuesChange={handleActorParametersChange} />
-        </section>
+        <ActorSchemaFields sources={actorSourcesForSchema} onValuesChange={handleActorParametersChange} />
       ) : selectedIndex === 2 ? (
         <ExecutionStep
           sources={selectedSources ?? []}
