@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { getSupabaseClient } from '@/lib/supabase';
-import { Button, Dropdown, Search, TextArea, TextInput, CarbonIcons } from '@/design-system';
+import { Button, ContentSwitcher, Switch, Dropdown, Search, TextArea, TextInput, CarbonIcons } from '@/design-system';
 
 type Channel = 'whatsapp' | 'messenger' | 'instagram' | 'email' | 'telegram' | 'wechat' | 'line';
 type Filter = 'all' | 'unread' | 'pending' | 'resolved';
@@ -301,6 +301,11 @@ export function CustomerCommunicationsWidget({
   const channelCanSend = ['whatsapp', 'messenger', 'telegram', 'line'].includes(replyChannel);
   const unreadTotal = customers.reduce((total, customer) => total + customer.unread, 0);
 
+  const channelFilterOptions: { id: ChannelFilter; text: string }[] = [
+    { id: 'all', text: '全部渠道' },
+    ...Array.from(new Set([...identities.map((identity) => identity.channel), ...messages.map((message) => message.channel)])).map((channel) => ({ id: channel, text: channelNames[channel] })),
+  ];
+
   const sortedCustomers = useMemo(() => customers
     .filter((customer) => {
       const customerText = [customer.name, customer.company, customer.email, customer.phone, customer.lastPreview, ...customer.tags].join(' ').toLowerCase();
@@ -440,16 +445,31 @@ export function CustomerCommunicationsWidget({
           <aside className="cc-inbox">
             <div className="cc-inbox-heading"><div><strong>联系人</strong><span>{customers.length} 位 CRM 联系人</span></div></div>
             <div className="cc-search"><Search size="lg" labelText="搜索客户、公司或消息" placeholder="搜索客户、公司或消息" value={search} onChange={(event) => setSearch(event.currentTarget.value)} /></div>
-            <div className="cc-channel-filters" aria-label="按消息渠道筛选">
-              <Button type="button" kind={channelFilter === 'all' ? 'primary' : 'ghost'} size="sm" onClick={() => setChannelFilter('all')}>全部渠道</Button>
-              {Array.from(new Set([...identities.map((identity) => identity.channel), ...messages.map((message) => message.channel)])).map((channel) =>
-                <Button key={channel} type="button" kind={channelFilter === channel ? 'primary' : 'ghost'} size="sm" onClick={() => setChannelFilter(channel)}>
-                  <ChannelBadge channel={channel} compact />{channelNames[channel]}
-                </Button>
-              )}
+            <div className="cc-channel-filters">
+              <Dropdown
+                id="cc-channel-filter"
+                titleText="消息渠道筛选"
+                label="全部渠道"
+                size="sm"
+                items={channelFilterOptions}
+                itemToString={(item) => item?.text ?? ''}
+                selectedItem={channelFilterOptions.find((item) => item.id === channelFilter) ?? channelFilterOptions[0]}
+                onChange={({ selectedItem }) => setChannelFilter(selectedItem?.id ?? 'all')}
+              />
             </div>
-            <div className="cc-filters">
-              {([{ id: 'all', label: '全部' }, { id: 'unread', label: '未读' }, { id: 'pending', label: '待处理' }, { id: 'resolved', label: '已解决' }] as { id: Filter; label: string }[]).map((item) => <Button key={item.id} type="button" kind={filter === item.id ? 'primary' : 'ghost'} size="sm" className="cc-filter-button" onClick={() => setFilter(item.id)}>{item.label}{item.id === 'unread' && unreadTotal > 0 ? ' · ' + unreadTotal : ''}</Button>)}
+            <div className="cc-filters" aria-label="按会话状态筛选">
+              <ContentSwitcher
+                size="sm"
+                selectedIndex={(['all', 'unread', 'pending', 'resolved'] as Filter[]).indexOf(filter)}
+                onChange={(selection: { name?: string | number }) => {
+                  if (selection.name !== undefined) setFilter(String(selection.name) as Filter);
+                }}
+              >
+                <Switch name="all" text="全部" />
+                <Switch name="unread" text={'未读' + (unreadTotal > 0 ? ' ' + unreadTotal : '')} />
+                <Switch name="pending" text="待处理" />
+                <Switch name="resolved" text="已解决" />
+              </ContentSwitcher>
             </div>
             <div className="cc-customer-list">
               {sortedCustomers.map((customer) => {
@@ -532,7 +552,7 @@ export function CustomerCommunicationsWidget({
                 <Button type="button" kind="ghost" size="sm" disabled={aiBusyAction !== null || !activeCustomer.latestConversationId} onClick={() => void runAiAssistant('reply_draft')}>{aiBusyAction === 'reply_draft' ? '生成中…' : '推荐回复'}</Button>
               </div>
               {activeCustomer.aiSummary && <div className="cc-ai-summary"><strong>会话摘要</strong><p>{activeCustomer.aiSummary}</p></div>}
-              {aiResult && <div className="cc-ai-result"><strong>{aiResultAction === 'reply_draft' ? '回复建议' : '客户意图分析'}</strong><p>{aiResult}</p>{aiResultAction === 'reply_draft' && <Button type="button" kind="primary" size="sm" onClick={() => { setDrafts((current) => ({ ...current, [activeCustomerId]: aiResult })); setAiResult(''); setAiResultAction(null); }}>采用回复草稿</Button>}</div>}
+              {aiResult && <div className="cc-ai-result"><strong>{aiResultAction === 'reply_draft' ? '回复建议' : '客户意图分析'}</strong><p>{aiResult}</p>{aiResultAction === 'reply_draft' && <Button type="button" kind="tertiary" size="sm" onClick={() => { setDrafts((current) => ({ ...current, [activeCustomerId]: aiResult })); setAiResult(''); setAiResultAction(null); }}>采用回复草稿</Button>}</div>}
               {aiError && <p className="cc-ai-error" role="alert">{aiError}</p>}
               <span className="cc-ai-disclaimer">AI 仅提供辅助建议；消息必须由你确认后发送。</span>
             </section>
