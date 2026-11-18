@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   Link, InlineLoading, InlineNotification, Tag, Tile, Table, TableHead,
-  TableRow, TableHeader, TableBody, TableCell, CarbonIcons, WorldMapChart,
+  TableRow, TableHeader, TableBody, TableCell, semanticIcons, WorldMapChart,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import { DonutChart, SimpleBarChart } from '@carbon/charts-react';
@@ -107,7 +107,7 @@ export function ProspectHistoryPage() {
     <main className="tp-prospect-hub">
       <PageHeader className="tp-prospect-hub__header">
         <div><p className="tp-prospect-hub__eyebrow">TRADEPILOT / CRM · PROSPECT INTELLIGENCE</p><h1>潜客发现 · 历史任务</h1><p>集中查看每次潜客发现任务的执行状态、搜索条件、采集数量与运行结果。</p></div>
-        <Link href="/prospect-discovery" renderIcon={CarbonIcons.Search}>创建潜客方案</Link>
+        <Link href="/prospect-discovery" renderIcon={semanticIcons.search}>创建潜客方案</Link>
       </PageHeader>
       {error && <InlineNotification kind="error" lowContrast title="读取失败" subtitle={error} onCloseButtonClick={() => setError('')} />}
       {!loading && runs.length > 0 && <section className="tp-prospect-history__analytics">
@@ -130,7 +130,7 @@ export function ProspectHistoryPage() {
                   <TableCell><Tag type={statusType(run.status)}>{statusLabel(run.status)}</Tag></TableCell>
                   <TableCell>{(run.discovered_count ?? 0).toLocaleString()}</TableCell>
                   <TableCell>{fmt(run.created_at)}</TableCell>
-                  <TableCell><Link href={'/prospect-history/' + run.id} renderIcon={CarbonIcons.ArrowRight}>查看详情与结果</Link></TableCell>
+                  <TableCell><Link href={'/prospect-history/' + run.id} renderIcon={semanticIcons.next}>查看详情与结果</Link></TableCell>
                 </TableRow>)}
                 {!runs.length && <TableRow><TableCell colSpan={8}>暂无历史任务。创建并执行潜客方案后，任务记录会显示在这里。</TableCell></TableRow>}
               </TableBody>
@@ -140,7 +140,7 @@ export function ProspectHistoryPage() {
       </Tile>
       {runId && (
         <Tile className="tp-prospect-hub__panel tp-prospect-hub__detail">
-          <div className="tp-prospect-hub__section-heading"><div><p className="tp-prospect-hub__eyebrow">TASK DETAIL</p><h2>{selected ? codeOf(selected) : '任务详情'}</h2><p>{selected?.query || '未找到对应任务记录'}</p></div><Link href="/prospect-history" renderIcon={CarbonIcons.ArrowLeft}>返回历史任务</Link></div>
+          <div className="tp-prospect-hub__section-heading"><div><p className="tp-prospect-hub__eyebrow">TASK DETAIL</p><h2>{selected ? codeOf(selected) : '任务详情'}</h2><p>{selected?.query || '未找到对应任务记录'}</p></div><Link href="/prospect-history" renderIcon={semanticIcons.back}>返回历史任务</Link></div>
           {selected && <div className="tp-prospect-hub__detail-grid">
             <div><span>执行状态</span><Tag type={statusType(selected.status)}>{statusLabel(selected.status)}</Tag></div>
             <div><span>目标市场</span><strong>{(selected.countries ?? []).join(', ') || '—'}</strong></div>
