@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import {
   Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput,
   Table, TableHead, TableRow, TableHeader, TableBody, TableCell, CarbonIcons,
+  Grid, Column, ContainedList, ContainedListItem,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/settings.scss';
@@ -237,35 +238,28 @@ export function SettingsCenterPage() {
         </div>
       </header>
 
-      <div className="tp-settings__layout">
-        <aside className="tp-settings__sidebar" aria-label="设置业务域">
-          <div className="tp-settings__nav-heading">业务设置</div>
+      <Grid className="tp-settings__layout">
+        <Column sm={4} md={2} lg={4}><aside className="tp-settings__sidebar" aria-label="设置业务域">
+          <ContainedList kind="on-page" label="业务设置" size="md" className="tp-settings__domain-list">
           {domains.map((item) => (
-            <Button
-              key={item.id}
-              kind="ghost"
-              size="md"
-              className={`tp-settings__domain ${domain === item.id ? 'is-active' : ''}`}
-              disabled={!item.available}
-              onClick={() => { setDomain(item.id); setSection(item.id === 'enterprise' ? 'profile' : item.id === 'integrations' ? 'api' : item.id === 'agent' ? 'models' : item.id === 'trade-documents' ? 'document-types' : item.id === 'trade-operations' ? 'shared' : item.id === 'opportunities' ? 'stages' : item.id === 'contacts' ? 'salutations' : item.id === 'accounts' ? 'account-types' : item.id === 'leads' ? 'lead-types' : 'categories'); setQuery(''); }}
-              aria-pressed={domain === item.id}
-            >
+                        <ContainedListItem key={item.id} className={"tp-settings__domain-item " + (domain === item.id ? "is-active" : "")} onClick={() => { if (!item.available) return; setDomain(item.id); setSection(item.id === "enterprise" ? "profile" : item.id === "integrations" ? "api" : item.id === "agent" ? "models" : item.id === "trade-documents" ? "document-types" : item.id === "trade-operations" ? "shared" : item.id === "opportunities" ? "stages" : item.id === "contacts" ? "salutations" : item.id === "accounts" ? "account-types" : item.id === "leads" ? "lead-types" : "categories"); setQuery(""); }}>
               <span className="tp-settings__domain-icon">{item.icon}</span>
               <span className="tp-settings__domain-copy"><strong>{item.label}</strong></span>
               {!item.available && <Tag type="cool-gray">规划中</Tag>}
-            </Button>
+            </ContainedListItem>
           ))}
-          <div className="tp-settings__nav-divider" />
-          <div className="tp-settings__nav-heading">系统设置</div>
-          <Button kind="ghost" size="md" className={`tp-settings__domain ${domain === 'integrations' ? 'is-active' : ''}`} onClick={() => { setDomain('integrations'); setSection('api'); setQuery(''); }} aria-pressed={domain === 'integrations'}>
+          </ContainedList>
+          <ContainedList kind="on-page" label="系统设置" size="md" className="tp-settings__domain-list">
+          <ContainedListItem className={"tp-settings__domain-item " + (domain === "integrations" ? "is-active" : "")} onClick={() => { setDomain("integrations"); setSection("api"); setQuery(""); }}>
             <span className="tp-settings__domain-icon"><CarbonIcons.Api size={20} /></span>
             <span className="tp-settings__domain-copy"><strong>集成与 API</strong></span>
-          </Button>
-          <div className="tp-settings__system-item"><CarbonIcons.User size={18} /><span>用户与权限</span><Tag type="cool-gray">后续接入</Tag></div>
-          <div className="tp-settings__system-item"><CarbonIcons.Settings size={18} /><span>通用数据</span><Tag type="cool-gray">后续接入</Tag></div>
-        </aside>
+          </ContainedListItem>
+          <ContainedListItem className="tp-settings__domain-item"><span className="tp-settings__domain-icon"><CarbonIcons.User size={18} /></span><span className="tp-settings__domain-copy"><strong>用户与权限</strong></span><Tag type="cool-gray">后续接入</Tag></ContainedListItem>
+          <ContainedListItem className="tp-settings__domain-item"><span className="tp-settings__domain-icon"><CarbonIcons.Settings size={18} /></span><span className="tp-settings__domain-copy"><strong>通用数据</strong></span><Tag type="cool-gray">后续接入</Tag></ContainedListItem>
+          </ContainedList>
+        </aside></Column>
 
-        <section className="tp-settings__workspace">
+        <Column sm={4} md={6} lg={12}><section className="tp-settings__workspace">
           <div className="tp-settings__workspace-heading">
             <div>
               <p className="tp-settings__eyebrow">{domain === 'enterprise' ? 'ENTERPRISE PROFILE' : domain === 'integrations' ? 'INTEGRATIONS & APIS' : domain === 'agent' ? 'AGENT SETTINGS' : domain === 'trade-operations' ? 'TRADE OPERATIONS SETTINGS' : domain === 'trade-documents' ? 'TRADE DOCUMENT SETTINGS' : domain === 'opportunities' ? 'OPPORTUNITY SETTINGS' : domain === 'contacts' ? 'CONTACT SETTINGS' : domain === 'accounts' ? 'ACCOUNT SETTINGS' : domain === 'leads' ? 'LEAD SETTINGS' : 'PRODUCT SETTINGS'}</p>
@@ -275,27 +269,22 @@ export function SettingsCenterPage() {
             {domain === 'trade-operations' ? <div className="tp-settings__workspace-status"><Tag type="green">设置配置已接入 3/3</Tag><Tag type="cool-gray">业务流程联动分阶段接入</Tag></div> : domain === "contacts" || domain === "accounts" || domain === "leads" ? <div className="tp-settings__workspace-status"><Tag type="green">字典已接入 {connectedCount}/{activeSections.length}</Tag><Tag type="cool-gray">规则待接入 {configOnlyCount}</Tag></div> : <Tag type="green">已接入 {activeSections.length} 项</Tag>}
           </div>
 
-          <div className="tp-settings__section-layout">
-            <nav className="tp-settings__section-nav" aria-label={domain === 'enterprise' ? '企业档案设置分类' : domain === 'integrations' ? '集成与 API 设置分类' : domain === 'agent' ? 'Agent 设置分类' : domain === 'trade-operations' ? '发运与收款设置分类' : domain === 'trade-documents' ? '销售单据设置分类' : domain === 'opportunities' ? '商机设置分类' : domain === 'contacts' ? '联系人设置分类' : domain === 'accounts' ? '客户设置分类' : domain === 'leads' ? '线索设置分类' : '产品设置分类'}>
+          <Grid className="tp-settings__section-layout">
+            <Column sm={4} md={2} lg={4}>
+              <nav className="tp-settings__section-nav" aria-label="设置分类">
               {sectionGroups.map(({ group, items }) => (
-                <div className="tp-settings__section-group" key={group}>
-                  <div className="tp-settings__section-label">{group}</div>
+                <ContainedList key={group} kind="on-page" label={group} size="sm" className="tp-settings__section-list">
                   {items.map((item) => (
-                    <Button
-                      key={item.id}
-                      kind={section === item.id ? 'primary' : 'ghost'}
-                      size="sm"
-                      className="tp-settings__section-button"
-                      onClick={() => { setSection(item.id); setQuery(''); }}
-                    >
-                      {item.label}
+                    <ContainedListItem key={item.id} className={"tp-settings__section-item " + (section === item.id ? "is-active" : "")} onClick={() => { setSection(item.id); setQuery(""); }}>
+                      <span>{item.label}</span>
                       {(item.integration === "config-only" || item.integration === "pending" || item.implemented === false) && <span className="tp-settings__planned-dot" aria-label={item.integration === "config-only" ? "仅维护配置，尚未接入业务流程" : "尚未接入"} title={item.integration === "config-only" ? "仅维护配置，尚未接入业务流程" : "尚未接入"} />}
-                    </Button>
+                    </ContainedListItem>
                   ))}
-                </div>
+                </ContainedList>
               ))}
-            </nav>
-
+              </nav>
+            </Column>
+            <Column sm={4} md={6} lg={12}>
             <div className="tp-settings__content">
               <div className="tp-settings__content-head">
                 <div><h3>{activeSection.label}</h3><p>{activeSection.description}</p></div>
@@ -397,9 +386,10 @@ export function SettingsCenterPage() {
               {domain === 'enterprise' ? <EnterpriseProfileSettings /> : domain === 'integrations' ? <IntegrationsSettings section={section} /> : domain === 'agent' ? <AgentSettings section={section} /> : domain === 'trade-operations' ? <TradeOperationsSettings scope={section as 'shared' | 'shipment' | 'payment'} /> : domain === 'trade-documents' ? (section === 'document-types' ? <DocumentTypeSettings /> : section === 'templates' ? <DocumentTemplateSettings /> : <TradeDocumentSettings scope={section as 'shared' | 'quotation' | 'sales_order'} />) : domain === 'opportunities' ? <OpportunitySettings section={section} /> : domain === 'contacts' || domain === 'accounts' || domain === 'leads' ? <CrmDomainSettings domain={domain as CrmSettingsDomain} section={section} /> : !['categories','attributes'].includes(section) && <ProductAdvancedSettings section={section} /> }
 
             </div>
-          </div>
-        </section>
-      </div>
+            </Column>
+          </Grid>
+        </section></Column>
+      </Grid>
     </main>
   );
 }
