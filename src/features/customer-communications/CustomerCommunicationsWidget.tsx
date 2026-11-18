@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { getSupabaseClient } from '@/lib/supabase';
-import { Button, CarbonIcons, ClickableTile, ContentSwitcher, Switch, Dropdown, Search, TextArea, TextInput, CarbonIcons } from '@/design-system';
+import { Button, CarbonIcons, ClickableTile, ContentSwitcher, Switch, Dropdown, Search, TextArea, TextInput } from '@/design-system';
 
 type Channel = 'whatsapp' | 'messenger' | 'instagram' | 'email' | 'telegram' | 'wechat' | 'line';
 type Filter = 'all' | 'unread' | 'pending' | 'resolved';
