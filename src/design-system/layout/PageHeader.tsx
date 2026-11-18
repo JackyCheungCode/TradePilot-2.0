@@ -1,9 +1,9 @@
-import { Children, cloneElement, createElement, isValidElement, type ComponentType, type ReactElement, type ReactNode } from 'react';
+import { Children, cloneElement, createElement, isValidElement, type ReactElement, type ReactNode } from 'react';
 import { ArrowLeft, ArrowRight, Add, Checkmark, Download, Edit, Renew, Save, Send, TrashCan, Upload } from '../icons';
 import { Button, ButtonSet, Heading, Link } from '../components';
 import './page-header.scss';
 
-type CarbonActionIcon = ComponentType<{ size?: number | string }>;
+type CarbonActionIcon = typeof Add;
 
 export type PageHeaderAction = {
   id: string;
@@ -79,9 +79,11 @@ function extractChildIcon(children: ReactNode): { children: ReactNode; icon?: Ca
 }
 
 function resolveActionIcon(label: string, supplied: unknown, childIcon?: CarbonActionIcon): CarbonActionIcon | undefined {
-  if (isValidElement(supplied)) return supplied.type as CarbonActionIcon;
-  if (typeof supplied === 'function') return supplied as CarbonActionIcon;
-  if (supplied && typeof supplied === 'object') return supplied as CarbonActionIcon;
+  if (isValidElement(supplied)) {
+    const componentType = supplied.type;
+    if (typeof componentType === 'function' || (typeof componentType === 'object' && componentType !== null)) return componentType as CarbonActionIcon;
+  }
+  if (typeof supplied === 'function' || (typeof supplied === 'object' && supplied !== null)) return supplied as CarbonActionIcon;
   return childIcon ?? inferActionIcon(label);
 }
 
@@ -95,7 +97,8 @@ function normalizeLegacyActions(node: ReactNode, primaryAssigned: { current: boo
     const label = nodeText(children);
     const extracted = extractChildIcon(children);
     const inferredPrimary = /^(新建|创建|新增|添加|导入|保存|生成|开始|create|add|import)/i.test(label.trim());
-    const primary = !primaryAssigned.current && (props.kind === 'primary' || inferredPrimary);
+    const primaryClass = /(?:^|[-_])primary(?:$|[-_])/.test(String(props.className || ''));
+    const primary = !primaryAssigned.current && (props.kind === 'primary' || primaryClass || inferredPrimary);
     if (primary) primaryAssigned.current = true;
     const kind = primary ? 'primary' : 'tertiary';
     const className = [String(props.className || ''), 'tp-page-header__action'].filter(Boolean).join(' ');
