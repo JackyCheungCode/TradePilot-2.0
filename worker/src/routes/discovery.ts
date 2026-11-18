@@ -606,9 +606,12 @@ export async function handleDiscovery(request: Request, env: DiscoveryEnv): Prom
   }
 
   if(request.method==="GET" && url.pathname==="/api/v1/discovery-records"){
-    const runId=url.searchParams.get("runId"),status=url.searchParams.get("status"),limit=Math.min(500,Math.max(1,Number(url.searchParams.get("limit"))||250));
+    const runId=url.searchParams.get("runId"),status=url.searchParams.get("status"),idsParam=url.searchParams.get("ids"),limit=Math.min(500,Math.max(1,Number(url.searchParams.get("limit"))||250));
+    const recordIds=idsParam?[...new Set(idsParam.split(",").map(value=>value.trim()).filter(value=>/^[0-9a-f-]{36}$/i.test(value)))]:[];
+    if(idsParam&&(!recordIds.length||recordIds.length>500))return errorResponse(request,"INVALID_RECORD_IDS","批量记录 ID 必须为 1 到 500 个有效 ID。",400);
     const occurrenceSelect="discovery_record_occurrences"+(runId?"!inner":"")+"(id,run_id,provider,keyword,external_id,source_url,license,attribution,raw_data,captured_at,is_removed,run:discovery_runs!discovery_record_occurrences_run_id_owner_id_fkey(task_code,query))";
-    const filters=["owner_id=eq."+userId,"select=*,"+occurrenceSelect,"order=created_at.desc","limit="+limit];
+    const filters=["owner_id=eq."+userId,"select=*,"+occurrenceSelect,"order=created_at.desc","limit="+(recordIds.length||limit)];
+    if(recordIds.length)filters.push("id=in.("+recordIds.join(",")+")");
     if(runId){filters.push("discovery_record_occurrences.run_id=eq."+runId);filters.push("discovery_record_occurrences.is_removed=eq.false");}
     if(status) filters.push("status=eq."+encodeURIComponent(status));
     else filters.push("status=not.in.(removed,discarded)");
