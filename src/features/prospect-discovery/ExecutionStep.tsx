@@ -102,10 +102,10 @@ export function ExecutionStep({ sources, actorParameters = {}, onEditStep, onCon
 
   const startTask = async () => {
     if (starting || status === 'running') return;
-    if (!confirmedExecution) { setNotice('请先核对本次渠道和数量上限，并勾选执行确认。'); return; }
+    if (!confirmedExecution) { setNotice('请先勾选执行确认。'); return; }
     setStarting(true); setNotice(''); setSnapshots({}); setRuns([]); setRecordIds([]);
     setProgress(0); setCaptured(0); setElapsed(0); setStartedAt(Date.now());
-    setLogs(['[' + nowTime() + '] [SYSTEM] 正在校验渠道并创建真实后端任务…']);
+    setLogs(['[' + nowTime() + '] [SYSTEM] 正在创建所选 Actor Schema 任务…']);
     try {
       const token = await getAccessToken();
       const planSnapshot = {
@@ -256,7 +256,7 @@ export function ExecutionStep({ sources, actorParameters = {}, onEditStep, onCon
         <Checkbox id="tp-execution-confirm" labelText="我确认启动上述平台的 Actor 采集任务。" checked={confirmedExecution} disabled={!hasRunnableSource || status !== 'idle'} onChange={event => setConfirmedExecution(event.currentTarget.checked)} />
       </Tile>
       <div className="tp-execution__dashboard-heading">
-        <div><span className="tp-execution__eyebrow">MULTI-CHANNEL EXECUTION</span><h2>全网搜索大盘</h2><p>显示后端任务真实状态、进度、结果数量与运行日志</p></div>
+        <div><span className="tp-execution__eyebrow">MULTI-CHANNEL EXECUTION</span><h2>全网搜索大盘</h2><p>显示 Actor 后端任务真实状态、进度、结果数量与运行日志</p></div>
         <Tag type={status === 'completed' ? 'green' : status === 'running' ? 'blue' : status === 'failed' ? 'red' : 'gray'}>{status === 'completed' ? '任务已结束' : status === 'running' ? '后端任务运行中' : status === 'failed' ? '任务启动失败' : '待启动'}</Tag>
       </div>
 
