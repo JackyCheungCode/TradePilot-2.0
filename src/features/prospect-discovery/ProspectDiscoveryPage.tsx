@@ -19,7 +19,7 @@ const createPlanTaskCode = () => 'TPD-' + new Date().toISOString().slice(0,10).r
 
 const steps = [
   '数据源与平台选择（Platform & Source Selection）',
-  '意图与画像锚定（Target Profiling）',
+  'Actor 动态参数配置（Actor Input Schema）',
   '拦截护盾配置（Filtering & Guardrails Config）',
   '执行全网搜索（Multi-Channel Execution）',
   'AI智能清洗与打分（AI Filtering & Scoring）',
@@ -403,233 +403,12 @@ export function ProspectDiscoveryPage() {
       </Tabs>
 
       {selectedIndex === 1 ? (
-        <>
         <section className="tp-prospect-discovery__step">
-          {(notice || error) && (
-            <div className="tp-prospect-discovery__notifications">
-              {notice && <InlineNotification kind="success" lowContrast title="操作完成" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
-              {error && <InlineNotification kind="error" lowContrast title="需要处理" subtitle={error} onCloseButtonClick={() => setError('')} />}
-            </div>
-          )}
-
-          <div className="tp-prospect-discovery__template-bar">
-            <div className="tp-prospect-discovery__template-title">
-              <CarbonIcons.Bookmark size={20} />
-              <div><strong>画像模板</strong><span>保存常用获客画像，快速复用</span></div>
-            </div>
-            <div className="tp-prospect-discovery__template-controls">
-              <TextInput id="tp-template-name" labelText="模板名称" hideLabel value={templateName} placeholder="输入模板名称" onChange={event => setTemplateName(event.currentTarget.value)} />
-              <Button kind="secondary" size="md" renderIcon={CarbonIcons.Save} onClick={saveTemplate}>保存模板</Button>
-              <Select id="tp-template-select" labelText="选择模板" hideLabel value={selectedTemplate} onChange={event => setSelectedTemplate(event.currentTarget.value)}>
-                <SelectItem value="" text="选择已保存模板" />
-                {templateList.map(item => <SelectItem key={item.name} value={item.name} text={item.name} />)}
-              </Select>
-              <Button kind="ghost" size="md" disabled={!selectedTemplate} onClick={loadTemplate}>加载</Button>
-            </div>
+          <div className="tp-prospect-discovery__section-heading">
+            <div><span className="tp-prospect-discovery__section-index">01</span><div><h2>Actor 动态参数配置</h2><p>仅展示所选数据源 Input Schema 实际定义的参数；不再提供预设画像字段。</p></div></div>
           </div>
-
-          <section className="tp-prospect-discovery__section">
-            <div className="tp-prospect-discovery__section-heading">
-              <div><span className="tp-prospect-discovery__section-index">01</span><div><h2>基础定位</h2><p>定义核心产品、目标买家与目标市场</p></div></div>
-              <Tag type="red">核心必填</Tag>
-            </div>
-            <div className="tp-prospect-discovery__field">
-              <ComboBox
-                id="tp-core-noun"
-                titleText="核心产品名词（Core Noun）"
-                placeholder="输入英文产品名词，例如 Industrial air compressor"
-                items={suggestions}
-                selectedItem={profile.coreNoun}
-                itemToString={item => typeof item === 'string' ? item : ''}
-                onInputChange={value => update('coreNoun', value)}
-                onChange={({ selectedItem }) => { if (typeof selectedItem === 'string') update('coreNoun', selectedItem); }}
-                helperText="输入至少 2 个字符，系统将按目标国家与语言请求 Google 搜索联想。"
-              />
-              {(suggestionLoading || suggestionError || suggestions.length > 0) && (
-                <div className="tp-prospect-discovery__suggestions">
-                  {suggestionLoading && <InlineLoading description="正在获取 Google 搜索建议…" />}
-                  {suggestionError && <span className="tp-prospect-discovery__field-error">{suggestionError}</span>}
-                  {suggestions.map(item => <Button kind="ghost" size="md" className="tp-prospect-discovery__suggestion" key={item} onClick={() => update('coreNoun', item)}>{item}<CarbonIcons.ArrowUpRight size={14} /></Button>)}
-                </div>
-              )}
-            </div>
-
-            <div className="tp-prospect-discovery__field">
-              <MultiSelect
-                id="tp-buyer-persona"
-                titleText="供应链身位锚定（Buyer Persona）"
-                label="选择目标买家类型（可多选）"
-                items={buyerOptions.map(item => ({ id: item.id, text: item.title + ' — ' + item.detail }))}
-                itemToString={item => item?.text ?? ''}
-                selectedItems={buyerOptions.filter(item => profile.buyers.includes(item.id)).map(item => ({ id: item.id, text: item.title + ' — ' + item.detail }))}
-                onChange={({ selectedItems }) => update('buyers', (selectedItems ?? []).map(item => item.id))}
-              />
-            </div>
-
-            <div className="tp-prospect-discovery__field">
-              <span className="tp-prospect-discovery__field-label">目标市场与语言锚定（Geo & Language）</span>
-              <Grid className="tp-prospect-discovery__geo-grid" narrow>
-                <Column sm={4} md={4} lg={5}>
-                  <Dropdown
-                    id="tp-continent"
-                    titleText="大洲 / 地区"
-                    label="选择大洲或地区"
-                    items={[...continents]}
-                    itemToString={item => item?.label ?? ''}
-                    itemToElement={item => item ? <span>{item.label}</span> : <></>}
-                    selectedItem={continents.find(item => item.value === profile.continent) ?? null}
-                    onChange={({ selectedItem }) => setProfile(current => ({ ...current, continent: selectedItem?.value ?? '', country: '', countryName: '', city: '' }))}
-                  />
-                </Column>
-                <Column sm={4} md={4} lg={5}>
-                  <Dropdown
-                    id="tp-country"
-                    titleText="目标国家 / 地区"
-                    label={countryLoading ? '正在加载国家…' : '选择国家'}
-                    items={filteredCountries}
-                    itemToString={item => item?.name.common ?? ''}
-                    itemToElement={item => item ? <div className="tp-prospect-discovery__country-option"><img src={'https://flagcdn.com/w80/' + item.cca2.toLowerCase() + '.png'} alt="" loading="lazy" /><span>{item.name.common}</span></div> : <></>}
-                    selectedItem={selectedCountry ?? null}
-                    disabled={!profile.continent || countryLoading || filteredCountries.length === 0}
-                    onChange={({ selectedItem }) => setProfile(current => ({ ...current, country: selectedItem?.cca2 ?? '', countryName: selectedItem?.name.common ?? '', city: '' }))}
-                  />
-                  {!countryLoading && profile.continent && filteredCountries.length === 0 && <span className="tp-prospect-discovery__field-error">该地区暂无国家数据，请更换地区或重试。</span>}
-                </Column>
-                <Column sm={4} md={8} lg={6}>
-                  <ComboBox id="tp-city" titleText="目标城市" placeholder={cityLoading ? '正在加载城市…' : '选择城市或输入名称搜索'} items={citySuggestions} selectedItem={profile.city} itemToString={item => typeof item === 'string' ? item : ''} disabled={!profile.country} onInputChange={value => update('city', value)} onChange={({ selectedItem }) => { if (typeof selectedItem === 'string') update('city', selectedItem); }} />
-                </Column>
-              </Grid>
-              {countryError && <span className="tp-prospect-discovery__field-error">{countryError}</span>}
-              {cityLoading && <InlineLoading description="正在查找目标城市…" />}
-              {cityError && <span className="tp-prospect-discovery__field-error">{cityError}</span>}
-              {selectedCountry && (
-                <div className="tp-prospect-discovery__geo-meta">
-                  <span>国家代码：{selectedCountry.cca2}</span><span>顶级域名：{countryTld || '暂无'}</span><span>商业语言：{countryLanguage || '待确认'}</span>
-                </div>
-              )}
-            </div>
-          </section>
-
-          <section className="tp-prospect-discovery__section tp-prospect-discovery__advanced">
-            <div className="tp-prospect-discovery__section-heading">
-              <div><span className="tp-prospect-discovery__section-index">02</span><div><h2>进阶筛选</h2><p>收纳产品规格、企业体量与竞品约束</p></div></div>
-            </div>
-            <Accordion>
-              <AccordionItem title="A. 材质工艺与规格锚定（Specs & Compliance）">
-                <div className="tp-prospect-discovery__field">
-                  <span className="tp-prospect-discovery__field-label">材质与工艺属性</span>
-                  <div className="tp-prospect-discovery__tag-list">
-                    {materials.map(item => <Checkbox key={item} id={'tp-material-' + item.replace(/[^a-z0-9]/gi, '-')} labelText={item} checked={profile.materials.includes(item)} onChange={() => toggleArray('materials', item)} />)}
-                    {(profile.customMaterials ?? []).map(item => <Tag key={'custom-material-' + item} type="blue" filter onClose={() => update('customMaterials', (profile.customMaterials ?? []).filter(value => value !== item))}>{item}</Tag>)}
-                  </div>
-                  <div className="tp-prospect-discovery__custom-entry">
-                    <TextInput id="tp-custom-material" labelText="自定义材质 / 工艺" placeholder="例如 Titanium、Anodizing" value={customMaterialInput} onChange={event => setCustomMaterialInput(event.currentTarget.value)} />
-                    <Button kind="tertiary" size="md" renderIcon={CarbonIcons.Add} disabled={!customMaterialInput.trim()} onClick={addCustomMaterial}>添加属性</Button>
-                  </div>
-                </div>
-                <div className="tp-prospect-discovery__spec-grid">
-                  <TextInput id="tp-specifications" labelText="核心规格 / 尺寸 / 功率" placeholder="例如 18-inch、100W、IP67" value={profile.specifications} onChange={event => update('specifications', event.currentTarget.value)} />
-                  <ComboBox id="tp-hs-code" titleText="海关编码（HS Code）" placeholder="输入 HS Code" items={[]} selectedItem={profile.hsCode} itemToString={item => typeof item === 'string' ? item : ''} onInputChange={value => update('hsCode', value)} onChange={({ selectedItem }) => { if (typeof selectedItem === 'string') update('hsCode', selectedItem); }} />
-                </div>
-                <div className="tp-prospect-discovery__field">
-                  <span className="tp-prospect-discovery__field-label">自定义规格参数</span>
-                  <div className="tp-prospect-discovery__custom-spec-list">
-                    {(profile.customSpecifications ?? []).map((item, index) => <div className="tp-prospect-discovery__custom-spec" key={item}><span>{item}</span><Button kind="ghost" size="sm" onClick={() => update('customSpecifications', (profile.customSpecifications ?? []).filter((_, i) => i !== index))}>移除</Button></div>)}
-                  </div>
-                  <div className="tp-prospect-discovery__custom-entry">
-                    <TextInput id="tp-custom-specification" labelText="添加规格参数" placeholder="例如 IP67、220V、30cm" value={customSpecificationInput} onChange={event => setCustomSpecificationInput(event.currentTarget.value)} />
-                    <Button kind="tertiary" size="md" renderIcon={CarbonIcons.Add} disabled={!customSpecificationInput.trim()} onClick={addCustomSpecification}>添加规格</Button>
-                  </div>
-                </div>
-                <div className="tp-prospect-discovery__field">
-                  <span className="tp-prospect-discovery__field-label">目标市场强制认证</span>
-                  <div className="tp-prospect-discovery__tag-list">
-                    {certifications.map(item => <Checkbox key={item} id={'tp-cert-' + item.replace(/[^a-z0-9]/gi, '-')} labelText={item} checked={profile.certifications.includes(item)} onChange={() => toggleArray('certifications', item)} />)}
-                  </div>
-                </div>
-              </AccordionItem>
-              <AccordionItem title="B. 买家体量与活跃度锚定（Scale & Activity）">
-                <div className="tp-prospect-discovery__scale-grid">
-                  <Select id="tp-employee-scale" labelText="员工规模区间" value={profile.employeeScale} onChange={event => update('employeeScale', event.currentTarget.value)}>
-                    <SelectItem value="" text="不限" /><SelectItem value="1-10" text="1–10 人" /><SelectItem value="11-50" text="11–50 人" /><SelectItem value="51-200" text="51–200 人" /><SelectItem value="201-500" text="201–500 人" /><SelectItem value="500+" text="500 人以上" />
-                  </Select>
-                  <div className="tp-prospect-discovery__field">
-                    <span className="tp-prospect-discovery__field-label">海关交易活跃窗口</span>
-                    <RadioButtonGroup legendText="采购活跃度" name="tp-activity" valueSelected={profile.activity} onChange={value => update('activity', String(value))}>
-                      <RadioButton id="tp-activity-6m" value="6m" labelText="近 6 个月活跃" />
-                      <RadioButton id="tp-activity-1y" value="1y" labelText="近 1 年稳定采购" />
-                    </RadioButtonGroup>
-                  </div>
-                </div>
-              </AccordionItem>
-              <AccordionItem title="C. 竞品逆向锚定（Competitor Benchmark）">
-                <p className="tp-prospect-discovery__helper">录入 1–3 个竞争对手英文名或独立站域名，用于后续逆向挖掘分销网络。</p>
-                <div className="tp-prospect-discovery__competitors">
-                  {profile.competitors.map((value, index) => (
-                    <div className="tp-prospect-discovery__competitor-row" key={index}>
-                      <TextInput id={'tp-competitor-' + index} labelText={'竞争对手 ' + (index + 1)} placeholder="例如 competitor.com 或 Brand Name" value={value} onChange={event => updateCompetitor(index, event.currentTarget.value)} />
-                      {profile.competitors.length > 1 && <Button kind="ghost" size="sm" onClick={() => setProfile(current => ({ ...current, competitors: current.competitors.filter((_, i) => i !== index) }))}>移除</Button>}
-                    </div>
-                  ))}
-                  {profile.competitors.length < 3 && <Button kind="tertiary" size="sm" renderIcon={CarbonIcons.Add} onClick={() => setProfile(current => ({ ...current, competitors: [...current.competitors, ''] }))}>添加竞争对手</Button>}
-                </div>
-              </AccordionItem>
-            </Accordion>
-          </section>
-
-          <div className="tp-prospect-discovery__actions">
-            <Button kind="primary" renderIcon={CarbonIcons.MagicWand} onClick={generateStrategy} disabled={strategyLoading}>{strategyLoading ? '正在生成策略…' : '生成获客策略'}</Button>
-          </div>
-
-          {previewOpen && (
-            <section className="tp-prospect-discovery__preview">
-              <div className="tp-prospect-discovery__section-heading">
-                <div><span className="tp-prospect-discovery__section-index">03</span><div><h2>获客策略预览</h2><p>由当前画像编译的搜索指令，可检查并手动调整</p></div></div>
-              </div>
-              <div className="tp-prospect-discovery__preview-summary">
-                <div><strong>{googleQueries.length}</strong><span>条搜索引擎指令</span></div>
-                <div><strong>{strategy.maps.length}</strong><span>条地图搜索组合</span></div>
-                <div><strong>{strategy.social.length}</strong><span>条社媒 / 独立站指令</span></div>
-              </div>
-              <div className="tp-prospect-discovery__preview-block">
-                <h3>词库与本土化裂变</h3>
-                <p>AI 自动生成的同义词、本土商业词汇与买家采购词可在此检查；也可手动补充或移除。</p>
-                <div className="tp-prospect-discovery__synonyms">
-                  {aiSynonyms.map(item => <Tag key={'ai-' + item} type="blue" filter onClose={() => setAiSynonyms(current => current.filter(value => value !== item))}>{item}</Tag>)}
-                  {localizedTerms.map(item => <Tag key={'local-' + item} type="teal" filter onClose={() => setLocalizedTerms(current => current.filter(value => value !== item))}>{item}</Tag>)}
-                  {buyerKeywords.map(item => <Tag key={'buyer-' + item} type="purple" filter onClose={() => setBuyerKeywords(current => current.filter(value => value !== item))}>{item}</Tag>)}
-                  {synonyms.map(item => <Tag key={'manual-' + item} type="blue" filter onClose={() => setSynonyms(current => current.filter(value => value !== item))}>{item}</Tag>)}
-                  <TextInput id="tp-synonym-input" labelText="补充行业词汇" hideLabel placeholder="输入同义词或本土商业词汇" value={synonymInput} onChange={event => setSynonymInput(event.currentTarget.value)} />
-                  <Button kind="tertiary" size="sm" renderIcon={CarbonIcons.Add} onClick={addSynonym}>添加词汇</Button>
-                </div>
-              </div>
-              <div className="tp-prospect-discovery__preview-block">
-                <div className="tp-prospect-discovery__preview-heading"><h3>黄金搜索矩阵（Golden Dork Matrix）</h3><Toggle id="tp-advanced-mode" labelText="高级模式" labelA="关闭" labelB="开启" toggled={advancedMode} onToggle={setAdvancedMode} /></div>
-                <Accordion>
-                  <AccordionItem title={'Google Dorks（' + googleQueries.length + ' 条）'}>
-                    <div className="tp-prospect-discovery__query-list">
-                      {googleQueries.map((query, index) => advancedMode
-                        ? <TextArea key={index} id={'tp-google-query-' + index} labelText={'搜索指令 ' + (index + 1)} rows={3} value={query} onChange={event => updateGoogleQuery(index, event.currentTarget.value)} />
-                        : <code key={index}>{query}</code>)}
-                    </div>
-                  </AccordionItem>
-                  <AccordionItem title={'地图扫街矩阵（' + strategy.maps.length + ' 条）'}>
-                    <ul>{strategy.maps.map(item => <li key={item}><code>{item}</code></li>)}</ul>
-                  </AccordionItem>
-                  <AccordionItem title={'社媒与独立站专项（' + strategy.social.length + ' 条）'}>
-                    <ul>{strategy.social.map(item => <li key={item}><code>{item}</code></li>)}</ul>
-                  </AccordionItem>
-                </Accordion>
-              </div>
-              <div className="tp-prospect-discovery__preview-footer">
-                <span>Google 与地图矩阵当前由本地规则编译；地图数据抓取和后续步骤数据传递将在对应步骤启用。</span>
-                <Button kind="secondary" renderIcon={CarbonIcons.Checkmark} onClick={() => setNotice('第一步策略已在当前页面确认。')}>确认当前策略</Button>
-              </div>
-            </section>
-          )}
-        </section>
           <ActorSchemaFields sources={actorSourcesForSchema} onValuesChange={setActorParameters} />
-        </>
+        </section>
        ) : selectedIndex === 0 ? (
         <PlatformSelectionStep countryCode={profile.country} countries={countries} onSelectionCountChange={handleSelectionCountChange} selectedIds={selectedSources?.map(item => item.id)} onSelectionChange={handleSelectionChange} />
       ) : selectedIndex === 2 ? (
@@ -646,7 +425,7 @@ export function ProspectDiscoveryPage() {
       <div className="tp-prospect-discovery__step-navigation">
         <Button kind="secondary" renderIcon={CarbonIcons.ArrowLeft} onClick={() => setSelectedIndex(index => Math.max(0, index - 1))} disabled={selectedIndex === 0}>上一步</Button>
         <span>第 {selectedIndex + 1} 步，共 6 步</span>
-        <Button kind="primary" renderIcon={CarbonIcons.ArrowRight} onClick={() => setSelectedIndex(index => Math.min(5, index + 1))} disabled={selectedIndex === 5 || (selectedIndex === 0 && selectedSourceCount === 0) || (selectedIndex === 1 && !profile.coreNoun.trim())}>下一步</Button>
+        <Button kind="primary" renderIcon={CarbonIcons.ArrowRight} onClick={() => setSelectedIndex(index => Math.min(5, index + 1))} disabled={selectedIndex === 5 || (selectedIndex === 0 && selectedSourceCount === 0)}>下一步</Button>
       </div>
     </main>
   );
