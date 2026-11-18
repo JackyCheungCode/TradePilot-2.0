@@ -14,7 +14,6 @@ type ContactRow = {
   candidateCount: number; contacts: Array<{ key: string; name: string; title: string; email: string; phone: string; linkedin: string; whatsapp: string }>;
 };
 type Candidate = Record<string, unknown>;
-type Props = {};
 type ApiPayload = { data?: unknown; error?: { message?: string }; message?: string };
 
 const candidateKey = (candidate: Candidate) => String(candidate.provider ?? '') + '：' + String(candidate.provider_person_id ?? candidate.email ?? candidate.linkedin_url ?? candidate.full_name ?? '');
