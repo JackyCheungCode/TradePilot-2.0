@@ -1,4 +1,4 @@
-import { PageSkeleton } from '@/design-system';
+import { PageSkeleton, pageSkeletonHeader, pageSkeletonFormSection, pageSkeletonPanel } from '@/design-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
@@ -323,7 +323,15 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
   };
 
   const statusText=statusLabel(payment.status);
-  if (loading) return <PageSkeleton variant="form" className="tp-payments" />;
+  if (loading) return <PageSkeleton className="tp-payments" layout={[
+  pageSkeletonHeader('tp-payments__header', 'tp-responsive-header-actions', 3),
+  { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-payments__basic', children: [
+    { type: 'group', direction: 'row', gap: 'var(--cds-spacing-03)', children: [{ type: 'placeholder', width: '7rem', height: '2rem' }, { type: 'text', width: '10rem' }] },
+    { type: 'group', direction: 'grid', columns: 2, gap: 'var(--cds-spacing-05)', className: 'tp-payments__form-grid', children: Array.from({ length: 8 }, () => ({ type: 'group' as const, direction: 'column' as const, gap: 'var(--cds-spacing-02)' as const, children: [{ type: 'text' as const, width: '6rem' }, { type: 'placeholder' as const, height: '2.5rem' }] })) },
+  ] },
+  pageSkeletonPanel('tp-payments__panel', '12rem', '12rem'),
+  pageSkeletonPanel('tp-payments__panel', '10rem', '12rem'),
+]} />;
   return <main className="tp-payments">
     <header className="tp-payments__header"><div><p className="tp-payments__eyebrow">TRADEPILOT / FINANCE / PAYMENT</p><h1>{editing?paymentNo:'创建收款（Payment）'}</h1><p>{editing?'维护收款资料、分配与核销记录。':'录入真实到账，可分配多个订单节点，也可保留为预收款。'}</p></div><div className="tp-responsive-header-actions">
       {readOnly&&['draft','pending_confirmation'].includes(payment.status)&&<Button className="tp-responsive-header-actions__primary" kind="primary" disabled={saving} onClick={()=>void confirm()}>{payment.payment_type==='refund'?'确认退款 / 红冲':'确认收款并核销'}</Button>}
@@ -495,7 +503,15 @@ export function PaymentAllocationPage() {
     finally{setSaving(false);}
   };
   if(!payment)return <main className="tp-payments"><InlineNotification kind="error" title="收款记录不存在" subtitle={error||'无法读取该收款记录。'}/></main>;
-  if (loading) return <PageSkeleton variant="table" className="tp-payments" />;
+  if (loading) return <PageSkeleton className="tp-payments" layout={[
+  pageSkeletonHeader('tp-payments__header', 'tp-responsive-header-actions'),
+  pageSkeletonPanel('tp-payments__panel', '8rem', '12rem'),
+  { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-payments__panel', children: [
+    { type: 'text', heading: true, width: '12rem' },
+    { type: 'group', direction: 'grid', columns: 3, gap: 'var(--cds-spacing-04)', children: Array.from({ length: 3 }, () => ({ type: 'placeholder' as const, height: '2.5rem' })) },
+    { type: 'table', columns: 7, rows: 6 },
+  ] },
+]} />;
   return <main className="tp-payments">
     <header className="tp-payments__header"><div><p className="tp-payments__eyebrow">TRADEPILOT / FINANCE / PREPAYMENT ALLOCATION</p><h1>分配预收余额</h1><p>{payment.payment_no} · {payment.currency} · {payment.status==='confirmed'?'已确认':'部分核销'}</p></div><div className="tp-payments__actions"><Link href={'/payments/'+id}>返回收款记录</Link><Button kind="primary" onClick={()=>void save()} disabled={saving||total<=0||total>Number(payment.unallocated_amount||0)}>确认分配</Button></div></header>
     {error&&<InlineNotification kind="error" title="分配未完成" subtitle={error}/>}
