@@ -175,7 +175,7 @@ export function DocumentPreviewPage() {
 
   if (!doc) return <main className="tp-document-preview"><InlineNotification kind="error" title="无法打开单据" subtitle={error || '单据不存在。'} /><Link href="/documents">返回单据中心</Link></main>;
 
-  if (loading) return <PageSkeleton variant="detail" />;
+  if (loading) return <PageSkeleton variant="document-preview" />;
   return <main className="tp-document-preview">
     <header className="tp-document-preview__toolbar">
       <div><p className="tp-document-preview__eyebrow">TRADEPILOT / DOCUMENTS / PREVIEW</p><h1>{doc.document_number}</h1><p>{labels[doc.document_type] || doc.document_type} · V{doc.current_version} · {statusLabel(doc.status)}</p></div>

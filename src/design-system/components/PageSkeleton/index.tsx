@@ -3,7 +3,7 @@ import './page-skeleton.scss';
 import { DataTableSkeleton } from '../DataTableSkeleton';
 import { SkeletonPlaceholder, SkeletonText } from '../Skeleton';
 
-export type PageSkeletonVariant = 'table' | 'dashboard' | 'form' | 'detail' | 'chart' | 'analytics-table' | 'settings';
+export type PageSkeletonVariant = 'table' | 'dashboard' | 'form' | 'detail' | 'chart' | 'analytics-table' | 'settings' | 'workspace' | 'document-preview';
 
 export interface PageSkeletonProps {
   variant?: PageSkeletonVariant;
@@ -26,7 +26,7 @@ export function PageSkeleton({
   showActions,
   showToolbar,
 }: PageSkeletonProps) {
-  const hasActions = showActions ?? ['table', 'dashboard', 'analytics-table'].includes(variant);
+  const hasActions = showActions ?? ['table', 'dashboard', 'analytics-table', 'document-preview'].includes(variant);
   const hasToolbar = showToolbar ?? ['table', 'analytics-table'].includes(variant);
   const hasTable = variant === 'table' || variant === 'analytics-table';
   const hasMetrics = ['detail', 'analytics-table'].includes(variant) && metricCount > 0;
@@ -101,6 +101,36 @@ export function PageSkeleton({
       )}
 
       {showMap && <SkeletonPlaceholder className="tp-page-skeleton__map" />}
+
+      {variant === 'workspace' && (
+        <div className="tp-page-skeleton__workspace">
+          <div className="tp-page-skeleton__workspace-sidebar">
+            <SkeletonPlaceholder className="tp-page-skeleton__workspace-control" />
+            {Array.from({ length: 6 }, (_, index) => <SkeletonPlaceholder key={index} className="tp-page-skeleton__workspace-history" />)}
+          </div>
+          <div className="tp-page-skeleton__workspace-main">
+            <SkeletonPlaceholder className="tp-page-skeleton__workspace-conversation" />
+            <div className="tp-page-skeleton__workspace-composer">
+              <SkeletonPlaceholder className="tp-page-skeleton__workspace-input" />
+              <SkeletonPlaceholder className="tp-page-skeleton__workspace-send" />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {variant === 'document-preview' && (
+        <div className="tp-page-skeleton__document-preview">
+          <SkeletonPlaceholder className="tp-page-skeleton__document-paper">
+            <SkeletonText heading width="38%" />
+            <SkeletonText width="76%" />
+            <SkeletonText width="92%" />
+            <SkeletonText width="68%" />
+            <SkeletonPlaceholder className="tp-page-skeleton__document-table" />
+            <SkeletonText width="84%" />
+            <SkeletonText width="54%" />
+          </SkeletonPlaceholder>
+        </div>
+      )}
 
       {variant === 'form' && (
         <div className="tp-page-skeleton__form">
