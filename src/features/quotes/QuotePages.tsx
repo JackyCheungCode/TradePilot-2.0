@@ -3,7 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput, TextArea, ComposedModal, ModalHeader, ModalBody, ModalFooter,
   Tabs, TabList, Tab, TabPanels, TabPanel, Table, TableHead, TableRow, TableHeader, TableBody, TableCell,
-  CarbonIcons, BusinessLifecycle,
+  CarbonIcons, BusinessLifecycle, WorldMapChart,
 } from '@/design-system';
 import { LineChart, SimpleBarChart } from '@carbon/charts-react';
 import { ScaleTypes } from '@carbon/charts';
@@ -13,7 +13,7 @@ import '@/design-system/patterns/quotes.scss';
 import { useBusinessTransitionEvents } from '@/lib/useBusinessTransitionEvents';
 import '@/design-system/patterns/responsive-actions.scss';
 
-type Account = { id: string; account_name: string; currency_code?: string; billing_address?: Record<string, unknown>; shipping_address?: Record<string, unknown> };
+type Account = { id: string; account_name: string; currency_code?: string; country_code?: string | null; billing_address?: Record<string, unknown>; shipping_address?: Record<string, unknown> };
 type Contact = { id: string; account_id: string; full_name: string | null; first_name: string; last_name: string | null; email?: string | null };
 type Product = { id: string; sku: string; name: string; description: string | null; unit: string; default_currency: string | null; default_unit_price: number | null; cost_price?: number | null; hs_code?: string | null; net_weight?: number | null; gross_weight?: number | null; packaging?: Record<string, unknown> };
 type QuoteLine = { id: string; line_type: 'product' | 'section' | 'note'; product_id: string; sku: string; name: string; description: string; quantity: string; unit: string; unit_price: string; discount_rate: string; tax_rate: string; cost_price: string; hs_code: string; optional: boolean };
@@ -47,6 +47,7 @@ export function QuoteConsolePage() {
   const [error,setError]=useState('');
   const [query,setQuery]=useState('');
   const [status,setStatus]=useState('all');
+  const [marketCountry,setMarketCountry]=useState('all');
   const load=useCallback(async()=>{
     setLoading(true);setError('');
     try {
@@ -55,7 +56,7 @@ export function QuoteConsolePage() {
       const [docs,trend,acc]=await Promise.all([
         db.from('trade_documents').select('*').eq('document_type','quotation').order('updated_at',{ascending:false}).range(0,1999),
         db.from('trade_documents').select('id,created_at,currency_code,totals').eq('document_type','quotation').gte('created_at',trendStart.toISOString()).order('created_at',{ascending:true}).range(0,4999),
-        db.from('crm_accounts').select('id,account_name,currency_code').eq('is_archived',false).order('account_name'),
+        db.from('crm_accounts').select('id,account_name,currency_code,country_code').eq('is_archived',false).order('account_name'),
       ]);
       if(docs.error)throw docs.error;if(trend.error)throw trend.error;if(acc.error)throw acc.error;
       setRows((docs.data||[]) as QuoteDoc[]);setTrendRows((trend.data||[]) as QuoteDoc[]);setAccounts((acc.data||[]) as Account[]);
@@ -64,9 +65,13 @@ export function QuoteConsolePage() {
   },[]);
   useEffect(()=>{void load()},[load]);
   const accountMap=useMemo(()=>new Map(accounts.map(a=>[a.id,a.account_name])),[accounts]);
+  const accountCountryMap=useMemo(()=>new Map(accounts.map(a=>[a.id,String(a.country_code||'').toUpperCase()])),[accounts]);
+  const quoteMarketData=useMemo(()=>{const counts=new Map<string,number>();rows.forEach(row=>{const accountId=String(row.content?.account_id||row.content?.account_snapshot?.id||'');const code=accountCountryMap.get(accountId)||String(row.content?.account_snapshot?.country_code||'').toUpperCase();if(code)counts.set(code,(counts.get(code)||0)+1)});return [...counts.entries()].map(([code,value])=>{let label=code;try{label=new Intl.DisplayNames(['zh-TW'],{type:'region'}).of(code)||code}catch{}return {code,label,value}}).sort((a,b)=>b.value-a.value)},[rows,accountCountryMap]);
   const filtered=rows.filter(r=>{
     const s=String(r.content?.quote_status|| (r.status==='draft'?'draft':r.status==='issued'?'sent':r.status==='approved'?'accepted':r.status));
-    return (status==='all'||s===status) && [r.document_number,r.title,r.content?.account_snapshot?.account_name].join(' ').toLowerCase().includes(query.trim().toLowerCase());
+    const accountId=String(r.content?.account_id||r.content?.account_snapshot?.id||'');
+    const countryCode=accountCountryMap.get(accountId)||String(r.content?.account_snapshot?.country_code||'').toUpperCase();
+    return (status==='all'||s===status) && (marketCountry==='all'||countryCode===marketCountry) && [r.document_number,r.title,r.content?.account_snapshot?.account_name].join(' ').toLowerCase().includes(query.trim().toLowerCase());
   });
   const count=(s:string)=>rows.filter(r=>String(r.content?.quote_status||(r.status==='draft'?'draft':r.status==='issued'?'sent':r.status))===s).length;
   return <main className="tp-quotes">
@@ -76,6 +81,7 @@ export function QuoteConsolePage() {
     <section className="tp-quotes__panel tp-quotes__trends"><div className="tp-quotes__panel-head"><div><h2>报价趋势</h2><p>最近 30 天新建报价单的金额与数量。</p></div><Select id="quote-trend-currency" labelText="金额统计币种" value={trendCurrency} onChange={e=>setTrendCurrency(e.currentTarget.value)}>{currencies.map(currency=><SelectItem key={currency} value={currency} text={currency}/>)}</Select></div>
       {(() => { const days=Array.from({length:30},(_,i)=>{const d=new Date();d.setDate(d.getDate()-(29-i));d.setHours(0,0,0,0);return d;});const dayKey=(d:Date)=>d.toISOString().slice(0,10);const amountByDay=new Map<string,number>();const countByDay=new Map<string,number>();days.forEach(d=>{amountByDay.set(dayKey(d),0);countByDay.set(dayKey(d),0)});trendRows.forEach(r=>{const key=String(r.created_at||'').slice(0,10);if(!countByDay.has(key))return;countByDay.set(key,(countByDay.get(key)||0)+1);if(r.currency_code===trendCurrency)amountByDay.set(key,(amountByDay.get(key)||0)+Number(r.totals?.grand_total||0));});const labels=days.map(d=>({key:dayKey(d),label:(d.getMonth()+1)+'/'+d.getDate()}));const amountData=labels.map(d=>({group:d.label,key:trendCurrency+' 报价金额',value:Number(amountByDay.get(d.key)||0)}));const countData=labels.map(d=>({group:d.label,key:'报价数量',value:Number(countByDay.get(d.key)||0)}));const chartOptions={height:'280px',legend:{enabled:false},toolbar:{enabled:false},axes:{bottom:{title:'日期',mapsTo:'group',scaleType:ScaleTypes.LABELS},left:{mapsTo:'value',scaleType:ScaleTypes.LINEAR}}};return <div className="tp-quotes__charts"><div className="tp-quotes__chart"><h3>每日报价金额 <span>{trendCurrency}</span></h3><LineChart data={amountData} options={{...chartOptions,axes:{...chartOptions.axes,left:{title:'金额（'+trendCurrency+'）',mapsTo:'value',scaleType:ScaleTypes.LINEAR}}}} /></div><div className="tp-quotes__chart"><h3>每日报价数量</h3><SimpleBarChart data={countData} options={{...chartOptions,axes:{...chartOptions.axes,left:{title:'报价单数量',mapsTo:'value',scaleType:ScaleTypes.LINEAR}}}} /></div></div>})()}
     </section>
+    <section className="tp-quotes__panel tp-quotes__market-panel"><div className="tp-quotes__panel-head"><div><h2>全球报价市场分布</h2><p>按报价客户所在国家 / 地区统计报价单数量；选择地图或排名可筛选报价列表。</p></div></div>{quoteMarketData.length?<WorldMapChart data={quoteMarketData} unitLabel="份报价" selectedCode={marketCountry==='all'?undefined:marketCountry} onCountrySelect={code=>setMarketCountry(current=>current===code?'all':code)}/>:<p className="tp-quotes__empty">客户或报价快照尚未提供可识别的国家 / 地区信息。</p>}</section>
     <section className="tp-quotes__panel"><div className="tp-quotes__panel-head"><div><h2>报价单列表</h2><p>一个报价编号包含多个修订版本；列表显示当前版本。</p></div><Tag type="blue">{filtered.length} 条记录</Tag></div>
       <div className="tp-quotes__filters"><TextInput id="quote-search" labelText="搜索报价单" placeholder="报价编号、标题或客户" value={query} onChange={e=>setQuery(e.currentTarget.value)}/><Select id="quote-status" labelText="报价状态" value={status} onChange={e=>setStatus(e.currentTarget.value)}><SelectItem value="all" text="全部状态"/>{Object.entries(quoteStatusLabel).map(([v,t])=><SelectItem key={v} value={v} text={t}/>)}</Select></div>
       {loading?<div className="tp-quotes__loading"><InlineLoading description="正在读取报价单…"/></div>:<div className="tp-quotes__table-wrap"><Table><TableHead><TableRow><TableHeader>报价编号 / 标题</TableHeader><TableHeader>客户</TableHeader><TableHeader>版本</TableHeader><TableHeader>报价金额</TableHeader><TableHeader>报价日期</TableHeader><TableHeader>有效期</TableHeader><TableHeader>状态</TableHeader></TableRow></TableHead><TableBody>{filtered.map(r=>{const s=String(r.content?.quote_status||(r.status==='draft'?'draft':r.status==='issued'?'sent':r.status==='approved'?'accepted':r.status));const total=Number(r.totals?.grand_total||0);const customer=r.content?.account_snapshot?.account_name||accountMap.get(r.content?.account_id)||'—';return <TableRow key={r.id}><TableCell><Button kind="ghost" size="sm" className="tp-quotes__row-link" onClick={()=>nav('/quotes/'+r.id)}>{r.document_number}</Button><span className="tp-quotes__secondary">{r.title}</span></TableCell><TableCell>{customer}</TableCell><TableCell>V{r.current_version}</TableCell><TableCell>{money(total,r.currency_code)}</TableCell><TableCell>{r.content?.quote_date||'—'}</TableCell><TableCell>{r.content?.valid_until||'—'}</TableCell><TableCell><Tag type={s==='accepted'?'green':s==='rejected'||s==='expired'||s==='cancelled'?'red':s==='draft'?'cool-gray':'blue'}>{quoteStatusLabel[s]||s}</Tag></TableCell></TableRow>})}</TableBody></Table>{!filtered.length&&<p className="tp-quotes__empty">没有符合条件的报价单。</p>}</div>}
