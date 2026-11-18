@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Accordion, AccordionItem, Button, CodeSnippet, Column, CopyButton, Grid,
+  Button, CodeSnippet, Column, CopyButton, Grid,
   InlineNotification, ProgressBar, StructuredListBody, StructuredListCell,
   StructuredListHead, StructuredListRow, StructuredListWrapper, Tag, Tile, CarbonIcons,
 } from '@/design-system';
@@ -16,7 +16,6 @@ type RunRef = { id: string; sourceId: string; name: string };
 type Props = {
   sources: SourceItem[];
   actorParameters?: Record<string, unknown>;
-  onEditStep: (step: number) => void;
   onContinueToScoring: (recordIds: string[]) => void;
   planTaskCode: string;
 };
@@ -49,7 +48,7 @@ async function getAccessToken() {
   return data.session.access_token;
 }
 
-export function ExecutionStep({ sources, actorParameters = {}, onEditStep, onContinueToScoring, planTaskCode }: Props) {
+export function ExecutionStep({ sources, actorParameters = {}, onContinueToScoring, planTaskCode }: Props) {
   const channels = useMemo(() => sources, [sources]);
   const [status, setStatus] = useState<'idle' | 'running' | 'completed' | 'failed'>('idle');
   const [progress, setProgress] = useState(0);
@@ -248,36 +247,7 @@ export function ExecutionStep({ sources, actorParameters = {}, onEditStep, onCon
 
   return (
     <section className="tp-prospect-discovery__step tp-execution">
-      <Accordion className="tp-execution__context">
-        <AccordionItem
-          open
-          title={<span className="tp-execution__context-title"><CarbonIcons.Document size={16} aria-hidden="true" /><span>执行方案快照：已选 {channels.length} 个平台 · 已加载 {actorPlans.length} 个 Actor Schema</span></span>}
-        >
-          <Grid narrow>
-            <Column sm={4} md={8} lg={8}>
-              <Tile className="tp-execution__summary-tile">
-                <div className="tp-execution__tile-heading"><strong>数据源路由</strong><Button kind="ghost" size="sm" renderIcon={CarbonIcons.Edit} onClick={() => onEditStep(0)}>返回修改</Button></div>
-                <div className="tp-execution__tags">{channels.slice(0, 12).map(item => <Tag key={item.id} type="gray">{item.name}</Tag>)}{channels.length > 12 && <Tag type="gray">+{channels.length - 12}</Tag>}</div>
-                <small>所有平台统一通过动态 Actor Schema 配置</small>
-              </Tile>
-            </Column>
-            <Column sm={4} md={8} lg={8}>
-              <Tile className="tp-execution__summary-tile">
-                <div className="tp-execution__tile-heading"><strong>Schema 参数</strong><Button kind="ghost" size="sm" renderIcon={CarbonIcons.Edit} onClick={() => onEditStep(1)}>返回修改</Button></div>
-                <p><strong>{enabledActorPlans.length} 个参数完整的数据源</strong></p>
-                <small>不叠加关键词、国家、护盾或渠道专属参数</small>
-              </Tile>
-            </Column>
-          </Grid>
-        </AccordionItem>
-      </Accordion>
-
       {notice && <InlineNotification kind="info" lowContrast title="任务反馈" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
-
-      <div className="tp-execution__dashboard-heading">
-        <div><span className="tp-execution__eyebrow">MULTI-CHANNEL EXECUTION</span><h2>全网搜索大盘</h2><p>显示 Actor 后端任务真实状态、进度、结果数量与运行日志</p></div>
-        <Tag type={status === 'completed' ? 'green' : status === 'running' ? 'blue' : status === 'failed' ? 'red' : 'gray'}>{status === 'completed' ? '任务已结束' : status === 'running' ? '后端任务运行中' : status === 'failed' ? '任务启动失败' : '待启动'}</Tag>
-      </div>
 
       <Grid narrow className="tp-execution__metrics">
         <Column sm={4} md={4} lg={5}>
