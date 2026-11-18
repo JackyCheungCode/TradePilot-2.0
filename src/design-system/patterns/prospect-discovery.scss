@@ -1003,6 +1003,19 @@
   font-weight: 600;
   letter-spacing: 0.01em;
 }
+.tp-prospect-discovery__platform-monogram--teal { background-color: #008373; color: #ffffff; }
+.tp-prospect-discovery__platform-monogram--violet { background-color: #6001d2; color: #ffffff; }
+.tp-prospect-discovery__platform-monogram--orange { background-color: #f1641e; color: #ffffff; }
+.tp-prospect-discovery__platform-monogram--black { background-color: #24292f; color: #ffffff; }
+.tp-prospect-discovery__platform-monogram--blue { background-color: #0f62fe; color: #ffffff; }
+.tp-prospect-discovery__platform-monogram--magenta { background-color: #c13584; color: #ffffff; }
+.tp-prospect-discovery__platform-monogram--cyan { background-color: #229ed9; color: #ffffff; }
+.tp-prospect-discovery__platform-monogram--navy { background-color: #232f3e; color: #ffffff; }
+.tp-prospect-discovery__platform-monogram--green { background-color: #198038; color: #ffffff; }
+.tp-prospect-discovery__platform-monogram--purple { background-color: #7f54b3; color: #ffffff; }
+.tp-prospect-discovery__platform-monogram--red { background-color: #da1e28; color: #ffffff; }
+.tp-prospect-discovery__platform-monogram--yellow { background-color: #f1c21b; color: #161616; }
+.tp-prospect-discovery__platform-monogram--white { background-color: #ffffff; color: #0f62fe; }
 
 /* The logo occupies column one; title and description both start in column two. */
 .tp-prospect-discovery__platform-row { align-items: flex-start; }
