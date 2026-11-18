@@ -384,8 +384,9 @@ export async function handleActorRegistry(request: Request, env: ActorRegistryEn
       const version = safeText(body.version, 160);
       if (!version) return errorResponse(request, "ACTOR_SCHEMA_VERSION_REQUIRED", "缺少需要保存的 Schema 版本。", 400);
       const versions = await db<Array<{ version: string }>>(env,
-        "actor_schema_versions?owner_id=eq." + ownerId + "&actor_id=eq." + encodeURIComponent(actorId) + "&version=eq." + encodeURIComponent(version) + "&select=version&limit=1");
-      if (!versions?.[0]) return errorResponse(request, "ACTOR_SCHEMA_VERSION_NOT_FOUND", "该 Schema 版本不存在，请重新读取后再保存。", 404);
+        "actor_schema_versions?owner_id=eq." + ownerId + "&actor_id=eq." + encodeURIComponent(actorId) + "&select=version&order=fetched_at.desc&limit=1");
+      if (!versions?.[0]) return errorResponse(request, "ACTOR_SCHEMA_VERSION_NOT_FOUND", "该 Actor 尚无可保存的 Schema，请重新读取。", 404);
+      if (versions[0].version !== version) return errorResponse(request, "ACTOR_SCHEMA_VERSION_STALE", "Schema 已有更新版本，请重新读取后再保存。", 409);
       const registryRows = await db<Array<{ source_metadata: Record<string, unknown> }>>(env,
         "actor_registry?owner_id=eq." + ownerId + "&actor_id=eq." + encodeURIComponent(actorId) + "&select=source_metadata&limit=1");
       if (!registryRows?.[0]) return errorResponse(request, "ACTOR_NOT_REGISTERED", "该 Actor 尚未加入当前账户目录。", 404);
