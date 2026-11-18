@@ -26,6 +26,7 @@ export * from './Toggle';
 export * from './Switch';
 export * from './Slider';
 export * from './DatePicker';
+export * from './DateField';
 export * from './TimePicker';
 export * from './TimePickerSelect';
 export * from './FileUploader';
