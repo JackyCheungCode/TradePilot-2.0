@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-  Button, Link, Checkbox, FileUploaderButton, InlineLoading, InlineNotification, MultiSelect, Select, SelectItem,
+  Button, Link, Checkbox, FileUploaderButton, InlineLoading, InlineNotification, MultiSelect, Select, SelectItem, DateField,
   Tag, TextArea, TextInput, Tabs, TabList, Tab, TabPanels, TabPanel, Table, TableHead,
   TableRow, TableHeader, TableBody, TableCell, CarbonIcons, WorldMapChart,
 } from '@/design-system';
@@ -53,8 +53,9 @@ const csvEscape=(v:unknown)=>'"'+String(v??'').replace(/"/g,'""')+'"';
 function Field({def,value,onChange}:{def:FieldDef;value:any;onChange:(v:any)=>void}){
   if(def.type==='textarea')return <div className="tp-products__field tp-products__field--wide"><TextArea id={'product-'+def.key} labelText={def.label} value={String(value??'')} rows={3} onChange={e=>onChange(e.currentTarget.value)} /></div>;
   if(def.type==='multiselect'){const items=(def.options||[]).map(([id,text])=>({id,text}));const selected=items.filter(item=>(value||[]).includes(item.id));return <div className="tp-products__field"><MultiSelect id={'product-'+def.key} titleText={def.label} label="请选择" items={items} itemToString={item=>item?.text||''} selectedItems={selected} onChange={({selectedItems})=>onChange((selectedItems||[]).map(item=>item.id))}/></div>}
+  if(def.type==='date')return <div className="tp-products__field"><DateField id={'product-'+def.key} label={def.label} value={String(value??'')} onChange={onChange}/></div>;
   if(def.type==='select')return <div className="tp-products__field"><Select id={'product-'+def.key} labelText={def.label} value={String(value??'')} onChange={e=>onChange(e.currentTarget.value)}>{(def.options||[]).map(([v,t])=><SelectItem key={v} value={v} text={t}/>)}</Select></div>;
-  return <div className="tp-products__field"><TextInput id={'product-'+def.key} labelText={def.label} type={def.type==='number'?'number':def.type==='date'?'date':'text'} value={String(value??'')} placeholder={def.placeholder} onChange={e=>onChange(e.currentTarget.value)}/></div>;
+  return <div className="tp-products__field"><TextInput id={'product-'+def.key} labelText={def.label} type={def.type==='number'?'number':'text'} value={String(value??'')} placeholder={def.placeholder} onChange={e=>onChange(e.currentTarget.value)}/></div>;
 }
 function Fields({defs,data,set}:{defs:FieldDef[];data:Record<string,any>;set:(k:string,v:any)=>void}){
  return <div className="tp-products__grid">{defs.map(d=><Field key={d.key} def={d} value={data[d.key]} onChange={v=>set(d.key,v)}/>)}</div>;
