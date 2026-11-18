@@ -1,4 +1,4 @@
-import { PageSkeleton } from '@/design-system';
+import { PageSkeleton, pageSkeletonHeader, pageSkeletonPanel } from '@/design-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
@@ -145,7 +145,14 @@ export function ProductFormPage(){
  {label:'统计',content:<div className="tp-products__detail-grid"><div><span>累计报价次数</span><strong>由报价模块自动统计</strong></div><div><span>累计订单数</span><strong>由订单明细自动统计</strong></div><div><span>累计销量 / 销售额</span><strong>由已确认订单自动统计</strong></div><div><span>最近销售 / 报价日期</span><strong>关联单据生成后自动计算</strong></div><div><span>采购该产品的客户数</span><strong>由客户订单关联自动统计</strong></div></div>},
  {label:'备注与系统字段',content:<>{defs([{key:'internal_notes',label:'内部备注',type:'textarea'}])}<div className="tp-products__detail-grid"><div><span>创建方式</span><strong>{data.created_via||'手动'}</strong></div><div><span>SKU 规则</span><strong>{referenced?'已被订单引用，SKU 已锁定':'未被交易明细引用'}</strong></div></div></>}
  ];
- if (loading) return <PageSkeleton variant="form" className="tp-products" />;
+ if (loading) return <PageSkeleton className="tp-products" layout={[
+  pageSkeletonHeader('tp-products__header', 'tp-products__actions'),
+  { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-products__form-shell', children: [
+    { type: 'text', heading: true, width: '12rem' },
+    { type: 'group', direction: 'row', gap: 'var(--cds-spacing-03)', children: Array.from({ length: 4 }, () => ({ type: 'placeholder' as const, width: '7rem', height: '3rem' })) },
+    { type: 'group', direction: 'grid', columns: 2, gap: 'var(--cds-spacing-05)', className: 'tp-products__grid', children: Array.from({ length: 10 }, () => ({ type: 'group' as const, direction: 'column' as const, gap: 'var(--cds-spacing-02)' as const, children: [{ type: 'text' as const, width: '6rem' }, { type: 'placeholder' as const, height: '2.5rem' }] })) },
+  ] },
+]} />;
  return <main className="tp-products"><ProductHeader editing={editing} onSave={()=>void save()} saving={saving}/>{error&&<InlineNotification kind="error" title="产品保存失败" subtitle={error}/>}<section className="tp-products__form-shell"><div className="tp-products__form-summary"><span>{editing?'产品编辑':'新产品建档'}</span><Tag type={data.product_status==='on_sale'?'green':'blue'}>{statusOptions.find(x=>x[0]===data.product_status)?.[1]}</Tag></div><Tabs selectedIndex={tab} onChange={({selectedIndex})=>setTab(selectedIndex)}><TabList aria-label="产品字段分组" contained>{tabs.map(t=><Tab key={t.label}>{t.label}</Tab>)}</TabList><TabPanels>{tabs.map(t=><TabPanel key={t.label}><div className="tp-products__tab-content">{t.content}</div></TabPanel>)}</TabPanels></Tabs><div className="tp-products__footer"><span>带 * 为必填项。所有字段保存到产品主数据。</span><div>{saving && <InlineLoading status="active" description="正在保存…" />}<Button kind="tertiary" onClick={()=>setTab(Math.max(0,tab-1))} disabled={tab===0}>上一步</Button><Button kind="tertiary" onClick={()=>setTab(Math.min(tabs.length-1,tab+1))} disabled={tab===tabs.length-1}>下一步</Button><Button kind="primary" onClick={()=>void save()} disabled={saving}>保存产品</Button></div></div></section></main>;
 }
 
@@ -155,7 +162,15 @@ export function ProductDetailPage(){
  const archive=async()=>{if(!product)return;try{const db=await getSupabaseClient();const r=await db.from('trade_products').update({product_status:'discontinued',is_active:false}).eq('id',product.id);if(r.error)throw r.error;setProduct({...product,product_status:'discontinued',is_active:false})}catch(e){setError(e instanceof Error?e.message:'停售产品失败')}};
  if(!product)return <main className="tp-products">{error&&<InlineNotification kind="error" title="产品不可用" subtitle={error}/>}<Link href="/products">返回产品列表</Link></main>;
  const d=product.product_data||{};
- if (loading) return <PageSkeleton variant="detail" className="tp-products" />;
+ if (loading) return <PageSkeleton className="tp-products" layout={[
+  pageSkeletonHeader('tp-products__header', 'tp-products__actions'),
+  { type: 'group', direction: 'row', gap: 'var(--cds-spacing-05)', className: 'tp-products__detail-hero', children: [
+    { type: 'placeholder', width: '12rem', minHeight: '12rem', className: 'tp-products__detail-image' },
+    { type: 'group', direction: 'column', gap: 'var(--cds-spacing-03)', className: 'tp-products__detail-main', children: [{ type: 'text', heading: true, width: '16rem' }, { type: 'text', width: '22rem' }, { type: 'placeholder', width: '8rem', height: '2.5rem' }] },
+  ] },
+  { type: 'group', direction: 'grid', columns: 3, gap: 'var(--cds-spacing-04)', className: 'tp-products__detail-grid', children: Array.from({ length: 9 }, () => ({ type: 'placeholder' as const, minHeight: '4rem' })) },
+  pageSkeletonPanel('tp-products__panel', '18rem', '12rem'),
+]} />;
  return <main className="tp-products"><header className="tp-products__header"><div><p className="tp-products__eyebrow">TRADEPILOT / CATALOG / PRODUCT</p><h1>{product.name}</h1><p>{product.english_name||'—'} · SKU {product.sku||'—'}</p></div><div className="tp-products__actions"><Link href="/products">返回列表</Link><Button kind="tertiary" onClick={()=>void archive()} disabled={product.product_status==='discontinued'||product.product_status==='obsolete'}>停售产品</Button><Link href={'/products/'+product.id+'/edit'} renderIcon={CarbonIcons.Edit}>编辑产品</Link></div></header>{error&&<InlineNotification kind="error" title="操作失败" subtitle={error}/>}<section className="tp-products__detail-hero"><div className="tp-products__detail-image">{imageUrl?<img src={imageUrl} alt={product.name}/>:<CarbonIcons.Product size={56}/>}</div><div className="tp-products__detail-main"><Tag type={product.product_status==='on_sale'?'green':product.product_status==='obsolete'?'red':'cool-gray'}>{statusOptions.find(x=>x[0]===product.product_status)?.[1]||product.product_status}</Tag><h2>{product.name}</h2><p>{product.english_name||'—'}</p><div className="tp-products__detail-grid"><div><span>品牌 / 型号</span><strong>{[product.brand,product.model_number].filter(Boolean).join(' / ')||'—'}</strong></div><div><span>分类</span><strong>{product.category||'—'}</strong></div><div><span>标准售价</span><strong>{product.default_currency||''} {product.default_unit_price??'—'}</strong></div><div><span>基本单位</span><strong>{product.base_unit||product.unit}</strong></div><div><span>HS 编码</span><strong>{product.hs_code||'—'}</strong></div><div><span>原产地</span><strong>{product.country_of_origin||'—'}</strong></div></div></div></section>
  <section className="tp-products__panel"><h2>产品属性与贸易数据</h2><div className="tp-products__detail-grid">{Object.entries(d).filter(([,v])=>!Array.isArray(v)&&typeof v!=='object'&&v!==''&&v!==null&&typeof v!=='boolean').slice(0,32).map(([k,v])=><div key={k}><span>{k}</span><strong>{String(v)}</strong></div>)}</div></section>
  <section className="tp-products__panel"><div className="tp-products__panel-head"><div><h2>关联订单明细</h2><p>历史订单保留交易时的产品名称、SKU、规格和价格快照。</p></div><Tag type="blue">{orders.length} 条</Tag></div><div className="tp-products__table-wrap"><Table><TableHead><TableRow><TableHeader>订单明细名称</TableHeader><TableHeader>SKU 快照</TableHeader><TableHeader>数量</TableHeader><TableHeader>单价</TableHeader><TableHeader>金额</TableHeader><TableHeader>日期</TableHeader></TableRow></TableHead><TableBody>{orders.map(o=><TableRow key={o.id}><TableCell>{o.product_name}</TableCell><TableCell>{o.sku||'—'}</TableCell><TableCell>{o.quantity} {o.unit}</TableCell><TableCell>{o.unit_price}</TableCell><TableCell>{o.amount??'—'}</TableCell><TableCell>{new Date(o.created_at).toLocaleDateString()}</TableCell></TableRow>)}</TableBody></Table>{!orders.length&&<p className="tp-products__empty">暂无订单引用。</p>}</div></section>
