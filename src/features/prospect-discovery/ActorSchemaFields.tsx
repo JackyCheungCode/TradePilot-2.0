@@ -93,7 +93,7 @@ async function mapLimit<T, R>(items: T[], limit: number, mapper: (item: T, index
 }
 
 export function ActorSchemaFields({ sources, onValuesChange }: Props) {
-  const actorSources = useMemo(() => sources.filter(source => !['google-maps', 'google-search', 'facebook', 'instagram'].includes(source.id)), [sources]);
+  const actorSources = useMemo(() => sources, [sources]);
   const [items, setItems] = useState<LoadedSchema[]>([]);
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [expandedHelp, setExpandedHelp] = useState<Record<string, boolean>>({});
@@ -175,7 +175,7 @@ export function ActorSchemaFields({ sources, onValuesChange }: Props) {
     </div>
     {loading && <InlineLoading description="正在匹配数据源并读取输入字段…" />}
     {error && <InlineNotification kind="error" title="动态参数读取失败" subtitle={error} />}
-    {!loading && !error && !items.length && <InlineNotification kind="info" title="暂无可用参数 Schema" subtitle="当前平台没有找到可访问且返回输入结构的 Actor；现有搜索渠道仍按原流程执行。" />}
+    {!loading && !error && !items.length && <InlineNotification kind="info" title="暂无可用参数 Schema" subtitle="当前所选平台尚未找到可读取的 Actor Schema；请检查数据源目录和 API 凭证。" />}
     {items.map(item => {
       const properties = item.schema.properties ?? {};
       const required = new Set(item.schema.required ?? []);
