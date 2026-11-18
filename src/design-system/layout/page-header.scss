@@ -75,9 +75,17 @@
   word-break:keep-all;
   overflow-wrap:normal;
 }
-.tp-page-header .tp-page-header__actions>.cds--btn svg{
-  flex:0 0 auto;
+.tp-page-header .tp-page-header__actions>.cds--btn .tp-page-header__action-content{
+  display:inline-flex;
+  align-items:center;
+  justify-content:flex-start;
+  gap:var(--cds-spacing-03);
+  min-width:0;
+  white-space:nowrap;
 }
+.tp-page-header .tp-page-header__actions>.cds--btn .tp-page-header__action-label{white-space:nowrap}
+.tp-page-header .tp-page-header__actions>.cds--btn .tp-page-header__action-content svg{flex:0 0 auto}
+
 @media(max-width:42rem){
   .tp-page-header.tp-page-header{gap:var(--cds-spacing-06)}
   .tp-page-header .tp-page-header__actions{

@@ -87,6 +87,16 @@ function resolveActionIcon(label: string, supplied: unknown, childIcon?: CarbonA
   return childIcon ?? inferActionIcon(label);
 }
 
+function actionContent(children: ReactNode, icon?: CarbonActionIcon): ReactNode {
+  if (!icon) return children;
+  return createElement(
+    'span',
+    { className: 'tp-page-header__action-content' },
+    createElement(icon, { size: 16 }),
+    createElement('span', { className: 'tp-page-header__action-label' }, children),
+  );
+}
+
 function normalizeLegacyActions(node: ReactNode, primaryAssigned: { current: boolean }): ReactNode {
   if (Array.isArray(node)) return node.map((child) => normalizeLegacyActions(child, primaryAssigned));
   if (!isValidElement(node)) return node;
@@ -104,18 +114,18 @@ function normalizeLegacyActions(node: ReactNode, primaryAssigned: { current: boo
     const className = [String(props.className || ''), 'tp-page-header__action'].filter(Boolean).join(' ');
     const suppliedIcon = props.renderIcon;
     const renderIcon = resolveActionIcon(label, suppliedIcon, extracted.icon);
-    const iconProps = renderIcon ? { renderIcon } : {};
+    const content = actionContent(extracted.children, renderIcon);
 
     if (node.type === Button) {
-      return cloneElement(node, { kind, size: 'lg', className, ...iconProps } as Record<string, unknown>, extracted.children);
+      return cloneElement(node, { kind, size: 'lg', className, renderIcon: undefined } as Record<string, unknown>, content);
     }
     return createElement(Button, {
       ...(props as Record<string, unknown>),
       kind,
       size: 'lg',
       className,
-      ...iconProps,
-    } as never, extracted.children);
+      renderIcon: undefined,
+    } as never, content);
   }
 
   if (children === undefined) return node;
@@ -179,8 +189,8 @@ export function PageHeader({ breadcrumb, title, description, actions, className 
       {normalizedActions.length > 0 && (
         <ButtonSet className="tp-page-header__actions">
           {normalizedActions.map((action) => (
-            <Button key={action.id} kind={action.kind} size="lg" renderIcon={resolveActionIcon(action.label, action.icon)} href={action.href} onClick={action.onClick} disabled={action.disabled}>
-              {action.label}
+            <Button key={action.id} kind={action.kind} size="lg" href={action.href} onClick={action.onClick} disabled={action.disabled}>
+              {actionContent(action.label, resolveActionIcon(action.label, action.icon))}
             </Button>
           ))}
         </ButtonSet>
