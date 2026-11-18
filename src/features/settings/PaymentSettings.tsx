@@ -205,7 +205,7 @@ export function PaymentSettings() {
   };
 
 
-  if (loading) return <PageSkeleton variant="table" />;
+  if (loading) return <PageSkeleton variant="form" />;
   return <div className="tp-settings__advanced tp-payment-settings">
     {error&&<InlineNotification kind="error" title="收款设置操作失败" subtitle={error} onCloseButtonClick={()=>setError('')}/>}
     {notice&&<InlineNotification kind="success" title="操作成功" subtitle={notice} onCloseButtonClick={()=>setNotice('')}/>}
