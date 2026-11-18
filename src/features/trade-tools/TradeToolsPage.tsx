@@ -1,7 +1,7 @@
 import { PageHeader } from '@/design-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Button, Dropdown, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput, TextArea,
+  Button, Dropdown, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput, TextArea, semanticIcons,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/trade-tools.scss';
