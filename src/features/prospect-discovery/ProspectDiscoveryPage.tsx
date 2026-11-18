@@ -85,7 +85,6 @@ export function ProspectDiscoveryPage() {
           sources={selectedSources ?? []}
           actorParameters={actorParameters}
           planTaskCode={planTaskCode}
-          onEditStep={setSelectedIndex}
           onContinueToScoring={ids => {
             try { localStorage.setItem('tradepilot.prospect-scoring.queue.v1', JSON.stringify(ids)); } catch { /* Keep navigation available if local storage is full. */ }
             setSelectedIndex(3);
