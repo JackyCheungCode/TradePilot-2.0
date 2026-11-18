@@ -287,19 +287,9 @@
   font-size: .75rem;
   font-weight: 600;
 }
-.tp-workbench__global-map-switch .cds--btn {
-  width: 100%;
-  min-height: 3.25rem;
-  justify-content: flex-start;
-  text-align: left;
-}
-.tp-workbench__global-map-switch .cds--btn small {
-  display: block;
-  margin-left: .5rem;
-  font-size: .6875rem;
-  font-weight: 400;
-  opacity: .8;
-}
+.tp-workbench__global-map-switch .cds--content-switcher { width: 100%; }
+.tp-workbench__global-map-switch .cds--content-switcher-btn { min-width: 0; padding-inline: var(--cds-spacing-02); }
+.tp-workbench__global-map-switch-detail { margin: var(--cds-spacing-02) 0 0; color: var(--cds-text-secondary); font-size: var(--cds-label-01-font-size); }
 .tp-workbench__global-map-ranking {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
