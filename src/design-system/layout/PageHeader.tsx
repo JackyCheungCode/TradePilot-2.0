@@ -1,6 +1,9 @@
-import { Children, cloneElement, createElement, isValidElement, type ReactElement, type ReactNode } from 'react';
+import { Children, Fragment, cloneElement, createElement, isValidElement, type ReactElement, type ReactNode } from 'react';
+import { ArrowLeft, ArrowRight, Add, Checkmark, Download, Edit, Renew, Save, Send, TrashCan, Upload } from '../icons';
 import { Button, ButtonSet, Heading, Link } from '../components';
 import './page-header.scss';
+
+type CarbonActionIcon = typeof Add;
 
 export type PageHeaderAction = {
   id: string;
@@ -21,6 +24,25 @@ export type PageHeaderProps = {
   children?: ReactNode;
 };
 
+const actionIconRules: Array<[RegExp, CarbonActionIcon]> = [
+  [/^(返回|取消|上一步|返回列表|返回单据中心|返回制作中心)/, ArrowLeft],
+  [/^(保存|存储|草稿|更新|提交保存)/, Save],
+  [/^(新建|创建|新增|添加|导入|绑定)/, Add],
+  [/^(刷新|重试|重新载入)/, Renew],
+  [/^(编辑|修改)/, Edit],
+  [/^(导出|下载)/, Download],
+  [/^(上传|导入文件)/, Upload],
+  [/^(删除|移除|撤销|作废)/, TrashCan],
+  [/^(确认|完成|通过|接受|核销|提交)/, Checkmark],
+  [/^(发送|发出|通知)/, Send],
+  [/^(查看|进入|下一步|打开|继续|管理|生成)/, ArrowRight],
+];
+
+function inferActionIcon(label: string): CarbonActionIcon | undefined {
+  const normalized = label.trim().replace(/[：:…]+$/, '');
+  return actionIconRules.find(([pattern]) => pattern.test(normalized))?.[1] ?? (normalized ? ArrowRight : undefined);
+}
+
 function isActionElement(node: ReactNode): node is ReactElement<Record<string, unknown>> {
   return isValidElement(node) && (node.type === Button || node.type === Link);
 }
@@ -32,6 +54,49 @@ function nodeText(node: ReactNode): string {
   return '';
 }
 
+function isIconElement(node: ReactNode): node is ReactElement<Record<string, unknown>> {
+  if (!isValidElement(node)) return false;
+  const props = node.props as Record<string, unknown>;
+  const componentName = typeof node.type === 'function' ? node.type.name : '';
+  return Boolean(componentName && /^[A-Z]/.test(componentName) && (typeof props.size === 'number' || typeof props.size === 'string'));
+}
+
+function extractChildIcon(children: ReactNode): { children: ReactNode; icon?: CarbonActionIcon } {
+  let icon: CarbonActionIcon | undefined;
+  const visit = (node: ReactNode): ReactNode => {
+    if (Array.isArray(node)) return node.map(visit).filter((child) => child !== null);
+    if (!isValidElement(node)) return node;
+    if (!icon && isIconElement(node)) {
+      icon = node.type as CarbonActionIcon;
+      return null;
+    }
+    if (node.type === Fragment) {
+      return cloneElement(node, { children: visit((node.props as Record<string, unknown>).children as ReactNode) } as Record<string, unknown>);
+    }
+    return node;
+  };
+  return { children: visit(children), icon };
+}
+
+function resolveActionIcon(label: string, supplied: unknown, childIcon?: CarbonActionIcon): CarbonActionIcon | undefined {
+  if (isValidElement(supplied)) {
+    const componentType = supplied.type;
+    if (typeof componentType === 'function' || (typeof componentType === 'object' && componentType !== null)) return componentType as CarbonActionIcon;
+  }
+  if (typeof supplied === 'function' || (typeof supplied === 'object' && supplied !== null)) return supplied as CarbonActionIcon;
+  return childIcon ?? inferActionIcon(label);
+}
+
+function actionContent(children: ReactNode, icon?: CarbonActionIcon): ReactNode {
+  if (!icon) return children;
+  return createElement(
+    'span',
+    { className: 'tp-page-header__action-content' },
+    createElement(icon, { size: 16 }),
+    createElement('span', { className: 'tp-page-header__action-label' }, children),
+  );
+}
+
 function normalizeLegacyActions(node: ReactNode, primaryAssigned: { current: boolean }): ReactNode {
   if (Array.isArray(node)) return node.map((child) => normalizeLegacyActions(child, primaryAssigned));
   if (!isValidElement(node)) return node;
@@ -40,25 +105,27 @@ function normalizeLegacyActions(node: ReactNode, primaryAssigned: { current: boo
 
   if (isActionElement(node)) {
     const label = nodeText(children);
-    const inferredPrimary = /^(新建|创建|新增|添加|导入|保存|生成|开始)/.test(label.trim());
-    const primary = !primaryAssigned.current && (props.kind === 'primary' || inferredPrimary);
+    const extracted = extractChildIcon(children);
+    const inferredPrimary = /^(新建|创建|新增|添加|导入|保存|生成|开始|create|add|import)/i.test(label.trim());
+    const primaryClass = /(?:^|[-_])primary(?:$|[-_])/.test(String(props.className || ''));
+    const primary = !primaryAssigned.current && (props.kind === 'primary' || primaryClass || inferredPrimary);
     if (primary) primaryAssigned.current = true;
     const kind = primary ? 'primary' : 'tertiary';
     const className = [String(props.className || ''), 'tp-page-header__action'].filter(Boolean).join(' ');
+    const suppliedIcon = props.renderIcon;
+    const renderIcon = resolveActionIcon(label, suppliedIcon, extracted.icon);
+    const content = actionContent(extracted.children, renderIcon);
 
-    // Carbon renderIcon expects a component type, never a rendered React element.
-    // Keep legacy inline SVG/icon elements as ordinary button children to avoid React #130.
-    const renderIcon = isValidElement(props.renderIcon) ? undefined : props.renderIcon;
     if (node.type === Button) {
-      return cloneElement(node, { kind, size: 'lg', className, ...(renderIcon === undefined ? {} : { renderIcon }) } as Record<string, unknown>);
+      return cloneElement(node, { kind, size: 'lg', className, renderIcon: undefined } as Record<string, unknown>, content);
     }
     return createElement(Button, {
       ...(props as Record<string, unknown>),
       kind,
       size: 'lg',
       className,
-      ...(renderIcon === undefined ? {} : { renderIcon }),
-    } as never, children);
+      renderIcon: undefined,
+    } as never, content);
   }
 
   if (children === undefined) return node;
@@ -73,7 +140,7 @@ function normalizeLegacyActions(node: ReactNode, primaryAssigned: { current: boo
       return [item];
     });
     if (items.length > 0 && items.every(isActionElement)) {
-      normalizedChildren = [...items].sort((a, b) => Number((a as ReactElement).props.kind === 'primary') - Number((b as ReactElement).props.kind === 'primary'));
+      normalizedChildren = [...items].sort((a, b) => Number((b as ReactElement).props.kind === 'primary') - Number((a as ReactElement).props.kind === 'primary'));
     }
   }
   return cloneElement(node, { children: normalizedChildren } as Record<string, unknown>);
@@ -122,8 +189,8 @@ export function PageHeader({ breadcrumb, title, description, actions, className 
       {normalizedActions.length > 0 && (
         <ButtonSet className="tp-page-header__actions">
           {normalizedActions.map((action) => (
-            <Button key={action.id} kind={action.kind} size="lg" renderIcon={action.icon && !isValidElement(action.icon) ? action.icon as never : undefined} href={action.href} onClick={action.onClick} disabled={action.disabled}>
-              {action.label}
+            <Button key={action.id} kind={action.kind} size="lg" href={action.href} onClick={action.onClick} disabled={action.disabled}>
+              {actionContent(action.label, resolveActionIcon(action.label, action.icon))}
             </Button>
           ))}
         </ButtonSet>
