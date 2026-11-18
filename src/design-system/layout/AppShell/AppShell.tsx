@@ -24,9 +24,25 @@ export function AppShell() {
   const [communicationsUnreadCount, setCommunicationsUnreadCount] = useState(0);
   const [signingOut, setSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const { preference, setPreference } = useThemePreference();
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    let active = true;
+    let subscription: { unsubscribe: () => void } | undefined;
+    void getSupabaseClient().then(async (client) => {
+      const syncAvatar = (user: { user_metadata?: Record<string, unknown> } | null) => {
+        if (active) setAvatarUrl(typeof user?.user_metadata?.avatar_url === 'string' ? user.user_metadata.avatar_url : null);
+      };
+      const listener = client.auth.onAuthStateChange((_event, session) => syncAvatar(session?.user ?? null));
+      subscription = listener.data.subscription;
+      const { data } = await client.auth.getSession();
+      syncAvatar(data.session?.user ?? null);
+    }).catch(() => { if (active) setAvatarUrl(null); });
+    return () => { active = false; subscription?.unsubscribe(); };
+  }, []);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(max-width: 1055px)');
@@ -122,12 +138,12 @@ export function AppShell() {
           <OverflowMenu
             ariaLabel="账户菜单"
             iconDescription="账户菜单"
-            renderIcon={CarbonIcons.User}
+            renderIcon={() => avatarUrl ? <img className="tp-account-menu__avatar" src={avatarUrl} alt="" /> : <CarbonIcons.UserAvatar size={20} />}
             flipped
             size="lg"
             className="tp-account-menu"
           >
-            <OverflowMenuItem itemText="个人设置" disabled />
+            <OverflowMenuItem itemText="个人设置" onClick={() => navigate('/personal-settings')} />
             <OverflowMenuItem
               itemText={signingOut ? '正在退出系统…' : '退出系统'}
               disabled={signingOut}
