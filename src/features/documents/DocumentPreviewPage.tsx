@@ -180,11 +180,6 @@ export function DocumentPreviewPage() {
     { type: 'group', direction: 'column', gap: 'var(--cds-spacing-02)', children: [{ type: 'text', width: '12rem' }, { type: 'text', heading: true, width: '18rem' }, { type: 'text', width: '14rem' }] },
     { type: 'group', direction: 'row', gap: 'var(--cds-spacing-03)', className: 'tp-document-preview__actions', children: Array.from({ length: 5 }, () => ({ type: 'placeholder' as const, width: '6rem', height: '2.5rem' })) },
   ] },
-  { type: 'group', direction: 'column', gap: 'var(--cds-spacing-04)', className: 'tp-document-preview__policy-snapshot', children: [
-    { type: 'text', heading: true, width: '12rem' },
-    { type: 'group', direction: 'grid', columns: 4, gap: 'var(--cds-spacing-04)', children: Array.from({ length: 4 }, () => ({ type: 'placeholder' as const, height: '2.5rem' })) },
-    { type: 'text', width: '24rem' },
-  ] },
   { type: 'group', direction: 'column', gap: '2rem', className: 'tp-document-preview__sheet', children: [
     { type: 'group', direction: 'row', gap: '2rem', className: 'tp-document-preview__paper-header', children: [
       { type: 'group', direction: 'column', gap: 'var(--cds-spacing-03)', children: [{ type: 'placeholder', width: '4.5rem', height: '4.5rem' }, { type: 'text', heading: true, width: '12rem' }, { type: 'text', width: '10rem' }] },
