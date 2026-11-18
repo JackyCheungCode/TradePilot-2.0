@@ -40,7 +40,8 @@ function normalizeLegacyActions(node: ReactNode, primaryAssigned: { current: boo
     const requestedPrimary = props.kind === 'primary';
     const primary = !primaryAssigned.current && (requestedPrimary || inferredPrimary);
     if (primary) primaryAssigned.current = true;
-    const isButton = (node.type as { name?: string }).name === 'Button' || props.kind !== undefined;
+    const typeName = typeof node.type === 'string' ? node.type : (node.type as { displayName?: string; name?: string }).displayName || (node.type as { name?: string }).name || '';
+    const isButton = typeName === 'Button' || props.kind !== undefined || props.renderIcon !== undefined || props.disabled !== undefined || props.size !== undefined || props.onClick !== undefined;
     const kind = primary ? 'primary' : (props.kind === 'danger' || String(props.kind || '').startsWith('danger') ? props.kind : 'tertiary');
     const className = [String(props.className || ''), 'tp-page-header__action'].filter(Boolean).join(' ');
     return isButton
@@ -84,9 +85,12 @@ export function PageHeader({ breadcrumb, title, description, actions, className 
 
   const primaryCount = (actions || []).filter((action) => action.kind === 'primary').length;
   if (import.meta.env.DEV && primaryCount > 1) console.warn('PageHeader accepts at most one primary action.');
+  const explicitPrimary = (actions || []).findIndex((action) => action.kind === 'primary');
+  const inferredPrimary = (actions || []).findIndex((action) => /^(新建|创建|新增|添加|导入|保存|生成|开始|create|add|import)/i.test(action.label.trim()));
+  const primaryIndex = explicitPrimary >= 0 ? explicitPrimary : inferredPrimary;
   const normalizedActions = (actions || []).map((action, index) => ({
     ...action,
-    kind: action.kind === 'primary' && index === (actions || []).findIndex((item) => item.kind === 'primary') ? 'primary' as const : 'tertiary' as const,
+    kind: index === primaryIndex ? 'primary' as const : 'tertiary' as const,
   }));
   return (
     <header className={classes}>
