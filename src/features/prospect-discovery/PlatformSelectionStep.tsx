@@ -272,7 +272,7 @@ const platformLettermarkColors: Record<string, { backgroundColor: string; color:
   kvk: { backgroundColor: '#f39200', color: '#ffffff' },
 };
 const platformLettermark = (name: string) => {
-  const words = name.replace(/[^\\p{L}\\p{N}]+/gu, ' ').trim().split(/\\s+/).filter(Boolean);
+  const words = name.replace(/[^\p{L}\p{N}]+/gu, ' ').trim().split(/\s+/).filter(Boolean);
   return (words.length > 1 ? words.slice(0, 2).map(word => word[0]) : [name.slice(0, 2)]).join('').toLocaleUpperCase();
 };
 const platformLettermarkStyle = (id: string) => platformLettermarkColors[id] ?? {
