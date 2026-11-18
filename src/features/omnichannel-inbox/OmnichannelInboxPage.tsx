@@ -1,3 +1,4 @@
+import { PageHeader } from '@/design-system';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Button, Search, ClickableTile, TextInput, TextArea, Dropdown, Tag, InlineNotification, Modal, ModalBody, IconButton, Heading, Tile, LineChart, ScaleTypes, CarbonIcons, Breadcrumb, BreadcrumbItem, ContentSwitcher, Switch,
@@ -187,10 +188,10 @@ export function OmnichannelInboxPage() {
       <BreadcrumbItem href="/dashboard">概览</BreadcrumbItem>
       <BreadcrumbItem isCurrentPage>混合聊天</BreadcrumbItem>
     </Breadcrumb>
-    <header className="oi-page-header">
+    <PageHeader className="oi-page-header">
       <div><Heading className="oi-page-title">混合聊天</Heading><p>统一管理跨渠道客户沟通与跟进</p></div>
       <Tag type="cool-gray">{conversations.length} 个会话</Tag>
-    </header>
+    </PageHeader>
     <section className="oi-metrics-row" aria-label="会话统计">
       <Tile className="oi-metric-tile">
         <div className="oi-metric-copy"><span>未读对话</span><Heading>{unreadConversationCount}</Heading><small>有未读消息的会话</small></div>

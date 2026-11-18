@@ -1,3 +1,4 @@
+import { PageHeader } from '@/design-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AreaChart, DonutChart, SimpleBarChart } from '@carbon/charts-react';
 import {
@@ -166,14 +167,14 @@ export function ProspectDataPage() {
 
   return (
     <main className="tp-prospect-hub tp-prospect-data">
-      <header className="tp-prospect-hub__header tp-prospect-data__header">
+      <PageHeader className="tp-prospect-hub__header tp-prospect-data__header">
         <div><p className="tp-prospect-hub__eyebrow">TRADEPILOT / CRM · GLOBAL PROSPECT INTELLIGENCE</p><h1>潜客数据</h1><p>全球渠道统一汇聚 · 多维资产洞察 · 从发现到 CRM 转化</p></div>
         <div className="tp-prospect-data__actions">
           <Link href="/prospect-discovery" renderIcon={CarbonIcons.Search}>潜客发现</Link>
           <Link href="/prospect-history" renderIcon={CarbonIcons.Time}>历史任务</Link>
           <Button kind="ghost" renderIcon={CarbonIcons.Renew} disabled={loading || refreshing} onClick={() => { setRefreshing(true); void load(); }}>刷新数据</Button>
         </div>
-      </header>
+      </PageHeader>
 
       {error && <InlineNotification kind="error" lowContrast title="数据读取失败" subtitle={error} onCloseButtonClick={() => setError('')} />}
       <section className="tp-prospect-data__overview">

@@ -1,3 +1,4 @@
+import { PageHeader } from '@/design-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
@@ -100,9 +101,9 @@ export function OpportunityConsolePage() {
   const accountMap = new Map(accounts.map(a=>[a.id,a.account_name] as [string,string]));
   const contactMap = new Map(contacts.map(c=>[c.id,contactName(c)]));
   return <main className="tp-opportunities">
-    <header className="tp-opportunities__header"><div><p className="tp-opportunities__eyebrow">TRADEPILOT / CRM</p><h1>商机（Opportunity）</h1><p>管理销售机会、阶段、预测金额、客户关系与跟进计划。</p></div>
+    <PageHeader className="tp-opportunities__header"><div><p className="tp-opportunities__eyebrow">TRADEPILOT / CRM</p><h1>商机（Opportunity）</h1><p>管理销售机会、阶段、预测金额、客户关系与跟进计划。</p></div>
       <div className="tp-opportunities__actions"><Button kind="tertiary" onClick={()=>void load()} disabled={loading}><CarbonIcons.Renew size={16}/>刷新</Button><Link href="/opportunities/new" renderIcon={CarbonIcons.Add}>新建商机</Link></div>
-    </header>
+    </PageHeader>
     {error&&<InlineNotification kind="error" title="商机数据读取失败" subtitle={error}/>}
     <div className="tp-opportunities__metrics"><Metric title="全部商机" value={String(rows.length)} detail="当前可见商机"/><Metric title="进行中" value={String(open.length)} detail="尚未关闭"/><Metric title="预计管道金额" value={pipeline} detail="按商机金额汇总"/><Metric title="加权预测金额" value={weighted} detail="金额 × 赢率"/></div>
     <section className="tp-opportunities__panel tp-opportunities__analytics">
@@ -149,7 +150,7 @@ export function OpportunityFormPage() {
     }catch(e){setError(e instanceof Error?e.message:'保存商机失败')}finally{setSaving(false)}
   };
   if(loading)return <main className="tp-opportunities"><InlineLoading description="正在读取商机资料…"/></main>;
-  return <main className="tp-opportunities"><header className="tp-opportunities__header"><div><p className="tp-opportunities__eyebrow">TRADEPILOT / CRM / OPPORTUNITY</p><h1>{editing?'编辑商机':'新建商机'}</h1><p>按业务分组维护商机信息；客户与联系人保持独立关联。</p></div><div className="tp-opportunities__actions"><Link href="/opportunities">返回列表</Link><Button kind="primary" disabled={saving} onClick={()=>void save()}>{saving?'保存中…':'保存商机'}</Button></div></header>
+  return <main className="tp-opportunities"><PageHeader className="tp-opportunities__header"><div><p className="tp-opportunities__eyebrow">TRADEPILOT / CRM / OPPORTUNITY</p><h1>{editing?'编辑商机':'新建商机'}</h1><p>按业务分组维护商机信息；客户与联系人保持独立关联。</p></div><div className="tp-opportunities__actions"><Link href="/opportunities">返回列表</Link><Button kind="primary" disabled={saving} onClick={()=>void save()}>{saving?'保存中…':'保存商机'}</Button></div></PageHeader>
     {error&&<InlineNotification kind="error" title="商机保存失败" subtitle={error}/>}
     <section className="tp-opportunities__primary"><div className="tp-opportunities__grid"><div className="tp-opportunities__field tp-opportunities__field--wide"><TextInput id="opp-name" labelText="商机名称 *" value={data.name} onChange={e=>set('name',e.currentTarget.value)} placeholder="例如：欧洲市场智能音箱采购项目"/></div><div className="tp-opportunities__field tp-opportunities__number-note"><span>商机编号</span><p>{editing?'保存时保留系统编号':'保存后自动生成'}</p></div>{select('opp-account','所属客户 *',data.account_id,v=>{set('account_id',v);set('primary_contact_id','')},accounts.map(a=>[a.id,a.account_name]))}{select('opp-contact','主要联系人',data.primary_contact_id,v=>set('primary_contact_id',v),[['','请选择联系人'],...availableContacts.map(c=>[c.id,contactName(c)] as [string,string])])}</div></section>
     <section className="tp-opportunities__tabs"><Tabs><TabList aria-label="商机字段分组" contained>{['商机信息','销售阶段','商业金额','销售管理','时间计划','竞争情况','跟进记录'].map(t=><Tab key={t}>{t}</Tab>)}</TabList><TabPanels>
@@ -216,9 +217,9 @@ export function OpportunityDetailPage() {
  if(loading)return <main className="tp-opportunities"><InlineLoading description="正在读取商机详情…"/></main>;
  if(error||!row)return <main className="tp-opportunities"><InlineNotification kind="error" title="无法打开商机" subtitle={error||'商机不存在'}/><Link href="/opportunities">返回列表</Link></main>;
  return <main className="tp-opportunities">
-   <header className="tp-opportunities__header"><div><p className="tp-opportunities__eyebrow">TRADEPILOT / CRM / OPPORTUNITY</p><h1>{row.name}</h1><p>{row.opportunity_number} · {account} · {stageLabel(row.stage)}</p></div>
+   <PageHeader className="tp-opportunities__header"><div><p className="tp-opportunities__eyebrow">TRADEPILOT / CRM / OPPORTUNITY</p><h1>{row.name}</h1><p>{row.opportunity_number} · {account} · {stageLabel(row.stage)}</p></div>
      <div className="tp-opportunities__actions tp-responsive-header-actions"><Link className="tp-opportunities__primary-action tp-responsive-header-actions__primary" href={'/opportunities/'+row.id+'/edit'} renderIcon={CarbonIcons.Edit}>编辑商机</Link><div className="tp-opportunities__secondary-actions tp-responsive-header-actions__secondary"><Link href="/opportunities">返回列表</Link><Link href={'/quotes/new?opportunity='+row.id} renderIcon={CarbonIcons.Document}>创建报价单</Link><Button kind="tertiary" disabled={terminal} onClick={openLifecycle}>管理生命周期</Button></div></div>
-   </header>
+   </PageHeader>
    <BusinessLifecycle title="商机生命周期" steps={lifecycleStages.map(([value,label])=>({value,label}))} current={row.stage} terminal={terminal} terminalKind={row.stage==='won'?'success':'warning'} terminalTitle={row.stage==='won'?'商机已赢单':'商机已输单'} description={terminal?'商机已进入终止阶段':`当前阶段：${stageLabel(row.stage)}`} events={lifecycleEvents}>
      <div className="tp-opportunities__lifecycle-foot"><span>阶段变更需要人工确认；报价、订单等下游记录的生成不会仅凭阶段按钮自动发生。</span>{!terminal&&<Button kind="tertiary" size="sm" onClick={openLifecycle}>确认下一阶段</Button>}</div>
    </BusinessLifecycle>

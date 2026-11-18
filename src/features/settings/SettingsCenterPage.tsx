@@ -1,3 +1,4 @@
+import { PageHeader } from '@/design-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
@@ -230,13 +231,13 @@ export function SettingsCenterPage() {
 
   return (
     <main className="tp-settings">
-      <header className="tp-settings__header">
+      <PageHeader className="tp-settings__header">
         <div>
           <p className="tp-settings__eyebrow">TRADEPILOT / CONFIGURATION</p>
           <h1>设置（Setting）</h1>
           <p>统一维护全站业务基础数据与规则；业务页面直接读取并使用这些配置。</p>
         </div>
-      </header>
+      </PageHeader>
 
       <Grid className="tp-settings__layout">
         <Column sm={4} md={2} lg={4}><aside className="tp-settings__sidebar" aria-label="设置业务域">
