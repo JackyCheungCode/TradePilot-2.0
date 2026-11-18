@@ -200,8 +200,8 @@ export function AppShell() {
           <div className="tp-sidenav__group-label">贸易业务</div>
           <SideNavItems>
             <SideNavLink href="/quotes" isActive={location.pathname.startsWith('/quotes')} title="报价单（Quote）" renderIcon={semanticIcons.document}>报价单（Quote）</SideNavLink>
-            <SideNavLink href="/sales-orders" isActive={location.pathname.startsWith('/sales-orders')} title="销售订单（Sales Order）" renderIcon={semanticIcons.documentTasks}>销售订单（Sales Order）</SideNavLink>
-            <SideNavLink href="/documents" isActive={location.pathname.startsWith('/documents')} title="外贸单据智能制作中心（Trade Document Studio）" renderIcon={semanticIcons.documentMultiple_01}>外贸单据智能制作中心</SideNavLink>
+            <SideNavLink href="/sales-orders" isActive={location.pathname.startsWith('/sales-orders')} title="销售订单（Sales Order）" renderIcon={semanticIcons.tasks}>销售订单（Sales Order）</SideNavLink>
+            <SideNavLink href="/documents" isActive={location.pathname.startsWith('/documents')} title="外贸单据智能制作中心（Trade Document Studio）" renderIcon={semanticIcons.documents}>外贸单据智能制作中心</SideNavLink>
             <SideNavLink href="/shipments" isActive={location.pathname.startsWith('/shipments')} title="发运（Shipment）" renderIcon={semanticIcons.delivery}>发运（Shipment）</SideNavLink>
             <SideNavLink href="/payments" isActive={location.pathname.startsWith('/payments')} title="收款（Payment）" renderIcon={semanticIcons.currency}>收款（Payment）</SideNavLink>
             <SideNavLink href="/products" isActive={location.pathname.startsWith('/products')} title="产品（Product）" renderIcon={semanticIcons.product}>产品（Product）</SideNavLink>
