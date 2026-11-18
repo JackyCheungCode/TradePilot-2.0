@@ -1,3 +1,4 @@
+import { PageHeader } from '@/design-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Button, Dropdown, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput, TextArea,
@@ -260,10 +261,10 @@ export function TradeToolsPage() {
   }).join(' ');
 
   return <main className="tp-trade-tools">
-    <header className="tp-trade-tools__header">
+    <PageHeader className="tp-trade-tools__header">
       <div><p className="tp-trade-tools__eyebrow">TRADE TOOLS</p><h1>外贸工具（Trade tools）</h1><p>每项工具独立操作，查询与结果均在对应板块内完成。</p></div>
       <Tag type="blue">6 项工具</Tag>
-    </header>
+    </PageHeader>
     <div className="tp-trade-tools__layout">
 
       <section className="tp-trade-tools__workspace">
