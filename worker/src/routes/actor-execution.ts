@@ -80,8 +80,9 @@ async function persistRaw(env: DiscoveryEnv, ownerId: string, runId: string, act
   });
 }
 async function persistCanonical(env: DiscoveryEnv, ownerId: string, runId: string, actor: ActorExecution, actorRunId: string, itemIndex: number, raw: RawItem): Promise<boolean> {
-  const item = normalizeItem(raw, countryCode);
+  const item = normalizeItem(raw);
   if (!item.name) return false;
+  const countryCode = item.countryCode;
   const dedupeKey = buildLeadDedupeKey({ countryCode, name: item.name, website: item.website, phone: item.phone, latitude: item.latitude, longitude: item.longitude });
   const previousRows = await db<Array<Record<string, unknown>>>(env,
     "discovery_records?owner_id=eq." + ownerId + "&channel=eq.actor_discovery&dedupe_key=eq." + encodeURIComponent(dedupeKey) + "&select=id,address,phone,email,website,business_type,confidence_score,raw_data&limit=1");
