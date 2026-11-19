@@ -50,6 +50,7 @@ export function GeneratedDocumentsPage() {
         selectable
         ariaLabel="已生成单据列表"
         detailPanel
+        selectionScopeKey={search}
         onRowOpen={doc=>window.location.assign('/documents/'+doc.id)}
         columnSettingsKey="trade-generated-documents"
         rowKey="id"
