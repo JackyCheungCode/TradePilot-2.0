@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Dropdown, Heading, Link, Tile, semanticIcons, ChatCustomElement, MessageResponseTypes, type ChatInstance, type CustomSendMessageOptions, type MessageRequest, type PublicConfig, type HistoryItem } from '@/design-system';
+import { Button, Dropdown, Heading, Link, Tile, semanticIcons, ChatCustomElement, MessageResponseTypes, type ChatInstance, type CustomSendMessageOptions, type MessageRequest, type ChatCustomElementProps, type RenderCustomRequestFooter, type HistoryItem } from '@/design-system';
 import { XiaoyaAvatar } from './XiaoyaAvatar';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/layout/XiaoyaSidePanel.scss';
@@ -110,6 +110,8 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
   const [taskSuggestion, setTaskSuggestion] = useState<TaskSuggestion | null>(null);
   const [taskExecuting, setTaskExecuting] = useState(false);
   const [taskError, setTaskError] = useState('');
+  const [userAvatarUrl, setUserAvatarUrl] = useState('');
+  const [userDisplayName, setUserDisplayName] = useState('你');
   const chatInstanceRef = useRef<ChatInstance | null>(null);
   const conversationIdRef = useRef('');
   const historyLoadPromiseRef = useRef<Promise<void> | null>(null);
@@ -126,6 +128,36 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
   useEffect(() => {
     if (isOpen) setHasMounted(true);
   }, [isOpen]);
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      try {
+        const client = await getSupabaseClient();
+        const { data } = await client.auth.getSession();
+        const user = data.session?.user;
+        if (!active || !user) return;
+        const metadata = user.user_metadata as Record<string, unknown>;
+        const avatar = metadata.avatar_url || metadata.picture || metadata.avatar;
+        const displayName = metadata.full_name || metadata.name || metadata.preferred_username || user.email?.split('@')[0];
+        if (typeof avatar === 'string' && /^https:\/\//i.test(avatar)) setUserAvatarUrl(avatar);
+        if (typeof displayName === 'string' && displayName.trim()) setUserDisplayName(displayName.trim());
+      } catch (error) {
+        console.error('[Xiaoya] User avatar could not be loaded', error);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
+
+  const renderUserMessageIdentity = useCallback<RenderCustomRequestFooter>(() => (
+    <div className="tp-xiaoya-user-identity" aria-label={userDisplayName}>
+      <span className="tp-xiaoya-user-identity__avatar" aria-hidden="true">
+        {userAvatarUrl ? <img src={userAvatarUrl} alt="" /> : userDisplayName.slice(0, 1).toUpperCase()}
+      </span>
+      <span className="tp-xiaoya-user-identity__name">{userDisplayName}</span>
+    </div>
+  ), [userAvatarUrl, userDisplayName]);
+
 
   useEffect(() => {
     if (!isOpen) {
@@ -306,6 +338,7 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
       } : null);
       if (rows.length) {
         setWelcomeVisible(false);
+        setAvatarEmotion('success');
         await replaceChatHistory(requestId, rows);
       } else {
         setWelcomeVisible(true);
@@ -451,10 +484,13 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
     }
   }, [taskExecuting, taskSuggestion]);
 
-  const chatConfig = useMemo<PublicConfig>(() => ({
+  const chatConfig = useMemo<ChatCustomElementProps>(() => ({
+    className: 'tp-xiaoya-chat',
     aiEnabled: true,
     assistantName: '小雅',
     assistantAvatarUrl: '/xiaoya-avatar.svg',
+    hideAvatar: false,
+    renderCustomRequestFooter: renderUserMessageIdentity,
     openChatByDefault: true,
     header: {
       isOn: false,
@@ -473,7 +509,7 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
       customLoadHistory,
       customSendMessage,
     },
-  }), [customLoadHistory, customSendMessage]);
+  }), [customLoadHistory, customSendMessage, renderUserMessageIdentity]);
 
   return (
     <div className={`tp-xiaoya-drawer-layer${isOpen ? ' is-open' : ''}`} aria-hidden={!isOpen}>
@@ -510,20 +546,20 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
           </Button>
         </div>
         <div className="tp-xiaoya-drawer__chat">
-          {hasMounted && <ChatCustomElement className="tp-xiaoya-chat" {...chatConfig} />}
+          {hasMounted && <ChatCustomElement {...chatConfig} />}
           {welcomeVisible && (
-            <section className="tp-xiaoya-welcome" aria-label="小雅助手介绍">
+            <section className="tp-xiaoya-welcome" aria-label="小雅助手介绍" aria-live="polite">
               <div className={`tp-xiaoya-welcome__avatar tp-xiaoya-welcome__avatar--${avatarEmotion}`}>
-                <XiaoyaAvatar emotion={avatarEmotion} size={192} />
+                <XiaoyaAvatar emotion={avatarEmotion} size={64} />
               </div>
-              <Heading className="tp-xiaoya-welcome__title">{welcomePhase === 'greeting' ? '你好，我是小雅！' : welcomePhase === 'loading' ? '稍等，正在加载。' : welcomePhase === 'error' ? '暂时无法加载，请稍后重试。' : '有什么可以帮你？'}</Heading>
+              <Heading className="tp-xiaoya-welcome__title">{welcomePhase === 'greeting' ? '你好，我是小雅！' : welcomePhase === 'loading' ? '小雅正在整理对话…' : welcomePhase === 'error' ? '暂时无法加载，请稍后重试。' : '有什么可以帮你？'}</Heading>
               {welcomePhase === 'greeting' && <p className="tp-xiaoya-welcome__description cds--type-label-01">我可以结合当前页面上下文，帮你分析业务数据、查找信息、梳理问题并完成日常工作。</p>}
             </section>
           )}
           {chatStatusVisible && !welcomeVisible && (
             <div className="tp-xiaoya-chat-status" role="status" aria-live="polite">
               <XiaoyaAvatar emotion={avatarEmotion} size={48} />
-              <span>{avatarEmotion === 'thinking' ? '稍等，正在加载。' : avatarEmotion === 'success' ? '有什么可以帮你？' : '小雅遇到了一点问题'}</span>
+              <span>{avatarEmotion === 'thinking' ? '小雅正在思考…' : avatarEmotion === 'success' ? '有什么可以帮你？' : '小雅遇到了一点问题'}</span>
             </div>
           )}
         </div>
