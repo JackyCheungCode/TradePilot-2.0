@@ -409,6 +409,38 @@ export function CustomerCommunicationsWidget({
     window.open(url, 'tradepilot-chat-' + activeCustomer.id, 'popup=yes,width=760,height=860,resizable=yes,scrollbars=yes');
   };
 
+  const exportChatHistory = () => {
+    if (!activeCustomer) return;
+    const lines = [
+      'TradePilot 聊天记录',
+      '客户：' + activeCustomer.name,
+      '公司：' + (activeCustomer.company || '未填写'),
+      '国家/地区：' + (activeCustomer.country || '未填写'),
+      '导出时间：' + new Date().toLocaleString(),
+      '消息数量：' + customerMessages.length,
+      '',
+      ...customerMessages.flatMap((message) => [
+        '[' + new Date(message.timestamp).toLocaleString() + '] ' +
+          (message.direction === 'inbound' ? '客户' : '我方') + ' · ' +
+          channelNames[message.channel] + ' · ' + message.status,
+        message.subject ? '主题：' + message.subject : '',
+        message.body || (message.attachment ? '附件：' + message.attachment : ''),
+        '',
+      ]),
+    ];
+    const blob = new Blob(['\uFEFF' + lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    const safeName = activeCustomer.name.replace(/[\\\\/:*?"<>|]/g, '_').trim() || '客户';
+    anchor.href = url;
+    anchor.download = 'TradePilot-聊天记录-' + safeName + '-' + new Date().toISOString().slice(0, 10) + '.txt';
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+    setNotice('已导出 ' + customerMessages.length + ' 条聊天记录。');
+  };
+
   const sendMessage = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const content = draft.trim();
@@ -480,6 +512,7 @@ export function CustomerCommunicationsWidget({
           <div className="tp-communication-header-actions">
             <span className="tp-communication-overview">{customers.length} 位客户 <span>·</span> {unreadTotal} 条未读</span>
             <Button type="button" kind="ghost" size="sm" onClick={() => void loadInbox()}>刷新</Button>
+            <Button type="button" kind="ghost" size="sm" disabled={customerMessages.length === 0} onClick={exportChatHistory}>导出聊天记录</Button>
             <Button type="button" kind="ghost" size="sm" onClick={() => setProfileOpen((value) => !value)}>{profileOpen ? '收起客户 360' : '显示客户 360'}</Button>
             <Button type="button" kind="ghost" size="sm" className="tp-chat-popout-action" onClick={openChatPopup}><span>弹出聊天窗口</span><semanticIcons.externalLink size={16} /></Button>
             {!popupMode && <Button type="button" kind="ghost" size="sm" onClick={onClose}>返回工作台</Button>}
