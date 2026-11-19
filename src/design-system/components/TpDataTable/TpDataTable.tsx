@@ -262,7 +262,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
                 )}
                 {toolbarActions}
                 {columnSettingsKey && (
-                  <Popover open={settingsOpen} onRequestClose={() => setSettingsOpen(false)}>
+                  <Popover open={settingsOpen} align="bottom-end" onRequestClose={() => setSettingsOpen(false)}>
                     <Button kind="ghost" size="sm" onClick={() => setSettingsOpen((open) => !open)}>
                       列设置
                     </Button>
