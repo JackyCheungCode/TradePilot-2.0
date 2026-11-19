@@ -332,3 +332,37 @@ test("Agent workflow retry only restarts an errored workflow from the beginning"
   assert.equal((savedPlan?.execution_steps as Array<Record<string,unknown>>)[0].status,"queued");
  }finally{restore();}
 });
+
+
+test("Agent profile only accepts enabled owner-scoped external Tools and persists their assignment",async()=>{
+ const toolKey="ext:123e4567-e89b-42d3-a456-426614174001:approved_search";
+ let saved:Record<string,unknown>|undefined;
+ const restore=withFetch(async(input,init)=>{
+  const url=String(input);
+  if(url.endsWith("/auth/v1/user"))return authResponse();
+  if(url.includes("/rest/v1/agent_tool_registry?owner_id=")&&url.includes("source=eq.external"))return Response.json([{tool_key:toolKey}]);
+  if(url.includes("/rest/v1/agent_profiles?on_conflict=owner_id,agent_key")&&init?.method==="POST"){saved=JSON.parse(String(init.body)) as Record<string,unknown>;return Response.json([{agent_key:"market_research",enabled:true,config:saved.config}]);}
+  throw new Error("Unexpected fetch: "+url+" "+String(init?.method));
+ });
+ try{
+  const response=await handleAgentCenter(new Request("https://worker.test/api/v1/agent/profiles/market_research",{method:"PUT",headers:{Authorization:"Bearer user-token","Content-Type":"application/json"},body:JSON.stringify({enabled:true,config:{toolKeys:[toolKey]}})}),env);
+  assert.equal(response.status,200);
+  assert.deepEqual((saved?.config as Record<string,unknown>).toolKeys,[toolKey]);
+ }finally{restore();}
+});
+
+test("Agent profile rejects external Tool assignments outside the owner's enabled registry",async()=>{
+ let writes=0;
+ const restore=withFetch(async(input,init)=>{
+  const url=String(input);
+  if(url.endsWith("/auth/v1/user"))return authResponse();
+  if(url.includes("/rest/v1/agent_tool_registry?owner_id=")&&url.includes("source=eq.external"))return Response.json([]);
+  if(url.includes("/rest/v1/agent_profiles?on_conflict=owner_id,agent_key"))writes++;
+  throw new Error("Unexpected fetch: "+url+" "+String(init?.method));
+ });
+ try{
+  const response=await handleAgentCenter(new Request("https://worker.test/api/v1/agent/profiles/market_research",{method:"PUT",headers:{Authorization:"Bearer user-token","Content-Type":"application/json"},body:JSON.stringify({enabled:true,config:{toolKeys:["ext:123e4567-e89b-42d3-a456-426614174001:blocked_tool"]}})}),env);
+  assert.equal(response.status,409);
+  assert.equal(writes,0);
+ }finally{restore();}
+});
