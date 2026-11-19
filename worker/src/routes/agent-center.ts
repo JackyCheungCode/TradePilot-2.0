@@ -28,7 +28,9 @@ type ConnectionRow = {
   auth_mode:AuthMode; encrypted_credentials:string|null; capabilities:string[]; protocol_tools:Array<Record<string,unknown>>; protocol_metadata:Record<string,unknown>; status:string; last_tested_at:string|null;
   last_error:string|null; created_at:string; updated_at:string;
 };
-const publicConnectionFields = "id,name,protocol,endpoint_url,auth_mode,capabilities,protocol_tools,protocol_metadata,status,last_tested_at,last_error,created_at,updated_at";\nfunction isReadOnlyTool(tool:Record<string,unknown>):boolean{return tool.risk==="read_only"&&tool.riskPolicySource==="user";}\nfunction effectiveToolRisk(tool:Record<string,unknown>):ToolRisk{return tool.risk==="blocked"?"blocked":isReadOnlyTool(tool)?"read_only":"approval_required";}
+const publicConnectionFields = "id,name,protocol,endpoint_url,auth_mode,capabilities,protocol_tools,protocol_metadata,status,last_tested_at,last_error,created_at,updated_at";
+function isReadOnlyTool(tool:Record<string,unknown>):boolean{return tool.risk==="read_only"&&tool.riskPolicySource==="user";}
+function effectiveToolRisk(tool:Record<string,unknown>):ToolRisk{return tool.risk==="blocked"?"blocked":isReadOnlyTool(tool)?"read_only":"approval_required";}
 
 async function ownerFromRequest(request:Request,env:Env):Promise<string|null>{
   const token=request.headers.get("Authorization")?.match(/^Bearer\s+(\S+)$/i)?.[1];
