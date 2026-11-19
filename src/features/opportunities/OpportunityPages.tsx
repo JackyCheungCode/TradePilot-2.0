@@ -148,6 +148,7 @@ export function OpportunityConsolePage() {
         selectable
         batchActions={[{key:'archive',label:'归档所选',onClick:selected=>{setArchiveNotice(null);setArchiveTargets(selected);}}]}
         selectionRows={filtered}
+        selectionScopeKey={`${query.trim().toLowerCase()}|${stage}|${marketCountry}`}
         columns={[
           { key: 'name', header: '商机名称', primary: true, required: true, sortable: true, minWidth: 220, render: row => <span><Link href={`/opportunities/${row.id}`} className="tp-opportunities__row-link">{row.name}</Link><span className="tp-opportunities__secondary">{row.opportunity_number}</span></span> },
           { key: 'account', header: '所属客户', minWidth: 180, sortable: true, render: row => accountMap.get(row.account_id) || '—' },
