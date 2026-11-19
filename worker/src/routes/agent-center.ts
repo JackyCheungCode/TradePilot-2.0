@@ -510,8 +510,10 @@ async function executeXiaoyaReadTools(env:Env,ownerId:string,rawCalls:unknown,al
 export async function loadXiaoyaSkillContext(env:Env,ownerId:string,selectedSkillIds?:string[]):Promise<string>{
  if(selectedSkillIds&&selectedSkillIds.length===0)return "";
  const selected=selectedSkillIds?new Set(selectedSkillIds):null;
+ if(selectedSkillIds&&selectedSkillIds.some(id=>!/^[a-z0-9][a-z0-9-]{1,79}$/.test(id)))return "";
  if(!env.SKILL_ARTIFACTS)return "";
- const rows=await db<Array<{agent_key:string;config:Record<string,unknown>}>>(env,"agent_profiles?owner_id=eq."+ownerId+"&enabled=eq.true&agent_key=like.skill%3A*&select=agent_key,config&order=updated_at.desc&limit=20");
+ const skillFilter=selectedSkillIds?"&agent_key=in.("+selectedSkillIds.map(id=>encodeURIComponent("skill:"+id)).join(",")+")":"&agent_key=like.skill%3A*";
+ const rows=await db<Array<{agent_key:string;config:Record<string,unknown>}>>(env,"agent_profiles?owner_id=eq."+ownerId+"&enabled=eq.true"+skillFilter+"&select=agent_key,config&order=updated_at.desc&limit=20");
  const sections:string[]=[];let budget=16000;
  for(const row of rows??[]){
   if(selected&&!selected.has(row.agent_key.slice(6)))continue;
