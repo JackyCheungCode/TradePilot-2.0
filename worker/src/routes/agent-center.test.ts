@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { callAgentChatModel, handleAgentCenter } from "./agent-center.ts";
+import { callAgentChatModel, filterAgentConnectionsByToolKeys, handleAgentCenter } from "./agent-center.ts";
 
 const ownerId="123e4567-e89b-42d3-a456-426614174000";
 const connectionId="123e4567-e89b-42d3-a456-426614174001";
@@ -331,4 +331,58 @@ test("Agent workflow retry only restarts an errored workflow from the beginning"
   assert.equal(runStatus,"queued");
   assert.equal((savedPlan?.execution_steps as Array<Record<string,unknown>>)[0].status,"queued");
  }finally{restore();}
+});
+
+
+test("Agent profile only accepts enabled owner-scoped external Tools and persists their assignment",async()=>{
+ const toolKey="ext:123e4567-e89b-42d3-a456-426614174001:approved_search";
+ let saved:Record<string,unknown>|undefined;
+ const restore=withFetch(async(input,init)=>{
+  const url=String(input);
+  if(url.endsWith("/auth/v1/user"))return authResponse();
+  if(url.includes("/rest/v1/agent_tool_registry?owner_id=")&&url.includes("source=eq.external"))return Response.json([{tool_key:toolKey}]);
+  if(url.includes("/rest/v1/agent_profiles?on_conflict=owner_id,agent_key")&&init?.method==="POST"){saved=JSON.parse(String(init.body)) as Record<string,unknown>;return Response.json([{agent_key:"market_research",enabled:true,config:saved.config}]);}
+  throw new Error("Unexpected fetch: "+url+" "+String(init?.method));
+ });
+ try{
+  const response=await handleAgentCenter(new Request("https://worker.test/api/v1/agent/profiles/market_research",{method:"PUT",headers:{Authorization:"Bearer user-token","Content-Type":"application/json"},body:JSON.stringify({enabled:true,config:{toolKeys:[toolKey]}})}),env);
+  assert.equal(response.status,200);
+  assert.deepEqual((saved?.config as Record<string,unknown>).toolKeys,[toolKey]);
+ }finally{restore();}
+});
+
+test("Agent profile rejects external Tool assignments outside the owner's enabled registry",async()=>{
+ let writes=0;
+ const restore=withFetch(async(input,init)=>{
+  const url=String(input);
+  if(url.endsWith("/auth/v1/user"))return authResponse();
+  if(url.includes("/rest/v1/agent_tool_registry?owner_id=")&&url.includes("source=eq.external"))return Response.json([]);
+  if(url.includes("/rest/v1/agent_profiles?on_conflict=owner_id,agent_key"))writes++;
+  throw new Error("Unexpected fetch: "+url+" "+String(init?.method));
+ });
+ try{
+  const response=await handleAgentCenter(new Request("https://worker.test/api/v1/agent/profiles/market_research",{method:"PUT",headers:{Authorization:"Bearer user-token","Content-Type":"application/json"},body:JSON.stringify({enabled:true,config:{toolKeys:["ext:123e4567-e89b-42d3-a456-426614174001:blocked_tool"]}})}),env);
+  assert.equal(response.status,409);
+  assert.equal(writes,0);
+ }finally{restore();}
+});
+
+
+test("Agent Tool filtering exposes only registered enabled tools assigned to the selected Agent",()=>{
+ const connections=[{id:"connection-a",protocol_tools:[{name:"search_one"},{name:"search_two"}]},{id:"connection-b",protocol_tools:[{name:"lookup_company"}]}] as unknown as Parameters<typeof filterAgentConnectionsByToolKeys>[0];
+ const registry=[
+  {tool_key:"ext:connection-a:search_one",connection_id:"connection-a",protocol_tool_name:"search_one"},
+  {tool_key:"ext:connection-a:search_two",connection_id:"connection-a",protocol_tool_name:"search_two"},
+  {tool_key:"ext:connection-b:lookup_company",connection_id:"connection-b",protocol_tool_name:"lookup_company"}
+ ];
+ const assigned=new Set(["ext:connection-a:search_two","ext:connection-b:lookup_company"]);
+ const filtered=filterAgentConnectionsByToolKeys(connections,registry,assigned);
+ assert.deepEqual(filtered.map(connection=>connection.protocol_tools.map(tool=>String(tool.name))),[["search_two"],["lookup_company"]]);
+});
+
+test("Agent Tool filtering returns no external tools when the Agent has an explicit empty assignment",()=>{
+ const connections=[{id:"connection-a",protocol_tools:[{name:"search_one"}]}] as unknown as Parameters<typeof filterAgentConnectionsByToolKeys>[0];
+ const registry=[{tool_key:"ext:connection-a:search_one",connection_id:"connection-a",protocol_tool_name:"search_one"}];
+ const filtered=filterAgentConnectionsByToolKeys(connections,registry,new Set());
+ assert.deepEqual(filtered[0].protocol_tools,[]);
 });

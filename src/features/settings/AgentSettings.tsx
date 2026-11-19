@@ -6,7 +6,9 @@ import { AgentHistoryManagement } from './AgentHistoryManagement';
 type Provider = { id: string; name: string; model: string; protocol: string; configured?: boolean | string; baseUrl?: string; providerKey?: string; secretName?: string };
 type AIConfig = { providers?: Provider[]; taskModels?: Record<string,string>; defaultModel?: string };
 type SkillOption = { id:string; label:string; enabled:boolean; state:string };
-type Profile = { agent_key: string; enabled: boolean; config: { systemPrompt?: string; description?: string; modelRef?: string; skillIds?: string[] } };
+type ToolOption = { toolKey:string; name:string; source:string; enabled?:boolean; status?:string; risk:string; connectionName?:string };
+type ToolRegistry = { items:ToolOption[] };
+type Profile = { agent_key: string; enabled: boolean; config: { systemPrompt?: string; description?: string; modelRef?: string; skillIds?: string[]; toolKeys?: string[] } };
 type Appearance = { shape: string; color: string; styleId: string; variant: string; face: string; eyeColor: string; eyeScale: number };
 const agentLabels: Record<string,string> = {
   buyer_development: '全球买家开发 Agent', market_research: '市场研究 Agent',
@@ -27,6 +29,7 @@ export function AgentSettings({ section }: { section: string }) {
   const [selectedModel,setSelectedModel] = useState('');
   const [profiles,setProfiles] = useState<Profile[]>([]);
   const [skills,setSkills] = useState<SkillOption[]>([]);
+  const [tools,setTools] = useState<ToolOption[]>([]);
   const [appearance,setAppearance] = useState<Appearance>({shape:'blob',color:'ivory',styleId:'vector',variant:'soft',face:'cute',eyeColor:'#1A1A1A',eyeScale:1});
   const [avatarAgents,setAvatarAgents] = useState<Record<string,Appearance>>({});
   const [loading,setLoading] = useState(true);
@@ -40,21 +43,30 @@ export function AgentSettings({ section }: { section: string }) {
   const load = async () => {
     setLoading(true); setError('');
     try {
-      const [config, profileRows, avatar, skillRows] = await Promise.all([
+      const [config, profileRows, avatar, skillRows, toolRegistry] = await Promise.all([
         agentApi<AIConfig>('/api/v1/settings/ai-config'),
         agentApi<Profile[]>('/api/v1/agent/profiles'),
         agentApi<{default?:Appearance;agents?:Record<string,Appearance>}>('/api/v1/agent/appearance'),
         agentApi<SkillOption[]>('/api/v1/agent/skills'),
+        agentApi<ToolRegistry>('/api/v1/agent/tools'),
       ]);
       const available = (config.providers || []).filter(item => item.configured !== false && item.configured !== 'false');
       setProviders(available);
+      const availableTools=(toolRegistry.items || []).filter(tool => tool.source === 'registered' && tool.enabled !== false && tool.status === 'active' && tool.risk !== 'blocked' && Boolean(tool.toolKey));
+      const enabledSkillIds=new Set((skillRows || []).filter(skill=>skill.enabled).map(skill=>skill.id));
+      const availableToolKeys=new Set(availableTools.map(tool=>tool.toolKey));
       setSkills(skillRows || []);
+      setTools(availableTools);
       const currentValue = config.taskModels?.agent_chat || config.defaultModel || '';
       const legacyProvider = available.find(item => item.model === currentValue);
       const current = currentValue && !currentValue.includes('::') && legacyProvider ? providerValue(legacyProvider) : currentValue || (available[0] ? providerValue(available[0]) : '');
       setSelectedModel(current);
       const knownAgents = Object.keys(agentLabels).map(agent_key => ({ agent_key, enabled:true, config:{} as Profile['config'] }));
-      setProfiles(knownAgents.map(base => profileRows?.find(item => item.agent_key === base.agent_key) || base));
+      setProfiles(knownAgents.map(base => {
+        const row=profileRows?.find(item => item.agent_key === base.agent_key);
+        if(!row)return base;
+        return {...row,config:{...row.config,skillIds:(row.config.skillIds || []).filter(id=>enabledSkillIds.has(id)),...(row.config.toolKeys===undefined?{}:{toolKeys:row.config.toolKeys.filter(key=>availableToolKeys.has(key))})}};
+      }));
       if (avatar.default) setAppearance({...avatar.default,eyeColor:avatar.default.eyeColor || '#1A1A1A',eyeScale:avatar.default.eyeScale ?? 1});
       setAvatarAgents(avatar.agents || {});
     } catch (cause) { setError(cause instanceof Error ? cause.message : '读取 Agent 设置失败。'); }
@@ -127,6 +139,15 @@ export function AgentSettings({ section }: { section: string }) {
             const selected = (activeProfile.config.skillIds || []).includes(skill.id);
             return <Checkbox key={skill.id} id={"agent-skill-"+activeAgent+"-"+skill.id} labelText={skill.label+" · "+skill.id+(skill.enabled?"":"（未启用）")} checked={selected} disabled={!skill.enabled && !selected} onChange={event => setProfiles(rows => rows.map(item => item.agent_key === activeAgent ? {...item,config:{...item.config,skillIds:event.currentTarget.checked?[...new Set([...(item.config.skillIds||[]),skill.id])]:(item.config.skillIds||[]).filter(id=>id!==skill.id)}} : item))} />;
           }) : <p>尚未注册 Skill。请先在 Skill 技能中心导入并启用工作方法。</p>}
+        </div>
+        <div className="tp-settings__editor">
+          <h5>分配外部工具权限</h5>
+          <p>仅当此 Agent 被明确选为规划任务的主执行角色时生效。只显示当前账户已登记、启用且未被禁止的外部工具；需要审批的工具仍必须经过审批。未设置时沿用账户现有授权范围。</p>
+          {tools.length ? tools.map(tool => {
+            const currentKeys = activeProfile.config.toolKeys ?? tools.map(item => item.toolKey);
+            const selected = currentKeys.includes(tool.toolKey);
+            return <Checkbox key={tool.toolKey} id={"agent-tool-"+activeAgent+"-"+tool.toolKey.replace(/[^a-zA-Z0-9_-]/g,"-")} labelText={tool.name+" · "+(tool.connectionName||"外部连接")} checked={selected} onChange={event => setProfiles(rows => rows.map(item => { if(item.agent_key!==activeAgent)return item; const current=item.config.toolKeys??tools.map(entry=>entry.toolKey); const next=event.currentTarget.checked?[...new Set([...current,tool.toolKey])]:current.filter(key=>key!==tool.toolKey); return {...item,config:{...item.config,toolKeys:next}}; }))} />;
+          }) : <p>暂无可分配的外部工具。请先在工具目录登记并启用外部工具。</p>}
         </div>
         <Select id="agent-profile-model" labelText="专属模型" value={activeProfile.config.modelRef || ''} onChange={event => setProfiles(rows => rows.map(item => item.agent_key === activeAgent ? {...item,config:{...item.config,modelRef:event.currentTarget.value}} : item))}><SelectItem value="" text="跟随小雅默认模型" />{providers.map(item => <SelectItem key={item.id} value={providerValue(item)} text={item.name + ' · ' + item.model} />)}</Select>
         <TextArea id="agent-profile-description" labelText="Agent 描述" rows={2} value={activeProfile.config.description || ''} onChange={event => setProfiles(rows => rows.map(item => item.agent_key === activeAgent ? {...item,config:{...item.config,description:event.currentTarget.value}} : item))} />
