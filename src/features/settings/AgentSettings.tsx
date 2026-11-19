@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextArea, TextInput } from '@/design-system';
+import { Button, Checkbox, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextArea, TextInput } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import { AgentHistoryManagement } from './AgentHistoryManagement';
 
 type Provider = { id: string; name: string; model: string; protocol: string; configured?: boolean | string; baseUrl?: string; providerKey?: string; secretName?: string };
 type AIConfig = { providers?: Provider[]; taskModels?: Record<string,string>; defaultModel?: string };
-type Profile = { agent_key: string; enabled: boolean; config: { systemPrompt?: string; description?: string; modelRef?: string } };
+type SkillOption = { id:string; label:string; enabled:boolean; state:string };
+type Profile = { agent_key: string; enabled: boolean; config: { systemPrompt?: string; description?: string; modelRef?: string; skillIds?: string[] } };
 type Appearance = { shape: string; color: string; styleId: string; variant: string; face: string; eyeColor: string; eyeScale: number };
 const agentLabels: Record<string,string> = {
   buyer_development: '全球买家开发 Agent', market_research: '市场研究 Agent',
@@ -25,6 +26,7 @@ export function AgentSettings({ section }: { section: string }) {
   const [providers,setProviders] = useState<Provider[]>([]);
   const [selectedModel,setSelectedModel] = useState('');
   const [profiles,setProfiles] = useState<Profile[]>([]);
+  const [skills,setSkills] = useState<SkillOption[]>([]);
   const [appearance,setAppearance] = useState<Appearance>({shape:'blob',color:'ivory',styleId:'vector',variant:'soft',face:'cute',eyeColor:'#1A1A1A',eyeScale:1});
   const [avatarAgents,setAvatarAgents] = useState<Record<string,Appearance>>({});
   const [loading,setLoading] = useState(true);
@@ -38,13 +40,15 @@ export function AgentSettings({ section }: { section: string }) {
   const load = async () => {
     setLoading(true); setError('');
     try {
-      const [config, profileRows, avatar] = await Promise.all([
+      const [config, profileRows, avatar, skillRows] = await Promise.all([
         agentApi<AIConfig>('/api/v1/settings/ai-config'),
         agentApi<Profile[]>('/api/v1/agent/profiles'),
         agentApi<{default?:Appearance;agents?:Record<string,Appearance>}>('/api/v1/agent/appearance'),
+        agentApi<SkillOption[]>('/api/v1/agent/skills'),
       ]);
       const available = (config.providers || []).filter(item => item.configured !== false && item.configured !== 'false');
       setProviders(available);
+      setSkills(skillRows || []);
       const currentValue = config.taskModels?.agent_chat || config.defaultModel || '';
       const legacyProvider = available.find(item => item.model === currentValue);
       const current = currentValue && !currentValue.includes('::') && legacyProvider ? providerValue(legacyProvider) : currentValue || (available[0] ? providerValue(available[0]) : '');
@@ -116,6 +120,14 @@ export function AgentSettings({ section }: { section: string }) {
         <Select id="agent-profile-enabled" labelText="启用状态" hideLabel value={activeProfile.enabled ? 'enabled' : 'disabled'} onChange={event => setProfiles(rows => rows.map(item => item.agent_key === activeAgent ? {...item,enabled:event.currentTarget.value === 'enabled'} : item))}>
           <SelectItem value="enabled" text="启用" /><SelectItem value="disabled" text="停用" />
         </Select>
+        <div className="tp-settings__editor">
+          <h5>分配 Skill 工作方法</h5>
+          <p>只加载已启用 Skill 的 SKILL.md 指引；不会执行 Skill 包中的脚本，也不会扩大 Agent 的工具权限。</p>
+          {skills.length ? skills.map(skill => {
+            const selected = (activeProfile.config.skillIds || []).includes(skill.id);
+            return <Checkbox key={skill.id} id={"agent-skill-"+activeAgent+"-"+skill.id} labelText={skill.label+" · "+skill.id+(skill.enabled?"":"（未启用）")} checked={selected} disabled={!skill.enabled && !selected} onChange={event => setProfiles(rows => rows.map(item => item.agent_key === activeAgent ? {...item,config:{...item.config,skillIds:event.currentTarget.checked?[...new Set([...(item.config.skillIds||[]),skill.id])]:(item.config.skillIds||[]).filter(id=>id!==skill.id)}} : item))} />;
+          }) : <p>尚未注册 Skill。请先在 Skill 技能中心导入并启用工作方法。</p>}
+        </div>
         <Select id="agent-profile-model" labelText="专属模型" value={activeProfile.config.modelRef || ''} onChange={event => setProfiles(rows => rows.map(item => item.agent_key === activeAgent ? {...item,config:{...item.config,modelRef:event.currentTarget.value}} : item))}><SelectItem value="" text="跟随小雅默认模型" />{providers.map(item => <SelectItem key={item.id} value={providerValue(item)} text={item.name + ' · ' + item.model} />)}</Select>
         <TextArea id="agent-profile-description" labelText="Agent 描述" rows={2} value={activeProfile.config.description || ''} onChange={event => setProfiles(rows => rows.map(item => item.agent_key === activeAgent ? {...item,config:{...item.config,description:event.currentTarget.value}} : item))} />
         <TextArea id="agent-profile-prompt" labelText="系统指令" rows={6} value={activeProfile.config.systemPrompt || ''} onChange={event => setProfiles(rows => rows.map(item => item.agent_key === activeAgent ? {...item,config:{...item.config,systemPrompt:event.currentTarget.value}} : item))} />
