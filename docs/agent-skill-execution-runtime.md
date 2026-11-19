@@ -19,6 +19,19 @@ This repository already uses Wrangler and Cloudflare Workers. Do not replace its
 
 Dynamic Workers support runtime-loaded Worker code and explicit bindings, resource limits, observability, and outbound network interception. For an untrusted JavaScript Worker, default `globalOutbound: null` and expose only narrow host-controlled bindings. Dynamic Workers are not a substitute for Linux/Python execution.
 
+## Artifact storage implementation
+
+The production Worker binds the dedicated private R2 bucket `tradepilot-skill-artifacts` through `SKILL_ARTIFACTS`. It uses the Standard storage class and keeps both the managed `r2.dev` endpoint and custom public domains disabled.
+
+- New imports and syncs serialize the bounded, sorted file manifest as a single immutable object at `sha256/<digest>.json`.
+- The SHA-256 digest is calculated over the exact UTF-8 object bytes. The object carries matching custom metadata and is read-after-write verified before the database record is updated.
+- `agent_profiles.config` stores only the object key, digest, byte size, file count, and package metadata; package file contents are no longer added to new JSONB records.
+- Content-addressed writes are idempotent. Repeated syncs of identical package contents reuse the existing object after verifying its digest metadata and size.
+- A failed database write may leave an unreferenced immutable object. A later garbage-collection job must compare R2 keys with database references before deleting anything; no automatic destructive cleanup is enabled.
+- Existing legacy records may still contain their old JSONB bundle until that Skill is synced again. Public API responses never return the embedded file contents.
+
+The R2 free tier currently includes 10 GB-month Standard storage, 1 million Class A requests, and 10 million Class B requests per month. Usage beyond included amounts is billable; monitor usage before enabling high-volume imports. Do not use Infrequent Access for Skill artifacts.
+
 ## Trust boundaries
 
 1. **Control plane (TradePilot Worker)** — authenticates the owner, validates run requests, checks Skill approval/version, applies policy, creates a durable run, and passes a minimal capability contract to the runtime.
