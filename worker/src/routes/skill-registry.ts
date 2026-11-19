@@ -93,6 +93,11 @@ async function persistSkillBundle(env:Env,files:BundleFile[]):Promise<ArtifactRe
  }
  const verified=await env.SKILL_ARTIFACTS.head(key);
  if(!verified||verified.customMetadata?.sha256!==digest||verified.size!==bytes.byteLength)throw new Error("SKILL_ARTIFACT_WRITE_VERIFY_FAILED：Skill 包写入 R2 后校验失败。");
+ const stored=await env.SKILL_ARTIFACTS.get(key);
+ if(!stored)throw new Error("SKILL_ARTIFACT_READBACK_FAILED：无法读取刚写入的 Skill 包。");
+ const storedBytes=new Uint8Array(await stored.arrayBuffer());
+ const storedDigest=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",storedBytes)),byte=>byte.toString(16).padStart(2,"0")).join("");
+ if(storedDigest!==digest||storedBytes.byteLength!==bytes.byteLength)throw new Error("SKILL_ARTIFACT_INTEGRITY_MISMATCH：R2 回读内容与 SHA-256 摘要不一致。");
  return {key,sha256:digest,size:bytes.byteLength,fileCount:ordered.length,contentType:"application/json"};
 }
 function base64(bytes:Uint8Array):string{
