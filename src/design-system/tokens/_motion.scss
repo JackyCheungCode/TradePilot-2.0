@@ -1,0 +1,18 @@
+/** Shared motion values. Respect prefers-reduced-motion in interactive behavior. */
+:root {
+  --tp-motion-duration-fast: 70ms;
+  --tp-motion-duration-moderate: 150ms;
+  --tp-motion-duration-slow: 240ms;
+  --tp-motion-duration-slower: 400ms;
+  --tp-motion-easing-standard: cubic-bezier(0.2, 0, 0.38, 0.9);
+  --tp-motion-easing-entrance: cubic-bezier(0, 0, 0.38, 0.9);
+  --tp-motion-easing-exit: cubic-bezier(0.2, 0, 1, 0.9);
+}
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --tp-motion-duration-fast: 0ms;
+    --tp-motion-duration-moderate: 0ms;
+    --tp-motion-duration-slow: 0ms;
+    --tp-motion-duration-slower: 0ms;
+  }
+}

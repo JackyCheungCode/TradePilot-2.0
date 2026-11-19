@@ -1,0 +1,10 @@
+/** Border tokens. Use sparingly; organize information with Carbon background layers first. */
+:root {
+  --tp-border-color-subtle: var(--cds-border-subtle-01);
+  --tp-border-color-strong: var(--cds-border-strong-01);
+  --tp-border-color-interactive: var(--cds-border-interactive);
+  --tp-border-color-disabled: var(--cds-border-disabled);
+  --tp-border-width-subtle: 1px;
+  --tp-border-width-strong: 2px;
+  --tp-border-style: solid;
+}

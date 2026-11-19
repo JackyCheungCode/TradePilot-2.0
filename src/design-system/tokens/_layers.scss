@@ -1,0 +1,9 @@
+/** Layer aliases: use Carbon background layers instead of decorative borders. */
+:root {
+  --tp-layer-base: var(--cds-background);
+  --tp-layer-01: var(--cds-layer-01);
+  --tp-layer-02: var(--cds-layer-02);
+  --tp-layer-03: var(--cds-layer-03);
+  --tp-layer-hover: var(--cds-layer-hover);
+  --tp-layer-selected: var(--cds-layer-selected);
+}
