@@ -76,7 +76,7 @@ export function AIControlCenterPage() {
             <div className="tp-settings__content">
               {active === 'overview' && (
                 <>
-                  <InlineNotification kind="info" lowContrast title="统一管理入口已建立" subtitle="模型供应商和内置 Agent 配置已接入现有服务。第三方 Agent、Skills、Tools、任务调度和监控将在完成接口盘点后逐项接入；未接入的功能不会显示虚假运行数据。" />
+                  <InlineNotification kind="info" lowContrast title="统一管理入口已建立" subtitle="模型供应商和内置 Agent 配置已接入现有服务。第三方 Agent、Skills 注册、任务调度和监控按实际接口逐项接入；未接入的功能不会显示虚假运行数据。" />
                   <Grid className="tp-settings__section-layout">
                     <Column sm={4} md={2} lg={4}><Tile className="tp-settings__editor">
                       <semanticIcons.api size={24} />
@@ -99,11 +99,11 @@ export function AIControlCenterPage() {
                   </Grid>
                   <div className="tp-settings__editor">
                     <h3>能力接入状态</h3>
-                    <p>当前优先复用已存在的模型供应商、Agent Profile、对话历史和执行服务。第三方连接管理 API 已存在，后续将补齐管理界面并统一注册。</p>
+                    <p>当前优先复用已存在的模型供应商、Agent Profile、对话历史和执行服务。第三方连接管理 API 已存在；Skills 注册中心已支持从 GitHub 动态导入，Tools 注册中心后续接入。</p>
                     <div className="tp-settings__section-item"><span>模型供应商配置</span><Tag type="green">已接入</Tag></div>
                     <div className="tp-ai-control__status-row"><span>内置 Agent 配置</span><Tag type="green">已接入</Tag></div>
                     <div className="tp-ai-control__status-row"><span>第三方 Agent / MCP 管理界面</span><Tag type="cool-gray">待整合</Tag></div>
-                    <div className="tp-ai-control__status-row"><span>Skills / Tools 注册中心</span><Tag type="cool-gray">待建设</Tag></div>
+                    <div className="tp-ai-control__status-row"><span>Skills 注册中心</span><Tag type="green">已接入</Tag></div>
                     <div className="tp-ai-control__status-row"><span>任务编排与运行监控</span><Tag type="cool-gray">待整合</Tag></div>
                   </div>
                 </>
