@@ -52,6 +52,8 @@ export interface TpDataTableProps<T extends object> {
   loading?: boolean;
   refreshing?: boolean;
   error?: Error | string | null;
+  /** Optional recovery action rendered with an error state. */
+  onRetry?: () => void;
   emptyState?: ReactNode;
   pagination?: TpPaginationConfig;
   searchValue?: string;
