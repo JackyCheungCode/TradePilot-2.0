@@ -67,6 +67,9 @@ export function OpportunityConsolePage() {
   const [marketCountry,setMarketCountry] = useState('all');
   const [page,setPage] = useState(1);
   const [pageSize,setPageSize] = useState<10 | 20 | 50 | 100>(20);
+  const [archiveTargets,setArchiveTargets] = useState<Opportunity[]>([]);
+  const [archiveBusy,setArchiveBusy] = useState(false);
+  const [archiveNotice,setArchiveNotice] = useState<{kind:'success'|'error';message:string}|null>(null);
   const [searchParams,setSearchParams] = useSearchParams();
   const detailLauncherRef = useRef<HTMLElement>(null) as { current: HTMLElement | null };
   const activeOpportunityId = searchParams.get('opportunity');
@@ -126,6 +129,7 @@ export function OpportunityConsolePage() {
       <div className="tp-opportunities__actions"><Button kind="tertiary" onClick={()=>void load()} disabled={loading}><semanticIcons.refresh size={16}/>刷新</Button><Link href="/opportunities/new" renderIcon={semanticIcons.add}>新建商机</Link></div>
     </PageHeader>
     {error&&<InlineNotification kind="error" title="商机数据读取失败" subtitle={error}/>}
+    {archiveNotice&&<InlineNotification kind={archiveNotice.kind} title={archiveNotice.kind==='success'?'批量操作完成':'批量操作失败'} subtitle={archiveNotice.message} onCloseButtonClick={()=>setArchiveNotice(null)}/> }
     <div className="tp-opportunities__metrics"><Metric title="全部商机" value={String(rows.length)} detail="当前可见商机"/><Metric title="进行中" value={String(open.length)} detail="尚未关闭"/><Metric title="预计管道金额" value={pipeline} detail="按商机金额汇总"/><Metric title="加权预测金额" value={weighted} detail="金额 × 赢率"/></div>
     <section className="tp-opportunities__panel tp-opportunities__analytics">
       <div className="tp-opportunities__panel-head"><div><h2>商机多维分析</h2><p>按销售阶段、来源和客户所在国家 / 地区查看机会分布；地图可联动筛选列表。</p></div></div>
@@ -142,6 +146,7 @@ export function OpportunityConsolePage() {
         ariaLabel="商机列表"
         columnSettingsKey="opportunities"
         selectable
+        batchActions={[{key:'archive',label:'归档所选',onClick:selected=>{setArchiveNotice(null);setArchiveTargets(selected);}}]}
         selectionRows={filtered}
         columns={[
           { key: 'name', header: '商机名称', primary: true, required: true, sortable: true, minWidth: 220, render: row => <span><Link href={`/opportunities/${row.id}`} className="tp-opportunities__row-link">{row.name}</Link><span className="tp-opportunities__secondary">{row.opportunity_number}</span></span> },
@@ -162,6 +167,30 @@ export function OpportunityConsolePage() {
         pagination={{ page, pageSize, totalItems: filtered.length, onChange: (nextPage, nextSize) => { setPage(nextPage); setPageSize(nextSize); } }}
         emptyState="没有符合条件的商机。"
       />
+      <ComposedModal open={archiveTargets.length>0} onClose={()=>{if(!archiveBusy)setArchiveTargets([])}}>
+        <ModalHeader title="确认归档商机" label="批量操作" />
+        <ModalBody>
+          <p>即将归档 {archiveTargets.length} 条商机。归档后将从当前商机列表移除，但不会删除业务记录。</p>
+          <p>请确认所选记录及其关联业务信息无误。</p>
+        </ModalBody>
+        <ModalFooter>
+          <Button kind="secondary" disabled={archiveBusy} onClick={()=>setArchiveTargets([])}>取消</Button>
+          <Button kind="primary" disabled={archiveBusy||archiveTargets.length===0} onClick={async()=>{
+            setArchiveBusy(true);
+            try {
+              const db=await getSupabaseClient();
+              const result=await db.from('crm_opportunities').update({is_archived:true}).in('id',archiveTargets.map(item=>item.id));
+              if(result.error)throw result.error;
+              const count=archiveTargets.length;
+              setArchiveTargets([]);
+              setArchiveNotice({kind:'success',message:`已归档 ${count} 条商机。`});
+              await load();
+            } catch(e) {
+              setArchiveNotice({kind:'error',message:e instanceof Error?e.message:'归档失败，请稍后重试。'});
+            } finally { setArchiveBusy(false); }
+          }}>{archiveBusy?'正在归档…':'确认归档'}</Button>
+        </ModalFooter>
+      </ComposedModal>
       <TpDetailPanel
         open={Boolean(activeOpportunityId && activeOpportunity)}
         title={activeOpportunity?.name || '商机详情'}
