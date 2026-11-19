@@ -3,7 +3,12 @@ import assert from "node:assert/strict";
 import { handleSkillRegistry } from "./skill-registry.ts";
 
 const ownerId="123e4567-e89b-42d3-a456-426614174000";
-const env={SUPABASE_URL:"https://project.supabase.co",SUPABASE_ANON_KEY:"anon-test-key",SUPABASE_SERVICE_ROLE_KEY:"service-test-key"};
+const artifactObjects=new Map<string,{body:string;customMetadata:Record<string,string>}>();
+const skillArtifacts={
+ async head(key:string){const item=artifactObjects.get(key);return item?{key,size:new TextEncoder().encode(item.body).length,customMetadata:item.customMetadata}:null;},
+ async put(key:string,value:string|ArrayBuffer|ArrayBufferView,options?:{customMetadata?:Record<string,string>}){const body=typeof value==="string"?value:new TextDecoder().decode(value instanceof ArrayBuffer?value:new Uint8Array(value.buffer,value.byteOffset,value.byteLength));artifactObjects.set(key,{body,customMetadata:options?.customMetadata??{}});return {key};}
+} as unknown as R2Bucket;
+const env={SUPABASE_URL:"https://project.supabase.co",SUPABASE_ANON_KEY:"anon-test-key",SUPABASE_SERVICE_ROLE_KEY:"service-test-key",SKILL_ARTIFACTS:skillArtifacts};
 function withFetch(handler:(input:string|URL|Request,init?:RequestInit)=>Promise<Response>){
  const original=globalThis.fetch;globalThis.fetch=handler as typeof fetch;
  return ()=>{globalThis.fetch=original;};
@@ -76,8 +81,14 @@ test("Skill package import stores a bounded bundle, review findings and disabled
   assert.equal(stored.agent_key,"skill:demo-skill");
   assert.equal(stored.enabled,false);
   const config=stored.config as Record<string,unknown>;
-  const bundle=config.bundle as {files:Array<{path:string}>};
-  assert.equal(bundle.files.length,3);
+  const bundle=config.bundle as {artifact:{key:string;sha256:string;fileCount:number}};
+  assert.equal(bundle.artifact.fileCount,3);
+  assert.match(bundle.artifact.key,/^sha256\/[a-f0-9]{64}\.json$/);
+  assert.equal(bundle.artifact.sha256,bundle.artifact.key.slice(7,-5));
+  assert.equal(artifactObjects.size,1);
+  const storedArtifact=artifactObjects.get(bundle.artifact.key);
+  assert.ok(storedArtifact);
+  assert.equal(JSON.parse(storedArtifact.body).files.length,3);
   assert.ok((config.securityReview as {dependencies:string[]}).dependencies.includes("zod"));
   assert.equal(config.activationStatus,"disabled_pending_review");
   assert.equal(config.contractStatus,"missing");
