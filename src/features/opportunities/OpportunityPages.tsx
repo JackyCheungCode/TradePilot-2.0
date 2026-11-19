@@ -68,7 +68,7 @@ export function OpportunityConsolePage() {
   const [page,setPage] = useState(1);
   const [pageSize,setPageSize] = useState<10 | 20 | 50 | 100>(20);
   const [searchParams,setSearchParams] = useSearchParams();
-  const detailLauncherRef = useRef<HTMLElement>(null);
+  const detailLauncherRef = useRef<HTMLElement>(null) as { current: HTMLElement | null };
   const activeOpportunityId = searchParams.get('opportunity');
   const activeOpportunity = rows.find(row => row.id === activeOpportunityId) ?? null;
   const openOpportunity = (row: Opportunity) => setSearchParams(current => { const next = new URLSearchParams(current); next.set('opportunity', row.id); return next; });
