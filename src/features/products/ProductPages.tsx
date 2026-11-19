@@ -103,6 +103,7 @@ export function ProductConsolePage(){
   {key:'updated_at',header:'更新时间',minWidth:130,render:r=>new Date(r.updated_at).toLocaleDateString()},
  ]}
  rows={filtered as (Product & Record<string,unknown>)[]}
+ loading={loading}
  rowKey="id"
  ariaLabel="产品目录"
  columnSettingsKey="catalog-products"
