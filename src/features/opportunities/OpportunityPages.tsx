@@ -120,6 +120,8 @@ export function OpportunityConsolePage() {
       <TpDataTable
         ariaLabel="商机列表"
         columnSettingsKey="opportunities"
+        selectable
+        selectionRows={filtered}
         columns={[
           { key: 'name', header: '商机名称', primary: true, required: true, sortable: true, minWidth: 220, render: row => <span><Link href={`/opportunities/${row.id}`} className="tp-opportunities__row-link">{row.name}</Link><span className="tp-opportunities__secondary">{row.opportunity_number}</span></span> },
           { key: 'account', header: '所属客户', minWidth: 180, sortable: true, render: row => accountMap.get(row.account_id) || '—' },
