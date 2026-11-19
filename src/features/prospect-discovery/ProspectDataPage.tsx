@@ -232,6 +232,42 @@ export function ProspectDataPage() {
             rowKey="id"
             rows={filtered as (Prospect & Record<string, unknown>)[]}
             loading={loading}
+            batchActions={[
+              {
+                key: 'discard-pending',
+                label: '废弃待处理潜客',
+                confirmation: '仅将当前所选中仍处于待处理状态的潜客标记为已废弃，不删除原始发现记录，也不会影响已送入 CRM 的记录。',
+                onClick: async (selected) => {
+                  const ids = selected.filter((row) => row.status === 'pending').map((row) => row.id);
+                  if (!ids.length) throw new Error('所选记录中没有可废弃的待处理潜客。');
+                  const db = await getSupabaseClient();
+                  const { data, error: updateError } = await db.from('discovery_records')
+                    .update({ status: 'discarded', updated_at: new Date().toISOString() })
+                    .in('id', ids)
+                    .select('id');
+                  if (updateError) throw updateError;
+                  if ((data ?? []).length !== ids.length) throw new Error(`仅废弃 ${(data ?? []).length} / ${ids.length} 条记录，请检查权限或刷新后重试。`);
+                  await load();
+                },
+              },
+              {
+                key: 'restore-discarded',
+                label: '恢复已废弃潜客',
+                confirmation: '将所选已废弃潜客恢复为待处理状态，原始发现来源和记录将保留。',
+                onClick: async (selected) => {
+                  const ids = selected.filter((row) => row.status === 'discarded').map((row) => row.id);
+                  if (!ids.length) throw new Error('所选记录中没有已废弃潜客。');
+                  const db = await getSupabaseClient();
+                  const { data, error: updateError } = await db.from('discovery_records')
+                    .update({ status: 'new', updated_at: new Date().toISOString() })
+                    .in('id', ids)
+                    .select('id');
+                  if (updateError) throw updateError;
+                  if ((data ?? []).length !== ids.length) throw new Error(`仅恢复 ${(data ?? []).length} / ${ids.length} 条记录，请检查权限或刷新后重试。`);
+                  await load();
+                },
+              },
+            ]}
             pagination={{page,pageSize:pageSize as 10|20|50|100,totalItems:filtered.length,onChange:(nextPage,nextSize)=>{setPage(nextPage);setPageSize(nextSize);}}}
             columns={[
               {key:'name',header:'企业名称',primary:true,minWidth:200,render:row=><div><strong>{row.name}</strong>{row.industry!=='未分类'&&<small>{row.industry}</small>}</div>},
