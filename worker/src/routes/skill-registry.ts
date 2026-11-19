@@ -1,4 +1,4 @@
-import { errorResponse, successResponse } from "../lib/http.ts";
+import { errorResponse, successResponse } from "../lib/http.ts";\nimport { unzipSync } from "fflate";
 
 export type SkillArtifactBucket = {
  head(key:string):Promise<{size:number;customMetadata?:Record<string,string>}|null>;
@@ -245,6 +245,55 @@ async function fetchSkillBundle(source:Source){
  if(contract.status==="invalid"){review.riskLevel="high";review.findings.push({severity:"high",code:"SKILL_CONTRACT_INVALID",message:"skill.json 契约校验失败；当前版本不能进入执行审核。"});}
  return {manifest,contract,files,package:{fileCount:files.length,totalBytes:actualBytes,limits:{maxFiles:MAX_FILES,maxFileBytes:MAX_FILE_BYTES,maxTotalBytes:MAX_BUNDLE_BYTES},syncedAt:new Date().toISOString(),sourceRef:source.ref,commitSha},review};
 }
+function parseZipBundle(encoded:string):{manifest:Record<string,string>;files:BundleFile[];contract:ContractResult;review:ReturnType<typeof staticReview>}{
+ if(encoded.length>1_300_000)throw new Error("SKILL_ZIP_TOO_LARGE：ZIP 文件超过上传限制。");
+ let binary:string;try{binary=atob(encoded);}catch{throw new Error("SKILL_ZIP_INVALID：ZIP 内容不是有效 Base64。");}
+ const archive=Uint8Array.from(binary,char=>char.charCodeAt(0));
+ if(archive.byteLength<22||archive.byteLength>900_000)throw new Error("SKILL_ZIP_TOO_LARGE：压缩包必须小于 900 KB。");
+ const view=new DataView(archive.buffer,archive.byteOffset,archive.byteLength);
+ let eocd=-1;for(let offset=archive.byteLength-22;offset>=Math.max(0,archive.byteLength-65557);offset--){if(view.getUint32(offset,true)===0x06054b50){eocd=offset;break;}}
+ if(eocd<0)throw new Error("SKILL_ZIP_INVALID：找不到 ZIP 中央目录。");
+ const disk=view.getUint16(eocd+4,true),centralDisk=view.getUint16(eocd+6,true),diskEntries=view.getUint16(eocd+8,true),entryCount=view.getUint16(eocd+10,true),centralSize=view.getUint32(eocd+12,true),centralOffset=view.getUint32(eocd+16,true);
+ if(disk!==0||centralDisk!==0||diskEntries!==entryCount||entryCount===0xffff||centralSize===0xffffffff||centralOffset===0xffffffff||entryCount>100||centralOffset+centralSize>eocd)throw new Error("SKILL_ZIP_INVALID：不支持分卷、ZIP64 或目录异常的压缩包。");
+ const entries:Array<{path:string;size:number;compression:number;flags:number;mode:number}>=[];
+ let cursor=centralOffset,totalSize=0;
+ for(let i=0;i<entryCount;i++){
+  if(cursor+46>centralOffset+centralSize||view.getUint32(cursor,true)!==0x02014b50)throw new Error("SKILL_ZIP_INVALID：ZIP 中央目录结构无效。");
+  const flags=view.getUint16(cursor+8,true),compression=view.getUint16(cursor+10,true),compressedSize=view.getUint32(cursor+20,true),size=view.getUint32(cursor+24,true),nameLength=view.getUint16(cursor+28,true),extraLength=view.getUint16(cursor+30,true),commentLength=view.getUint16(cursor+32,true),external=view.getUint32(cursor+38,true),localOffset=view.getUint32(cursor+42,true);
+  const next=cursor+46+nameLength+extraLength+commentLength;
+  if(next>centralOffset+centralSize||compressedSize===0xffffffff||size===0xffffffff||localOffset===0xffffffff)throw new Error("SKILL_ZIP_INVALID：ZIP 条目长度或偏移无效。");
+  let path:string;try{path=new TextDecoder("utf-8",{fatal:true}).decode(archive.subarray(cursor+46,cursor+46+nameLength));}catch{throw new Error("SKILL_ZIP_INVALID：文件名必须使用 UTF-8。");}
+  if(flags&1)throw new Error("SKILL_ZIP_ENCRYPTED：不接受加密 ZIP 文件。");
+  if(compression!==0&&compression!==8)throw new Error("SKILL_ZIP_COMPRESSION_UNSUPPORTED：仅支持 Store 和 Deflate 压缩。");
+  if((external>>>16&0o170000)===0o120000)throw new Error("SKILL_ZIP_SYMLINK_BLOCKED：不允许符号链接。");
+  if(!path.endsWith("/")){if(size>MAX_FILE_BYTES)throw new Error("SKILL_FILE_TOO_LARGE："+path);totalSize+=size;if(totalSize>MAX_BUNDLE_BYTES)throw new Error("SKILL_PACKAGE_TOO_LARGE：解压后的总文件大小超过限制。");entries.push({path,size,compression,flags,mode:external>>>16});}
+  cursor=next;
+ }
+ if(cursor!==centralOffset+centralSize||entries.length===0||entries.length>MAX_FILES)throw new Error("SKILL_ZIP_INVALID：文件数量或中央目录长度不符合限制。");
+ const skillPaths=entries.map(entry=>entry.path).filter(path=>path==="SKILL.md"||path.endsWith("/SKILL.md"));
+ if(skillPaths.length!==1)throw new Error("SKILL_MD_NOT_FOUND：ZIP 中必须且只能包含一个 Skill 根目录 SKILL.md。");
+ const root=skillPaths[0]==="SKILL.md"?"":skillPaths[0].slice(0,-"/SKILL.md".length);
+ const selected=entries.filter(entry=>!root||entry.path.startsWith(root+"/"));
+ if(selected.length>MAX_FILES)throw new Error("SKILL_PACKAGE_TOO_MANY_FILES：Skill 包最多允许 "+MAX_FILES+" 个文件。");
+ for(const entry of selected)if(!safeRelativePath(entry.path,root))throw new Error("SKILL_ZIP_PATH_BLOCKED：压缩包包含隐藏、越界或敏感路径："+entry.path);
+ const extracted=unzipSync(archive);
+ const files:BundleFile[]=[];
+ for(const entry of selected){
+  const path=root?entry.path.slice(root.length+1):entry.path;
+  const data=extracted[entry.path];if(!data||data.byteLength!==entry.size)throw new Error("SKILL_ZIP_INTEGRITY_FAILED：文件解压长度与中央目录不一致："+path);
+  const ext=extension(path),isText=TEXT_EXTENSIONS.has(ext)||!ext||path.endsWith(".gitignore")||path.endsWith(".dockerignore");
+  let content:string,encoding:"utf-8"|"base64";
+  if(isText){try{content=new TextDecoder("utf-8",{fatal:true}).decode(data);encoding="utf-8";}catch{content=base64(data);encoding="base64";}}
+  else{content=base64(data);encoding="base64";}
+  files.push({path,size:data.byteLength,encoding,content,sha:"zip"});
+ }
+ const skillFile=files.find(file=>file.path==="SKILL.md");
+ if(!skillFile||skillFile.encoding!=="utf-8"||skillFile.size>100000)throw new Error("SKILL_MD_INVALID：SKILL.md 必须是 UTF-8 文本且不超过 100 KB。");
+ const manifest=parseFrontmatter(skillFile.content),contract=validateSkillContract(files,manifest);
+ const review={...staticReview(files,manifest),contractStatus:contract.status,contractErrors:contract.errors};
+ if(contract.status==="invalid"){review.riskLevel="high";review.findings.push({severity:"high",code:"SKILL_CONTRACT_INVALID",message:"skill.json 契约校验失败；当前版本不能进入执行审核。"});}
+ return {manifest,files,contract,review};
+}
 function publicConfig(config:SkillConfig):SkillConfig{
  const bundle=config.bundle&&typeof config.bundle==="object"?config.bundle as Record<string,unknown>:{};
  const contract=config.contract&&typeof config.contract==="object"?config.contract as Record<string,unknown>:null;
@@ -267,7 +316,15 @@ export async function handleSkillRegistry(request:Request,env:Env):Promise<Respo
    return successResponse(request,skills);
   }
   if(url.pathname===base&&request.method==="POST"){
-   const body=await request.json() as {sourceType?:string;repositoryUrl?:string;branch?:string;skillPath?:string;skillMd?:string;skillJson?:string};
+   const body=await request.json() as {sourceType?:string;repositoryUrl?:string;branch?:string;skillPath?:string;skillMd?:string;skillJson?:string;zipBase64?:string};
+   if(body.sourceType==="zip"){
+    if(typeof body.zipBase64!=="string"||!body.zipBase64)return errorResponse(request,"INVALID_SKILL_ZIP","请上传有效的 ZIP 文件。",400);
+    let imported:ReturnType<typeof parseZipBundle>;try{imported=parseZipBundle(body.zipBase64);}catch(error){return errorResponse(request,"INVALID_SKILL_ZIP",error instanceof Error?error.message:"ZIP 文件无法读取。",400);}
+    const artifact=await persistSkillBundle(env,imported.files),syncedAt=new Date().toISOString();
+    const config={sourceType:"zip",manifest:imported.manifest,contract:imported.contract.contract??null,contractStatus:imported.contract.status,contractErrors:imported.contract.errors,bundle:{fileCount:imported.files.length,totalBytes:imported.files.reduce((sum,file)=>sum+file.size,0),syncedAt,sourceRef:"zip_upload",commitSha:"local-upload",artifact},securityReview:imported.review,syncedAt,syncStatus:"package_synced",activationStatus:"disabled_pending_review"};
+    await db(env,"agent_profiles?on_conflict=owner_id,agent_key",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({owner_id:ownerId,agent_key:"skill:"+imported.manifest.name,enabled:false,config,updated_at:syncedAt})});
+    return successResponse(request,{id:imported.manifest.name,label:imported.manifest.display_name||imported.manifest.name,state:"package_synced",manifest:imported.manifest,contractStatus:imported.contract.status,contractErrors:imported.contract.errors,package:{fileCount:imported.files.length,totalBytes:config.bundle.totalBytes,artifact},securityReview:imported.review,activationStatus:"disabled_pending_review"});
+   }
    if(body.sourceType==="manual"){
     if(typeof body.skillMd!=="string"||!body.skillMd.trim()||body.skillMd.length>100000)return errorResponse(request,"INVALID_SKILL_MARKDOWN","请提供不超过 100 KB 的 SKILL.md 内容。",400);
     if(body.skillJson!==undefined&&(typeof body.skillJson!=="string"||body.skillJson.length>64000))return errorResponse(request,"INVALID_SKILL_CONTRACT","skill.json 必须是不超过 64 KB 的 JSON 文本。",400);
