@@ -71,10 +71,8 @@ export function OpportunityConsolePage() {
   const detailLauncherRef = useRef<HTMLElement>(null);
   const activeOpportunityId = searchParams.get('opportunity');
   const activeOpportunity = rows.find(row => row.id === activeOpportunityId) ?? null;
-  const activeIndex = activeOpportunity ? filtered.findIndex(row => row.id === activeOpportunity.id) : -1;
   const openOpportunity = (row: Opportunity) => setSearchParams(current => { const next = new URLSearchParams(current); next.set('opportunity', row.id); return next; });
   const closeOpportunity = () => setSearchParams(current => { const next = new URLSearchParams(current); next.delete('opportunity'); return next; }, { replace: true });
-  const moveOpportunity = (offset: number) => { const next = filtered[activeIndex + offset]; if (next) openOpportunity(next); };
   const load = useCallback(async () => {
     setLoading(true); setError('');
     try {
@@ -96,6 +94,9 @@ export function OpportunityConsolePage() {
   const stageData = useMemo(()=>stages.map(([key,label])=>({group:label,value:rows.filter(row=>row.stage===key).length})).filter(item=>item.value>0),[rows]);
   const sourceData = useMemo(()=>{const counts=new Map<string,number>();rows.forEach(row=>{const key=row.source||'未标记来源';counts.set(key,(counts.get(key)||0)+1)});return [...counts.entries()].map(([group,value])=>({group,value})).sort((a,b)=>b.value-a.value).slice(0,8)},[rows]);
   const filtered = useMemo(()=>rows.filter(r=>(stage==='all'||r.stage===stage)&&(marketCountry==='all'||accountCountries.get(r.account_id)===marketCountry)&&[r.name,r.opportunity_number,r.source,r.sales_person,r.sales_team].join(' ').toLowerCase().includes(query.trim().toLowerCase())),[rows,stage,marketCountry,accountCountries,query]);
+  const activeIndex = activeOpportunity ? filtered.findIndex(row => row.id === activeOpportunity.id) : -1;
+  const moveOpportunity = (offset: number) => { const next = filtered[activeIndex + offset]; if (next) openOpportunity(next); };
+
   useEffect(()=>setPage(1),[query,stage,marketCountry]);
   const open = rows.filter(r=>r.status==='open');
   const currencyTotals = (items: Opportunity[], weightedAmount = false) => {
