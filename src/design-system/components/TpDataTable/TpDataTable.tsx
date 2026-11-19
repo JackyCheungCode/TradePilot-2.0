@@ -39,7 +39,7 @@ function flattenExportValue(value: unknown): string {
     const props = value.props as { children?: unknown; alt?: string; title?: string };
     return flattenExportValue(props.children ?? props.alt ?? props.title ?? '');
   }
-  if (typeof value === 'object') return JSON.stringify(value);
+  if (typeof value === 'object') return JSON.stringify(value) ?? String(value);
   return String(value);
 }
 
