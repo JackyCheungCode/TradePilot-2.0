@@ -208,9 +208,10 @@ export function AppShell() {
           </SideNavItems>
         </div>
         <div className="tp-sidenav__group">
-          <div className="tp-sidenav__group-label">工具与系统</div>
+          <div className="tp-sidenav__group-label">设置与系统</div>
           <SideNavItems>
             <SideNavLink href="/trade-tools" isActive={location.pathname.startsWith('/trade-tools')} title="外贸工具（Trade tools）" renderIcon={semanticIcons.calculator}>外贸工具（Trade tools）</SideNavLink>
+            <SideNavLink href="/ai-agents" isActive={location.pathname.startsWith('/ai-agents')} title="AI 与 Agent" renderIcon={semanticIcons.api}>AI 与 Agent</SideNavLink>
             <SideNavLink href="/settings" isActive={location.pathname.startsWith('/settings')} title="设置（Setting）" renderIcon={semanticIcons.settings}>设置（Setting）</SideNavLink>
             <SideNavLink href="/security" isActive={location.pathname.startsWith('/security')} title="安全与身份认证（Security）" renderIcon={semanticIcons.security}>安全与身份认证（Security）</SideNavLink>
           </SideNavItems>
