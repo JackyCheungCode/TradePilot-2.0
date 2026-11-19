@@ -1,6 +1,13 @@
 import { errorResponse, successResponse } from "../lib/http.ts";
+import { unzipSync } from "fflate";
 
-type Env = { SUPABASE_URL:string; SUPABASE_ANON_KEY:string; SUPABASE_SERVICE_ROLE_KEY:string };
+export type SkillArtifactBucket = {
+ head(key:string):Promise<{size:number;customMetadata?:Record<string,string>}|null>;
+ get(key:string):Promise<{arrayBuffer():Promise<ArrayBuffer>}|null>;
+ put(key:string,value:string,options?:{httpMetadata?:{contentType?:string};customMetadata?:Record<string,string>}):Promise<unknown>;
+};
+type Env = { SUPABASE_URL:string; SUPABASE_ANON_KEY:string; SUPABASE_SERVICE_ROLE_KEY:string; SKILL_ARTIFACTS:SkillArtifactBucket };
+type ArtifactRef = { key:string; sha256:string; size:number; fileCount:number; contentType:string };
 type SkillConfig = Record<string, unknown>;
 type Source = { owner:string; repo:string; ref:string; path:string };
 type BundleFile = { path:string; size:number; encoding:"utf-8"|"base64"; content:string; sha:string };
@@ -15,18 +22,6 @@ type SkillContract = {
 type ContractResult = {status:"missing"|"valid"|"invalid";contract?:SkillContract;errors:string[]};
 
 type ReviewFinding = { severity:"high"|"medium"|"low"; code:string; message:string; file?:string };
-const STARTER_SKILLS = [
-  ["market-intel","全球市场情报","市场规模、趋势、竞品与价格研究"],
-  ["trade-lead-screening","贸易线索筛选","买家线索评分、去重与优先级筛选"],
-  ["trade-customer-intel","贸易客户情报","企业背景调查、客户画像与采购能力分析"],
-  ["trade-outreach-email","贸易开发邮件","开发信、跟进邮件与多语言沟通内容"],
-  ["laifaxin-outreach","来发信触达","通过来发信平台执行邮件触达"],
-  ["tradehot","热门产品趋势","热门产品、热销信号与趋势发现"],
-  ["rfq-to-quotation","询盘转报价","解析 RFQ、匹配产品并生成报价草案"],
-  ["trade-pipeline-run","外贸流程编排","协调外贸业务阶段与任务执行"],
-  ["verify-docs","贸易单证核验","贸易单证字段、逻辑与一致性检查"],
-  ["seo-audit","SEO 审核","网站技术 SEO、内容与搜索表现审计"],
-] as const;
 const MAX_FILES = 60;
 const MAX_FILE_BYTES = 256_000;
 const MAX_BUNDLE_BYTES = 768_000;
@@ -84,6 +79,28 @@ function safeRelativePath(path:string,root:string):boolean{
  if(!relative||relative.split("/").some(part=>part.startsWith("." )&&part!==".well-known"))return false;
  if(BLOCKED_FILE.test(relative)||BLOCKED_BINARY.test(relative))return false;
  return true;
+}
+async function persistSkillBundle(env:Env,files:BundleFile[]):Promise<ArtifactRef>{
+ const ordered=[...files].sort((a,b)=>a.path.localeCompare(b.path));
+ const payload=JSON.stringify({schemaVersion:1,files:ordered});
+ const bytes=new TextEncoder().encode(payload);
+ const digestBuffer=await crypto.subtle.digest("SHA-256",bytes);
+ const digest=Array.from(new Uint8Array(digestBuffer),byte=>byte.toString(16).padStart(2,"0")).join("");
+ const key="sha256/"+digest+".json";
+ const existing=await env.SKILL_ARTIFACTS.head(key);
+ if(existing){
+  if(existing.customMetadata?.sha256!==digest||existing.size!==bytes.byteLength)throw new Error("SKILL_ARTIFACT_INTEGRITY_MISMATCH：内容寻址对象与预期摘要不一致。");
+ }else{
+  await env.SKILL_ARTIFACTS.put(key,payload,{httpMetadata:{contentType:"application/json; charset=utf-8"},customMetadata:{sha256:digest,format:"tradepilot-skill-bundle-v1"}});
+ }
+ const verified=await env.SKILL_ARTIFACTS.head(key);
+ if(!verified||verified.customMetadata?.sha256!==digest||verified.size!==bytes.byteLength)throw new Error("SKILL_ARTIFACT_WRITE_VERIFY_FAILED：Skill 包写入 R2 后校验失败。");
+ const stored=await env.SKILL_ARTIFACTS.get(key);
+ if(!stored)throw new Error("SKILL_ARTIFACT_READBACK_FAILED：无法读取刚写入的 Skill 包。");
+ const storedBytes=new Uint8Array(await stored.arrayBuffer());
+ const storedDigest=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",storedBytes)),byte=>byte.toString(16).padStart(2,"0")).join("");
+ if(storedDigest!==digest||storedBytes.byteLength!==bytes.byteLength)throw new Error("SKILL_ARTIFACT_INTEGRITY_MISMATCH：R2 回读内容与 SHA-256 摘要不一致。");
+ return {key,sha256:digest,size:bytes.byteLength,fileCount:ordered.length,contentType:"application/json"};
 }
 function base64(bytes:Uint8Array):string{
  let binary="";for(let i=0;i<bytes.length;i+=0x8000)binary+=String.fromCharCode(...bytes.subarray(i,i+0x8000));
@@ -230,16 +247,66 @@ async function fetchSkillBundle(source:Source){
  if(contract.status==="invalid"){review.riskLevel="high";review.findings.push({severity:"high",code:"SKILL_CONTRACT_INVALID",message:"skill.json 契约校验失败；当前版本不能进入执行审核。"});}
  return {manifest,contract,files,package:{fileCount:files.length,totalBytes:actualBytes,limits:{maxFiles:MAX_FILES,maxFileBytes:MAX_FILE_BYTES,maxTotalBytes:MAX_BUNDLE_BYTES},syncedAt:new Date().toISOString(),sourceRef:source.ref,commitSha},review};
 }
+function parseZipBundle(encoded:string):{manifest:Record<string,string>;files:BundleFile[];contract:ContractResult;review:ReturnType<typeof staticReview>}{
+ if(encoded.length>1_300_000)throw new Error("SKILL_ZIP_TOO_LARGE：ZIP 文件超过上传限制。");
+ let binary:string;try{binary=atob(encoded);}catch{throw new Error("SKILL_ZIP_INVALID：ZIP 内容不是有效 Base64。");}
+ const archive=Uint8Array.from(binary,char=>char.charCodeAt(0));
+ if(archive.byteLength<22||archive.byteLength>900_000)throw new Error("SKILL_ZIP_TOO_LARGE：压缩包必须小于 900 KB。");
+ const view=new DataView(archive.buffer,archive.byteOffset,archive.byteLength);
+ let eocd=-1;for(let offset=archive.byteLength-22;offset>=Math.max(0,archive.byteLength-65557);offset--){if(view.getUint32(offset,true)===0x06054b50){eocd=offset;break;}}
+ if(eocd<0)throw new Error("SKILL_ZIP_INVALID：找不到 ZIP 中央目录。");
+ const disk=view.getUint16(eocd+4,true),centralDisk=view.getUint16(eocd+6,true),diskEntries=view.getUint16(eocd+8,true),entryCount=view.getUint16(eocd+10,true),centralSize=view.getUint32(eocd+12,true),centralOffset=view.getUint32(eocd+16,true);
+ if(disk!==0||centralDisk!==0||diskEntries!==entryCount||entryCount===0xffff||centralSize===0xffffffff||centralOffset===0xffffffff||entryCount>100||centralOffset+centralSize>eocd)throw new Error("SKILL_ZIP_INVALID：不支持分卷、ZIP64 或目录异常的压缩包。");
+ const entries:Array<{path:string;size:number;compressedSize:number;compression:number;flags:number;mode:number}>=[];
+ let cursor=centralOffset,totalSize=0;
+ for(let i=0;i<entryCount;i++){
+  if(cursor+46>centralOffset+centralSize||view.getUint32(cursor,true)!==0x02014b50)throw new Error("SKILL_ZIP_INVALID：ZIP 中央目录结构无效。");
+  const flags=view.getUint16(cursor+8,true),compression=view.getUint16(cursor+10,true),compressedSize=view.getUint32(cursor+20,true),size=view.getUint32(cursor+24,true),nameLength=view.getUint16(cursor+28,true),extraLength=view.getUint16(cursor+30,true),commentLength=view.getUint16(cursor+32,true),external=view.getUint32(cursor+38,true),localOffset=view.getUint32(cursor+42,true);
+  const next=cursor+46+nameLength+extraLength+commentLength;
+  if(next>centralOffset+centralSize||compressedSize===0xffffffff||size===0xffffffff||localOffset===0xffffffff)throw new Error("SKILL_ZIP_INVALID：ZIP 条目长度或偏移无效。");
+  let path:string;try{path=new TextDecoder("utf-8",{fatal:true}).decode(archive.subarray(cursor+46,cursor+46+nameLength));}catch{throw new Error("SKILL_ZIP_INVALID：文件名必须使用 UTF-8。");}
+  if(flags&1)throw new Error("SKILL_ZIP_ENCRYPTED：不接受加密 ZIP 文件。");
+  if(compression!==0&&compression!==8)throw new Error("SKILL_ZIP_COMPRESSION_UNSUPPORTED：仅支持 Store 和 Deflate 压缩。");
+  if((external>>>16&0o170000)===0o120000)throw new Error("SKILL_ZIP_SYMLINK_BLOCKED：不允许符号链接。");
+  if(!path.endsWith("/")){if(size>MAX_FILE_BYTES)throw new Error("SKILL_FILE_TOO_LARGE："+path);if(size>compressedSize*250+1024)throw new Error("SKILL_ZIP_RATIO_LIMIT：压缩比异常，拒绝解压："+path);totalSize+=size;if(totalSize>MAX_BUNDLE_BYTES)throw new Error("SKILL_PACKAGE_TOO_LARGE：解压后的总文件大小超过限制。");entries.push({path,size,compressedSize,compression,flags,mode:external>>>16});}
+  cursor=next;
+ }
+ if(cursor!==centralOffset+centralSize||entries.length===0||entries.length>MAX_FILES)throw new Error("SKILL_ZIP_INVALID：文件数量或中央目录长度不符合限制。");
+ const skillPaths=entries.map(entry=>entry.path).filter(path=>path==="SKILL.md"||path.endsWith("/SKILL.md"));
+ if(skillPaths.length!==1)throw new Error("SKILL_MD_NOT_FOUND：ZIP 中必须且只能包含一个 Skill 根目录 SKILL.md。");
+ const root=skillPaths[0]==="SKILL.md"?"":skillPaths[0].slice(0,-"/SKILL.md".length);
+ const uniquePaths=new Set(entries.map(entry=>entry.path));if(uniquePaths.size!==entries.length)throw new Error("SKILL_ZIP_DUPLICATE_PATH：压缩包包含重复文件路径。");
+ const selected=entries.filter(entry=>!root||entry.path.startsWith(root+"/"));
+ if(selected.length>MAX_FILES)throw new Error("SKILL_PACKAGE_TOO_MANY_FILES：Skill 包最多允许 "+MAX_FILES+" 个文件。");
+ for(const entry of selected)if(!safeRelativePath(entry.path,root))throw new Error("SKILL_ZIP_PATH_BLOCKED：压缩包包含隐藏、越界或敏感路径："+entry.path);
+ const extracted=unzipSync(archive);
+ const files:BundleFile[]=[];
+ for(const entry of selected){
+  const path=root?entry.path.slice(root.length+1):entry.path;
+  const data=extracted[entry.path];if(!data||data.byteLength!==entry.size)throw new Error("SKILL_ZIP_INTEGRITY_FAILED：文件解压长度与中央目录不一致："+path);
+  const ext=extension(path),isText=TEXT_EXTENSIONS.has(ext)||!ext||path.endsWith(".gitignore")||path.endsWith(".dockerignore");
+  let content:string,encoding:"utf-8"|"base64";
+  if(isText){try{content=new TextDecoder("utf-8",{fatal:true}).decode(data);encoding="utf-8";}catch{content=base64(data);encoding="base64";}}
+  else{content=base64(data);encoding="base64";}
+  files.push({path,size:data.byteLength,encoding,content,sha:"zip"});
+ }
+ const skillFile=files.find(file=>file.path==="SKILL.md");
+ if(!skillFile||skillFile.encoding!=="utf-8"||skillFile.size>100000)throw new Error("SKILL_MD_INVALID：SKILL.md 必须是 UTF-8 文本且不超过 100 KB。");
+ const manifest=parseFrontmatter(skillFile.content),contract=validateSkillContract(files,manifest);
+ const review={...staticReview(files,manifest),contractStatus:contract.status,contractErrors:contract.errors};
+ if(contract.status==="invalid"){review.riskLevel="high";review.findings.push({severity:"high",code:"SKILL_CONTRACT_INVALID",message:"skill.json 契约校验失败；当前版本不能进入执行审核。"});}
+ return {manifest,files,contract,review};
+}
 function publicConfig(config:SkillConfig):SkillConfig{
  const bundle=config.bundle&&typeof config.bundle==="object"?config.bundle as Record<string,unknown>:{};
  const contract=config.contract&&typeof config.contract==="object"?config.contract as Record<string,unknown>:null;
- return {repositoryUrl:config.repositoryUrl,branch:config.branch,skillPath:config.skillPath,manifest:config.manifest,contractStatus:config.contractStatus??"missing",contractErrors:config.contractErrors??[],contractSummary:contract?{version:contract.version,runtime:contract.runtime,entrypoint:contract.entrypoint,requiredTools:contract.requiredTools,permissions:contract.permissions,limits:contract.limits}:null,syncedAt:config.syncedAt,syncStatus:config.syncStatus,activationStatus:config.activationStatus,bundle:Object.keys(bundle).length?{fileCount:bundle.fileCount,totalBytes:bundle.totalBytes,syncedAt:bundle.syncedAt,sourceRef:bundle.sourceRef,commitSha:bundle.commitSha}:undefined,securityReview:config.securityReview};
+ return {sourceType:config.sourceType,repositoryUrl:config.repositoryUrl,branch:config.branch,skillPath:config.skillPath,manifest:config.manifest,contractStatus:config.contractStatus??"missing",contractErrors:config.contractErrors??[],contractSummary:contract?{version:contract.version,runtime:contract.runtime,entrypoint:contract.entrypoint,requiredTools:contract.requiredTools,permissions:contract.permissions,limits:contract.limits}:null,syncedAt:config.syncedAt,syncStatus:config.syncStatus,activationStatus:config.activationStatus,bundle:Object.keys(bundle).length?{fileCount:bundle.fileCount,totalBytes:bundle.totalBytes,syncedAt:bundle.syncedAt,sourceRef:bundle.sourceRef,commitSha:bundle.commitSha,artifact:bundle.artifact}:undefined,securityReview:config.securityReview};
 }
 function stateOf(config:SkillConfig):"pending"|"configured"|"synced"{
  return typeof config.syncedAt==="string"?"synced":typeof config.repositoryUrl==="string"&&config.repositoryUrl?"configured":"pending";
 }
-function skillConfig(source:Source,repositoryUrl:string,imported:Awaited<ReturnType<typeof fetchSkillBundle>>){
- return {repositoryUrl:repositoryUrl.trim(),branch:source.ref,skillPath:source.path,manifest:imported.manifest,contract:imported.contract.contract??null,contractStatus:imported.contract.status,contractErrors:imported.contract.errors,bundle:{...imported.package,files:imported.files},securityReview:imported.review,syncedAt:imported.package.syncedAt,syncStatus:"package_synced",activationStatus:"disabled_pending_review"};
+function skillConfig(source:Source,repositoryUrl:string,imported:Awaited<ReturnType<typeof fetchSkillBundle>>,artifact:ArtifactRef){
+ return {sourceType:"github",repositoryUrl:repositoryUrl.trim(),branch:source.ref,skillPath:source.path,manifest:imported.manifest,contract:imported.contract.contract??null,contractStatus:imported.contract.status,contractErrors:imported.contract.errors,bundle:{...imported.package,artifact},securityReview:imported.review,syncedAt:imported.package.syncedAt,syncStatus:"package_synced",activationStatus:"disabled_pending_review"};
 }
 export async function handleSkillRegistry(request:Request,env:Env):Promise<Response>{
  const ownerId=await ownerFromRequest(request,env);
@@ -248,23 +315,51 @@ export async function handleSkillRegistry(request:Request,env:Env):Promise<Respo
  try{
   if(url.pathname===base&&request.method==="GET"){
    const rows=await db<Array<{agent_key:string;enabled:boolean;config:SkillConfig;updated_at:string}>>(env,"agent_profiles?owner_id=eq."+ownerId+"&agent_key=like.skill%3A*&select=agent_key,enabled,config,updated_at&order=agent_key.asc");
-   const byKey=new Map(rows.map(row=>[row.agent_key,row]));
-   const presets=STARTER_SKILLS.map(([id,label,description])=>{const row=byKey.get("skill:"+id);const config=publicConfig(row?.config??{});return {id,label,description,sourceType:"starter",state:stateOf(config),enabled:row?.enabled??false,config};});
-   const custom=rows.filter(row=>!STARTER_SKILLS.some(item=>"skill:"+item[0]===row.agent_key)).map(row=>{const id=row.agent_key.slice(6),config=publicConfig(row.config??{}),manifest=(config.manifest??{}) as Record<string,string>;return {id,label:manifest.display_name||manifest.name||id,description:manifest.description||"从 GitHub 导入的 Skill",sourceType:"custom",state:stateOf(config),enabled:row.enabled,config};});
-   return successResponse(request,[...presets,...custom]);
+   const skills=rows.map(row=>{const id=row.agent_key.slice(6),config=publicConfig(row.config??{}),manifest=(config.manifest??{}) as Record<string,string>;return {id,label:manifest.display_name||manifest.name||id,description:manifest.description||"已注册的 Skill",sourceType:String(config.sourceType??"imported"),state:stateOf(config),enabled:row.enabled,config};});
+   return successResponse(request,skills);
   }
   if(url.pathname===base&&request.method==="POST"){
-   const body=await request.json() as {repositoryUrl?:string;branch?:string;skillPath?:string};
+   const body=await request.json() as {sourceType?:string;repositoryUrl?:string;branch?:string;skillPath?:string;skillMd?:string;skillJson?:string;zipBase64?:string};
+   if(body.sourceType==="zip"){
+    if(typeof body.zipBase64!=="string"||!body.zipBase64)return errorResponse(request,"INVALID_SKILL_ZIP","请上传有效的 ZIP 文件。",400);
+    let imported:ReturnType<typeof parseZipBundle>;try{imported=parseZipBundle(body.zipBase64);}catch(error){return errorResponse(request,"INVALID_SKILL_ZIP",error instanceof Error?error.message:"ZIP 文件无法读取。",400);}
+    const artifact=await persistSkillBundle(env,imported.files),syncedAt=new Date().toISOString();
+    const config={sourceType:"zip",manifest:imported.manifest,contract:imported.contract.contract??null,contractStatus:imported.contract.status,contractErrors:imported.contract.errors,bundle:{fileCount:imported.files.length,totalBytes:imported.files.reduce((sum,file)=>sum+file.size,0),syncedAt,sourceRef:"zip_upload",commitSha:"local-upload",artifact},securityReview:imported.review,syncedAt,syncStatus:"package_synced",activationStatus:"disabled_pending_review"};
+    await db(env,"agent_profiles?on_conflict=owner_id,agent_key",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({owner_id:ownerId,agent_key:"skill:"+imported.manifest.name,enabled:false,config,updated_at:syncedAt})});
+    return successResponse(request,{id:imported.manifest.name,label:imported.manifest.display_name||imported.manifest.name,state:"package_synced",manifest:imported.manifest,contractStatus:imported.contract.status,contractErrors:imported.contract.errors,package:{fileCount:imported.files.length,totalBytes:config.bundle.totalBytes,artifact},securityReview:imported.review,activationStatus:"disabled_pending_review"});
+   }
+   if(body.sourceType==="manual"){
+    if(typeof body.skillMd!=="string"||!body.skillMd.trim()||body.skillMd.length>100000)return errorResponse(request,"INVALID_SKILL_MARKDOWN","请提供不超过 100 KB 的 SKILL.md 内容。",400);
+    if(body.skillJson!==undefined&&(typeof body.skillJson!=="string"||body.skillJson.length>64000))return errorResponse(request,"INVALID_SKILL_CONTRACT","skill.json 必须是不超过 64 KB 的 JSON 文本。",400);
+    let manifest:Record<string,string>;try{manifest=parseFrontmatter(body.skillMd);}catch(error){return errorResponse(request,"INVALID_SKILL_MARKDOWN",error instanceof Error?error.message:"SKILL.md frontmatter 无效。",400);}
+    const files:BundleFile[]=[{path:"SKILL.md",size:new TextEncoder().encode(body.skillMd).byteLength,encoding:"utf-8",content:body.skillMd,sha:"manual"}];
+    if(body.skillJson?.trim())files.push({path:"skill.json",size:new TextEncoder().encode(body.skillJson).byteLength,encoding:"utf-8",content:body.skillJson,sha:"manual"});
+    const contract=validateSkillContract(files,manifest);
+    const review={...staticReview(files,manifest),contractStatus:contract.status,contractErrors:contract.errors};
+    if(contract.status==="invalid"){review.riskLevel="high";review.findings.push({severity:"high",code:"SKILL_CONTRACT_INVALID",message:"skill.json 契约校验失败；当前版本不能进入执行审核。"});}
+    const artifact=await persistSkillBundle(env,files);
+    const syncedAt=new Date().toISOString();
+    const config={sourceType:"manual",manifest,contract:contract.contract??null,contractStatus:contract.status,contractErrors:contract.errors,bundle:{fileCount:files.length,totalBytes:files.reduce((sum,file)=>sum+file.size,0),syncedAt,sourceRef:"manual",commitSha:"manual",artifact},securityReview:review,syncedAt,syncStatus:"package_synced",activationStatus:"disabled_pending_review"};
+    await db(env,"agent_profiles?on_conflict=owner_id,agent_key",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({owner_id:ownerId,agent_key:"skill:"+manifest.name,enabled:false,config,updated_at:syncedAt})});
+    return successResponse(request,{id:manifest.name,label:manifest.display_name||manifest.name,state:"package_synced",manifest,contractStatus:contract.status,contractErrors:contract.errors,package:{fileCount:files.length,totalBytes:config.bundle.totalBytes,artifact},securityReview:review,activationStatus:"disabled_pending_review"});
+   }
    if(typeof body.repositoryUrl!=="string"||body.repositoryUrl.length>500)return errorResponse(request,"INVALID_REPOSITORY_URL","请填写有效的 GitHub 仓库地址。",400);
    const source=parseSource(body.repositoryUrl,body.branch??"",body.skillPath??"");
    const imported=await fetchSkillBundle(source);const id=imported.manifest.name;const agentKey="skill:"+id;
-   const config=skillConfig(source,body.repositoryUrl,imported);
+   const artifact=await persistSkillBundle(env,imported.files);
+   const config=skillConfig(source,body.repositoryUrl,imported,artifact);
    await db(env,"agent_profiles?on_conflict=owner_id,agent_key",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({owner_id:ownerId,agent_key:agentKey,enabled:false,config,updated_at:new Date().toISOString()})});
-   return successResponse(request,{id,label:imported.manifest.display_name||id,state:"package_synced",manifest:imported.manifest,contractStatus:imported.contract.status,contractErrors:imported.contract.errors,package:imported.package,securityReview:imported.review,activationStatus:"disabled_pending_review"});
+   return successResponse(request,{id,label:imported.manifest.display_name||id,state:"package_synced",manifest:imported.manifest,contractStatus:imported.contract.status,contractErrors:imported.contract.errors,package:{...imported.package,artifact},securityReview:imported.review,activationStatus:"disabled_pending_review"});
   }
   const match=url.pathname.match(/^\/api\/v1\/agent\/skills\/([a-z0-9-]+)(\/sync)?$/);
   if(!match)return errorResponse(request,"NOT_FOUND","Skill 接口不存在。",404);
   const skillId=match[1],agentKey="skill:"+skillId;
+  if(request.method==="DELETE"&&!match[2]){
+   const existing=await db<Array<{config:SkillConfig}>>(env,"agent_profiles?owner_id=eq."+ownerId+"&agent_key=eq."+encodeURIComponent(agentKey)+"&select=config&limit=1");
+   if(!existing.length)return errorResponse(request,"SKILL_NOT_FOUND","找不到此 Skill，或你没有权限移除它。",404);
+   await db(env,"agent_profiles?owner_id=eq."+ownerId+"&agent_key=eq."+encodeURIComponent(agentKey),{method:"DELETE",headers:{Prefer:"return=minimal"}});
+   return successResponse(request,{id:skillId,deleted:true,artifactRetained:true});
+  }
   if(request.method==="PUT"&&!match[2]){
    const body=await request.json() as {repositoryUrl?:string;branch?:string;skillPath?:string};
    if(typeof body.repositoryUrl!=="string"||body.repositoryUrl.length>500)return errorResponse(request,"INVALID_REPOSITORY_URL","请填写有效的 GitHub 仓库地址。",400);
@@ -284,9 +379,10 @@ export async function handleSkillRegistry(request:Request,env:Env):Promise<Respo
    const source=parseSource(repositoryUrl,String(config.branch??""),String(config.skillPath??""));
    const imported=await fetchSkillBundle(source);
    if(imported.manifest.name!==skillId)return errorResponse(request,"SKILL_ID_MISMATCH","SKILL.md 的 name 与当前 Skill 标识不一致。",422);
-   const next={...skillConfig(source,repositoryUrl,imported),createdFrom:config.createdFrom??"github_import"};
+   const artifact=await persistSkillBundle(env,imported.files);
+   const next={...skillConfig(source,repositoryUrl,imported,artifact),createdFrom:config.createdFrom??"github_import"};
    await db(env,"agent_profiles?owner_id=eq."+ownerId+"&agent_key=eq."+encodeURIComponent(agentKey),{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({enabled:false,config:next,updated_at:new Date().toISOString()})});
-   return successResponse(request,{id:skillId,state:"package_synced",manifest:imported.manifest,contractStatus:imported.contract.status,contractErrors:imported.contract.errors,package:imported.package,securityReview:imported.review,activationStatus:"disabled_pending_review"});
+   return successResponse(request,{id:skillId,state:"package_synced",manifest:imported.manifest,contractStatus:imported.contract.status,contractErrors:imported.contract.errors,package:{...imported.package,artifact},securityReview:imported.review,activationStatus:"disabled_pending_review"});
   }
   return errorResponse(request,"METHOD_NOT_ALLOWED","不支持的 Skill 操作。",405);
  }catch(error){return errorResponse(request,"SKILL_REGISTRY_FAILED",error instanceof Error?error.message:"Skill 配置失败。",502);}

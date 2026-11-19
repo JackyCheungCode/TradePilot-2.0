@@ -1,9 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { handleSkillRegistry } from "./skill-registry.ts";
+import { strToU8, zipSync } from "fflate";
+import { handleSkillRegistry, type SkillArtifactBucket } from "./skill-registry.ts";
 
 const ownerId="123e4567-e89b-42d3-a456-426614174000";
-const env={SUPABASE_URL:"https://project.supabase.co",SUPABASE_ANON_KEY:"anon-test-key",SUPABASE_SERVICE_ROLE_KEY:"service-test-key"};
+const artifactObjects=new Map<string,{body:string;customMetadata:Record<string,string>}>();
+const skillArtifacts={
+ async head(key:string){const item=artifactObjects.get(key);return item?{key,size:new TextEncoder().encode(item.body).length,customMetadata:item.customMetadata}:null;},
+ async get(key:string){const item=artifactObjects.get(key);return item?{async arrayBuffer(){return new TextEncoder().encode(item.body).buffer;}}:null;},
+ async put(key:string,value:string|ArrayBuffer|ArrayBufferView,options?:{customMetadata?:Record<string,string>}){const body=typeof value==="string"?value:new TextDecoder().decode(value instanceof ArrayBuffer?value:new Uint8Array(value.buffer,value.byteOffset,value.byteLength));artifactObjects.set(key,{body,customMetadata:options?.customMetadata??{}});return {key};}
+} as unknown as SkillArtifactBucket;
+const env={SUPABASE_URL:"https://project.supabase.co",SUPABASE_ANON_KEY:"anon-test-key",SUPABASE_SERVICE_ROLE_KEY:"service-test-key",SKILL_ARTIFACTS:skillArtifacts};
 function withFetch(handler:(input:string|URL|Request,init?:RequestInit)=>Promise<Response>){
  const original=globalThis.fetch;globalThis.fetch=handler as typeof fetch;
  return ()=>{globalThis.fetch=original;};
@@ -76,8 +83,14 @@ test("Skill package import stores a bounded bundle, review findings and disabled
   assert.equal(stored.agent_key,"skill:demo-skill");
   assert.equal(stored.enabled,false);
   const config=stored.config as Record<string,unknown>;
-  const bundle=config.bundle as {files:Array<{path:string}>};
-  assert.equal(bundle.files.length,3);
+  const bundle=config.bundle as {artifact:{key:string;sha256:string;fileCount:number}};
+  assert.equal(bundle.artifact.fileCount,3);
+  assert.match(bundle.artifact.key,/^sha256\/[a-f0-9]{64}\.json$/);
+  assert.equal(bundle.artifact.sha256,bundle.artifact.key.slice(7,-5));
+  assert.equal(artifactObjects.size,1);
+  const storedArtifact=artifactObjects.get(bundle.artifact.key);
+  assert.ok(storedArtifact);
+  assert.equal(JSON.parse(storedArtifact.body).files.length,3);
   assert.ok((config.securityReview as {dependencies:string[]}).dependencies.includes("zod"));
   assert.equal(config.activationStatus,"disabled_pending_review");
   assert.equal(config.contractStatus,"missing");
@@ -144,5 +157,82 @@ test("invalid network destinations invalidate the Skill contract and remain disa
   assert.ok(stored);
   assert.equal(stored.enabled,false);
   assert.equal((stored.config as Record<string,unknown>).activationStatus,"disabled_pending_review");
+ }finally{restore();}
+});
+
+test("manual Skill registration stores validated markdown privately and remains disabled",async()=>{
+ artifactObjects.clear();
+ let stored:Record<string,unknown>|undefined;
+ const restore=withFetch(async(input,init)=>{
+  const url=String(input);
+  if(url.endsWith("/auth/v1/user"))return Response.json({id:ownerId});
+  if(url.includes("/rest/v1/agent_profiles")){stored=JSON.parse(String(init?.body)) as Record<string,unknown>;return new Response(null,{status:201});}
+  throw new Error("Unexpected fetch: "+url);
+ });
+ try{
+  const response=await handleSkillRegistry(request({sourceType:"manual",skillMd:"---\nname: manual-demo\ndescription: A manually authored Skill\n---\n\n# Instructions\nReview the provided input."}),env);
+  const payload=await response.json() as {data:{id:string;contractStatus:string;activationStatus:string}};
+  assert.equal(response.status,200);
+  assert.equal(payload.data.id,"manual-demo");
+  assert.equal(payload.data.contractStatus,"missing");
+  assert.equal(payload.data.activationStatus,"disabled_pending_review");
+  assert.ok(stored);
+  assert.equal(stored.enabled,false);
+  assert.equal((stored.config as Record<string,unknown>).sourceType,"manual");
+  assert.equal(artifactObjects.size,1);
+ }finally{restore();}
+});
+
+test("manual Skill registration rejects invalid frontmatter before storage",async()=>{
+ let writes=0;
+ const restore=withFetch(async(input)=>{
+  const url=String(input);
+  if(url.endsWith("/auth/v1/user"))return Response.json({id:ownerId});
+  if(url.includes("/rest/v1/agent_profiles"))writes++;
+  throw new Error("Unexpected fetch: "+url);
+ });
+ try{
+  const response=await handleSkillRegistry(request({sourceType:"manual",skillMd:"# Missing frontmatter"}),env);
+  assert.equal(response.status,400);
+  assert.equal(writes,0);
+ }finally{restore();}
+});
+
+test("ZIP Skill upload validates and stores a package without executing it",async()=>{
+ artifactObjects.clear();
+ let stored:Record<string,unknown>|undefined;
+ const archive=zipSync({"demo/SKILL.md":strToU8("---\nname: zip-demo\ndescription: ZIP imported Skill\n---\n\n# Instructions\n") ,"demo/index.mjs":strToU8("export function run(input){ return input; }")});
+ const encoded=btoa(Array.from(archive,byte=>String.fromCharCode(byte)).join(""));
+ const restore=withFetch(async(input,init)=>{
+  const url=String(input);
+  if(url.endsWith("/auth/v1/user"))return Response.json({id:ownerId});
+  if(url.includes("/rest/v1/agent_profiles")){stored=JSON.parse(String(init?.body)) as Record<string,unknown>;return new Response(null,{status:201});}
+  throw new Error("Unexpected fetch: "+url);
+ });
+ try{
+  const response=await handleSkillRegistry(request({sourceType:"zip",zipBase64:encoded}),env);
+  const payload=await response.json() as {data:{id:string;package:{fileCount:number};activationStatus:string}};
+  assert.equal(response.status,200);
+  assert.equal(payload.data.id,"zip-demo");
+  assert.equal(payload.data.package.fileCount,2);
+  assert.equal(payload.data.activationStatus,"disabled_pending_review");
+  assert.ok(stored);
+  assert.equal(stored.enabled,false);
+  assert.equal((stored.config as Record<string,unknown>).sourceType,"zip");
+ }finally{restore();}
+});
+
+test("ZIP Skill upload rejects path traversal entries",async()=>{
+ const archive=zipSync({"demo/SKILL.md":strToU8("---\nname: zip-unsafe\ndescription: Unsafe ZIP\n---\n"),"demo/../escape.txt":strToU8("no")});
+ const encoded=btoa(Array.from(archive,byte=>String.fromCharCode(byte)).join(""));
+ const restore=withFetch(async(input)=>{
+  if(String(input).endsWith("/auth/v1/user"))return Response.json({id:ownerId});
+  throw new Error("Unexpected fetch: "+String(input));
+ });
+ try{
+  const response=await handleSkillRegistry(request({sourceType:"zip",zipBase64:encoded}),env);
+  assert.equal(response.status,400);
+  const payload=await response.json() as {error:{message:string}};
+  assert.match(payload.error.message,/SKILL_ZIP_PATH_BLOCKED/);
  }finally{restore();}
 });

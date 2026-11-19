@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
-import { Button, InlineLoading, InlineNotification, Tag, TextInput } from '@/design-system';
+import { useEffect, useState, type SyntheticEvent } from 'react';
+import { Button, FileUploader, InlineLoading, InlineNotification, Tag, TextArea, TextInput } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 
 type Finding = { severity:'high'|'medium'|'low'; code:string; message:string; file?:string };
-type Skill = { id:string; label:string; description:string; sourceType:'starter'|'custom'; state:'pending'|'configured'|'synced'; enabled:boolean; config:Record<string,unknown> };
+type Skill = { id:string; label:string; description:string; sourceType:string; state:'pending'|'configured'|'synced'; enabled:boolean; config:Record<string,unknown> };
 type Draft = { repositoryUrl:string; branch:string; skillPath:string };
 type SecurityReview = { status?:string; riskLevel?:string; requiresHumanReview?:boolean; findings?:Finding[]; dependencies?:string[]; networkDomains?:string[]; limitations?:string[] };
 type SkillBundle = { fileCount:number; totalBytes:number; syncedAt:string };
@@ -51,6 +51,11 @@ export function SkillsRegistry(){
  const [skills,setSkills]=useState<Skill[]>([]);
  const [drafts,setDrafts]=useState<Record<string,Draft>>({});
  const [newSource,setNewSource]=useState<Draft>({repositoryUrl:'',branch:'main',skillPath:''});
+ const [manualSkillMd,setManualSkillMd]=useState('');
+ const [manualSkillJson,setManualSkillJson]=useState('');
+ const [zipBase64,setZipBase64]=useState('');
+ const [zipFileName,setZipFileName]=useState('');
+ const [removeConfirm,setRemoveConfirm]=useState('');
  const [loading,setLoading]=useState(true);
  const [busy,setBusy]=useState('');
  const [error,setError]=useState('');
@@ -82,6 +87,45 @@ export function SkillsRegistry(){
   }catch(cause){setError(cause instanceof Error?cause.message:'导入 Skill 完整包失败。');}
   finally{setBusy('');}
  };
+ const chooseZip=(event:SyntheticEvent<HTMLElement>,data?:unknown)=>{
+  const first=(data as {addedFiles?:Array<{file?:File}>}|undefined)?.addedFiles?.[0];
+  const file=first?.file??(event.target as HTMLInputElement).files?.[0];if(!file)return;
+  if(!file.name.toLowerCase().endsWith('.zip')||file.size>900000){setError('请上传小于 900 KB 的 ZIP 文件。');return;}
+  void file.arrayBuffer().then(buffer=>{
+   const bytes=new Uint8Array(buffer);let binary='';for(let offset=0;offset<bytes.length;offset+=0x8000)binary+=String.fromCharCode(...bytes.subarray(offset,offset+0x8000));
+   setZipBase64(btoa(binary));setZipFileName(file.name);setError('');
+  }).catch(()=>setError('读取 ZIP 文件失败，请重试。'));
+ };
+ const addZip=async()=>{
+  if(!zipBase64)return;
+  setBusy('__zip__');setError('');setNotice('');
+  try{
+   const result=await skillRequest<{id:string;contractStatus:string;package:{fileCount:number;totalBytes:number}}>('/api/v1/agent/skills',{method:'POST',body:JSON.stringify({sourceType:'zip',zipBase64})});
+   setNotice('已从 '+zipFileName+' 注册 '+result.id+'，导入 '+result.package.fileCount+' 个文件。契约状态：'+(result.contractStatus==='valid'?'有效':result.contractStatus==='invalid'?'无效':'缺失')+'；仍需人工审核。');
+   setZipBase64('');setZipFileName('');await load();
+  }catch(cause){setError(cause instanceof Error?cause.message:'ZIP Skill 导入失败。');}
+  finally{setBusy('');}
+ };
+ const addManual=async()=>{
+  if(!manualSkillMd.trim())return;
+  setBusy('__manual__');setError('');setNotice('');
+  try{
+   const result=await skillRequest<{id:string;contractStatus:string;package:{fileCount:number;totalBytes:number}}>('/api/v1/agent/skills',{method:'POST',body:JSON.stringify({sourceType:'manual',skillMd:manualSkillMd,skillJson:manualSkillJson||undefined})});
+   setNotice('已手动注册 '+result.id+'，契约状态：'+(result.contractStatus==='valid'?'有效':result.contractStatus==='invalid'?'无效':'缺失')+'。已保存到私有存储，仍需人工审核。');
+   setManualSkillMd('');setManualSkillJson('');await load();
+  }catch(cause){setError(cause instanceof Error?cause.message:'手动注册 Skill 失败。');}
+  finally{setBusy('');}
+ };
+ const remove=async(id:string)=>{
+  if(removeConfirm!==id){setRemoveConfirm(id);return;}
+  setBusy(id);setError('');setNotice('');
+  try{
+   await skillRequest('/api/v1/agent/skills/'+id,{method:'DELETE'});
+   setNotice(id+' 已从当前账户注册表移除。内容寻址的共享存储对象不会被直接删除。');
+   setRemoveConfirm('');await load();
+  }catch(cause){setError(cause instanceof Error?cause.message:'移除 Skill 失败。');}
+  finally{setBusy('');}
+ };
  const add=async()=>{
   if(!newSource.repositoryUrl.trim())return;
   setBusy('__new__');setError('');setNotice('');
@@ -93,11 +137,11 @@ export function SkillsRegistry(){
   finally{setBusy('');}
  };
  return <div className="tp-settings-agent">
-  <InlineNotification kind="info" lowContrast title="可扩展 Skills 注册中心" subtitle="初始十个条目不是数量上限。导入会读取 SKILL.md、完整目录文件和可选的 skill.json 执行契约，识别依赖、外部域名及部分高风险代码模式。所有导入项默认停用；契约有效和静态检查通过均不等于安全认证，也不会执行任何 Skill 代码。" />
+  <InlineNotification kind="info" lowContrast title="开放式 Skills 注册中心" subtitle="Skill 数量不设固定上限，注册表只展示你实际添加的项目。支持公开 GitHub、ZIP 上传和手动创建三种注册方式；系统读取 SKILL.md、完整目录文件和可选的 skill.json 执行契约，并识别依赖、外部域名及部分高风险代码模式。所有导入项默认停用；契约有效和静态检查通过均不等于安全认证，也不会执行任何 Skill 代码。" />
   {error&&<InlineNotification kind="error" title="操作失败" subtitle={error} onCloseButtonClick={()=>setError('')}/>}
   {notice&&<InlineNotification kind="success" title="操作完成" subtitle={notice} onCloseButtonClick={()=>setNotice('')}/>}
   <div className="tp-settings__editor">
-   <h3>从 GitHub 新增 Skill</h3>
+   <h3>从 GitHub 注册 Skill</h3>
    <p>支持公开仓库根目录或具体 Skill 目录。系统校验 SKILL.md，并在文件数量、单文件大小和总大小限制内导入文本及资源文件。</p>
    <div className="tp-settings__editor-grid">
     <TextInput id="new-skill-repository" labelText="GitHub 仓库 / Skill 目录 URL" placeholder="https://github.com/owner/repo/tree/main/skills/my-skill" value={newSource.repositoryUrl} onChange={event=>setNewSource(current=>({...current,repositoryUrl:event.currentTarget.value}))}/>
@@ -107,8 +151,22 @@ export function SkillsRegistry(){
    <Button kind="primary" disabled={busy!==''||!newSource.repositoryUrl.trim()} onClick={()=>void add()}>{busy==='__new__'?'正在导入并检查…':'新增并导入完整包'}</Button>
   </div>
   <div className="tp-settings__editor">
+   <h3>上传 ZIP Skill 包</h3>
+   <p>上传包含一个 SKILL.md 的 ZIP 压缩包。系统会检查目录、文件数量、文件大小、敏感文件和执行契约，不会运行压缩包中的代码。</p>
+   <FileUploader accept={['.zip']} buttonLabel="选择 ZIP 文件" filenameStatus="complete" labelTitle="Skill ZIP 包" labelDescription="最大 900 KB；解压后最多 60 个文件、总计 768 KB。" multiple={false} onChange={chooseZip}/>
+   {zipFileName&&<p>已选择：{zipFileName}</p>}
+   <Button kind="primary" disabled={busy!==''||!zipBase64} onClick={()=>void addZip()}>{busy==='__zip__'?'正在解压、检查并注册…':'上传并注册 ZIP Skill'}</Button>
+  </div>
+  <div className="tp-settings__editor">
+   <h3>手动创建 Skill</h3>
+   <p>粘贴 Skill 的说明文件；可选附加 skill.json 执行契约。名称和描述从 SKILL.md frontmatter 自动读取。手动创建的内容同样会进行结构与静态检查，并默认停用。</p>
+   <TextArea id="manual-skill-markdown" labelText="SKILL.md 内容" rows={10} value={manualSkillMd} onChange={event=>setManualSkillMd(event.currentTarget.value)} placeholder={'---\nname: my-skill\ndescription: Describe what this Skill does\n---\n\n# Instructions\n...'} />
+   <TextArea id="manual-skill-contract" labelText="skill.json（可选）" rows={8} value={manualSkillJson} onChange={event=>setManualSkillJson(event.currentTarget.value)} placeholder='{"schemaVersion":1,...}' />
+   <Button kind="primary" disabled={busy!==''||!manualSkillMd.trim()} onClick={()=>void addManual()}>{busy==='__manual__'?'正在注册并检查…':'注册手动 Skill'}</Button>
+  </div>
+  <div className="tp-settings__editor">
    <h3>Skills 注册表 <Tag type="cool-gray">{skills.length} 项</Tag></h3>
-   {loading?<InlineLoading description="正在读取 Skill 注册表…"/>:skills.length===0?<p>尚无 Skill 记录。可以从 GitHub 新增第一个 Skill。</p>:<div className="tp-settings__section-layout">
+   {loading?<InlineLoading description="正在读取 Skill 注册表…"/>:skills.length===0?<p>尚无 Skill 记录。可以从 GitHub 注册第一个 Skill。</p>:<div className="tp-settings__section-layout">
     {skills.map(skill=>{
      const draft=drafts[skill.id]??{repositoryUrl:'',branch:'main',skillPath:''};
      const review=reviewOf(skill.config),bundle=bundleOf(skill.config),findings=review.findings??[],contract=contractOf(skill.config),contractStatus=String(skill.config.contractStatus??"missing"),contractErrors=Array.isArray(skill.config.contractErrors)?skill.config.contractErrors as string[]:[];
@@ -116,7 +174,7 @@ export function SkillsRegistry(){
      return <section key={skill.id} className="tp-settings__editor">
       <div className="tp-ai-control__skill-heading">
        <div><h4>{skill.label}</h4><p><code>{skill.id}</code> · {skill.description}</p></div>
-       <div className="tp-ai-control__skill-actions">{stateTag(skill.state)}{skill.sourceType==='custom'?<Tag type="purple">自定义</Tag>:<Tag type="cool-gray">初始清单</Tag>}{skill.enabled&&<Tag type="red">当前已启用</Tag>}</div>
+       <div className="tp-ai-control__skill-actions">{stateTag(skill.state)}{<Tag type="purple">{skill.sourceType==='github'?'GitHub':skill.sourceType==='zip'?'ZIP':skill.sourceType==='manual'?'手动':'已注册'}</Tag>}{skill.enabled&&<Tag type="red">当前已启用</Tag>}</div>
       </div>
       <div className="tp-settings__editor-grid">
        <TextInput id={'skill-repo-'+skill.id} labelText="GitHub 仓库 / Skill 目录 URL" placeholder="https://github.com/owner/repo/tree/main/skills/name" value={draft.repositoryUrl} onChange={event=>change(skill.id,'repositoryUrl',event.currentTarget.value)}/>
@@ -126,6 +184,7 @@ export function SkillsRegistry(){
       <div className="tp-ai-control__skill-actions">
        <Button kind="tertiary" size="sm" disabled={busy!==''||!draft.repositoryUrl.trim()} onClick={()=>void save(skill.id)}>保存来源</Button>
        <Button kind="primary" size="sm" disabled={busy!==''||!draft.repositoryUrl.trim()} onClick={()=>void sync(skill.id)}>{busy===skill.id?'正在导入完整包…':'重新导入完整包并检查'}</Button>
+       <Button kind="tertiary" size="sm" disabled={busy!==''} onClick={()=>void remove(skill.id)}>{removeConfirm===skill.id?'再次点击确认移除':'移除 Skill'}</Button>
       </div>
       {bundle.fileCount>0&&<div className="tp-settings__section-item"><span>已导入文件</span><strong>{bundle.fileCount} 个 · {formatBytes(bundle.totalBytes)}</strong></div>}
       {bundle.fileCount>0&&<div className="tp-settings__section-item"><span>执行契约</span><span>{contractTag(contractStatus)}</span></div>}
