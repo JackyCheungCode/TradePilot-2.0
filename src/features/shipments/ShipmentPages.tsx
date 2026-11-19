@@ -31,6 +31,7 @@ export function ShipmentConsolePage(){
  const shipmentCountry=(row:any)=>String(row.header?.destination_country||row.header?.destinationCountry||row.ship_to_address?.country_code||row.ship_to_address?.country||'').trim().toUpperCase();
  const mapData=useMemo(()=>{const counts=new Map<string,number>();rows.forEach(row=>{const code=shipmentCountry(row);if(code)counts.set(code,(counts.get(code)||0)+1)});return [...counts.entries()].map(([code,value])=>{let label=code;try{label=new Intl.DisplayNames(['zh-TW'],{type:'region'}).of(code)||code}catch{}return {code,label,value}}).sort((a,b)=>b.value-a.value)},[rows]);
  const filtered=useMemo(()=>rows.filter(r=>(status==='all'||r.status===status)&&(countryFilter==='all'||shipmentCountry(r)===countryFilter)&&[r.shipment_no,r.customer_po_no,r.header?.carrier,r.header?.booking_no,r.header?.bl_no].join(' ').toLowerCase().includes(q.toLowerCase())),[rows,status,countryFilter,q]);
+ useEffect(()=>setPage(1),[q,status,countryFilter]);
  const count=(s:string)=>rows.filter(r=>r.status===s).length;
  const chart=states.slice(0,10).map(([k,v])=>({group:v,key:'发运票数',value:count(k)})).filter(x=>x.value);
  const months=Array.from({length:6},(_,i)=>{const d=new Date();d.setMonth(d.getMonth()-5+i);return {key:d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'),label:(d.getMonth()+1)+'月'}});
