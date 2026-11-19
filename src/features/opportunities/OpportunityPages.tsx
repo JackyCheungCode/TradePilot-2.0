@@ -66,8 +66,8 @@ export function OpportunityConsolePage() {
   const [stage,setStage] = useState('all');
   const [marketCountry,setMarketCountry] = useState('all');
   const [page,setPage] = useState(1);
+  const [pageSize,setPageSize] = useState<10 | 20 | 50 | 100>(20);
   const [activeOpportunity,setActiveOpportunity] = useState<Opportunity | null>(null);
-  const pageSize = 20;
   const load = useCallback(async () => {
     setLoading(true); setError('');
     try {
@@ -135,7 +135,7 @@ export function OpportunityConsolePage() {
         activeRowId={activeOpportunity?.id}
         loading={loading}
         refreshing={false}
-        pagination={{ page, pageSize: 20, totalItems: filtered.length, onChange: (nextPage, nextSize) => { setPage(nextPage); if (nextSize !== pageSize) setPage(1); } }}
+        pagination={{ page, pageSize, totalItems: filtered.length, onChange: (nextPage, nextSize) => { setPage(nextPage); setPageSize(nextSize); } }}
         emptyState="没有符合条件的商机。"
       />
       <TpDetailPanel
