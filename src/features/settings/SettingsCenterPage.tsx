@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput,
-  Table, TableHead, TableRow, TableHeader, TableBody, TableCell, semanticIcons, TpDataTable,
+  semanticIcons, TpDataTable,
   Grid, Column, ContainedList, ContainedListItem,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
