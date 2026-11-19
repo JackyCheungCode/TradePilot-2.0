@@ -9,13 +9,14 @@ export interface TPSkeletonProps {
   rows?: number;
   className?: string;
   children?: ReactNode;
+  label?: string;
 }
 
 /** Carbon skeleton patterns sized for common TradePilot content regions. */
-export function TPSkeleton({ variant = 'text', rows = 3, className = '', children }: TPSkeletonProps) {
+export function TPSkeleton({ variant = 'text', rows = 3, className = '', children, label = '正在加载内容…' }: TPSkeletonProps) {
   const count = Math.max(1, Math.min(12, rows));
   return (
-    <div className={['tp-skeleton', 'tp-skeleton--' + variant, className].filter(Boolean).join(' ')} aria-busy="true" aria-live="polite">
+    <div className={['tp-skeleton', 'tp-skeleton--' + variant, className].filter(Boolean).join(' ')} aria-busy="true" aria-live="polite" aria-label={label}>
       {variant === 'text' && <SkeletonText paragraph lineCount={count} />}
       {variant === 'card' && (
         <div className="tp-skeleton__card">
