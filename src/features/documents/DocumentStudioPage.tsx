@@ -1,7 +1,7 @@
 import { PageHeader } from '@/design-system';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Button, Link, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput } from '@/design-system';
+import { Button, Link, TPSkeleton, InlineNotification, Select, SelectItem, Tag, TextInput } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/documents.scss';
 
@@ -269,7 +269,7 @@ export function DocumentStudioPage() {
       <div className="tp-doc-studio__template-name"><TextInput id="studio-template-name" labelText="模板名称" value={templateName} onChange={event => setTemplateName(event.currentTarget.value)} /></div>
       <div className="tp-doc-studio__source-detail">{selectedType.detail}{selectedOrder && <Tag type={selectedOrder.locked_at ? 'green' : 'blue'}>{selectedOrder.locked_at ? '成交快照已锁定' : '当前订单未锁定成交快照'}</Tag>}</div>
     </section>
-    {loading && <InlineLoading description="正在加载订单与模板…" />}
+    {loading && <TPSkeleton variant="profile" rows={5}/>}
     <section className="tp-doc-studio__workspace">
       <aside className="tp-doc-studio__tools">
         <h2>添加元素</h2>
