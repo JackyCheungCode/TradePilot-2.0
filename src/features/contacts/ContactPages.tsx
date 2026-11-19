@@ -243,7 +243,7 @@ export function ContactConsolePage() {
     { key:'primary_contact', header:'主联系人', minWidth:90, render:(row:ContactTableRow) => row.__isGroup ? '' : row.is_primary?'是':'—' },
   ], [collapsedGroups]);
   const tableRows = useMemo(():ContactTableRow[] => {
-    if (!showGroups) return rows as ContactTableRow[];
+    if (!showGroups) return rows as unknown as ContactTableRow[];
     const result:ContactTableRow[]=[];
     grouped.forEach(group => {
       const parentId='group-'+group.label;
@@ -253,7 +253,7 @@ export function ContactConsolePage() {
         const childId=parentId+'-'+child.label;
         if (thenBy!=='none') result.push({id:childId, __isGroup:true, __groupLabel:'　'+child.label+' · '+child.items.length} as unknown as ContactTableRow);
         if (collapsedGroups.has(childId)) return;
-        result.push(...child.items as ContactTableRow[]);
+        result.push(...child.items as unknown as ContactTableRow[]);
       });
     });
     return result;
