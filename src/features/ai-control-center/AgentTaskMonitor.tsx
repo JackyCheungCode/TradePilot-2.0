@@ -23,7 +23,7 @@ export function AgentTaskMonitor(){
   const runAction=async(id:string,action:'pause'|'resume'|'cancel'|'retry')=>{
     setBusy(true);setError('');setNotice('');
     try{
-      const result=await taskRequest<{status:string}>(`/api/v1/agent/runs/${id}/${action}`,{method:'POST'});
+      await taskRequest<{status:string}>(`/api/v1/agent/runs/${id}/${action}`,{method:'POST'});
       setNotice(action==='pause'?'工作流已暂停。':action==='resume'?'工作流已恢复。':action==='cancel'?'工作流已取消。':'工作流已从头重新启动。');
       await load();
       if(detail?.run.id===id)setDetail(await taskRequest<RunDetail>('/api/v1/agent/runs/'+id));
@@ -43,7 +43,7 @@ export function AgentTaskMonitor(){
             <p>{run.agent_key} · {new Date(run.created_at).toLocaleString()}</p>
             {runStatus(run.status)}
             <Button kind="tertiary" size="sm" disabled={busy} onClick={()=>void openDetail(run.id)}>查看执行详情</Button>
-            {run.plan?.workflowId&&<div className="tp-ai-control__skill-actions">
+            {Boolean(run.plan?.workflowId)&&<div className="tp-ai-control__skill-actions">
               {run.status==='running'&&<Button kind="tertiary" size="sm" disabled={busy} onClick={()=>void runAction(run.id,'pause')}>暂停</Button>}
               {run.status==='paused'&&<Button kind="tertiary" size="sm" disabled={busy} onClick={()=>void runAction(run.id,'resume')}>恢复</Button>}
               {['queued','running','paused'].includes(run.status)&&<Button kind="danger--tertiary" size="sm" disabled={busy} onClick={()=>void runAction(run.id,'cancel')}>取消任务</Button>}
