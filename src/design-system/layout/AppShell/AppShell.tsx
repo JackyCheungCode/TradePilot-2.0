@@ -101,7 +101,7 @@ export function AppShell() {
             className="tp-theme-menu"
           >
             <OverflowMenuItem
-              itemText={preference === 'system' ? <><semanticIcons.check size={16} /> System</> : 'System'}
+              itemText={preference === 'system' ? <><semanticIcons.check size={16} /> 设置与系统</> : '设置与系统'}
               onClick={() => setPreference('system')}
             />
             <OverflowMenuItem
@@ -147,50 +147,50 @@ export function AppShell() {
         onOverlayClick={() => setSideNavExpanded(false)}
       >
         <div className="tp-sidenav__group">
-          <div className="tp-sidenav__group-label">Workspace</div>
+          <div className="tp-sidenav__group-label">工作台</div>
           <SideNavItems>
-            <SideNavLink href="/dashboard" isActive={location.pathname === '/dashboard' || location.pathname === '/'} title="Overview" renderIcon={semanticIcons.dashboard}>Overview</SideNavLink>
+            <SideNavLink href="/dashboard" isActive={location.pathname === '/dashboard' || location.pathname === '/'} title="总览" renderIcon={semanticIcons.dashboard}>总览</SideNavLink>
           </SideNavItems>
         </div>
         <div className="tp-sidenav__group">
-          <div className="tp-sidenav__group-label">Intelligence &amp; Leads</div>
+          <div className="tp-sidenav__group-label">情报与商机</div>
           <SideNavItems>
-            <SideNavLink href="/prospect-data" isActive={location.pathname.startsWith('/prospect-data') || location.pathname.startsWith('/prospect-history')} title="Prospect Data" renderIcon={semanticIcons.database}>Prospect Data</SideNavLink>
-            <SideNavLink href="/leads" isActive={location.pathname.startsWith('/leads')} title="Leads" renderIcon={semanticIcons.userFollow}>Leads</SideNavLink>
+            <SideNavLink href="/prospect-data" isActive={location.pathname.startsWith('/prospect-data') || location.pathname.startsWith('/prospect-history')} title="线索数据" renderIcon={semanticIcons.database}>线索数据</SideNavLink>
+            <SideNavLink href="/leads" isActive={location.pathname.startsWith('/leads')} title="商机" renderIcon={semanticIcons.userFollow}>商机</SideNavLink>
           </SideNavItems>
         </div>
         <div className="tp-sidenav__group">
-          <div className="tp-sidenav__group-label">Customers</div>
+          <div className="tp-sidenav__group-label">客户管理</div>
           <SideNavItems>
-            <SideNavLink href="/contacts" isActive={location.pathname.startsWith('/contacts')} title="Contacts" renderIcon={semanticIcons.user}>Contacts</SideNavLink>
-            <SideNavLink href="/accounts" isActive={location.pathname.startsWith('/accounts')} title="Accounts" renderIcon={semanticIcons.building}>Accounts</SideNavLink>
-            <SideNavLink href="/opportunities" isActive={location.pathname.startsWith('/opportunities')} title="Opportunities" renderIcon={semanticIcons.chart}>Opportunities</SideNavLink>
+            <SideNavLink href="/contacts" isActive={location.pathname.startsWith('/contacts')} title="联系人" renderIcon={semanticIcons.user}>联系人</SideNavLink>
+            <SideNavLink href="/accounts" isActive={location.pathname.startsWith('/accounts')} title="客户档案" renderIcon={semanticIcons.building}>客户档案</SideNavLink>
+            <SideNavLink href="/opportunities" isActive={location.pathname.startsWith('/opportunities')} title="销售机会" renderIcon={semanticIcons.chart}>销售机会</SideNavLink>
           </SideNavItems>
         </div>
         <div className="tp-sidenav__group">
-          <div className="tp-sidenav__group-label">Customer Engagement</div>
+          <div className="tp-sidenav__group-label">客户沟通</div>
           <SideNavItems>
-            <SideNavLink href="/inbox" isActive={location.pathname.startsWith('/inbox')} title="Customer Communication" renderIcon={semanticIcons.chat}>Customer Communication</SideNavLink>
+            <SideNavLink href="/inbox" isActive={location.pathname.startsWith('/inbox')} title="客户沟通中心" renderIcon={semanticIcons.chat}>客户沟通中心</SideNavLink>
           </SideNavItems>
         </div>
         <div className="tp-sidenav__group">
-          <div className="tp-sidenav__group-label">Trade Operations</div>
+          <div className="tp-sidenav__group-label">贸易业务</div>
           <SideNavItems>
-            <SideNavLink href="/quotes" isActive={location.pathname.startsWith('/quotes')} title="Quotes" renderIcon={semanticIcons.document}>Quotes</SideNavLink>
-            <SideNavLink href="/sales-orders" isActive={location.pathname.startsWith('/sales-orders')} title="Sales Orders" renderIcon={semanticIcons.tasks}>Sales Orders</SideNavLink>
-            <SideNavLink href="/documents" isActive={location.pathname.startsWith('/documents')} title="Trade Documents" renderIcon={semanticIcons.documents}>Trade Documents</SideNavLink>
-            <SideNavLink href="/shipments" isActive={location.pathname.startsWith('/shipments')} title="Shipments" renderIcon={semanticIcons.delivery}>Shipments</SideNavLink>
-            <SideNavLink href="/payments" isActive={location.pathname.startsWith('/payments')} title="Payments" renderIcon={semanticIcons.currency}>Payments</SideNavLink>
-            <SideNavLink href="/products" isActive={location.pathname.startsWith('/products')} title="Products" renderIcon={semanticIcons.product}>Products</SideNavLink>
+            <SideNavLink href="/quotes" isActive={location.pathname.startsWith('/quotes')} title="报价单" renderIcon={semanticIcons.document}>报价单</SideNavLink>
+            <SideNavLink href="/sales-orders" isActive={location.pathname.startsWith('/sales-orders')} title="销售订单" renderIcon={semanticIcons.tasks}>销售订单</SideNavLink>
+            <SideNavLink href="/documents" isActive={location.pathname.startsWith('/documents')} title="贸易单证" renderIcon={semanticIcons.documents}>贸易单证</SideNavLink>
+            <SideNavLink href="/shipments" isActive={location.pathname.startsWith('/shipments')} title="物流发货" renderIcon={semanticIcons.delivery}>物流发货</SideNavLink>
+            <SideNavLink href="/payments" isActive={location.pathname.startsWith('/payments')} title="收款管理" renderIcon={semanticIcons.currency}>收款管理</SideNavLink>
+            <SideNavLink href="/products" isActive={location.pathname.startsWith('/products')} title="产品管理" renderIcon={semanticIcons.product}>产品管理</SideNavLink>
           </SideNavItems>
         </div>
         <div className="tp-sidenav__group">
-          <div className="tp-sidenav__group-label">System</div>
+          <div className="tp-sidenav__group-label">设置与系统</div>
           <SideNavItems>
-            <SideNavLink href="/trade-tools" isActive={location.pathname.startsWith('/trade-tools')} title="Trade Tools" renderIcon={semanticIcons.calculator}>Trade Tools</SideNavLink>
-            <SideNavLink href="/ai-agents" isActive={location.pathname.startsWith('/ai-agents')} title="AI &amp; Agents" renderIcon={semanticIcons.api}>AI &amp; Agents</SideNavLink>
-            <SideNavLink href="/settings" isActive={location.pathname.startsWith('/settings')} title="Settings" renderIcon={semanticIcons.settings}>Settings</SideNavLink>
-            <SideNavLink href="/security" isActive={location.pathname.startsWith('/security')} title="Security" renderIcon={semanticIcons.security}>Security</SideNavLink>
+            <SideNavLink href="/trade-tools" isActive={location.pathname.startsWith('/trade-tools')} title="贸易工具" renderIcon={semanticIcons.calculator}>贸易工具</SideNavLink>
+            <SideNavLink href="/ai-agents" isActive={location.pathname.startsWith('/ai-agents')} title="AI 与 Agent" renderIcon={semanticIcons.api}>AI 与 Agent</SideNavLink>
+            <SideNavLink href="/settings" isActive={location.pathname.startsWith('/settings')} title="系统设置" renderIcon={semanticIcons.settings}>系统设置</SideNavLink>
+            <SideNavLink href="/security" isActive={location.pathname.startsWith('/security')} title="安全中心" renderIcon={semanticIcons.security}>安全中心</SideNavLink>
           </SideNavItems>
         </div>
         <div className="tp-sidenav__footer">
