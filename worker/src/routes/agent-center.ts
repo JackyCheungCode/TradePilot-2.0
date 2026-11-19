@@ -507,11 +507,16 @@ async function executeXiaoyaReadTools(env:Env,ownerId:string,rawCalls:unknown,al
  return results;
 }
 
-async function loadXiaoyaSkillContext(env:Env,ownerId:string):Promise<string>{
+export async function loadXiaoyaSkillContext(env:Env,ownerId:string,selectedSkillIds?:string[]):Promise<string>{
+ if(selectedSkillIds&&selectedSkillIds.length===0)return "";
+ const selected=selectedSkillIds?new Set(selectedSkillIds):null;
+ if(selectedSkillIds&&selectedSkillIds.some(id=>!/^[a-z0-9][a-z0-9-]{1,79}$/.test(id)))return "";
  if(!env.SKILL_ARTIFACTS)return "";
- const rows=await db<Array<{agent_key:string;config:Record<string,unknown>}>>(env,"agent_profiles?owner_id=eq."+ownerId+"&enabled=eq.true&agent_key=like.skill%3A*&select=agent_key,config&order=updated_at.desc&limit=20");
+ const skillFilter=selectedSkillIds?"&agent_key=in.("+selectedSkillIds.map(id=>encodeURIComponent("skill:"+id)).join(",")+")":"&agent_key=like.skill%3A*";
+ const rows=await db<Array<{agent_key:string;config:Record<string,unknown>}>>(env,"agent_profiles?owner_id=eq."+ownerId+"&enabled=eq.true"+skillFilter+"&select=agent_key,config&order=updated_at.desc&limit=20");
  const sections:string[]=[];let budget=16000;
  for(const row of rows??[]){
+  if(selected&&!selected.has(row.agent_key.slice(6)))continue;
   if(sections.length>=5||budget<=0)break;
   const config=asRecord(row.config),bundle=asRecord(config.bundle),artifact=asRecord(bundle.artifact),key=typeof artifact.key==="string"?artifact.key:"";
   if(!/^sha256\/[a-f0-9]{64}\.json$/.test(key))continue;
@@ -619,8 +624,15 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
       const systemPrompt=typeof input.systemPrompt==="string"?input.systemPrompt.trim():"";
       const description=typeof input.description==="string"?input.description.trim():"";
       const modelRef=typeof input.modelRef==="string"?input.modelRef.trim():"";
-      if(systemPrompt.length>12000||description.length>1000||modelRef.length>300)return errorResponse(request,"VALIDATION_ERROR","Agent 指令、描述或模型标识超出长度限制。",400);
-      const config={systemPrompt,description,modelRef};
+      const rawSkillIds=Array.isArray(input.skillIds)?input.skillIds:[];
+      const skillIds=[...new Set(rawSkillIds.filter((value):value is string=>typeof value==="string"&&/^[a-z0-9][a-z0-9-]{1,79}$/.test(value)))];
+      if(rawSkillIds.length>10||skillIds.length!==rawSkillIds.length||systemPrompt.length>12000||description.length>1000||modelRef.length>300)return errorResponse(request,"VALIDATION_ERROR","Agent 指令、描述、模型标识或 Skill 分配数量无效。",400);
+      if(skillIds.length){
+        const enabledSkills=await db<Array<{agent_key:string}>>(env,"agent_profiles?owner_id=eq."+ownerId+"&agent_key=like.skill%3A*&enabled=eq.true&select=agent_key&limit=100");
+        const available=new Set((enabledSkills??[]).map(row=>row.agent_key.slice(6)));
+        if(skillIds.some(id=>!available.has(id)))return errorResponse(request,"SKILL_NOT_AVAILABLE","只能分配当前账户已启用的 Skill 工作方法。",409);
+      }
+      const config={systemPrompt,description,modelRef,skillIds};
       const rows=await db<Array<Record<string,unknown>>>(env,"agent_profiles?on_conflict=owner_id,agent_key&select=agent_key,enabled,config,updated_at",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=representation"},body:JSON.stringify({owner_id:ownerId,agent_key:agentKey,enabled,config,updated_at:new Date().toISOString()})});
       return successResponse(request,rows?.[0]??{agent_key:agentKey,enabled,config},200);
     }

@@ -243,3 +243,36 @@ test("Xiaoya rejects invalid external tool arguments before invoking the connect
   assert.equal(mcpToolCalls,0);
  }finally{restore();}
 });
+
+
+test("Agent profile only accepts enabled owner-scoped Skills and persists their assignment",async()=>{
+ let saved:Record<string,unknown>|undefined;
+ const restore=withFetch(async(input,init)=>{
+  const url=String(input);
+  if(url.endsWith("/auth/v1/user"))return authResponse();
+  if(url.includes("/rest/v1/agent_profiles?owner_id=")&&url.includes("agent_key=like.skill"))return Response.json([{agent_key:"skill:market-brief"}]);
+  if(url.includes("/rest/v1/agent_profiles?on_conflict=owner_id,agent_key")&&init?.method==="POST"){saved=JSON.parse(String(init.body)) as Record<string,unknown>;return Response.json([{agent_key:"market_research",enabled:true,config:saved.config}]);}
+  throw new Error("Unexpected fetch: "+url+" "+String(init?.method));
+ });
+ try{
+  const response=await handleAgentCenter(new Request("https://worker.test/api/v1/agent/profiles/market_research",{method:"PUT",headers:{Authorization:"Bearer user-token","Content-Type":"application/json"},body:JSON.stringify({enabled:true,config:{skillIds:["market-brief"]}})}),env);
+  assert.equal(response.status,200);
+  assert.deepEqual((saved?.config as Record<string,unknown>).skillIds,["market-brief"]);
+ }finally{restore();}
+});
+
+test("Agent profile rejects Skill assignments that are not enabled for the owner",async()=>{
+ let writes=0;
+ const restore=withFetch(async(input,init)=>{
+  const url=String(input);
+  if(url.endsWith("/auth/v1/user"))return authResponse();
+  if(url.includes("/rest/v1/agent_profiles?owner_id=")&&url.includes("agent_key=like.skill"))return Response.json([]);
+  if(url.includes("/rest/v1/agent_profiles?on_conflict=owner_id,agent_key"))writes++;
+  throw new Error("Unexpected fetch: "+url+" "+String(init?.method));
+ });
+ try{
+  const response=await handleAgentCenter(new Request("https://worker.test/api/v1/agent/profiles/market_research",{method:"PUT",headers:{Authorization:"Bearer user-token","Content-Type":"application/json"},body:JSON.stringify({enabled:true,config:{skillIds:["not-enabled"]}})}),env);
+  assert.equal(response.status,409);
+  assert.equal(writes,0);
+ }finally{restore();}
+});
