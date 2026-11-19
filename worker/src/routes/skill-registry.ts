@@ -266,7 +266,7 @@ export async function handleSkillRegistry(request:Request,env:Env):Promise<Respo
    if(body.sourceType==="manual"){
     if(typeof body.skillMd!=="string"||!body.skillMd.trim()||body.skillMd.length>100000)return errorResponse(request,"INVALID_SKILL_MARKDOWN","请提供不超过 100 KB 的 SKILL.md 内容。",400);
     if(body.skillJson!==undefined&&(typeof body.skillJson!=="string"||body.skillJson.length>64000))return errorResponse(request,"INVALID_SKILL_CONTRACT","skill.json 必须是不超过 64 KB 的 JSON 文本。",400);
-    const manifest=parseFrontmatter(body.skillMd);
+    let manifest:Record<string,string>;try{manifest=parseFrontmatter(body.skillMd);}catch(error){return errorResponse(request,"INVALID_SKILL_MARKDOWN",error instanceof Error?error.message:"SKILL.md frontmatter 无效。",400);}
     const files:BundleFile[]=[{path:"SKILL.md",size:new TextEncoder().encode(body.skillMd).byteLength,encoding:"utf-8",content:body.skillMd,sha:"manual"}];
     if(body.skillJson?.trim())files.push({path:"skill.json",size:new TextEncoder().encode(body.skillJson).byteLength,encoding:"utf-8",content:body.skillJson,sha:"manual"});
     const contract=validateSkillContract(files,manifest);
