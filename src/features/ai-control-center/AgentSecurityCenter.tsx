@@ -41,7 +41,7 @@ export function AgentSecurityCenter(){
       <strong>{actionLabels[item.action_type]||item.action_type}</strong> {approvalStatus(item.status)}
       <p>任务编号：{item.run_id}</p>
       <p>提交时间：{new Date(item.created_at).toLocaleString()} · 到期时间：{new Date(item.expires_at).toLocaleString()}</p>
-      <details><summary>查看操作快照</summary><pre>{JSON.stringify(item.operation_snapshot,null,2)}</pre></details>
+      <pre>{JSON.stringify(item.operation_snapshot,null,2)}</pre>
       {item.status==='pending'?<>
        <TextArea id={'approval-note-'+item.id} labelText="审批备注（可选）" rows={2} value={notes[item.id]||''} onChange={event=>setNotes(rows=>({...rows,[item.id]:event.currentTarget.value}))}/>
        <Button kind="primary" size="sm" disabled={busyId===item.id} onClick={()=>void decide(item,'approve')}>{busyId===item.id?'处理中…':'批准并执行'}</Button>
