@@ -1,9 +1,9 @@
 import { useNavigate } from 'react-router-dom';
-import { CustomerCommunicationsWidget } from './CustomerCommunicationsWidget';
-import '../../design-system/styles/customer-communication-workspace.scss';
+import { CustomerCommunicationsWidget } from '../customer-communications/CustomerCommunicationsWidget';
+import '../../design-system/styles/communication-workspace.scss';
 
-/** Full-page route for the existing, data-backed customer communications workspace. */
-export function CustomerCommunicationsPage() {
+/** Odoo-inspired three-pane CRM communications workspace using Carbon design tokens. */
+export function CommunicationPage() {
   const navigate = useNavigate();
   return (
     <CustomerCommunicationsWidget

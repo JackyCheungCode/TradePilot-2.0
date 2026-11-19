@@ -170,7 +170,7 @@ export function AppShell() {
         <div className="tp-sidenav__group">
           <div className="tp-sidenav__group-label">客户沟通</div>
           <SideNavItems>
-            <SideNavLink href="/inbox" isActive={location.pathname.startsWith('/inbox')} title="客户沟通中心" renderIcon={semanticIcons.chat}>客户沟通中心</SideNavLink>
+            <SideNavLink href="/communications" isActive={location.pathname.startsWith('/communications') || location.pathname.startsWith('/inbox')} title="沟通" renderIcon={semanticIcons.chat}>沟通</SideNavLink>
           </SideNavItems>
         </div>
         <div className="tp-sidenav__group">

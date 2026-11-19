@@ -29,7 +29,7 @@ import { DocumentPreviewPage } from '../features/documents/DocumentPreviewPage';
 import { DocumentStudioPage } from '../features/documents/DocumentStudioPage';
 import { DocumentTemplateCenterPage } from '../features/documents/DocumentTemplateCenterPage';
 import { DocumentCompanyProfilePage } from '../features/documents/DocumentCompanyProfilePage';
-import { CustomerCommunicationsPage } from '../features/customer-communications/CustomerCommunicationsPage';
+import { CommunicationPage } from '../features/communications/CommunicationPage';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -42,7 +42,8 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <Navigate to="/dashboard" replace /> },
           { path: 'dashboard', element: <DashboardPage /> },
-          { path: 'inbox', element: <CustomerCommunicationsPage /> },
+          { path: 'communications', element: <CommunicationPage /> },
+          { path: 'inbox', element: <Navigate to="/communications" replace /> },
           { path: 'agent', element: <AgentWorkspacePage /> },
           { path: 'ai-agents', element: <AIControlCenterPage /> },
           { path: 'prospect-discovery', element: <ProspectDiscoveryPage /> },
