@@ -52,6 +52,8 @@ export interface TpDataTableProps<T extends object> {
   detailPanel?: boolean;
   /** Optional guard for rows that are structural/group rows rather than records. */
   canOpenRow?: (row: T) => boolean;
+  /** Prevents synthetic/group rows from entering the selected-record set. */
+  canSelectRow?: (row: T) => boolean;
   /** Optional record title shown in the detail SidePanel. */
   detailTitle?: (row: T) => string;
   activeRowId?: string;
