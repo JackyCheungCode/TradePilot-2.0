@@ -103,6 +103,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
   onRowOpen,
   detailPanel = false,
   canOpenRow,
+  canSelectRow,
   detailTitle,
   activeRowId,
   loading = false,
@@ -356,6 +357,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
     return () => window.removeEventListener('popstate', syncFromUrl);
   }, [detailPanel]);
 
+  const rowById = useMemo(() => new Map(rows.map((row) => [String(row[rowKey]), row])), [rows, rowKey]);
   const carbonRows = useMemo(() => rows.map((row) => ({
     id: String(row[rowKey]),
     ...Object.fromEntries(visibleColumns.map((column) => [column.key, displayValue(row, column)])),
@@ -376,7 +378,10 @@ export function TpDataTable<T extends Record<string, unknown>>({
         {({ rows: renderedRows, getHeaderProps, getRowProps, getSelectionProps, getBatchActionProps, selectedRows: carbonSelectedRows, selectRow }) => {
           const pageStart = pagination ? (pagination.page - 1) * pagination.pageSize : 0;
           const pageRows = pagination && !pagination.serverSide ? renderedRows.slice(pageStart, pageStart + pagination.pageSize) : renderedRows;
-          const pageIds = pageRows.map((row) => row.id);
+          const pageIds = pageRows.filter((row) => {
+            const source = rowById.get(row.id);
+            return Boolean(source && (!canSelectRow || canSelectRow(source)));
+          }).map((row) => row.id);
           const selectedPageCount = pageIds.filter((id) => selectedIds.has(id)).length;
           const allPageSelected = pageIds.length > 0 && selectedPageCount === pageIds.length;
           const somePageSelected = selectedPageCount > 0 && !allPageSelected;
@@ -554,7 +559,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
                 </TableHead>
                 <TableBody>
                   {pageRows.map((carbonRow) => {
-                    const source = rows.find((row) => String(row[rowKey]) === carbonRow.id);
+                    const source = rowById.get(carbonRow.id);
                     if (!source) return null;
                     return (
                       <TableRow
@@ -575,16 +580,20 @@ export function TpDataTable<T extends Record<string, unknown>>({
                         tabIndex={detailPanel || onRowOpen ? 0 : undefined}
                       >
                         {selectable && (
-                          <TableSelectRow
-                            {...getSelectionProps({
-                              row: carbonRow,
-                              onClick: (event) => {
-                                event.stopPropagation();
-                                toggleRowSelection(carbonRow.id, !selectedIds.has(carbonRow.id));
-                              },
-                            })}
-                            checked={selectedIds.has(carbonRow.id)}
-                          />
+                          canSelectRow && !canSelectRow(source)
+                            ? <TableCell />
+                            : (
+                              <TableSelectRow
+                                {...getSelectionProps({
+                                  row: carbonRow,
+                                  onClick: (event) => {
+                                    event.stopPropagation();
+                                    toggleRowSelection(carbonRow.id, !selectedIds.has(carbonRow.id));
+                                  },
+                                })}
+                                checked={selectedIds.has(carbonRow.id)}
+                              />
+                            )
                         )}
                         {visibleColumns.map((column) => (
                           <TableCell
