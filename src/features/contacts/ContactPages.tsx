@@ -306,6 +306,7 @@ export function ContactConsolePage() {
         ariaLabel="联系人列表"
         detailPanel
         canOpenRow={row=>!row.__isGroup}
+        canSelectRow={row=>!row.__isGroup}
         loading={loading}
         error={error||null}
         columnSettingsKey="crm-contacts"
