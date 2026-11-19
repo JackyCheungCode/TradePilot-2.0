@@ -7,6 +7,15 @@ type Skill = { id:string; label:string; description:string; sourceType:'starter'
 type Draft = { repositoryUrl:string; branch:string; skillPath:string };
 type SecurityReview = { status?:string; riskLevel?:string; requiresHumanReview?:boolean; findings?:Finding[]; dependencies?:string[]; networkDomains?:string[]; limitations?:string[] };
 type SkillBundle = { fileCount:number; totalBytes:number; syncedAt:string };
+type ContractSummary = { version?:string; runtime?:string; entrypoint?:string; requiredTools?:string[]; permissions?:{networkHosts?:string[];dataScopes?:string[];secrets?:string[];sideEffects?:string[]}; limits?:{timeoutSeconds?:number;memoryMb?:number;maxOutputBytes?:number} };
+function contractOf(config:Record<string,unknown>):ContractSummary|null{
+ return config.contractSummary&&typeof config.contractSummary==='object'?config.contractSummary as ContractSummary:null;
+}
+function contractTag(status:string){
+ if(status==='valid')return <Tag type="green">契约有效</Tag>;
+ if(status==='invalid')return <Tag type="red">契约无效</Tag>;
+ return <Tag type="cool-gray">缺少 skill.json</Tag>;
+}
 async function skillRequest<T>(path:string,init:RequestInit={}):Promise<T>{
  const client=await getSupabaseClient();const {data}=await client.auth.getSession();
  if(!data.session?.access_token)throw new Error('登录状态已失效，请重新登录。');
@@ -68,8 +77,8 @@ export function SkillsRegistry(){
  const sync=async(id:string)=>{
   setBusy(id);setError('');setNotice('');
   try{
-   const result=await skillRequest<{manifest:{name:string;description:string};source:{owner:string;repo:string};package:{fileCount:number;totalBytes:number};securityReview:SecurityReview}>('/api/v1/agent/skills/'+id+'/sync',{method:'POST',body:'{}'});
-   setNotice(id+'：已导入 '+result.package.fileCount+' 个文件（'+formatBytes(result.package.totalBytes)+'），初步静态检查完成；仍须人工安全审核。');await load();
+   const result=await skillRequest<{manifest:{name:string;description:string};contractStatus:string;contractErrors:string[];package:{fileCount:number;totalBytes:number};securityReview:SecurityReview}>('/api/v1/agent/skills/'+id+'/sync',{method:'POST',body:'{}'});
+   setNotice(id+'：已导入 '+result.package.fileCount+' 个文件（'+formatBytes(result.package.totalBytes)+'），契约状态：'+(result.contractStatus==='valid'?'有效':result.contractStatus==='invalid'?'无效':'缺失')+'；仍须人工安全审核。');await load();
   }catch(cause){setError(cause instanceof Error?cause.message:'导入 Skill 完整包失败。');}
   finally{setBusy('');}
  };
@@ -77,14 +86,14 @@ export function SkillsRegistry(){
   if(!newSource.repositoryUrl.trim())return;
   setBusy('__new__');setError('');setNotice('');
   try{
-   const result=await skillRequest<{id:string;package:{fileCount:number;totalBytes:number};securityReview:SecurityReview}>('/api/v1/agent/skills',{method:'POST',body:JSON.stringify(newSource)});
-   setNotice('已新增 '+result.id+'：导入 '+result.package.fileCount+' 个文件（'+formatBytes(result.package.totalBytes)+'），初步静态检查完成。Skill 保持停用，等待人工审核。');
+   const result=await skillRequest<{id:string;contractStatus:string;contractErrors:string[];package:{fileCount:number;totalBytes:number};securityReview:SecurityReview}>('/api/v1/agent/skills',{method:'POST',body:JSON.stringify(newSource)});
+   setNotice('已新增 '+result.id+'：导入 '+result.package.fileCount+' 个文件（'+formatBytes(result.package.totalBytes)+'），契约状态：'+(result.contractStatus==='valid'?'有效':result.contractStatus==='invalid'?'无效':'缺失')+'。Skill 保持停用，等待人工审核。');
    setNewSource({repositoryUrl:'',branch:'main',skillPath:''});await load();
   }catch(cause){setError(cause instanceof Error?cause.message:'新增 Skill 失败。');}
   finally{setBusy('');}
  };
  return <div className="tp-settings-agent">
-  <InlineNotification kind="info" lowContrast title="可扩展 Skills 注册中心" subtitle="初始十个条目不是数量上限。导入会读取 SKILL.md 和受限范围内的完整目录文件，识别依赖、外部域名及部分高风险代码模式。所有导入项默认停用；静态检查不等于安全认证，也不会执行任何 Skill 代码。" />
+  <InlineNotification kind="info" lowContrast title="可扩展 Skills 注册中心" subtitle="初始十个条目不是数量上限。导入会读取 SKILL.md、完整目录文件和可选的 skill.json 执行契约，识别依赖、外部域名及部分高风险代码模式。所有导入项默认停用；契约有效和静态检查通过均不等于安全认证，也不会执行任何 Skill 代码。" />
   {error&&<InlineNotification kind="error" title="操作失败" subtitle={error} onCloseButtonClick={()=>setError('')}/>}
   {notice&&<InlineNotification kind="success" title="操作完成" subtitle={notice} onCloseButtonClick={()=>setNotice('')}/>}
   <div className="tp-settings__editor">
@@ -102,7 +111,7 @@ export function SkillsRegistry(){
    {loading?<InlineLoading description="正在读取 Skill 注册表…"/>:skills.length===0?<p>尚无 Skill 记录。可以从 GitHub 新增第一个 Skill。</p>:<div className="tp-settings__section-layout">
     {skills.map(skill=>{
      const draft=drafts[skill.id]??{repositoryUrl:'',branch:'main',skillPath:''};
-     const review=reviewOf(skill.config),bundle=bundleOf(skill.config),findings=review.findings??[];
+     const review=reviewOf(skill.config),bundle=bundleOf(skill.config),findings=review.findings??[],contract=contractOf(skill.config),contractStatus=String(skill.config.contractStatus??"missing"),contractErrors=Array.isArray(skill.config.contractErrors)?skill.config.contractErrors as string[]:[];
      const dependencies=review.dependencies??[],domains=review.networkDomains??[];
      return <section key={skill.id} className="tp-settings__editor">
       <div className="tp-ai-control__skill-heading">
@@ -119,6 +128,20 @@ export function SkillsRegistry(){
        <Button kind="primary" size="sm" disabled={busy!==''||!draft.repositoryUrl.trim()} onClick={()=>void sync(skill.id)}>{busy===skill.id?'正在导入完整包…':'重新导入完整包并检查'}</Button>
       </div>
       {bundle.fileCount>0&&<div className="tp-settings__section-item"><span>已导入文件</span><strong>{bundle.fileCount} 个 · {formatBytes(bundle.totalBytes)}</strong></div>}
+      {bundle.fileCount>0&&<div className="tp-settings__section-item"><span>执行契约</span><span>{contractTag(contractStatus)}</span></div>}
+      {contract&&<div className="tp-settings__editor">
+       <h5>契约摘要 · v{contract.version}</h5>
+       <p>运行环境：{contract.runtime} · 入口：<code>{contract.entrypoint}</code></p>
+       <p>声明工具：{contract.requiredTools?.length?contract.requiredTools.join('、'):'无'}</p>
+       <p>网络主机：{contract.permissions?.networkHosts?.length?contract.permissions.networkHosts.join('、'):'无'}</p>
+       <p>数据权限：{contract.permissions?.dataScopes?.length?contract.permissions.dataScopes.join('、'):'无'} · Secrets：{contract.permissions?.secrets?.length?contract.permissions.secrets.join('、'):'无'}</p>
+       <p>副作用：{contract.permissions?.sideEffects?.length?contract.permissions.sideEffects.join('、'):'无'}</p>
+       <p>资源上限：{contract.limits?.timeoutSeconds??'—'} 秒 · {contract.limits?.memoryMb??'—'} MB · {formatBytes(contract.limits?.maxOutputBytes??0)} 输出</p>
+      </div>}
+      {contractErrors.length>0&&<div className="tp-settings__editor">
+       <h5>契约校验问题</h5>
+       {contractErrors.map((item,index)=><p key={index}>{item}</p>)}
+      </div>}
       {review.status&&<div className="tp-settings__section-item"><span>安全审核状态</span><span>{riskTag(review.riskLevel??'')} <Tag type="warm-gray">等待人工审核</Tag></span></div>}
       {findings.length>0&&<div className="tp-settings__editor">
        <h5>静态检查发现</h5>
