@@ -141,6 +141,8 @@ export function ContactConsolePage() {
   const [primaryFilter,setPrimaryFilter]=useState('all');
   const [page,setPage]=useState(1);
   const [pageSize,setPageSize]=useState<10|20|50|100>(DEFAULT_PAGE_SIZE);
+  const [sortKey,setSortKey]=useState('updated_at');
+  const [sortDirection,setSortDirection]=useState<'ASC'|'DESC'|'NONE'>('DESC');
   const [groupBy,setGroupBy]=useState('country');
   const [thenBy,setThenBy]=useState('account');
   const [showGroups,setShowGroups]=useState(true);
@@ -201,7 +203,10 @@ export function ContactConsolePage() {
       const client=await getSupabaseClient();
       let listQuery=client.from('crm_contacts')
         .select('id,account_id,first_name,last_name,full_name,job_title,department,email,phone,mobile,whatsapp,contact_type,decision_role,is_primary,is_active,notes,custom_fields,created_at,updated_at,crm_accounts(account_name,country_code)',{count:'exact'})
-        .eq('is_archived',false).order('updated_at',{ascending:false});
+        .eq('is_archived',false);
+      const sortFieldByColumn:Record<string,string>={full_name:'full_name',account:'account_id',job:'job_title',contact_method:'email',role:'decision_role',status:'is_active',primary_contact:'is_primary'};
+      const sortField=sortDirection==='NONE'?'updated_at':(sortFieldByColumn[sortKey]||'updated_at');
+      listQuery=listQuery.order(sortField,{ascending:sortDirection==='ASC'});
       if(statusFilter==='active') listQuery=listQuery.eq('is_active',true);
       if(statusFilter==='inactive') listQuery=listQuery.eq('is_active',false);
       if(primaryFilter==='yes') listQuery=listQuery.eq('is_primary',true);
@@ -217,7 +222,7 @@ export function ContactConsolePage() {
     } catch(e) {
       setError(e instanceof Error?e.message:'读取联系人失败');
     } finally { setLoading(false); }
-  },[page,pageSize,query,statusFilter,sourceFilter,primaryFilter]);
+  },[page,pageSize,query,statusFilter,sourceFilter,primaryFilter,sortKey,sortDirection]);
 
   useEffect(()=>{void loadAnalytics();},[loadAnalytics]);
   useEffect(()=>{void loadRows();},[loadRows]);
@@ -258,7 +263,8 @@ export function ContactConsolePage() {
     });
     return result;
   }, [rows, grouped, showGroups, thenBy, collapsedGroups]);
-  const tableSearchScope = [query,statusFilter,sourceFilter,primaryFilter].join('|');
+  const handleTableSort=useCallback((key:string,direction:'ASC'|'DESC'|'NONE')=>{setSortKey(key);setSortDirection(direction);setPage(1);},[]);
+  const tableSearchScope = [query,statusFilter,sourceFilter,primaryFilter,groupBy,thenBy,showGroups].join('|');
 
   const countryMapData=countryStats.filter(item=>item.key!=='unknown').map(item=>({code:item.key,label:item.label,value:item.total,detail:'已验证 '+item.verified+' · 在职 '+item.active}));
   const dailyChartData=dailyStats.map(item=>({group:'每日新增',date:new Date(item.date+'T00:00:00'),value:item.count}));
@@ -299,10 +305,15 @@ export function ContactConsolePage() {
         rows={tableRows}
         rowKey="id"
         ariaLabel="联系人列表"
+        detailPanel
+        canOpenRow={row=>!row.__isGroup}
+        canSelectRow={row=>!row.__isGroup}
         loading={loading}
         error={error||null}
         columnSettingsKey="crm-contacts"
         selectionScopeKey={tableSearchScope}
+        onRetry={loadRows}
+        onSortChange={handleTableSort}
         onRowOpen={(row)=>{if(!row.__isGroup) navigate('/contacts/'+row.id);}}
         pagination={{page,pageSize,totalItems:total,serverSide:true,onChange:(nextPage,nextPageSize)=>{setPage(nextPage);setPageSize(nextPageSize);}}}
       />:<p className="tp-contacts__empty">没有找到联系人记录。</p>}

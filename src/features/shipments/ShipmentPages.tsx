@@ -44,7 +44,8 @@ export function ShipmentConsolePage(){
  <section className="tp-shipments__panel tp-shipments__market-panel"><div className="tp-shipments__panel-head"><div><h2>全球发运目的地</h2><p>按目的国家 / 地区汇总发运票数；点击地图或排名可筛选发运列表。</p></div></div>{mapData.length?<WorldMapChart data={mapData} unitLabel="票发运" selectedCode={countryFilter==='all'?undefined:countryFilter} onCountrySelect={code=>setCountryFilter(current=>current===code?'all':code)}/>:<p>发运记录尚未提供可识别的目的国家 / 地区字段。</p>}</section>
  <section className="tp-shipments__panel"><h2>发运单列表</h2><div className="tp-shipments__filters"><TextInput id="shipment-q" labelText="搜索发运单" placeholder="发运单号、PO、承运人、订舱号、提单号" value={q} onChange={e=>setQ(e.currentTarget.value)}/><Select id="shipment-status-filter" labelText="发运状态" value={status} onChange={e=>setStatus(e.currentTarget.value)}><SelectItem value="all" text="全部状态"/>{states.map(([k,v])=><SelectItem key={k} value={k} text={v}/>)}</Select></div>{loading?<InlineLoading description="正在读取发运单…"/>:<div className="tp-shipments__table-wrap"><TpDataTable
         selectable
- ariaLabel="发运单列表" columnSettingsKey="logistics-shipments" rowKey="id"
+ ariaLabel="发运单列表"
+ detailPanel error={error||null} onRetry={load} selectionScopeKey={[q,status,countryFilter].join('|')} columnSettingsKey="logistics-shipments" rowKey="id"
  rows={filtered as (Record<string,unknown>)[]}
  onRowOpen={row=>nav('/shipments/'+String(row.id))}
  pagination={{page,pageSize,totalItems:filtered.length,onChange:(nextPage,nextSize)=>{setPage(nextPage);setPageSize(nextSize);}}}

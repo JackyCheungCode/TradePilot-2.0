@@ -14,6 +14,8 @@ export interface TpTableColumn<T> {
   sortable?: boolean;
   longText?: boolean;
   render?: (row: T) => ReactNode;
+  /** Plain-text value used by CSV export when the displayed cell is rendered as a React node. */
+  exportValue?: (row: T) => string | number | null;
 }
 
 export interface TpBatchAction<T> {
@@ -46,10 +48,20 @@ export interface TpDataTableProps<T extends object> {
   batchActions?: TpBatchAction<T>[];
   rowActions?: TpRowAction<T>[];
   onRowOpen?: (row: T, triggerElement?: HTMLElement) => void;
+  /** Opens an IBM Products SidePanel with the selected record while keeping the list in context. */
+  detailPanel?: boolean;
+  /** Optional guard for rows that are structural/group rows rather than records. */
+  canOpenRow?: (row: T) => boolean;
+  /** Prevents synthetic/group rows from entering the selected-record set. */
+  canSelectRow?: (row: T) => boolean;
+  /** Optional record title shown in the detail SidePanel. */
+  detailTitle?: (row: T) => string;
   activeRowId?: string;
   loading?: boolean;
   refreshing?: boolean;
   error?: Error | string | null;
+  /** Optional recovery action rendered with an error state. */
+  onRetry?: () => void;
   emptyState?: ReactNode;
   pagination?: TpPaginationConfig;
   searchValue?: string;

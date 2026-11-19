@@ -104,7 +104,8 @@ export function SalesOrderConsolePage(){
    <div className="tp-sales-orders__filters"><TextInput id="sales-order-search" labelText="搜索销售订单" placeholder="订单号、客户、客户 PO 号" value={query} onChange={e=>setQuery(e.currentTarget.value)}/><Select id="sales-order-status" labelText="订单状态" value={status} onChange={e=>setStatus(e.currentTarget.value)}><SelectItem value="all" text="全部状态"/>{['draft','confirmed','preparing','partially_shipped','shipped','completed','cancelled'].map(s=><SelectItem key={s} value={s} text={stateLabel(s)}/>)}</Select></div>
    {loading?<div className="tp-sales-orders__loading"><InlineLoading description="正在读取销售订单…"/></div>:<div className="tp-sales-orders__table-wrap"><TpDataTable
         selectable
-     ariaLabel="销售订单列表" columnSettingsKey="sales-orders" rowKey="id"
+     ariaLabel="销售订单列表"
+     detailPanel error={error||null} onRetry={load} selectionScopeKey={[query,status,currency,marketCountry].join('|')} columnSettingsKey="sales-orders" rowKey="id"
      rows={filtered as (OrderRow & Record<string,unknown>)[]}
      onRowOpen={row=>nav('/sales-orders/'+row.id)}
      pagination={{page,pageSize,totalItems:filtered.length,onChange:(nextPage,nextSize)=>{setPage(nextPage);setPageSize(nextSize);}}}

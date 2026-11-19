@@ -35,6 +35,7 @@ function AccountMap({rows,selectedCode,onCountrySelect}:{rows:Account[];selected
  return <section className="tp-accounts__panel"><div className="tp-accounts__panel-head"><SectionTitle icon={<semanticIcons.globe size={20}/>}>全球客户分布</SectionTitle><p>按客户主地址国家 / 地区汇总；地图为国家级统计，不代表公司精确地址。</p></div><WorldMapChart data={data} unitLabel="家客户" selectedCode={selectedCode==='all'?undefined:selectedCode} onCountrySelect={onCountrySelect}/></section>;
 }
 export function AccountConsolePage(){
+ const nav=useNavigate();
  const [rows,setRows]=useState<Account[]>([]);const [contacts,setContacts]=useState<Contact[]>([]);const [loading,setLoading]=useState(true);const [error,setError]=useState('');const [query,setQuery]=useState('');const [status,setStatus]=useState('all');const [countryFilter,setCountryFilter]=useState('all');const [page,setPage]=useState(1);const [pageSize,setPageSize]=useState<10|20|50|100>(20);
  const load=useCallback(async()=>{setLoading(true);setError('');try{const db=await getSupabaseClient();const [a,c]=await Promise.all([db.from('crm_accounts').select('*').eq('is_archived',false).order('created_at',{ascending:false}).range(0,1999),db.from('crm_contacts').select('id,account_id,first_name,last_name,full_name,job_title,contact_role,decision_role,email,mobile,phone,whatsapp,is_primary,is_active,custom_fields').eq('is_archived',false).range(0,4999)]);if(a.error)throw a.error;if(c.error)throw c.error;setRows((a.data||[]) as Account[]);setContacts((c.data||[]) as Contact[])}catch(e){setError(e instanceof Error?e.message:'读取客户数据失败')}finally{setLoading(false)}},[]);
  useEffect(()=>{void load()},[load]);
@@ -66,6 +67,10 @@ export function AccountConsolePage(){
  rows={filtered as (Account & Record<string,unknown>)[]}
  rowKey="id"
  ariaLabel="客户列表"
+ detailPanel
+ error={error||null} onRetry={load}
+ selectionScopeKey={[query,status,countryFilter].join('|')}
+ onRowOpen={row=>nav('/accounts/'+row.id)}
  columnSettingsKey="crm-accounts"
  pagination={{page,pageSize,totalItems:filtered.length,onChange:(nextPage,nextSize)=>{setPage(nextPage);setPageSize(nextSize);}}}
 />{!filtered.length&&<p className="tp-accounts__empty">没有符合条件的客户。</p>}</section>

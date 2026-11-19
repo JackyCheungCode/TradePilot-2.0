@@ -225,6 +225,9 @@ export function ProspectDataPage() {
           <TpDataTable
         selectable
             ariaLabel="全部潜客列表"
+            detailPanel
+            error={error||null} onRetry={load}
+            selectionScopeKey={[search,source,status,country].join('|')}
             columnSettingsKey="prospect-master-data"
             rowKey="id"
             rows={filtered as (Prospect & Record<string, unknown>)[]}

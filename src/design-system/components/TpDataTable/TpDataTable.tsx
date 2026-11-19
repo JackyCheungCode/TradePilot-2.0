@@ -3,6 +3,7 @@ import {
   Checkbox,
   DataTable,
   DataTableSkeleton,
+  InlineNotification,
   OverflowMenu,
   OverflowMenuItem,
   Pagination,
@@ -24,10 +25,62 @@ import {
   TableToolbarSearch,
   Tag,
 } from '@carbon/react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { SidePanel } from '@carbon/ibm-products';
+import { isValidElement, useEffect, useMemo, useRef, useState } from 'react';
 import { getSupabaseClient } from '@/lib/supabase';
 import type { TpDataTableProps } from './TpDataTable.types';
 import './TpDataTable.scss';
+
+function flattenExportValue(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (Array.isArray(value)) return value.map(flattenExportValue).filter(Boolean).join(' ');
+  if (isValidElement(value)) {
+    const props = value.props as { children?: unknown; alt?: string; title?: string };
+    return flattenExportValue(props.children ?? props.alt ?? props.title ?? '');
+  }
+  if (typeof value === 'object') return JSON.stringify(value) ?? String(value);
+  return String(value);
+}
+
+function csvSafeValue(value: unknown) {
+  const text = value === null || value === undefined
+    ? ''
+    : typeof value === 'object'
+      ? JSON.stringify(value)
+      : String(value);
+  const safe = /^[\s]*[=+\-@]/.test(text) ? `'${text}` : text;
+  return `"${safe.replace(/"/g, '""')}"`;
+}
+
+function downloadSelectedRows<T extends Record<string, unknown>>(
+  rows: T[],
+  columns: TpDataTableProps<T>['columns'],
+  fileName: string,
+) {
+  const headers = columns.map((column) => column.header);
+  const lines = [
+    headers.map(csvSafeValue).join(','),
+    ...rows.map((row) => columns.map((column) => {
+      const value = column.exportValue
+        ? column.exportValue(row)
+        : row[column.key] !== undefined
+          ? row[column.key]
+          : displayValue(row, column);
+      return csvSafeValue(flattenExportValue(value));
+    }).join(',')),
+  ];
+  const blob = new Blob(['\uFEFF', lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = fileName;
+  anchor.hidden = true;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
 
 function displayValue<T extends object>(row: T, column: TpDataTableProps<T>['columns'][number]) {
   if (column.render) return column.render(row);
@@ -48,10 +101,15 @@ export function TpDataTable<T extends Record<string, unknown>>({
   batchActions = [],
   rowActions = [],
   onRowOpen,
+  detailPanel = false,
+  canOpenRow,
+  canSelectRow,
+  detailTitle,
   activeRowId,
   loading = false,
   refreshing = false,
   error,
+  onRetry,
   emptyState,
   pagination,
   searchValue,
@@ -66,23 +124,41 @@ export function TpDataTable<T extends Record<string, unknown>>({
   const [columnPreferences, setColumnPreferences] = useState<{ order: string[]; hidden: string[] } | null>(null);
   const [preferencesReady, setPreferencesReady] = useState(!columnSettingsKey);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [detailRowId, setDetailRowId] = useState<string | null>(null);
+  const [pendingDetailNavigation, setPendingDetailNavigation] = useState<{ targetPage: number; direction: -1 | 1; sourceRows: T[] } | null>(null);
+  const detailLauncherRef = useRef<HTMLElement | null>(null);
+  const tableRootRef = useRef<HTMLDivElement | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [selectionRevision, setSelectionRevision] = useState(0);
+  const [batchFeedback, setBatchFeedback] = useState<{ kind: 'success' | 'error'; title: string; subtitle: string } | null>(null);
+  const [batchBusy, setBatchBusy] = useState(false);
   const selectedRowCache = useRef(new Map<string, T>());
 
   useEffect(() => {
     selectionRows.forEach((row) => selectedRowCache.current.set(String(row[rowKey]), row));
+    setSelectionRevision((revision) => revision + 1);
   }, [selectionRows, rowKey]);
 
   const selectedRows = useMemo(
     () => [...selectedIds].map((id) => selectedRowCache.current.get(id)).filter((row): row is T => Boolean(row)),
-    [selectedIds],
+    [selectedIds, selectionRevision],
   );
 
 
+  const previousSelectionScope = useRef(selectionScopeKey);
   useEffect(() => {
-    // Clear stale selections when the logical filter scope changes, not when a page changes.
+    // Clear stale selections and close a record preview when the logical filter scope changes,
+    // but preserve both while the user moves between pages.
+    if (previousSelectionScope.current === selectionScopeKey) return;
+    previousSelectionScope.current = selectionScopeKey;
     setSelectedIds(new Set());
     selectedRowCache.current.clear();
+    if (detailRowId) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('tpRecord');
+      window.history.replaceState(window.history.state, '', url);
+      setDetailRowId(null);
+    }
   }, [selectionScopeKey]);
 
   const toggleRowSelection = (id: string, checked: boolean) => {
@@ -193,10 +269,99 @@ export function TpDataTable<T extends Record<string, unknown>>({
         return ai - bi;
       });
   }, [columns, columnPreferences]);
+  const orderedColumnKeys = useMemo(() => {
+    const configured = columnPreferences?.order ?? [];
+    return [...columns].sort((a, b) => {
+      const ai = configured.indexOf(a.key);
+      const bi = configured.indexOf(b.key);
+      if (ai < 0 && bi < 0) return columns.indexOf(a) - columns.indexOf(b);
+      if (ai < 0) return 1;
+      if (bi < 0) return -1;
+      return ai - bi;
+    }).map((column) => column.key);
+  }, [columns, columnPreferences]);
   const headers = useMemo(() => [
-    ...visibleColumns.map((column) => ({ key: column.key, header: column.header, isSortable: Boolean(column.sortable) })),
+    ...visibleColumns.map((column) => ({ key: column.key, header: column.header, isSortable: column.sortable !== false && (!pagination?.serverSide || Boolean(onSortChange)) })),
     ...(rowActions.length ? [{ key: '__actions', header: '操作' }] : []),
-  ], [visibleColumns, rowActions.length]);
+  ], [visibleColumns, rowActions.length, pagination?.serverSide, onSortChange]);
+  const detailRow = detailPanel && detailRowId
+    ? rows.find((row) => String(row[rowKey]) === detailRowId) ?? null
+    : null;
+  const detailNavigationRows = detailRow ? rows.filter((row) => !canOpenRow || canOpenRow(row)) : [];
+  const detailNavigationIndex = detailRow
+    ? detailNavigationRows.findIndex((row) => String(row[rowKey]) === String(detailRow[rowKey]))
+    : -1;
+  const detailTotalPages = pagination ? Math.max(1, Math.ceil(pagination.totalItems / pagination.pageSize)) : 1;
+  const canNavigatePrevious = detailNavigationIndex > 0 || Boolean(pagination?.serverSide && pagination.page > 1);
+  const canNavigateNext = detailNavigationIndex >= 0 && (
+    detailNavigationIndex < detailNavigationRows.length - 1
+    || Boolean(pagination?.serverSide && pagination.page < detailTotalPages)
+  );
+  const openDetail = (row: T, trigger?: HTMLElement, replace = false) => {
+    if (canOpenRow && !canOpenRow(row)) {
+      onRowOpen?.(row, trigger);
+      return;
+    }
+    detailLauncherRef.current = trigger ?? detailLauncherRef.current;
+    const id = String(row[rowKey]);
+    const url = new URL(window.location.href);
+    const currentId = url.searchParams.get('tpRecord');
+    url.searchParams.set('tpRecord', id);
+    const state = { ...(window.history.state ?? {}), __tpDataTableDetail: true };
+    if (replace) window.history.replaceState(state, '', url);
+    else if (currentId !== id) window.history.pushState(state, '', url);
+    setDetailRowId(id);
+  };
+  const closeDetail = () => {
+    if (window.history.state?.__tpDataTableDetail) {
+      window.history.back();
+      setDetailRowId(null);
+      return;
+    }
+    const url = new URL(window.location.href);
+    url.searchParams.delete('tpRecord');
+    window.history.replaceState(window.history.state, '', url);
+    setDetailRowId(null);
+  };
+  const moveDetail = (offset: -1 | 1) => {
+    if (!detailRow) return;
+    const navigableRows = rows.filter((row) => !canOpenRow || canOpenRow(row));
+    const index = navigableRows.findIndex((row) => String(row[rowKey]) === String(detailRow[rowKey]));
+    const next = navigableRows[index + offset];
+    if (next) {
+      openDetail(next, detailLauncherRef.current ?? undefined, true);
+      return;
+    }
+    if (pagination?.serverSide) {
+      const targetPage = pagination.page + offset;
+      const totalPages = Math.max(1, Math.ceil(pagination.totalItems / pagination.pageSize));
+      if (targetPage >= 1 && targetPage <= totalPages) {
+        setPendingDetailNavigation({ targetPage, direction: offset, sourceRows: rows });
+        pagination.onChange(targetPage, pagination.pageSize);
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (!pendingDetailNavigation || !pagination?.serverSide || pagination.page !== pendingDetailNavigation.targetPage || rows === pendingDetailNavigation.sourceRows) return;
+    const navigableRows = rows.filter((row) => !canOpenRow || canOpenRow(row));
+    const next = pendingDetailNavigation.direction > 0 ? navigableRows[0] : navigableRows[navigableRows.length - 1];
+    if (next) {
+      detailLauncherRef.current = tableRootRef.current;
+      openDetail(next, tableRootRef.current ?? undefined, true);
+    }
+    setPendingDetailNavigation(null);
+  }, [pendingDetailNavigation, pagination?.page, pagination?.serverSide, rows, canOpenRow]);
+
+  useEffect(() => {
+    if (!detailPanel) return;
+    const syncFromUrl = () => setDetailRowId(new URLSearchParams(window.location.search).get('tpRecord'));
+    syncFromUrl();
+    window.addEventListener('popstate', syncFromUrl);
+    return () => window.removeEventListener('popstate', syncFromUrl);
+  }, [detailPanel]);
+
+  const rowById = useMemo(() => new Map(rows.map((row) => [String(row[rowKey]), row] as const)), [rows, rowKey]);
   const carbonRows = useMemo(() => rows.map((row) => ({
     id: String(row[rowKey]),
     ...Object.fromEntries(visibleColumns.map((column) => [column.key, displayValue(row, column)])),
@@ -204,15 +369,23 @@ export function TpDataTable<T extends Record<string, unknown>>({
   })), [rows, rowKey, visibleColumns]);
 
   if (loading) return <DataTableSkeleton columnCount={headers.length || 1} rowCount={8} showToolbar />;
-  if (error) return <div className="tp-data-table__message" role="alert">{String(error)}</div>;
+  if (error) return (
+    <div className="tp-data-table__message" role="alert">
+      <span>{String(error)}</span>
+      {onRetry && <Button kind="ghost" size="sm" onClick={onRetry}>重试</Button>}
+    </div>
+  );
 
   return (
-    <div className={`tp-data-table${refreshing ? ' tp-data-table--refreshing' : ''}`}>
+    <div ref={tableRootRef} tabIndex={-1} className={`tp-data-table${refreshing ? ' tp-data-table--refreshing' : ''}`} aria-busy={refreshing || batchBusy}>
       <DataTable rows={carbonRows} headers={headers} isSortable>
         {({ rows: renderedRows, getHeaderProps, getRowProps, getSelectionProps, getBatchActionProps, selectedRows: carbonSelectedRows, selectRow }) => {
           const pageStart = pagination ? (pagination.page - 1) * pagination.pageSize : 0;
           const pageRows = pagination && !pagination.serverSide ? renderedRows.slice(pageStart, pageStart + pagination.pageSize) : renderedRows;
-          const pageIds = pageRows.map((row) => row.id);
+          const pageIds = pageRows.filter((row) => {
+            const source = rowById.get(row.id);
+            return Boolean(source && (!canSelectRow || canSelectRow(source)));
+          }).map((row) => row.id);
           const selectedPageCount = pageIds.filter((id) => selectedIds.has(id)).length;
           const allPageSelected = pageIds.length > 0 && selectedPageCount === pageIds.length;
           const somePageSelected = selectedPageCount > 0 && !allPageSelected;
@@ -228,12 +401,39 @@ export function TpDataTable<T extends Record<string, unknown>>({
                     getBatchActionProps().onCancel();
                   }}
                 >
+                  <TableBatchAction
+                    key="__export-selected"
+                    tabIndex={0}
+                    onClick={() => {
+                      try {
+                        const safeName = (ariaLabel || 'data').replace(/[^\w\-\u4e00-\u9fff]+/g, '-');
+                        downloadSelectedRows(selectedRows, visibleColumns, `${safeName}-selected.csv`);
+                        setBatchFeedback({ kind: 'success', title: '导出已开始', subtitle: `已导出 ${selectedRows.length} 条所选记录` });
+                      } catch (cause) {
+                        setBatchFeedback({ kind: 'error', title: '导出失败', subtitle: cause instanceof Error ? cause.message : '无法生成导出文件' });
+                      }
+                    }}
+                  >
+                    导出所选
+                  </TableBatchAction>
                   {batchActions.map((action) => (
                     <TableBatchAction
                       key={action.key}
                       tabIndex={0}
-                      onClick={() => void action.onClick(selectedRows)}
-                      disabled={action.disabled}
+                      onClick={async () => {
+                        if (batchBusy || action.disabled) return;
+                        setBatchBusy(true);
+                        setBatchFeedback(null);
+                        try {
+                          await action.onClick(selectedRows);
+                          setBatchFeedback({ kind: 'success', title: '批量操作已完成', subtitle: action.label });
+                        } catch (cause) {
+                          setBatchFeedback({ kind: 'error', title: '批量操作失败', subtitle: cause instanceof Error ? cause.message : '操作未能完成，请重试' });
+                        } finally {
+                          setBatchBusy(false);
+                        }
+                      }}
+                      disabled={batchBusy || action.disabled}
                     >
                       {action.label}
                     </TableBatchAction>
@@ -293,7 +493,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
                                 <Button
                                   kind="ghost"
                                   size="sm"
-                                  disabled={columns.findIndex((item) => item.key === column.key) === 0}
+                                  disabled={orderedColumnKeys.indexOf(column.key) === 0}
                                   onClick={() => setColumnPreferences((current) => {
                                     const order = current?.order?.length ? [...current.order] : columns.map((item) => item.key);
                                     const index = order.indexOf(column.key);
@@ -304,7 +504,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
                                 <Button
                                   kind="ghost"
                                   size="sm"
-                                  disabled={columns.findIndex((item) => item.key === column.key) === columns.length - 1}
+                                  disabled={orderedColumnKeys.indexOf(column.key) === orderedColumnKeys.length - 1}
                                   onClick={() => setColumnPreferences((current) => {
                                     const order = current?.order?.length ? [...current.order] : columns.map((item) => item.key);
                                     const index = order.indexOf(column.key);
@@ -363,32 +563,41 @@ export function TpDataTable<T extends Record<string, unknown>>({
                 </TableHead>
                 <TableBody>
                   {pageRows.map((carbonRow) => {
-                    const source = rows.find((row) => String(row[rowKey]) === carbonRow.id);
+                    const source = rowById.get(carbonRow.id);
                     if (!source) return null;
                     return (
                       <TableRow
                         {...getRowProps({ row: carbonRow })}
                         className={`${activeRowId === carbonRow.id ? 'tp-data-table__row--active' : ''}`}
-                        onClick={(event) => onRowOpen?.(source, event.currentTarget)}
+                        onClick={(event) => {
+                          if ((event.target as HTMLElement).closest('a,button,input,[role="button"]')) return;
+                          if (detailPanel) openDetail(source, event.currentTarget);
+                          else onRowOpen?.(source, event.currentTarget);
+                        }}
                         onKeyDown={(event) => {
-                          if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ') && onRowOpen) {
+                          if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ') && (detailPanel || onRowOpen)) {
                             event.preventDefault();
-                            onRowOpen(source, event.currentTarget);
+                            if (detailPanel) openDetail(source, event.currentTarget);
+                            else onRowOpen?.(source, event.currentTarget);
                           }
                         }}
-                        tabIndex={onRowOpen ? 0 : undefined}
+                        tabIndex={(detailPanel || onRowOpen) && (!canOpenRow || canOpenRow(source)) ? 0 : undefined}
                       >
                         {selectable && (
-                          <TableSelectRow
-                            {...getSelectionProps({
-                              row: carbonRow,
-                              onClick: (event) => {
-                                event.stopPropagation();
-                                toggleRowSelection(carbonRow.id, !selectedIds.has(carbonRow.id));
-                              },
-                            })}
-                            checked={selectedIds.has(carbonRow.id)}
-                          />
+                          canSelectRow && !canSelectRow(source)
+                            ? <TableCell />
+                            : (
+                              <TableSelectRow
+                                {...getSelectionProps({
+                                  row: carbonRow,
+                                  onClick: (event) => {
+                                    event.stopPropagation();
+                                    toggleRowSelection(carbonRow.id, !selectedIds.has(carbonRow.id));
+                                  },
+                                })}
+                                checked={selectedIds.has(carbonRow.id)}
+                              />
+                            )
                         )}
                         {visibleColumns.map((column) => (
                           <TableCell
@@ -425,7 +634,17 @@ export function TpDataTable<T extends Record<string, unknown>>({
                 </TableBody>
               </Table>
             </div>
-            {renderedRows.length === 0 && <div className="tp-data-table__empty">{emptyState ?? '暂无数据'}</div>}
+            {batchFeedback && (
+              <InlineNotification
+                kind={batchFeedback.kind}
+                title={batchFeedback.title}
+                subtitle={batchFeedback.subtitle}
+                lowContrast
+                hideCloseButton={false}
+                onCloseButtonClick={() => setBatchFeedback(null)}
+              />
+            )}
+            {renderedRows.length === 0 && <div className="tp-data-table__empty" role="status">{emptyState ?? '暂无数据'}</div>}
             {pagination && (
               <Pagination
                 totalItems={pagination.totalItems}
@@ -445,6 +664,38 @@ export function TpDataTable<T extends Record<string, unknown>>({
           );
         }}
       </DataTable>
+      {detailPanel && (
+        <SidePanel
+          className="tp-data-table__detail-panel"
+          open={Boolean(detailRow)}
+          title={detailRow ? (detailTitle?.(detailRow) || String(detailRow[String(visibleColumns.find((column) => column.primary)?.key ?? rowKey)] ?? ariaLabel + '详情')) : ariaLabel + '详情'}
+          subtitle={detailRow ? `记录 ID：${String(detailRow[rowKey])}` : undefined}
+          size="lg"
+          placement="right"
+          includeOverlay={false}
+          slideIn={false}
+          launcherButtonRef={detailLauncherRef}
+          onRequestClose={closeDetail}
+        >
+          {detailRow && (
+            <div className="tp-data-table__detail-content">
+              <div className="tp-data-table__detail-navigation">
+                <Button kind="ghost" size="sm" disabled={!canNavigatePrevious} onClick={() => moveDetail(-1)}>上一条</Button>
+                <Button kind="ghost" size="sm" disabled={!canNavigateNext} onClick={() => moveDetail(1)}>下一条</Button>
+                {onRowOpen && <Button kind="primary" size="sm" onClick={() => onRowOpen(detailRow, detailLauncherRef.current ?? undefined)}>打开完整详情</Button>}
+              </div>
+              <dl className="tp-data-table__detail-fields">
+                {columns.filter((column) => column.key !== '__actions').map((column) => (
+                  <div className="tp-data-table__detail-field" key={column.key}>
+                    <dt>{column.header}</dt>
+                    <dd>{displayValue(detailRow, column)}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          )}
+        </SidePanel>
+      )}
     </div>
   );
 }
