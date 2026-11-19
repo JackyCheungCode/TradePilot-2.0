@@ -316,7 +316,7 @@ export function SettingsCenterPage() {
                   <div className="tp-settings__table-wrap">
                     <TpDataTable
       selectable
-                      ariaLabel="产品分类设置" columnSettingsKey="settings-product-categories" rowKey="id"
+                      ariaLabel="产品分类设置" selectionScopeKey={query} columnSettingsKey="settings-product-categories" rowKey="id"
                       rows={filteredCategories as (Category & Record<string,unknown>)[]}
                       pagination={{page,pageSize,totalItems:filteredCategories.length,onChange:(nextPage,nextSize)=>{setPage(nextPage);setPageSize(nextSize);}}}
                       columns={[
@@ -353,7 +353,7 @@ export function SettingsCenterPage() {
                   <div className="tp-settings__table-wrap">
                     <TpDataTable
       selectable
-                      ariaLabel="规格属性设置" columnSettingsKey="settings-product-attributes" rowKey="id"
+                      ariaLabel="规格属性设置" selectionScopeKey={query} columnSettingsKey="settings-product-attributes" rowKey="id"
                       rows={filteredAttributes as (Attribute & Record<string,unknown>)[]}
                       pagination={{page,pageSize,totalItems:filteredAttributes.length,onChange:(nextPage,nextSize)=>{setPage(nextPage);setPageSize(nextSize);}}}
                       columns={[
@@ -384,7 +384,7 @@ export function SettingsCenterPage() {
                   <div className="tp-settings__table-wrap">
                     <TpDataTable
       selectable
-                      ariaLabel="规格属性值设置" columnSettingsKey="settings-product-attribute-values" rowKey="id"
+                      ariaLabel="规格属性值设置" selectionScopeKey={[query,attributeValueAttribute].join("|")} columnSettingsKey="settings-product-attribute-values" rowKey="id"
                       rows={attributeValues.filter(item=>!attributeValueAttribute||item.attribute_id===attributeValueAttribute) as (AttributeValue & Record<string,unknown>)[]}
                       pagination={{page,pageSize,totalItems:attributeValues.filter(item=>!attributeValueAttribute||item.attribute_id===attributeValueAttribute).length,onChange:(nextPage,nextSize)=>{setPage(nextPage);setPageSize(nextSize);}}}
                       columns={[
