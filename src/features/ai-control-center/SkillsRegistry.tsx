@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Button, InlineLoading, InlineNotification, Tag, TextInput } from '@/design-system';
+import { Button, InlineLoading, InlineNotification, Tag, TextArea, TextInput } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 
 type Finding = { severity:'high'|'medium'|'low'; code:string; message:string; file?:string };
@@ -50,7 +50,7 @@ function formatBytes(value:number){
 export function SkillsRegistry(){
  const [skills,setSkills]=useState<Skill[]>([]);
  const [drafts,setDrafts]=useState<Record<string,Draft>>({});
- const [newSource,setNewSource]=useState<Draft>({repositoryUrl:'',branch:'main',skillPath:''});
+ const [newSource,setNewSource]=useState<Draft>({repositoryUrl:'',branch:'main',skillPath:''});\n const [manualSkillMd,setManualSkillMd]=useState('');\n const [manualSkillJson,setManualSkillJson]=useState('');\n const [removeConfirm,setRemoveConfirm]=useState('');
  const [loading,setLoading]=useState(true);
  const [busy,setBusy]=useState('');
  const [error,setError]=useState('');
@@ -82,6 +82,26 @@ export function SkillsRegistry(){
   }catch(cause){setError(cause instanceof Error?cause.message:'导入 Skill 完整包失败。');}
   finally{setBusy('');}
  };
+ const addManual=async()=>{
+  if(!manualSkillMd.trim())return;
+  setBusy('__manual__');setError('');setNotice('');
+  try{
+   const result=await skillRequest<{id:string;contractStatus:string;package:{fileCount:number;totalBytes:number}}>('/api/v1/agent/skills',{method:'POST',body:JSON.stringify({sourceType:'manual',skillMd:manualSkillMd,skillJson:manualSkillJson||undefined})});
+   setNotice('已手动注册 '+result.id+'，契约状态：'+(result.contractStatus==='valid'?'有效':result.contractStatus==='invalid'?'无效':'缺失')+'。已保存到私有存储，仍需人工审核。');
+   setManualSkillMd('');setManualSkillJson('');await load();
+  }catch(cause){setError(cause instanceof Error?cause.message:'手动注册 Skill 失败。');}
+  finally{setBusy('');}
+ };
+ const remove=async(id:string)=>{
+  if(removeConfirm!==id){setRemoveConfirm(id);return;}
+  setBusy(id);setError('');setNotice('');
+  try{
+   await skillRequest('/api/v1/agent/skills/'+id,{method:'DELETE'});
+   setNotice(id+' 已从当前账户注册表移除。内容寻址的共享存储对象不会被直接删除。');
+   setRemoveConfirm('');await load();
+  }catch(cause){setError(cause instanceof Error?cause.message:'移除 Skill 失败。');}
+  finally{setBusy('');}
+ };
  const add=async()=>{
   if(!newSource.repositoryUrl.trim())return;
   setBusy('__new__');setError('');setNotice('');
@@ -107,6 +127,13 @@ export function SkillsRegistry(){
    <Button kind="primary" disabled={busy!==''||!newSource.repositoryUrl.trim()} onClick={()=>void add()}>{busy==='__new__'?'正在导入并检查…':'新增并导入完整包'}</Button>
   </div>
   <div className="tp-settings__editor">
+   <h3>手动创建 Skill</h3>
+   <p>粘贴 Skill 的说明文件；可选附加 skill.json 执行契约。名称和描述从 SKILL.md frontmatter 自动读取。手动创建的内容同样会进行结构与静态检查，并默认停用。</p>
+   <TextArea id="manual-skill-markdown" labelText="SKILL.md 内容" rows={10} value={manualSkillMd} onChange={event=>setManualSkillMd(event.currentTarget.value)} placeholder={'---\nname: my-skill\ndescription: Describe what this Skill does\n---\n\n# Instructions\n...'} />
+   <TextArea id="manual-skill-contract" labelText="skill.json（可选）" rows={8} value={manualSkillJson} onChange={event=>setManualSkillJson(event.currentTarget.value)} placeholder='{"schemaVersion":1,...}' />
+   <Button kind="primary" disabled={busy!==''||!manualSkillMd.trim()} onClick={()=>void addManual()}>{busy==='__manual__'?'正在注册并检查…':'注册手动 Skill'}</Button>
+  </div>
+  <div className="tp-settings__editor">
    <h3>Skills 注册表 <Tag type="cool-gray">{skills.length} 项</Tag></h3>
    {loading?<InlineLoading description="正在读取 Skill 注册表…"/>:skills.length===0?<p>尚无 Skill 记录。可以从 GitHub 注册第一个 Skill。</p>:<div className="tp-settings__section-layout">
     {skills.map(skill=>{
@@ -126,6 +153,7 @@ export function SkillsRegistry(){
       <div className="tp-ai-control__skill-actions">
        <Button kind="tertiary" size="sm" disabled={busy!==''||!draft.repositoryUrl.trim()} onClick={()=>void save(skill.id)}>保存来源</Button>
        <Button kind="primary" size="sm" disabled={busy!==''||!draft.repositoryUrl.trim()} onClick={()=>void sync(skill.id)}>{busy===skill.id?'正在导入完整包…':'重新导入完整包并检查'}</Button>
+       <Button kind="tertiary" size="sm" disabled={busy!==''} onClick={()=>void remove(skill.id)}>{removeConfirm===skill.id?'再次点击确认移除':'移除 Skill'}</Button>
       </div>
       {bundle.fileCount>0&&<div className="tp-settings__section-item"><span>已导入文件</span><strong>{bundle.fileCount} 个 · {formatBytes(bundle.totalBytes)}</strong></div>}
       {bundle.fileCount>0&&<div className="tp-settings__section-item"><span>执行契约</span><span>{contractTag(contractStatus)}</span></div>}
