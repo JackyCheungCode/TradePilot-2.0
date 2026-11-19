@@ -124,6 +124,7 @@ export function ProspectHistoryPage() {
         selectable
               ariaLabel="潜客发现历史任务"
               detailPanel
+              selectionScopeKey="prospect-history-runs"
               columnSettingsKey="prospect-history-runs"
               rowKey="id"
               rows={runs as (Run & Record<string,unknown>)[]}
