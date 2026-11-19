@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput,
-  Table, TableHead, TableRow, TableHeader, TableBody, TableCell, semanticIcons,
+  Table, TableHead, TableRow, TableHeader, TableBody, TableCell, semanticIcons, TpDataTable,
   Grid, Column, ContainedList, ContainedListItem,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
@@ -312,16 +312,20 @@ export function SettingsCenterPage() {
                     </div>
                   </div>
                   <div className="tp-settings__table-wrap">
-                    <Table>
-                      <TableHead><TableRow><TableHeader>分类名称</TableHeader><TableHeader>编码</TableHeader><TableHeader>上级分类</TableHeader><TableHeader>状态</TableHeader><TableHeader>操作</TableHeader></TableRow></TableHead>
-                      <TableBody>{filteredCategories.map((item) => (
-                        <TableRow key={item.id}>
-                          <TableCell>{item.name}</TableCell><TableCell>{item.code || '—'}</TableCell><TableCell>{categories.find((parent) => parent.id === item.parent_id)?.name || '—'}</TableCell>
-                          <TableCell><Tag type={item.is_active ? 'green' : 'cool-gray'}>{item.is_active ? '启用' : '停用'}</Tag></TableCell>
-                          <TableCell><Button kind="ghost" size="sm" onClick={() => { setEditingCategoryId(item.id); setCategoryName(item.name); setCategoryCode(item.code || ''); setCategoryParent(item.parent_id || ''); }}>编辑</Button><Button kind="ghost" size="sm" onClick={() => void toggleCategory(item)}>{item.is_active ? '停用' : '启用'}</Button></TableCell>
-                        </TableRow>
-                      ))}</TableBody>
-                    </Table>
+                    <TpDataTable
+                      ariaLabel="产品分类设置" columnSettingsKey="settings-product-categories" rowKey="id"
+                      rows={filteredCategories as (Category & Record<string,unknown>)[]}
+                      columns={[
+                        {key:'name',header:'分类名称',primary:true,minWidth:180,render:item=>item.name},
+                        {key:'code',header:'编码',minWidth:120,render:item=>item.code||'—'},
+                        {key:'parent',header:'上级分类',minWidth:150,render:item=>categories.find(parent=>parent.id===item.parent_id)?.name||'—'},
+                        {key:'status',header:'状态',minWidth:100,render:item=><Tag type={item.is_active?'green':'cool-gray'}>{item.is_active?'启用':'停用'}</Tag>},
+                      ]}
+                      rowActions={[
+                        {key:'edit',label:'编辑',onClick:item=>{setEditingCategoryId(item.id);setCategoryName(item.name);setCategoryCode(item.code||'');setCategoryParent(item.parent_id||'');}},
+                        {key:'toggle',label:item=>item.is_active?'停用':'启用',onClick:item=>void toggleCategory(item)},
+                      ]}
+                    />
                     {!filteredCategories.length && <p className="tp-settings__empty">暂无分类记录。</p>}
                   </div>
                 </>
@@ -343,17 +347,20 @@ export function SettingsCenterPage() {
                     </div>
                   </div>
                   <div className="tp-settings__table-wrap">
-                    <Table>
-                      <TableHead><TableRow><TableHeader>属性名称</TableHeader><TableHeader>展示方式</TableHeader><TableHeader>变体规则</TableHeader><TableHeader>状态</TableHeader><TableHeader>操作</TableHeader></TableRow></TableHead>
-                      <TableBody>{filteredAttributes.map((item) => (
-                        <TableRow key={item.id}>
-                          <TableCell>{item.name}</TableCell><TableCell>{displayTypes.find((option) => option.value === item.display_type)?.label || item.display_type}</TableCell>
-                          <TableCell>{variantModes.find((option) => option.value === item.create_variant)?.label || item.create_variant}</TableCell>
-                          <TableCell><Tag type={item.is_active ? 'green' : 'cool-gray'}>{item.is_active ? '启用' : '停用'}</Tag></TableCell>
-                          <TableCell><Button kind="ghost" size="sm" onClick={() => { setEditingAttributeId(item.id); setAttributeName(item.name); setDisplayType(item.display_type); setVariantMode(item.create_variant); }}>编辑</Button><Button kind="ghost" size="sm" onClick={() => void toggleAttribute(item)}>{item.is_active ? '停用' : '启用'}</Button></TableCell>
-                        </TableRow>
-                      ))}</TableBody>
-                    </Table>
+                    <TpDataTable
+                      ariaLabel="规格属性设置" columnSettingsKey="settings-product-attributes" rowKey="id"
+                      rows={filteredAttributes as (Attribute & Record<string,unknown>)[]}
+                      columns={[
+                        {key:'name',header:'属性名称',primary:true,minWidth:160,render:item=>item.name},
+                        {key:'display_type',header:'展示方式',minWidth:130,render:item=>displayTypes.find(option=>option.value===item.display_type)?.label||item.display_type},
+                        {key:'create_variant',header:'变体规则',minWidth:130,render:item=>variantModes.find(option=>option.value===item.create_variant)?.label||item.create_variant},
+                        {key:'status',header:'状态',minWidth:100,render:item=><Tag type={item.is_active?'green':'cool-gray'}>{item.is_active?'启用':'停用'}</Tag>},
+                      ]}
+                      rowActions={[
+                        {key:'edit',label:'编辑',onClick:item=>{setEditingAttributeId(item.id);setAttributeName(item.name);setDisplayType(item.display_type);setVariantMode(item.create_variant);}},
+                        {key:'toggle',label:item=>item.is_active?'停用':'启用',onClick:item=>void toggleAttribute(item)},
+                      ]}
+                    />
                     {!filteredAttributes.length && <p className="tp-settings__empty">暂无规格属性。创建后可在产品规格配置中复用。</p>}
                   </div>
                   <div className="tp-settings__editor">
@@ -369,16 +376,17 @@ export function SettingsCenterPage() {
                     </div>
                   </div>
                   <div className="tp-settings__table-wrap">
-                    <Table>
-                      <TableHead><TableRow><TableHeader>所属属性</TableHeader><TableHeader>属性值</TableHeader><TableHeader>颜色</TableHeader><TableHeader>状态</TableHeader><TableHeader>操作</TableHeader></TableRow></TableHead>
-                      <TableBody>{attributeValues.filter((item) => !attributeValueAttribute || item.attribute_id === attributeValueAttribute).map((item) => (
-                        <TableRow key={item.id}>
-                          <TableCell>{attributes.find((attribute) => attribute.id === item.attribute_id)?.name || '—'}</TableCell><TableCell>{item.name}</TableCell><TableCell>{item.html_color || '—'}</TableCell>
-                          <TableCell><Tag type={item.is_active ? 'green' : 'cool-gray'}>{item.is_active ? '启用' : '停用'}</Tag></TableCell>
-                          <TableCell><Button kind="ghost" size="sm" onClick={() => void toggleAttributeValue(item)}>{item.is_active ? '停用' : '启用'}</Button></TableCell>
-                        </TableRow>
-                      ))}</TableBody>
-                    </Table>
+                    <TpDataTable
+                      ariaLabel="规格属性值设置" columnSettingsKey="settings-product-attribute-values" rowKey="id"
+                      rows={attributeValues.filter(item=>!attributeValueAttribute||item.attribute_id===attributeValueAttribute) as (AttributeValue & Record<string,unknown>)[]}
+                      columns={[
+                        {key:'attribute',header:'所属属性',primary:true,minWidth:160,render:item=>attributes.find(attribute=>attribute.id===item.attribute_id)?.name||'—'},
+                        {key:'name',header:'属性值',minWidth:150,render:item=>item.name},
+                        {key:'html_color',header:'颜色',minWidth:110,render:item=>item.html_color||'—'},
+                        {key:'status',header:'状态',minWidth:100,render:item=><Tag type={item.is_active?'green':'cool-gray'}>{item.is_active?'启用':'停用'}</Tag>},
+                      ]}
+                      rowActions={[{key:'toggle',label:item=>item.is_active?'停用':'启用',onClick:item=>void toggleAttributeValue(item)}]}
+                    />
                     {!attributeValues.filter((item) => !attributeValueAttribute || item.attribute_id === attributeValueAttribute).length && <p className="tp-settings__empty">该属性暂无可选值。</p>}
                   </div>
                 </>
