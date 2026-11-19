@@ -147,7 +147,8 @@ export function PaymentConsolePage() {
       <div className="tp-payments__filters"><TextInput id="payment-search" labelText="搜索" placeholder={view==='payments'?'收款编号、客户、付款人、流水号':'订单号、客户、收款节点'} value={query} onChange={e=>setQuery(e.currentTarget.value)}/><Select id="payment-status" labelText={view==='payments'?'收款状态':'应收状态'} value={status} onChange={e=>setStatus(e.currentTarget.value)}><SelectItem value="all" text="全部状态"/>{view==='payments'?PAYMENT_STATES.map(([k,v])=><SelectItem key={k} value={k} text={v}/>):['待触发','未收','部分收','已收齐','逾期','已核销差异'].map(k=><SelectItem key={k} value={k} text={k}/>)}</Select></div>
       {loading?<InlineLoading description="正在读取收款与应收数据…"/>:view==='payments'?<div className="tp-payments__table-wrap"><TpDataTable
         selectable
-        ariaLabel="收款记录列表" columnSettingsKey="finance-payments" rowKey="id"
+        ariaLabel="收款记录列表"
+        detailPanel columnSettingsKey="finance-payments" rowKey="id"
         rows={filtered as (AnyRow & Record<string,unknown>)[]}
         onRowOpen={row=>nav('/payments/'+String(row.id))}
         pagination={{page,pageSize,totalItems:filtered.length,onChange:(nextPage,nextSize)=>{setPage(nextPage);setPageSize(nextSize);}}}
