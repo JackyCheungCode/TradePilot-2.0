@@ -334,6 +334,18 @@ export function DashboardPage() {
       </div>
     </PageHeader>
 
+      <section className="tp-workbench__metrics" aria-label="核心经营指标">
+        {metrics.map((metric, index) => {
+          const Icon = metric.icon;
+          return <ClickableTile key={metric.label} className={'tp-workbench__metric tp-workbench__metric--' + index} onClick={() => navigate(metric.href)}>
+            <span className="tp-workbench__metric-icon"><Icon size={20}/></span>
+            <span className="tp-workbench__metric-label">{metric.label}</span>
+            <strong>{metric.value}</strong><small>{metric.detail}</small>
+            <span className="tp-workbench__metric-link">查看业务明细 <semanticIcons.next size={14}/></span>
+          </ClickableTile>;
+        })}
+      </section>
+
     <section className="tp-workbench__filters" aria-label="全局筛选">
       <Select id="workbench-period" labelText="统计周期" value={period} onChange={event => setPeriod(event.currentTarget.value)}>
         <SelectItem value="30d" text="最近 30 天"/><SelectItem value="90d" text="最近 90 天"/><SelectItem value="year" text="最近 12 个月"/><SelectItem value="all" text="全部时间"/>
@@ -389,18 +401,6 @@ export function DashboardPage() {
           {marketBubbles.length ? <BubbleChart data={marketBubbles.map(row => ({ group: row.group, x: row.x, y: row.y, opportunityCount: row.opportunityCount, bubbleSize: row.bubbleSize }))} options={bubbleOptions as any}/> : <div className="tp-workbench__empty">需要有国家信息的潜客记录，才能计算各市场开发潜力。</div>}
           <div className="tp-workbench__bubble-legend"><span>气泡越大 = 商机越多</span><span>转化率 = 线索数 ÷ 潜客数</span></div>
         </Tile>
-      </section>
-
-      <section className="tp-workbench__metrics" aria-label="核心经营指标">
-        {metrics.map((metric, index) => {
-          const Icon = metric.icon;
-          return <ClickableTile key={metric.label} className={'tp-workbench__metric tp-workbench__metric--' + index} onClick={() => navigate(metric.href)}>
-            <span className="tp-workbench__metric-icon"><Icon size={20}/></span>
-            <span className="tp-workbench__metric-label">{metric.label}</span>
-            <strong>{metric.value}</strong><small>{metric.detail}</small>
-            <span className="tp-workbench__metric-link">查看业务明细 <semanticIcons.next size={14}/></span>
-          </ClickableTile>;
-        })}
       </section>
 
       <section className="tp-workbench__panel tp-workbench__conversion">
