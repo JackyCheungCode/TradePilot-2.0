@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Button, Link, ContentSwitcher, Switch, FileUploaderButton, InlineLoading, InlineNotification, MultiSelect, Select, SelectItem, Tag, TextInput, TextArea,
-  Tabs, TabList, Tab, TabPanels, TabPanel, Table, TableHead, TableRow, TableHeader, TableBody, TableCell,
+  Tabs, TabList, Tab, TabPanels, TabPanel,
   Tile, LineChart, SimpleBarChart, ScaleTypes, semanticIcons, BusinessLifecycle, WorldMapChart, TpDataTable,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
