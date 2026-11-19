@@ -91,6 +91,7 @@ export function QuoteConsolePage() {
         selectable
         ariaLabel="报价单列表"
         detailPanel
+        selectionScopeKey={[query,status,marketCountry].join('|')}
         columnSettingsKey="sales-quotes"
         rowKey="id"
         rows={filtered as (QuoteDoc & Record<string,unknown>)[]}
