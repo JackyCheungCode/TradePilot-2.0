@@ -91,6 +91,9 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
   const historyLoadPromiseRef = useRef<Promise<void> | null>(null);
   const statusTimerRef = useRef<number | null>(null);
   const pathnameRef = useRef(pathname);
+  const dialogRef = useRef<HTMLElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  const conversationRequestIdRef = useRef(0);
   pathnameRef.current = pathname;
 
   useEffect(() => {
@@ -98,9 +101,38 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
   }, [isOpen]);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      previousFocusRef.current?.focus();
+      previousFocusRef.current = null;
+      return;
+    }
+    previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const dialog = dialogRef.current;
+    dialog?.focus();
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+      if (event.key !== 'Tab' || !dialogRef.current) return;
+      const focusable = Array.from(dialogRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      )).filter((element) => element.getAttribute('aria-hidden') !== 'true');
+      if (!focusable.length) {
+        event.preventDefault();
+        dialogRef.current.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === dialogRef.current)) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -142,13 +174,16 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
   const selectConversation = useCallback(async (conversationId: string) => {
     const instance = chatInstanceRef.current;
     if (!instance || conversationId === conversationIdRef.current) return;
+    const requestId = ++conversationRequestIdRef.current;
     setWelcomeVisible(false);
     setChatStatusVisible(false);
     setAvatarEmotion('thinking');
     try {
       const rows = await agentRequest<AgentMessage[]>(`/api/v1/agent/conversations/${conversationId}/messages`);
+      if (requestId !== conversationRequestIdRef.current) return;
       await instance.messaging.clearConversation();
       if (rows.length) await instance.messaging.insertHistory(toHistoryItems(rows));
+      if (requestId !== conversationRequestIdRef.current) return;
       conversationIdRef.current = conversationId;
       setSelectedConversationId(conversationId);
       setWelcomeVisible(rows.length === 0);
@@ -165,8 +200,10 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
   const startNewConversation = useCallback(async () => {
     const instance = chatInstanceRef.current;
     if (!instance) return;
+    const requestId = ++conversationRequestIdRef.current;
     try {
       const created = await createConversation();
+      if (requestId !== conversationRequestIdRef.current) return;
       await instance.messaging.clearConversation();
       setWelcomeVisible(true);
       setWelcomePhase('ready');
@@ -229,7 +266,8 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
           signal: requestOptions.signal,
           body: JSON.stringify({
             conversationId,
-            message: `${message}\n\n---\n${context}`, 
+            message,
+            pageContext: context,
           }),
         },
       );
@@ -286,7 +324,7 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
   return (
     <div className={`tp-xiaoya-drawer-layer${isOpen ? ' is-open' : ''}`} aria-hidden={!isOpen}>
       <div className="tp-xiaoya-drawer-backdrop" onClick={onClose} />
-      <aside className="tp-xiaoya-drawer" role="dialog" aria-modal="true" aria-label="小雅 AI 助手">
+      <aside ref={dialogRef} className="tp-xiaoya-drawer" role="dialog" aria-modal="true" aria-label="小雅 AI 助手" tabIndex={-1}>
         <div className="tp-xiaoya-drawer__toolbar">
           <div className="tp-xiaoya-drawer__title">
             <semanticIcons.chat size={20} />
