@@ -66,6 +66,8 @@ export function AccountConsolePage(){
  rows={filtered as (Account & Record<string,unknown>)[]}
  rowKey="id"
  ariaLabel="客户列表"
+ detailPanel
+ onRowOpen={row=>nav('/accounts/'+row.id)}
  columnSettingsKey="crm-accounts"
  pagination={{page,pageSize,totalItems:filtered.length,onChange:(nextPage,nextSize)=>{setPage(nextPage);setPageSize(nextSize);}}}
 />{!filtered.length&&<p className="tp-accounts__empty">没有符合条件的客户。</p>}</section>
