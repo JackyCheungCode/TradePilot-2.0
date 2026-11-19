@@ -34,7 +34,7 @@ export function SkillsRegistry(){
   finally{setLoading(false);}
  };
  useEffect(()=>{void load();},[]);
- const change=(id:string,key:keyof Draft,value:string)=>setDrafts(current=>({...current,[id]:{repositoryUrl:'',branch:'main',skillPath:'',...current[id],[key]:value}}));
+ const change=(id:string,key:keyof Draft,value:string)=>setDrafts(current=>{const previous=current[id]??{repositoryUrl:'',branch:'main',skillPath:''};return {...current,[id]:{...previous,[key]:value}};});
  const save=async(id:string)=>{
   const draft=drafts[id];if(!draft?.repositoryUrl.trim())return;
   setBusy(id);setError('');setNotice('');
