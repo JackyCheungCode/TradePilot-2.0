@@ -180,9 +180,13 @@ export async function handleSkillRegistry(request:Request,env:Env):Promise<Respo
    const body=await request.json() as {repositoryUrl?:string;branch?:string;skillPath?:string};
    if(typeof body.repositoryUrl!=="string"||body.repositoryUrl.length>500)return errorResponse(request,"INVALID_REPOSITORY_URL","请填写有效的 GitHub 仓库地址。",400);
    const source=parseSource(body.repositoryUrl,body.branch??"",body.skillPath??"");
-   const config={repositoryUrl:body.repositoryUrl.trim(),branch:source.ref,skillPath:source.path,syncStatus:"configured",activationStatus:"disabled_pending_review"};
+   const existing=await db<Array<{config:SkillConfig}>>(env,"agent_profiles?owner_id=eq."+ownerId+"&agent_key=eq."+encodeURIComponent(agentKey)+"&select=config&limit=1");
+   const previous=existing[0]?.config??{};
+   const repositoryUrl=body.repositoryUrl.trim();
+   const unchanged=String(previous.repositoryUrl??"")===repositoryUrl&&String(previous.branch??"main")===source.ref&&String(previous.skillPath??"")===source.path;
+   const config:SkillConfig=unchanged?{...previous,activationStatus:"disabled_pending_review"}:{repositoryUrl,branch:source.ref,skillPath:source.path,syncStatus:"configured",activationStatus:"disabled_pending_review"};
    await db(env,"agent_profiles?on_conflict=owner_id,agent_key",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({owner_id:ownerId,agent_key:agentKey,enabled:false,config,updated_at:new Date().toISOString()})});
-   return successResponse(request,{id:skillId,state:"configured",config});
+   return successResponse(request,{id:skillId,state:stateOf(config),config:publicConfig(config)});
   }
   if(request.method==="POST"&&match[2]==="/sync"){
    const rows=await db<Array<{config:SkillConfig}>>(env,"agent_profiles?owner_id=eq."+ownerId+"&agent_key=eq."+encodeURIComponent(agentKey)+"&select=config&limit=1");
