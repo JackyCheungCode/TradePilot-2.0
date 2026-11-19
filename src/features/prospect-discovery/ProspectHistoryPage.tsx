@@ -166,6 +166,7 @@ export function ProspectHistoryPage() {
             <TpDataTable
         selectable
               ariaLabel="本次任务捕获结果"
+              detailPanel
               columnSettingsKey="prospect-history-results"
               rowKey="id"
               rows={results as (RunResult & Record<string,unknown>)[]}
