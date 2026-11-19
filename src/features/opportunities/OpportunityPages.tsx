@@ -2,7 +2,7 @@ import { PageHeader } from '@/design-system';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
-  Button, Link, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput, TextArea,
+  Button, Link, TPSkeleton, TPInlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput, TextArea,
   Tabs, TabList, Tab, TabPanels, TabPanel, TpDataTable, TpDetailPanel,
   ComposedModal, ModalHeader, ModalBody, ModalFooter, Checkbox, RadioButtonGroup, RadioButton,
   semanticIcons, BusinessLifecycle, WorldMapChart,
@@ -378,8 +378,8 @@ export function OpportunityFormPage() {
       if(result.error)throw result.error;nav('/opportunities/'+result.data.id,{replace:true});
     }catch(e){setError(e instanceof Error?e.message:'保存商机失败')}finally{setSaving(false)}
   };
-  if(loading)return <main className="tp-opportunities"><InlineLoading description="正在读取商机资料…"/></main>;
-  return <main className="tp-opportunities"><PageHeader className="tp-opportunities__header"><div><p className="tp-opportunities__eyebrow">TRADEPILOT / CRM / OPPORTUNITY</p><h1>{editing?'编辑商机':'新建商机'}</h1><p>按业务分组维护商机信息；客户与联系人保持独立关联。</p></div><div className="tp-opportunities__actions"><Link href="/opportunities">返回列表</Link><Button kind="primary" disabled={saving} onClick={()=>void save()}>{saving?'保存中…':'保存商机'}</Button></div></PageHeader>
+  if(loading)return <main className="tp-opportunities"><TPSkeleton variant="profile" rows={5}/></main>;
+  return <main className="tp-opportunities"><PageHeader className="tp-opportunities__header"><div><p className="tp-opportunities__eyebrow">TRADEPILOT / CRM / OPPORTUNITY</p><h1>{editing?'编辑商机':'新建商机'}</h1><p>按业务分组维护商机信息；客户与联系人保持独立关联。</p></div><div className="tp-opportunities__actions"><Link href="/opportunities">返回列表</Link><Button kind="primary" disabled={saving} onClick={()=>void save()}>{saving?'保存中…':'保存商机'}</Button>{saving && <TPInlineLoading status="active" description="正在保存商机…" />}</div></PageHeader>
     {error&&<InlineNotification kind="error" title="商机保存失败" subtitle={error}/>}
     <section className="tp-opportunities__primary"><div className="tp-opportunities__grid"><div className="tp-opportunities__field tp-opportunities__field--wide"><TextInput id="opp-name" labelText="商机名称 *" value={data.name} onChange={e=>set('name',e.currentTarget.value)} placeholder="例如：欧洲市场智能音箱采购项目"/></div><div className="tp-opportunities__field tp-opportunities__number-note"><span>商机编号</span><p>{editing?'保存时保留系统编号':'保存后自动生成'}</p></div>{select('opp-account','所属客户 *',data.account_id,v=>{set('account_id',v);set('primary_contact_id','')},accounts.map(a=>[a.id,a.account_name]))}{select('opp-contact','主要联系人',data.primary_contact_id,v=>set('primary_contact_id',v),[['','请选择联系人'],...availableContacts.map(c=>[c.id,contactName(c)] as [string,string])])}</div></section>
     <section className="tp-opportunities__tabs"><Tabs><TabList aria-label="商机字段分组" contained>{['商机信息','销售阶段','商业金额','销售管理','时间计划','竞争情况','跟进记录'].map(t=><Tab key={t}>{t}</Tab>)}</TabList><TabPanels>
@@ -443,7 +443,7 @@ export function OpportunityDetailPage() {
    }catch(e){setTransitionError(e instanceof Error?e.message:'阶段变更失败')}
    finally{setSaving(false)}
  };
- if(loading)return <main className="tp-opportunities"><InlineLoading description="正在读取商机详情…"/></main>;
+ if(loading)return <main className="tp-opportunities"><TPSkeleton variant="profile" rows={6}/></main>;
  if(error||!row)return <main className="tp-opportunities"><InlineNotification kind="error" title="无法打开商机" subtitle={error||'商机不存在'}/><Link href="/opportunities">返回列表</Link></main>;
  return <main className="tp-opportunities">
    <PageHeader className="tp-opportunities__header"><div><p className="tp-opportunities__eyebrow">TRADEPILOT / CRM / OPPORTUNITY</p><h1>{row.name}</h1><p>{row.opportunity_number} · {account} · {stageLabel(row.stage)}</p></div>

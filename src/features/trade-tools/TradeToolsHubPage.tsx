@@ -1,6 +1,6 @@
 import { PageHeader } from '@/design-system';
 import { useMemo, useState } from 'react';
-import { Accordion, AccordionItem, Button, Link, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput, TextArea, semanticIcons } from '@/design-system';
+import { Accordion, AccordionItem, Button, Link, TPInlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput, TextArea, semanticIcons } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/trade-tools.scss';
 
@@ -120,7 +120,7 @@ export function TradeToolsHubPage() {
           {active === 'rulings' && <><TextArea id="omnibox-rulings-keyword" labelText="裁决检索关键词" rows={4} value={keyword} onChange={e => setKeyword(e.currentTarget.value)} placeholder="例如：waterproof footwear, wireless bluetooth speaker"/><TextInput id="omnibox-rulings-threshold" labelText="匹配阈值（0–1）" type="number" value={threshold} onChange={e => setThreshold(e.currentTarget.value)}/></>}
           {active === 'website' && <><TextInput id="website-intelligence-url" labelText="客户官网 URL" placeholder="https://www.example.com" value={websiteUrl} onChange={e=>setWebsiteUrl(e.currentTarget.value)}/><div className="tp-tool-center__form-grid"><Select id="website-intelligence-mode" labelText="分析任务" value={websiteMode} onChange={e=>setWebsiteMode(e.currentTarget.value)}><SelectItem value="all" text="网站抓取 + 联系方式提取 + AI 背调"/><SelectItem value="scrape" text="仅抓取网站内容"/><SelectItem value="contacts" text="公开联系方式提取"/><SelectItem value="diligence" text="AI 企业背景调查"/></Select><Select id="website-intelligence-pages" labelText="抓取页面上限" value={websiteMaxPages} onChange={e=>setWebsiteMaxPages(e.currentTarget.value)}><SelectItem value="1" text="1 页（仅首页）"/><SelectItem value="3" text="最多 3 页"/><SelectItem value="4" text="最多 4 页"/><SelectItem value="5" text="最多 5 页"/></Select></div></>}
           {error && <InlineNotification kind="error" title="查询失败" subtitle={error}/>}
-          <div className="tp-tool-center__actions"><Button kind="primary" disabled={busy || (active === 'website' ? !websiteUrl.trim() : (active === 'hs' || active === 'tariff') ? !productDescription.trim() : active === 'screen' ? !entityName.trim() : !keyword.trim())} onClick={() => void runQuery()}>{busy ? '正在处理…' : active === 'website' ? '开始网站分析' : '查询'}</Button>{busy && <InlineLoading description={active === 'website' ? '正在抓取网站并生成背调…' : '正在请求 Omnibox 服务…'}/>}</div>
+          <div className="tp-tool-center__actions"><Button kind="primary" disabled={busy || (active === 'website' ? !websiteUrl.trim() : (active === 'hs' || active === 'tariff') ? !productDescription.trim() : active === 'screen' ? !entityName.trim() : !keyword.trim())} onClick={() => void runQuery()}>{busy ? '正在处理…' : active === 'website' ? '开始网站分析' : '查询'}</Button>{busy && <TPInlineLoading status="active" description={active === 'website' ? '正在抓取网站并生成背调…' : '正在请求 Omnibox 服务…'}/>}</div>
           {result !== null && <section className="tp-tool-center__result" aria-live="polite">
             <div className="tp-tool-center__result-heading"><h3>查询结果</h3><Button kind="ghost" size="sm" onClick={() => void navigator.clipboard?.writeText(JSON.stringify(result, null, 2))}>复制原始数据</Button></div>
             {active === 'website' && result && typeof result === 'object' && <div className="tp-tool-center__website-result">

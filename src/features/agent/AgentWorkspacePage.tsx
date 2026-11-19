@@ -1,7 +1,7 @@
 import { PageHeader } from '@/design-system';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Button, Link, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextArea, Tile, semanticIcons,
+  Button, Link, InlineNotification, Select, SelectItem, Tag, TextArea, Tile, semanticIcons, TPInlineLoading, TPSkeleton,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/layout/AgentWorkspace.scss';
@@ -271,7 +271,7 @@ export function AgentWorkspacePage() {
             </Button>
             <Link href="/recent-tasks" renderIcon={semanticIcons.task}>任务执行中心</Link>
           </div>
-          {loading && <InlineLoading description="正在加载对话…" />}
+          {loading && <TPSkeleton variant="text" rows={3} className="tp-agent__history-loading" />}
         </section>
 
         <section className="tp-agent__chat" aria-label="小雅聊天窗口">
@@ -283,6 +283,7 @@ export function AgentWorkspacePage() {
           </div>
 
           <div ref={messagesViewportRef} onScroll={handleMessagesScroll} className="tp-agent__messages" aria-live="polite">
+            {loading && !messages.length && <TPSkeleton variant="conversation" rows={4} className="tp-agent__messages-loading" />}
             {!messages.length && !loading && (
               <div className="tp-agent__welcome">
                 <h3>你好，我是小雅。</h3>
@@ -336,7 +337,7 @@ export function AgentWorkspacePage() {
             {sending && (
               <div className="tp-agent__thinking">
                 <XiaoyaAvatar emotion="thinking" size={32} />
-                <InlineLoading description="小雅正在思考…" />
+                <TPInlineLoading status="active" description="小雅正在思考…" />
               </div>
             )}
           </div>

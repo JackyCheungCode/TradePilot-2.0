@@ -1,7 +1,7 @@
 import { PageHeader } from '@/design-system';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Link, ClickableTile, InlineLoading, InlineNotification, Tag, Tile, semanticIcons } from '@/design-system';
+import { Link, ClickableTile, InlineNotification, Tag, Tile, semanticIcons, TPSkeleton } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/documents.scss';
 
@@ -48,7 +48,7 @@ export function DocumentsCenterPage(){
    <div className="tp-document-home__groups">{groups.map(group=><section className="tp-document-home__group" key={group.id}><div className="tp-document-home__group-head"><group.icon size={20}/><div><h3>{group.title}</h3><p>{group.description}</p></div></div><div className="tp-document-home__entries">{group.items.map(item=><ClickableTile key={item.type} className="tp-document-home__entry" disabled={Boolean(item.disabled)} onClick={()=>openStudio(item.type)}><span><strong>{item.label}</strong><small>{item.detail}</small></span>{item.disabled?<Tag type="cool-gray">即将开放</Tag>:<semanticIcons.next size={16}/>}</ClickableTile>)}</div></section>)}</div>
   </section>
   <section className="tp-document-home__section"><div className="tp-document-home__section-head"><div><h2>最近使用</h2><p>继续处理最近创建或编辑的单据。</p></div><Link href="/documents/generated">查看全部</Link></div>
-   {loading?<InlineLoading description="正在读取最近单据…"/>:recent.length?<div className="tp-document-home__recent">{recent.map(doc=><ClickableTile className="tp-document-home__recent-row" key={doc.id} onClick={()=>navigate('/documents/'+doc.id)}><semanticIcons.document size={20}/><span><strong>{doc.document_number}</strong><small>{typeNames[doc.document_type]??doc.document_type} · {doc.title}</small></span><Tag type={doc.status==='issued'?'green':'blue'}>{doc.status}</Tag><span className="tp-document-home__date">{new Date(doc.created_at).toLocaleDateString()}</span><semanticIcons.chevronRight size={16}/></ClickableTile>)}</div>:<div className="tp-documents__empty"><p>暂无已制作单据。选择上方单据类型，或从即时单据开始。</p><Link href="/documents/studio?mode=instant" renderIcon={semanticIcons.next}>创建第一份单据</Link></div>}
+   {loading?<TPSkeleton variant="table" rows={4}/>:recent.length?<div className="tp-document-home__recent">{recent.map(doc=><ClickableTile className="tp-document-home__recent-row" key={doc.id} onClick={()=>navigate('/documents/'+doc.id)}><semanticIcons.document size={20}/><span><strong>{doc.document_number}</strong><small>{typeNames[doc.document_type]??doc.document_type} · {doc.title}</small></span><Tag type={doc.status==='issued'?'green':'blue'}>{doc.status}</Tag><span className="tp-document-home__date">{new Date(doc.created_at).toLocaleDateString()}</span><semanticIcons.chevronRight size={16}/></ClickableTile>)}</div>:<div className="tp-documents__empty"><p>暂无已制作单据。选择上方单据类型，或从即时单据开始。</p><Link href="/documents/studio?mode=instant" renderIcon={semanticIcons.next}>创建第一份单据</Link></div>}
   </section>
  </main>;
 }

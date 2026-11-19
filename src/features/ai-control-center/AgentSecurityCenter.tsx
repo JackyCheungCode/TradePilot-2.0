@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Button, ContainedList, ContainedListItem, InlineLoading, InlineNotification, Tag, TextArea } from '@/design-system';
+import { Button, ContainedList, ContainedListItem, TPSkeleton, InlineNotification, Tag, TextArea } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 
 type Approval={id:string;run_id:string;action_type:string;status:string;operation_snapshot:unknown;decision_note:string|null;decided_at:string|null;expires_at:string;created_at:string};
@@ -35,7 +35,7 @@ export function AgentSecurityCenter(){
   <section className="tp-settings__editor">
    <div><h4>人工审批队列 <Tag type="cool-gray">{pending.length} 待处理</Tag></h4><p>高风险外部工具调用必须经过人工审批。审批时会校验操作快照，连接或工具定义发生变化时将阻止执行。</p></div>
    <Button kind="tertiary" size="md" onClick={()=>void load()} disabled={loading}>刷新审批</Button>
-   {loading?<InlineLoading description="正在读取审批记录…"/>:!items.length?<p>暂无审批记录。</p>:<ContainedList kind="on-page" label="Agent 操作审批" size="md">
+   {loading?<TPSkeleton variant="table" rows={5}/>:!items.length?<p>暂无审批记录。</p>:<ContainedList kind="on-page" label="Agent 操作审批" size="md">
     {items.map(item=><ContainedListItem key={item.id}>
      <div>
       <strong>{actionLabels[item.action_type]||item.action_type}</strong> {approvalStatus(item.status)}

@@ -1,7 +1,7 @@
 import { PageHeader } from '@/design-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Button, Dropdown, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput, TextArea, semanticIcons,
+  Button, Dropdown, TPInlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput, TextArea, semanticIcons,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/trade-tools.scss';
@@ -276,7 +276,7 @@ export function TradeToolsPage() {
             <TextInput id="fx-amount" labelText="换算金额" type="number" value={amount} onChange={e=>setAmount(e.currentTarget.value)}/>
             <Button kind="primary" onClick={()=>void loadCurrency()} disabled={busyTools.currency}>查询汇率</Button>
           </div>
-          {busyTools.currency?<InlineLoading description="正在读取参考汇率…"/>:rate!==null&&<div className="tp-trade-tools__result">
+          {busyTools.currency?<TPInlineLoading status="active" description="正在读取参考汇率…"/>:rate!==null&&<div className="tp-trade-tools__result">
             <div><span>{amount||'0'} {base}</span><strong>{conversion?.toLocaleString(undefined,{maximumFractionDigits:4})} {quote}</strong><small>1 {base} = {rate.toFixed(6)} {quote} · 汇率日期 {rateDate}</small></div>
             <div className="tp-trade-tools__chart"><div className="tp-trade-tools__chart-heading"><strong>过去六个月</strong><span>{base}/{quote}</span></div>
               {visibleSeries.length>1?<svg viewBox="0 0 600 150" role="img" aria-label="半年汇率走势折线图"><line x1="28" y1="126" x2="572" y2="126"/><polyline points={chartPoints}/>{visibleSeries.map((p,i)=><text key={p.date} x={28+(i/Math.max(1,visibleSeries.length-1))*544} y="145">{p.date.slice(5,7)}月</text>)}</svg>:<p>暂无足够的历史数据。</p>}
@@ -294,7 +294,7 @@ export function TradeToolsPage() {
             <Select id="holiday-region" labelText="州／省／地区" value={holidayRegion} onChange={e=>setHolidayRegion(e.currentTarget.value)}><SelectItem value="all" text="全部地区"/>{holidayRegions.map(r=><SelectItem key={r} value={r} text={r}/>)}</Select>
             <Button kind="primary" onClick={()=>void loadHolidays()} disabled={busyTools.holidays}>查询假期</Button>
           </div>
-          {busyTools.holidays?<InlineLoading description="正在读取公共假期…"/>:<div className="tp-trade-tools__holiday-list">{filteredHolidays.map(h=><div className="tp-trade-tools__holiday-row" key={h.date+h.name}><div className="tp-trade-tools__holiday-date">{h.date}</div><div><strong>{h.localName||h.name}</strong><small>{h.name} · {(h.types||[]).join(' / ')||'公共假期'}</small></div><Tag type={h.global?'green':'cool-gray'}>{h.global?'全国':'地区性'}</Tag></div>)}{!filteredHolidays.length&&<p className="tp-trade-tools__empty">该条件下没有返回假期记录；请确认国家、年份或地区支持情况。</p>}</div>}
+          {busyTools.holidays?<TPInlineLoading status="active" description="正在读取公共假期…"/>:<div className="tp-trade-tools__holiday-list">{filteredHolidays.map(h=><div className="tp-trade-tools__holiday-row" key={h.date+h.name}><div className="tp-trade-tools__holiday-date">{h.date}</div><div><strong>{h.localName||h.name}</strong><small>{h.name} · {(h.types||[]).join(' / ')||'公共假期'}</small></div><Tag type={h.global?'green':'cool-gray'}>{h.global?'全国':'地区性'}</Tag></div>)}{!filteredHolidays.length&&<p className="tp-trade-tools__empty">该条件下没有返回假期记录；请确认国家、年份或地区支持情况。</p>}</div>}
         </section>
 
         <section className="tp-trade-tools__tool">
@@ -305,7 +305,7 @@ export function TradeToolsPage() {
             <TextInput id="tracking-number" labelText="运单号" placeholder="输入物流追踪号码" value={trackingNumber} onChange={e=>setTrackingNumber(e.currentTarget.value)}/>
             <Button kind="primary" disabled={busyTools.shipping||!trackingNumber.trim()} onClick={()=>void trackShipment()}>查询物流</Button>
           </div>
-          {busyTools.shipping&&<InlineLoading description="正在请求承运商官方接口…"/>}
+          {busyTools.shipping&&<TPInlineLoading status="active" description="正在请求承运商官方接口…"/>}
           {tracking&&<div className="tp-trade-tools__tracking"><h3>物流查询结果</h3><pre>{JSON.stringify(tracking,null,2)}</pre></div>}
           <p className="tp-trade-tools__footnote">需先在「设置中心 → 外贸工具 API」配置对应承运商凭证。DHL 追踪 API 的可用服务范围以官方账户授权为准。</p>
         </section>
@@ -334,7 +334,7 @@ export function TradeToolsPage() {
             <Button kind="primary" disabled={busyTools['contact-time']||(!locationQuery.trim()&&!locationCity.trim()&&!locationRegion.trim())} onClick={()=>void searchLocation()}>搜索地点</Button>
           </div>
           {locations.length>0&&<div className="tp-trade-tools__location-results">{locations.map((p,i)=><Button key={p.timezone+i} kind="ghost" onClick={()=>void loadContactTime(p)}>{p.name}{p.admin1?', '+p.admin1:''} · {p.country} · {p.timezone}</Button>)}</div>}
-          {busyTools['contact-time']&&<InlineLoading description="正在解析时区与天气…"/>}
+          {busyTools['contact-time']&&<TPInlineLoading status="active" description="正在解析时区与天气…"/>}
           {location&&timeData&&<div className="tp-trade-tools__contact-result">
             <div className="tp-trade-tools__clock"><div><span>{location.name}{location.admin1?', '+location.admin1:''}, {location.country}</span><strong>{new Date(timeData.datetime).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:location.timezone})}</strong><small>{new Date(timeData.datetime).toLocaleDateString('zh-CN',{year:'numeric',month:'long',day:'numeric',weekday:'long',timeZone:location.timezone})} · {timeData.timezone} ({timeData.utc_offset})</small></div>
               <div className="tp-trade-tools__day-status">{(()=>{const h=Number(new Intl.DateTimeFormat('en',{hour:'2-digit',hourCycle:'h23',timeZone:location.timezone}).format(new Date(timeData.datetime)));const localWeekday=new Intl.DateTimeFormat('en',{weekday:'short',timeZone:location.timezone}).format(new Date(timeData.datetime));const isDay=h>=6&&h<18;const weekend=localWeekday==='Sun'||localWeekday==='Sat';return <><span>{isDay?<semanticIcons.weatherSun size={20}/>:<semanticIcons.weatherMoon size={20}/>}</span><strong>{isDay?'当地白天':'当地夜晚'}</strong><small>{weekend||holidayToday?<><semanticIcons.asleep size={16}/> 休息日</>:<><semanticIcons.calendar size={16}/> 工作日</>}{holidayToday?' · '+holidayToday.localName:''}</small></>;})()}</div>

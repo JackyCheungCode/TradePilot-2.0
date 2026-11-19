@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Button, ContainedList, ContainedListItem, InlineLoading, InlineNotification, Tag } from '@/design-system';
+import { Button, ContainedList, ContainedListItem, TPSkeleton, InlineNotification, Tag } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 
 type Run = { id:string; agent_key:string; goal:string; status:string; plan?:Record<string,unknown>; result?:Record<string,unknown>; error_message?:string; estimated_cost_usd?:number; actual_cost_usd?:number; created_at:string; updated_at:string };
@@ -36,7 +36,7 @@ export function AgentTaskMonitor(){
     <section className="tp-settings__editor">
       <div><h4>Agent 执行任务</h4><p>查看小雅与 Agent 的任务状态、执行事件、日志和结果。任务数据来自现有 Agent Runs 服务。</p></div>
       <Button kind="tertiary" size="md" onClick={()=>void load()} disabled={loading}>刷新任务</Button>
-      {loading?<InlineLoading description="正在读取任务记录…"/>:!runs.length?<p>暂无 Agent 执行任务。</p>:<ContainedList kind="on-page" label="最近执行任务" size="md">
+      {loading?<TPSkeleton variant="table" rows={5}/>:!runs.length?<p>暂无 Agent 执行任务。</p>:<ContainedList kind="on-page" label="最近执行任务" size="md">
         {runs.map(run=><ContainedListItem key={run.id}>
           <div>
             <strong>{run.goal}</strong>

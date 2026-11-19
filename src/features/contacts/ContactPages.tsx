@@ -2,7 +2,7 @@ import { PageHeader } from '@/design-system';
 import { cloneElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-  Button, Link, Checkbox, ComboBox, InlineLoading, InlineNotification, Modal, MultiSelect,
+  Button, Link, Checkbox, ComboBox, TPSkeleton, TPInlineLoading, InlineNotification, Modal, MultiSelect,
   Select, SelectItem, Tab, TabList, TabPanel, TabPanels, Tabs, Tag, TextArea, TextInput, Tile, FileUploader, LineChart, ScaleTypes,
   semanticIcons, BusinessLifecycle, WorldMapChart, TpDataTable,
 } from '@/design-system';
@@ -283,11 +283,11 @@ export function ContactConsolePage() {
     </section>
     <section className="tp-contacts__country-panel">
         <div className="tp-contacts__section-head"><div><h2 className="tp-contacts__heading"><semanticIcons.globe size={20} aria-hidden="true"/><span>全球联系人分布</span></h2><p>按联系人国家 / 地区汇总；悬停地图可查看已验证联系方式和在职人数。</p></div></div>
-        {analyticsLoading&&!countryStats.length?<InlineLoading description="正在汇总国家 / 地区…" />:countryMapData.length?<WorldMapChart data={countryMapData} unitLabel="位联系人"/>:<p className="tp-contacts__empty">暂无可用于统计的联系人国家 / 地区数据。</p>}
+        {analyticsLoading&&!countryStats.length?<TPInlineLoading status="active" description="正在汇总国家 / 地区…" />:countryMapData.length?<WorldMapChart data={countryMapData} unitLabel="位联系人"/>:<p className="tp-contacts__empty">暂无可用于统计的联系人国家 / 地区数据。</p>}
     </section>
     <section className="tp-contacts__daily-panel">
       <div className="tp-contacts__section-head"><div><h2 className="tp-contacts__heading"><semanticIcons.chart size={20} aria-hidden="true"/><span>每日新增</span></h2><p>按联系人创建时间统计最近 30 天每日新增数量。</p></div></div>
-      {analyticsLoading&&!dailyStats.length?<InlineLoading description="正在汇总每日新增…" />:dailyStats.some(item=>item.count>0)?<LineChart data={dailyChartData} options={dailyChartOptions}/>:<p className="tp-contacts__empty">最近 30 天暂无新增联系人记录。</p>}
+      {analyticsLoading&&!dailyStats.length?<TPInlineLoading status="active" description="正在汇总每日新增…" />:dailyStats.some(item=>item.count>0)?<LineChart data={dailyChartData} options={dailyChartOptions}/>:<p className="tp-contacts__empty">最近 30 天暂无新增联系人记录。</p>}
     </section>
     <section className="tp-contacts__list-panel">
       <div className="tp-contacts__list-head"><div><h2 className="tp-contacts__heading"><semanticIcons.users size={20} aria-hidden="true"/><span>联系人列表</span></h2><p>当前筛选共 {total.toLocaleString()} 条记录；每页 20 条。</p></div><div className="tp-contacts__search"><TextInput id="contacts-search" labelText="搜索联系人" placeholder="姓名、职位、邮箱或电话" value={query} onChange={e=>{setQuery(e.currentTarget.value);setPage(1);}}/></div></div>
@@ -299,7 +299,7 @@ export function ContactConsolePage() {
         <Select id="contacts-group-secondary" labelText="二级分组" value={thenBy} onChange={e=>setThenBy(e.currentTarget.value)}><SelectItem value="none" text="不使用二级分组"/>{GROUP_FIELDS.filter(x=>x.id!==groupBy).map(x=><SelectItem key={x.id} value={x.id} text={x.text}/>)}</Select>
       </div>
       <div className="tp-contacts__group-toolbar"><span>{showGroups?'分组视图':'平铺列表'} · 一级：{GROUP_FIELDS.find(x=>x.id===groupBy)?.text} · 二级：{thenBy==='none'?'关闭':GROUP_FIELDS.find(x=>x.id===thenBy)?.text}</span><Button kind="ghost" size="sm" onClick={()=>setShowGroups(v=>!v)}>{showGroups?'切换为平铺列表':'恢复分组视图'}</Button></div>
-      {loading?<InlineLoading description="正在读取联系人…" />:rows.length?<TpDataTable<ContactTableRow>
+      {loading?<TPSkeleton variant="table" rows={6}/>:rows.length?<TpDataTable<ContactTableRow>
         selectable
         columns={tableColumns}
         rows={tableRows}
@@ -362,7 +362,7 @@ export function ContactFormPage() {
     }
     navigate('/contacts/'+contactId,{replace:true});
   }catch(e){setError(e instanceof Error?e.message:'保存联系人失败；请检查必填项及数据库权限。');}finally{setSaving(false);}};
-  if(loading)return <main className="tp-contacts"><InlineLoading description="正在载入联系人资料…"/></main>;
+  if(loading)return <main className="tp-contacts"><TPSkeleton variant="profile" rows={5}/></main>;
   return <main className="tp-contacts tp-contacts--form"><PageHeader className="tp-contacts__header"><div><p className="tp-contacts__eyebrow">TRADEPILOT / CRM / CONTACT</p><h1>{editing?'编辑联系人':'创建联系人'}</h1><p>先维护主数据，扩展资料在下方标签页中维护。</p></div><div className="tp-contacts__actions"><Button kind="ghost" onClick={()=>navigate(-1)}>取消</Button><Button kind="primary" onClick={()=>void save()} disabled={saving}><semanticIcons.save size={16}/>{saving?'保存中…':'保存联系人'}</Button></div></PageHeader>
     {error&&<InlineNotification kind="error" title="无法保存联系人" subtitle={error} onCloseButtonClick={()=>setError('')}/>}
     {accounts.length===0&&<InlineNotification kind="warning" title="尚无可选客户" subtitle="请先创建 Account，再创建联系人。所属客户为必填项。"/>}
@@ -413,7 +413,7 @@ export function ContactFormPage() {
 export function ContactDetailPage() {
   const {id}=useParams();const [row,setRow]=useState<ContactRow|null>(null);const [methods,setMethods]=useState<ContactMethod[]>([]);const [loading,setLoading]=useState(true);const [error,setError]=useState('');const [statusEvents,setStatusEvents]=useState<any[]>([]);const [statusModalOpen,setStatusModalOpen]=useState(false);const [nextActive,setNextActive]=useState('active');const [statusNote,setStatusNote]=useState('');const [statusSaving,setStatusSaving]=useState(false);const [statusError,setStatusError]=useState('');
   useEffect(()=>{let alive=true;(async()=>{try{const client=await getSupabaseClient();const {data,error:e}=await client.from('crm_contacts').select('*,crm_accounts(account_name)').eq('id',id).single();if(e)throw e;const {data:m,error:me}=await client.from('crm_contact_methods').select('*').eq('contact_id',id).order('sort_order');if(me)throw me;if(alive){setRow(data as unknown as ContactRow);setMethods((m??[]) as ContactMethod[]);const h=await client.from('business_transition_events').select('id,event_type,from_status,to_status,note,actor_id,created_at').eq('record_type','contact').eq('record_id',id).order('created_at',{ascending:false}).limit(20);setStatusEvents(h.data||[]);}}catch(e){if(alive)setError(e instanceof Error?e.message:'读取联系人详情失败');}finally{if(alive)setLoading(false);}})();return()=>{alive=false};},[id]);
-  if(loading)return <main className="tp-contacts"><InlineLoading description="正在载入联系人详情…"/></main>;
+  if(loading)return <main className="tp-contacts"><TPSkeleton variant="profile" rows={6}/></main>;
   if(error||!row)return <main className="tp-contacts"><InlineNotification kind="error" title="无法打开联系人" subtitle={error||'联系人不存在。'}/><Link href="/contacts">返回联系人列表</Link></main>;
   const cf=row.custom_fields??{};const name=row.full_name||[row.first_name,row.last_name].filter(Boolean).join(' ');const employmentStatus=String(cf.status??'');const contactLifecycleStage=employmentStatus==='invalid'?'invalid':employmentStatus==='departed'?'departed':employmentStatus==='inactive'||!row.is_active?'inactive':'active';
 const saveContactStatus=async()=>{if(!row||!statusNote.trim()){setStatusError('请填写状态变更原因。');return;}const targetActive=nextActive==='active';if(targetActive===row.is_active){setStatusError('请选择不同的联系人状态。');return;}setStatusSaving(true);setStatusError('');try{const db=await getSupabaseClient();const result=await db.rpc('confirm_contact_active_transition',{p_contact_id:row.id,p_expected_active:row.is_active,p_target_active:targetActive,p_note:statusNote.trim()});if(result.error)throw result.error;const refreshed=await db.from('crm_contacts').select('*,crm_accounts(account_name)').eq('id',row.id).single();if(refreshed.error)throw refreshed.error;setRow(refreshed.data as unknown as ContactRow);const h=await db.from('business_transition_events').select('id,event_type,from_status,to_status,note,actor_id,created_at').eq('record_type','contact').eq('record_id',row.id).order('created_at',{ascending:false}).limit(20);if(h.error)throw h.error;setStatusEvents(h.data||[]);setStatusModalOpen(false);setStatusNote('');}catch(e){setStatusError(e instanceof Error?e.message:'更新联系人状态失败');}finally{setStatusSaving(false)}};

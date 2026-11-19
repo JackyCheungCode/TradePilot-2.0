@@ -2,7 +2,7 @@ import { PageHeader } from '@/design-system';
 import { useCallback, useEffect, useState } from 'react';
 import { startRegistration } from '@simplewebauthn/browser';
 import {
-  Button, InlineLoading, InlineNotification, Tag, TextInput, Toggle,
+  Button, TPSkeleton, InlineNotification, Tag, TextInput, Toggle,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/security.scss';
@@ -377,7 +377,7 @@ export function SecuritySettingsPage() {
       {error && <InlineNotification kind="error" lowContrast title="操作未完成" subtitle={error} onCloseButtonClick={() => setError('')} />}
       {notice && <InlineNotification kind="success" lowContrast title="安全设置已更新" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
 
-      {loading ? <InlineLoading description="正在读取安全设置…" /> : (
+      {loading ? <TPSkeleton variant="card" rows={5}/> : (
         <>
           <section className="tp-security__section" aria-labelledby="tp-security-passkeys">
             <div className="tp-security__section-heading">

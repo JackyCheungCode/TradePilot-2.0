@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Button, ContainedList, ContainedListItem, InlineLoading, InlineNotification, Select, SelectItem, Tag } from '@/design-system';
+import { Button, ContainedList, ContainedListItem, TPSkeleton, InlineNotification, Select, SelectItem, Tag } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 
 type Risk='read_only'|'approval_required'|'blocked';
@@ -59,7 +59,7 @@ export function ToolsRegistry(){
   {notice&&<InlineNotification kind="success" title="权限已更新" subtitle={notice} onCloseButtonClick={()=>setNotice('')}/>}
   <div className="tp-settings__editor">
    <div className="tp-ai-control__skill-heading"><div><h3>工具目录</h3><p>系统工具 {registry.nativeCount} 项 · 已登记扩展 {registry.registeredCount??registered.length} 项 · 外部已发现 {registry.externalCount} 项</p></div><Button kind="tertiary" size="sm" disabled={loading||busy!==''} onClick={()=>void load()}>刷新目录</Button></div>
-   {loading?<InlineLoading description="正在读取工具与权限策略…"/>:<>
+   {loading?<TPSkeleton variant="table" rows={5}/>:<>
     <h4>TradePilot 内置工具</h4>
     <p>这些工具仅查询当前账户拥有权的数据，不提供写入、删除或外部发送能力。</p>
     {!native.length?<p>暂无内置工具。</p>:<ContainedList kind="on-page" label="内置只读工具" size="md">

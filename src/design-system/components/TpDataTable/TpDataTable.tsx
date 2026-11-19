@@ -34,6 +34,7 @@ import { isValidElement, useEffect, useMemo, useRef, useState } from 'react';
 import { getSupabaseClient } from '@/lib/supabase';
 import type { TpBatchAction, TpDataTableProps } from './TpDataTable.types';
 import './TpDataTable.scss';
+import { TPInlineLoading } from '../TPInlineLoading';
 
 function flattenExportValue(value: unknown): string {
   if (value === null || value === undefined) return '';
@@ -479,6 +480,8 @@ export function TpDataTable<T extends Record<string, unknown>>({
                 </TableBatchActions>
               )}
               <TableToolbarContent>
+                {refreshing && <TPInlineLoading status="active" description="正在刷新列表…" />}
+                {batchBusy && <TPInlineLoading status="active" description="正在处理所选记录…" />}
                 {selectable && selectedRows.length > 0 && (
                   <div className="tp-data-table__selection-summary" aria-live="polite">
                     <span>已选 {selectedRows.length} 条</span>
