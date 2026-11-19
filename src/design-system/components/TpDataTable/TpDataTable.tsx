@@ -90,6 +90,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
   loading = false,
   refreshing = false,
   error,
+  onRetry,
   emptyState,
   pagination,
   searchValue,
@@ -105,17 +106,19 @@ export function TpDataTable<T extends Record<string, unknown>>({
   const [preferencesReady, setPreferencesReady] = useState(!columnSettingsKey);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [selectionRevision, setSelectionRevision] = useState(0);
   const [batchFeedback, setBatchFeedback] = useState<{ kind: 'success' | 'error'; title: string; subtitle: string } | null>(null);
   const [batchBusy, setBatchBusy] = useState(false);
   const selectedRowCache = useRef(new Map<string, T>());
 
   useEffect(() => {
     selectionRows.forEach((row) => selectedRowCache.current.set(String(row[rowKey]), row));
+    setSelectionRevision((revision) => revision + 1);
   }, [selectionRows, rowKey]);
 
   const selectedRows = useMemo(
     () => [...selectedIds].map((id) => selectedRowCache.current.get(id)).filter((row): row is T => Boolean(row)),
-    [selectedIds],
+    [selectedIds, selectionRevision],
   );
 
 
@@ -233,6 +236,17 @@ export function TpDataTable<T extends Record<string, unknown>>({
         return ai - bi;
       });
   }, [columns, columnPreferences]);
+  const orderedColumnKeys = useMemo(() => {
+    const configured = columnPreferences?.order ?? [];
+    return [...columns].sort((a, b) => {
+      const ai = configured.indexOf(a.key);
+      const bi = configured.indexOf(b.key);
+      if (ai < 0 && bi < 0) return columns.indexOf(a) - columns.indexOf(b);
+      if (ai < 0) return 1;
+      if (bi < 0) return -1;
+      return ai - bi;
+    }).map((column) => column.key);
+  }, [columns, columnPreferences]);
   const headers = useMemo(() => [
     ...visibleColumns.map((column) => ({ key: column.key, header: column.header, isSortable: Boolean(column.sortable) })),
     ...(rowActions.length ? [{ key: '__actions', header: '操作' }] : []),
@@ -244,10 +258,15 @@ export function TpDataTable<T extends Record<string, unknown>>({
   })), [rows, rowKey, visibleColumns]);
 
   if (loading) return <DataTableSkeleton columnCount={headers.length || 1} rowCount={8} showToolbar />;
-  if (error) return <div className="tp-data-table__message" role="alert">{String(error)}</div>;
+  if (error) return (
+    <div className="tp-data-table__message" role="alert">
+      <span>{String(error)}</span>
+      {onRetry && <Button kind="ghost" size="sm" onClick={onRetry}>重试</Button>}
+    </div>
+  );
 
   return (
-    <div className={`tp-data-table${refreshing ? ' tp-data-table--refreshing' : ''}`}>
+    <div className={`tp-data-table${refreshing ? ' tp-data-table--refreshing' : ''}`} aria-busy={refreshing || batchBusy}>
       <DataTable rows={carbonRows} headers={headers} isSortable>
         {({ rows: renderedRows, getHeaderProps, getRowProps, getSelectionProps, getBatchActionProps, selectedRows: carbonSelectedRows, selectRow }) => {
           const pageStart = pagination ? (pagination.page - 1) * pagination.pageSize : 0;
@@ -360,7 +379,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
                                 <Button
                                   kind="ghost"
                                   size="sm"
-                                  disabled={columns.findIndex((item) => item.key === column.key) === 0}
+                                  disabled={orderedColumnKeys.indexOf(column.key) === 0}
                                   onClick={() => setColumnPreferences((current) => {
                                     const order = current?.order?.length ? [...current.order] : columns.map((item) => item.key);
                                     const index = order.indexOf(column.key);
@@ -371,7 +390,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
                                 <Button
                                   kind="ghost"
                                   size="sm"
-                                  disabled={columns.findIndex((item) => item.key === column.key) === columns.length - 1}
+                                  disabled={orderedColumnKeys.indexOf(column.key) === orderedColumnKeys.length - 1}
                                   onClick={() => setColumnPreferences((current) => {
                                     const order = current?.order?.length ? [...current.order] : columns.map((item) => item.key);
                                     const index = order.indexOf(column.key);
@@ -502,7 +521,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
                 onCloseButtonClick={() => setBatchFeedback(null)}
               />
             )}
-            {renderedRows.length === 0 && <div className="tp-data-table__empty">{emptyState ?? '暂无数据'}</div>}
+            {renderedRows.length === 0 && <div className="tp-data-table__empty" role="status">{emptyState ?? '暂无数据'}</div>}
             {pagination && (
               <Pagination
                 totalItems={pagination.totalItems}
