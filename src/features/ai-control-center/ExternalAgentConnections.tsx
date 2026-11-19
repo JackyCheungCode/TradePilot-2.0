@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Button, ContainedList, ContainedListItem, InlineNotification, InlineLoading, Select, SelectItem, Tag, TextInput } from '@/design-system';
+import { Button, ContainedList, ContainedListItem, InlineNotification, TPSkeleton, Select, SelectItem, Tag, TextInput } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 
 type ExternalTool = { name: string; description?: string; risk?: string; riskPolicySource?: string; protocol?: string };
@@ -121,7 +121,7 @@ export function ExternalAgentConnections() {
 
     <section className="tp-settings__editor">
       <h4>已登记的外部连接 <Tag type="cool-gray">{connections.length}</Tag></h4>
-      {loading ? <InlineLoading description="正在读取外部连接…" /> : !connections.length ? <p>暂无外部 Agent 连接。登记后可发现其工具能力，并由小雅在任务规划时选择调用。</p> : (
+      {loading ? <TPSkeleton variant="card" rows={3}/> : !connections.length ? <p>暂无外部 Agent 连接。登记后可发现其工具能力，并由小雅在任务规划时选择调用。</p> : (
         <ContainedList kind="on-page" label="外部 Agent 连接" size="md">
           {connections.map(connection => (
             <ContainedListItem key={connection.id}>
