@@ -103,6 +103,7 @@ export function SalesOrderConsolePage(){
   <section className="tp-sales-orders__panel"><div className="tp-sales-orders__panel-head"><div><h2>销售订单列表</h2><p>草稿可继续编辑；订单确认后商业条件锁定。</p></div><Tag type="blue">{filtered.length} 条记录</Tag></div>
    <div className="tp-sales-orders__filters"><TextInput id="sales-order-search" labelText="搜索销售订单" placeholder="订单号、客户、客户 PO 号" value={query} onChange={e=>setQuery(e.currentTarget.value)}/><Select id="sales-order-status" labelText="订单状态" value={status} onChange={e=>setStatus(e.currentTarget.value)}><SelectItem value="all" text="全部状态"/>{['draft','confirmed','preparing','partially_shipped','shipped','completed','cancelled'].map(s=><SelectItem key={s} value={s} text={stateLabel(s)}/>)}</Select></div>
    {loading?<div className="tp-sales-orders__loading"><InlineLoading description="正在读取销售订单…"/></div>:<div className="tp-sales-orders__table-wrap"><TpDataTable
+                        selectable
      ariaLabel="销售订单列表" columnSettingsKey="sales-orders" rowKey="id"
      rows={filtered as (OrderRow & Record<string,unknown>)[]}
      onRowOpen={row=>nav('/sales-orders/'+row.id)}
