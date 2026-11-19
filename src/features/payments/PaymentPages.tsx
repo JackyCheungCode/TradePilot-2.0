@@ -148,7 +148,7 @@ export function PaymentConsolePage() {
       {loading?<InlineLoading description="正在读取收款与应收数据…"/>:view==='payments'?<div className="tp-payments__table-wrap"><TpDataTable
         selectable
         ariaLabel="收款记录列表"
-        detailPanel columnSettingsKey="finance-payments" rowKey="id"
+        detailPanel selectionScopeKey={[query,status,currency,marketCountry,view].join('|')} columnSettingsKey="finance-payments" rowKey="id"
         rows={filtered as (AnyRow & Record<string,unknown>)[]}
         onRowOpen={row=>nav('/payments/'+String(row.id))}
         pagination={{page,pageSize,totalItems:filtered.length,onChange:(nextPage,nextSize)=>{setPage(nextPage);setPageSize(nextSize);}}}
