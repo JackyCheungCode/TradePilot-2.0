@@ -14,6 +14,8 @@ export interface TpTableColumn<T> {
   sortable?: boolean;
   longText?: boolean;
   render?: (row: T) => ReactNode;
+  /** Plain-text value used by CSV export when the displayed cell is rendered as a React node. */
+  exportValue?: (row: T) => string | number | null;
 }
 
 export interface TpBatchAction<T> {
