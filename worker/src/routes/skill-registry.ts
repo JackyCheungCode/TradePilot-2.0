@@ -45,7 +45,7 @@ function parseSource(input:string,branch:string,skillPath:string):Source{
  let ref=branch.trim()||"main";let path=skillPath.trim().replace(/^\/+|\/+$/g,"");
  if(parts[2]==="tree"&&parts.length>=4){ref=decodeURIComponent(parts[3]);path=parts.slice(4).join("/")||path;}
  if(parts[2]==="blob"&&parts.length>=5){ref=decodeURIComponent(parts[3]);path=parts.slice(4,-1).join("/")||path;}
- if(!/^[A-Za-z0-9_.-]{1,100}$/.test(owner)||! /^[A-Za-z0-9_.-]{1,100}$/.test(repo)||!ref||ref.length>200||path.split("/").some(p=>p===".."||p==="."))throw new Error("GitHub 仓库、分支或目录格式无效。");
+ if(!/^[A-Za-z0-9_.-]{1,100}$/.test(owner)||! /^[A-Za-z0-9_.-]{1,100}$/.test(repo)||!ref||ref.length>200||ref.startsWith("/")||ref.endsWith("/")||ref.split("/").some(part=>!part||part==="."||part===".."||part.startsWith(".")||part.endsWith(".")||part.endsWith(".lock")||/[~^:?*\\\\[\\s]/.test(part))||ref.includes("@{")||path.split("/").some(p=>p===".."||p==="."))throw new Error("GitHub 仓库、分支或目录格式无效。");
  return {owner,repo,ref,path};
 }
 function parseFrontmatter(markdown:string):Record<string,string>{
@@ -139,6 +139,10 @@ async function fetchSkillBundle(source:Source){
  const review=staticReview(files,manifest);
  return {manifest,files,package:{fileCount:files.length,totalBytes:actualBytes,limits:{maxFiles:MAX_FILES,maxFileBytes:MAX_FILE_BYTES,maxTotalBytes:MAX_BUNDLE_BYTES},syncedAt:new Date().toISOString(),sourceRef:source.ref},review};
 }
+function publicConfig(config:SkillConfig):SkillConfig{
+ const bundle=config.bundle&&typeof config.bundle==="object"?config.bundle as Record<string,unknown>:{};
+ return {repositoryUrl:config.repositoryUrl,branch:config.branch,skillPath:config.skillPath,manifest:config.manifest,syncedAt:config.syncedAt,syncStatus:config.syncStatus,activationStatus:config.activationStatus,bundle:Object.keys(bundle).length?{fileCount:bundle.fileCount,totalBytes:bundle.totalBytes,syncedAt:bundle.syncedAt,sourceRef:bundle.sourceRef}:undefined,securityReview:config.securityReview};
+}
 function stateOf(config:SkillConfig):"pending"|"configured"|"synced"{
  return typeof config.syncedAt==="string"?"synced":typeof config.repositoryUrl==="string"&&config.repositoryUrl?"configured":"pending";
 }
@@ -153,8 +157,8 @@ export async function handleSkillRegistry(request:Request,env:Env):Promise<Respo
   if(url.pathname===base&&request.method==="GET"){
    const rows=await db<Array<{agent_key:string;enabled:boolean;config:SkillConfig;updated_at:string}>>(env,"agent_profiles?owner_id=eq."+ownerId+"&agent_key=like.skill%3A*&select=agent_key,enabled,config,updated_at&order=agent_key.asc");
    const byKey=new Map(rows.map(row=>[row.agent_key,row]));
-   const presets=STARTER_SKILLS.map(([id,label,description])=>{const row=byKey.get("skill:"+id);const config=row?.config??{};return {id,label,description,sourceType:"starter",state:stateOf(config),enabled:row?.enabled??false,config};});
-   const custom=rows.filter(row=>!STARTER_SKILLS.some(item=>"skill:"+item[0]===row.agent_key)).map(row=>{const id=row.agent_key.slice(6),config=row.config??{},manifest=(config.manifest??{}) as Record<string,string>;return {id,label:manifest.display_name||manifest.name||id,description:manifest.description||"从 GitHub 导入的 Skill",sourceType:"custom",state:stateOf(config),enabled:row.enabled,config};});
+   const presets=STARTER_SKILLS.map(([id,label,description])=>{const row=byKey.get("skill:"+id);const config=publicConfig(row?.config??{});return {id,label,description,sourceType:"starter",state:stateOf(config),enabled:row?.enabled??false,config};});
+   const custom=rows.filter(row=>!STARTER_SKILLS.some(item=>"skill:"+item[0]===row.agent_key)).map(row=>{const id=row.agent_key.slice(6),config=publicConfig(row.config??{}),manifest=(config.manifest??{}) as Record<string,string>;return {id,label:manifest.display_name||manifest.name||id,description:manifest.description||"从 GitHub 导入的 Skill",sourceType:"custom",state:stateOf(config),enabled:row.enabled,config};});
    return successResponse(request,[...presets,...custom]);
   }
   if(url.pathname===base&&request.method==="POST"){
