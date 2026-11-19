@@ -1,7 +1,8 @@
 import { useSearchParams } from 'react-router-dom';
-import { PageHeader } from '@/design-system';
+import { PageHeader, Button } from '@/design-system';
 import { ContainedList, ContainedListItem, Grid, Column, InlineNotification, Tag, Tile, semanticIcons } from '@/design-system';
 import '@/design-system/patterns/settings.scss';
+import './ai-control-center.scss';
 import { AgentSettings } from '@/features/settings/AgentSettings';
 import { IntegrationsSettings } from '@/features/settings/IntegrationsSettings';
 
@@ -78,19 +79,19 @@ export function AIControlCenterPage() {
                       <semanticIcons.api size={24} />
                       <h3>模型与供应商</h3>
                       <p>配置多个模型供应商，获取模型目录、测试连接并设置默认模型。</p>
-                      <button type="button" className="tp-ai-control__text-action" onClick={() => selectSection('models')}>管理模型</button>
+                      <Button kind="tertiary" size="md" onClick={() => selectSection('models')}>管理模型</Button>
                     </Tile>
                     <Tile className="tp-ai-control__overview-tile">
                       <semanticIcons.user size={24} />
                       <h3>Agent 管理</h3>
                       <p>管理内置专业 Agent 的启用状态、描述和系统指令。</p>
-                      <button type="button" className="tp-ai-control__text-action" onClick={() => selectSection('agents')}>管理 Agent</button>
+                      <Button kind="tertiary" size="md" onClick={() => selectSection('agents')}>管理 Agent</Button>
                     </Tile>
                     <Tile className="tp-ai-control__overview-tile">
                       <semanticIcons.chat size={24} />
                       <h3>小雅配置</h3>
                       <p>配置小雅形象和历史对话管理。</p>
-                      <button type="button" className="tp-ai-control__text-action" onClick={() => selectSection('appearance')}>配置小雅</button>
+                      <Button kind="tertiary" size="md" onClick={() => selectSection('appearance')}>配置小雅</Button>
                     </Tile>
                   </div>
                   <div className="tp-ai-control__roadmap">
