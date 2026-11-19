@@ -92,6 +92,7 @@ export function ProductConsolePage(){
  <section className="tp-products__panel"><div className="tp-products__panel-head"><div><h2>产品目录</h2><p>SKU 是产品唯一识别码；被交易明细引用后将锁定 SKU。</p></div><Tag type="blue">{filtered.length} 条产品</Tag></div>
  <div className="tp-products__filters"><TextInput id="product-search" labelText="搜索产品" placeholder="SKU、产品名称、品牌、型号或条码" value={query} onChange={e=>setQuery(e.currentTarget.value)}/><Select id="product-status-filter" labelText="产品状态" value={status} onChange={e=>setStatus(e.currentTarget.value)}><SelectItem value="all" text="全部状态"/>{statusOptions.map(([v,t])=><SelectItem key={v} value={v} text={t}/>)}</Select></div>
  <TpDataTable
+                        selectable
  columns={[
   {key:'name',header:'产品',primary:true,minWidth:230,render:r=><div className="tp-products__product-cell"><div className="tp-products__thumb">{imageUrls[r.id]?<img src={imageUrls[r.id]} alt=""/>:<semanticIcons.product size={24}/>}</div><div><strong>{r.name}</strong><small>{r.english_name||'—'}</small></div></div>},
   {key:'sku',header:'SKU',minWidth:130,render:r=>r.sku||'—'},
