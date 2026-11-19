@@ -6,6 +6,7 @@ const ownerId="123e4567-e89b-42d3-a456-426614174000";
 const artifactObjects=new Map<string,{body:string;customMetadata:Record<string,string>}>();
 const skillArtifacts={
  async head(key:string){const item=artifactObjects.get(key);return item?{key,size:new TextEncoder().encode(item.body).length,customMetadata:item.customMetadata}:null;},
+ async get(key:string){const item=artifactObjects.get(key);return item?{async arrayBuffer(){return new TextEncoder().encode(item.body).buffer;}}:null;},
  async put(key:string,value:string|ArrayBuffer|ArrayBufferView,options?:{customMetadata?:Record<string,string>}){const body=typeof value==="string"?value:new TextDecoder().decode(value instanceof ArrayBuffer?value:new Uint8Array(value.buffer,value.byteOffset,value.byteLength));artifactObjects.set(key,{body,customMetadata:options?.customMetadata??{}});return {key};}
 } as unknown as R2Bucket;
 const env={SUPABASE_URL:"https://project.supabase.co",SUPABASE_ANON_KEY:"anon-test-key",SUPABASE_SERVICE_ROLE_KEY:"service-test-key",SKILL_ARTIFACTS:skillArtifacts};
