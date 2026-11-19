@@ -90,6 +90,7 @@ export function QuoteConsolePage() {
       {loading?<div className="tp-quotes__loading"><InlineLoading description="正在读取报价单…"/></div>:<div className="tp-quotes__table-wrap"><TpDataTable
         selectable
         ariaLabel="报价单列表"
+        detailPanel
         columnSettingsKey="sales-quotes"
         rowKey="id"
         rows={filtered as (QuoteDoc & Record<string,unknown>)[]}
