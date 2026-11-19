@@ -64,7 +64,7 @@ test("Skill package import stores a bounded bundle, review findings and disabled
   const response=await handleSkillRegistry(request({repositoryUrl:"https://github.com/acme/skills/tree/main/skills/demo"}),env);
   const responseBody=await response.json() as {data?:unknown;error?:{message:string}};
   assert.equal(response.status,200,JSON.stringify(responseBody));
-  const payload=responseBody as {data:{id:string;package:{fileCount:number};securityReview:{requiresHumanReview:boolean;findings:Array<{code:string}>}}};
+  const payload=responseBody as {data:{id:string;contractStatus:string;package:{fileCount:number};securityReview:{requiresHumanReview:boolean;findings:Array<{code:string}>}}};
   assert.equal(payload.data.id,"demo-skill");
   assert.equal(payload.data.package.fileCount,3);
   assert.equal(payload.data.contractStatus,"missing");
