@@ -132,10 +132,10 @@ function validateSkillContract(files:BundleFile[],manifest:Record<string,string>
  for(const key of Object.keys(value))if(!allowed.has(key))errors.push("不支持的契约字段："+key+"。");
  if(value.schemaVersion!==1)errors.push("schemaVersion 必须为 1。");
  if(value.name!==manifest.name)errors.push("契约 name 必须与 SKILL.md frontmatter name 一致。");
- if(typeof value.version!=="string"||!/^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$/.test(value.version))errors.push("version 必须是语义化版本号。");
+ if(typeof value.version!=="string"||!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(value.version))errors.push("version 必须是语义化版本号。");
  if(!["dynamic_worker","sandbox_nodejs","sandbox_python"].includes(String(value.runtime)))errors.push("runtime 必须是 dynamic_worker、sandbox_nodejs 或 sandbox_python。");
  const entrypoint=typeof value.entrypoint==="string"?value.entrypoint:"";
- if(!entrypoint||entrypoint.startsWith("/")||entrypoint.includes("\\\\")||entrypoint.split("/").some(part=>!part||part==="."||part===".."||part.startsWith(".")))errors.push("entrypoint 必须是包内安全相对路径。");
+ if(!entrypoint||entrypoint.startsWith("/")||entrypoint.includes("\\")||entrypoint.split("/").some(part=>!part||part==="."||part===".."||part.startsWith(".")))errors.push("entrypoint 必须是包内安全相对路径。");
  const entry=files.find(item=>item.path===entrypoint);
  if(entrypoint&&!entry)errors.push("entrypoint 指向的文件不存在："+entrypoint+"。");
  if(entry&&entry.encoding!=="utf-8")errors.push("entrypoint 必须是可审查的 UTF-8 文本文件。");
@@ -149,7 +149,7 @@ function validateSkillContract(files:BundleFile[],manifest:Record<string,string>
  if(!value.permissions||typeof value.permissions!=="object"||Array.isArray(value.permissions))errors.push("permissions 必须是明确声明的对象。");
  for(const key of Object.keys(permissions))if(!["networkHosts","dataScopes","secrets","sideEffects"].includes(key))errors.push("不支持的权限字段："+key+"。");
  const list=(key:string,max:number,pattern:RegExp)=>{const items=permissions[key]??[];if(!Array.isArray(items)||items.length>max||items.some(item=>typeof item!=="string"||!pattern.test(item))||new Set(items).size!==items.length){errors.push("permissions."+key+" 格式无效或数量超限。");return [] as string[];}return items as string[];};
- const networkHosts=list("networkHosts",30,/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$/i);
+ const networkHosts=list("networkHosts",30,/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i);
  if(networkHosts.some(host=>host==="localhost"||host.endsWith(".local")||host.endsWith(".internal")))errors.push("networkHosts 不允许 localhost、.local 或 .internal 主机。");
  const dataScopes=list("dataScopes",50,/^(leads|contacts|companies|opportunities|quotes|orders|documents|market_data|products):(read|write|delete|export)$/);
  const secrets=list("secrets",30,/^[a-z][a-z0-9_.-]{1,79}$/i);
