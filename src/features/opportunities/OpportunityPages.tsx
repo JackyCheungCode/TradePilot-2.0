@@ -60,6 +60,10 @@ export function OpportunityConsolePage() {
   const [rows,setRows] = useState<Opportunity[]>([]);
   const [accounts,setAccounts] = useState<AccountOption[]>([]);
   const [contacts,setContacts] = useState<ContactOption[]>([]);
+  const [analyticsRows,setAnalyticsRows] = useState<Array<Pick<Opportunity,'id'|'stage'|'status'|'source'|'amount'|'probability'|'currency_code'|'account_id'>>>([]);
+  const [filteredIds,setFilteredIds] = useState<string[]>([]);
+  const [totalItems,setTotalItems] = useState(0);
+  const [detailRow,setDetailRow] = useState<Opportunity|null>(null);
   const [loading,setLoading] = useState(true);
   const [error,setError] = useState('');
   const [query,setQuery] = useState('');
@@ -67,39 +71,129 @@ export function OpportunityConsolePage() {
   const [marketCountry,setMarketCountry] = useState('all');
   const [page,setPage] = useState(1);
   const [pageSize,setPageSize] = useState<10 | 20 | 50 | 100>(20);
+  const [sortKey,setSortKey] = useState('created_at');
+  const [sortDirection,setSortDirection] = useState<'ASC'|'DESC'>('DESC');
   const [archiveTargets,setArchiveTargets] = useState<Opportunity[]>([]);
   const [archiveBusy,setArchiveBusy] = useState(false);
   const [archiveNotice,setArchiveNotice] = useState<{kind:'success'|'error';message:string}|null>(null);
   const [searchParams,setSearchParams] = useSearchParams();
   const detailLauncherRef = useRef<HTMLElement>(null) as { current: HTMLElement | null };
   const activeOpportunityId = searchParams.get('opportunity');
-  const activeOpportunity = rows.find(row => row.id === activeOpportunityId) ?? null;
-  const openOpportunity = (row: Opportunity) => setSearchParams(current => { const next = new URLSearchParams(current); next.set('opportunity', row.id); return next; });
-  const closeOpportunity = () => setSearchParams(current => { const next = new URLSearchParams(current); next.delete('opportunity'); return next; }, { replace: true });
+  const activeOpportunity = activeOpportunityId
+    ? (detailRow?.id === activeOpportunityId ? detailRow : rows.find(row => row.id === activeOpportunityId) ?? null)
+    : null;
+  const openOpportunity = (row: Opportunity) => {
+    setDetailRow(row);
+    setSearchParams(current => { const next = new URLSearchParams(current); next.set('opportunity', row.id); return next; });
+  };
+  const closeOpportunity = () => {
+    setSearchParams(current => { const next = new URLSearchParams(current); next.delete('opportunity'); return next; }, { replace: true });
+    setDetailRow(null);
+  };
   const load = useCallback(async () => {
     setLoading(true); setError('');
     try {
       const db = await getSupabaseClient();
-      const [o,a,c] = await Promise.all([
-        db.from('crm_opportunities').select('*').eq('is_archived',false).order('created_at',{ascending:false}).range(0,1999),
+      const [a,c] = await Promise.all([
         db.from('crm_accounts').select('id,account_name,country_code').eq('is_archived',false).order('account_name'),
         db.from('crm_contacts').select('id,account_id,full_name,first_name,last_name').eq('is_archived',false).eq('is_active',true).order('first_name'),
       ]);
-      if(o.error) throw o.error; if(a.error) throw a.error; if(c.error) throw c.error;
-      setRows((o.data||[]) as Opportunity[]); setAccounts((a.data||[]) as AccountOption[]); setContacts((c.data||[]) as ContactOption[]);
+      if(a.error) throw a.error;
+      if(c.error) throw c.error;
+      const accountRows=(a.data||[]) as AccountOption[];
+      setAccounts(accountRows);
+      setContacts((c.data||[]) as ContactOption[]);
+      const accountIds=marketCountry==='all'?null:accountRows.filter(item=>String(item.country_code||'').toUpperCase()===marketCountry).map(item=>item.id);
+      const safeTerm=query.trim().replace(/[\\%_(),."]/g, character => '\\\\'+character);
+      const applyFilters=(builder:any)=>{
+        let next=builder.eq('is_archived',false);
+        if(stage!=='all') next=next.eq('stage',stage);
+        if(marketCountry!=='all') next=accountIds?.length?next.in('account_id',accountIds):null;
+        if(next && safeTerm) next=next.or([
+          `name.ilike.%${safeTerm}%`,
+          `opportunity_number.ilike.%${safeTerm}%`,
+          `source.ilike.%${safeTerm}%`,
+          `sales_person.ilike.%${safeTerm}%`,
+          `sales_team.ilike.%${safeTerm}%`,
+        ].join(','));
+        return next;
+      };
+      if(marketCountry!=='all' && !accountIds?.length) {
+        setRows([]);setFilteredIds([]);setTotalItems(0);
+      } else {
+        const sortableColumns=new Set(['name','stage','amount','probability','expected_close_date','sales_person','created_at']);
+        const effectiveSort=sortableColumns.has(sortKey)?sortKey:'created_at';
+        const [pageResult,countResult]=await Promise.all([
+          applyFilters(db.from('crm_opportunities').select('*',{count:'exact'}))
+            .order(effectiveSort,{ascending:sortDirection==='ASC',nullsFirst:false})
+            .order('id',{ascending:true})
+            .range((page-1)*pageSize,page*pageSize-1),
+          applyFilters(db.from('crm_opportunities').select('id',{count:'exact',head:true})),
+        ]);
+        if(pageResult?.error) throw pageResult.error;
+        if(countResult?.error) throw countResult.error;
+        const exactCount=countResult?.count??0;
+        setTotalItems(exactCount);
+        setRows((pageResult?.data||[]) as Opportunity[]);
+        const ids:string[]=[];
+        for(let offset=0;offset<exactCount;offset+=1000){
+          const chunk=await applyFilters(db.from('crm_opportunities').select('id'))
+            .order(effectiveSort,{ascending:sortDirection==='ASC',nullsFirst:false})
+            .order('id',{ascending:true}).range(offset,Math.min(offset+999,exactCount-1));
+          if(chunk?.error) throw chunk.error;
+          ids.push(...(chunk.data||[]).map((item:{id:string})=>item.id));
+        }
+        setFilteredIds(ids);
+      }
+      const summaryRows:Array<Pick<Opportunity,'id'|'stage'|'status'|'source'|'amount'|'probability'|'currency_code'|'account_id'>>=[];
+      for(let offset=0;;offset+=1000){
+        const chunk=await db.from('crm_opportunities')
+          .select('id,stage,status,source,amount,probability,currency_code,account_id')
+          .eq('is_archived',false).order('created_at',{ascending:false})
+          .range(offset,offset+999);
+        if(chunk.error) throw chunk.error;
+        summaryRows.push(...(chunk.data||[]) as typeof summaryRows);
+        if((chunk.data||[]).length<1000) break;
+      }
+      setAnalyticsRows(summaryRows);
     } catch(e) { setError(e instanceof Error ? e.message : '读取商机失败'); }
     finally { setLoading(false); }
-  },[]);
+  },[query,stage,marketCountry,page,pageSize,sortKey,sortDirection]);
   useEffect(()=>{void load()},[load]);
 
-  const accountCountries = useMemo(()=>new Map(accounts.map(account=>[account.id,String(account.country_code||'').toUpperCase()])),[accounts]);
-  const opportunityMarketData = useMemo(()=>{const counts=new Map<string,number>();rows.forEach(row=>{const code=accountCountries.get(row.account_id)||'';if(code)counts.set(code,(counts.get(code)||0)+1)});return [...counts.entries()].map(([code,value])=>{let label=code;try{label=new Intl.DisplayNames(['zh-TW'],{type:'region'}).of(code)||code}catch{}return {code,label,value}}).sort((a,b)=>b.value-a.value)},[rows,accountCountries]);
-  const stageData = useMemo(()=>stages.map(([key,label])=>({group:label,value:rows.filter(row=>row.stage===key).length})).filter(item=>item.value>0),[rows]);
-  const sourceData = useMemo(()=>{const counts=new Map<string,number>();rows.forEach(row=>{const key=row.source||'未标记来源';counts.set(key,(counts.get(key)||0)+1)});return [...counts.entries()].map(([group,value])=>({group,value})).sort((a,b)=>b.value-a.value).slice(0,8)},[rows]);
-  const filtered = useMemo(()=>rows.filter(r=>(stage==='all'||r.stage===stage)&&(marketCountry==='all'||accountCountries.get(r.account_id)===marketCountry)&&[r.name,r.opportunity_number,r.source,r.sales_person,r.sales_team].join(' ').toLowerCase().includes(query.trim().toLowerCase())),[rows,stage,marketCountry,accountCountries,query]);
-  const activeIndex = activeOpportunity ? filtered.findIndex(row => row.id === activeOpportunity.id) : -1;
-  const moveOpportunity = (offset: number) => { const next = filtered[activeIndex + offset]; if (next) openOpportunity(next); };
+  useEffect(() => {
+    if(!activeOpportunityId || activeOpportunity?.id===activeOpportunityId) return;
+    let cancelled=false;
+    void (async()=>{
+      try{
+        const db=await getSupabaseClient();
+        const result=await db.from('crm_opportunities').select('*').eq('id',activeOpportunityId).maybeSingle();
+        if(result.error) throw result.error;
+        if(!cancelled) setDetailRow((result.data as Opportunity|null)??null);
+      }catch{if(!cancelled)setDetailRow(null)}
+    })();
+    return()=>{cancelled=true};
+  },[activeOpportunityId,activeOpportunity?.id]);
 
+  const accountCountries = useMemo(()=>new Map(accounts.map(account=>[account.id,String(account.country_code||'').toUpperCase()])),[accounts]);
+  const opportunityMarketData = useMemo(()=>{
+    const counts=new Map<string,number>();
+    analyticsRows.forEach(row=>{const code=accountCountries.get(row.account_id)||'';if(code)counts.set(code,(counts.get(code)||0)+1)});
+    return [...counts.entries()].map(([code,value])=>{let label=code;try{label=new Intl.DisplayNames(['zh-TW'],{type:'region'}).of(code)||code}catch{}return {code,label,value}}).sort((a,b)=>b.value-a.value)
+  },[analyticsRows,accountCountries]);
+  const stageData = useMemo(()=>stages.map(([key,label])=>({group:label,value:analyticsRows.filter(row=>row.stage===key).length})).filter(item=>item.value>0),[analyticsRows]);
+  const sourceData = useMemo(()=>{const counts=new Map<string,number>();analyticsRows.forEach(row=>{const key=row.source||'未标记来源';counts.set(key,(counts.get(key)||0)+1)});return [...counts.entries()].map(([group,value])=>({group,value})).sort((a,b)=>b.value-a.value).slice(0,8)},[analyticsRows]);
+  const activeIndex = activeOpportunityId ? filteredIds.indexOf(activeOpportunityId) : -1;
+  const moveOpportunity = async (offset:number) => {
+    const nextId=filteredIds[activeIndex+offset];
+    if(!nextId)return;
+    try{
+      const db=await getSupabaseClient();
+      const result=await db.from('crm_opportunities').select('*').eq('id',nextId).maybeSingle();
+      if(result.error)throw result.error;
+      if(result.data)openOpportunity(result.data as Opportunity);
+    }catch(e){setError(e instanceof Error?e.message:'无法读取相邻商机')}
+  };
   useEffect(() => {
     if (!activeOpportunityId) return;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -107,21 +201,20 @@ export function OpportunityConsolePage() {
       const target = event.target;
       if (target instanceof HTMLElement && (target.isContentEditable || target.closest('input, textarea, select, button, [role="tab"]'))) return;
       event.preventDefault();
-      moveOpportunity(event.key === 'ArrowUp' ? -1 : 1);
+      void moveOpportunity(event.key === 'ArrowUp' ? -1 : 1);
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [activeOpportunityId, activeIndex, filtered]);
+  }, [activeOpportunityId, activeIndex, filteredIds]);
 
-  useEffect(()=>setPage(1),[query,stage,marketCountry]);
-  const open = rows.filter(r=>r.status==='open');
-  const currencyTotals = (items: Opportunity[], weightedAmount = false) => {
+  const openRows=analyticsRows.filter(row=>row.status==='open');
+  const currencyTotals = (items: Array<Pick<Opportunity,'amount'|'currency_code'|'probability'>>, weightedAmount = false) => {
     const totals = new Map<string,number>();
     items.forEach(item => totals.set(item.currency_code || 'USD',(totals.get(item.currency_code || 'USD') || 0) + Number(item.amount || 0) * (weightedAmount ? Number(item.probability || 0) / 100 : 1)));
     return [...totals.entries()].map(([currency,value])=>currency+' '+value.toLocaleString(undefined,{maximumFractionDigits:2})).join(' · ') || '—';
   };
-  const pipeline = currencyTotals(open);
-  const weighted = currencyTotals(open,true);
+  const pipeline=currencyTotals(openRows);
+  const weighted=currencyTotals(openRows,true);
   const accountMap = new Map(accounts.map(a=>[a.id,a.account_name] as [string,string]));
   const contactMap = new Map(contacts.map(c=>[c.id,contactName(c)]));
   return <main className="tp-opportunities">
@@ -130,65 +223,61 @@ export function OpportunityConsolePage() {
     </PageHeader>
     {error&&<InlineNotification kind="error" title="商机数据读取失败" subtitle={error}/>}
     {archiveNotice&&<InlineNotification kind={archiveNotice.kind} title={archiveNotice.kind==='success'?'批量操作完成':'批量操作失败'} subtitle={archiveNotice.message} onCloseButtonClick={()=>setArchiveNotice(null)}/> }
-    <div className="tp-opportunities__metrics"><Metric title="全部商机" value={String(rows.length)} detail="当前可见商机"/><Metric title="进行中" value={String(open.length)} detail="尚未关闭"/><Metric title="预计管道金额" value={pipeline} detail="按商机金额汇总"/><Metric title="加权预测金额" value={weighted} detail="金额 × 赢率"/></div>
+    <div className="tp-opportunities__metrics"><Metric title="全部商机" value={String(analyticsRows.length)} detail="全部未归档商机"/><Metric title="进行中" value={String(openRows.length)} detail="尚未关闭"/><Metric title="预计管道金额" value={pipeline} detail="按商机金额汇总"/><Metric title="加权预测金额" value={weighted} detail="金额 × 赢率"/></div>
     <section className="tp-opportunities__panel tp-opportunities__analytics">
       <div className="tp-opportunities__panel-head"><div><h2>商机多维分析</h2><p>按销售阶段、来源和客户所在国家 / 地区查看机会分布；地图可联动筛选列表。</p></div></div>
       <div className="tp-opportunities__analytics-grid">
         <div className="tp-opportunities__chart"><h3>销售阶段构成</h3>{stageData.length?<DonutChart data={stageData} options={{theme:document.documentElement.dataset.carbonTheme==='g100'?'g100':'white',height:'280px',donut:{center:{label:'商机'}},legend:{position:'bottom'},toolbar:{enabled:false}} as any}/>:<p className="tp-opportunities__empty">暂无阶段数据</p>}</div>
         <div className="tp-opportunities__chart"><h3>商机来源</h3>{sourceData.length?<SimpleBarChart data={sourceData} options={{theme:document.documentElement.dataset.carbonTheme==='g100'?'g100':'white',height:'280px',color:{pairing:{numberOfVariants:14,option:1}},axes:{bottom:{mapsTo:'group',scaleType:'labels'},left:{mapsTo:'value',scaleType:'linear'}},legend:{enabled:false},toolbar:{enabled:false}} as any}/>:<p className="tp-opportunities__empty">暂无来源数据</p>}</div>
       </div>
-      <div className="tp-opportunities__chart"><h3>全球商机市场分布</h3>{opportunityMarketData.length?<WorldMapChart data={opportunityMarketData} unitLabel="个商机" selectedCode={marketCountry==='all'?undefined:marketCountry} onCountrySelect={code=>setMarketCountry(current=>current===code?'all':code)}/>:<p className="tp-opportunities__empty">客户资料尚未提供可识别的国家 / 地区信息。</p>}</div>
+      <div className="tp-opportunities__chart"><h3>全球商机市场分布</h3>{opportunityMarketData.length?<WorldMapChart data={opportunityMarketData} unitLabel="个商机" selectedCode={marketCountry==='all'?undefined:marketCountry} onCountrySelect={code=>{setPage(1);setMarketCountry(current=>current===code?'all':code)}}/>:<p className="tp-opportunities__empty">客户资料尚未提供可识别的国家 / 地区信息。</p>}</div>
     </section>
     <section className="tp-opportunities__panel">
-      <div className="tp-opportunities__panel-head"><div><h2>商机列表</h2><p>可按商机名称、编号、阶段和负责人检索；支持排序、分页和侧边详情；每页默认 20 条。</p></div><Tag type="blue">{filtered.length} 条记录</Tag></div>
-      <div className="tp-opportunities__filters"><TextInput id="opportunity-search" labelText="搜索商机" placeholder="名称、编号、来源或负责人" value={query} onChange={e=>setQuery(e.currentTarget.value)}/><Select id="opportunity-stage-filter" labelText="销售阶段" value={stage} onChange={e=>setStage(e.currentTarget.value)}><SelectItem value="all" text="全部阶段"/>{stages.map(([v,t])=><SelectItem key={v} value={v} text={t}/>)}</Select></div>
+      <div className="tp-opportunities__panel-head"><div><h2>商机列表</h2><p>搜索、筛选、排序和分页均由 Supabase 执行；每页默认 20 条。</p></div><Tag type="blue">{totalItems.toLocaleString()} 条记录</Tag></div>
+      <div className="tp-opportunities__filters"><TextInput id="opportunity-search" labelText="搜索商机" placeholder="名称、编号、来源或负责人" value={query} onChange={e=>{setPage(1);setQuery(e.currentTarget.value)}}/><Select id="opportunity-stage-filter" labelText="销售阶段" value={stage} onChange={e=>{setPage(1);setStage(e.currentTarget.value)}}><SelectItem value="all" text="全部阶段"/>{stages.map(([v,t])=><SelectItem key={v} value={v} text={t}/>)}</Select></div>
       <TpDataTable
         ariaLabel="商机列表"
         columnSettingsKey="opportunities"
         selectable
         batchActions={[{key:'archive',label:'归档所选',onClick:selected=>{setArchiveNotice(null);setArchiveTargets(selected);}}]}
-        selectionRows={filtered}
+        selectionRows={rows}
         selectionScopeKey={`${query.trim().toLowerCase()}|${stage}|${marketCountry}`}
         columns={[
           { key: 'name', header: '商机名称', primary: true, required: true, sortable: true, minWidth: 220, render: row => <span><Link href={`/opportunities/${row.id}`} className="tp-opportunities__row-link">{row.name}</Link><span className="tp-opportunities__secondary">{row.opportunity_number}</span></span> },
-          { key: 'account', header: '所属客户', minWidth: 180, sortable: true, render: row => accountMap.get(row.account_id) || '—' },
+          { key: 'account', header: '所属客户', minWidth: 180, render: row => accountMap.get(row.account_id) || '—' },
           { key: 'contact', header: '主要联系人', minWidth: 150, render: row => row.primary_contact_id ? contactMap.get(row.primary_contact_id) || '—' : '—' },
-          { key: 'stage', header: '销售阶段', minWidth: 120, render: row => <Tag type={row.stage === 'won' ? 'green' : row.stage === 'lost' ? 'red' : 'blue'}>{stageLabel(row.stage)}</Tag> },
-          { key: 'amount', header: '预计金额', type: 'currency', align: 'end', minWidth: 150, render: row => `${row.currency_code} ${Number(row.amount || 0).toLocaleString()}` },
-          { key: 'probability', header: '赢率', type: 'percent', align: 'end', minWidth: 90, render: row => `${row.probability}%` },
-          { key: 'expected_close_date', header: '预计成交日期', type: 'datetime', minWidth: 160, render: row => row.expected_close_date || '—' },
-          { key: 'sales_person', header: '负责人', minWidth: 130, render: row => row.sales_person || '—' },
+          { key: 'stage', header: '销售阶段', minWidth: 120, sortable: true, render: row => <Tag type={row.stage === 'won' ? 'green' : row.stage === 'lost' ? 'red' : 'blue'}>{stageLabel(row.stage)}</Tag> },
+          { key: 'amount', header: '预计金额', type: 'currency', align: 'end', minWidth: 150, sortable: true, render: row => `${row.currency_code} ${Number(row.amount || 0).toLocaleString()}` },
+          { key: 'probability', header: '赢率', type: 'percent', align: 'end', minWidth: 90, sortable: true, render: row => `${row.probability}%` },
+          { key: 'expected_close_date', header: '预计成交日期', type: 'datetime', minWidth: 160, sortable: true, render: row => row.expected_close_date || '—' },
+          { key: 'sales_person', header: '负责人', minWidth: 130, sortable: true, render: row => row.sales_person || '—' },
         ]}
-        rows={filtered}
+        rows={rows}
         rowKey="id"
         onRowOpen={(row, triggerElement) => { detailLauncherRef.current = triggerElement ?? null; openOpportunity(row); }}
         activeRowId={activeOpportunity?.id}
         loading={loading}
         refreshing={false}
-        pagination={{ page, pageSize, totalItems: filtered.length, onChange: (nextPage, nextSize) => { setPage(nextPage); setPageSize(nextSize); } }}
+        onSortChange={(key,direction)=>{if(direction==='NONE')return;setPage(1);setSortKey(key);setSortDirection(direction)}}
+        pagination={{ page, pageSize, totalItems, serverSide:true, onChange: (nextPage, nextSize) => { setPage(nextPage); setPageSize(nextSize); } }}
         emptyState="没有符合条件的商机。"
       />
       <ComposedModal open={archiveTargets.length>0} onClose={()=>{if(!archiveBusy)setArchiveTargets([])}}>
-        <ModalHeader title="确认归档商机" label="批量操作" />
-        <ModalBody>
-          <p>即将归档 {archiveTargets.length} 条商机。归档后将从当前商机列表移除，但不会删除业务记录。</p>
-          <p>请确认所选记录及其关联业务信息无误。</p>
-        </ModalBody>
+        <ModalHeader title="确认归档商机" label="批量操作"/>
+        <ModalBody><p>即将归档 {archiveTargets.length} 条商机。归档后将从当前商机列表移除，但不会删除业务记录。</p><p>请确认所选记录及其关联业务信息无误。</p></ModalBody>
         <ModalFooter>
           <Button kind="secondary" disabled={archiveBusy} onClick={()=>setArchiveTargets([])}>取消</Button>
           <Button kind="primary" disabled={archiveBusy||archiveTargets.length===0} onClick={async()=>{
             setArchiveBusy(true);
-            try {
+            try{
               const db=await getSupabaseClient();
               const result=await db.from('crm_opportunities').update({is_archived:true}).in('id',archiveTargets.map(item=>item.id));
               if(result.error)throw result.error;
-              const count=archiveTargets.length;
-              setArchiveTargets([]);
+              const count=archiveTargets.length;setArchiveTargets([]);
               setArchiveNotice({kind:'success',message:`已归档 ${count} 条商机。`});
               await load();
-            } catch(e) {
-              setArchiveNotice({kind:'error',message:e instanceof Error?e.message:'归档失败，请稍后重试。'});
-            } finally { setArchiveBusy(false); }
+            }catch(e){setArchiveNotice({kind:'error',message:e instanceof Error?e.message:'归档失败，请稍后重试。'})}
+            finally{setArchiveBusy(false)}
           }}>{archiveBusy?'正在归档…':'确认归档'}</Button>
         </ModalFooter>
       </ComposedModal>
@@ -200,65 +289,54 @@ export function OpportunityConsolePage() {
         size="lg"
         launcherButtonRef={detailLauncherRef}
         className="tp-opportunities__detail-panel"
-        actions={activeOpportunity ? [
-          { children: '打开完整商机资料', kind: 'primary', onClick: () => navigate(`/opportunities/${activeOpportunity.id}`) },
-          { children: '关闭', kind: 'secondary', onClick: closeOpportunity },
-        ] : []}
+        actions={activeOpportunity?[
+          {children:'打开完整商机资料',kind:'primary',onClick:()=>navigate(`/opportunities/${activeOpportunity.id}`)},
+          {children:'关闭',kind:'secondary',onClick:closeOpportunity},
+        ]:[]}
       >
-        {activeOpportunity && (
-          <div className="tp-opportunities__detail-content">
-            <div className="tp-opportunities__detail-navigation">
-              <Button kind="ghost" size="sm" aria-label="上一条商机（Alt + ↑）" disabled={activeIndex <= 0} onClick={() => moveOpportunity(-1)}>上一条</Button>
-              <span aria-live="polite">{activeIndex >= 0 ? `${activeIndex + 1} / ${filtered.length}` : '当前筛选结果外'}</span>
-              <Button kind="ghost" size="sm" aria-label="下一条商机（Alt + ↓）" disabled={activeIndex < 0 || activeIndex >= filtered.length - 1} onClick={() => moveOpportunity(1)}>下一条</Button>
-            </div>
-            <div className="tp-opportunities__detail-summary">
-              <Tag type={activeOpportunity.stage === 'won' ? 'green' : activeOpportunity.stage === 'lost' ? 'red' : 'blue'}>{stageLabel(activeOpportunity.stage)}</Tag>
-              <strong>{activeOpportunity.currency_code} {Number(activeOpportunity.amount || 0).toLocaleString()}</strong>
-              <span>赢率 {activeOpportunity.probability}%</span>
-            </div>
-            <Tabs>
-              <TabList aria-label="商机详情分组" contained>
-                <Tab>概览</Tab><Tab>销售信息</Tab><Tab>跟进与竞争</Tab>
-              </TabList>
-              <TabPanels>
-                <TabPanel>
-                  <dl>
-                    <div><dt>所属客户</dt><dd>{accountMap.get(activeOpportunity.account_id) || '—'}</dd></div>
-                    <div><dt>主要联系人</dt><dd>{activeOpportunity.primary_contact_id ? contactMap.get(activeOpportunity.primary_contact_id) || '—' : '—'}</dd></div>
-                    <div><dt>销售阶段</dt><dd>{stageLabel(activeOpportunity.stage)}</dd></div>
-                    <div><dt>预计成交日期</dt><dd>{activeOpportunity.expected_close_date || '—'}</dd></div>
-                    <div><dt>商机描述</dt><dd>{activeOpportunity.description || '—'}</dd></div>
-                  </dl>
-                </TabPanel>
-                <TabPanel>
-                  <dl>
-                    <div><dt>负责人</dt><dd>{activeOpportunity.sales_person || '—'}</dd></div>
-                    <div><dt>销售团队</dt><dd>{activeOpportunity.sales_team || '—'}</dd></div>
-                    <div><dt>商机来源</dt><dd>{activeOpportunity.source || '—'}</dd></div>
-                    <div><dt>预计数量</dt><dd>{activeOpportunity.expected_quantity ?? '—'}</dd></div>
-                    <div><dt>预计毛利</dt><dd>{activeOpportunity.expected_margin == null ? '—' : `${activeOpportunity.currency_code} ${Number(activeOpportunity.expected_margin).toLocaleString()}`}</dd></div>
-                  </dl>
-                </TabPanel>
-                <TabPanel>
-                  <dl>
-                    <div><dt>下一步计划</dt><dd>{activeOpportunity.next_step || '—'}</dd></div>
-                    <div><dt>下次活动</dt><dd>{activeOpportunity.next_activity_at || activeOpportunity.next_activity_date || '—'}</dd></div>
-                    <div><dt>跟进摘要</dt><dd>{activeOpportunity.follow_up_summary || '—'}</dd></div>
-                    <div><dt>竞争对手</dt><dd>{activeOpportunity.competitor || '—'}</dd></div>
-                    <div><dt>我方竞争优势</dt><dd>{activeOpportunity.competitive_advantages || '—'}</dd></div>
-                    <div><dt>内部备注</dt><dd>{activeOpportunity.internal_notes || '—'}</dd></div>
-                  </dl>
-                </TabPanel>
-              </TabPanels>
-            </Tabs>
+        {activeOpportunity&&<div className="tp-opportunities__detail-content">
+          <div className="tp-opportunities__detail-navigation">
+            <Button kind="ghost" size="sm" aria-label="上一条商机（Alt + ↑）" disabled={activeIndex<=0} onClick={()=>void moveOpportunity(-1)}>上一条</Button>
+            <span aria-live="polite">{activeIndex>=0?`${activeIndex+1} / ${filteredIds.length}`:'当前筛选结果外'}</span>
+            <Button kind="ghost" size="sm" aria-label="下一条商机（Alt + ↓）" disabled={activeIndex<0||activeIndex>=filteredIds.length-1} onClick={()=>void moveOpportunity(1)}>下一条</Button>
           </div>
-        )}
+          <div className="tp-opportunities__detail-summary">
+            <Tag type={activeOpportunity.stage==='won'?'green':activeOpportunity.stage==='lost'?'red':'blue'}>{stageLabel(activeOpportunity.stage)}</Tag>
+            <strong>{activeOpportunity.currency_code} {Number(activeOpportunity.amount||0).toLocaleString()}</strong>
+            <span>赢率 {activeOpportunity.probability}%</span>
+          </div>
+          <Tabs>
+            <TabList aria-label="商机详情分组" contained><Tab>概览</Tab><Tab>销售信息</Tab><Tab>跟进与竞争</Tab></TabList>
+            <TabPanels>
+              <TabPanel><dl>
+                <div><dt>所属客户</dt><dd>{accountMap.get(activeOpportunity.account_id)||'—'}</dd></div>
+                <div><dt>主要联系人</dt><dd>{activeOpportunity.primary_contact_id?contactMap.get(activeOpportunity.primary_contact_id)||'—':'—'}</dd></div>
+                <div><dt>销售阶段</dt><dd>{stageLabel(activeOpportunity.stage)}</dd></div>
+                <div><dt>预计成交日期</dt><dd>{activeOpportunity.expected_close_date||'—'}</dd></div>
+                <div><dt>商机描述</dt><dd>{activeOpportunity.description||'—'}</dd></div>
+              </dl></TabPanel>
+              <TabPanel><dl>
+                <div><dt>负责人</dt><dd>{activeOpportunity.sales_person||'—'}</dd></div>
+                <div><dt>销售团队</dt><dd>{activeOpportunity.sales_team||'—'}</dd></div>
+                <div><dt>商机来源</dt><dd>{activeOpportunity.source||'—'}</dd></div>
+                <div><dt>预计数量</dt><dd>{activeOpportunity.expected_quantity??'—'}</dd></div>
+                <div><dt>预计毛利</dt><dd>{activeOpportunity.expected_margin==null?'—':`${activeOpportunity.currency_code} ${Number(activeOpportunity.expected_margin).toLocaleString()}`}</dd></div>
+              </dl></TabPanel>
+              <TabPanel><dl>
+                <div><dt>下一步计划</dt><dd>{activeOpportunity.next_step||'—'}</dd></div>
+                <div><dt>下次活动</dt><dd>{activeOpportunity.next_activity_at||activeOpportunity.next_activity_date||'—'}</dd></div>
+                <div><dt>跟进摘要</dt><dd>{activeOpportunity.follow_up_summary||'—'}</dd></div>
+                <div><dt>竞争对手</dt><dd>{activeOpportunity.competitor||'—'}</dd></div>
+                <div><dt>我方竞争优势</dt><dd>{activeOpportunity.competitive_advantages||'—'}</dd></div>
+                <div><dt>内部备注</dt><dd>{activeOpportunity.internal_notes||'—'}</dd></div>
+              </dl></TabPanel>
+            </TabPanels>
+          </Tabs>
+        </div>}
       </TpDetailPanel>
     </section>
   </main>;
 }
-
 export function OpportunityFormPage() {
   const nav=useNavigate(); const {id}=useParams(); const editing=Boolean(id);
   const [accounts,setAccounts]=useState<AccountOption[]>([]); const [contacts,setContacts]=useState<ContactOption[]>([]); const [settings,setSettings]=useState<OpportunitySetting[]>([]);
