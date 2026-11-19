@@ -2,7 +2,7 @@ import { PageHeader } from '@/design-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  Button, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput,
+  Button, TPInlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput,
   semanticIcons, TpDataTable,
   Grid, Column, ContainedList, ContainedListItem,
 } from '@/design-system';
@@ -287,7 +287,7 @@ export function SettingsCenterPage() {
               {error && <InlineNotification kind="error" title="设置操作失败" subtitle={error} onCloseButtonClick={() => setError('')} />}
               {notice && <InlineNotification kind="success" title="保存成功" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
 
-              {loading && domain === 'products' && activeSection.implemented ? <InlineLoading description="正在读取设置…" /> : null}
+              {loading && domain === 'products' && activeSection.implemented ? <TPInlineLoading status="active" description="正在读取设置…" /> : null}
 
               {section === 'categories' && !loading && (
                 <>
