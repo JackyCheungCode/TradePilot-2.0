@@ -641,6 +641,12 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
       const rows=await db<ConnectionRow[]>(env,"agent_connections?owner_id=eq."+ownerId+"&select="+publicConnectionFields+"&order=created_at.desc&limit=100");
       return successResponse(request,rows??[]);
     }
+    if(path==="/api/v1/agent/tools"&&request.method==="GET"){
+      const rows=await db<ConnectionRow[]>(env,"agent_connections?owner_id=eq."+ownerId+"&select=id,name,protocol,endpoint_url,status,protocol_tools,updated_at&order=created_at.desc&limit=100");
+      const native=Object.entries(xiaoyaReadTools).map(([name,tool])=>({id:"native:"+name,source:"native",name,description:tool.label+"：TradePilot 内置只读业务查询",category:"business_data",risk:"read_only" as const,policySource:"system",status:"active"}));
+      const external=(rows??[]).flatMap(connection=>(connection.protocol_tools??[]).map(tool=>({id:"external:"+connection.id+":"+String(tool.name??""),source:"external",connectionId:connection.id,connectionName:connection.name,protocol:connection.protocol,endpointUrl:connection.endpoint_url,connectionStatus:connection.status,name:String(tool.name??""),description:String(tool.description??""),method:tool.method,path:tool.path,risk:effectiveToolRisk(tool),policySource:tool.riskPolicySource==="user"?"user":"default",status:connection.status})));
+      return successResponse(request,{items:[...native,...external],nativeCount:native.length,externalCount:external.length});
+    }
     if(path==="/api/v1/agent/connections"&&request.method==="POST"){
       let body:Record<string,unknown>;try{body=await request.json() as Record<string,unknown>;}catch{return errorResponse(request,"INVALID_JSON","请求内容不是有效 JSON。",400);}
       const name=typeof body.name==="string"?body.name.trim():"";
@@ -661,6 +667,22 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
       const rows=await db<ConnectionRow[]>(env,"agent_connections?select="+publicConnectionFields,{method:"POST",headers:{Prefer:"return=representation"},body:JSON.stringify({owner_id:ownerId,name,protocol,endpoint_url:endpoint,auth_mode:authMode,encrypted_credentials:encryptedCredentials,capabilities,status:"pending"})});
       const created=rows?.[0];if(!created)return errorResponse(request,"CONNECTION_CREATE_FAILED","连接登记失败。",500);
       return successResponse(request,created,201);
+    }
+    const toolPolicyMatch=path.match(/^\/api\/v1\/agent\/connections\/([0-9a-f-]{36})\/tool-policy$/i);
+    if(toolPolicyMatch&&request.method==="PUT"){
+      let body:Record<string,unknown>;try{body=await request.json() as Record<string,unknown>;}catch{return errorResponse(request,"INVALID_JSON","请求内容不是有效 JSON。",400);}
+      const toolName=typeof body.toolName==="string"?body.toolName.trim():"";
+      const risk=body.risk as ToolRisk;
+      if(!toolName||toolName.length>120||!["read_only","approval_required","blocked"].includes(risk))return errorResponse(request,"VALIDATION_ERROR","工具名称或权限策略无效。",400);
+      const rows=await db<ConnectionRow[]>(env,"agent_connections?id=eq."+toolPolicyMatch[1]+"&owner_id=eq."+ownerId+"&select=id,owner_id,name,protocol,endpoint_url,auth_mode,encrypted_credentials,capabilities,protocol_tools,protocol_metadata,status,last_tested_at,last_error,created_at,updated_at&limit=1");
+      const connection=rows?.[0];if(!connection)return errorResponse(request,"CONNECTION_NOT_FOUND","外部连接不存在。",404);
+      const tools=[...(connection.protocol_tools??[])];
+      const index=tools.findIndex(tool=>tool.name===toolName);
+      if(index<0)return errorResponse(request,"TOOL_NOT_FOUND","该工具不在连接已发现的能力列表中，请重新发现能力。",404);
+      tools[index]={...tools[index],risk,riskPolicySource:"user",riskPolicyUpdatedAt:new Date().toISOString()};
+      const updated=await db<ConnectionRow[]>(env,"agent_connections?id=eq."+connection.id+"&owner_id=eq."+ownerId+"&select="+publicConnectionFields,{method:"PATCH",headers:{Prefer:"return=representation"},body:JSON.stringify({protocol_tools:tools,updated_at:new Date().toISOString()})});
+      const saved=updated?.[0];
+      return successResponse(request,{connectionId:connection.id,toolName,risk,policySource:"user",connection:saved??null});
     }
     const discoverMatch=path.match(/^\/api\/v1\/agent\/connections\/([0-9a-f-]{36})\/discover$/i);
     if(discoverMatch&&request.method==="POST"){
