@@ -1,11 +1,32 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Dropdown, Heading, semanticIcons, ChatCustomElement, MessageResponseTypes, type ChatInstance, type CustomSendMessageOptions, type MessageRequest, type PublicConfig, type HistoryItem } from '@/design-system';
+import { Button, Dropdown, Heading, Link, semanticIcons, ChatCustomElement, MessageResponseTypes, type ChatInstance, type CustomSendMessageOptions, type MessageRequest, type PublicConfig, type HistoryItem } from '@/design-system';
 import { XiaoyaAvatar } from './XiaoyaAvatar';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/layout/XiaoyaSidePanel.scss';
 
 type Conversation = { id: string; title: string; last_message_at: string; created_at: string };
-type AgentMessage = { id: string; role: 'user' | 'assistant'; content: string; created_at?: string };
+type AgentTask = {
+  goal: string;
+  agentKey: string;
+  country: string;
+  mode: 'planner' | 'internal' | 'external';
+  channel?: 'search_engine' | 'facebook' | 'instagram';
+  objectTypes?: string[];
+};
+type AgentMessage = {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  created_at?: string;
+  metadata?: { task?: AgentTask | null; runId?: string; runStatus?: string; runProgress?: number };
+};
+type TaskSuggestion = {
+  messageId: string;
+  task: AgentTask;
+  runId?: string;
+  runStatus?: string;
+  runProgress?: number;
+};
 type ApiEnvelope<T> = { data: T } | { error?: { message?: string } };
 
 type Props = {
@@ -86,6 +107,9 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
   const [chatStatusVisible, setChatStatusVisible] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversationId, setSelectedConversationId] = useState('');
+  const [taskSuggestion, setTaskSuggestion] = useState<TaskSuggestion | null>(null);
+  const [taskExecuting, setTaskExecuting] = useState(false);
+  const [taskError, setTaskError] = useState('');
   const chatInstanceRef = useRef<ChatInstance | null>(null);
   const conversationIdRef = useRef('');
   const historyLoadPromiseRef = useRef<Promise<void> | null>(null);
@@ -194,6 +218,15 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
       if (requestId !== conversationRequestIdRef.current) return;
       conversationIdRef.current = conversationId;
       setSelectedConversationId(conversationId);
+      const latestTaskMessage = [...rows].reverse().find((row) => row.role === 'assistant' && row.metadata?.task);
+      setTaskSuggestion(latestTaskMessage?.metadata?.task ? {
+        messageId: latestTaskMessage.id,
+        task: latestTaskMessage.metadata.task,
+        runId: latestTaskMessage.metadata.runId,
+        runStatus: latestTaskMessage.metadata.runStatus,
+        runProgress: latestTaskMessage.metadata.runProgress,
+      } : null);
+      setTaskError('');
       setWelcomeVisible(rows.length === 0);
       setWelcomePhase('ready');
       setAvatarEmotion('success');
@@ -225,6 +258,8 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
       setWelcomePhase('ready');
       setAvatarEmotion('success');
       setChatStatusVisible(false);
+      setTaskSuggestion(null);
+      setTaskError('');
       conversationIdRef.current = created.id;
     } catch (error) {
       if (requestId !== conversationRequestIdRef.current) return;
@@ -245,6 +280,14 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
       const conversationId = await ensureConversation();
       const rows = await agentRequest<AgentMessage[]>(`/api/v1/agent/conversations/${conversationId}/messages`);
       setSelectedConversationId(conversationId);
+      const latestTaskMessage = [...rows].reverse().find((row) => row.role === 'assistant' && row.metadata?.task);
+      setTaskSuggestion(latestTaskMessage?.metadata?.task ? {
+        messageId: latestTaskMessage.id,
+        task: latestTaskMessage.metadata.task,
+        runId: latestTaskMessage.metadata.runId,
+        runStatus: latestTaskMessage.metadata.runStatus,
+        runProgress: latestTaskMessage.metadata.runProgress,
+      } : null);
       if (rows.length) {
         setWelcomeVisible(false);
         await instance.messaging.insertHistory(toHistoryItems(rows));
@@ -277,7 +320,7 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
       const conversationId = await ensureConversation();
       const context = readPageContext(pathnameRef.current);
       const conversationRequestId = conversationRequestIdRef.current;
-      const result = await agentRequest<{ reply: string; model?: string; task?: { goal?: string } | null }>(
+      const result = await agentRequest<{ conversationId: string; messageId: string | null; reply: string; model?: string; task: AgentTask | null }>(
         '/api/v1/agent/chat',
         {
           method: 'POST',
@@ -291,6 +334,8 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
       );
       if (conversationRequestId !== conversationRequestIdRef.current || conversationId !== conversationIdRef.current) return;
       const reply = [normalizeModelText(result.reply), result.model ? `\n\n模型：${result.model}` : ''].join('');
+      setTaskSuggestion(result.task && result.messageId ? { messageId: result.messageId, task: result.task } : null);
+      setTaskError('');
       await instance.messaging.addMessage({
         output: {
           generic: [{
@@ -315,6 +360,46 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
       throw error;
     }
   }, [ensureConversation, refreshConversations]);
+
+  const startTask = useCallback(async () => {
+    const suggestion = taskSuggestion;
+    if (!suggestion || taskExecuting || suggestion.runId) return;
+    setTaskExecuting(true);
+    setTaskError('');
+    try {
+      const result = await agentRequest<{ id: string; taskCode?: string; status: string }>(
+        '/api/v1/agent/runs',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            goal: suggestion.task.goal,
+            execution: {
+              mode: suggestion.task.mode === 'internal' ? 'internal_discovery' : 'planner',
+              channel: suggestion.task.channel || 'search_engine',
+              objectTypes: suggestion.task.objectTypes || ['page', 'group', 'post'],
+              agentKey: suggestion.task.agentKey,
+              country: suggestion.task.country,
+              searchEngine: 'serper',
+              limitPerCountry: 50,
+            },
+          }),
+        },
+      );
+      const next = { ...suggestion, runId: result.id, runStatus: result.status, runProgress: 0 };
+      setTaskSuggestion(next);
+      await agentRequest(
+        '/api/v1/agent/conversations/' + conversationIdRef.current + '/messages/' + suggestion.messageId,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ metadata: { task: suggestion.task, runId: result.id, runStatus: result.status, runProgress: 0 } }),
+        },
+      );
+    } catch (error) {
+      setTaskError(error instanceof Error ? error.message : '任务启动失败，请稍后重试。');
+    } finally {
+      setTaskExecuting(false);
+    }
+  }, [taskExecuting, taskSuggestion]);
 
   const chatConfig = useMemo<PublicConfig>(() => ({
     aiEnabled: true,
@@ -392,6 +477,29 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
             </div>
           )}
         </div>
+        {taskSuggestion && (
+          <section className="tp-xiaoya-task" aria-label="小雅任务方案">
+            <div className="tp-xiaoya-task__heading">
+              <semanticIcons.task size={20} />
+              <strong>任务方案</strong>
+            </div>
+            <p className="tp-xiaoya-task__goal">{taskSuggestion.task.goal}</p>
+            <p className="tp-xiaoya-task__meta">执行角色：{taskSuggestion.task.agentKey} · 目标国家：{taskSuggestion.task.country}</p>
+            {taskError && <p className="tp-xiaoya-task__error" role="alert">{taskError}</p>}
+            {taskSuggestion.runId ? (
+              <div className="tp-xiaoya-task__actions">
+                <span className="tp-xiaoya-task__status">{taskSuggestion.runStatus === 'succeeded' ? '执行完成' : taskSuggestion.runStatus === 'failed' ? '执行失败' : '任务已提交'} · {taskSuggestion.runProgress ?? 0}%</span>
+                <Link href="/recent-tasks">查看任务中心</Link>
+              </div>
+            ) : (
+              <div className="tp-xiaoya-task__actions">
+                <Button kind="primary" size="md" disabled={taskExecuting} onClick={() => void startTask()}>
+                  {taskExecuting ? '正在创建任务…' : '确认并执行'}
+                </Button>
+              </div>
+            )}
+          </section>
+        )}
       </aside>
     </div>
   );
