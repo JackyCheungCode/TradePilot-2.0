@@ -255,7 +255,7 @@ function parseZipBundle(encoded:string):{manifest:Record<string,string>;files:Bu
  if(eocd<0)throw new Error("SKILL_ZIP_INVALID：找不到 ZIP 中央目录。");
  const disk=view.getUint16(eocd+4,true),centralDisk=view.getUint16(eocd+6,true),diskEntries=view.getUint16(eocd+8,true),entryCount=view.getUint16(eocd+10,true),centralSize=view.getUint32(eocd+12,true),centralOffset=view.getUint32(eocd+16,true);
  if(disk!==0||centralDisk!==0||diskEntries!==entryCount||entryCount===0xffff||centralSize===0xffffffff||centralOffset===0xffffffff||entryCount>100||centralOffset+centralSize>eocd)throw new Error("SKILL_ZIP_INVALID：不支持分卷、ZIP64 或目录异常的压缩包。");
- const entries:Array<{path:string;size:number;compression:number;flags:number;mode:number}>=[];
+ const entries:Array<{path:string;size:number;compressedSize:number;compression:number;flags:number;mode:number}>=[];
  let cursor=centralOffset,totalSize=0;
  for(let i=0;i<entryCount;i++){
   if(cursor+46>centralOffset+centralSize||view.getUint32(cursor,true)!==0x02014b50)throw new Error("SKILL_ZIP_INVALID：ZIP 中央目录结构无效。");
@@ -266,13 +266,13 @@ function parseZipBundle(encoded:string):{manifest:Record<string,string>;files:Bu
   if(flags&1)throw new Error("SKILL_ZIP_ENCRYPTED：不接受加密 ZIP 文件。");
   if(compression!==0&&compression!==8)throw new Error("SKILL_ZIP_COMPRESSION_UNSUPPORTED：仅支持 Store 和 Deflate 压缩。");
   if((external>>>16&0o170000)===0o120000)throw new Error("SKILL_ZIP_SYMLINK_BLOCKED：不允许符号链接。");
-  if(!path.endsWith("/")){if(size>MAX_FILE_BYTES)throw new Error("SKILL_FILE_TOO_LARGE："+path);totalSize+=size;if(totalSize>MAX_BUNDLE_BYTES)throw new Error("SKILL_PACKAGE_TOO_LARGE：解压后的总文件大小超过限制。");entries.push({path,size,compression,flags,mode:external>>>16});}
+  if(!path.endsWith("/")){if(size>MAX_FILE_BYTES)throw new Error("SKILL_FILE_TOO_LARGE："+path);if(size>compressedSize*250+1024)throw new Error("SKILL_ZIP_RATIO_LIMIT：压缩比异常，拒绝解压："+path);totalSize+=size;if(totalSize>MAX_BUNDLE_BYTES)throw new Error("SKILL_PACKAGE_TOO_LARGE：解压后的总文件大小超过限制。");entries.push({path,size,compressedSize,compression,flags,mode:external>>>16});}
   cursor=next;
  }
  if(cursor!==centralOffset+centralSize||entries.length===0||entries.length>MAX_FILES)throw new Error("SKILL_ZIP_INVALID：文件数量或中央目录长度不符合限制。");
  const skillPaths=entries.map(entry=>entry.path).filter(path=>path==="SKILL.md"||path.endsWith("/SKILL.md"));
  if(skillPaths.length!==1)throw new Error("SKILL_MD_NOT_FOUND：ZIP 中必须且只能包含一个 Skill 根目录 SKILL.md。");
- const root=skillPaths[0]==="SKILL.md"?"":skillPaths[0].slice(0,-"/SKILL.md".length);
+ const root=skillPaths[0]==="SKILL.md"?"":skillPaths[0].slice(0,-"/SKILL.md".length);\n const uniquePaths=new Set(entries.map(entry=>entry.path));if(uniquePaths.size!==entries.length)throw new Error("SKILL_ZIP_DUPLICATE_PATH：压缩包包含重复文件路径。");
  const selected=entries.filter(entry=>!root||entry.path.startsWith(root+"/"));
  if(selected.length>MAX_FILES)throw new Error("SKILL_PACKAGE_TOO_MANY_FILES：Skill 包最多允许 "+MAX_FILES+" 个文件。");
  for(const entry of selected)if(!safeRelativePath(entry.path,root))throw new Error("SKILL_ZIP_PATH_BLOCKED：压缩包包含隐藏、越界或敏感路径："+entry.path);
