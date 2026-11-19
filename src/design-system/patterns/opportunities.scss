@@ -89,3 +89,9 @@
 .tp-opportunities__detail-content dt{color:var(--cds-text-secondary)}
 .tp-opportunities__detail-content dd{margin:0;overflow-wrap:anywhere}
 @media(max-width:671px){.tp-opportunities__detail-panel .cds--side-panel{width:100vw;max-width:100vw}.tp-opportunities__detail-content{padding:var(--cds-spacing-04)}}
+
+.tp-opportunities__detail-navigation{display:flex;align-items:center;justify-content:space-between;gap:var(--cds-spacing-03);padding-bottom:var(--cds-spacing-03);border-bottom:1px solid var(--cds-border-subtle)}
+.tp-opportunities__detail-navigation>span{color:var(--cds-text-secondary);font-size:.75rem;font-variant-numeric:tabular-nums}
+.tp-opportunities__detail-content .cds--tabs{min-width:0}
+.tp-opportunities__detail-content .cds--tab-content{padding:var(--cds-spacing-04) 0 0}
+.tp-opportunities__detail-content .cds--tab-panels{min-width:0}
