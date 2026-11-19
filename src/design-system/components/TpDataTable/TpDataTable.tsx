@@ -143,10 +143,20 @@ export function TpDataTable<T extends Record<string, unknown>>({
   );
 
 
+  const previousSelectionScope = useRef(selectionScopeKey);
   useEffect(() => {
-    // Clear stale selections when the logical filter scope changes, not when a page changes.
+    // Clear stale selections and close a record preview when the logical filter scope changes,
+    // but preserve both while the user moves between pages.
+    if (previousSelectionScope.current === selectionScopeKey) return;
+    previousSelectionScope.current = selectionScopeKey;
     setSelectedIds(new Set());
     selectedRowCache.current.clear();
+    if (detailRowId) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('tpRecord');
+      window.history.replaceState(window.history.state, '', url);
+      setDetailRowId(null);
+    }
   }, [selectionScopeKey]);
 
   const toggleRowSelection = (id: string, checked: boolean) => {
