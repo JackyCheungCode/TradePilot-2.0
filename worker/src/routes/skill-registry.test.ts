@@ -17,7 +17,8 @@ test("Skill package import stores a bounded bundle, review findings and disabled
  const restore=withFetch(async(input,init)=>{
   const url=String(input);
   if(url.endsWith("/auth/v1/user"))return Response.json({id:ownerId});
-  if(url.includes("api.github.com/repos/acme/skills/commits/main"))return Response.json({sha:"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"});\n  if(url.includes("api.github.com/repos/acme/skills/git/trees/aaaaaaaa"))return Response.json({truncated:false,tree:[
+  if(url.includes("api.github.com/repos/acme/skills/commits/main"))return Response.json({sha:"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"});
+  if(url.includes("api.github.com/repos/acme/skills/git/trees/aaaaaaaa"))return Response.json({truncated:false,tree:[
    {path:"skills/demo/SKILL.md",type:"blob",size:90,sha:"skill-sha"},
    {path:"skills/demo/index.ts",type:"blob",size:45,sha:"script-sha"},
    {path:"skills/demo/package.json",type:"blob",size:35,sha:"package-sha"},
@@ -57,7 +58,8 @@ test("truncated GitHub trees are rejected before any package is persisted",async
  const restore=withFetch(async(input)=>{
   const url=String(input);
   if(url.endsWith("/auth/v1/user"))return Response.json({id:ownerId});
-  if(url.includes("api.github.com/repos/acme/skills/commits/main"))return Response.json({sha:"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"});\n  if(url.includes("api.github.com/repos/acme/skills/git/trees/aaaaaaaa"))return Response.json({truncated:true,tree:[]});
+  if(url.includes("api.github.com/repos/acme/skills/commits/main"))return Response.json({sha:"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"});
+  if(url.includes("api.github.com/repos/acme/skills/git/trees/aaaaaaaa"))return Response.json({truncated:true,tree:[]});
   if(url.includes("/rest/v1/agent_profiles"))databaseWrites++;
   throw new Error("Unexpected fetch: "+url);
  });
