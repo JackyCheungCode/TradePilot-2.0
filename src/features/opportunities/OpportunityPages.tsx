@@ -1,6 +1,6 @@
 import { PageHeader } from '@/design-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   Button, Link, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput, TextArea,
   Tabs, TabList, Tab, TabPanels, TabPanel, TpDataTable, TpDetailPanel,
@@ -67,7 +67,13 @@ export function OpportunityConsolePage() {
   const [marketCountry,setMarketCountry] = useState('all');
   const [page,setPage] = useState(1);
   const [pageSize,setPageSize] = useState<10 | 20 | 50 | 100>(20);
-  const [activeOpportunity,setActiveOpportunity] = useState<Opportunity | null>(null);
+  const [searchParams,setSearchParams] = useSearchParams();
+  const activeOpportunityId = searchParams.get('opportunity');
+  const activeOpportunity = rows.find(row => row.id === activeOpportunityId) ?? null;
+  const activeIndex = activeOpportunity ? filtered.findIndex(row => row.id === activeOpportunity.id) : -1;
+  const openOpportunity = (row: Opportunity) => setSearchParams(current => { const next = new URLSearchParams(current); next.set('opportunity', row.id); return next; });
+  const closeOpportunity = () => setSearchParams(current => { const next = new URLSearchParams(current); next.delete('opportunity'); return next; }, { replace: true });
+  const moveOpportunity = (offset: number) => { const next = filtered[activeIndex + offset]; if (next) openOpportunity(next); };
   const load = useCallback(async () => {
     setLoading(true); setError('');
     try {
@@ -134,7 +140,7 @@ export function OpportunityConsolePage() {
         ]}
         rows={filtered.slice((page - 1) * pageSize, page * pageSize)}
         rowKey="id"
-        onRowOpen={setActiveOpportunity}
+        onRowOpen={openOpportunity}
         activeRowId={activeOpportunity?.id}
         loading={loading}
         refreshing={false}
@@ -142,28 +148,60 @@ export function OpportunityConsolePage() {
         emptyState="没有符合条件的商机。"
       />
       <TpDetailPanel
-        open={Boolean(activeOpportunity)}
+        open={Boolean(activeOpportunityId && activeOpportunity)}
         title={activeOpportunity?.name || '商机详情'}
         subtitle={activeOpportunity?.opportunity_number}
-        onRequestClose={() => setActiveOpportunity(null)}
+        onRequestClose={closeOpportunity}
         size="lg"
         className="tp-opportunities__detail-panel"
       >
         {activeOpportunity && (
           <div className="tp-opportunities__detail-content">
+            <div className="tp-opportunities__detail-navigation">
+              <Button kind="ghost" size="sm" disabled={activeIndex <= 0} onClick={() => moveOpportunity(-1)}>上一条</Button>
+              <span>{activeIndex >= 0 ? `${activeIndex + 1} / ${filtered.length}` : '当前筛选结果外'}</span>
+              <Button kind="ghost" size="sm" disabled={activeIndex < 0 || activeIndex >= filtered.length - 1} onClick={() => moveOpportunity(1)}>下一条</Button>
+            </div>
             <div className="tp-opportunities__detail-summary">
               <Tag type={activeOpportunity.stage === 'won' ? 'green' : activeOpportunity.stage === 'lost' ? 'red' : 'blue'}>{stageLabel(activeOpportunity.stage)}</Tag>
               <strong>{activeOpportunity.currency_code} {Number(activeOpportunity.amount || 0).toLocaleString()}</strong>
               <span>赢率 {activeOpportunity.probability}%</span>
             </div>
-            <dl>
-              <div><dt>所属客户</dt><dd>{accountMap.get(activeOpportunity.account_id) || '—'}</dd></div>
-              <div><dt>主要联系人</dt><dd>{activeOpportunity.primary_contact_id ? contactMap.get(activeOpportunity.primary_contact_id) || '—' : '—'}</dd></div>
-              <div><dt>预计成交日期</dt><dd>{activeOpportunity.expected_close_date || '—'}</dd></div>
-              <div><dt>负责人</dt><dd>{activeOpportunity.sales_person || '—'}</dd></div>
-              <div><dt>下一步计划</dt><dd>{activeOpportunity.next_step || '—'}</dd></div>
-              <div><dt>跟进摘要</dt><dd>{activeOpportunity.follow_up_summary || '—'}</dd></div>
-            </dl>
+            <Tabs>
+              <TabList aria-label="商机详情分组" contained>
+                <Tab>概览</Tab><Tab>销售信息</Tab><Tab>跟进与竞争</Tab>
+              </TabList>
+              <TabPanels>
+                <TabPanel>
+                  <dl>
+                    <div><dt>所属客户</dt><dd>{accountMap.get(activeOpportunity.account_id) || '—'}</dd></div>
+                    <div><dt>主要联系人</dt><dd>{activeOpportunity.primary_contact_id ? contactMap.get(activeOpportunity.primary_contact_id) || '—' : '—'}</dd></div>
+                    <div><dt>销售阶段</dt><dd>{stageLabel(activeOpportunity.stage)}</dd></div>
+                    <div><dt>预计成交日期</dt><dd>{activeOpportunity.expected_close_date || '—'}</dd></div>
+                    <div><dt>商机描述</dt><dd>{activeOpportunity.description || '—'}</dd></div>
+                  </dl>
+                </TabPanel>
+                <TabPanel>
+                  <dl>
+                    <div><dt>负责人</dt><dd>{activeOpportunity.sales_person || '—'}</dd></div>
+                    <div><dt>销售团队</dt><dd>{activeOpportunity.sales_team || '—'}</dd></div>
+                    <div><dt>商机来源</dt><dd>{activeOpportunity.source || '—'}</dd></div>
+                    <div><dt>预计数量</dt><dd>{activeOpportunity.expected_quantity ?? '—'}</dd></div>
+                    <div><dt>预计毛利</dt><dd>{activeOpportunity.expected_margin == null ? '—' : `${activeOpportunity.currency_code} ${Number(activeOpportunity.expected_margin).toLocaleString()}`}</dd></div>
+                  </dl>
+                </TabPanel>
+                <TabPanel>
+                  <dl>
+                    <div><dt>下一步计划</dt><dd>{activeOpportunity.next_step || '—'}</dd></div>
+                    <div><dt>下次活动</dt><dd>{activeOpportunity.next_activity_at || activeOpportunity.next_activity_date || '—'}</dd></div>
+                    <div><dt>跟进摘要</dt><dd>{activeOpportunity.follow_up_summary || '—'}</dd></div>
+                    <div><dt>竞争对手</dt><dd>{activeOpportunity.competitor || '—'}</dd></div>
+                    <div><dt>我方竞争优势</dt><dd>{activeOpportunity.competitive_advantages || '—'}</dd></div>
+                    <div><dt>内部备注</dt><dd>{activeOpportunity.internal_notes || '—'}</dd></div>
+                  </dl>
+                </TabPanel>
+              </TabPanels>
+            </Tabs>
             <Link href={`/opportunities/${activeOpportunity.id}`}>打开完整商机资料</Link>
           </div>
         )}
