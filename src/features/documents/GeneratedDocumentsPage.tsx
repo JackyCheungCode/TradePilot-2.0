@@ -1,5 +1,6 @@
 import { PageHeader } from '@/design-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Link, InlineLoading, InlineNotification, TextInput, Tag, TpDataTable,
 } from '@/design-system';
@@ -17,6 +18,7 @@ const dateLabel = (value?: string | null) => value ? new Date(value).toLocaleDat
 const unwrap = (payload: any) => payload?.data ?? payload?.result ?? payload;
 
 export function GeneratedDocumentsPage() {
+  const navigate = useNavigate();
   const [docs, setDocs] = useState<Doc[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -52,7 +54,7 @@ export function GeneratedDocumentsPage() {
         detailPanel
         error={error||null} onRetry={load}
         selectionScopeKey={search}
-        onRowOpen={doc=>window.location.assign('/documents/'+doc.id)}
+        onRowOpen={doc=>navigate('/documents/'+doc.id)}
         columnSettingsKey="trade-generated-documents"
         rowKey="id"
         rows={filtered as (Doc & Record<string, unknown>)[]}
