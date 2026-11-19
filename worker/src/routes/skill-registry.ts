@@ -101,7 +101,7 @@ function validateSchemaNode(value:unknown,path:string,depth:number,budget:{nodes
  if(typeof schema.type!=="string"||!allowedTypes.includes(schema.type))errors.push(path+".type：类型无效。");
  if(schema.description!==undefined&&(typeof schema.description!=="string"||schema.description.length>500))errors.push(path+".description：描述过长或类型无效。");
  if(schema.enum!==undefined&&(!Array.isArray(schema.enum)||schema.enum.length<1||schema.enum.length>50||schema.enum.some(item=>item!==null&&!["string","number","boolean"].includes(typeof item))))errors.push(path+".enum：枚举值无效。");
- for(const key of ["minimum","maximum","minLength","maxLength","minItems","maxItems"]){const value=schema[key];if(value!==undefined&&(!Number.isFinite(value)||typeof value!=="number"||value<0))errors.push(path+"."+key+"：必须是非负有限数值。");}
+ for(const key of ["minimum","maximum","minLength","maxLength","minItems","maxItems"]){const value=schema[key];if(value!==undefined&&(typeof value!=="number"||!Number.isFinite(value)||value<0))errors.push(path+"."+key+"：必须是非负有限数值。");}
  if(schema.type==="object"){
   const properties=schema.properties;
   if(!properties||typeof properties!=="object"||Array.isArray(properties))errors.push(path+".properties：对象类型必须声明 properties。");
@@ -223,18 +223,23 @@ async function fetchSkillBundle(source:Source){
  if(!skillFile||skillFile.encoding!=="utf-8")throw new Error("SKILL_MD_INVALID：SKILL.md 必须是 UTF-8 文本。");
  if(skillFile.size>100000)throw new Error("SKILL.md 超过 100 KB 限制。");
  const manifest=parseFrontmatter(skillFile.content);
+ const contract=validateSkillContract(files,manifest);
  const review=staticReview(files,manifest);
- return {manifest,files,package:{fileCount:files.length,totalBytes:actualBytes,limits:{maxFiles:MAX_FILES,maxFileBytes:MAX_FILE_BYTES,maxTotalBytes:MAX_BUNDLE_BYTES},syncedAt:new Date().toISOString(),sourceRef:source.ref,commitSha},review};
+ review.contractStatus=contract.status;
+ review.contractErrors=contract.errors;
+ if(contract.status==="invalid")review.findings.push({severity:"high",code:"SKILL_CONTRACT_INVALID",message:"skill.json 契约校验失败；当前版本不能进入执行审核。"});
+ return {manifest,contract,files,package:{fileCount:files.length,totalBytes:actualBytes,limits:{maxFiles:MAX_FILES,maxFileBytes:MAX_FILE_BYTES,maxTotalBytes:MAX_BUNDLE_BYTES},syncedAt:new Date().toISOString(),sourceRef:source.ref,commitSha},review};
 }
 function publicConfig(config:SkillConfig):SkillConfig{
  const bundle=config.bundle&&typeof config.bundle==="object"?config.bundle as Record<string,unknown>:{};
- return {repositoryUrl:config.repositoryUrl,branch:config.branch,skillPath:config.skillPath,manifest:config.manifest,syncedAt:config.syncedAt,syncStatus:config.syncStatus,activationStatus:config.activationStatus,bundle:Object.keys(bundle).length?{fileCount:bundle.fileCount,totalBytes:bundle.totalBytes,syncedAt:bundle.syncedAt,sourceRef:bundle.sourceRef}:undefined,securityReview:config.securityReview};
+ const contract=config.contract&&typeof config.contract==="object"?config.contract as Record<string,unknown>:null;
+ return {repositoryUrl:config.repositoryUrl,branch:config.branch,skillPath:config.skillPath,manifest:config.manifest,contractStatus:config.contractStatus??"missing",contractErrors:config.contractErrors??[],contractSummary:contract?{version:contract.version,runtime:contract.runtime,entrypoint:contract.entrypoint,requiredTools:contract.requiredTools,permissions:contract.permissions,limits:contract.limits}:null,syncedAt:config.syncedAt,syncStatus:config.syncStatus,activationStatus:config.activationStatus,bundle:Object.keys(bundle).length?{fileCount:bundle.fileCount,totalBytes:bundle.totalBytes,syncedAt:bundle.syncedAt,sourceRef:bundle.sourceRef,commitSha:bundle.commitSha}:undefined,securityReview:config.securityReview};
 }
 function stateOf(config:SkillConfig):"pending"|"configured"|"synced"{
  return typeof config.syncedAt==="string"?"synced":typeof config.repositoryUrl==="string"&&config.repositoryUrl?"configured":"pending";
 }
 function skillConfig(source:Source,repositoryUrl:string,imported:Awaited<ReturnType<typeof fetchSkillBundle>>){
- return {repositoryUrl:repositoryUrl.trim(),branch:source.ref,skillPath:source.path,manifest:imported.manifest,bundle:{...imported.package,files:imported.files},securityReview:imported.review,syncedAt:imported.package.syncedAt,syncStatus:"package_synced",activationStatus:"disabled_pending_review"};
+ return {repositoryUrl:repositoryUrl.trim(),branch:source.ref,skillPath:source.path,manifest:imported.manifest,contract:imported.contract.contract??null,contractStatus:imported.contract.status,contractErrors:imported.contract.errors,bundle:{...imported.package,files:imported.files},securityReview:imported.review,syncedAt:imported.package.syncedAt,syncStatus:"package_synced",activationStatus:"disabled_pending_review"};
 }
 export async function handleSkillRegistry(request:Request,env:Env):Promise<Response>{
  const ownerId=await ownerFromRequest(request,env);
@@ -255,7 +260,7 @@ export async function handleSkillRegistry(request:Request,env:Env):Promise<Respo
    const imported=await fetchSkillBundle(source);const id=imported.manifest.name;const agentKey="skill:"+id;
    const config=skillConfig(source,body.repositoryUrl,imported);
    await db(env,"agent_profiles?on_conflict=owner_id,agent_key",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({owner_id:ownerId,agent_key:agentKey,enabled:false,config,updated_at:new Date().toISOString()})});
-   return successResponse(request,{id,label:imported.manifest.display_name||id,state:"package_synced",manifest:imported.manifest,package:imported.package,securityReview:imported.review,activationStatus:"disabled_pending_review"});
+   return successResponse(request,{id,label:imported.manifest.display_name||id,state:"package_synced",manifest:imported.manifest,contractStatus:imported.contract.status,contractErrors:imported.contract.errors,package:imported.package,securityReview:imported.review,activationStatus:"disabled_pending_review"});
   }
   const match=url.pathname.match(/^\/api\/v1\/agent\/skills\/([a-z0-9-]+)(\/sync)?$/);
   if(!match)return errorResponse(request,"NOT_FOUND","Skill 接口不存在。",404);
@@ -281,7 +286,7 @@ export async function handleSkillRegistry(request:Request,env:Env):Promise<Respo
    if(imported.manifest.name!==skillId)return errorResponse(request,"SKILL_ID_MISMATCH","SKILL.md 的 name 与当前 Skill 标识不一致。",422);
    const next={...skillConfig(source,repositoryUrl,imported),createdFrom:config.createdFrom??"github_import"};
    await db(env,"agent_profiles?owner_id=eq."+ownerId+"&agent_key=eq."+encodeURIComponent(agentKey),{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({enabled:false,config:next,updated_at:new Date().toISOString()})});
-   return successResponse(request,{id:skillId,state:"package_synced",manifest:imported.manifest,package:imported.package,securityReview:imported.review,activationStatus:"disabled_pending_review"});
+   return successResponse(request,{id:skillId,state:"package_synced",manifest:imported.manifest,contractStatus:imported.contract.status,contractErrors:imported.contract.errors,package:imported.package,securityReview:imported.review,activationStatus:"disabled_pending_review"});
   }
   return errorResponse(request,"METHOD_NOT_ALLOWED","不支持的 Skill 操作。",405);
  }catch(error){return errorResponse(request,"SKILL_REGISTRY_FAILED",error instanceof Error?error.message:"Skill 配置失败。",502);}
