@@ -60,6 +60,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
   ariaLabel = '数据列表',
   columnSettingsKey,
   selectionRows = rows,
+  selectionScopeKey,
 }: TpDataTableProps<T>) {
   const [columnPreferences, setColumnPreferences] = useState<{ order: string[]; hidden: string[] } | null>(null);
   const [preferencesReady, setPreferencesReady] = useState(!columnSettingsKey);
@@ -73,12 +74,9 @@ export function TpDataTable<T extends Record<string, unknown>>({
 
 
   useEffect(() => {
-    const validIds = new Set(selectionRows.map((row) => String(row[rowKey])));
-    setSelectedIds((current) => {
-      const next = new Set([...current].filter((id) => validIds.has(id)));
-      return next.size === current.size ? current : next;
-    });
-  }, [selectionRows, rowKey]);
+    // Clear stale selections when the logical filter scope changes, not when a page changes.
+    setSelectedIds(new Set());
+  }, [selectionScopeKey]);
 
   const toggleRowSelection = (id: string, checked: boolean) => {
     setSelectedIds((current) => {
