@@ -9,5 +9,7 @@ export type {
   HistoryItem,
   MessageRequest,
   PublicConfig,
+  ChatCustomElementProps,
+  RenderCustomRequestFooter,
 } from '@carbon/ai-chat';
 export { MessageResponseTypes } from '@carbon/ai-chat';
