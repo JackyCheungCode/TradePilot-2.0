@@ -44,7 +44,7 @@ export interface TpDataTableProps<T extends object> {
   selectable?: boolean;
   batchActions?: TpBatchAction<T>[];
   rowActions?: TpRowAction<T>[];
-  onRowOpen?: (row: T) => void;
+  onRowOpen?: (row: T, triggerElement?: HTMLElement) => void;
   activeRowId?: string;
   loading?: boolean;
   refreshing?: boolean;
