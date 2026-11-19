@@ -235,7 +235,7 @@ export function SettingsCenterPage() {
         <Column sm={4} md={2} lg={4}><aside className="tp-settings__sidebar" aria-label="设置业务域">
           <ContainedList kind="on-page" label="业务设置" size="md" className="tp-settings__domain-list">
           {domains.map((item) => (
-                        <ContainedListItem key={item.id} className={"tp-settings__domain-item " + (domain === item.id ? "is-active" : "")} onClick={() => { if (!item.available) return; setDomain(item.id); setSection(item.id === "enterprise" ? "profile" : item.id === "integrations" ? "api" : item.id === "agent" ? "models" : item.id === "trade-documents" ? "document-types" : item.id === "trade-operations" ? "shared" : item.id === "opportunities" ? "stages" : item.id === "contacts" ? "salutations" : item.id === "accounts" ? "account-types" : item.id === "leads" ? "lead-types" : "categories"); setQuery(""); }}>
+                        <ContainedListItem key={item.id} className={"tp-settings__domain-item " + (domain === item.id ? "is-active" : "")} onClick={() => { if (!item.available) return; setDomain(item.id); setSection(item.id === "enterprise" ? "profile" : item.id === "integrations" ? "api" : item.id === "trade-documents" ? "document-types" : item.id === "trade-operations" ? "shared" : item.id === "opportunities" ? "stages" : item.id === "contacts" ? "salutations" : item.id === "accounts" ? "account-types" : item.id === "leads" ? "lead-types" : "categories"); setQuery(""); }}>
               <span className="tp-settings__domain-icon">{item.icon}</span>
               <span className="tp-settings__domain-copy"><strong>{item.label}</strong></span>
               {!item.available && <Tag type="cool-gray">规划中</Tag>}
