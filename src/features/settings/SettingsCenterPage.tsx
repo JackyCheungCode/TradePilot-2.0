@@ -89,6 +89,8 @@ export function SettingsCenterPage() {
   const [domain, setDomain] = useState(() => searchParams.get('domain') || 'products');
   const [section, setSection] = useState(() => searchParams.get('section') || (searchParams.get('domain') === 'integrations' ? 'api' : 'categories'));
   const [query, setQuery] = useState('');
+  const [page,setPage]=useState(1);const [pageSize,setPageSize]=useState<10|20|50|100>(20);
+  useEffect(()=>setPage(1),[domain,section,query,attributeValueAttribute]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [attributes, setAttributes] = useState<Attribute[]>([]);
   const [attributeValues, setAttributeValues] = useState<AttributeValue[]>([]);
@@ -315,6 +317,7 @@ export function SettingsCenterPage() {
                     <TpDataTable
                       ariaLabel="产品分类设置" columnSettingsKey="settings-product-categories" rowKey="id"
                       rows={filteredCategories as (Category & Record<string,unknown>)[]}
+                      pagination={{page,pageSize,totalItems:filteredCategories.length,onChange:(nextPage,nextSize)=>{setPage(nextPage);setPageSize(nextSize);}}}
                       columns={[
                         {key:'name',header:'分类名称',primary:true,minWidth:180,render:item=>item.name},
                         {key:'code',header:'编码',minWidth:120,render:item=>item.code||'—'},
@@ -350,6 +353,7 @@ export function SettingsCenterPage() {
                     <TpDataTable
                       ariaLabel="规格属性设置" columnSettingsKey="settings-product-attributes" rowKey="id"
                       rows={filteredAttributes as (Attribute & Record<string,unknown>)[]}
+                      pagination={{page,pageSize,totalItems:filteredAttributes.length,onChange:(nextPage,nextSize)=>{setPage(nextPage);setPageSize(nextSize);}}}
                       columns={[
                         {key:'name',header:'属性名称',primary:true,minWidth:160,render:item=>item.name},
                         {key:'display_type',header:'展示方式',minWidth:130,render:item=>displayTypes.find(option=>option.value===item.display_type)?.label||item.display_type},
@@ -379,6 +383,7 @@ export function SettingsCenterPage() {
                     <TpDataTable
                       ariaLabel="规格属性值设置" columnSettingsKey="settings-product-attribute-values" rowKey="id"
                       rows={attributeValues.filter(item=>!attributeValueAttribute||item.attribute_id===attributeValueAttribute) as (AttributeValue & Record<string,unknown>)[]}
+                      pagination={{page,pageSize,totalItems:attributeValues.filter(item=>!attributeValueAttribute||item.attribute_id===attributeValueAttribute).length,onChange:(nextPage,nextSize)=>{setPage(nextPage);setPageSize(nextSize);}}}
                       columns={[
                         {key:'attribute',header:'所属属性',primary:true,minWidth:160,render:item=>attributes.find(attribute=>attribute.id===item.attribute_id)?.name||'—'},
                         {key:'name',header:'属性值',minWidth:150,render:item=>item.name},
