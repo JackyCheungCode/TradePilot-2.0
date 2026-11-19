@@ -192,7 +192,7 @@ test("manual Skill registration rejects invalid frontmatter before storage",asyn
  });
  try{
   const response=await handleSkillRegistry(request({sourceType:"manual",skillMd:"# Missing frontmatter"}),env);
-  assert.equal(response.status,502);
+  assert.equal(response.status,400);
   assert.equal(writes,0);
  }finally{restore();}
 });
