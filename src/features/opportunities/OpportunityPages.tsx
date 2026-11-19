@@ -118,11 +118,11 @@ export function OpportunityConsolePage() {
         if(stage!=='all') next=next.eq('stage',stage);
         if(marketCountry!=='all') next=accountIds?.length?next.in('account_id',accountIds):null;
         if(next && safeTerm) next=next.or([
-          `name.ilike.%${safeTerm}%`,
-          `opportunity_number.ilike.%${safeTerm}%`,
-          `source.ilike.%${safeTerm}%`,
-          `sales_person.ilike.%${safeTerm}%`,
-          `sales_team.ilike.%${safeTerm}%`,
+          `name.ilike."%${safeTerm}%"`,
+          `opportunity_number.ilike."%${safeTerm}%"`,
+          `source.ilike."%${safeTerm}%"`,
+          `sales_person.ilike."%${safeTerm}%"`,
+          `sales_team.ilike."%${safeTerm}%"`,
         ].join(','));
         return next;
       };
