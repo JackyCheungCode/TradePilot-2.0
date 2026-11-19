@@ -127,6 +127,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
   const [detailRowId, setDetailRowId] = useState<string | null>(null);
   const [pendingDetailNavigation, setPendingDetailNavigation] = useState<{ targetPage: number; direction: -1 | 1; sourceRows: T[] } | null>(null);
   const detailLauncherRef = useRef<HTMLElement | null>(null);
+  const tableRootRef = useRef<HTMLDivElement | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [selectionRevision, setSelectionRevision] = useState(0);
   const [batchFeedback, setBatchFeedback] = useState<{ kind: 'success' | 'error'; title: string; subtitle: string } | null>(null);
@@ -345,7 +346,10 @@ export function TpDataTable<T extends Record<string, unknown>>({
     if (!pendingDetailNavigation || !pagination?.serverSide || pagination.page !== pendingDetailNavigation.targetPage || rows === pendingDetailNavigation.sourceRows) return;
     const navigableRows = rows.filter((row) => !canOpenRow || canOpenRow(row));
     const next = pendingDetailNavigation.direction > 0 ? navigableRows[0] : navigableRows[navigableRows.length - 1];
-    if (next) openDetail(next, detailLauncherRef.current ?? undefined, true);
+    if (next) {
+      detailLauncherRef.current = tableRootRef.current;
+      openDetail(next, tableRootRef.current ?? undefined, true);
+    }
     setPendingDetailNavigation(null);
   }, [pendingDetailNavigation, pagination?.page, pagination?.serverSide, rows, canOpenRow]);
 
@@ -373,7 +377,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
   );
 
   return (
-    <div className={`tp-data-table${refreshing ? ' tp-data-table--refreshing' : ''}`} aria-busy={refreshing || batchBusy}>
+    <div ref={tableRootRef} tabIndex={-1} className={`tp-data-table${refreshing ? ' tp-data-table--refreshing' : ''}`} aria-busy={refreshing || batchBusy}>
       <DataTable rows={carbonRows} headers={headers} isSortable>
         {({ rows: renderedRows, getHeaderProps, getRowProps, getSelectionProps, getBatchActionProps, selectedRows: carbonSelectedRows, selectRow }) => {
           const pageStart = pagination ? (pagination.page - 1) * pagination.pageSize : 0;
