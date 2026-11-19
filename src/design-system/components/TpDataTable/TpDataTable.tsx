@@ -32,7 +32,7 @@ import {
 import { SidePanel } from '@carbon/ibm-products';
 import { isValidElement, useEffect, useMemo, useRef, useState } from 'react';
 import { getSupabaseClient } from '@/lib/supabase';
-import type { TpDataTableProps } from './TpDataTable.types';
+import type { TpBatchAction, TpDataTableProps } from './TpDataTable.types';
 import './TpDataTable.scss';
 
 function flattenExportValue(value: unknown): string {
