@@ -225,9 +225,7 @@ async function fetchSkillBundle(source:Source){
  if(skillFile.size>100000)throw new Error("SKILL.md 超过 100 KB 限制。");
  const manifest=parseFrontmatter(skillFile.content);
  const contract=validateSkillContract(files,manifest);
- const review=staticReview(files,manifest);
- review.contractStatus=contract.status;
- review.contractErrors=contract.errors;
+ const review={...staticReview(files,manifest),contractStatus:contract.status,contractErrors:contract.errors};
  if(contract.status==="invalid")review.findings.push({severity:"high",code:"SKILL_CONTRACT_INVALID",message:"skill.json 契约校验失败；当前版本不能进入执行审核。"});
  return {manifest,contract,files,package:{fileCount:files.length,totalBytes:actualBytes,limits:{maxFiles:MAX_FILES,maxFileBytes:MAX_FILE_BYTES,maxTotalBytes:MAX_BUNDLE_BYTES},syncedAt:new Date().toISOString(),sourceRef:source.ref,commitSha},review};
 }
