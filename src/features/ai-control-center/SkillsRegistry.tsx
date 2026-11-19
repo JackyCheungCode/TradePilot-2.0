@@ -6,7 +6,7 @@ type Finding = { severity:'high'|'medium'|'low'; code:string; message:string; fi
 type Skill = { id:string; label:string; description:string; sourceType:'starter'|'custom'; state:'pending'|'configured'|'synced'; enabled:boolean; config:Record<string,unknown> };
 type Draft = { repositoryUrl:string; branch:string; skillPath:string };
 type SecurityReview = { status?:string; riskLevel?:string; requiresHumanReview?:boolean; findings?:Finding[]; dependencies?:string[]; networkDomains?:string[]; limitations?:string[] };
-type SkillBundle = { fileCount?:number; totalBytes?:number; syncedAt?:string };
+type SkillBundle = { fileCount:number; totalBytes:number; syncedAt:string };
 async function skillRequest<T>(path:string,init:RequestInit={}):Promise<T>{
  const client=await getSupabaseClient();const {data}=await client.auth.getSession();
  if(!data.session?.access_token)throw new Error('登录状态已失效，请重新登录。');
