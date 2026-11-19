@@ -1,9 +1,14 @@
 import {
+  Button,
+  Checkbox,
   DataTable,
   DataTableSkeleton,
   OverflowMenu,
   OverflowMenuItem,
   Pagination,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
   Table,
   TableBatchAction,
   TableBatchActions,
@@ -20,7 +25,8 @@ import {
   TableToolbarSearch,
   Tag,
 } from '@carbon/react';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { getSupabaseClient } from '@/lib/supabase';
 import type { TpDataTableProps } from './TpDataTable.types';
 import './TpDataTable.scss';
 
@@ -53,11 +59,100 @@ export function TpDataTable<T extends Record<string, unknown>>({
   onSearchChange,
   toolbarActions,
   ariaLabel = '数据列表',
+  columnSettingsKey,
 }: TpDataTableProps<T>) {
-  const visibleColumns = useMemo(
-    () => columns.filter((column) => !column.longText && (column.defaultVisible !== false || column.required || column.primary)),
-    [columns],
-  );
+  const [columnPreferences, setColumnPreferences] = useState<{ order: string[]; hidden: string[] } | null>(null);
+  const [preferencesReady, setPreferencesReady] = useState(!columnSettingsKey);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  useEffect(() => {
+    if (!columnSettingsKey) {
+      setPreferencesReady(true);
+      return;
+    }
+    let cancelled = false;
+    const storageKey = `tradepilot:table-columns:${columnSettingsKey}`;
+    let localPreferences: { order: string[]; hidden: string[] } | null = null;
+    try {
+      const stored = window.localStorage.getItem(storageKey);
+      if (stored) localPreferences = JSON.parse(stored) as { order: string[]; hidden: string[] };
+    } catch {
+      localPreferences = null;
+    }
+    if (localPreferences && !cancelled) setColumnPreferences(localPreferences);
+
+    void (async () => {
+      try {
+        const client = await getSupabaseClient();
+        const { data, error: authError } = await client.auth.getUser();
+        if (authError) throw authError;
+        const cloud = data.user?.user_metadata?.tradepilot_table_preferences?.[columnSettingsKey] as
+          | { order?: string[]; hidden?: string[] }
+          | undefined;
+        if (cloud && Array.isArray(cloud.order) && Array.isArray(cloud.hidden)) {
+          if (!cancelled) {
+            const validKeys = new Set(columns.map((column) => column.key));
+            setColumnPreferences({
+              order: cloud.order.filter((key) => validKeys.has(key)),
+              hidden: cloud.hidden.filter((key) => validKeys.has(key)),
+            });
+          }
+        } else if (localPreferences && data.user) {
+          const metadata = data.user.user_metadata ?? {};
+          const current = metadata.tradepilot_table_preferences ?? {};
+          await client.auth.updateUser({
+            data: { tradepilot_table_preferences: { ...current, [columnSettingsKey]: localPreferences } },
+          });
+        }
+      } catch {
+        // Local preferences remain available when cloud settings cannot be reached.
+      } finally {
+        if (!cancelled) setPreferencesReady(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  // The table key identifies the preference namespace; columns are reconciled when rendering.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [columnSettingsKey]);
+
+  useEffect(() => {
+    if (!columnSettingsKey || !preferencesReady || !columnPreferences) return;
+    const storageKey = `tradepilot:table-columns:${columnSettingsKey}`;
+    try { window.localStorage.setItem(storageKey, JSON.stringify(columnPreferences)); } catch { /* Storage may be unavailable. */ }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const client = await getSupabaseClient();
+        const { data, error: authError } = await client.auth.getUser();
+        if (authError || !data.user || cancelled) return;
+        const metadata = data.user.user_metadata ?? {};
+        const current = metadata.tradepilot_table_preferences ?? {};
+        await client.auth.updateUser({
+          data: { tradepilot_table_preferences: { ...current, [columnSettingsKey]: columnPreferences } },
+        });
+      } catch {
+        // Keep the local copy and retry on the next preference change.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [columnSettingsKey, columnPreferences, preferencesReady]);
+
+  const visibleColumns = useMemo(() => {
+    const hidden = new Set(columnPreferences?.hidden ?? []);
+    const order = columnPreferences?.order ?? [];
+    return columns
+      .filter((column) => column.required || column.primary || (hidden.has(column.key)
+        ? false
+        : columnPreferences ? true : !column.longText && column.defaultVisible !== false))
+      .sort((a, b) => {
+        const ai = order.indexOf(a.key);
+        const bi = order.indexOf(b.key);
+        if (ai < 0 && bi < 0) return columns.indexOf(a) - columns.indexOf(b);
+        if (ai < 0) return 1;
+        if (bi < 0) return -1;
+        return ai - bi;
+      });
+  }, [columns, columnPreferences]);
   const headers = useMemo(() => [
     ...visibleColumns.map((column) => ({ key: column.key, header: column.header })),
     ...(rowActions.length ? [{ key: '__actions', header: '操作' }] : []),
@@ -102,6 +197,47 @@ export function TpDataTable<T extends Record<string, unknown>>({
                   />
                 )}
                 {toolbarActions}
+                {columnSettingsKey && (
+                  <Popover open={settingsOpen} onRequestClose={() => setSettingsOpen(false)}>
+                    <PopoverTrigger>
+                      <Button kind="ghost" size="sm" onClick={() => setSettingsOpen((open) => !open)}>
+                        列设置
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent>
+                      <div className="tp-data-table__column-settings">
+                        <strong>显示列</strong>
+                        {columns.map((column) => {
+                          const isRequired = Boolean(column.required || column.primary);
+                          const isVisible = visibleColumns.some((item) => item.key === column.key);
+                          return (
+                            <Checkbox
+                              key={column.key}
+                              id={`tp-table-column-${columnSettingsKey}-${column.key}`}
+                              labelText={column.header}
+                              checked={isVisible}
+                              disabled={isRequired}
+                              onChange={(checked) => {
+                                setColumnPreferences((current) => {
+                                  const hidden = new Set(current?.hidden ?? []);
+                                  if (checked) hidden.delete(column.key);
+                                  else hidden.add(column.key);
+                                  return { order: current?.order ?? columns.map((item) => item.key), hidden: [...hidden] };
+                                });
+                              }}
+                            />
+                          );
+                        })}
+                        <Button kind="ghost" size="sm" onClick={() => setColumnPreferences({
+                          order: columns.map((column) => column.key),
+                          hidden: columns.filter((column) => column.longText || column.defaultVisible === false).map((column) => column.key),
+                        })}>
+                          恢复默认列
+                        </Button>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                )}
               </TableToolbarContent>
             </TableToolbar>
             <div className="tp-data-table__scroll" role="region" aria-label={`${ariaLabel}，可横向滚动`} tabIndex={0}>
