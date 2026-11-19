@@ -1,5 +1,5 @@
 import { PageHeader } from '@/design-system';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   Button, Link, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput, TextArea,
@@ -68,6 +68,7 @@ export function OpportunityConsolePage() {
   const [page,setPage] = useState(1);
   const [pageSize,setPageSize] = useState<10 | 20 | 50 | 100>(20);
   const [searchParams,setSearchParams] = useSearchParams();
+  const detailLauncherRef = useRef<HTMLElement>(null);
   const activeOpportunityId = searchParams.get('opportunity');
   const activeOpportunity = rows.find(row => row.id === activeOpportunityId) ?? null;
   const activeIndex = activeOpportunity ? filtered.findIndex(row => row.id === activeOpportunity.id) : -1;
@@ -140,7 +141,7 @@ export function OpportunityConsolePage() {
         ]}
         rows={filtered.slice((page - 1) * pageSize, page * pageSize)}
         rowKey="id"
-        onRowOpen={openOpportunity}
+        onRowOpen={(row, triggerElement) => { detailLauncherRef.current = triggerElement ?? null; openOpportunity(row); }}
         activeRowId={activeOpportunity?.id}
         loading={loading}
         refreshing={false}
@@ -153,6 +154,7 @@ export function OpportunityConsolePage() {
         subtitle={activeOpportunity?.opportunity_number}
         onRequestClose={closeOpportunity}
         size="lg"
+        launcherButtonRef={detailLauncherRef}
         className="tp-opportunities__detail-panel"
       >
         {activeOpportunity && (
