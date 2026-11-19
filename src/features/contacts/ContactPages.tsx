@@ -263,6 +263,7 @@ export function ContactConsolePage() {
     });
     return result;
   }, [rows, grouped, showGroups, thenBy, collapsedGroups]);
+  const handleTableSort=useCallback((key:string,direction:'ASC'|'DESC'|'NONE')=>{setSortKey(key);setSortDirection(direction);setPage(1);},[]);
   const tableSearchScope = [query,statusFilter,sourceFilter,primaryFilter,groupBy,thenBy,showGroups].join('|');
 
   const countryMapData=countryStats.filter(item=>item.key!=='unknown').map(item=>({code:item.key,label:item.label,value:item.total,detail:'已验证 '+item.verified+' · 在职 '+item.active}));
@@ -312,7 +313,7 @@ export function ContactConsolePage() {
         columnSettingsKey="crm-contacts"
         selectionScopeKey={tableSearchScope}
         onRetry={loadRows}
-        onSortChange={(key,direction)=>{setSortKey(key);setSortDirection(direction);setPage(1);}}
+        onSortChange={handleTableSort}
         onRowOpen={(row)=>{if(!row.__isGroup) navigate('/contacts/'+row.id);}}
         pagination={{page,pageSize,totalItems:total,serverSide:true,onChange:(nextPage,nextPageSize)=>{setPage(nextPage);setPageSize(nextPageSize);}}}
       />:<p className="tp-contacts__empty">没有找到联系人记录。</p>}
