@@ -1,5 +1,6 @@
 import test from "node:test";
-import assert from "node:assert/strict";\nimport { strToU8, zipSync } from "fflate";
+import assert from "node:assert/strict";
+import { strToU8, zipSync } from "fflate";
 import { handleSkillRegistry } from "./skill-registry.ts";
 
 const ownerId="123e4567-e89b-42d3-a456-426614174000";
