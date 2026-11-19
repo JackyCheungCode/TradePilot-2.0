@@ -338,6 +338,7 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
       } : null);
       if (rows.length) {
         setWelcomeVisible(false);
+        setAvatarEmotion('success');
         await replaceChatHistory(requestId, rows);
       } else {
         setWelcomeVisible(true);
@@ -547,7 +548,7 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
         <div className="tp-xiaoya-drawer__chat">
           {hasMounted && <ChatCustomElement {...chatConfig} />}
           {welcomeVisible && (
-            <section className="tp-xiaoya-welcome" aria-label="小雅助手介绍">
+            <section className="tp-xiaoya-welcome" aria-label="小雅助手介绍" aria-live="polite">
               <div className={`tp-xiaoya-welcome__avatar tp-xiaoya-welcome__avatar--${avatarEmotion}`}>
                 <XiaoyaAvatar emotion={avatarEmotion} size={64} />
               </div>
