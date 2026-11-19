@@ -9,3 +9,7 @@
 .tp-data-table__empty,.tp-data-table__message{padding:var(--cds-spacing-05);color:var(--cds-text-secondary)}
 .tp-data-table--refreshing{opacity:.72;pointer-events:none}
 @media(max-width:671px){.tp-data-table__scroll table{min-width:max-content}}
+
+.tp-data-table__column-settings{display:flex;flex-direction:column;gap:var(--cds-spacing-03);min-width:15rem;max-height:24rem;overflow:auto;padding:var(--cds-spacing-03)}
+.tp-data-table__column-settings>strong{color:var(--cds-text-primary);font-size:var(--cds-label-01-font-size);font-weight:600}
+.tp-data-table__column-settings .cds--checkbox-wrapper{margin-block:0}
