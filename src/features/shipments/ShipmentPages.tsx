@@ -43,6 +43,7 @@ export function ShipmentConsolePage(){
  <section className="tp-shipments__panel"><h2>发运分析</h2><p>按状态与近 6 个月创建趋势查看发运分布。</p><div className="tp-shipments__charts"><div><h3>状态分布</h3>{chart.length?<SimpleBarChart data={chart} options={opts}/>:<p>暂无发运数据</p>}</div><div><h3>近 6 个月发运趋势</h3><LineChart data={trend} options={opts}/></div></div></section>
  <section className="tp-shipments__panel tp-shipments__market-panel"><div className="tp-shipments__panel-head"><div><h2>全球发运目的地</h2><p>按目的国家 / 地区汇总发运票数；点击地图或排名可筛选发运列表。</p></div></div>{mapData.length?<WorldMapChart data={mapData} unitLabel="票发运" selectedCode={countryFilter==='all'?undefined:countryFilter} onCountrySelect={code=>setCountryFilter(current=>current===code?'all':code)}/>:<p>发运记录尚未提供可识别的目的国家 / 地区字段。</p>}</section>
  <section className="tp-shipments__panel"><h2>发运单列表</h2><div className="tp-shipments__filters"><TextInput id="shipment-q" labelText="搜索发运单" placeholder="发运单号、PO、承运人、订舱号、提单号" value={q} onChange={e=>setQ(e.currentTarget.value)}/><Select id="shipment-status-filter" labelText="发运状态" value={status} onChange={e=>setStatus(e.currentTarget.value)}><SelectItem value="all" text="全部状态"/>{states.map(([k,v])=><SelectItem key={k} value={k} text={v}/>)}</Select></div>{loading?<InlineLoading description="正在读取发运单…"/>:<div className="tp-shipments__table-wrap"><TpDataTable
+      selectable
                         selectable
  ariaLabel="发运单列表" columnSettingsKey="logistics-shipments" rowKey="id"
  rows={filtered as (Record<string,unknown>)[]}
