@@ -108,7 +108,7 @@ test("truncated GitHub trees are rejected before any package is persisted",async
  });
  try{
   const response=await handleSkillRegistry(request({repositoryUrl:"https://github.com/acme/skills/tree/main/skills/demo"}),env);
-  assert.equal(response.status,502);
+  assert.equal(response.status,400);
   assert.equal(databaseWrites,0);
   const payload=await response.json() as {error:{message:string}};
   assert.match(payload.error.message,/SKILL_TREE_TRUNCATED/);
@@ -168,7 +168,7 @@ test("manual Skill registration stores validated markdown privately and remains 
   throw new Error("Unexpected fetch: "+url);
  });
  try{
-  const response=await handleSkillRegistry(request({sourceType:"manual",skillMd:"---\\nname: manual-demo\\ndescription: A manually authored Skill\\n---\\n\\n# Instructions\\nReview the provided input."}),env);
+  const response=await handleSkillRegistry(request({sourceType:"manual",skillMd:"---\nname: manual-demo\ndescription: A manually authored Skill\n---\n\n# Instructions\nReview the provided input."}),env);
   const payload=await response.json() as {data:{id:string;contractStatus:string;activationStatus:string}};
   assert.equal(response.status,200);
   assert.equal(payload.data.id,"manual-demo");
@@ -199,7 +199,7 @@ test("manual Skill registration rejects invalid frontmatter before storage",asyn
 test("ZIP Skill upload validates and stores a package without executing it",async()=>{
  artifactObjects.clear();
  let stored:Record<string,unknown>|undefined;
- const archive=zipSync({"demo/SKILL.md":strToU8("---\\nname: zip-demo\\ndescription: ZIP imported Skill\\n---\\n\\n# Instructions\\n") ,"demo/index.mjs":strToU8("export function run(input){ return input; }")});
+ const archive=zipSync({"demo/SKILL.md":strToU8("---\nname: zip-demo\ndescription: ZIP imported Skill\n---\n\n# Instructions\n") ,"demo/index.mjs":strToU8("export function run(input){ return input; }")});
  const encoded=btoa(Array.from(archive,byte=>String.fromCharCode(byte)).join(""));
  const restore=withFetch(async(input,init)=>{
   const url=String(input);
@@ -221,7 +221,7 @@ test("ZIP Skill upload validates and stores a package without executing it",asyn
 });
 
 test("ZIP Skill upload rejects path traversal entries",async()=>{
- const archive=zipSync({"demo/SKILL.md":strToU8("---\\nname: zip-unsafe\\ndescription: Unsafe ZIP\\n---\\n"),"demo/../escape.txt":strToU8("no")});
+ const archive=zipSync({"demo/SKILL.md":strToU8("---\nname: zip-unsafe\ndescription: Unsafe ZIP\n---\n"),"demo/../escape.txt":strToU8("no")});
  const encoded=btoa(Array.from(archive,byte=>String.fromCharCode(byte)).join(""));
  const restore=withFetch(async(input)=>{
   if(String(input).endsWith("/auth/v1/user"))return Response.json({id:ownerId});
