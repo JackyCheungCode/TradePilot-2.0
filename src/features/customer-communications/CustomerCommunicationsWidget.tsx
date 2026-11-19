@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { getSupabaseClient } from '@/lib/supabase';
-import { Button, semanticIcons, ClickableTile, Dropdown, Search, TextArea, TextInput } from '@/design-system';
+import { Button, semanticIcons, Dropdown, Search, TextArea, TextInput } from '@/design-system';
 
 type Channel = 'whatsapp' | 'messenger' | 'instagram' | 'email' | 'telegram' | 'wechat' | 'line';
 type Filter = 'all' | 'unread' | 'pending' | 'resolved';
@@ -132,6 +132,8 @@ export function CustomerCommunicationsWidget({
   onRestore,
   onUnreadCountChange,
   fullPage = false,
+  popupMode = false,
+  initialCustomerId = '',
 }: {
   open: boolean;
   minimized: boolean;
@@ -141,11 +143,13 @@ export function CustomerCommunicationsWidget({
   navigationExpanded: boolean;
   onUnreadCountChange: (count: number) => void;
   fullPage?: boolean;
+  popupMode?: boolean;
+  initialCustomerId?: string;
 }) {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [identities, setIdentities] = useState<Identity[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [activeCustomerId, setActiveCustomerId] = useState('');
+  const [activeCustomerId, setActiveCustomerId] = useState(initialCustomerId);
   const [filter, setFilter] = useState<Filter>('all');
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>('all');
   const [search, setSearch] = useState('');
@@ -266,7 +270,7 @@ export function CustomerCommunicationsWidget({
       setCustomers(nextCustomers);
       setIdentities(nextIdentities);
       setMessages(nextMessages);
-      setActiveCustomerId((current) => nextCustomers.some((customer) => customer.id === current) ? current : nextCustomers[0]?.id ?? '');
+      setActiveCustomerId((current) => nextCustomers.some((customer) => customer.id === current) ? current : nextCustomers.some((customer) => customer.id === initialCustomerId) ? initialCustomerId : nextCustomers[0]?.id ?? '');
       const unreadCount = nextCustomers.reduce((total, customer) => total + customer.unread, 0);
       onUnreadCountChange(unreadCount);
       setLoadError('');
@@ -275,7 +279,7 @@ export function CustomerCommunicationsWidget({
     } finally {
       setLoading(false);
     }
-  }, [onUnreadCountChange]);
+  }, [onUnreadCountChange, initialCustomerId]);
 
   useEffect(() => {
     void loadInbox();
@@ -376,6 +380,12 @@ export function CustomerCommunicationsWidget({
     } finally { setTranslationBusyId(null); }
   };
 
+  const openChatPopup = () => {
+    if (!activeCustomer) return;
+    const url = '/communications?chatPopup=1&contact=' + encodeURIComponent(activeCustomer.id);
+    window.open(url, 'tradepilot-chat-' + activeCustomer.id, 'popup=yes,width=760,height=860,resizable=yes,scrollbars=yes');
+  };
+
   const sendMessage = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const content = draft.trim();
@@ -420,13 +430,13 @@ export function CustomerCommunicationsWidget({
 
   if (!activeCustomer) {
     return (
-      <div className="tp-communication-page">
+      <div className={"tp-communication-page" + (popupMode ? " tp-communication-page--popup" : "")}>
         <section className="tp-communication-shell" aria-label="沟通工作区">
           <header className="tp-communication-header">
-            <div className="tp-communication-heading"><span className="tp-communication-brand">TP</span><div><h1>沟通</h1><p>CRM 客户 · 全渠道会话 · 小雅辅助</p></div></div>
+            <div className="tp-communication-heading"><span className="tp-communication-brand" aria-hidden="true"><semanticIcons.chat size={22} /></span><div><h1>沟通</h1><p>CRM 客户 · 全渠道会话 · 小雅辅助</p></div></div>
             <div className="tp-communication-header-actions">
               <Button type="button" kind="ghost" size="sm" onClick={() => void loadInbox()}>刷新</Button>
-              <Button type="button" kind="ghost" size="sm" onClick={onClose}>返回工作台</Button>
+              {!popupMode && <Button type="button" kind="ghost" size="sm" onClick={onClose}>返回工作台</Button>}
             </div>
           </header>
           <div className="tp-communication-empty">{loading ? '正在读取 CRM 客户…' : loadError || '暂无 CRM 客户。请先在客户档案或联系人模块添加客户。'}</div>
@@ -436,18 +446,19 @@ export function CustomerCommunicationsWidget({
   }
 
   return (
-    <div className="tp-communication-page">
+    <div className={"tp-communication-page" + (popupMode ? " tp-communication-page--popup" : "")}>
       <section className="tp-communication-shell" aria-label="沟通工作区">
         <header className="tp-communication-header">
           <div className="tp-communication-heading">
-            <span className="tp-communication-brand">TP</span>
+            <span className="tp-communication-brand" aria-hidden="true"><semanticIcons.chat size={22} /></span>
             <div><h1>沟通</h1><p>客户关系 · 全渠道会话 · AI 辅助跟进</p></div>
           </div>
           <div className="tp-communication-header-actions">
             <span className="tp-communication-overview">{customers.length} 位客户 <span>·</span> {unreadTotal} 条未读</span>
             <Button type="button" kind="ghost" size="sm" onClick={() => void loadInbox()}>刷新</Button>
             <Button type="button" kind="ghost" size="sm" onClick={() => setProfileOpen((value) => !value)}>{profileOpen ? '收起客户 360' : '显示客户 360'}</Button>
-            <Button type="button" kind="ghost" size="sm" onClick={onClose}>返回工作台</Button>
+            <Button type="button" kind="ghost" size="sm" className="tp-chat-popout-action" onClick={openChatPopup}><span>弹出聊天窗口</span><semanticIcons.externalLink size={16} /></Button>
+            {!popupMode && <Button type="button" kind="ghost" size="sm" onClick={onClose}>返回工作台</Button>}
           </div>
         </header>
 
@@ -486,7 +497,7 @@ export function CustomerCommunicationsWidget({
               {sortedCustomers.map((customer) => {
                 const last = messages.filter((message) => message.customerId === customer.id).sort((a, b) => b.timestamp - a.timestamp)[0];
                 return (
-                  <ClickableTile key={customer.id} className={'tp-communication-customer' + (activeCustomerId === customer.id ? ' is-selected' : '')} onClick={() => selectCustomer(customer)} aria-current={activeCustomerId === customer.id ? 'true' : undefined}>
+                  <Button key={customer.id} type="button" kind="ghost" size="lg" className={'tp-communication-customer' + (activeCustomerId === customer.id ? ' is-selected' : '')} onClick={() => selectCustomer(customer)} aria-current={activeCustomerId === customer.id ? 'true' : undefined}>
                     <Avatar name={customer.name} />
                     <span className="tp-communication-customer-copy">
                       <span className="tp-communication-customer-top"><strong>{customer.name}</strong><time>{last ? formatTime(last.timestamp) : customer.lastActivityAt ? formatTime(customer.lastActivityAt) : '—'}</time></span>
@@ -495,7 +506,8 @@ export function CustomerCommunicationsWidget({
                       <span className="tp-communication-customer-meta">{(last?.channel || customer.lastChannel) && <ChannelBadge channel={last?.channel || customer.lastChannel!} compact />}<span>{customerIdentitiesCount(identities, customer.id)} 个渠道</span></span>
                     </span>
                     {customer.unread > 0 && <b className="tp-communication-unread">{customer.unread}</b>}
-                  </ClickableTile>
+                    <semanticIcons.chevronRight className="tp-communication-customer-arrow" size={16} aria-hidden="true" />
+                  </Button>
                 );
               })}
               {sortedCustomers.length === 0 && <div className="tp-communication-empty-inline">没有符合条件的客户</div>}
@@ -508,6 +520,7 @@ export function CustomerCommunicationsWidget({
               <Avatar name={activeCustomer.name} size="small" />
               <div className="tp-chat-heading"><strong>{activeCustomer.name}</strong><span>{activeCustomer.company} · {activeCustomer.country}</span></div>
               <div className="tp-chat-context"><span className="tp-chat-live-dot" /> 全渠道会话</div>
+              {popupMode ? <Button type="button" kind="ghost" size="sm" className="tp-chat-popup-close" onClick={() => window.close()}><span>关闭窗口</span><semanticIcons.close size={16} /></Button> : null>
             </header>
             <div className="tp-chat-timeline">
               <div className="tp-chat-timeline-label">消息时间线</div>
