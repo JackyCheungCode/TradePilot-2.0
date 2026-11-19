@@ -4,7 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   Button, Link, Checkbox, FileUploaderButton, InlineLoading, InlineNotification, MultiSelect, Select, SelectItem,
   Tag, TextArea, TextInput, Tabs, TabList, Tab, TabPanels, TabPanel, Table, TableHead,
-  TableRow, TableHeader, TableBody, TableCell, semanticIcons, WorldMapChart,
+  TableRow, TableHeader, TableBody, TableCell, semanticIcons, WorldMapChart, TpDataTable,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import { DonutChart } from '@carbon/charts-react';
@@ -73,7 +73,7 @@ function ProductHeader({editing,onSave,saving,onExport}:{editing:boolean;onSave?
 
 export function ProductConsolePage(){
  const nav=useNavigate();
- const [rows,setRows]=useState<Product[]>([]);const [categories,setCategories]=useState<Category[]>([]);const [loading,setLoading]=useState(true);const [error,setError]=useState('');const [notice,setNotice]=useState('');const [query,setQuery]=useState('');const [status,setStatus]=useState('all');const [countryFilter,setCountryFilter]=useState('all');const [page,setPage]=useState(1);const [imageUrls,setImageUrls]=useState<Record<string,string>>({});const size=15;
+ const [rows,setRows]=useState<Product[]>([]);const [categories,setCategories]=useState<Category[]>([]);const [loading,setLoading]=useState(true);const [error,setError]=useState('');const [notice,setNotice]=useState('');const [query,setQuery]=useState('');const [status,setStatus]=useState('all');const [countryFilter,setCountryFilter]=useState('all');const [page,setPage]=useState(1);const [pageSize,setPageSize]=useState<10|20|50|100>(20);const [imageUrls,setImageUrls]=useState<Record<string,string>>({});
  const load=useCallback(async()=>{setLoading(true);setError('');try{const db=await getSupabaseClient();const [p,c]=await Promise.all([db.from('trade_products').select('*').eq('is_archived',false).order('created_at',{ascending:false}).range(0,1999),db.from('trade_product_categories').select('id,name,parent_id,code,is_active').eq('is_active',true).order('sequence').order('name')]);if(p.error)throw p.error;if(c.error)throw c.error;setRows((p.data||[]) as Product[]);setCategories((c.data||[]) as Category[]);const pairs=await Promise.all(((p.data||[]) as Product[]).map(async row=>{const path=row.product_images?.[0];if(!path)return [row.id,''] as [string,string];const signed=await db.storage.from('product-assets').createSignedUrl(path,3600);return [row.id,signed.data?.signedUrl||''] as [string,string]}));setImageUrls(Object.fromEntries(pairs))}catch(e){setError(e instanceof Error?e.message:'读取产品失败')}finally{setLoading(false)}},[]);
  useEffect(()=>{void load()},[load]);
  const productOrigin=(row:Product)=>String(row.origin_country_code||row.country_of_origin||'').trim().toUpperCase();
@@ -91,8 +91,24 @@ export function ProductConsolePage(){
  <section className="tp-products__panel tp-products__analytics"><div className="tp-products__panel-head"><div><h2>产品结构与供应来源</h2><p>按现有产品分类、状态和原产地字段分析，不合并不同币种的价格。</p></div></div><div className="tp-products__analytics-grid"><div className="tp-products__chart"><h3>产品分类</h3>{categoryData.length?<DonutChart data={categoryData} options={{theme:document.documentElement.dataset.carbonTheme==='g100'?'g100':'white',height:'280px',donut:{center:{label:'产品分类'}},legend:{position:'bottom'},toolbar:{enabled:false}} as any}/>:<p className="tp-products__empty">暂无产品分类数据</p>}</div><div className="tp-products__chart"><h3>产品状态</h3>{statusData.length?<DonutChart data={statusData} options={{theme:document.documentElement.dataset.carbonTheme==='g100'?'g100':'white',height:'280px',donut:{center:{label:'产品状态'}},legend:{position:'bottom'},toolbar:{enabled:false}} as any}/>:<p className="tp-products__empty">暂无产品状态数据</p>}</div></div><div className="tp-products__chart"><h3>产品原产地分布</h3>{originData.length?<WorldMapChart data={originData} unitLabel="个 SKU" selectedCode={countryFilter==='all'?undefined:countryFilter} onCountrySelect={code=>setCountryFilter(current=>current===code?'all':code)}/>:<p className="tp-products__empty">产品尚未填写原产国家 / 地区。</p>}</div></section>
  <section className="tp-products__panel"><div className="tp-products__panel-head"><div><h2>产品目录</h2><p>SKU 是产品唯一识别码；被交易明细引用后将锁定 SKU。</p></div><Tag type="blue">{filtered.length} 条产品</Tag></div>
  <div className="tp-products__filters"><TextInput id="product-search" labelText="搜索产品" placeholder="SKU、产品名称、品牌、型号或条码" value={query} onChange={e=>setQuery(e.currentTarget.value)}/><Select id="product-status-filter" labelText="产品状态" value={status} onChange={e=>setStatus(e.currentTarget.value)}><SelectItem value="all" text="全部状态"/>{statusOptions.map(([v,t])=><SelectItem key={v} value={v} text={t}/>)}</Select></div>
- {loading?<div className="tp-products__loading"><InlineLoading description="正在读取产品目录…"/></div>:<div className="tp-products__table-wrap"><Table><TableHead><TableRow><TableHeader>产品</TableHeader><TableHeader>SKU</TableHeader><TableHeader>分类</TableHeader><TableHeader>品牌 / 型号</TableHeader><TableHeader>基本单位</TableHeader><TableHeader>标准售价</TableHeader><TableHeader>状态</TableHeader><TableHeader>更新时间</TableHeader></TableRow></TableHead><TableBody>{filtered.slice((page-1)*size,page*size).map(r=><TableRow key={r.id} className="tp-products__click-row" onClick={()=>nav('/products/'+r.id)}><TableCell><div className="tp-products__product-cell"><div className="tp-products__thumb">{imageUrls[r.id]?<img src={imageUrls[r.id]} alt=""/>:<semanticIcons.product size={24}/>}</div><div><strong>{r.name}</strong><small>{r.english_name||'—'}</small></div></div></TableCell><TableCell>{r.sku||'—'}</TableCell><TableCell>{categories.find(c=>c.id===r.category_id)?.name||r.category||'—'}</TableCell><TableCell>{[r.brand,r.model_number].filter(Boolean).join(' / ')||'—'}</TableCell><TableCell>{r.base_unit||r.unit||'—'}</TableCell><TableCell>{r.default_currency||'—'} {r.default_unit_price==null?'—':Number(r.default_unit_price).toLocaleString()}</TableCell><TableCell><Tag type={r.product_status==='on_sale'?'green':r.product_status==='obsolete'?'red':r.product_status==='discontinued'?'cool-gray':'blue'}>{statusOptions.find(x=>x[0]===r.product_status)?.[1]||r.product_status}</Tag></TableCell><TableCell>{new Date(r.updated_at).toLocaleDateString()}</TableCell></TableRow>)}</TableBody></Table>{!filtered.length&&<p className="tp-products__empty">暂无产品数据。点击「创建产品」录入第一条产品。</p>}</div>}
- <div className="tp-products__pagination"><span>显示 {filtered.length?((page-1)*size+1):0}–{Math.min(page*size,filtered.length)} / {filtered.length} 条 · 每页最多 15 条</span><div><Button kind="ghost" size="sm" disabled={page<=1} onClick={()=>setPage(p=>p-1)}>上一页</Button><span>{page} / {Math.max(1,Math.ceil(filtered.length/size))}</span><Button kind="ghost" size="sm" disabled={page>=Math.ceil(filtered.length/size)} onClick={()=>setPage(p=>p+1)}>下一页</Button></div></div>
+ <TpDataTable
+ columns={[
+  {key:'name',header:'产品',primary:true,minWidth:230,render:r=><div className="tp-products__product-cell"><div className="tp-products__thumb">{imageUrls[r.id]?<img src={imageUrls[r.id]} alt=""/>:<semanticIcons.product size={24}/>}</div><div><strong>{r.name}</strong><small>{r.english_name||'—'}</small></div></div>},
+  {key:'sku',header:'SKU',minWidth:130,render:r=>r.sku||'—'},
+  {key:'category',header:'分类',minWidth:140,render:r=>categories.find(c=>c.id===r.category_id)?.name||r.category||'—'},
+  {key:'brand',header:'品牌 / 型号',minWidth:150,render:r=>[r.brand,r.model_number].filter(Boolean).join(' / ')||'—'},
+  {key:'base_unit',header:'基本单位',minWidth:100,render:r=>r.base_unit||r.unit||'—'},
+  {key:'default_unit_price',header:'标准售价',minWidth:130,render:r=>(r.default_currency||'—')+' '+(r.default_unit_price==null?'—':Number(r.default_unit_price).toLocaleString())},
+  {key:'product_status',header:'状态',minWidth:100,render:r=><Tag type={r.product_status==='on_sale'?'green':r.product_status==='obsolete'?'red':r.product_status==='discontinued'?'cool-gray':'blue'}>{statusOptions.find(x=>x[0]===r.product_status)?.[1]||r.product_status}</Tag>},
+  {key:'updated_at',header:'更新时间',minWidth:130,render:r=>new Date(r.updated_at).toLocaleDateString()},
+ ]}
+ rows={filtered as (Product & Record<string,unknown>)[]}
+ rowKey="id"
+ ariaLabel="产品目录"
+ columnSettingsKey="catalog-products"
+ onRowOpen={row=>nav('/products/'+row.id)}
+ pagination={{page,pageSize,totalItems:filtered.length,onChange:(nextPage,nextSize)=>{setPage(nextPage);setPageSize(nextSize);}}}
+/>{!filtered.length&&<p className="tp-products__empty">暂无产品数据。点击「创建产品」录入第一条产品。</p>}
  </section></main>;
 }
 
