@@ -1,5 +1,5 @@
 import test from "node:test";
-import assert from "node:assert/strict";
+import assert from "node:assert/strict";\nimport { strToU8, zipSync } from "fflate";
 import { handleSkillRegistry } from "./skill-registry.ts";
 
 const ownerId="123e4567-e89b-42d3-a456-426614174000";
@@ -193,5 +193,44 @@ test("manual Skill registration rejects invalid frontmatter before storage",asyn
   const response=await handleSkillRegistry(request({sourceType:"manual",skillMd:"# Missing frontmatter"}),env);
   assert.equal(response.status,502);
   assert.equal(writes,0);
+ }finally{restore();}
+});
+
+test("ZIP Skill upload validates and stores a package without executing it",async()=>{
+ artifactObjects.clear();
+ let stored:Record<string,unknown>|undefined;
+ const archive=zipSync({"demo/SKILL.md":strToU8("---\\nname: zip-demo\\ndescription: ZIP imported Skill\\n---\\n\\n# Instructions\\n") ,"demo/index.mjs":strToU8("export function run(input){ return input; }")});
+ const encoded=btoa(Array.from(archive,byte=>String.fromCharCode(byte)).join(""));
+ const restore=withFetch(async(input,init)=>{
+  const url=String(input);
+  if(url.endsWith("/auth/v1/user"))return Response.json({id:ownerId});
+  if(url.includes("/rest/v1/agent_profiles")){stored=JSON.parse(String(init?.body)) as Record<string,unknown>;return new Response(null,{status:201});}
+  throw new Error("Unexpected fetch: "+url);
+ });
+ try{
+  const response=await handleSkillRegistry(request({sourceType:"zip",zipBase64:encoded}),env);
+  const payload=await response.json() as {data:{id:string;package:{fileCount:number};activationStatus:string}};
+  assert.equal(response.status,200);
+  assert.equal(payload.data.id,"zip-demo");
+  assert.equal(payload.data.package.fileCount,2);
+  assert.equal(payload.data.activationStatus,"disabled_pending_review");
+  assert.ok(stored);
+  assert.equal(stored.enabled,false);
+  assert.equal((stored.config as Record<string,unknown>).sourceType,"zip");
+ }finally{restore();}
+});
+
+test("ZIP Skill upload rejects path traversal entries",async()=>{
+ const archive=zipSync({"demo/SKILL.md":strToU8("---\\nname: zip-unsafe\\ndescription: Unsafe ZIP\\n---\\n"),"demo/../escape.txt":strToU8("no")});
+ const encoded=btoa(Array.from(archive,byte=>String.fromCharCode(byte)).join(""));
+ const restore=withFetch(async(input)=>{
+  if(String(input).endsWith("/auth/v1/user"))return Response.json({id:ownerId});
+  throw new Error("Unexpected fetch: "+String(input));
+ });
+ try{
+  const response=await handleSkillRegistry(request({sourceType:"zip",zipBase64:encoded}),env);
+  assert.equal(response.status,400);
+  const payload=await response.json() as {error:{message:string}};
+  assert.match(payload.error.message,/SKILL_ZIP_PATH_BLOCKED/);
  }finally{restore();}
 });
