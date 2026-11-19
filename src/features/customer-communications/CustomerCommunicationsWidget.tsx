@@ -456,8 +456,8 @@ export function CustomerCommunicationsWidget({
     return (
       <div className={"tp-communication-page" + (popupMode ? " tp-communication-page--popup" : "")}>
         <section className="tp-communication-shell" aria-label="沟通工作区">
-          <header className="tp-communication-header">
-            <div className="tp-communication-heading"><span className="tp-communication-brand" aria-hidden="true"><semanticIcons.chat size={22} /></span><div><h1>沟通</h1><p>CRM 客户 · 全渠道会话 · 小雅辅助</p></div></div>
+          <header className={"tp-communication-header" + (fullPage ? " tp-communication-header--toolbar" : "")}>
+            {!fullPage && <div className="tp-communication-heading"><span className="tp-communication-brand" aria-hidden="true"><semanticIcons.chat size={22} /></span><div><h1>沟通</h1><p>CRM 客户 · 全渠道会话 · 小雅辅助</p></div></div>}
             <div className="tp-communication-header-actions">
               <Button type="button" kind="ghost" size="sm" onClick={() => void loadInbox()}>刷新</Button>
               {!popupMode && <Button type="button" kind="ghost" size="sm" onClick={onClose}>返回工作台</Button>}
@@ -472,11 +472,11 @@ export function CustomerCommunicationsWidget({
   return (
     <div className={"tp-communication-page" + (popupMode ? " tp-communication-page--popup" : "")}>
       <section className="tp-communication-shell" aria-label="沟通工作区">
-        <header className="tp-communication-header">
-          <div className="tp-communication-heading">
+        <header className={"tp-communication-header" + (fullPage ? " tp-communication-header--toolbar" : "")}>
+          {!fullPage && <div className="tp-communication-heading">
             <span className="tp-communication-brand" aria-hidden="true"><semanticIcons.chat size={22} /></span>
             <div><h1>沟通</h1><p>客户关系 · 全渠道会话 · AI 辅助跟进</p></div>
-          </div>
+          </div>}
           <div className="tp-communication-header-actions">
             <span className="tp-communication-overview">{customers.length} 位客户 <span>·</span> {unreadTotal} 条未读</span>
             <Button type="button" kind="ghost" size="sm" onClick={() => void loadInbox()}>刷新</Button>
