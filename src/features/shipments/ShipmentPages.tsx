@@ -55,7 +55,7 @@ export function ShipmentConsolePage(){
   {key:'schedule',header:'ETD / ETA',minWidth:160,render:r=>fmt((r.header as Record<string,any>|undefined)?.etd)+' / '+fmt((r.header as Record<string,any>|undefined)?.eta)},
   {key:'shipment_value',header:'货值',minWidth:140,render:r=>money(Number(r.shipment_value||0),String(r.currency_code||'USD'))},
  ]}
- />}{!filtered.length&&!loading&&<p>没有符合条件的发运单。</p>}</div>}</section></main>;
+ />{!filtered.length&&!loading&&<p>没有符合条件的发运单。</p>}</div>}</section></main>;
 }
 
 export function ShipmentFormPage(){
