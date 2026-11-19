@@ -105,7 +105,7 @@ export function SalesOrderConsolePage(){
    {loading?<div className="tp-sales-orders__loading"><InlineLoading description="正在读取销售订单…"/></div>:<div className="tp-sales-orders__table-wrap"><TpDataTable
         selectable
      ariaLabel="销售订单列表"
-     detailPanel columnSettingsKey="sales-orders" rowKey="id"
+     detailPanel selectionScopeKey={[query,status,currency,marketCountry].join('|')} columnSettingsKey="sales-orders" rowKey="id"
      rows={filtered as (OrderRow & Record<string,unknown>)[]}
      onRowOpen={row=>nav('/sales-orders/'+row.id)}
      pagination={{page,pageSize,totalItems:filtered.length,onChange:(nextPage,nextSize)=>{setPage(nextPage);setPageSize(nextSize);}}}
