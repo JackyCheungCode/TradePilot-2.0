@@ -56,7 +56,7 @@ function Metric({ title, value, detail }: { title: string; value: string; detail
 function contactName(c?: ContactOption) { return c ? (c.full_name || [c.first_name,c.last_name].filter(Boolean).join(' ')) : ''; }
 
 export function OpportunityConsolePage() {
-  
+  const navigate = useNavigate();
   const [rows,setRows] = useState<Opportunity[]>([]);
   const [accounts,setAccounts] = useState<AccountOption[]>([]);
   const [contacts,setContacts] = useState<ContactOption[]>([]);
@@ -96,6 +96,19 @@ export function OpportunityConsolePage() {
   const filtered = useMemo(()=>rows.filter(r=>(stage==='all'||r.stage===stage)&&(marketCountry==='all'||accountCountries.get(r.account_id)===marketCountry)&&[r.name,r.opportunity_number,r.source,r.sales_person,r.sales_team].join(' ').toLowerCase().includes(query.trim().toLowerCase())),[rows,stage,marketCountry,accountCountries,query]);
   const activeIndex = activeOpportunity ? filtered.findIndex(row => row.id === activeOpportunity.id) : -1;
   const moveOpportunity = (offset: number) => { const next = filtered[activeIndex + offset]; if (next) openOpportunity(next); };
+
+  useEffect(() => {
+    if (!activeOpportunityId) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!event.altKey || (event.key !== 'ArrowUp' && event.key !== 'ArrowDown')) return;
+      const target = event.target;
+      if (target instanceof HTMLElement && (target.isContentEditable || target.closest('input, textarea, select, button, [role="tab"]'))) return;
+      event.preventDefault();
+      moveOpportunity(event.key === 'ArrowUp' ? -1 : 1);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [activeOpportunityId, activeIndex, filtered]);
 
   useEffect(()=>setPage(1),[query,stage,marketCountry]);
   const open = rows.filter(r=>r.status==='open');
@@ -157,13 +170,17 @@ export function OpportunityConsolePage() {
         size="lg"
         launcherButtonRef={detailLauncherRef}
         className="tp-opportunities__detail-panel"
+        actions={activeOpportunity ? [
+          { children: '打开完整商机资料', kind: 'primary', onClick: () => navigate(`/opportunities/${activeOpportunity.id}`) },
+          { children: '关闭', kind: 'secondary', onClick: closeOpportunity },
+        ] : []}
       >
         {activeOpportunity && (
           <div className="tp-opportunities__detail-content">
             <div className="tp-opportunities__detail-navigation">
-              <Button kind="ghost" size="sm" disabled={activeIndex <= 0} onClick={() => moveOpportunity(-1)}>上一条</Button>
-              <span>{activeIndex >= 0 ? `${activeIndex + 1} / ${filtered.length}` : '当前筛选结果外'}</span>
-              <Button kind="ghost" size="sm" disabled={activeIndex < 0 || activeIndex >= filtered.length - 1} onClick={() => moveOpportunity(1)}>下一条</Button>
+              <Button kind="ghost" size="sm" aria-label="上一条商机（Alt + ↑）" disabled={activeIndex <= 0} onClick={() => moveOpportunity(-1)}>上一条</Button>
+              <span aria-live="polite">{activeIndex >= 0 ? `${activeIndex + 1} / ${filtered.length}` : '当前筛选结果外'}</span>
+              <Button kind="ghost" size="sm" aria-label="下一条商机（Alt + ↓）" disabled={activeIndex < 0 || activeIndex >= filtered.length - 1} onClick={() => moveOpportunity(1)}>下一条</Button>
             </div>
             <div className="tp-opportunities__detail-summary">
               <Tag type={activeOpportunity.stage === 'won' ? 'green' : activeOpportunity.stage === 'lost' ? 'red' : 'blue'}>{stageLabel(activeOpportunity.stage)}</Tag>
@@ -205,7 +222,6 @@ export function OpportunityConsolePage() {
                 </TabPanel>
               </TabPanels>
             </Tabs>
-            <Link href={`/opportunities/${activeOpportunity.id}`}>打开完整商机资料</Link>
           </div>
         )}
       </TpDetailPanel>
