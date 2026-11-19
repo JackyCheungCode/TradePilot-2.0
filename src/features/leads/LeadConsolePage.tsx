@@ -233,6 +233,7 @@ export function LeadConsolePage() {
         <TpDataTable
         selectable
           ariaLabel="正式线索列表"
+          detailPanel
           columnSettingsKey="crm-leads"
           rowKey="id"
           rows={filtered as (LeadRow & Record<string, unknown>)[]}
