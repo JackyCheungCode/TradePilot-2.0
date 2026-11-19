@@ -723,3 +723,42 @@
   .tp-document-template-settings__options { grid-template-columns: minmax(0, 1fr); }
   .tp-document-template-settings__toolbar { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Agent Tools registry permission controls */
+.tp-settings-agent__tool-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(13rem, 17rem);
+  align-items: start;
+  gap: var(--cds-spacing-05);
+  width: 100%;
+  min-width: 0;
+}
+.tp-settings-agent__tool-row > div:first-child {
+  display: grid;
+  justify-items: start;
+  gap: var(--cds-spacing-02);
+  min-width: 0;
+}
+.tp-settings-agent__tool-row p {
+  margin: 0;
+  color: var(--cds-text-secondary);
+  font-size: .8125rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.tp-settings-agent__tool-policy {
+  display: grid;
+  gap: var(--cds-spacing-03);
+  min-width: 0;
+}
+.tp-settings-agent__tool-policy .cds--select,
+.tp-settings-agent__tool-policy .cds--select-input,
+.tp-settings-agent__tool-policy .cds--btn {
+  width: 100%;
+  max-width: 100%;
+}
+@media (max-width: 672px) {
+  .tp-settings-agent__tool-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

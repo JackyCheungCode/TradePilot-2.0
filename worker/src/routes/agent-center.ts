@@ -1,11 +1,12 @@
-import { errorResponse, successResponse } from "../lib/http";
+import { errorResponse, successResponse } from "../lib/http.ts";
 import type { DiscoveryRunInput } from "./discovery";
 import type { FacebookInput } from "./facebook-discovery";
 import type { InstagramInput } from "./instagram-discovery";
-import { readIntegrationSecrets } from "../lib/integrations";
+import { readIntegrationSecrets } from "../lib/integrations.ts";
 
 type Protocol = "rest_api" | "mcp" | "webhook";
 type AuthMode = "none" | "bearer" | "header" | "oauth2" | "webhook_secret";
+type ToolRisk = "read_only" | "approval_required" | "blocked";
 export interface Env {
   SUPABASE_URL: string;
   SUPABASE_ANON_KEY: string;
@@ -28,6 +29,8 @@ type ConnectionRow = {
   last_error:string|null; created_at:string; updated_at:string;
 };
 const publicConnectionFields = "id,name,protocol,endpoint_url,auth_mode,capabilities,protocol_tools,protocol_metadata,status,last_tested_at,last_error,created_at,updated_at";
+function isReadOnlyTool(tool:Record<string,unknown>):boolean{return tool.risk==="read_only"&&tool.riskPolicySource==="user";}
+function effectiveToolRisk(tool:Record<string,unknown>):ToolRisk{return tool.risk==="blocked"?"blocked":isReadOnlyTool(tool)?"read_only":"approval_required";}
 
 async function ownerFromRequest(request:Request,env:Env):Promise<string|null>{
   const token=request.headers.get("Authorization")?.match(/^Bearer\s+(\S+)$/i)?.[1];
@@ -258,7 +261,7 @@ async function generateAgentPlan(env:Env,_ownerId:string,goal:string,country:str
  const selectedModel=String(taskModels.agent_planning??taskModels.company_analysis??config.defaultModel??"@cf/google/gemma-4-26b-a4b-it");
  const providers=Array.isArray(config.providers)?config.providers.map(asRecord):[];
  const provider=providers.find(item=>item.model===selectedModel)??(selectedModel.startsWith("@cf/")?{id:"workers-ai",protocol:"workers-ai",baseUrl:"",model:selectedModel}:null);
- const tools=connections.filter(row=>row.status==="active").flatMap(row=>(row.protocol_tools??[]).map(tool=>({connectionId:row.id,connectionName:row.name,protocol:row.protocol,name:tool.name,description:tool.description??"",risk:tool.risk==="read_only"?"read_only":"approval_required",inputSchema:tool.inputSchema??{}})));
+ const tools=connections.filter(row=>row.status==="active").flatMap(row=>(row.protocol_tools??[]).filter(tool=>effectiveToolRisk(tool)!=="blocked").map(tool=>({connectionId:row.id,connectionName:row.name,protocol:row.protocol,name:tool.name,description:tool.description??"",risk:effectiveToolRisk(tool),inputSchema:tool.inputSchema??{}})));
  const system="You are TradePilot's task planner for international B2B trade. Return ONLY strict JSON, no markdown. Schema: {agentKey:string,summary:string,steps:string[],specialists:Array<{agentKey:string,instruction:string}>,action:{type:'internal_discovery',query:string,country:string,limitPerCountry:number}|{type:'external_tool',connectionId:string,toolName:string,arguments:object}|{type:'needs_clarification',question:string}}. Available agentKey values: buyer_development, market_research, company_research, lead_scoring, multilingual_sales, follow_up, trade_compliance. Choose exactly one executable action. For finding importers, distributors, wholesalers, buyers, or prospects use internal_discovery unless an exact suitable external tool is listed. For external_tool you MUST choose exact connectionId and toolName from the supplied list and provide arguments matching its schema. Never invent tools. If the goal is not executable with available tools, use needs_clarification. All read-only research/search tools may run automatically. Never plan sending email, CRM imports, writes, deletes, merges, purchases, or other side effects as automatic; choose the relevant write tool only if it will be gated by human approval. Country must be a two-letter ISO code. Keep steps to 2-5 concise actions. For buyer discovery, propose a sequence of 1-3 specialist agents AFTER the discovery action, chosen from company_research, market_research, lead_scoring, trade_compliance. Each specialist must receive a short concrete instruction based on the goal and the previous discovery results. Never include email sending or CRM import. For non-discovery research, specialists may be empty. The specialists are sequential and each receives prior specialist outputs.";
  const user=JSON.stringify({goal,marketCountry:country,searchEngine,availableTools:tools});
  let raw="";
@@ -640,6 +643,12 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
       const rows=await db<ConnectionRow[]>(env,"agent_connections?owner_id=eq."+ownerId+"&select="+publicConnectionFields+"&order=created_at.desc&limit=100");
       return successResponse(request,rows??[]);
     }
+    if(path==="/api/v1/agent/tools"&&request.method==="GET"){
+      const rows=await db<ConnectionRow[]>(env,"agent_connections?owner_id=eq."+ownerId+"&select=id,name,protocol,endpoint_url,status,protocol_tools,updated_at&order=created_at.desc&limit=100");
+      const native=Object.entries(xiaoyaReadTools).map(([name,tool])=>({id:"native:"+name,source:"native",name,description:tool.label+"：TradePilot 内置只读业务查询",category:"business_data",risk:"read_only" as const,policySource:"system",status:"active"}));
+      const external=(rows??[]).flatMap(connection=>(connection.protocol_tools??[]).map(tool=>({id:"external:"+connection.id+":"+String(tool.name??""),source:"external",connectionId:connection.id,connectionName:connection.name,protocol:connection.protocol,endpointUrl:connection.endpoint_url,connectionStatus:connection.status,name:String(tool.name??""),description:String(tool.description??""),method:tool.method,path:tool.path,risk:effectiveToolRisk(tool),policySource:tool.riskPolicySource==="user"?"user":"default",status:connection.status})));
+      return successResponse(request,{items:[...native,...external],nativeCount:native.length,externalCount:external.length});
+    }
     if(path==="/api/v1/agent/connections"&&request.method==="POST"){
       let body:Record<string,unknown>;try{body=await request.json() as Record<string,unknown>;}catch{return errorResponse(request,"INVALID_JSON","请求内容不是有效 JSON。",400);}
       const name=typeof body.name==="string"?body.name.trim():"";
@@ -661,6 +670,28 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
       const created=rows?.[0];if(!created)return errorResponse(request,"CONNECTION_CREATE_FAILED","连接登记失败。",500);
       return successResponse(request,created,201);
     }
+    const toolPolicyMatch=path.match(/^\/api\/v1\/agent\/connections\/([0-9a-f-]{36})\/tool-policy$/i);
+    if(toolPolicyMatch&&request.method==="PUT"){
+      let body:Record<string,unknown>;try{body=await request.json() as Record<string,unknown>;}catch{return errorResponse(request,"INVALID_JSON","请求内容不是有效 JSON。",400);}
+      const toolName=typeof body.toolName==="string"?body.toolName.trim():"";
+      const risk=body.risk as ToolRisk;
+      if(!toolName||toolName.length>120||!["read_only","approval_required","blocked"].includes(risk))return errorResponse(request,"VALIDATION_ERROR","工具名称或权限策略无效。",400);
+      const rows=await db<ConnectionRow[]>(env,"agent_connections?id=eq."+toolPolicyMatch[1]+"&owner_id=eq."+ownerId+"&select=id,owner_id,name,protocol,endpoint_url,auth_mode,encrypted_credentials,capabilities,protocol_tools,protocol_metadata,status,last_tested_at,last_error,created_at,updated_at&limit=1");
+      const connection=rows?.[0];if(!connection)return errorResponse(request,"CONNECTION_NOT_FOUND","外部连接不存在。",404);
+      const tools=[...(connection.protocol_tools??[])];
+      const index=tools.findIndex(tool=>tool.name===toolName);
+      if(index<0)return errorResponse(request,"TOOL_NOT_FOUND","该工具不在连接已发现的能力列表中，请重新发现能力。",404);
+      const previousRisk=effectiveToolRisk(tools[index]);
+      const changedAt=new Date().toISOString();
+      tools[index]={...tools[index],risk,riskPolicySource:"user",riskPolicyUpdatedAt:changedAt};
+      const metadata={...(connection.protocol_metadata??{})};
+      const audit=Array.isArray(metadata.toolPolicyAudit)?metadata.toolPolicyAudit as Array<Record<string,unknown>>:[];
+      metadata.toolPolicyAudit=[...audit.slice(-49),{toolName,previousRisk,newRisk:risk,actorOwnerId:ownerId,changedAt}];
+      const updated=await db<ConnectionRow[]>(env,"agent_connections?id=eq."+connection.id+"&owner_id=eq."+ownerId+"&updated_at=eq."+encodeURIComponent(connection.updated_at)+"&select="+publicConnectionFields,{method:"PATCH",headers:{Prefer:"return=representation"},body:JSON.stringify({protocol_tools:tools,protocol_metadata:metadata,updated_at:changedAt})});
+      const saved=updated?.[0];
+      if(!saved)return errorResponse(request,"TOOL_POLICY_CONFLICT","连接配置已被其他操作更新，请刷新后重试。",409);
+      return successResponse(request,{connectionId:connection.id,toolName,risk,policySource:"user",connection:saved});
+    }
     const discoverMatch=path.match(/^\/api\/v1\/agent\/connections\/([0-9a-f-]{36})\/discover$/i);
     if(discoverMatch&&request.method==="POST"){
       const rows=await db<ConnectionRow[]>(env,"agent_connections?id=eq."+discoverMatch[1]+"&owner_id=eq."+ownerId+"&select=id,owner_id,name,protocol,endpoint_url,auth_mode,encrypted_credentials,capabilities,protocol_tools,protocol_metadata,status,last_tested_at,last_error,created_at,updated_at&limit=1");
@@ -679,7 +710,7 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
         await fetch(connection.endpoint_url,{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json, text/event-stream",...headers,...(init.sessionId?{"Mcp-Session-Id":init.sessionId}:{})},body:JSON.stringify({jsonrpc:"2.0",method:"notifications/initialized"}),signal:AbortSignal.timeout(15000)});
         const listed=await mcpRequest(connection.endpoint_url,headers,{jsonrpc:"2.0",id:2,method:"tools/list",params:{}},init.sessionId??undefined);
         const result=listed.body.result as {tools?:Array<Record<string,unknown>>}|undefined;
-        tools=(result?.tools??[]).slice(0,100).map(tool=>{const name=String(tool.name??"").slice(0,120);const description=String(tool.description??"").slice(0,1000);const safe=/^(search|find|lookup|list|get|read|query|discover|research|analyze|analyse|fetch|scrape)([-_ .]|$)/i.test(name)&&!/(send|write|create|update|delete|remove|import|export|purchase|payment)/i.test(name+" "+description);return {name,description,inputSchema:tool.inputSchema??{},risk:safe?"read_only":"approval_required",protocol:"mcp"};}).filter(tool=>tool.name);
+        tools=(result?.tools??[]).slice(0,100).map(tool=>{const name=String(tool.name??"").slice(0,120);const description=String(tool.description??"").slice(0,1000);const inputSchema=tool.inputSchema??{};const annotations=tool.annotations??{};const previous=(connection.protocol_tools??[]).find(item=>item.name===name);const sameDefinition=!!previous&&previous.description===description&&stableStringify(previous.inputSchema??{})===stableStringify(inputSchema)&&stableStringify(previous.annotations??{})===stableStringify(annotations);const userPolicy=sameDefinition&&previous?.riskPolicySource==="user"&&["read_only","approval_required","blocked"].includes(String(previous.risk));return {name,description,inputSchema,annotations,risk:userPolicy?previous!.risk:"approval_required",riskPolicySource:userPolicy?"user":"default",protocol:"mcp"};}).filter(tool=>tool.name);
         metadata={serverInfo:initResult.serverInfo??{},protocolVersion:initResult.protocolVersion??"2025-03-26",toolCount:tools.length};
       }else if(connection.protocol==="rest_api"){
         const response=await fetch(connection.endpoint_url,{method:"GET",headers:{Accept:"application/json",...headers},signal:AbortSignal.timeout(20000)});
@@ -691,17 +722,20 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
             if(!["get","post","put","patch","delete"].includes(method)||!operation||typeof operation!=="object")continue;
             const op=operation as Record<string,unknown>;
             const name=String(op.operationId??(method+"_"+routePath.replace(/[^a-z0-9]+/gi,"_"))).slice(0,120);
-            tools.push({name,description:String(op.summary??op.description??name).slice(0,1000),method:method.toUpperCase(),path:routePath,parameters:op.parameters??[],requestBody:op.requestBody??null,risk:method==="get"?"read_only":"approval_required",protocol:"rest_api"});
+            const description=String(op.summary??op.description??name).slice(0,1000),parameters=op.parameters??[],requestBody=op.requestBody??null;const previous=(connection.protocol_tools??[]).find(item=>item.name===name);const sameDefinition=!!previous&&previous.description===description&&previous.method===method.toUpperCase()&&previous.path===routePath&&stableStringify(previous.parameters??[])===stableStringify(parameters)&&stableStringify(previous.requestBody??null)===stableStringify(requestBody);const userPolicy=sameDefinition&&previous?.riskPolicySource==="user"&&["read_only","approval_required","blocked"].includes(String(previous.risk));tools.push({name,description,method:method.toUpperCase(),path:routePath,parameters,requestBody,risk:userPolicy?previous!.risk:"approval_required",riskPolicySource:userPolicy?"user":"default",protocol:"rest_api"});
           }
         }
         tools=tools.slice(0,150);const openApiHost=new URL(connection.endpoint_url);const apiBase=new URL(spec.servers?.[0]?.url??openApiHost.origin,connection.endpoint_url);if(!isPublicHttpsEndpoint(apiBase.href)||apiBase.hostname!==openApiHost.hostname)throw new Error("OPENAPI_SERVER_NOT_ALLOWED: OpenAPI server 必须使用配置端点的同一公网主机。");metadata={title:spec.info?.title??connection.name,version:spec.info?.version??"",openapi:spec.openapi,baseUrl:apiBase.toString().replace(/\/$/,""),toolCount:tools.length};
       }else{
-        const capabilityList=connection.capabilities??[];
-        tools=[{name:"trigger_webhook",description:"向已登记的 Webhook 发送任务请求",risk:capabilityList.some(x=>["buyer_discovery","market_research","company_research"].includes(x))?"read_only":"approval_required",protocol:"webhook"}];
+        const description="向已登记的 Webhook 发送任务请求";const previous=(connection.protocol_tools??[]).find(item=>item.name==="trigger_webhook");const sameDefinition=!!previous&&previous.description===description&&previous.protocol==="webhook";const userPolicy=sameDefinition&&previous?.riskPolicySource==="user"&&["read_only","approval_required","blocked"].includes(String(previous.risk));tools=[{name:"trigger_webhook",description,risk:userPolicy?previous!.risk:"approval_required",riskPolicySource:userPolicy?"user":"default",protocol:"webhook"}];
         metadata={toolCount:1,mode:"outbound_webhook"};
       }
       if(!tools.length)throw new Error("AGENT_NO_TOOLS_DISCOVERED: 该端点没有发现可用工具。");
-      await db<ConnectionRow[]>(env,"agent_connections?id=eq."+connection.id+"&owner_id=eq."+ownerId,{method:"PATCH",headers:{Prefer:"return=representation"},body:JSON.stringify({protocol_tools:tools,protocol_metadata:metadata,status:"active",last_tested_at:new Date().toISOString(),last_error:null,updated_at:new Date().toISOString()})});
+      const policyAudit=connection.protocol_metadata?.toolPolicyAudit;
+      if(Array.isArray(policyAudit))metadata.toolPolicyAudit=policyAudit.slice(-50);
+      const discoveredAt=new Date().toISOString();
+      const saved=await db<ConnectionRow[]>(env,"agent_connections?id=eq."+connection.id+"&owner_id=eq."+ownerId+"&updated_at=eq."+encodeURIComponent(connection.updated_at),{method:"PATCH",headers:{Prefer:"return=representation"},body:JSON.stringify({protocol_tools:tools,protocol_metadata:metadata,status:"active",last_tested_at:discoveredAt,last_error:null,updated_at:discoveredAt})});
+      if(!saved?.length)return errorResponse(request,"CONNECTION_CHANGED_DURING_DISCOVERY","连接或工具权限在能力发现期间已更新，请重新发现，避免覆盖最新权限策略。",409);
       return successResponse(request,{connectionId:connection.id,status:"active",tools,metadata},200);
     }
 
@@ -719,7 +753,8 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
       const runRows=await db<Array<{id:string;goal:string;status:string;connection_id:string|null}>>(env,"agent_runs?id=eq."+runId+"&owner_id=eq."+ownerId+"&select=id,goal,status,connection_id&limit=1");
       const run=runRows?.[0];if(!run)return errorResponse(request,"RUN_NOT_FOUND","Agent 任务不存在。",404);
       if(!["planned","queued"].includes(run.status))return errorResponse(request,"RUN_NOT_READY","只有草案或排队中的 Agent 任务可以启动工具。",409);
-      const risk=tool.risk==="read_only"?"read_only":"approval_required";
+      const risk=effectiveToolRisk(tool);
+      if(risk==="blocked")return errorResponse(request,"TOOL_BLOCKED","此工具已被管理员禁止调用。",403);
       const snapshot={connectionId:connection.id,connectionName:connection.name,endpointUrl:connection.endpoint_url,protocol:connection.protocol,toolName,tool,arguments:args,runId,goal:run.goal};
       if(risk==="approval_required"){
         const actionType=approvalActionType(toolName,String(tool.description??""),typeof tool.method==="string"?tool.method:undefined);
@@ -985,7 +1020,8 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
             await env.LEAD_DISCOVERY_WORKFLOW!.create({id:runId,params:{runId,ownerId,input}});
           }
         }else if(actionType==="external_tool"&&connection&&selectedTool&&planner?.action.type==="external_tool"){
-          const risk=selectedTool.risk==="read_only"?"read_only":"approval_required";
+          const risk=effectiveToolRisk(selectedTool);
+          if(risk==="blocked")throw new Error("AGENT_TOOL_BLOCKED");
           const args=planner.action.arguments;
           const snapshot={connectionId:connection.id,connectionName:connection.name,endpointUrl:connection.endpoint_url,protocol:connection.protocol,toolName:planner.action.toolName,tool:selectedTool,arguments:args,runId,goal};
           if(risk==="approval_required"){
@@ -1052,9 +1088,11 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
       const snapshot=asRecord(approval.operation_snapshot);
       const runRows=await db<Array<{id:string;goal:string;status:string}>>(env,"agent_runs?id=eq."+approval.run_id+"&owner_id=eq."+ownerId+"&select=id,goal,status&limit=1");
       const run=runRows?.[0];if(!run)return errorResponse(request,"RUN_NOT_FOUND","审批关联的 Agent 任务不存在。",404);
+      if(run.status!=="awaiting_approval")return errorResponse(request,"RUN_NOT_AWAITING_APPROVAL","关联任务已不在等待审批状态，已阻止执行。",409);
       const note=typeof body.note==="string"?body.note.slice(0,1000):null;
       if(decision==="reject"){
-        await db(env,"agent_approvals?id=eq."+approval.id+"&owner_id=eq."+ownerId+"&status=eq.pending",{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({status:"rejected",decision_note:note,decided_at:new Date().toISOString()})});
+        const rejected=await db<Array<{id:string}>>(env,"agent_approvals?id=eq."+approval.id+"&owner_id=eq."+ownerId+"&status=eq.pending&select=id",{method:"PATCH",headers:{Prefer:"return=representation"},body:JSON.stringify({status:"rejected",decision_note:note,decided_at:new Date().toISOString()})});
+        if(!rejected?.length)return errorResponse(request,"APPROVAL_ALREADY_DECIDED","该审批已被处理，不能重复操作。",409);
         await db(env,"agent_runs?id=eq."+run.id+"&owner_id=eq."+ownerId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({status:"cancelled",error_message:"人工审批已拒绝。",completed_at:new Date().toISOString(),updated_at:new Date().toISOString()})});
         await db(env,"discovery_runs?id=eq."+run.id+"&owner_id=eq."+ownerId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({status:"cancelled",progress:100,message:"人工审批已拒绝。"})});
         await writeRunLog(env,ownerId,run.id,"info","人工审批已拒绝。",{approvalId:approval.id});
