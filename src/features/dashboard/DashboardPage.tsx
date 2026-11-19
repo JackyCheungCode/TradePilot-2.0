@@ -5,7 +5,7 @@ import {
   AreaChart, SimpleBarChart, WordCloudChart, BubbleChart,
 } from '@carbon/charts-react';
 import {
-  Button, Link, ClickableTile, InlineLoading, InlineNotification, Tile, Tag, Select, SelectItem,
+  Button, Link, ClickableTile, InlineNotification, Tile, Tag, Select, SelectItem, TPSkeleton,
   Tabs, TabList, Tab, TabPanels, TabPanel, ContentSwitcher, Switch, semanticIcons, WorldMapChart,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
@@ -347,7 +347,7 @@ export function DashboardPage() {
     </section>
 
     {error && <InlineNotification kind="error" title="工作台数据读取失败" subtitle={error} lowContrast/>}
-    {loading && !data ? <div className="tp-workbench__loading"><InlineLoading description="正在汇聚全球业务数据…"/></div> : <>
+    {loading && !data ? <div className="tp-workbench__loading" role="status" aria-label="正在汇聚全球业务数据"><TPSkeleton variant="card" rows={3}/><TPSkeleton variant="card" rows={2}/><TPSkeleton variant="table" rows={4}/></div> : <>
       <section className="tp-workbench__global-map tp-workbench__panel" aria-label="全球业务资产分布">
         <div className="tp-workbench__panel-heading">
           <div><p className="tp-workbench__kicker">GLOBAL BUSINESS GEOGRAPHY</p><h2>全球业务资产分布</h2><p>按国家 / 地区查看四类业务资产数量；切换指标后地图即时更新。</p></div>
