@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { CustomerCommunicationsWidget } from './CustomerCommunicationsWidget';
+import './customer-communications-modern.scss';
 
 /** Full-page route for the existing, data-backed customer communications workspace. */
 export function CustomerCommunicationsPage() {
