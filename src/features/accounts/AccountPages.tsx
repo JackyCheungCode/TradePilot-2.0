@@ -72,6 +72,7 @@ export function AccountConsolePage(){
  selectionScopeKey={[query,status,countryFilter].join('|')}
  onRowOpen={row=>nav('/accounts/'+row.id)}
  columnSettingsKey="crm-accounts"
+ batchArchiveTable="crm_accounts"
  pagination={{page,pageSize,totalItems:filtered.length,onChange:(nextPage,nextSize)=>{setPage(nextPage);setPageSize(nextSize);}}}
 />{!filtered.length&&<p className="tp-accounts__empty">没有符合条件的客户。</p>}</section>
  </>}

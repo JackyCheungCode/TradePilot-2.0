@@ -99,6 +99,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
   rowKey,
   selectable = false,
   batchActions = [],
+  batchArchiveTable,
   rowActions = [],
   onRowOpen,
   detailPanel = false,
@@ -416,6 +417,21 @@ export function TpDataTable<T extends Record<string, unknown>>({
                   >
                     导出所选
                   </TableBatchAction>
+                  {batchArchiveTable && (
+                    <TableBatchAction key="__archive-selected" tabIndex={0} onClick={() => setPendingBatchAction({
+                      key: '__archive-selected', label: '归档所选',
+                      confirmation: `确定归档选中的 ${selectedRows.length} 条记录吗？归档后记录将从当前列表移除，但不会执行物理删除。`,
+                      onClick: async (records) => {
+                        const client = await getSupabaseClient();
+                        const { error: archiveError } = await client.from(batchArchiveTable).update({ is_archived: true, updated_at: new Date().toISOString() }).in('id', records.map((record) => String(record[rowKey])));
+                        if (archiveError) throw archiveError;
+                        setSelectedIds(new Set());
+                        selectedRowCache.current.clear();
+                        setSelectionRevision((revision) => revision + 1);
+                        onRetry?.();
+                      },
+                    })} disabled={batchBusy}>归档所选</TableBatchAction>
+                  )}
                   {batchActions.map((action) => (
                     <TableBatchAction
                       key={action.key}
