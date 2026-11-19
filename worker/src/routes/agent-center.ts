@@ -1013,8 +1013,14 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
       let selectedTool:Record<string,unknown>|undefined;
       if(plannerMode){
         if(!/^[A-Z]{2}$/.test(country))return errorResponse(request,"VALIDATION_ERROR","请选择有效的目标国家。",400);
-        const available=await db<ConnectionRow[]>(env,"agent_connections?owner_id=eq."+ownerId+"&select=id,owner_id,name,protocol,endpoint_url,auth_mode,encrypted_credentials,capabilities,protocol_tools,protocol_metadata,status,last_tested_at,last_error,created_at,updated_at&order=created_at.desc&limit=100");
-        planner=await generateAgentPlan(env,ownerId,goal,country,engine,available??[]);
+        const [availableRows,enabledRegistryTools]=await Promise.all([
+          db<ConnectionRow[]>(env,"agent_connections?owner_id=eq."+ownerId+"&select=id,owner_id,name,protocol,endpoint_url,auth_mode,encrypted_credentials,capabilities,protocol_tools,protocol_metadata,status,last_tested_at,last_error,created_at,updated_at&order=created_at.desc&limit=100"),
+          db<Array<{connection_id:string;protocol_tool_name:string}>>(env,"agent_tool_registry?owner_id=eq."+ownerId+"&source=eq.external&enabled=eq.true&status=eq.active&select=connection_id,protocol_tool_name")
+        ]);
+        const enabledByConnection=new Map<string,Set<string>>();
+        for(const item of enabledRegistryTools??[]){if(!item.connection_id||!item.protocol_tool_name)continue;const names=enabledByConnection.get(item.connection_id)??new Set<string>();names.add(item.protocol_tool_name);enabledByConnection.set(item.connection_id,names);}
+        const available=(availableRows??[]).map(connection=>({...connection,protocol_tools:(connection.protocol_tools??[]).filter(tool=>enabledByConnection.get(connection.id)?.has(String(tool.name??"")))}));
+        planner=await generateAgentPlan(env,ownerId,goal,country,engine,available);
         if(requestedAgentKey){
           planner.agentKey=requestedAgentKey;
           if(["company_research","market_research","lead_scoring","trade_compliance"].includes(requestedAgentKey)&&planner.action.type==="internal_discovery"&&!planner.specialists.some(item=>item.agentKey===requestedAgentKey))planner.specialists.unshift({agentKey:requestedAgentKey,instruction:"按照用户指定的专业角色，结合本次搜索结果和前序 Agent 分析完成专项任务。"});
