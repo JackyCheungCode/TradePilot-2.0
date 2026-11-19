@@ -350,6 +350,6 @@ body.tp-chat-popup-window .tp-content__main { min-height: 100dvh; padding: 0 !im
   .tp-communications-breadcrumb { font-size: 10px; }
   .tp-communications-page-icon { width: 30px; height: 30px; flex-basis: 30px; }
   .tp-communications-page-title h1 { font-size: 17px; }
-  .tp-communications-page-title p { display: none; }
+  .tp-communications-page-title p { display: block; font-size: 11px; }
   .tp-communications-workspace .tp-communication-page { height: calc(100dvh - 10.5rem); min-height: 380px; }
 }

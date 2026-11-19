@@ -79,7 +79,7 @@ export function AppShell() {
           isActive={sideNavExpanded}
           onClick={() => setSideNavExpanded((expanded) => !expanded)}
         />
-        <HeaderName href="/" prefix="" className="tp-header__brand" aria-label="TradePilot home">
+        <HeaderName href="/" prefix="" className="tp-header__brand" style={{ marginLeft: "0.5rem" }} aria-label="TradePilot home">
           TradePilot
         </HeaderName>
         <HeaderGlobalBar>
@@ -90,7 +90,7 @@ export function AppShell() {
             aria-expanded={xiaoyaOpen}
             onClick={() => setXiaoyaOpen((open) => !open)}
           >
-            <XiaoyaAvatar emotion="idle" size={30} />
+            <XiaoyaAvatar emotion="idle" size={20} />
           </HeaderGlobalAction>
           <OverflowMenu
             ariaLabel="Theme settings"
@@ -101,23 +101,23 @@ export function AppShell() {
             className="tp-theme-menu"
           >
             <OverflowMenuItem
-              itemText={preference === 'system' ? <><semanticIcons.check size={16} /> 设置与系统</> : '设置与系统'}
+              itemText={preference === 'system' ? <><semanticIcons.check size={16} /> 跟随系统</> : '跟随系统'}
               onClick={() => setPreference('system')}
             />
             <OverflowMenuItem
-              itemText={preference === 'white' ? <><semanticIcons.check size={16} /> White</> : 'White'}
+              itemText={preference === 'white' ? <><semanticIcons.check size={16} /> 白色</> : '白色'}
               onClick={() => setPreference('white')}
             />
             <OverflowMenuItem
-              itemText={preference === 'g10' ? <><semanticIcons.check size={16} /> Light gray</> : 'Light gray'}
+              itemText={preference === 'g10' ? <><semanticIcons.check size={16} /> 浅灰</> : '浅灰'}
               onClick={() => setPreference('g10')}
             />
             <OverflowMenuItem
-              itemText={preference === 'g90' ? <><semanticIcons.check size={16} /> Dark gray</> : 'Dark gray'}
+              itemText={preference === 'g90' ? <><semanticIcons.check size={16} /> 深灰</> : '深灰'}
               onClick={() => setPreference('g90')}
             />
             <OverflowMenuItem
-              itemText={preference === 'dark' ? <><semanticIcons.check size={16} /> Dark</> : 'Dark'}
+              itemText={preference === 'dark' ? <><semanticIcons.check size={16} /> 深色</> : '深色'}
               onClick={() => setPreference('dark')}
             />
           </OverflowMenu>
@@ -129,9 +129,9 @@ export function AppShell() {
             size="lg"
             className="tp-account-menu"
           >
-            <OverflowMenuItem itemText="Personal settings" onClick={() => navigate('/personal-settings')} />
+            <OverflowMenuItem itemText="个人设置" onClick={() => navigate('/personal-settings')} />
             <OverflowMenuItem
-              itemText={signingOut ? 'Signing out…' : 'Sign out'}
+              itemText={signingOut ? '正在退出…' : '退出登录'}
               disabled={signingOut}
               onClick={() => { if (!signingOut) void signOut(); }}
             />
@@ -193,13 +193,7 @@ export function AppShell() {
             <SideNavLink href="/security" isActive={location.pathname.startsWith('/security')} title="安全中心" renderIcon={semanticIcons.security}>安全中心</SideNavLink>
           </SideNavItems>
         </div>
-        <div className="tp-sidenav__footer">
-          <div className="tp-sidenav__contact">Support: xg.y@icloud.com</div>
-          <div className="tp-sidenav__copyright">
-            <span>© {new Date().getFullYear()}</span>
-            <img src="/tradepilot-mark.svg" alt="TradePilot" />
-          </div>
-        </div>
+        
       </SideNav>
       <Content id="main-content" tabIndex={-1} className="tp-content">
         <div className="tp-content__main">

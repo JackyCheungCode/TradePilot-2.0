@@ -30,7 +30,7 @@ export function CommunicationPage() {
             <span className="tp-communications-page-icon" aria-hidden="true"><semanticIcons.chat size={22} /></span>
             <div>
               <h1>沟通</h1>
-              <p>统一管理客户会话、沟通记录与跟进建议</p>
+              <p>集中查看客户全渠道消息、处理会话，并使用小雅辅助跟进</p>
             </div>
           </div>
         </header>
