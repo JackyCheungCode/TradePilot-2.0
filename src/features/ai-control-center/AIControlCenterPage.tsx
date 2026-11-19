@@ -6,6 +6,7 @@ import { AgentSettings } from '@/features/settings/AgentSettings';
 import { IntegrationsSettings } from '@/features/settings/IntegrationsSettings';
 import { ExternalAgentConnections } from './ExternalAgentConnections';
 import { AgentTaskMonitor } from './AgentTaskMonitor';
+import { AgentSecurityCenter } from './AgentSecurityCenter';
 
 type Section = { id: string; label: string; group: string; ready: boolean };
 const sections: Section[] = [
@@ -16,7 +17,7 @@ const sections: Section[] = [
   { id: 'skills', label: 'Skills 管理', group: 'Agent 能力', ready: false },
   { id: 'tools', label: 'Tools 管理', group: 'Agent 能力', ready: false },
   { id: 'tasks', label: '任务与调度', group: '执行管理', ready: true },
-  { id: 'security', label: '权限与安全', group: '执行管理', ready: false },
+  { id: 'security', label: '权限与安全', group: '执行管理', ready: true },
   { id: 'monitoring', label: '运行监控', group: '执行管理', ready: false },
   { id: 'appearance', label: '小雅形象', group: '小雅', ready: true },
   { id: 'history', label: 'AI 历史记录', group: '小雅', ready: true },
@@ -115,6 +116,7 @@ export function AIControlCenterPage() {
               {active === 'agents' && <AgentSettings section="profiles" />}
               {active === 'connections' && <ExternalAgentConnections />}
               {active === 'tasks' && <AgentTaskMonitor />}
+              {active === 'security' && <AgentSecurityCenter />}
               {active === 'appearance' && <AgentSettings section="appearance" />}
               {active === 'history' && <AgentSettings section="history" />}
               {!sections.find(item => item.id === active)?.ready && (
