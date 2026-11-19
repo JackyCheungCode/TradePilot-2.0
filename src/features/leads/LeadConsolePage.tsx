@@ -2,7 +2,7 @@ import { PageHeader } from '@/design-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AreaChart } from '@carbon/charts-react';
 import {
-  Button, Link, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput,
+  Button, Link, InlineNotification, Select, SelectItem, Tag, TextInput, TPSkeleton,
   semanticIcons, WorldMapChart, SimpleBarChart, TpDataTable,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
@@ -203,7 +203,7 @@ export function LeadConsolePage() {
       </div>
     </PageHeader>
     {error && <InlineNotification kind="error" title="线索数据读取失败" subtitle={error} onCloseButtonClick={() => setError('')} />}
-    {loading ? <div className="tp-leads__loading"><InlineLoading description="正在读取线索数据…" /></div> : <>
+    {loading ? <div className="tp-leads__loading" aria-label="正在读取线索数据"><TPSkeleton variant="card" rows={2}/><TPSkeleton variant="card" rows={2}/><TPSkeleton variant="table" rows={6}/></div> : <>
       <div className="tp-leads__metrics">
         <Metric label="全部线索" value={total} icon={<semanticIcons.users size={20} />} detail="正式线索总数" />
         <Metric label="待跟进" value={followUp} icon={<semanticIcons.time size={20} />} detail="新建、联系中及待审核" />
