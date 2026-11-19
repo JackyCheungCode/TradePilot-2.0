@@ -158,7 +158,7 @@ export function OpportunityConsolePage() {
           { key: 'expected_close_date', header: '预计成交日期', type: 'datetime', minWidth: 160, render: row => row.expected_close_date || '—' },
           { key: 'sales_person', header: '负责人', minWidth: 130, render: row => row.sales_person || '—' },
         ]}
-        rows={filtered.slice((page - 1) * pageSize, page * pageSize)}
+        rows={filtered}
         rowKey="id"
         onRowOpen={(row, triggerElement) => { detailLauncherRef.current = triggerElement ?? null; openOpportunity(row); }}
         activeRowId={activeOpportunity?.id}
