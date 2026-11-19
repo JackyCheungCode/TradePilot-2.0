@@ -57,5 +57,7 @@ export interface TpDataTableProps<T extends object> {
   columnSettingsKey?: string;
   /** Full filtered result set used to resolve selections across pagination pages. */
   selectionRows?: T[];
+  /** Stable key for the active filter scope; changing it clears selections. */
+  selectionScopeKey?: string;
   ariaLabel?: string;
 }
