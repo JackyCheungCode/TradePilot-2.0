@@ -5,7 +5,8 @@ import type { InstagramInput } from "./instagram-discovery";
 import { readIntegrationSecrets } from "../lib/integrations";
 
 type Protocol = "rest_api" | "mcp" | "webhook";
-type AuthMode = "none" | "bearer" | "header" | "oauth2" | "webhook_secret";\ntype ToolRisk = "read_only" | "approval_required" | "blocked";
+type AuthMode = "none" | "bearer" | "header" | "oauth2" | "webhook_secret";
+type ToolRisk = "read_only" | "approval_required" | "blocked";
 export interface Env {
   SUPABASE_URL: string;
   SUPABASE_ANON_KEY: string;
@@ -719,7 +720,8 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
       const runRows=await db<Array<{id:string;goal:string;status:string;connection_id:string|null}>>(env,"agent_runs?id=eq."+runId+"&owner_id=eq."+ownerId+"&select=id,goal,status,connection_id&limit=1");
       const run=runRows?.[0];if(!run)return errorResponse(request,"RUN_NOT_FOUND","Agent 任务不存在。",404);
       if(!["planned","queued"].includes(run.status))return errorResponse(request,"RUN_NOT_READY","只有草案或排队中的 Agent 任务可以启动工具。",409);
-      const risk=effectiveToolRisk(tool);\n      if(risk==="blocked")return errorResponse(request,"TOOL_BLOCKED","此工具已被管理员禁止调用。",403);
+      const risk=effectiveToolRisk(tool);
+      if(risk==="blocked")return errorResponse(request,"TOOL_BLOCKED","此工具已被管理员禁止调用。",403);
       const snapshot={connectionId:connection.id,connectionName:connection.name,endpointUrl:connection.endpoint_url,protocol:connection.protocol,toolName,tool,arguments:args,runId,goal:run.goal};
       if(risk==="approval_required"){
         const actionType=approvalActionType(toolName,String(tool.description??""),typeof tool.method==="string"?tool.method:undefined);
@@ -985,7 +987,8 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
             await env.LEAD_DISCOVERY_WORKFLOW!.create({id:runId,params:{runId,ownerId,input}});
           }
         }else if(actionType==="external_tool"&&connection&&selectedTool&&planner?.action.type==="external_tool"){
-          const risk=effectiveToolRisk(selectedTool);\n          if(risk==="blocked")throw new Error("AGENT_TOOL_BLOCKED");
+          const risk=effectiveToolRisk(selectedTool);
+          if(risk==="blocked")throw new Error("AGENT_TOOL_BLOCKED");
           const args=planner.action.arguments;
           const snapshot={connectionId:connection.id,connectionName:connection.name,endpointUrl:connection.endpoint_url,protocol:connection.protocol,toolName:planner.action.toolName,tool:selectedTool,arguments:args,runId,goal};
           if(risk==="approval_required"){
