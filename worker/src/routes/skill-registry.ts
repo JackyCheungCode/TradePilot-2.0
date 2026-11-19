@@ -1,6 +1,10 @@
 import { errorResponse, successResponse } from "../lib/http.ts";
 
-type Env = { SUPABASE_URL:string; SUPABASE_ANON_KEY:string; SUPABASE_SERVICE_ROLE_KEY:string; SKILL_ARTIFACTS:R2Bucket };
+export type SkillArtifactBucket = {
+ head(key:string):Promise<{size:number;customMetadata?:Record<string,string>}|null>;
+ put(key:string,value:string,options?:{httpMetadata?:{contentType?:string};customMetadata?:Record<string,string>}):Promise<unknown>;
+};
+type Env = { SUPABASE_URL:string; SUPABASE_ANON_KEY:string; SUPABASE_SERVICE_ROLE_KEY:string; SKILL_ARTIFACTS:SkillArtifactBucket };
 type ArtifactRef = { key:string; sha256:string; size:number; fileCount:number; contentType:string };
 type SkillConfig = Record<string, unknown>;
 type Source = { owner:string; repo:string; ref:string; path:string };
@@ -16,18 +20,6 @@ type SkillContract = {
 type ContractResult = {status:"missing"|"valid"|"invalid";contract?:SkillContract;errors:string[]};
 
 type ReviewFinding = { severity:"high"|"medium"|"low"; code:string; message:string; file?:string };
-const STARTER_SKILLS = [
-  ["market-intel","全球市场情报","市场规模、趋势、竞品与价格研究"],
-  ["trade-lead-screening","贸易线索筛选","买家线索评分、去重与优先级筛选"],
-  ["trade-customer-intel","贸易客户情报","企业背景调查、客户画像与采购能力分析"],
-  ["trade-outreach-email","贸易开发邮件","开发信、跟进邮件与多语言沟通内容"],
-  ["laifaxin-outreach","来发信触达","通过来发信平台执行邮件触达"],
-  ["tradehot","热门产品趋势","热门产品、热销信号与趋势发现"],
-  ["rfq-to-quotation","询盘转报价","解析 RFQ、匹配产品并生成报价草案"],
-  ["trade-pipeline-run","外贸流程编排","协调外贸业务阶段与任务执行"],
-  ["verify-docs","贸易单证核验","贸易单证字段、逻辑与一致性检查"],
-  ["seo-audit","SEO 审核","网站技术 SEO、内容与搜索表现审计"],
-] as const;
 const MAX_FILES = 60;
 const MAX_FILE_BYTES = 256_000;
 const MAX_BUNDLE_BYTES = 768_000;
@@ -266,10 +258,8 @@ export async function handleSkillRegistry(request:Request,env:Env):Promise<Respo
  try{
   if(url.pathname===base&&request.method==="GET"){
    const rows=await db<Array<{agent_key:string;enabled:boolean;config:SkillConfig;updated_at:string}>>(env,"agent_profiles?owner_id=eq."+ownerId+"&agent_key=like.skill%3A*&select=agent_key,enabled,config,updated_at&order=agent_key.asc");
-   const byKey=new Map(rows.map(row=>[row.agent_key,row]));
-   const presets=STARTER_SKILLS.map(([id,label,description])=>{const row=byKey.get("skill:"+id);const config=publicConfig(row?.config??{});return {id,label,description,sourceType:"starter",state:stateOf(config),enabled:row?.enabled??false,config};});
-   const custom=rows.filter(row=>!STARTER_SKILLS.some(item=>"skill:"+item[0]===row.agent_key)).map(row=>{const id=row.agent_key.slice(6),config=publicConfig(row.config??{}),manifest=(config.manifest??{}) as Record<string,string>;return {id,label:manifest.display_name||manifest.name||id,description:manifest.description||"从 GitHub 导入的 Skill",sourceType:"custom",state:stateOf(config),enabled:row.enabled,config};});
-   return successResponse(request,[...presets,...custom]);
+   const skills=rows.map(row=>{const id=row.agent_key.slice(6),config=publicConfig(row.config??{}),manifest=(config.manifest??{}) as Record<string,string>;return {id,label:manifest.display_name||manifest.name||id,description:manifest.description||"已注册的 Skill",sourceType:String(config.sourceType??"imported"),state:stateOf(config),enabled:row.enabled,config};});
+   return successResponse(request,skills);
   }
   if(url.pathname===base&&request.method==="POST"){
    const body=await request.json() as {repositoryUrl?:string;branch?:string;skillPath?:string};
