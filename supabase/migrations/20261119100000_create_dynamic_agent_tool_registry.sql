@@ -75,6 +75,6 @@ select
   case when jsonb_typeof(t.value->'inputSchema')='object' then t.value->'inputSchema' else '{}'::jsonb end,
   jsonb_build_object('protocol',c.protocol,'migratedFrom','agent_connections.protocol_tools')
 from public.agent_connections c
-cross join lateral jsonb_array_elements(coalesce(c.protocol_tools,'[]'::jsonb)) as t(value)
+cross join lateral jsonb_array_elements(case when jsonb_typeof(c.protocol_tools)='array' then c.protocol_tools else '[]'::jsonb end) as t(value)
 where coalesce(t.value->>'name','') <> ''
 on conflict (owner_id,tool_key) do nothing;
