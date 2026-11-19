@@ -112,7 +112,7 @@ export function OpportunityConsolePage() {
       setAccounts(accountRows);
       setContacts(contactRows);
       const accountIds=marketCountry==='all'?null:accountRows.filter(item=>String(item.country_code||'').toUpperCase()===marketCountry).map(item=>item.id);
-      const safeTerm=query.trim().replace(/[\\%_(),."]/g, character => '\\\\'+character);
+      const safeTerm=query.trim().replace(/[\\%_*"]/g, character => '\\'+character);
       const applyFilters=(builder:any)=>{
         let next=builder.eq('is_archived',false);
         if(stage!=='all') next=next.eq('stage',stage);
