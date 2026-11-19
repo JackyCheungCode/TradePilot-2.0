@@ -136,7 +136,7 @@ export function SkillsRegistry(){
   finally{setBusy('');}
  };
  return <div className="tp-settings-agent">
-  <InlineNotification kind="info" lowContrast title="开放式 Skills 注册中心" subtitle="Skill 数量不设固定上限，注册表只展示你实际添加的项目。当前导入来源为公开 GitHub 仓库；系统读取 SKILL.md、完整目录文件和可选的 skill.json 执行契约，并识别依赖、外部域名及部分高风险代码模式。所有导入项默认停用；契约有效和静态检查通过均不等于安全认证，也不会执行任何 Skill 代码。" />
+  <InlineNotification kind="info" lowContrast title="开放式 Skills 注册中心" subtitle="Skill 数量不设固定上限，注册表只展示你实际添加的项目。支持公开 GitHub、ZIP 上传和手动创建三种注册方式；系统读取 SKILL.md、完整目录文件和可选的 skill.json 执行契约，并识别依赖、外部域名及部分高风险代码模式。所有导入项默认停用；契约有效和静态检查通过均不等于安全认证，也不会执行任何 Skill 代码。" />
   {error&&<InlineNotification kind="error" title="操作失败" subtitle={error} onCloseButtonClick={()=>setError('')}/>}
   {notice&&<InlineNotification kind="success" title="操作完成" subtitle={notice} onCloseButtonClick={()=>setNotice('')}/>}
   <div className="tp-settings__editor">
