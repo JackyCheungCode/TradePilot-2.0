@@ -246,9 +246,13 @@ export function ContactConsolePage() {
     if (!showGroups) return rows as ContactTableRow[];
     const result:ContactTableRow[]=[];
     grouped.forEach(group => {
-      result.push({id:'group-'+group.label, __isGroup:true, __groupLabel:group.label+' · '+group.children.reduce((sum,x)=>sum+x.items.length,0)} as unknown as ContactTableRow);
+      const parentId='group-'+group.label;
+      result.push({id:parentId, __isGroup:true, __groupLabel:group.label+' · '+group.children.reduce((sum,x)=>sum+x.items.length,0)} as unknown as ContactTableRow);
+      if (collapsedGroups.has(parentId)) return;
       group.children.forEach(child => {
-        if (thenBy!=='none') result.push({id:'group-'+group.label+'-'+child.label, __isGroup:true, __groupLabel:'　'+child.label+' · '+child.items.length} as ContactTableRow);
+        const childId=parentId+'-'+child.label;
+        if (thenBy!=='none') result.push({id:childId, __isGroup:true, __groupLabel:'　'+child.label+' · '+child.items.length} as unknown as ContactTableRow);
+        if (collapsedGroups.has(childId)) return;
         result.push(...child.items as ContactTableRow[]);
       });
     });
