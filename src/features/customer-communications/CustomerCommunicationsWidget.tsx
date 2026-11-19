@@ -114,9 +114,6 @@ function ChannelBadge({ channel, compact = false }: { channel: Channel; compact?
     {!compact && channelNames[channel]}
   </span>;
 }
-function ActionIconButton({ label, onClick }: { label: string; onClick: () => void }) {
-  return <Button kind="ghost" size="sm" onClick={onClick}>{label}</Button>;
-}
 function Avatar({ name, size = 'normal', placeholder = false }: { name: string; size?: 'normal' | 'small'; placeholder?: boolean }) {
   const initials = name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
   return <span className={'cc-avatar cc-avatar--' + size + (placeholder ? ' cc-avatar--placeholder' : '')} aria-label={name} role="img">{placeholder ? <semanticIcons.user size={size === "small" ? 16 : 20} /> : initials}</span>;
@@ -132,9 +129,7 @@ export function CustomerCommunicationsWidget({
   open,
   minimized,
   onClose,
-  onMinimize,
   onRestore,
-  navigationExpanded,
   onUnreadCountChange,
   fullPage = false,
 }: {
