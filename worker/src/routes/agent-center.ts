@@ -834,6 +834,7 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
     if(path==="/api/v1/agent/chat"&&request.method==="POST"){
       let body:Record<string,unknown>;try{body=await request.json() as Record<string,unknown>;}catch{return errorResponse(request,"INVALID_JSON","请求内容不是有效 JSON。",400);}
       const message=typeof body.message==="string"?body.message.trim():"";
+      const pageContext=typeof body.pageContext==="string"?body.pageContext.trim().slice(0,6000):"";
       if(message.length<1||message.length>5000)return errorResponse(request,"VALIDATION_ERROR","消息长度必须为 1–5000 个字符。",400);
       let conversationId=typeof body.conversationId==="string"&&/^[0-9a-f-]{36}$/i.test(body.conversationId)?body.conversationId:crypto.randomUUID();
       const existing=await db<Array<{id:string;title:string}>>(env,"agent_conversations?id=eq."+conversationId+"&owner_id=eq."+ownerId+"&select=id,title&limit=1");
@@ -843,7 +844,10 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
       }
       if(existing?.[0]?.title==="新聊天")await db(env,"agent_conversations?id=eq."+conversationId+"&owner_id=eq."+ownerId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({title:message.slice(0,100)})});
       const history=await db<Array<{role:"user"|"assistant";content:string}>>(env,"agent_chat_messages?conversation_id=eq."+conversationId+"&owner_id=eq."+ownerId+"&select=role,content&order=created_at.desc&limit=20");
-      const turns:ChatTurn[]=[...(history??[]).reverse(),{role:"user",content:message}];
+      const modelMessage=pageContext?message+"\n\n[当前页面上下文，仅用于理解本轮问题]\n"+pageContext:message;
+      const turns:ChatTurn[]=[...(history??[]).reverse(),{role:"user",content:modelMessage}];
+      // Persist only the user's explicit message. Automatically collected page context
+      // is sent to the model for this request but is not stored in conversation history.
       await db(env,"agent_chat_messages",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({owner_id:ownerId,conversation_id:conversationId,role:"user",content:message})});
       try{
         const workspaceContext=await loadXiaoyaWorkspaceContext(env,ownerId);
