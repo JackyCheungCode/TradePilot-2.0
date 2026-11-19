@@ -294,6 +294,7 @@ export function ContactConsolePage() {
       </div>
       <div className="tp-contacts__group-toolbar"><span>{showGroups?'分组视图':'平铺列表'} · 一级：{GROUP_FIELDS.find(x=>x.id===groupBy)?.text} · 二级：{thenBy==='none'?'关闭':GROUP_FIELDS.find(x=>x.id===thenBy)?.text}</span><Button kind="ghost" size="sm" onClick={()=>setShowGroups(v=>!v)}>{showGroups?'切换为平铺列表':'恢复分组视图'}</Button></div>
       {loading?<InlineLoading description="正在读取联系人…" />:rows.length?<TpDataTable<ContactTableRow>
+        selectable
         columns={tableColumns}
         rows={tableRows}
         rowKey="id"
