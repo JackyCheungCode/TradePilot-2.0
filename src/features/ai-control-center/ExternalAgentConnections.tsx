@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Button, ContainedList, ContainedListItem, InlineNotification, InlineLoading, Select, SelectItem, Tag, TextInput } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 
-type ExternalTool = { name: string; description?: string; risk?: string; protocol?: string };
+type ExternalTool = { name: string; description?: string; risk?: string; riskPolicySource?: string; protocol?: string };
 type Connection = {
   id: string; name: string; protocol: 'mcp'|'rest_api'|'webhook'; endpoint_url: string;
   auth_mode: string; capabilities: string[]; protocol_tools: ExternalTool[];
@@ -131,7 +131,7 @@ export function ExternalAgentConnections() {
                 <div>{statusTag(connection.status)} <Tag type="cool-gray">{connection.protocol_tools?.length || 0} 项能力</Tag></div>
                 {connection.last_error && <p>{connection.last_error}</p>}
                 {(connection.protocol_tools || []).length > 0 && <div>
-                  {(connection.protocol_tools || []).slice(0, 12).map(tool => <p key={tool.name}><strong>{tool.name}</strong> — {tool.description || '无说明'} <Tag type={tool.risk === 'read_only' ? 'green' : 'warm-gray'}>{tool.risk === 'read_only' ? '只读' : '需审批'}</Tag></p>)}
+                  {(connection.protocol_tools || []).slice(0, 12).map(tool => { const effectiveRisk = tool.risk === 'blocked' ? 'blocked' : tool.risk === 'read_only' && tool.riskPolicySource === 'user' ? 'read_only' : 'approval_required'; return <p key={tool.name}><strong>{tool.name}</strong> — {tool.description || '无说明'} <Tag type={effectiveRisk === 'read_only' ? 'green' : effectiveRisk === 'blocked' ? 'red' : 'warm-gray'}>{effectiveRisk === 'read_only' ? '只读自动执行' : effectiveRisk === 'blocked' ? '禁止调用' : '执行前审批'}</Tag></p>; })}
                 </div>}
                 <div>
                   <Button kind="tertiary" size="sm" disabled={busyId === connection.id} onClick={() => void discover(connection)}>{busyId === connection.id ? '处理中…' : '发现能力 / 测试连接'}</Button>
