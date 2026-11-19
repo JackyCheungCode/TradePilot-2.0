@@ -3,6 +3,7 @@ import {
   Checkbox,
   DataTable,
   DataTableSkeleton,
+  InlineNotification,
   OverflowMenu,
   OverflowMenuItem,
   Pagination,
@@ -28,6 +29,43 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { getSupabaseClient } from '@/lib/supabase';
 import type { TpDataTableProps } from './TpDataTable.types';
 import './TpDataTable.scss';
+
+function csvSafeValue(value: unknown) {
+  const text = value === null || value === undefined
+    ? ''
+    : typeof value === 'object'
+      ? JSON.stringify(value)
+      : String(value);
+  const safe = /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
+  return `"${safe.replace(/"/g, '""')}"`;
+}
+
+function downloadSelectedRows<T extends Record<string, unknown>>(
+  rows: T[],
+  columns: TpDataTableProps<T>['columns'],
+  fileName: string,
+) {
+  const headers = columns.map((column) => column.header);
+  const lines = [
+    headers.map(csvSafeValue).join(','),
+    ...rows.map((row) => columns.map((column) => {
+      const value = column.exportValue
+        ? column.exportValue(row)
+        : row[column.key];
+      return csvSafeValue(value);
+    }).join(',')),
+  ];
+  const blob = new Blob(['\\uFEFF', lines.join('\\r\\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = fileName;
+  anchor.hidden = true;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
 
 function displayValue<T extends object>(row: T, column: TpDataTableProps<T>['columns'][number]) {
   if (column.render) return column.render(row);
@@ -67,6 +105,8 @@ export function TpDataTable<T extends Record<string, unknown>>({
   const [preferencesReady, setPreferencesReady] = useState(!columnSettingsKey);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [batchFeedback, setBatchFeedback] = useState<{ kind: 'success' | 'error'; title: string; subtitle: string } | null>(null);
+  const [batchBusy, setBatchBusy] = useState(false);
   const selectedRowCache = useRef(new Map<string, T>());
 
   useEffect(() => {
@@ -228,12 +268,39 @@ export function TpDataTable<T extends Record<string, unknown>>({
                     getBatchActionProps().onCancel();
                   }}
                 >
+                  <TableBatchAction
+                    key="__export-selected"
+                    tabIndex={0}
+                    onClick={() => {
+                      try {
+                        const safeName = (ariaLabel || 'data').replace(/[^\\w\\-\\u4e00-\\u9fff]+/g, '-');
+                        downloadSelectedRows(selectedRows, visibleColumns, `${safeName}-selected.csv`);
+                        setBatchFeedback({ kind: 'success', title: '导出已开始', subtitle: `已导出 ${selectedRows.length} 条所选记录` });
+                      } catch (cause) {
+                        setBatchFeedback({ kind: 'error', title: '导出失败', subtitle: cause instanceof Error ? cause.message : '无法生成导出文件' });
+                      }
+                    }}
+                  >
+                    导出所选
+                  </TableBatchAction>
                   {batchActions.map((action) => (
                     <TableBatchAction
                       key={action.key}
                       tabIndex={0}
-                      onClick={() => void action.onClick(selectedRows)}
-                      disabled={action.disabled}
+                      onClick={async () => {
+                        if (batchBusy || action.disabled) return;
+                        setBatchBusy(true);
+                        setBatchFeedback(null);
+                        try {
+                          await action.onClick(selectedRows);
+                          setBatchFeedback({ kind: 'success', title: '批量操作已完成', subtitle: action.label });
+                        } catch (cause) {
+                          setBatchFeedback({ kind: 'error', title: '批量操作失败', subtitle: cause instanceof Error ? cause.message : '操作未能完成，请重试' });
+                        } finally {
+                          setBatchBusy(false);
+                        }
+                      }}
+                      disabled={batchBusy || action.disabled}
                     >
                       {action.label}
                     </TableBatchAction>
@@ -425,6 +492,16 @@ export function TpDataTable<T extends Record<string, unknown>>({
                 </TableBody>
               </Table>
             </div>
+            {batchFeedback && (
+              <InlineNotification
+                kind={batchFeedback.kind}
+                title={batchFeedback.title}
+                subtitle={batchFeedback.subtitle}
+                lowContrast
+                hideCloseButton={false}
+                onCloseButtonClick={() => setBatchFeedback(null)}
+              />
+            )}
             {renderedRows.length === 0 && <div className="tp-data-table__empty">{emptyState ?? '暂无数据'}</div>}
             {pagination && (
               <Pagination
