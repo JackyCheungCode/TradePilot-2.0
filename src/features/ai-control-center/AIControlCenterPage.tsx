@@ -7,7 +7,8 @@ import { IntegrationsSettings } from '@/features/settings/IntegrationsSettings';
 import { ExternalAgentConnections } from './ExternalAgentConnections';
 import { AgentTaskMonitor } from './AgentTaskMonitor';
 import { AgentSecurityCenter } from './AgentSecurityCenter';
-import { SkillsRegistry } from './SkillsRegistry';\nimport { ToolsRegistry } from './ToolsRegistry';
+import { SkillsRegistry } from './SkillsRegistry';
+import { ToolsRegistry } from './ToolsRegistry';
 
 type Section = { id: string; label: string; group: string; ready: boolean };
 const sections: Section[] = [
@@ -116,7 +117,8 @@ export function AIControlCenterPage() {
               )}
               {active === 'agents' && <AgentSettings section="profiles" />}
               {active === 'connections' && <ExternalAgentConnections />}
-              {active === 'skills' && <SkillsRegistry />}\n              {active === 'tools' && <ToolsRegistry />}
+              {active === 'skills' && <SkillsRegistry />}
+              {active === 'tools' && <ToolsRegistry />}
               {active === 'tasks' && <AgentTaskMonitor />}
               {active === 'security' && <AgentSecurityCenter />}
               {active === 'appearance' && <AgentSettings section="appearance" />}
