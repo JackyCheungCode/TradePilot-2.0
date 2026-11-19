@@ -88,6 +88,7 @@ export function QuoteConsolePage() {
     <section className="tp-quotes__panel"><div className="tp-quotes__panel-head"><div><h2>报价单列表</h2><p>一个报价编号包含多个修订版本；列表显示当前版本。</p></div><Tag type="blue">{filtered.length} 条记录</Tag></div>
       <div className="tp-quotes__filters"><TextInput id="quote-search" labelText="搜索报价单" placeholder="报价编号、标题或客户" value={query} onChange={e=>setQuery(e.currentTarget.value)}/><Select id="quote-status" labelText="报价状态" value={status} onChange={e=>setStatus(e.currentTarget.value)}><SelectItem value="all" text="全部状态"/>{Object.entries(quoteStatusLabel).map(([v,t])=><SelectItem key={v} value={v} text={t}/>)}</Select></div>
       {loading?<div className="tp-quotes__loading"><InlineLoading description="正在读取报价单…"/></div>:<div className="tp-quotes__table-wrap"><TpDataTable
+      selectable
                         selectable
         ariaLabel="报价单列表"
         columnSettingsKey="sales-quotes"
