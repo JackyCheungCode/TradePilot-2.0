@@ -8,10 +8,8 @@
   color: var(--cds-text-secondary);
 }
 .tp-loading--overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  background: var(--cds-overlay);
+  position: relative;
+  min-height: 100%;
 }
 .tp-inline-loading { min-width: 0; }
 .tp-skeleton { display: grid; gap: 1rem; min-width: 0; }
