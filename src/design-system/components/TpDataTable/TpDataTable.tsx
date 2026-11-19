@@ -211,21 +211,47 @@ export function TpDataTable<T extends Record<string, unknown>>({
                           const isRequired = Boolean(column.required || column.primary);
                           const isVisible = visibleColumns.some((item) => item.key === column.key);
                           return (
-                            <Checkbox
-                              key={column.key}
-                              id={`tp-table-column-${columnSettingsKey}-${column.key}`}
-                              labelText={column.header}
-                              checked={isVisible}
-                              disabled={isRequired}
-                              onChange={(checked) => {
-                                setColumnPreferences((current) => {
-                                  const hidden = new Set(current?.hidden ?? []);
-                                  if (checked) hidden.delete(column.key);
-                                  else hidden.add(column.key);
-                                  return { order: current?.order ?? columns.map((item) => item.key), hidden: [...hidden] };
-                                });
-                              }}
-                            />
+                            <div className="tp-data-table__column-setting-row" key={column.key}>
+                              <Checkbox
+                                id={`tp-table-column-${columnSettingsKey}-${column.key}`}
+                                labelText={column.header}
+                                checked={isVisible}
+                                disabled={isRequired}
+                                onChange={(checked) => {
+                                  setColumnPreferences((current) => {
+                                    const defaultHidden = columns.filter((item) => item.longText || item.defaultVisible === false).map((item) => item.key);
+                                    const hidden = new Set(current?.hidden ?? defaultHidden);
+                                    if (checked) hidden.delete(column.key);
+                                    else hidden.add(column.key);
+                                    return { order: current?.order ?? columns.map((item) => item.key), hidden: [...hidden] };
+                                  });
+                                }}
+                              />
+                              <div className="tp-data-table__column-order">
+                                <Button
+                                  kind="ghost"
+                                  size="sm"
+                                  disabled={columns.findIndex((item) => item.key === column.key) === 0}
+                                  onClick={() => setColumnPreferences((current) => {
+                                    const order = current?.order?.length ? [...current.order] : columns.map((item) => item.key);
+                                    const index = order.indexOf(column.key);
+                                    if (index > 0) [order[index - 1], order[index]] = [order[index], order[index - 1]];
+                                    return { order, hidden: current?.hidden ?? columns.filter((item) => item.longText || item.defaultVisible === false).map((item) => item.key) };
+                                  })}
+                                >上移</Button>
+                                <Button
+                                  kind="ghost"
+                                  size="sm"
+                                  disabled={columns.findIndex((item) => item.key === column.key) === columns.length - 1}
+                                  onClick={() => setColumnPreferences((current) => {
+                                    const order = current?.order?.length ? [...current.order] : columns.map((item) => item.key);
+                                    const index = order.indexOf(column.key);
+                                    if (index >= 0 && index < order.length - 1) [order[index + 1], order[index]] = [order[index], order[index + 1]];
+                                    return { order, hidden: current?.hidden ?? columns.filter((item) => item.longText || item.defaultVisible === false).map((item) => item.key) };
+                                  })}
+                                >下移</Button>
+                              </div>
+                            </div>
                           );
                         })}
                         <Button kind="ghost" size="sm" onClick={() => setColumnPreferences({
