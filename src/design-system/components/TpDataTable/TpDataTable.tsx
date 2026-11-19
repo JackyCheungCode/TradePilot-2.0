@@ -186,7 +186,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
       });
   }, [columns, columnPreferences]);
   const headers = useMemo(() => [
-    ...visibleColumns.map((column) => ({ key: column.key, header: column.header })),
+    ...visibleColumns.map((column) => ({ key: column.key, header: column.header, isSortable: Boolean(column.sortable) })),
     ...(rowActions.length ? [{ key: '__actions', header: '操作' }] : []),
   ], [visibleColumns, rowActions.length]);
   const carbonRows = useMemo(() => rows.map((row) => ({
