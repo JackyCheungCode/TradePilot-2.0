@@ -283,11 +283,11 @@ async function generateAgentPlan(env:Env,_ownerId:string,goal:string,country:str
      if(!response.ok)throw new Error("AGENT_PLANNER_HTTP_"+response.status+": "+(await response.text()).slice(0,200));
      const body=await response.json() as Record<string,unknown>;raw=Array.isArray(body.content)?(body.content as unknown[]).map(item=>String(asRecord(item).text??"")).join("\\n"):"";
    }else if(String(provider.protocol)==="gemini"){
-     const response=await fetch(base+"/models/"+encodeURIComponent(model)+":generateContent?key="+encodeURIComponent(key),{method:"POST",redirect:"manual",headers:{"content-type":"application/json"},body:JSON.stringify({systemInstruction:{parts:[{text:system}]},contents:[{parts:[{text:user}]}],generationConfig:{responseMimeType:"application/json",maxOutputTokens:1200}}),signal:AbortSignal.timeout(45000)});
+     const response=await fetch(base+"/models/"+encodeURIComponent(model)+":generateContent?key="+encodeURIComponent(key),{method:"POST",redirect:"manual",headers:{"content-type":"application/json"},body:JSON.stringify({systemInstruction:{parts:[{text:systemWithSkills}]},contents:[{parts:[{text:user}]}],generationConfig:{responseMimeType:"application/json",maxOutputTokens:1200}}),signal:AbortSignal.timeout(45000)});
      if(!response.ok)throw new Error("AGENT_PLANNER_HTTP_"+response.status+": "+(await response.text()).slice(0,200));
      raw=extractModelText(await response.json());
    }else{
-     const response=await fetch(base+"/chat/completions",{method:"POST",redirect:"manual",headers:{Authorization:"Bearer "+key,"Content-Type":"application/json"},body:JSON.stringify({model,messages:[{role:"system",content:system},{role:"user",content:user}],response_format:{type:"json_object"},max_tokens:1200}),signal:AbortSignal.timeout(45000)});
+     const response=await fetch(base+"/chat/completions",{method:"POST",redirect:"manual",headers:{Authorization:"Bearer "+key,"Content-Type":"application/json"},body:JSON.stringify({model,messages:[{role:"system",content:systemWithSkills},{role:"user",content:user}],response_format:{type:"json_object"},max_tokens:1200}),signal:AbortSignal.timeout(45000)});
      if(!response.ok)throw new Error("AGENT_PLANNER_HTTP_"+response.status+": "+(await response.text()).slice(0,200));
      raw=extractModelText(await response.json());
    }
