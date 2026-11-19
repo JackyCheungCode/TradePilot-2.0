@@ -93,7 +93,9 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
   const pathnameRef = useRef(pathname);
   const dialogRef = useRef<HTMLElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
   const conversationRequestIdRef = useRef(0);
+  onCloseRef.current = onClose;
   pathnameRef.current = pathname;
 
   useEffect(() => {
@@ -112,7 +114,7 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (event.key !== 'Tab' || !dialogRef.current) return;
@@ -136,7 +138,7 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   useEffect(() => () => {
     if (statusTimerRef.current !== null) window.clearTimeout(statusTimerRef.current);
@@ -182,6 +184,7 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
       const rows = await agentRequest<AgentMessage[]>(`/api/v1/agent/conversations/${conversationId}/messages`);
       if (requestId !== conversationRequestIdRef.current) return;
       await instance.messaging.clearConversation();
+      if (requestId !== conversationRequestIdRef.current) return;
       if (rows.length) await instance.messaging.insertHistory(toHistoryItems(rows));
       if (requestId !== conversationRequestIdRef.current) return;
       conversationIdRef.current = conversationId;
@@ -259,6 +262,7 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
       await historyLoadPromiseRef.current;
       const conversationId = await ensureConversation();
       const context = readPageContext(pathnameRef.current);
+      const conversationRequestId = conversationRequestIdRef.current;
       const result = await agentRequest<{ reply: string; model?: string; task?: { goal?: string } | null }>(
         '/api/v1/agent/chat',
         {
@@ -271,6 +275,7 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
           }),
         },
       );
+      if (conversationRequestId !== conversationRequestIdRef.current || conversationId !== conversationIdRef.current) return;
       const reply = [normalizeModelText(result.reply), result.model ? `\n\n模型：${result.model}` : ''].join('');
       await instance.messaging.addMessage({
         output: {
