@@ -1,7 +1,9 @@
-import { errorResponse, successResponse } from "../lib/http.ts";\nimport { unzipSync } from "fflate";
+import { errorResponse, successResponse } from "../lib/http.ts";
+import { unzipSync } from "fflate";
 
 export type SkillArtifactBucket = {
  head(key:string):Promise<{size:number;customMetadata?:Record<string,string>}|null>;
+ get(key:string):Promise<{arrayBuffer():Promise<ArrayBuffer>}|null>;
  put(key:string,value:string,options?:{httpMetadata?:{contentType?:string};customMetadata?:Record<string,string>}):Promise<unknown>;
 };
 type Env = { SUPABASE_URL:string; SUPABASE_ANON_KEY:string; SUPABASE_SERVICE_ROLE_KEY:string; SKILL_ARTIFACTS:SkillArtifactBucket };
@@ -272,7 +274,8 @@ function parseZipBundle(encoded:string):{manifest:Record<string,string>;files:Bu
  if(cursor!==centralOffset+centralSize||entries.length===0||entries.length>MAX_FILES)throw new Error("SKILL_ZIP_INVALID：文件数量或中央目录长度不符合限制。");
  const skillPaths=entries.map(entry=>entry.path).filter(path=>path==="SKILL.md"||path.endsWith("/SKILL.md"));
  if(skillPaths.length!==1)throw new Error("SKILL_MD_NOT_FOUND：ZIP 中必须且只能包含一个 Skill 根目录 SKILL.md。");
- const root=skillPaths[0]==="SKILL.md"?"":skillPaths[0].slice(0,-"/SKILL.md".length);\n const uniquePaths=new Set(entries.map(entry=>entry.path));if(uniquePaths.size!==entries.length)throw new Error("SKILL_ZIP_DUPLICATE_PATH：压缩包包含重复文件路径。");
+ const root=skillPaths[0]==="SKILL.md"?"":skillPaths[0].slice(0,-"/SKILL.md".length);
+ const uniquePaths=new Set(entries.map(entry=>entry.path));if(uniquePaths.size!==entries.length)throw new Error("SKILL_ZIP_DUPLICATE_PATH：压缩包包含重复文件路径。");
  const selected=entries.filter(entry=>!root||entry.path.startsWith(root+"/"));
  if(selected.length>MAX_FILES)throw new Error("SKILL_PACKAGE_TOO_MANY_FILES：Skill 包最多允许 "+MAX_FILES+" 个文件。");
  for(const entry of selected)if(!safeRelativePath(entry.path,root))throw new Error("SKILL_ZIP_PATH_BLOCKED：压缩包包含隐藏、越界或敏感路径："+entry.path);
