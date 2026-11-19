@@ -223,8 +223,7 @@ export function ProspectDataPage() {
         </div>
         <div className="tp-prospect-hub__table-wrap">
           <TpDataTable
-      selectable
-                        selectable
+        selectable
             ariaLabel="全部潜客列表"
             columnSettingsKey="prospect-master-data"
             rowKey="id"
