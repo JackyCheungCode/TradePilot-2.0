@@ -24,7 +24,7 @@ import {
   TableToolbarSearch,
   Tag,
 } from '@carbon/react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { getSupabaseClient } from '@/lib/supabase';
 import type { TpDataTableProps } from './TpDataTable.types';
 import './TpDataTable.scss';
@@ -61,15 +61,21 @@ export function TpDataTable<T extends Record<string, unknown>>({
   columnSettingsKey,
   selectionRows = rows,
   selectionScopeKey,
+  onSortChange,
 }: TpDataTableProps<T>) {
   const [columnPreferences, setColumnPreferences] = useState<{ order: string[]; hidden: string[] } | null>(null);
   const [preferencesReady, setPreferencesReady] = useState(!columnSettingsKey);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const selectedRowCache = useRef(new Map<string, T>());
+
+  useEffect(() => {
+    rows.forEach((row) => selectedRowCache.current.set(String(row[rowKey]), row));
+  }, [rows, rowKey]);
 
   const selectedRows = useMemo(
-    () => selectionRows.filter((row) => selectedIds.has(String(row[rowKey]))),
-    [selectionRows, selectedIds, rowKey],
+    () => [...selectedIds].map((id) => selectedRowCache.current.get(id)).filter((row): row is T => Boolean(row)),
+    [selectedIds],
   );
 
 
@@ -82,7 +88,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
     setSelectedIds((current) => {
       const next = new Set(current);
       if (checked) next.add(id);
-      else next.delete(id);
+      else { next.delete(id); selectedRowCache.current.delete(id); }
       return next;
     });
   };
@@ -90,7 +96,10 @@ export function TpDataTable<T extends Record<string, unknown>>({
   const togglePageSelection = (ids: string[], checked: boolean) => {
     setSelectedIds((current) => {
       const next = new Set(current);
-      ids.forEach((id) => checked ? next.add(id) : next.delete(id));
+      ids.forEach((id) => {
+        if (checked) next.add(id);
+        else { next.delete(id); selectedRowCache.current.delete(id); }
+      });
       return next;
     });
   };
@@ -201,7 +210,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
       <DataTable rows={carbonRows} headers={headers} isSortable>
         {({ rows: renderedRows, getHeaderProps, getRowProps, getSelectionProps, getBatchActionProps, selectedRows: carbonSelectedRows, selectRow }) => {
           const pageStart = pagination ? (pagination.page - 1) * pagination.pageSize : 0;
-          const pageRows = pagination ? renderedRows.slice(pageStart, pageStart + pagination.pageSize) : renderedRows;
+          const pageRows = pagination && !pagination.serverSide ? renderedRows.slice(pageStart, pageStart + pagination.pageSize) : renderedRows;
           const pageIds = pageRows.map((row) => row.id);
           const selectedPageCount = pageIds.filter((id) => selectedIds.has(id)).length;
           const allPageSelected = pageIds.length > 0 && selectedPageCount === pageIds.length;
@@ -331,7 +340,12 @@ export function TpDataTable<T extends Record<string, unknown>>({
                       const column = visibleColumns.find((item) => item.key === header.key);
                       return (
                         <TableHeader
-                          {...getHeaderProps({ header })}
+                          {...getHeaderProps({ header, onClick: (_event: unknown, sortState: { sortHeaderKey?: string; sortDirection?: string }) => {
+                            if (onSortChange && sortState.sortHeaderKey) {
+                              const direction = sortState.sortDirection === 'ASC' || sortState.sortDirection === 'DESC' ? sortState.sortDirection : 'NONE';
+                              onSortChange(sortState.sortHeaderKey, direction);
+                            }
+                          } })}
                           className={header.key === '__actions' ? 'tp-data-table__actions-heading' : undefined}
                           style={column ? {
                             minWidth: column.minWidth ? `${column.minWidth}px` : undefined,
