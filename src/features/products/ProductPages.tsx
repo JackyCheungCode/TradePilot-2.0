@@ -111,6 +111,7 @@ export function ProductConsolePage(){
  error={error||null} onRetry={load}
  selectionScopeKey={[query,status,countryFilter].join('|')}
  columnSettingsKey="catalog-products"
+ batchArchiveTable="trade_products"
  onRowOpen={row=>nav('/products/'+row.id)}
  pagination={{page,pageSize,totalItems:filtered.length,onChange:(nextPage,nextSize)=>{setPage(nextPage);setPageSize(nextSize);}}}
 />{!filtered.length&&<p className="tp-products__empty">暂无产品数据。点击「创建产品」录入第一条产品。</p>}

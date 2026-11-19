@@ -311,6 +311,7 @@ export function ContactConsolePage() {
         loading={loading}
         error={error||null}
         columnSettingsKey="crm-contacts"
+        batchArchiveTable="crm_contacts"
         selectionScopeKey={tableSearchScope}
         onRetry={loadRows}
         onSortChange={handleTableSort}

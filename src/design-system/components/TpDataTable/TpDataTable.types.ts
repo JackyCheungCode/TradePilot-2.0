@@ -23,6 +23,8 @@ export interface TpBatchAction<T> {
   label: string;
   onClick: (rows: T[]) => void | Promise<void>;
   disabled?: boolean;
+  /** Confirmation copy shown before executing destructive batch actions. */
+  confirmation?: string;
 }
 
 export interface TpRowAction<T> {
@@ -46,6 +48,8 @@ export interface TpDataTableProps<T extends object> {
   rowKey: keyof T;
   selectable?: boolean;
   batchActions?: TpBatchAction<T>[];
+  /** Enables a confirmed soft-archive action for tables backed by an is_archived column. */
+  batchArchiveTable?: string;
   rowActions?: TpRowAction<T>[];
   onRowOpen?: (row: T, triggerElement?: HTMLElement) => void;
   /** Opens an IBM Products SidePanel with the selected record while keeping the list in context. */

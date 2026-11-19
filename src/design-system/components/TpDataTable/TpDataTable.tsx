@@ -1,6 +1,10 @@
 import {
   Button,
   Checkbox,
+  ComposedModal,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
   DataTable,
   DataTableSkeleton,
   InlineNotification,
@@ -28,7 +32,7 @@ import {
 import { SidePanel } from '@carbon/ibm-products';
 import { isValidElement, useEffect, useMemo, useRef, useState } from 'react';
 import { getSupabaseClient } from '@/lib/supabase';
-import type { TpDataTableProps } from './TpDataTable.types';
+import type { TpBatchAction, TpDataTableProps } from './TpDataTable.types';
 import './TpDataTable.scss';
 
 function flattenExportValue(value: unknown): string {
@@ -99,6 +103,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
   rowKey,
   selectable = false,
   batchActions = [],
+  batchArchiveTable,
   rowActions = [],
   onRowOpen,
   detailPanel = false,
@@ -132,6 +137,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
   const [selectionRevision, setSelectionRevision] = useState(0);
   const [batchFeedback, setBatchFeedback] = useState<{ kind: 'success' | 'error'; title: string; subtitle: string } | null>(null);
   const [batchBusy, setBatchBusy] = useState(false);
+  const [pendingBatchAction, setPendingBatchAction] = useState<TpBatchAction<T> | null>(null);
   const selectedRowCache = useRef(new Map<string, T>());
 
   useEffect(() => {
@@ -140,9 +146,24 @@ export function TpDataTable<T extends Record<string, unknown>>({
   }, [selectionRows, rowKey]);
 
   const selectedRows = useMemo(
-    () => [...selectedIds].map((id) => selectedRowCache.current.get(id)).filter((row): row is T => Boolean(row)),
+    () => [...selectedIds].map((id) => selectedRowCache.current.get(id)).filter((row): row is T => row !== undefined),
     [selectedIds, selectionRevision],
   );
+  const hasSelection = selectedIds.size > 0;
+  const runBatchAction = async (action: TpBatchAction<T>) => {
+    if (batchBusy || action.disabled || selectedRows.length === 0) return;
+    setBatchBusy(true);
+    setBatchFeedback(null);
+    try {
+      await action.onClick(selectedRows);
+      setBatchFeedback({ kind: 'success', title: '批量操作已完成', subtitle: action.label });
+      setPendingBatchAction(null);
+    } catch (cause) {
+      setBatchFeedback({ kind: 'error', title: '批量操作失败', subtitle: cause instanceof Error ? cause.message : '操作未能完成，请重试' });
+    } finally {
+      setBatchBusy(false);
+    }
+  };
 
 
   const previousSelectionScope = useRef(selectionScopeKey);
@@ -161,7 +182,9 @@ export function TpDataTable<T extends Record<string, unknown>>({
     }
   }, [selectionScopeKey]);
 
-  const toggleRowSelection = (id: string, checked: boolean) => {
+  const toggleRowSelection = (id: string, row: T, checked: boolean) => {
+    if (checked) selectedRowCache.current.set(id, row);
+    setSelectionRevision((revision) => revision + 1);
     setSelectedIds((current) => {
       const next = new Set(current);
       if (checked) next.add(id);
@@ -171,6 +194,11 @@ export function TpDataTable<T extends Record<string, unknown>>({
   };
 
   const togglePageSelection = (ids: string[], checked: boolean) => {
+    ids.forEach((id) => {
+      const row = rowById.get(id);
+      if (checked && row) selectedRowCache.current.set(id, row);
+    });
+    setSelectionRevision((revision) => revision + 1);
     setSelectedIds((current) => {
       const next = new Set(current);
       ids.forEach((id) => {
@@ -392,7 +420,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
           return (
           <TableContainer aria-label={ariaLabel}>
             <TableToolbar>
-              {selectable && selectedRows.length > 0 && (
+              {selectable && hasSelection && (
                 <TableBatchActions
                   {...getBatchActionProps()}
                   onCancel={() => {
@@ -416,22 +444,29 @@ export function TpDataTable<T extends Record<string, unknown>>({
                   >
                     导出所选
                   </TableBatchAction>
+                  {batchArchiveTable && (
+                    <TableBatchAction key="__archive-selected" tabIndex={0} onClick={() => setPendingBatchAction({
+                      key: '__archive-selected', label: '归档所选',
+                      confirmation: `确定归档选中的 ${selectedRows.length} 条记录吗？归档后记录将从当前列表移除，但不会执行物理删除。`,
+                      onClick: async (records) => {
+                        const client = await getSupabaseClient();
+                        const { error: archiveError } = await client.from(batchArchiveTable).update({ is_archived: true, updated_at: new Date().toISOString() }).in('id', records.map((record) => String(record[rowKey])));
+                        if (archiveError) throw archiveError;
+                        setSelectedIds(new Set());
+                        selectedRowCache.current.clear();
+                        setSelectionRevision((revision) => revision + 1);
+                        onRetry?.();
+                      },
+                    })} disabled={batchBusy}>归档所选</TableBatchAction>
+                  )}
                   {batchActions.map((action) => (
                     <TableBatchAction
                       key={action.key}
                       tabIndex={0}
-                      onClick={async () => {
+                      onClick={() => {
                         if (batchBusy || action.disabled) return;
-                        setBatchBusy(true);
-                        setBatchFeedback(null);
-                        try {
-                          await action.onClick(selectedRows);
-                          setBatchFeedback({ kind: 'success', title: '批量操作已完成', subtitle: action.label });
-                        } catch (cause) {
-                          setBatchFeedback({ kind: 'error', title: '批量操作失败', subtitle: cause instanceof Error ? cause.message : '操作未能完成，请重试' });
-                        } finally {
-                          setBatchBusy(false);
-                        }
+                        if (action.confirmation) setPendingBatchAction(action);
+                        else void runBatchAction(action);
                       }}
                       disabled={batchBusy || action.disabled}
                     >
@@ -592,7 +627,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
                                   row: carbonRow,
                                   onClick: (event) => {
                                     event.stopPropagation();
-                                    toggleRowSelection(carbonRow.id, !selectedIds.has(carbonRow.id));
+                                    toggleRowSelection(carbonRow.id, source, !selectedIds.has(carbonRow.id));
                                   },
                                 })}
                                 checked={selectedIds.has(carbonRow.id)}
@@ -695,6 +730,19 @@ export function TpDataTable<T extends Record<string, unknown>>({
             </div>
           )}
         </SidePanel>
+      )}
+      {pendingBatchAction && (
+        <ComposedModal open onClose={() => !batchBusy && setPendingBatchAction(null)} size="sm">
+          <ModalHeader title={`确认${pendingBatchAction.label}`} />
+          <ModalBody>
+            <p>{pendingBatchAction.confirmation}</p>
+            <p>涉及 {selectedRows.length} 条所选记录。</p>
+          </ModalBody>
+          <ModalFooter>
+            <Button kind="secondary" disabled={batchBusy} onClick={() => setPendingBatchAction(null)}>取消</Button>
+            <Button kind="danger" disabled={batchBusy || selectedRows.length === 0} onClick={() => void runBatchAction(pendingBatchAction)}>{batchBusy ? '正在处理…' : '确认执行'}</Button>
+          </ModalFooter>
+        </ComposedModal>
       )}
     </div>
   );
