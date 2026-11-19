@@ -681,10 +681,16 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
       const tools=[...(connection.protocol_tools??[])];
       const index=tools.findIndex(tool=>tool.name===toolName);
       if(index<0)return errorResponse(request,"TOOL_NOT_FOUND","该工具不在连接已发现的能力列表中，请重新发现能力。",404);
-      tools[index]={...tools[index],risk,riskPolicySource:"user",riskPolicyUpdatedAt:new Date().toISOString()};
-      const updated=await db<ConnectionRow[]>(env,"agent_connections?id=eq."+connection.id+"&owner_id=eq."+ownerId+"&select="+publicConnectionFields,{method:"PATCH",headers:{Prefer:"return=representation"},body:JSON.stringify({protocol_tools:tools,updated_at:new Date().toISOString()})});
+      const previousRisk=effectiveToolRisk(tools[index]);
+      const changedAt=new Date().toISOString();
+      tools[index]={...tools[index],risk,riskPolicySource:"user",riskPolicyUpdatedAt:changedAt};
+      const metadata={...(connection.protocol_metadata??{})};
+      const audit=Array.isArray(metadata.toolPolicyAudit)?metadata.toolPolicyAudit as Array<Record<string,unknown>>:[];
+      metadata.toolPolicyAudit=[...audit.slice(-49),{toolName,previousRisk,newRisk:risk,actorOwnerId:ownerId,changedAt}];
+      const updated=await db<ConnectionRow[]>(env,"agent_connections?id=eq."+connection.id+"&owner_id=eq."+ownerId+"&updated_at=eq."+encodeURIComponent(connection.updated_at)+"&select="+publicConnectionFields,{method:"PATCH",headers:{Prefer:"return=representation"},body:JSON.stringify({protocol_tools:tools,protocol_metadata:metadata,updated_at:changedAt})});
       const saved=updated?.[0];
-      return successResponse(request,{connectionId:connection.id,toolName,risk,policySource:"user",connection:saved??null});
+      if(!saved)return errorResponse(request,"TOOL_POLICY_CONFLICT","连接配置已被其他操作更新，请刷新后重试。",409);
+      return successResponse(request,{connectionId:connection.id,toolName,risk,policySource:"user",connection:saved});
     }
     const discoverMatch=path.match(/^\/api\/v1\/agent\/connections\/([0-9a-f-]{36})\/discover$/i);
     if(discoverMatch&&request.method==="POST"){
