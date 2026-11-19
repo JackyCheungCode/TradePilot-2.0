@@ -22,7 +22,7 @@ test("Skill package import stores a bounded bundle, review findings and disabled
    {path:"skills/demo/index.ts",type:"blob",size:45,sha:"script-sha"},
    {path:"skills/demo/package.json",type:"blob",size:35,sha:"package-sha"},
   ]});
-  if(url.includes("raw.githubusercontent.com/acme/skills/main/skills/demo/SKILL.md"))return new Response("---\\nname: demo-skill\\ndescription: Demo skill\\n---\\n");
+  if(url.includes("raw.githubusercontent.com/acme/skills/main/skills/demo/SKILL.md"))return new Response("---\nname: demo-skill\ndescription: Demo skill\n---\n");
   if(url.includes("raw.githubusercontent.com/acme/skills/main/skills/demo/index.ts"))return new Response("export async function run(){ return fetch('https://api.example.com'); }");
   if(url.includes("raw.githubusercontent.com/acme/skills/main/skills/demo/package.json"))return new Response('{"dependencies":{"zod":"^3.0.0"}}');
   if(url.includes("/rest/v1/agent_profiles")){
@@ -33,8 +33,8 @@ test("Skill package import stores a bounded bundle, review findings and disabled
  });
  try{
   const response=await handleSkillRegistry(request({repositoryUrl:"https://github.com/acme/skills/tree/main/skills/demo"}),env);
-  assert.equal(response.status,200);
-  const payload=await response.json() as {data:{id:string;package:{fileCount:number};securityReview:{requiresHumanReview:boolean;findings:Array<{code:string}>}}};
+  const responseBody=await response.json() as {data?:unknown;error?:{message:string}};\n  assert.equal(response.status,200,JSON.stringify(responseBody));
+  const payload=responseBody as {data:{id:string;package:{fileCount:number};securityReview:{requiresHumanReview:boolean;findings:Array<{code:string}>}}};
   assert.equal(payload.data.id,"demo-skill");
   assert.equal(payload.data.package.fileCount,3);
   assert.equal(payload.data.securityReview.requiresHumanReview,true);
