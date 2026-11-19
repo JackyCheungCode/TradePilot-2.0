@@ -107,6 +107,7 @@ export function ProductConsolePage(){
  loading={loading}
  rowKey="id"
  ariaLabel="产品目录"
+ detailPanel
  columnSettingsKey="catalog-products"
  onRowOpen={row=>nav('/products/'+row.id)}
  pagination={{page,pageSize,totalItems:filtered.length,onChange:(nextPage,nextSize)=>{setPage(nextPage);setPageSize(nextSize);}}}
