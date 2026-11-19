@@ -279,7 +279,7 @@ export async function handleSkillRegistry(request:Request,env:Env):Promise<Respo
    const artifact=await persistSkillBundle(env,imported.files);
    const config=skillConfig(source,body.repositoryUrl,imported,artifact);
    await db(env,"agent_profiles?on_conflict=owner_id,agent_key",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({owner_id:ownerId,agent_key:agentKey,enabled:false,config,updated_at:new Date().toISOString()})});
-   return successResponse(request,{id,label:imported.manifest.display_name||id,state:"package_synced",manifest:imported.manifest,contractStatus:imported.contract.status,contractErrors:imported.contract.errors,package:imported.package,securityReview:imported.review,activationStatus:"disabled_pending_review"});
+   return successResponse(request,{id,label:imported.manifest.display_name||id,state:"package_synced",manifest:imported.manifest,contractStatus:imported.contract.status,contractErrors:imported.contract.errors,package:{...imported.package,artifact},securityReview:imported.review,activationStatus:"disabled_pending_review"});
   }
   const match=url.pathname.match(/^\/api\/v1\/agent\/skills\/([a-z0-9-]+)(\/sync)?$/);
   if(!match)return errorResponse(request,"NOT_FOUND","Skill 接口不存在。",404);
@@ -306,7 +306,7 @@ export async function handleSkillRegistry(request:Request,env:Env):Promise<Respo
    const artifact=await persistSkillBundle(env,imported.files);
    const next={...skillConfig(source,repositoryUrl,imported,artifact),createdFrom:config.createdFrom??"github_import"};
    await db(env,"agent_profiles?owner_id=eq."+ownerId+"&agent_key=eq."+encodeURIComponent(agentKey),{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({enabled:false,config:next,updated_at:new Date().toISOString()})});
-   return successResponse(request,{id:skillId,state:"package_synced",manifest:imported.manifest,contractStatus:imported.contract.status,contractErrors:imported.contract.errors,package:imported.package,securityReview:imported.review,activationStatus:"disabled_pending_review"});
+   return successResponse(request,{id:skillId,state:"package_synced",manifest:imported.manifest,contractStatus:imported.contract.status,contractErrors:imported.contract.errors,package:{...imported.package,artifact},securityReview:imported.review,activationStatus:"disabled_pending_review"});
   }
   return errorResponse(request,"METHOD_NOT_ALLOWED","不支持的 Skill 操作。",405);
  }catch(error){return errorResponse(request,"SKILL_REGISTRY_FAILED",error instanceof Error?error.message:"Skill 配置失败。",502);}
