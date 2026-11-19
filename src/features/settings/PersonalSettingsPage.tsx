@@ -1,7 +1,7 @@
 import { PageHeader } from '@/design-system';
 import { useCallback, useEffect, useState, type ChangeEvent } from 'react';
 import {
-  Button, Link, FileUploaderButton, InlineLoading, InlineNotification, Select, SelectItem, TextInput, Toggle, semanticIcons, useThemePreference,
+  Button, Link, FileUploaderButton, TPSkeleton, InlineNotification, Select, SelectItem, TextInput, Toggle, semanticIcons, useThemePreference,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/personal-settings.scss';
@@ -151,7 +151,7 @@ export function PersonalSettingsPage() {
       </PageHeader>
       {error && <InlineNotification kind="error" lowContrast title="操作未完成" subtitle={error} onCloseButtonClick={() => setError('')} />}
       {notice && <InlineNotification kind="success" lowContrast title="设置已更新" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
-      {loading ? <InlineLoading description="正在读取个人设置…" /> : (
+      {loading ? <TPSkeleton variant="profile" rows={5}/> : (
         <div className="tp-personal-settings__layout">
           <nav className="tp-personal-settings__nav" aria-label="个人设置目录">
             <p className="tp-personal-settings__nav-label">账户偏好</p>
