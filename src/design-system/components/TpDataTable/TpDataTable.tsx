@@ -275,6 +275,16 @@ export function TpDataTable<T extends Record<string, unknown>>({
   const detailRow = detailPanel && detailRowId
     ? rows.find((row) => String(row[rowKey]) === detailRowId) ?? null
     : null;
+  const detailNavigationRows = detailRow ? rows.filter((row) => !canOpenRow || canOpenRow(row)) : [];
+  const detailNavigationIndex = detailRow
+    ? detailNavigationRows.findIndex((row) => String(row[rowKey]) === String(detailRow[rowKey]))
+    : -1;
+  const detailTotalPages = pagination ? Math.max(1, Math.ceil(pagination.totalItems / pagination.pageSize)) : 1;
+  const canNavigatePrevious = detailNavigationIndex > 0 || Boolean(pagination?.serverSide && pagination.page > 1);
+  const canNavigateNext = detailNavigationIndex >= 0 && (
+    detailNavigationIndex < detailNavigationRows.length - 1
+    || Boolean(pagination?.serverSide && pagination.page < detailTotalPages)
+  );
   const openDetail = (row: T, trigger?: HTMLElement, replace = false) => {
     if (canOpenRow && !canOpenRow(row)) {
       onRowOpen?.(row, trigger);
@@ -647,8 +657,8 @@ export function TpDataTable<T extends Record<string, unknown>>({
           {detailRow && (
             <div className="tp-data-table__detail-content">
               <div className="tp-data-table__detail-navigation">
-                <Button kind="ghost" size="sm" disabled={rows.findIndex((row) => String(row[rowKey]) === String(detailRow[rowKey])) <= 0} onClick={() => moveDetail(-1)}>上一条</Button>
-                <Button kind="ghost" size="sm" disabled={rows.findIndex((row) => String(row[rowKey]) === String(detailRow[rowKey])) >= rows.length - 1} onClick={() => moveDetail(1)}>下一条</Button>
+                <Button kind="ghost" size="sm" disabled={!canNavigatePrevious} onClick={() => moveDetail(-1)}>上一条</Button>
+                <Button kind="ghost" size="sm" disabled={!canNavigateNext} onClick={() => moveDetail(1)}>下一条</Button>
                 {onRowOpen && <Button kind="primary" size="sm" onClick={() => onRowOpen(detailRow, detailLauncherRef.current ?? undefined)}>打开完整详情</Button>}
               </div>
               <dl className="tp-data-table__detail-fields">
