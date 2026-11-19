@@ -50,9 +50,12 @@ function formatBytes(value:number){
 export function SkillsRegistry(){
  const [skills,setSkills]=useState<Skill[]>([]);
  const [drafts,setDrafts]=useState<Record<string,Draft>>({});
- const [newSource,setNewSource]=useState<Draft>({repositoryUrl:'',branch:'main',skillPath:''});\n const [manualSkillMd,setManualSkillMd]=useState('');\n const [manualSkillJson,setManualSkillJson]=useState('');
+ const [newSource,setNewSource]=useState<Draft>({repositoryUrl:'',branch:'main',skillPath:''});
+ const [manualSkillMd,setManualSkillMd]=useState('');
+ const [manualSkillJson,setManualSkillJson]=useState('');
  const [zipBase64,setZipBase64]=useState('');
- const [zipFileName,setZipFileName]=useState('');\n const [removeConfirm,setRemoveConfirm]=useState('');
+ const [zipFileName,setZipFileName]=useState('');
+ const [removeConfirm,setRemoveConfirm]=useState('');
  const [loading,setLoading]=useState(true);
  const [busy,setBusy]=useState('');
  const [error,setError]=useState('');
