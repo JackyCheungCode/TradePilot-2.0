@@ -161,6 +161,7 @@ test("invalid network destinations invalidate the Skill contract and remain disa
 });
 
 test("manual Skill registration stores validated markdown privately and remains disabled",async()=>{
+ artifactObjects.clear();
  let stored:Record<string,unknown>|undefined;
  const restore=withFetch(async(input,init)=>{
   const url=String(input);
