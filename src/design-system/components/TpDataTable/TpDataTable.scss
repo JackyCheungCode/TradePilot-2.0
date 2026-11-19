@@ -13,3 +13,6 @@
 .tp-data-table__column-settings{display:flex;flex-direction:column;gap:var(--cds-spacing-03);min-width:15rem;max-height:24rem;overflow:auto;padding:var(--cds-spacing-03)}
 .tp-data-table__column-settings>strong{color:var(--cds-text-primary);font-size:var(--cds-label-01-font-size);font-weight:600}
 .tp-data-table__column-settings .cds--checkbox-wrapper{margin-block:0}
+.tp-data-table__column-setting-row{display:flex;align-items:center;justify-content:space-between;gap:var(--cds-spacing-03)}
+.tp-data-table__column-order{display:flex;align-items:center;gap:var(--cds-spacing-01)}
+.tp-data-table__column-order .cds--btn{min-height:2rem;padding-inline:var(--cds-spacing-02)}
