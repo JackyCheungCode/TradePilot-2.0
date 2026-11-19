@@ -392,13 +392,17 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
       );
       const next = { ...suggestion, runId: result.id, runStatus: result.status, runProgress: 0 };
       if (conversationIdRef.current === targetConversationId && conversationRequestIdRef.current === requestId) setTaskSuggestion(next);
-      await agentRequest(
-        '/api/v1/agent/conversations/' + targetConversationId + '/messages/' + suggestion.messageId,
-        {
-          method: 'PATCH',
-          body: JSON.stringify({ metadata: { task: suggestion.task, runId: result.id, runStatus: result.status, runProgress: 0 } }),
-        },
-      );
+      try {
+        await agentRequest(
+          '/api/v1/agent/conversations/' + targetConversationId + '/messages/' + suggestion.messageId,
+          {
+            method: 'PATCH',
+            body: JSON.stringify({ metadata: { task: suggestion.task, runId: result.id, runStatus: result.status, runProgress: 0 } }),
+          },
+        );
+      } catch (error) {
+        console.error('[Xiaoya] Task started but message metadata could not be synchronized', error);
+      }
     } catch (error) {
       setTaskError(error instanceof Error ? error.message : '任务启动失败，请稍后重试。');
     } finally {
