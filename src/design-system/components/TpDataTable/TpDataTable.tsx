@@ -387,7 +387,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
                     tabIndex={0}
                     onClick={() => {
                       try {
-                        const safeName = (ariaLabel || 'data').replace(/[^\\w\\-\\u4e00-\\u9fff]+/g, '-');
+                        const safeName = (ariaLabel || 'data').replace(/[^\w\-\u4e00-\u9fff]+/g, '-');
                         downloadSelectedRows(selectedRows, visibleColumns, `${safeName}-selected.csv`);
                         setBatchFeedback({ kind: 'success', title: '导出已开始', subtitle: `已导出 ${selectedRows.length} 条所选记录` });
                       } catch (cause) {
