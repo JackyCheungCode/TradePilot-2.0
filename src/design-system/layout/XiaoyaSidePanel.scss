@@ -213,3 +213,47 @@
     flex: 0 0 auto;
   }
 }
+
+
+/* Task proposals are separate from the Carbon AI Chat composer so they remain actionable. */
+.tp-xiaoya-task {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--tp-space-03);
+  padding: var(--tp-space-04) var(--tp-space-05);
+  background: var(--cds-layer-01);
+  border-block-start: 1px solid var(--cds-border-subtle-01);
+}
+
+.tp-xiaoya-task__heading,
+.tp-xiaoya-task__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--tp-space-03);
+}
+
+.tp-xiaoya-task__goal,
+.tp-xiaoya-task__meta {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.tp-xiaoya-task__meta,
+.tp-xiaoya-task__status {
+  color: var(--cds-text-secondary);
+  font-size: 0.75rem;
+}
+
+.tp-xiaoya-task__error {
+  margin: 0;
+  color: var(--cds-text-error);
+  font-size: 0.875rem;
+}
+
+@media (max-width: 767px) {
+  .tp-xiaoya-task {
+    padding-inline: var(--tp-space-04);
+  }
+}
