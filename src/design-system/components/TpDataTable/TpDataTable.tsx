@@ -248,9 +248,9 @@ export function TpDataTable<T extends Record<string, unknown>>({
     }).map((column) => column.key);
   }, [columns, columnPreferences]);
   const headers = useMemo(() => [
-    ...visibleColumns.map((column) => ({ key: column.key, header: column.header, isSortable: Boolean(column.sortable) })),
+    ...visibleColumns.map((column) => ({ key: column.key, header: column.header, isSortable: column.sortable !== false && (!pagination?.serverSide || Boolean(onSortChange)) })),
     ...(rowActions.length ? [{ key: '__actions', header: '操作' }] : []),
-  ], [visibleColumns, rowActions.length]);
+  ], [visibleColumns, rowActions.length, pagination?.serverSide, onSortChange]);
   const carbonRows = useMemo(() => rows.map((row) => ({
     id: String(row[rowKey]),
     ...Object.fromEntries(visibleColumns.map((column) => [column.key, displayValue(row, column)])),
