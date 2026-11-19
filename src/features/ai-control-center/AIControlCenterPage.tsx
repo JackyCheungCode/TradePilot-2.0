@@ -7,7 +7,7 @@ import { IntegrationsSettings } from '@/features/settings/IntegrationsSettings';
 import { ExternalAgentConnections } from './ExternalAgentConnections';
 import { AgentTaskMonitor } from './AgentTaskMonitor';
 import { AgentSecurityCenter } from './AgentSecurityCenter';
-import { SkillsRegistry } from './SkillsRegistry';
+import { SkillsRegistry } from './SkillsRegistry';\nimport { ToolsRegistry } from './ToolsRegistry';
 
 type Section = { id: string; label: string; group: string; ready: boolean };
 const sections: Section[] = [
@@ -16,7 +16,7 @@ const sections: Section[] = [
   { id: 'agents', label: 'Agent 管理', group: 'Agent 能力', ready: true },
   { id: 'connections', label: '第三方 Agent 接入', group: 'Agent 能力', ready: true },
   { id: 'skills', label: 'Skills 管理', group: 'Agent 能力', ready: true },
-  { id: 'tools', label: 'Tools 管理', group: 'Agent 能力', ready: false },
+  { id: 'tools', label: 'Tools 管理', group: 'Agent 能力', ready: true },
   { id: 'tasks', label: '任务与调度', group: '执行管理', ready: true },
   { id: 'security', label: '权限与安全', group: '执行管理', ready: true },
   { id: 'monitoring', label: '运行监控', group: '执行管理', ready: false },
@@ -76,7 +76,7 @@ export function AIControlCenterPage() {
             <div className="tp-settings__content">
               {active === 'overview' && (
                 <>
-                  <InlineNotification kind="info" lowContrast title="统一管理入口已建立" subtitle="模型、内置 Agent、第三方连接、任务监控与审批已接入现有服务。Skills 已支持完整包导入和初步静态检查；Tools 注册中心与隔离执行运行时仍待建设。" />
+                  <InlineNotification kind="info" lowContrast title="统一管理入口已建立" subtitle="模型、内置 Agent、第三方连接、Skills 注册、Tools 权限策略、任务监控与审批已接入现有服务；隔离执行运行时仍待建设。" />
                   <Grid className="tp-settings__section-layout">
                     <Column sm={4} md={2} lg={4}><Tile className="tp-settings__editor">
                       <semanticIcons.api size={24} />
@@ -99,12 +99,12 @@ export function AIControlCenterPage() {
                   </Grid>
                   <div className="tp-settings__editor">
                     <h3>能力接入状态</h3>
-                    <p>当前优先复用已存在的模型供应商、Agent Profile、对话历史和执行服务。第三方 Agent / MCP 连接已可管理；Skills 支持 GitHub 完整包导入和启发式静态检查，但必须人工审核且不能执行；Tools 注册中心与隔离执行运行时后续建设。</p>
+                    <p>当前优先复用已存在的模型供应商、Agent Profile、对话历史和执行服务。第三方 Agent / MCP 连接、Skills 完整包导入与初步静态检查、Tools 权限策略均已接入；Skill 执行仍需隔离运行时和人工审核。</p>
                     <div className="tp-settings__section-item"><span>模型供应商配置</span><Tag type="green">已接入</Tag></div>
                     <div className="tp-ai-control__status-row"><span>内置 Agent 配置</span><Tag type="green">已接入</Tag></div>
                     <div className="tp-ai-control__status-row"><span>第三方 Agent / MCP 连接管理</span><Tag type="green">已接入</Tag></div>
                     <div className="tp-ai-control__status-row"><span>Skills 注册中心</span><Tag type="green">已接入</Tag></div>
-                    <div className="tp-ai-control__status-row"><span>任务监控与人工审批</span><Tag type="green">已接入</Tag></div>\n                    <div className="tp-ai-control__status-row"><span>Tools 注册中心</span><Tag type="cool-gray">待建设</Tag></div>\n                    <div className="tp-ai-control__status-row"><span>隔离执行运行时与运行指标</span><Tag type="cool-gray">待建设</Tag></div>
+                    <div className="tp-ai-control__status-row"><span>任务监控与人工审批</span><Tag type="green">已接入</Tag></div>\n                    <div className="tp-ai-control__status-row"><span>Tools 注册中心与显式权限策略</span><Tag type="green">已接入</Tag></div>\n                    <div className="tp-ai-control__status-row"><span>隔离执行运行时与运行指标</span><Tag type="cool-gray">待建设</Tag></div>
                   </div>
                 </>
               )}
@@ -116,13 +116,13 @@ export function AIControlCenterPage() {
               )}
               {active === 'agents' && <AgentSettings section="profiles" />}
               {active === 'connections' && <ExternalAgentConnections />}
-              {active === 'skills' && <SkillsRegistry />}
+              {active === 'skills' && <SkillsRegistry />}\n              {active === 'tools' && <ToolsRegistry />}
               {active === 'tasks' && <AgentTaskMonitor />}
               {active === 'security' && <AgentSecurityCenter />}
               {active === 'appearance' && <AgentSettings section="appearance" />}
               {active === 'history' && <AgentSettings section="history" />}
               {!sections.find(item => item.id === active)?.ready && (
-                <InlineNotification kind="info" lowContrast title="该能力正在整合" subtitle="已确认纳入 AI 与 Agent 控制中心。完成现有接口与数据模型审查后再开放配置，避免展示无法实际执行的占位功能。" />
+                <InlineNotification kind="info" lowContrast title="该能力正在整合" subtitle="隔离执行运行时仍在建设中，未开放未经审核的 Skill 代码执行。" />
               )}
             </div>
           </section>
