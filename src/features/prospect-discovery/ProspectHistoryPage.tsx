@@ -2,7 +2,7 @@ import { PageHeader } from '@/design-system';
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
-  Link, InlineLoading, InlineNotification, Tag, Tile, semanticIcons, WorldMapChart, TpDataTable,
+  Link, TPSkeleton, InlineNotification, Tag, Tile, semanticIcons, WorldMapChart, TpDataTable,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import { DonutChart, SimpleBarChart } from '@carbon/charts-react';
@@ -119,7 +119,7 @@ export function ProspectHistoryPage() {
       </section>}
       <Tile className="tp-prospect-hub__panel">
         <div className="tp-prospect-hub__section-heading"><div><h2>全部发现任务</h2><p>最近 200 条任务记录 · 点击任务查看详情与结果</p></div><Tag type="blue">{runs.length} 条任务</Tag></div>
-        {loading ? <div className="tp-prospect-hub__loading"><InlineLoading description="正在读取历史任务…" /></div> : (
+        {loading ? <div className="tp-prospect-hub__loading"><TPSkeleton variant="table" rows={6}/></div> : (
           <div className="tp-prospect-hub__table-wrap">
             <TpDataTable
         selectable
@@ -187,7 +187,7 @@ export function ProspectHistoryPage() {
             />
             {!results.length&&<p className="tp-prospect-hub__empty">该任务暂未关联捕获结果。</p>}
           </div>
-          {detailLoading ? <InlineLoading description="正在读取任务日志…" /> : <div className="tp-prospect-hub__logs">
+          {detailLoading ? <TPSkeleton variant="text" rows={5}/> : <div className="tp-prospect-hub__logs">
             {logs.map(log => <div key={log.id}><time>{fmt(log.created_at)}</time><Tag type={log.level === 'error' ? 'red' : log.level === 'success' ? 'green' : 'gray'}>{log.level || 'info'}</Tag><span>{log.message || '—'}</span></div>)}
             {!logs.length && <p>暂无执行日志。该任务可能尚未开始，或没有记录日志。</p>}
           </div>}
