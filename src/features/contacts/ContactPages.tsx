@@ -144,6 +144,8 @@ export function ContactConsolePage() {
   const [groupBy,setGroupBy]=useState('country');
   const [thenBy,setThenBy]=useState('account');
   const [showGroups,setShowGroups]=useState(true);
+  const [collapsedGroups,setCollapsedGroups]=useState<Set<string>>(()=>new Set());
+  const toggleGroup=(id:string)=>setCollapsedGroups(current=>{const next=new Set(current);if(next.has(id))next.delete(id);else next.add(id);return next;});
 
   const loadAnalytics=useCallback(async()=>{
     setAnalyticsLoading(true);
@@ -232,14 +234,14 @@ export function ContactConsolePage() {
     return [...parents.entries()].map(([label,children])=>({label,children:[...children.entries()].map(([childLabel,items])=>({label:childLabel,items}))}));
   },[rows,groupBy,thenBy,verifiedIds]);
   const tableColumns = useMemo(() => [
-    { key:'full_name', header:'联系人', primary:true, minWidth:190, render:(row:ContactTableRow) => row.__isGroup ? <strong>{row.__groupLabel}</strong> : <><strong>{row.full_name||[row.first_name,row.last_name].filter(Boolean).join(' ')||'未命名'}</strong><small>{row.email||'—'}</small></> },
+    { key:'full_name', header:'联系人', primary:true, minWidth:190, render:(row:ContactTableRow) => row.__isGroup ? <div className="tp-contacts__table-group"><strong>{row.__groupLabel}</strong><Button kind="ghost" size="sm" onClick={()=>toggleGroup(row.id)}>{collapsedGroups.has(row.id)?'展开':'收起'}</Button></div> : <><strong>{row.full_name||[row.first_name,row.last_name].filter(Boolean).join(' ')||'未命名'}</strong><small>{row.email||'—'}</small></> },
     { key:'account', header:'所属客户', minWidth:150, render:(row:ContactTableRow) => row.__isGroup ? '' : row.crm_accounts?.account_name||'—' },
     { key:'job', header:'职位 / 部门', minWidth:140, render:(row:ContactTableRow) => row.__isGroup ? '' : <>{row.job_title||'—'}<small>{row.department||''}</small></> },
     { key:'contact_method', header:'主要联系方式', minWidth:170, render:(row:ContactTableRow) => row.__isGroup ? '' : row.email||row.mobile||row.phone||row.whatsapp||'—' },
     { key:'role', header:'角色', minWidth:110, render:(row:ContactTableRow) => row.__isGroup ? '' : row.decision_role||'—' },
     { key:'status', header:'状态', minWidth:90, render:(row:ContactTableRow) => row.__isGroup ? '' : <Tag type={row.is_active?'green':'cool-gray'}>{row.is_active?'在职':'非在职'}</Tag> },
     { key:'primary_contact', header:'主联系人', minWidth:90, render:(row:ContactTableRow) => row.__isGroup ? '' : row.is_primary?'是':'—' },
-  ], []);
+  ], [collapsedGroups]);
   const tableRows = useMemo(():ContactTableRow[] => {
     if (!showGroups) return rows as ContactTableRow[];
     const result:ContactTableRow[]=[];
@@ -251,7 +253,7 @@ export function ContactConsolePage() {
       });
     });
     return result;
-  }, [rows, grouped, showGroups, thenBy]);
+  }, [rows, grouped, showGroups, thenBy, collapsedGroups]);
   const tableSearchScope = [query,statusFilter,sourceFilter,primaryFilter].join('|');
 
   const countryMapData=countryStats.filter(item=>item.key!=='unknown').map(item=>({code:item.key,label:item.label,value:item.total,detail:'已验证 '+item.verified+' · 在职 '+item.active}));
