@@ -68,6 +68,7 @@ export function AccountConsolePage(){
  rowKey="id"
  ariaLabel="客户列表"
  detailPanel
+ error={error||null} onRetry={load}
  selectionScopeKey={[query,status,countryFilter].join('|')}
  onRowOpen={row=>nav('/accounts/'+row.id)}
  columnSettingsKey="crm-accounts"
