@@ -78,6 +78,7 @@ export function OpportunityConsolePage() {
   const [selectionResetVersion,setSelectionResetVersion] = useState(0);
   const [archiveNotice,setArchiveNotice] = useState<{kind:'success'|'error';message:string}|null>(null);
   const [searchParams,setSearchParams] = useSearchParams();
+  const loadSequenceRef = useRef(0);
   const detailLauncherRef = useRef<HTMLElement>(null) as { current: HTMLElement | null };
   const activeOpportunityId = searchParams.get('opportunity');
   const activeOpportunity = activeOpportunityId
@@ -92,6 +93,7 @@ export function OpportunityConsolePage() {
     setDetailRow(null);
   };
   const load = useCallback(async () => {
+    const requestId = ++loadSequenceRef.current;
     setLoading(true); setError('');
     try {
       const db = await getSupabaseClient();
@@ -109,6 +111,7 @@ export function OpportunityConsolePage() {
         contactRows.push(...(result.data||[]) as ContactOption[]);
         if((result.data||[]).length<1000) break;
       }
+      if(requestId!==loadSequenceRef.current) return;
       setAccounts(accountRows);
       setContacts(contactRows);
       const accountIds=marketCountry==='all'?null:accountRows.filter(item=>String(item.country_code||'').toUpperCase()===marketCountry).map(item=>item.id);
@@ -163,9 +166,13 @@ export function OpportunityConsolePage() {
         summaryRows.push(...(chunk.data||[]) as typeof summaryRows);
         if((chunk.data||[]).length<1000) break;
       }
+      if(requestId!==loadSequenceRef.current) return;
       setAnalyticsRows(summaryRows);
-    } catch(e) { setError(e instanceof Error ? e.message : '读取商机失败'); }
-    finally { setLoading(false); }
+    } catch(e) {
+      if(requestId===loadSequenceRef.current) setError(e instanceof Error ? e.message : '读取商机失败');
+    } finally {
+      if(requestId===loadSequenceRef.current) setLoading(false);
+    }
   },[query,stage,marketCountry,page,pageSize,sortKey,sortDirection]);
   useEffect(()=>{void load()},[load]);
 
