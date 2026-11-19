@@ -31,7 +31,7 @@ type Message = {
   direction: 'inbound' | 'outbound';
   body: string;
   timestamp: number;
-  status: 'read' | 'delivered' | 'sent' | 'local' | 'failed';
+  status: 'read' | 'delivered' | 'sent' | 'sending' | 'queued' | 'local' | 'failed';
   subject?: string;
   attachment?: string;
   translatedContent?: string;
@@ -81,6 +81,8 @@ function timestamp(value: string | null | undefined): number {
 }
 function messageStatus(value: string | null): Message['status'] {
   if (value === 'failed' || value === 'error') return 'failed';
+  if (value === 'sending') return 'sending';
+  if (value === 'queued') return 'queued';
   if (value === 'read') return 'read';
   if (value === 'delivered') return 'delivered';
   if (value === 'sent' || value === 'accepted') return 'sent';
@@ -437,6 +439,7 @@ export function CustomerCommunicationsWidget({
       await loadInbox();
     } catch (cause) {
       setNotice(cause instanceof Error ? cause.message : '消息发送失败。');
+      await loadInbox();
     } finally {
       setSending(false);
     }
@@ -563,7 +566,7 @@ export function CustomerCommunicationsWidget({
                         {message.direction === 'inbound' && !message.translatedContent && <Button type="button" kind="ghost" size="sm" disabled={translationBusyId === message.id} onClick={() => void translateMessage(message)}>{translationBusyId === message.id ? '翻译中…' : '翻译消息'}</Button>}
                       </div>
                     </div>
-                    {message.direction === 'outbound' && <span className="tp-chat-message-status">{message.status === 'local' ? '本地演示 · 未发送' : message.status === 'delivered' ? '已送达' : '已发送'}</span>}
+                    {message.direction === 'outbound' && <span className="tp-chat-message-status">{message.status === 'failed' ? '发送失败' : message.status === 'sending' || message.status === 'queued' ? '发送中' : message.status === 'local' ? '本地演示 · 未发送' : message.status === 'read' ? '已读' : message.status === 'delivered' ? '已送达' : '已发送'}</span>}
                   </div>
                 );
               })}
