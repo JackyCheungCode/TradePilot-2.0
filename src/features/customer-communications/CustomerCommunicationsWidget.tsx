@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { getSupabaseClient } from '@/lib/supabase';
-import { Button, semanticIcons, ClickableTile, ContentSwitcher, Switch, Dropdown, Search, TextArea, TextInput } from '@/design-system';
+import { Button, semanticIcons, ClickableTile, Dropdown, Search, TextArea, TextInput } from '@/design-system';
 
 type Channel = 'whatsapp' | 'messenger' | 'instagram' | 'email' | 'telegram' | 'wechat' | 'line';
 type Filter = 'all' | 'unread' | 'pending' | 'resolved';
@@ -160,7 +160,6 @@ export function CustomerCommunicationsWidget({
   const [channelOverride, setChannelOverride] = useState<Channel | null>(null);
   const [profileOpen, setProfileOpen] = useState(true);
   const [notice, setNotice] = useState('');
-  const [maximized, setMaximized] = useState(false);
   const [sending, setSending] = useState(false);
   const [aiBusyAction, setAiBusyAction] = useState<'summary' | 'reply_draft' | 'intent' | null>(null);
   const [aiResult, setAiResult] = useState('');
@@ -305,6 +304,12 @@ export function CustomerCommunicationsWidget({
     { id: 'all', text: '全部渠道' },
     ...Array.from(new Set([...identities.map((identity) => identity.channel), ...messages.map((message) => message.channel)])).map((channel) => ({ id: channel, text: channelNames[channel] })),
   ];
+  const statusFilterOptions: { id: Filter; text: string }[] = [
+    { id: 'all', text: '全部会话' },
+    { id: 'unread', text: '未读消息' },
+    { id: 'pending', text: '待处理' },
+    { id: 'resolved', text: '已解决' },
+  ];
 
   const sortedCustomers = useMemo(() => customers
     .filter((customer) => {
@@ -419,36 +424,51 @@ export function CustomerCommunicationsWidget({
   }
 
   if (!activeCustomer) {
-    return <div className={"cc-floating-root" + (fullPage ? " cc-floating-root--page" : "") + (navigationExpanded ? " cc-floating-root--nav-expanded" : "")}>
-      <section className={"cc-window" + (fullPage ? " cc-window--page" : "")} role="region" aria-label="全渠道消息中心">
-        <header className="cc-window-header"><div className="cc-window-brand"><span className="cc-brand-mark">TP</span><div><strong>客户沟通</strong><small>CRM 联系人与统一收件箱</small></div></div><div className="cc-window-tools"><ActionIconButton label="关闭聊天窗口" onClick={onClose} /></div></header>
-        <div className="cc-empty">{loading ? '正在读取系统联系人…' : loadError || 'CRM 中暂无可显示的联系人。请先在联系人模块添加联系人。'}</div>
-      </section>
-    </div>;
+    return (
+      <div className="tp-communication-page">
+        <section className="tp-communication-shell" aria-label="沟通工作区">
+          <header className="tp-communication-header">
+            <div className="tp-communication-heading"><span className="tp-communication-brand">TP</span><div><h1>沟通</h1><p>CRM 客户 · 全渠道会话 · 小雅辅助</p></div></div>
+            <div className="tp-communication-header-actions">
+              <Button type="button" kind="ghost" size="sm" onClick={() => void loadInbox()}>刷新</Button>
+              <Button type="button" kind="ghost" size="sm" onClick={onClose}>返回工作台</Button>
+            </div>
+          </header>
+          <div className="tp-communication-empty">{loading ? '正在读取 CRM 客户…' : loadError || '暂无 CRM 客户。请先在客户档案或联系人模块添加客户。'}</div>
+        </section>
+      </div>
+    );
   }
 
   return (
-    <div className={"cc-floating-root" + (fullPage ? " cc-floating-root--page" : "") + (navigationExpanded ? " cc-floating-root--nav-expanded" : "")}>
-      <section className={'cc-window' + (maximized ? ' cc-window--maximized' : '') + (fullPage ? ' cc-window--page' : '')} role={fullPage ? "region" : "dialog"} aria-label="全渠道消息中心" aria-modal={fullPage ? undefined : "false"}>
-        <header className="cc-window-header">
-          <div className="cc-window-brand"><span className="cc-brand-mark">TP</span><div><strong>客户沟通</strong><small>CRM 联系人与统一收件箱</small><span className="cc-mobile-app-label">聊天 App</span></div></div>
-          <div className="cc-window-tools">
-            {fullPage && <ActionIconButton label="返回工作台" onClick={onClose} />}
-            <ActionIconButton label={profileOpen ? '收起客户资料' : '显示客户资料'} onClick={() => setProfileOpen((value) => !value)} />
-            {!fullPage && <ActionIconButton label={maximized ? '还原窗口' : '最大化窗口'} onClick={() => setMaximized((value) => !value)} />}
-            {!fullPage && <ActionIconButton label="最小化聊天窗口" onClick={onMinimize} />}
-            {!fullPage && <ActionIconButton label="关闭聊天窗口" onClick={onClose} />}
+    <div className="tp-communication-page">
+      <section className="tp-communication-shell" aria-label="沟通工作区">
+        <header className="tp-communication-header">
+          <div className="tp-communication-heading">
+            <span className="tp-communication-brand">TP</span>
+            <div><h1>沟通</h1><p>客户关系 · 全渠道会话 · AI 辅助跟进</p></div>
+          </div>
+          <div className="tp-communication-header-actions">
+            <span className="tp-communication-overview">{customers.length} 位客户 <span>·</span> {unreadTotal} 条未读</span>
+            <Button type="button" kind="ghost" size="sm" onClick={() => void loadInbox()}>刷新</Button>
+            <Button type="button" kind="ghost" size="sm" onClick={() => setProfileOpen((value) => !value)}>{profileOpen ? '收起客户 360' : '显示客户 360'}</Button>
+            <Button type="button" kind="ghost" size="sm" onClick={onClose}>返回工作台</Button>
           </div>
         </header>
 
-        <div className={'cc-workspace' + (!profileOpen ? ' cc-workspace--no-profile' : '') + (mobileChatOpen ? ' cc-workspace--mobile-chat' : '')}>
-          <aside className="cc-inbox">
-            <div className="cc-inbox-heading"><div><strong>联系人</strong><span>{customers.length} 位 CRM 联系人</span></div></div>
-            <div className="cc-search"><Search size="lg" labelText="搜索客户、公司或消息" placeholder="搜索客户、公司或消息" value={search} onChange={(event) => setSearch(event.currentTarget.value)} /></div>
-            <div className="cc-channel-filters">
+        <div className={'tp-communication-grid' + (!profileOpen ? ' tp-communication-grid--profile-closed' : '') + (mobileChatOpen ? ' tp-communication-grid--mobile-chat' : '')}>
+          <aside className="tp-communication-customers" aria-label="CRM 客户列表">
+            <div className="tp-pane-heading">
+              <div><h2>CRM 客户</h2><p>客户与最近沟通记录</p></div>
+              <span className="tp-pane-count">{sortedCustomers.length}</span>
+            </div>
+            <div className="tp-communication-search">
+              <Search size="lg" labelText="搜索客户、公司或消息" placeholder="搜索客户、公司或消息" value={search} onChange={(event) => setSearch(event.currentTarget.value)} />
+            </div>
+            <div className="tp-communication-filters">
               <Dropdown
-                id="cc-channel-filter"
-                titleText="消息渠道筛选"
+                id="communication-channel-filter"
+                titleText="消息渠道"
                 label="全部渠道"
                 size="sm"
                 items={channelFilterOptions}
@@ -456,71 +476,76 @@ export function CustomerCommunicationsWidget({
                 selectedItem={channelFilterOptions.find((item) => item.id === channelFilter) ?? channelFilterOptions[0]}
                 onChange={({ selectedItem }) => setChannelFilter(selectedItem?.id ?? 'all')}
               />
-            </div>
-            <div className="cc-filters" aria-label="按会话状态筛选">
-              <ContentSwitcher
+              <Dropdown
+                id="communication-status-filter"
+                titleText="会话状态"
+                label="全部会话"
                 size="sm"
-                selectedIndex={(['all', 'unread', 'pending', 'resolved'] as Filter[]).indexOf(filter)}
-                onChange={(selection: { name?: string | number }) => {
-                  if (selection.name !== undefined) setFilter(String(selection.name) as Filter);
-                }}
-              >
-                <Switch name="all" text="全部" />
-                <Switch name="unread" text={'未读' + (unreadTotal > 0 ? ' ' + unreadTotal : '')} />
-                <Switch name="pending" text="待处理" />
-                <Switch name="resolved" text="已解决" />
-              </ContentSwitcher>
+                items={statusFilterOptions}
+                itemToString={(item) => item?.text ?? ''}
+                selectedItem={statusFilterOptions.find((item) => item.id === filter) ?? statusFilterOptions[0]}
+                onChange={({ selectedItem }) => setFilter(selectedItem?.id ?? 'all')}
+              />
             </div>
-            <div className="cc-customer-list">
+            <div className="tp-communication-customer-list">
               {sortedCustomers.map((customer) => {
                 const last = messages.filter((message) => message.customerId === customer.id).sort((a, b) => b.timestamp - a.timestamp)[0];
-                return <ClickableTile key={customer.id} className={'cc-customer-row' + (activeCustomerId === customer.id ? ' is-selected' : '')} onClick={() => selectCustomer(customer)} aria-current={activeCustomerId === customer.id ? 'true' : undefined}>
-                  <Avatar name={customer.name}/>
-                  <span className="cc-customer-copy"><span className="cc-customer-top"><strong>{customer.name}</strong><time>{last ? formatTime(last.timestamp) : customer.lastActivityAt ? formatTime(customer.lastActivityAt) : '—'}</time></span><span className="cc-company">{customer.company}</span><span className="cc-preview">{last?.body ?? customer.lastPreview}</span><span className="cc-customer-bottom">{(last?.channel || customer.lastChannel) && <ChannelBadge channel={last?.channel || customer.lastChannel!} compact/>}<span>{customerIdentitiesCount(identities, customer.id)} 个渠道</span></span></span>
-                  {customer.unread > 0 && <b className="cc-unread-count">{customer.unread}</b>}
-                </ClickableTile>;
+                return (
+                  <ClickableTile key={customer.id} className={'tp-communication-customer' + (activeCustomerId === customer.id ? ' is-selected' : '')} onClick={() => selectCustomer(customer)} aria-current={activeCustomerId === customer.id ? 'true' : undefined}>
+                    <Avatar name={customer.name} />
+                    <span className="tp-communication-customer-copy">
+                      <span className="tp-communication-customer-top"><strong>{customer.name}</strong><time>{last ? formatTime(last.timestamp) : customer.lastActivityAt ? formatTime(customer.lastActivityAt) : '—'}</time></span>
+                      <span className="tp-communication-company">{customer.company}</span>
+                      <span className="tp-communication-preview">{last?.body ?? customer.lastPreview}</span>
+                      <span className="tp-communication-customer-meta">{(last?.channel || customer.lastChannel) && <ChannelBadge channel={last?.channel || customer.lastChannel!} compact />}<span>{customerIdentitiesCount(identities, customer.id)} 个渠道</span></span>
+                    </span>
+                    {customer.unread > 0 && <b className="tp-communication-unread">{customer.unread}</b>}
+                  </ClickableTile>
+                );
               })}
-              {sortedCustomers.length === 0 && <div className="cc-empty">没有符合条件的客户</div>}
+              {sortedCustomers.length === 0 && <div className="tp-communication-empty-inline">没有符合条件的客户</div>}
             </div>
           </aside>
 
-          <main className="cc-chat">
-            <div className="cc-chat-header">
-              <ActionIconButton label="返回客户列表" onClick={() => setMobileChatOpen(false)} />
-              <Avatar name={activeCustomer.name} size="small"/>
-              <div className="cc-chat-title"><strong>{activeCustomer.name}</strong><span>{activeCustomer.company} · {activeCustomer.country}</span></div>
-              <div className="cc-chat-header-actions"><span className="cc-online-dot"/> <span>统一客户时间线</span></div>
-            </div>
-            <div className="cc-timeline">
-              <div className="cc-timeline-date">所有渠道消息按时间排列</div>
+          <main className="tp-communication-chat" aria-label="客户聊天窗口">
+            <header className="tp-chat-header">
+              <Button type="button" kind="ghost" size="sm" className="tp-chat-back" onClick={() => setMobileChatOpen(false)}>客户列表</Button>
+              <Avatar name={activeCustomer.name} size="small" />
+              <div className="tp-chat-heading"><strong>{activeCustomer.name}</strong><span>{activeCustomer.company} · {activeCustomer.country}</span></div>
+              <div className="tp-chat-context"><span className="tp-chat-live-dot" /> 全渠道会话</div>
+            </header>
+            <div className="tp-chat-timeline">
+              <div className="tp-chat-timeline-label">消息时间线</div>
               {customerMessages.map((message, index) => {
                 const previous = customerMessages[index - 1];
                 const showDate = !previous || new Date(previous.timestamp).toDateString() !== new Date(message.timestamp).toDateString();
-                return <div key={message.id} className={'cc-message-group ' + (message.direction === 'outbound' ? 'is-outbound' : 'is-inbound')}>
-                  {showDate && <div className="cc-date-divider"><span>{new Date(message.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</span></div>}
-                  <div className="cc-message-meta"><ChannelBadge channel={message.channel}/><time>{formatTime(message.timestamp)}</time><span>{message.direction === 'inbound' ? activeCustomer.name : '我方'}</span></div>
-                  <div className="cc-message-line">
-                    <Avatar name={message.direction === 'inbound' ? activeCustomer.name : 'TradePilot'} size="small" placeholder/>
-                    <div className={'cc-message-bubble' + (message.channel === 'email' ? ' is-email' : '')}>
-                      {message.subject && <strong className="cc-email-subject">{message.subject}</strong>}
-                      <p>{message.body}</p>
-                      {message.attachment && <span className="cc-attachment">▤ {message.attachment}</span>}
-                      {message.translatedContent && <p className="cc-message-translation">{message.translatedContent}</p>}
-                      {message.direction === 'inbound' && !message.translatedContent && <Button type="button" kind="ghost" size="sm" disabled={translationBusyId === message.id} onClick={() => void translateMessage(message)}>{translationBusyId === message.id ? '翻译中…' : '翻译消息'}</Button>}
+                return (
+                  <div key={message.id} className={'tp-chat-message ' + (message.direction === 'outbound' ? 'is-outbound' : 'is-inbound')}>
+                    {showDate && <div className="tp-chat-date"><span>{new Date(message.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</span></div>}
+                    <div className="tp-chat-message-meta"><ChannelBadge channel={message.channel} /><time>{formatTime(message.timestamp)}</time><span>{message.direction === 'inbound' ? activeCustomer.name : '我方'}</span></div>
+                    <div className="tp-chat-message-line">
+                      <Avatar name={message.direction === 'inbound' ? activeCustomer.name : 'TradePilot'} size="small" placeholder />
+                      <div className="tp-chat-bubble">
+                        {message.subject && <strong className="tp-chat-email-subject">{message.subject}</strong>}
+                        <p>{message.body}</p>
+                        {message.attachment && <span className="tp-chat-attachment">▤ {message.attachment}</span>}
+                        {message.translatedContent && <p className="tp-chat-translation">{message.translatedContent}</p>}
+                        {message.direction === 'inbound' && !message.translatedContent && <Button type="button" kind="ghost" size="sm" disabled={translationBusyId === message.id} onClick={() => void translateMessage(message)}>{translationBusyId === message.id ? '翻译中…' : '翻译消息'}</Button>}
+                      </div>
                     </div>
+                    {message.direction === 'outbound' && <span className="tp-chat-message-status">{message.status === 'local' ? '本地演示 · 未发送' : message.status === 'delivered' ? '已送达' : '已发送'}</span>}
                   </div>
-                  {message.direction === 'outbound' && <span className="cc-message-status">{message.status === 'local' ? '本地演示 · 未发送' : message.status === 'delivered' ? '已送达' : '已发送'}</span>}
-                </div>;
+                );
               })}
-              {customerMessages.length === 0 && <div className="cc-empty cc-empty--timeline">这个联系人当前没有收件箱消息。</div>}
+              {customerMessages.length === 0 && <div className="tp-communication-empty-inline tp-chat-empty">这个客户当前没有收件箱消息。</div>}
             </div>
 
-            <form className="cc-composer" onSubmit={sendMessage}>
-              <div className="cc-reply-routing">
+            <form className="tp-chat-composer" onSubmit={sendMessage}>
+              <div className="tp-chat-routing">
                 <span>回复渠道</span>
-                <div className="cc-channel-picker">
+                <div className="tp-chat-channel-picker">
                   <Dropdown
-                    id="cc-reply-channel"
+                    id="communication-reply-channel"
                     titleText="回复渠道"
                     label="选择渠道"
                     size="sm"
@@ -534,38 +559,65 @@ export function CustomerCommunicationsWidget({
                     onChange={({ selectedItem }) => setChannelOverride(selectedItem?.channel ?? null)}
                   />
                 </div>
-              <span className="cc-route-hint">{channelOverride ? '已手动切换' : '跟随客户最后一条入站消息'}</span>
+                <span>{channelOverride ? '手动选择渠道' : '跟随客户最后一条入站消息'}</span>
               </div>
-              {replyChannel === 'email' && <TextInput id="cc-email-subject" labelText="邮件主题" hideLabel value={emailSubject} onChange={(event) => setEmailSubject(event.currentTarget.value)} placeholder="邮件主题" />}
-              <TextArea id="cc-message-draft" labelText="消息内容" hideLabel value={draft} onChange={(event) => { const value = event.currentTarget.value; setDrafts((current) => ({ ...current, [activeCustomerId]: value })); }} placeholder={'通过 ' + channelNames[replyChannel] + ' 回复 ' + activeCustomer.name + '…'} rows={3} />
-              <div className="cc-composer-footer"><span>{channelCanSend ? '发送将调用已连接渠道的真实 API' : '该渠道暂未开放真实发送'}</span><Button type="submit" kind="primary" size="md" disabled={!channelCanSend || !draft.trim() || !replyIdentity?.connected || sending || !activeCustomer.latestConversationId}>{sending ? '发送中…' : '发送消息'}</Button></div>
+              {replyChannel === 'email' && <TextInput id="communication-email-subject" labelText="邮件主题" hideLabel value={emailSubject} onChange={(event) => setEmailSubject(event.currentTarget.value)} placeholder="邮件主题" />}
+              <TextArea id="communication-message-draft" labelText="消息内容" hideLabel value={draft} onChange={(event) => { const value = event.currentTarget.value; setDrafts((current) => ({ ...current, [activeCustomerId]: value })); }} placeholder={'发送消息给 ' + activeCustomer.name + '…'} rows={3} />
+              <div className="tp-chat-composer-footer"><span>{channelCanSend ? '发送将调用已连接渠道的真实 API' : '该渠道暂未开放真实发送'}</span><Button type="submit" kind="primary" size="md" disabled={!channelCanSend || !draft.trim() || !replyIdentity?.connected || sending || !activeCustomer.latestConversationId}>{sending ? '发送中…' : '发送消息'}</Button></div>
             </form>
           </main>
 
-          {profileOpen && <aside className="cc-profile">
-            <div className="cc-profile-top"><Avatar name={activeCustomer.name}/><strong>{activeCustomer.name}</strong><span>{activeCustomer.role}</span><small>{activeCustomer.company}</small></div>
-            <section className="cc-profile-section cc-ai-assistant">
-              <h3>AI 助手</h3>
-              <div className="cc-ai-actions">
-                <Button type="button" kind="tertiary" size="sm" disabled={aiBusyAction !== null || !activeCustomer.latestConversationId} onClick={() => void generateSummary()}>{aiBusyAction === 'summary' ? '摘要生成中…' : '生成会话摘要'}</Button>
-                <Button type="button" kind="ghost" size="sm" disabled={aiBusyAction !== null || !activeCustomer.latestConversationId} onClick={() => void runAiAssistant('intent')}>{aiBusyAction === 'intent' ? '识别中…' : '识别客户意图'}</Button>
-                <Button type="button" kind="ghost" size="sm" disabled={aiBusyAction !== null || !activeCustomer.latestConversationId} onClick={() => void runAiAssistant('reply_draft')}>{aiBusyAction === 'reply_draft' ? '生成中…' : '推荐回复'}</Button>
-              </div>
-              {activeCustomer.aiSummary && <div className="cc-ai-summary"><strong>会话摘要</strong><p>{activeCustomer.aiSummary}</p></div>}
-              {aiResult && <div className="cc-ai-result"><strong>{aiResultAction === 'reply_draft' ? '回复建议' : '客户意图分析'}</strong><p>{aiResult}</p>{aiResultAction === 'reply_draft' && <Button type="button" kind="tertiary" size="sm" onClick={() => { setDrafts((current) => ({ ...current, [activeCustomerId]: aiResult })); setAiResult(''); setAiResultAction(null); }}>采用回复草稿</Button>}</div>}
-              {aiError && <p className="cc-ai-error" role="alert">{aiError}</p>}
-              <span className="cc-ai-disclaimer">AI 仅提供辅助建议；消息必须由你确认后发送。</span>
-            </section>
-            <section className="cc-profile-section"><h3>客户信息</h3><dl><dt>国家 / 地区</dt><dd>{activeCustomer.country}</dd><dt>邮箱</dt><dd>{activeCustomer.email || '—'}</dd><dt>电话</dt><dd>{activeCustomer.phone || '—'}</dd></dl></section>
-            <section className="cc-profile-section"><h3>渠道身份 <span>{customerIdentities.length}</span></h3>{customerIdentities.map((identity) => <div className="cc-identity" key={identity.id}><ChannelBadge channel={identity.channel}/><div><strong>{identity.handle}</strong><small>{identity.account}</small></div><i className={identity.connected ? 'is-connected' : ''}/></div>)}</section>
-            <section className="cc-profile-section"><h3>客户标签</h3><div className="cc-tags">{activeCustomer.tags.map((tag) => <span key={tag}>{tag}</span>)}</div></section>
-            <div className="cc-profile-foot">CRM 联系人档案</div>
-          </aside>}
+          {profileOpen && (
+            <aside className="tp-communication-side" aria-label="客户 360 与小雅建议">
+              <section className="tp-customer-360">
+                <div className="tp-side-heading"><div><h2>客户 360</h2><p>客户档案与关系概览</p></div></div>
+                <div className="tp-customer-identity">
+                  <Avatar name={activeCustomer.name} />
+                  <strong>{activeCustomer.name}</strong>
+                  <span>{activeCustomer.role}</span>
+                  <small>{activeCustomer.company}</small>
+                </div>
+                <section className="tp-customer-section">
+                  <h3>基本信息</h3>
+                  <dl>
+                    <dt>公司</dt><dd>{activeCustomer.company}</dd>
+                    <dt>国家 / 地区</dt><dd>{activeCustomer.country}</dd>
+                    <dt>职位</dt><dd>{activeCustomer.role}</dd>
+                    <dt>邮箱</dt><dd>{activeCustomer.email || '—'}</dd>
+                    <dt>电话</dt><dd>{activeCustomer.phone || '—'}</dd>
+                  </dl>
+                </section>
+                <section className="tp-customer-section">
+                  <h3>社交与沟通渠道 <span>{customerIdentities.length}</span></h3>
+                  {customerIdentities.length > 0 ? customerIdentities.map((identity) => <div className="tp-customer-channel" key={identity.id}><ChannelBadge channel={identity.channel} /><div><strong>{identity.handle}</strong><small>{identity.account}</small></div><i className={identity.connected ? 'is-connected' : ''} /></div>) : <p className="tp-customer-no-data">尚未关联外部沟通身份</p>}
+                </section>
+                <section className="tp-customer-section">
+                  <h3>客户标签</h3>
+                  <div className="tp-customer-tags">{activeCustomer.tags.length ? activeCustomer.tags.map((tag) => <span key={tag}>{tag}</span>) : <small>暂无标签</small>}</div>
+                </section>
+              </section>
+
+              <section className="tp-xiaoya-suggestions">
+                <div className="tp-side-heading"><div><h2>小雅建议</h2><p>结合当前会话提供下一步建议</p></div><span className="tp-xiaoya-mark">AI</span></div>
+                <div className="tp-xiaoya-actions">
+                  <Button type="button" kind="primary" size="sm" disabled={aiBusyAction !== null || !activeCustomer.latestConversationId} onClick={() => void runAiAssistant('reply_draft')}>{aiBusyAction === 'reply_draft' ? '生成中…' : '生成回复建议'}</Button>
+                  <Button type="button" kind="tertiary" size="sm" disabled={aiBusyAction !== null || !activeCustomer.latestConversationId} onClick={() => void runAiAssistant('intent')}>{aiBusyAction === 'intent' ? '分析中…' : '分析客户意图'}</Button>
+                  <Button type="button" kind="ghost" size="sm" disabled={aiBusyAction !== null || !activeCustomer.latestConversationId} onClick={() => void generateSummary()}>{aiBusyAction === 'summary' ? '总结中…' : '总结本次会话'}</Button>
+                </div>
+                {activeCustomer.aiSummary && <div className="tp-xiaoya-result"><strong>会话摘要</strong><p>{activeCustomer.aiSummary}</p></div>}
+                {aiResult && <div className="tp-xiaoya-result"><strong>{aiResultAction === 'reply_draft' ? '回复建议' : '客户意图分析'}</strong><p>{aiResult}</p>{aiResultAction === 'reply_draft' && <Button type="button" kind="tertiary" size="sm" onClick={() => { setDrafts((current) => ({ ...current, [activeCustomerId]: aiResult })); setAiResult(''); setAiResultAction(null); }}>采用建议并填入回复框</Button>}</div>}
+                {aiError && <p className="tp-xiaoya-error" role="alert">{aiError}</p>}
+                {!activeCustomer.latestConversationId && <p className="tp-xiaoya-empty">该客户暂无会话，暂时无法生成建议。</p>}
+                <p className="tp-xiaoya-note">小雅提供辅助建议；所有对外消息均由你确认后发送。</p>
+              </section>
+            </aside>
+          )}
         </div>
-        {notice && <div className="cc-notice" role="status"><span>{notice}</span><Button type="button" kind="ghost" size="sm" onClick={() => setNotice('')}>知道了</Button></div>}
+        {notice && <div className="tp-communication-notice" role="status"><span>{notice}</span><Button type="button" kind="ghost" size="sm" onClick={() => setNotice('')}>知道了</Button></div>}
       </section>
     </div>
   );
+
 }
 
 function customerIdentitiesCount(identities: Identity[], customerId: string) {
