@@ -22,7 +22,7 @@ export interface Env {
   OVERPASS_API_URL?: string;
   AI?: {run(model:string,input:Record<string,unknown>):Promise<unknown>};
   LEAD_DISCOVERY_WORKFLOW?: { create(options:{id:string;params:{runId:string;ownerId:string;input:DiscoveryRunInput}}):Promise<{id:string}> };
-  AGENT_ORCHESTRATION_WORKFLOW?: { create(options:{id:string;params:{runId:string;ownerId:string;input:DiscoveryRunInput;goal:string;specialists:Array<{agentKey:string;instruction:string}>}}):Promise<{id:string}> };
+  AGENT_ORCHESTRATION_WORKFLOW?: { create(options:{id:string;params:{runId:string;ownerId:string;input:DiscoveryRunInput;goal:string;specialists:Array<{agentKey:string;instruction:string}>}}):Promise<{id:string}>; get(id:string):{status():Promise<{status:string}>;pause():Promise<void>;resume():Promise<void>;restart():Promise<void>;terminate():Promise<void>} };
 }
 type ConnectionRow = {
   id:string; owner_id:string; name:string; protocol:Protocol; endpoint_url:string;
@@ -1082,6 +1082,41 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
     if(path==="/api/v1/agent/runs"&&request.method==="GET"){
       const rows=await db<unknown[]>(env,"agent_runs?owner_id=eq."+ownerId+"&select=id,agent_key,goal,status,plan,result,error_message,estimated_cost_usd,actual_cost_usd,created_at,updated_at&order=created_at.desc&limit=100");
       return successResponse(request,rows??[]);
+    }
+    const runControlMatch=path.match(/^\\/api\\/v1\\/agent\\/runs\\/([0-9a-f-]{36})\\/(pause|resume|cancel|retry)$/i);
+    if(runControlMatch&&request.method==="POST"){
+      if(!env.AGENT_ORCHESTRATION_WORKFLOW)return errorResponse(request,"WORKFLOW_NOT_CONFIGURED","Agent 工作流控制服务尚未配置。",503);
+      const runId=runControlMatch[1],action=runControlMatch[2];
+      const rows=await db<Array<{id:string;status:string;plan:Record<string,unknown>}>>(env,"agent_runs?id=eq."+runId+"&owner_id=eq."+ownerId+"&select=id,status,plan&limit=1");
+      const run=rows?.[0];if(!run)return errorResponse(request,"RUN_NOT_FOUND","任务不存在，或你没有权限操作它。",404);
+      if(!run.plan?.workflowId)return errorResponse(request,"RUN_CONTROL_UNSUPPORTED","该任务不是可暂停、恢复或重试的 Agent 编排工作流。",409);
+      let instance;try{instance=env.AGENT_ORCHESTRATION_WORKFLOW.get(runId);}catch{return errorResponse(request,"WORKFLOW_INSTANCE_NOT_FOUND","找不到对应的工作流实例。",404);}
+      let instanceStatus:string;try{instanceStatus=(await instance.status()).status;}catch{return errorResponse(request,"WORKFLOW_INSTANCE_NOT_FOUND","无法读取工作流实例状态。",404);}
+      const now=new Date().toISOString();
+      if(action==="pause"){
+        if(instanceStatus!=="running")return errorResponse(request,"WORKFLOW_STATE_CONFLICT","只有正在运行的工作流可以暂停。",409);
+        await instance.pause();
+        await db(env,"agent_runs?id=eq."+runId+"&owner_id=eq."+ownerId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({status:"paused",updated_at:now,plan:{...run.plan,execution_state:"paused"}})});
+        await db(env,"discovery_runs?id=eq."+runId+"&owner_id=eq."+ownerId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({status:"paused",message:"Agent 工作流已暂停。",updated_at:now})});
+      }else if(action==="resume"){
+        if(instanceStatus!=="paused")return errorResponse(request,"WORKFLOW_STATE_CONFLICT","只有已暂停的工作流可以恢复。",409);
+        await instance.resume();
+        await db(env,"agent_runs?id=eq."+runId+"&owner_id=eq."+ownerId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({status:"running",updated_at:now,plan:{...run.plan,execution_state:"running"}})});
+        await db(env,"discovery_runs?id=eq."+runId+"&owner_id=eq."+ownerId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({status:"running",message:"Agent 工作流已恢复。",updated_at:now})});
+      }else if(action==="cancel"){
+        if(!["queued","running","paused","waiting","waitingForPause"].includes(instanceStatus))return errorResponse(request,"WORKFLOW_STATE_CONFLICT","当前工作流状态不能取消。",409);
+        await instance.terminate();
+        await db(env,"agent_runs?id=eq."+runId+"&owner_id=eq."+ownerId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({status:"cancelled",error_message:"用户取消了 Agent 工作流。",completed_at:now,updated_at:now,plan:{...run.plan,execution_state:"cancelled"}})});
+        await db(env,"discovery_runs?id=eq."+runId+"&owner_id=eq."+ownerId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({status:"cancelled",progress:100,message:"用户取消了 Agent 工作流。",updated_at:now})});
+      }else{
+        if(run.status!=="failed"||instanceStatus!=="errored")return errorResponse(request,"WORKFLOW_STATE_CONFLICT","只有失败且已结束的工作流可以从头重试。",409);
+        await instance.restart();
+        const steps=Array.isArray(run.plan.execution_steps)?run.plan.execution_steps.map(step=>({...asRecord(step),status:"queued",startedAt:null,completedAt:null,result:null,error:null})):[];
+        await db(env,"agent_runs?id=eq."+runId+"&owner_id=eq."+ownerId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({status:"queued",error_message:null,completed_at:null,updated_at:now,plan:{...run.plan,execution_state:"queued",execution_steps:steps,failure:null}})});
+        await db(env,"discovery_runs?id=eq."+runId+"&owner_id=eq."+ownerId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({status:"queued",progress:0,message:"Agent 工作流已从头重新启动。",updated_at:now})});
+      }
+      await writeRunLog(env,ownerId,runId,"info","Agent 工作流控制操作："+action,{action,previousStatus:run.status,workflowStatus:instanceStatus});
+      return successResponse(request,{id:runId,action,status:action==="pause"?"paused":action==="resume"?"running":action==="cancel"?"cancelled":"queued"});
     }
     if(path==="/api/v1/agent/runs"&&request.method==="POST"){
       let body:Record<string,unknown>;try{body=await request.json() as Record<string,unknown>;}catch{return errorResponse(request,"INVALID_JSON","请求内容不是有效 JSON。",400);}
