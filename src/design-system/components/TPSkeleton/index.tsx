@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { SkeletonPlaceholder } from '../SkeletonPlaceholder';
+import { DataTableSkeleton } from '../DataTableSkeleton';
 import { SkeletonText } from '../SkeletonText';
 
 export type TPSkeletonVariant = 'text' | 'card' | 'conversation' | 'profile' | 'table';
@@ -37,14 +38,7 @@ export function TPSkeleton({ variant = 'text', rows = 3, className = '', childre
           <SkeletonText paragraph lineCount={count} />
         </div>
       )}
-      {variant === 'table' && Array.from({ length: count }, (_, index) => (
-        <div className="tp-skeleton__table-row" key={index}>
-          <SkeletonText width="18%" />
-          <SkeletonText width="28%" />
-          <SkeletonText width="20%" />
-          <SkeletonText width="14%" />
-        </div>
-      ))}
+      {variant === 'table' && <DataTableSkeleton columnCount={4} rowCount={count} showToolbar />}
       {children}
     </div>
   );
