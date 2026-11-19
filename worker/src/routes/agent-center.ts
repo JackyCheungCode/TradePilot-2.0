@@ -1083,7 +1083,7 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
       const rows=await db<unknown[]>(env,"agent_runs?owner_id=eq."+ownerId+"&select=id,agent_key,goal,status,plan,result,error_message,estimated_cost_usd,actual_cost_usd,created_at,updated_at&order=created_at.desc&limit=100");
       return successResponse(request,rows??[]);
     }
-    const runControlMatch=path.match(/^\\/api\\/v1\\/agent\\/runs\\/([0-9a-f-]{36})\\/(pause|resume|cancel|retry)$/i);
+    const runControlMatch=path.match(/^\/api\/v1\/agent\/runs\/([0-9a-f-]{36})\/(pause|resume|cancel|retry)$/i);
     if(runControlMatch&&request.method==="POST"){
       if(!env.AGENT_ORCHESTRATION_WORKFLOW)return errorResponse(request,"WORKFLOW_NOT_CONFIGURED","Agent 工作流控制服务尚未配置。",503);
       const runId=runControlMatch[1],action=runControlMatch[2];
