@@ -175,7 +175,7 @@ test("Xiaoya rejects invalid external tool arguments before invoking the connect
  const registryId="123e4567-e89b-42d3-a456-426614174002";
  const callName="tp_ext_"+registryId.replace(/-/g,"");
  let modelCalls=0;let mcpToolCalls=0;
- const chatEnv={...env,AI:{async run(_model:string,input:Record<string,unknown>){
+ const chatEnv={...env,AI:{async run(_model:string,_input:Record<string,unknown>){
   modelCalls++;
   return {response:JSON.stringify(modelCalls===1?{reply:"尝试查询",task:null,toolCalls:[{name:callName,arguments:{query:42}}]}:{reply:"参数不符合工具要求，未执行。",task:null,toolCalls:[]})};
  }}};
