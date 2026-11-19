@@ -109,7 +109,7 @@ test("truncated GitHub trees are rejected before any package is persisted",async
  });
  try{
   const response=await handleSkillRegistry(request({repositoryUrl:"https://github.com/acme/skills/tree/main/skills/demo"}),env);
-  assert.equal(response.status,400);
+  assert.equal(response.status,502);
   assert.equal(databaseWrites,0);
   const payload=await response.json() as {error:{message:string}};
   assert.match(payload.error.message,/SKILL_TREE_TRUNCATED/);
