@@ -243,7 +243,7 @@ async function fetchSkillBundle(source:Source){
 function publicConfig(config:SkillConfig):SkillConfig{
  const bundle=config.bundle&&typeof config.bundle==="object"?config.bundle as Record<string,unknown>:{};
  const contract=config.contract&&typeof config.contract==="object"?config.contract as Record<string,unknown>:null;
- return {repositoryUrl:config.repositoryUrl,branch:config.branch,skillPath:config.skillPath,manifest:config.manifest,contractStatus:config.contractStatus??"missing",contractErrors:config.contractErrors??[],contractSummary:contract?{version:contract.version,runtime:contract.runtime,entrypoint:contract.entrypoint,requiredTools:contract.requiredTools,permissions:contract.permissions,limits:contract.limits}:null,syncedAt:config.syncedAt,syncStatus:config.syncStatus,activationStatus:config.activationStatus,bundle:Object.keys(bundle).length?{fileCount:bundle.fileCount,totalBytes:bundle.totalBytes,syncedAt:bundle.syncedAt,sourceRef:bundle.sourceRef,commitSha:bundle.commitSha,artifact:bundle.artifact}:undefined,securityReview:config.securityReview};
+ return {sourceType:config.sourceType,repositoryUrl:config.repositoryUrl,branch:config.branch,skillPath:config.skillPath,manifest:config.manifest,contractStatus:config.contractStatus??"missing",contractErrors:config.contractErrors??[],contractSummary:contract?{version:contract.version,runtime:contract.runtime,entrypoint:contract.entrypoint,requiredTools:contract.requiredTools,permissions:contract.permissions,limits:contract.limits}:null,syncedAt:config.syncedAt,syncStatus:config.syncStatus,activationStatus:config.activationStatus,bundle:Object.keys(bundle).length?{fileCount:bundle.fileCount,totalBytes:bundle.totalBytes,syncedAt:bundle.syncedAt,sourceRef:bundle.sourceRef,commitSha:bundle.commitSha,artifact:bundle.artifact}:undefined,securityReview:config.securityReview};
 }
 function stateOf(config:SkillConfig):"pending"|"configured"|"synced"{
  return typeof config.syncedAt==="string"?"synced":typeof config.repositoryUrl==="string"&&config.repositoryUrl?"configured":"pending";
@@ -262,7 +262,22 @@ export async function handleSkillRegistry(request:Request,env:Env):Promise<Respo
    return successResponse(request,skills);
   }
   if(url.pathname===base&&request.method==="POST"){
-   const body=await request.json() as {repositoryUrl?:string;branch?:string;skillPath?:string};
+   const body=await request.json() as {sourceType?:string;repositoryUrl?:string;branch?:string;skillPath?:string;skillMd?:string;skillJson?:string};
+   if(body.sourceType==="manual"){
+    if(typeof body.skillMd!=="string"||!body.skillMd.trim()||body.skillMd.length>100000)return errorResponse(request,"INVALID_SKILL_MARKDOWN","请提供不超过 100 KB 的 SKILL.md 内容。",400);
+    if(body.skillJson!==undefined&&(typeof body.skillJson!=="string"||body.skillJson.length>64000))return errorResponse(request,"INVALID_SKILL_CONTRACT","skill.json 必须是不超过 64 KB 的 JSON 文本。",400);
+    const manifest=parseFrontmatter(body.skillMd);
+    const files:BundleFile[]=[{path:"SKILL.md",size:new TextEncoder().encode(body.skillMd).byteLength,encoding:"utf-8",content:body.skillMd,sha:"manual"}];
+    if(body.skillJson?.trim())files.push({path:"skill.json",size:new TextEncoder().encode(body.skillJson).byteLength,encoding:"utf-8",content:body.skillJson,sha:"manual"});
+    const contract=validateSkillContract(files,manifest);
+    const review={...staticReview(files,manifest),contractStatus:contract.status,contractErrors:contract.errors};
+    if(contract.status==="invalid"){review.riskLevel="high";review.findings.push({severity:"high",code:"SKILL_CONTRACT_INVALID",message:"skill.json 契约校验失败；当前版本不能进入执行审核。"});}
+    const artifact=await persistSkillBundle(env,files);
+    const syncedAt=new Date().toISOString();
+    const config={sourceType:"manual",manifest,contract:contract.contract??null,contractStatus:contract.status,contractErrors:contract.errors,bundle:{fileCount:files.length,totalBytes:files.reduce((sum,file)=>sum+file.size,0),syncedAt,sourceRef:"manual",commitSha:"manual",artifact},securityReview:review,syncedAt,syncStatus:"package_synced",activationStatus:"disabled_pending_review"};
+    await db(env,"agent_profiles?on_conflict=owner_id,agent_key",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({owner_id:ownerId,agent_key:"skill:"+manifest.name,enabled:false,config,updated_at:syncedAt})});
+    return successResponse(request,{id:manifest.name,label:manifest.display_name||manifest.name,state:"package_synced",manifest,contractStatus:contract.status,contractErrors:contract.errors,package:{fileCount:files.length,totalBytes:config.bundle.totalBytes,artifact},securityReview:review,activationStatus:"disabled_pending_review"});
+   }
    if(typeof body.repositoryUrl!=="string"||body.repositoryUrl.length>500)return errorResponse(request,"INVALID_REPOSITORY_URL","请填写有效的 GitHub 仓库地址。",400);
    const source=parseSource(body.repositoryUrl,body.branch??"",body.skillPath??"");
    const imported=await fetchSkillBundle(source);const id=imported.manifest.name;const agentKey="skill:"+id;
@@ -274,6 +289,12 @@ export async function handleSkillRegistry(request:Request,env:Env):Promise<Respo
   const match=url.pathname.match(/^\/api\/v1\/agent\/skills\/([a-z0-9-]+)(\/sync)?$/);
   if(!match)return errorResponse(request,"NOT_FOUND","Skill 接口不存在。",404);
   const skillId=match[1],agentKey="skill:"+skillId;
+  if(request.method==="DELETE"&&!match[2]){
+   const existing=await db<Array<{config:SkillConfig}>>(env,"agent_profiles?owner_id=eq."+ownerId+"&agent_key=eq."+encodeURIComponent(agentKey)+"&select=config&limit=1");
+   if(!existing.length)return errorResponse(request,"SKILL_NOT_FOUND","找不到此 Skill，或你没有权限移除它。",404);
+   await db(env,"agent_profiles?owner_id=eq."+ownerId+"&agent_key=eq."+encodeURIComponent(agentKey),{method:"DELETE",headers:{Prefer:"return=minimal"}});
+   return successResponse(request,{id:skillId,deleted:true,artifactRetained:true});
+  }
   if(request.method==="PUT"&&!match[2]){
    const body=await request.json() as {repositoryUrl?:string;branch?:string;skillPath?:string};
    if(typeof body.repositoryUrl!=="string"||body.repositoryUrl.length>500)return errorResponse(request,"INVALID_REPOSITORY_URL","请填写有效的 GitHub 仓库地址。",400);
