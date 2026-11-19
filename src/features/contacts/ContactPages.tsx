@@ -257,9 +257,6 @@ export function ContactConsolePage() {
   const countryMapData=countryStats.filter(item=>item.key!=='unknown').map(item=>({code:item.key,label:item.label,value:item.total,detail:'已验证 '+item.verified+' · 在职 '+item.active}));
   const dailyChartData=dailyStats.map(item=>({group:'每日新增',date:new Date(item.date+'T00:00:00'),value:item.count}));
   const dailyChartOptions={theme:document.documentElement.dataset.carbonTheme==='g100'?'g100':'white',title:'每日新增联系人',axes:{bottom:{title:'日期',mapsTo:'date',scaleType:ScaleTypes.TIME},left:{title:'新增联系人',mapsTo:'value',scaleType:ScaleTypes.LINEAR}},curve:'curveMonotoneX',points:{enabled:true},legend:{enabled:false},toolbar:{enabled:false},height:'280px'} as const;
-  const pages=Math.max(1,Math.ceil(total/pageSize));
-  const start=total===0?0:(page-1)*pageSize+1;
-  const end=Math.min(page*pageSize,total);
   const refresh=()=>{void Promise.all([loadAnalytics(),loadRows()]);};
   return <main className="tp-contacts">
     <PageHeader className="tp-contacts__header"><div><p className="tp-contacts__eyebrow">TRADEPILOT / CRM</p><h1>联系人（Contact）</h1><p>管理客户组织中的联系人及其关系、联系方式与沟通偏好。</p></div><div className="tp-contacts__actions"><Button kind="tertiary" onClick={refresh} disabled={loading||analyticsLoading}><semanticIcons.refresh size={16}/>刷新</Button><Link href="/contacts/new" renderIcon={semanticIcons.add}>创建联系人</Link></div></PageHeader>
