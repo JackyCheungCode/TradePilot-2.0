@@ -75,6 +75,7 @@ export function OpportunityConsolePage() {
   const [sortDirection,setSortDirection] = useState<'ASC'|'DESC'>('DESC');
   const [archiveTargets,setArchiveTargets] = useState<Opportunity[]>([]);
   const [archiveBusy,setArchiveBusy] = useState(false);
+  const [selectionResetVersion,setSelectionResetVersion] = useState(0);
   const [archiveNotice,setArchiveNotice] = useState<{kind:'success'|'error';message:string}|null>(null);
   const [searchParams,setSearchParams] = useSearchParams();
   const detailLauncherRef = useRef<HTMLElement>(null) as { current: HTMLElement | null };
@@ -248,7 +249,7 @@ export function OpportunityConsolePage() {
         selectable
         batchActions={[{key:'archive',label:'归档所选',onClick:selected=>{setArchiveNotice(null);setArchiveTargets(selected);}}]}
         selectionRows={rows}
-        selectionScopeKey={`${query.trim().toLowerCase()}|${stage}|${marketCountry}`}
+        selectionScopeKey={`${query.trim().toLowerCase()}|${stage}|${marketCountry}|${selectionResetVersion}`}
         columns={[
           { key: 'name', header: '商机名称', primary: true, required: true, sortable: true, minWidth: 220, render: row => <span><Link href={`/opportunities/${row.id}`} className="tp-opportunities__row-link">{row.name}</Link><span className="tp-opportunities__secondary">{row.opportunity_number}</span></span> },
           { key: 'account', header: '所属客户', minWidth: 180, render: row => accountMap.get(row.account_id) || '—' },
@@ -280,7 +281,7 @@ export function OpportunityConsolePage() {
               const db=await getSupabaseClient();
               const result=await db.from('crm_opportunities').update({is_archived:true}).in('id',archiveTargets.map(item=>item.id));
               if(result.error)throw result.error;
-              const count=archiveTargets.length;setArchiveTargets([]);
+              const count=archiveTargets.length;setArchiveTargets([]);setSelectionResetVersion(version=>version+1);
               setArchiveNotice({kind:'success',message:`已归档 ${count} 条商机。`});
               await load();
             }catch(e){setArchiveNotice({kind:'error',message:e instanceof Error?e.message:'归档失败，请稍后重试。'})}
