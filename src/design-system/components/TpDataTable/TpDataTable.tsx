@@ -82,6 +82,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
   useEffect(() => {
     // Clear stale selections when the logical filter scope changes, not when a page changes.
     setSelectedIds(new Set());
+    selectedRowCache.current.clear();
   }, [selectionScopeKey]);
 
   const toggleRowSelection = (id: string, checked: boolean) => {
