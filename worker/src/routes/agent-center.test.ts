@@ -90,7 +90,7 @@ test("Xiaoya chat receives enabled Skill instructions and only registry-enabled 
  const artifactKey="sha256/"+artifactDigest+".json";
  const artifactBucket={async get(key:string){return key===artifactKey?{async arrayBuffer(){return new TextEncoder().encode(artifactBody).buffer;}}:null;}};
  const seenSystems:string[]=[];let modelCalls=0;let leadQueries=0;
- const chatEnv={...env,SKILL_ARTIFACTS:artifactBucket,AI:{async run(_model:string,input:Record<string,unknown>){
+ const chatEnv={...env,SKILL_ARTIFACTS:artifactBucket,AI:{async run(_model:string,_input:Record<string,unknown>){
   const messages=input.messages as Array<{role:string;content:string}>;
   seenSystems.push(messages[0]?.content??"");modelCalls++;
   return {response:JSON.stringify(modelCalls===1?{reply:"查询中",task:null,toolCalls:[{name:"search_leads",arguments:{query:"Acme",limit:2}},{name:"search_crm_contacts",arguments:{query:"Acme"}}]}:{reply:"已按记录整理",task:null,toolCalls:[]})};
