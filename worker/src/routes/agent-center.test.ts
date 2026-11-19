@@ -276,3 +276,59 @@ test("Agent profile rejects Skill assignments that are not enabled for the owner
   assert.equal(writes,0);
  }finally{restore();}
 });
+
+
+test("Agent workflow pause, resume and cancel controls call the owner-scoped Cloudflare instance",async()=>{
+ const runId="123e4567-e89b-42d3-a456-426614174099";
+ let workflowStatus="running",runStatus="running";
+ const calls:string[]=[];
+ const workflowEnv={...env,AGENT_ORCHESTRATION_WORKFLOW:{
+  create:async()=>({id:runId}),
+  get:()=>({status:async()=>({status:workflowStatus}),pause:async()=>{calls.push("pause");workflowStatus="paused";},resume:async()=>{calls.push("resume");workflowStatus="running";},terminate:async()=>{calls.push("terminate");workflowStatus="terminated";},restart:async()=>{calls.push("restart");workflowStatus="running";}})
+ }};
+ const restore=withFetch(async(input,init)=>{
+  const url=String(input);
+  if(url.endsWith("/auth/v1/user"))return authResponse();
+  if(url.includes("/rest/v1/agent_runs?id=eq."+runId)&&(!init?.method||init.method==="GET"))return Response.json([{id:runId,status:runStatus,plan:{workflowId:"workflow-1",execution_state:runStatus}}]);
+  if(url.includes("/rest/v1/agent_runs?id=eq."+runId)&&init?.method==="PATCH"){runStatus=(JSON.parse(String(init.body)) as {status:string}).status;return new Response(null,{status:204});}
+  if(url.includes("/rest/v1/discovery_runs?id=eq."+runId))return new Response(null,{status:204});
+  if(url.includes("/rest/v1/discovery_run_logs")||url.includes("/rest/v1/agent_run_events"))return new Response(null,{status:204});
+  throw new Error("Unexpected fetch: "+url+" "+String(init?.method));
+ });
+ const call=async(action:string)=>{
+  const response=await handleAgentCenter(new Request("https://worker.test/api/v1/agent/runs/"+runId+"/"+action,{method:"POST",headers:{Authorization:"Bearer user-token"}}),workflowEnv);
+  assert.equal(response.status,200);
+ };
+ try{
+  await call("pause");assert.equal(runStatus,"paused");
+  await call("resume");assert.equal(runStatus,"running");
+  await call("cancel");assert.equal(runStatus,"cancelled");
+  assert.deepEqual(calls,["pause","resume","terminate"]);
+ }finally{restore();}
+});
+
+test("Agent workflow retry only restarts an errored workflow from the beginning",async()=>{
+ const runId="123e4567-e89b-42d3-a456-426614174098";
+ let runStatus="failed",workflowStatus="errored",restartCount=0;
+ let savedPlan:Record<string,unknown>|undefined;
+ const workflowEnv={...env,AGENT_ORCHESTRATION_WORKFLOW:{
+  create:async()=>({id:runId}),
+  get:()=>({status:async()=>({status:workflowStatus}),pause:async()=>{},resume:async()=>{},terminate:async()=>{},restart:async()=>{restartCount++;workflowStatus="running";}})
+ }};
+ const restore=withFetch(async(input,init)=>{
+  const url=String(input);
+  if(url.endsWith("/auth/v1/user"))return authResponse();
+  if(url.includes("/rest/v1/agent_runs?id=eq."+runId)&&(!init?.method||init.method==="GET"))return Response.json([{id:runId,status:runStatus,plan:{workflowId:"workflow-1",execution_state:"failed",execution_steps:[{agentKey:"market_research",status:"failed",result:"old"}]}}]);
+  if(url.includes("/rest/v1/agent_runs?id=eq."+runId)&&init?.method==="PATCH"){const body=JSON.parse(String(init.body)) as {status:string;plan:Record<string,unknown>};runStatus=body.status;savedPlan=body.plan;return new Response(null,{status:204});}
+  if(url.includes("/rest/v1/discovery_runs?id=eq."+runId))return new Response(null,{status:204});
+  if(url.includes("/rest/v1/discovery_run_logs")||url.includes("/rest/v1/agent_run_events"))return new Response(null,{status:204});
+  throw new Error("Unexpected fetch: "+url+" "+String(init?.method));
+ });
+ try{
+  const response=await handleAgentCenter(new Request("https://worker.test/api/v1/agent/runs/"+runId+"/retry",{method:"POST",headers:{Authorization:"Bearer user-token"}}),workflowEnv);
+  assert.equal(response.status,200);
+  assert.equal(restartCount,1);
+  assert.equal(runStatus,"queued");
+  assert.equal((savedPlan?.execution_steps as Array<Record<string,unknown>>)[0].status,"queued");
+ }finally{restore();}
+});
