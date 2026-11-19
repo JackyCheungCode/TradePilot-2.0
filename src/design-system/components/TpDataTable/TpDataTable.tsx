@@ -26,10 +26,22 @@ import {
   Tag,
 } from '@carbon/react';
 import { SidePanel } from '@carbon/ibm-products';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { isValidElement, useEffect, useMemo, useRef, useState } from 'react';
 import { getSupabaseClient } from '@/lib/supabase';
 import type { TpDataTableProps } from './TpDataTable.types';
 import './TpDataTable.scss';
+
+function flattenExportValue(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (Array.isArray(value)) return value.map(flattenExportValue).filter(Boolean).join(' ');
+  if (isValidElement(value)) {
+    const props = value.props as { children?: unknown; alt?: string; title?: string };
+    return flattenExportValue(props.children ?? props.alt ?? props.title ?? '');
+  }
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
+}
 
 function csvSafeValue(value: unknown) {
   const text = value === null || value === undefined
@@ -52,8 +64,10 @@ function downloadSelectedRows<T extends Record<string, unknown>>(
     ...rows.map((row) => columns.map((column) => {
       const value = column.exportValue
         ? column.exportValue(row)
-        : row[column.key];
-      return csvSafeValue(value);
+        : row[column.key] !== undefined
+          ? row[column.key]
+          : displayValue(row, column);
+      return csvSafeValue(flattenExportValue(value));
     }).join(',')),
   ];
   const blob = new Blob(['\\uFEFF', lines.join('\\r\\n')], { type: 'text/csv;charset=utf-8;' });
