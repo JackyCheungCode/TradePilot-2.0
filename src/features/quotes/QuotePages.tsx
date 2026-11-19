@@ -102,7 +102,7 @@ export function QuoteConsolePage() {
           {key:'valid_until',header:'有效期',minWidth:120,render:r=>r.content?.valid_until||'—'},
           {key:'status',header:'状态',minWidth:110,render:r=>{const state=String(r.content?.quote_status||(r.status==='draft'?'draft':r.status==='issued'?'sent':r.status==='approved'?'accepted':r.status));return <Tag type={state==='accepted'?'green':state==='rejected'||state==='expired'||state==='cancelled'?'red':state==='draft'?'cool-gray':'blue'}>{quoteStatusLabel[state]||state}</Tag>}},
         ]}
-      />}{!filtered.length&&<p className="tp-quotes__empty">没有符合条件的报价单。</p>}</div>}
+      />{!filtered.length&&<p className="tp-quotes__empty">没有符合条件的报价单。</p>}</div>}
     </section>
   </main>;
 }
