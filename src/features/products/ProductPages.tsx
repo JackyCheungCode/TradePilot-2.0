@@ -108,6 +108,7 @@ export function ProductConsolePage(){
  rowKey="id"
  ariaLabel="产品目录"
  detailPanel
+ error={error||null} onRetry={load}
  selectionScopeKey={[query,status,countryFilter].join('|')}
  columnSettingsKey="catalog-products"
  onRowOpen={row=>nav('/products/'+row.id)}
