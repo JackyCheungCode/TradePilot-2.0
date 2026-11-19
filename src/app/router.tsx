@@ -3,6 +3,7 @@ import { AppShell } from '../design-system/layout/AppShell';
 import { RequireAuth } from './RequireAuth';
 import { LoginPage } from '../features/auth/LoginPage';
 import { AgentWorkspacePage } from '../features/agent/AgentWorkspacePage';
+import { AIControlCenterPage } from '../features/ai-control-center/AIControlCenterPage';
 import { ProspectDiscoveryPage } from '../features/prospect-discovery';
 import { ProspectHistoryPage } from '../features/prospect-discovery/ProspectHistoryPage';
 import { ProspectDataPage } from '../features/prospect-discovery/ProspectDataPage';
@@ -43,6 +44,7 @@ export const router = createBrowserRouter([
           { path: 'dashboard', element: <DashboardPage /> },
           { path: 'inbox', element: <CustomerCommunicationsPage /> },
           { path: 'agent', element: <AgentWorkspacePage /> },
+          { path: 'ai-agents', element: <AIControlCenterPage /> },
           { path: 'prospect-discovery', element: <ProspectDiscoveryPage /> },
           { path: 'prospect-history', element: <ProspectHistoryPage /> },
           { path: 'prospect-history/:runId', element: <ProspectHistoryPage /> },
