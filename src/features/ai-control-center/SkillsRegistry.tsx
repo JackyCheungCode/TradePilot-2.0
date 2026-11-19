@@ -87,8 +87,9 @@ export function SkillsRegistry(){
   }catch(cause){setError(cause instanceof Error?cause.message:'导入 Skill 完整包失败。');}
   finally{setBusy('');}
  };
- const chooseZip=(event:SyntheticEvent<HTMLElement>,data?:{addedFiles?:File[]})=>{
-  const file=data?.addedFiles?.[0]??(event.target as HTMLInputElement).files?.[0];if(!file)return;
+ const chooseZip=(event:SyntheticEvent<HTMLElement>,data?:unknown)=>{
+  const first=(data as {addedFiles?:Array<{file?:File}>}|undefined)?.addedFiles?.[0];
+  const file=first?.file??(event.target as HTMLInputElement).files?.[0];if(!file)return;
   if(!file.name.toLowerCase().endsWith('.zip')||file.size>900000){setError('请上传小于 900 KB 的 ZIP 文件。');return;}
   void file.arrayBuffer().then(buffer=>{
    const bytes=new Uint8Array(buffer);let binary='';for(let offset=0;offset<bytes.length;offset+=0x8000)binary+=String.fromCharCode(...bytes.subarray(offset,offset+0x8000));
