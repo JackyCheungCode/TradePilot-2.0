@@ -166,7 +166,7 @@ export function PaymentConsolePage() {
       />{!filtered.length&&<p className="tp-payments__empty">没有符合条件的收款记录。</p>}</div>:<div className="tp-payments__table-wrap"><TpDataTable
         selectable
         ariaLabel="应收计划列表"
-        detailPanel columnSettingsKey="finance-receivables" rowKey="id"
+        detailPanel selectionScopeKey={[query,status,currency,marketCountry,view].join('|')} columnSettingsKey="finance-receivables" rowKey="id"
         rows={receivableFiltered as (AnyRow & Record<string,unknown>)[]}
         pagination={{page,pageSize,totalItems:receivableFiltered.length,onChange:(nextPage,nextSize)=>{setPage(nextPage);setPageSize(nextSize);}}}
         columns={[
