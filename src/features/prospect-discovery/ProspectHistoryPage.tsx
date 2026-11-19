@@ -121,6 +121,7 @@ export function ProspectHistoryPage() {
         {loading ? <div className="tp-prospect-hub__loading"><InlineLoading description="正在读取历史任务…" /></div> : (
           <div className="tp-prospect-hub__table-wrap">
             <TpDataTable
+                        selectable
               ariaLabel="潜客发现历史任务"
               columnSettingsKey="prospect-history-runs"
               rowKey="id"
@@ -162,6 +163,7 @@ export function ProspectHistoryPage() {
           <div className="tp-prospect-hub__section-heading"><div><h3>本次任务捕获结果</h3><p>仅显示关联到当前任务的企业记录</p></div><Tag type="blue">{results.length} 条结果</Tag></div>
           <div className="tp-prospect-hub__table-wrap">
             <TpDataTable
+                        selectable
               ariaLabel="本次任务捕获结果"
               columnSettingsKey="prospect-history-results"
               rowKey="id"
