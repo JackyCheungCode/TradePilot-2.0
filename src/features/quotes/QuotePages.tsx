@@ -4,7 +4,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   Button, Link, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput, TextArea, ComposedModal, ModalHeader, ModalBody, ModalFooter,
   Tabs, TabList, Tab, TabPanels, TabPanel, Table, TableHead, TableRow, TableHeader, TableBody, TableCell,
-  semanticIcons, BusinessLifecycle, WorldMapChart,
+  semanticIcons, BusinessLifecycle, WorldMapChart, TpDataTable,
 } from '@/design-system';
 import { LineChart, SimpleBarChart } from '@carbon/charts-react';
 import { ScaleTypes } from '@carbon/charts';
@@ -49,6 +49,7 @@ export function QuoteConsolePage() {
   const [query,setQuery]=useState('');
   const [status,setStatus]=useState('all');
   const [marketCountry,setMarketCountry]=useState('all');
+  const [page,setPage]=useState(1);const [pageSize,setPageSize]=useState<10|20|50|100>(20);
   const load=useCallback(async()=>{
     setLoading(true);setError('');
     try {
@@ -85,7 +86,23 @@ export function QuoteConsolePage() {
     <section className="tp-quotes__panel tp-quotes__market-panel"><div className="tp-quotes__panel-head"><div><h2>全球报价市场分布</h2><p>按报价客户所在国家 / 地区统计报价单数量；选择地图或排名可筛选报价列表。</p></div></div>{quoteMarketData.length?<WorldMapChart data={quoteMarketData} unitLabel="份报价" selectedCode={marketCountry==='all'?undefined:marketCountry} onCountrySelect={code=>setMarketCountry(current=>current===code?'all':code)}/>:<p className="tp-quotes__empty">客户或报价快照尚未提供可识别的国家 / 地区信息。</p>}</section>
     <section className="tp-quotes__panel"><div className="tp-quotes__panel-head"><div><h2>报价单列表</h2><p>一个报价编号包含多个修订版本；列表显示当前版本。</p></div><Tag type="blue">{filtered.length} 条记录</Tag></div>
       <div className="tp-quotes__filters"><TextInput id="quote-search" labelText="搜索报价单" placeholder="报价编号、标题或客户" value={query} onChange={e=>setQuery(e.currentTarget.value)}/><Select id="quote-status" labelText="报价状态" value={status} onChange={e=>setStatus(e.currentTarget.value)}><SelectItem value="all" text="全部状态"/>{Object.entries(quoteStatusLabel).map(([v,t])=><SelectItem key={v} value={v} text={t}/>)}</Select></div>
-      {loading?<div className="tp-quotes__loading"><InlineLoading description="正在读取报价单…"/></div>:<div className="tp-quotes__table-wrap"><Table><TableHead><TableRow><TableHeader>报价编号 / 标题</TableHeader><TableHeader>客户</TableHeader><TableHeader>版本</TableHeader><TableHeader>报价金额</TableHeader><TableHeader>报价日期</TableHeader><TableHeader>有效期</TableHeader><TableHeader>状态</TableHeader></TableRow></TableHead><TableBody>{filtered.map(r=>{const s=String(r.content?.quote_status||(r.status==='draft'?'draft':r.status==='issued'?'sent':r.status==='approved'?'accepted':r.status));const total=Number(r.totals?.grand_total||0);const customer=r.content?.account_snapshot?.account_name||accountMap.get(r.content?.account_id)||'—';return <TableRow key={r.id}><TableCell><Link href={'/quotes/'+r.id} className="tp-quotes__row-link">{r.document_number}</Link><span className="tp-quotes__secondary">{r.title}</span></TableCell><TableCell>{customer}</TableCell><TableCell>V{r.current_version}</TableCell><TableCell>{money(total,r.currency_code)}</TableCell><TableCell>{r.content?.quote_date||'—'}</TableCell><TableCell>{r.content?.valid_until||'—'}</TableCell><TableCell><Tag type={s==='accepted'?'green':s==='rejected'||s==='expired'||s==='cancelled'?'red':s==='draft'?'cool-gray':'blue'}>{quoteStatusLabel[s]||s}</Tag></TableCell></TableRow>})}</TableBody></Table>{!filtered.length&&<p className="tp-quotes__empty">没有符合条件的报价单。</p>}</div>}
+      {loading?<div className="tp-quotes__loading"><InlineLoading description="正在读取报价单…"/></div>:<div className="tp-quotes__table-wrap"><TpDataTable
+        ariaLabel="报价单列表"
+        columnSettingsKey="sales-quotes"
+        rowKey="id"
+        rows={filtered as (QuoteDoc & Record<string,unknown>)[]}
+        onRowOpen={row=>nav('/quotes/'+row.id)}
+        pagination={{page,pageSize,totalItems:filtered.length,onChange:(nextPage,nextSize)=>{setPage(nextPage);setPageSize(nextSize);}}}
+        columns={[
+          {key:'document_number',header:'报价编号 / 标题',primary:true,minWidth:220,render:r=><div><Link href={'/quotes/'+r.id} className="tp-quotes__row-link">{r.document_number}</Link><span className="tp-quotes__secondary">{r.title}</span></div>},
+          {key:'account',header:'客户',minWidth:180,render:r=>r.content?.account_snapshot?.account_name||accountMap.get(r.content?.account_id)||'—'},
+          {key:'version',header:'版本',minWidth:80,render:r=>'V'+r.current_version},
+          {key:'amount',header:'报价金额',minWidth:140,render:r=>money(Number(r.totals?.grand_total||0),r.currency_code)},
+          {key:'quote_date',header:'报价日期',minWidth:120,render:r=>r.content?.quote_date||'—'},
+          {key:'valid_until',header:'有效期',minWidth:120,render:r=>r.content?.valid_until||'—'},
+          {key:'status',header:'状态',minWidth:110,render:r=>{const state=String(r.content?.quote_status||(r.status==='draft'?'draft':r.status==='issued'?'sent':r.status==='approved'?'accepted':r.status));return <Tag type={state==='accepted'?'green':state==='rejected'||state==='expired'||state==='cancelled'?'red':state==='draft'?'cool-gray':'blue'}>{quoteStatusLabel[state]||state}</Tag>}},
+        ]}
+      />}{!filtered.length&&<p className="tp-quotes__empty">没有符合条件的报价单。</p>}</div>}
     </section>
   </main>;
 }
