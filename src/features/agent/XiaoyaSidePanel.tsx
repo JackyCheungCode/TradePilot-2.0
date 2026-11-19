@@ -274,11 +274,14 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
     // Return an empty initial history immediately. Fetch and insert persisted history
     // in the background so Carbon's full-screen hydration spinner never splits the panel.
     chatInstanceRef.current = instance;
+    const requestId = ++conversationRequestIdRef.current;
     historyLoadPromiseRef.current = (async () => {
       setWelcomePhase('loading');
       setAvatarEmotion('thinking');
       const conversationId = await ensureConversation();
+      if (requestId !== conversationRequestIdRef.current) return;
       const rows = await agentRequest<AgentMessage[]>(`/api/v1/agent/conversations/${conversationId}/messages`);
+      if (requestId !== conversationRequestIdRef.current) return;
       setSelectedConversationId(conversationId);
       const latestTaskMessage = [...rows].reverse().find((row) => row.role === 'assistant' && row.metadata?.task);
       setTaskSuggestion(latestTaskMessage?.metadata?.task ? {
@@ -364,6 +367,8 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
   const startTask = useCallback(async () => {
     const suggestion = taskSuggestion;
     if (!suggestion || taskExecuting || suggestion.runId) return;
+    const targetConversationId = conversationIdRef.current;
+    const requestId = conversationRequestIdRef.current;
     setTaskExecuting(true);
     setTaskError('');
     try {
@@ -386,9 +391,9 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
         },
       );
       const next = { ...suggestion, runId: result.id, runStatus: result.status, runProgress: 0 };
-      setTaskSuggestion(next);
+      if (conversationIdRef.current === targetConversationId && conversationRequestIdRef.current === requestId) setTaskSuggestion(next);
       await agentRequest(
-        '/api/v1/agent/conversations/' + conversationIdRef.current + '/messages/' + suggestion.messageId,
+        '/api/v1/agent/conversations/' + targetConversationId + '/messages/' + suggestion.messageId,
         {
           method: 'PATCH',
           body: JSON.stringify({ metadata: { task: suggestion.task, runId: result.id, runStatus: result.status, runProgress: 0 } }),
