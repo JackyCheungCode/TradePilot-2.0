@@ -1,5 +1,5 @@
 import { useEffect, useState, type SyntheticEvent } from 'react';
-import { Button, FileUploader, InlineLoading, InlineNotification, Tag, TextArea, TextInput } from '@/design-system';
+import { Button, FileUploader, TPSkeleton, InlineNotification, Tag, TextArea, TextInput } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 
 type Finding = { severity:'high'|'medium'|'low'; code:string; message:string; file?:string };
@@ -175,7 +175,7 @@ export function SkillsRegistry(){
   </div>
   <div className="tp-settings__editor">
    <h3>Skills 注册表 <Tag type="cool-gray">{skills.length} 项</Tag></h3>
-   {loading?<InlineLoading description="正在读取 Skill 注册表…"/>:skills.length===0?<p>尚无 Skill 记录。可以从 GitHub 注册第一个 Skill。</p>:<div className="tp-settings__section-layout">
+   {loading?<TPSkeleton variant="card" rows={3}/>:skills.length===0?<p>尚无 Skill 记录。可以从 GitHub 注册第一个 Skill。</p>:<div className="tp-settings__section-layout">
     {skills.map(skill=>{
      const draft=drafts[skill.id]??{repositoryUrl:'',branch:'main',skillPath:''};
      const review=reviewOf(skill.config),bundle=bundleOf(skill.config),findings=review.findings??[],contract=contractOf(skill.config),contractStatus=String(skill.config.contractStatus??"missing"),contractErrors=Array.isArray(skill.config.contractErrors)?skill.config.contractErrors as string[]:[];
