@@ -25,6 +25,7 @@ import {
   TableToolbarSearch,
   Tag,
 } from '@carbon/react';
+import { SidePanel } from '@carbon/ibm-products';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getSupabaseClient } from '@/lib/supabase';
 import type { TpDataTableProps } from './TpDataTable.types';
@@ -86,6 +87,9 @@ export function TpDataTable<T extends Record<string, unknown>>({
   batchActions = [],
   rowActions = [],
   onRowOpen,
+  detailPanel = false,
+  canOpenRow,
+  detailTitle,
   activeRowId,
   loading = false,
   refreshing = false,
@@ -105,6 +109,8 @@ export function TpDataTable<T extends Record<string, unknown>>({
   const [columnPreferences, setColumnPreferences] = useState<{ order: string[]; hidden: string[] } | null>(null);
   const [preferencesReady, setPreferencesReady] = useState(!columnSettingsKey);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [detailRowId, setDetailRowId] = useState<string | null>(null);
+  const detailLauncherRef = useRef<HTMLElement | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [selectionRevision, setSelectionRevision] = useState(0);
   const [batchFeedback, setBatchFeedback] = useState<{ kind: 'success' | 'error'; title: string; subtitle: string } | null>(null);
@@ -251,6 +257,49 @@ export function TpDataTable<T extends Record<string, unknown>>({
     ...visibleColumns.map((column) => ({ key: column.key, header: column.header, isSortable: column.sortable !== false && (!pagination?.serverSide || Boolean(onSortChange)) })),
     ...(rowActions.length ? [{ key: '__actions', header: '操作' }] : []),
   ], [visibleColumns, rowActions.length, pagination?.serverSide, onSortChange]);
+  const detailRow = detailPanel && detailRowId
+    ? rows.find((row) => String(row[rowKey]) === detailRowId) ?? null
+    : null;
+  const openDetail = (row: T, trigger?: HTMLElement, replace = false) => {
+    if (canOpenRow && !canOpenRow(row)) {
+      onRowOpen?.(row, trigger);
+      return;
+    }
+    detailLauncherRef.current = trigger ?? detailLauncherRef.current;
+    const id = String(row[rowKey]);
+    const url = new URL(window.location.href);
+    url.searchParams.set('tpRecord', id);
+    const state = { ...(window.history.state ?? {}), __tpDataTableDetail: true };
+    if (replace) window.history.replaceState(state, '', url);
+    else if (url.searchParams.get('tpRecord') !== id) window.history.pushState(state, '', url);
+    setDetailRowId(id);
+  };
+  const closeDetail = () => {
+    if (window.history.state?.__tpDataTableDetail) {
+      window.history.back();
+      setDetailRowId(null);
+      return;
+    }
+    const url = new URL(window.location.href);
+    url.searchParams.delete('tpRecord');
+    window.history.replaceState(window.history.state, '', url);
+    setDetailRowId(null);
+  };
+  const moveDetail = (offset: -1 | 1) => {
+    if (!detailRow) return;
+    const index = rows.findIndex((row) => String(row[rowKey]) === String(detailRow[rowKey]));
+    const next = rows[index + offset];
+    if (next) openDetail(next, detailLauncherRef.current ?? undefined, true);
+  };
+
+  useEffect(() => {
+    if (!detailPanel) return;
+    const syncFromUrl = () => setDetailRowId(new URLSearchParams(window.location.search).get('tpRecord'));
+    syncFromUrl();
+    window.addEventListener('popstate', syncFromUrl);
+    return () => window.removeEventListener('popstate', syncFromUrl);
+  }, [detailPanel]);
+
   const carbonRows = useMemo(() => rows.map((row) => ({
     id: String(row[rowKey]),
     ...Object.fromEntries(visibleColumns.map((column) => [column.key, displayValue(row, column)])),
@@ -455,14 +504,19 @@ export function TpDataTable<T extends Record<string, unknown>>({
                       <TableRow
                         {...getRowProps({ row: carbonRow })}
                         className={`${activeRowId === carbonRow.id ? 'tp-data-table__row--active' : ''}`}
-                        onClick={(event) => onRowOpen?.(source, event.currentTarget)}
+                        onClick={(event) => {
+                          if ((event.target as HTMLElement).closest('a,button,input,[role="button"]')) return;
+                          if (detailPanel) openDetail(source, event.currentTarget);
+                          else onRowOpen?.(source, event.currentTarget);
+                        }}
                         onKeyDown={(event) => {
-                          if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ') && onRowOpen) {
+                          if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ') && (detailPanel || onRowOpen)) {
                             event.preventDefault();
-                            onRowOpen(source, event.currentTarget);
+                            if (detailPanel) openDetail(source, event.currentTarget);
+                            else onRowOpen?.(source, event.currentTarget);
                           }
                         }}
-                        tabIndex={onRowOpen ? 0 : undefined}
+                        tabIndex={detailPanel || onRowOpen ? 0 : undefined}
                       >
                         {selectable && (
                           <TableSelectRow
@@ -541,6 +595,38 @@ export function TpDataTable<T extends Record<string, unknown>>({
           );
         }}
       </DataTable>
+      {detailPanel && (
+        <SidePanel
+          className="tp-data-table__detail-panel"
+          open={Boolean(detailRow)}
+          title={detailRow ? (detailTitle?.(detailRow) || String(detailRow[visibleColumns.find((column) => column.primary)?.key ?? rowKey] ?? ariaLabel + '详情')) : ariaLabel + '详情'}
+          subtitle={detailRow ? `记录 ID：${String(detailRow[rowKey])}` : undefined}
+          size="lg"
+          placement="right"
+          includeOverlay={false}
+          slideIn={false}
+          launcherButtonRef={detailLauncherRef}
+          onRequestClose={closeDetail}
+        >
+          {detailRow && (
+            <div className="tp-data-table__detail-content">
+              <div className="tp-data-table__detail-navigation">
+                <Button kind="ghost" size="sm" disabled={rows.findIndex((row) => String(row[rowKey]) === String(detailRow[rowKey])) <= 0} onClick={() => moveDetail(-1)}>上一条</Button>
+                <Button kind="ghost" size="sm" disabled={rows.findIndex((row) => String(row[rowKey]) === String(detailRow[rowKey])) >= rows.length - 1} onClick={() => moveDetail(1)}>下一条</Button>
+                {onRowOpen && <Button kind="primary" size="sm" onClick={() => onRowOpen(detailRow, detailLauncherRef.current ?? undefined)}>打开完整详情</Button>}
+              </div>
+              <dl className="tp-data-table__detail-fields">
+                {columns.filter((column) => column.key !== '__actions').map((column) => (
+                  <div className="tp-data-table__detail-field" key={column.key}>
+                    <dt>{column.header}</dt>
+                    <dd>{displayValue(detailRow, column)}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          )}
+        </SidePanel>
+      )}
     </div>
   );
 }
