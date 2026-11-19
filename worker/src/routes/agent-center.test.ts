@@ -107,7 +107,7 @@ test("Xiaoya chat receives enabled Skill instructions and only registry-enabled 
   }
   if(url.includes("/rest/v1/ai_provider_settings"))return Response.json([]);
   if(url.includes("/rest/v1/agent_tool_registry?owner_id=is.null"))return Response.json([{tool_key:"search_leads",implementation_key:"search_leads",name:"潜在客户查询",description:"查询潜在客户"}]);
-  if(url.includes("/rest/v1/agent_profiles?owner_id=eq."+ownerId))return Response.json([{agent_key:"skill:demo-skill",config:{manifest:{name:"demo-skill",description:"Demo workflow"},bundle:{artifact:{key:artifactKey}}}}]);
+  if(url.includes("/rest/v1/agent_profiles?owner_id=eq."+ownerId))return Response.json([{agent_key:"skill:demo-skill",config:{manifest:{name:"demo-skill",description:"Demo workflow"},bundle:{artifact:{key:artifactKey,sha256:artifactDigest}}}}]);
   if(url.includes("/rest/v1/leads?")){leadQueries++;return new Response(JSON.stringify([{id:"lead-1",name:"Acme"}]),{headers:{"content-range":"0-0/1"}});}
   if(url.includes("/rest/v1/")&&init?.method!=="POST")return new Response("[]",{headers:{"content-range":"0-0/0"}});
   throw new Error("Unexpected fetch: "+url+" "+String(init?.method));
