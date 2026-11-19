@@ -220,7 +220,8 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
     const instance = chatInstanceRef.current;
     if (!instance || conversationId === conversationIdRef.current) return;
     const requestId = ++conversationRequestIdRef.current;
-    setWelcomeVisible(false);
+    setWelcomeVisible(true);
+    setWelcomePhase('loading');
     setChatStatusVisible(false);
     setAvatarEmotion('thinking');
     try {
