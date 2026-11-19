@@ -52,14 +52,21 @@ export function AgentSettings({ section }: { section: string }) {
       ]);
       const available = (config.providers || []).filter(item => item.configured !== false && item.configured !== 'false');
       setProviders(available);
+      const availableTools=(toolRegistry.items || []).filter(tool => tool.source === 'registered' && tool.enabled !== false && tool.status === 'active' && tool.risk !== 'blocked' && Boolean(tool.toolKey));
+      const enabledSkillIds=new Set((skillRows || []).filter(skill=>skill.enabled).map(skill=>skill.id));
+      const availableToolKeys=new Set(availableTools.map(tool=>tool.toolKey));
       setSkills(skillRows || []);
-      setTools((toolRegistry.items || []).filter(tool => tool.source === 'registered' && tool.enabled !== false && tool.status === 'active' && tool.risk !== 'blocked' && Boolean(tool.toolKey)));
+      setTools(availableTools);
       const currentValue = config.taskModels?.agent_chat || config.defaultModel || '';
       const legacyProvider = available.find(item => item.model === currentValue);
       const current = currentValue && !currentValue.includes('::') && legacyProvider ? providerValue(legacyProvider) : currentValue || (available[0] ? providerValue(available[0]) : '');
       setSelectedModel(current);
       const knownAgents = Object.keys(agentLabels).map(agent_key => ({ agent_key, enabled:true, config:{} as Profile['config'] }));
-      setProfiles(knownAgents.map(base => profileRows?.find(item => item.agent_key === base.agent_key) || base));
+      setProfiles(knownAgents.map(base => {
+        const row=profileRows?.find(item => item.agent_key === base.agent_key);
+        if(!row)return base;
+        return {...row,config:{...row.config,skillIds:(row.config.skillIds || []).filter(id=>enabledSkillIds.has(id)),...(row.config.toolKeys===undefined?{}:{toolKeys:row.config.toolKeys.filter(key=>availableToolKeys.has(key))})}};
+      }));
       if (avatar.default) setAppearance({...avatar.default,eyeColor:avatar.default.eyeColor || '#1A1A1A',eyeScale:avatar.default.eyeScale ?? 1});
       setAvatarAgents(avatar.agents || {});
     } catch (cause) { setError(cause instanceof Error ? cause.message : '读取 Agent 设置失败。'); }
