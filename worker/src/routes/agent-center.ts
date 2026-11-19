@@ -644,10 +644,47 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
       return successResponse(request,rows??[]);
     }
     if(path==="/api/v1/agent/tools"&&request.method==="GET"){
-      const rows=await db<ConnectionRow[]>(env,"agent_connections?owner_id=eq."+ownerId+"&select=id,name,protocol,endpoint_url,status,protocol_tools,updated_at&order=created_at.desc&limit=100");
-      const native=Object.entries(xiaoyaReadTools).map(([name,tool])=>({id:"native:"+name,source:"native",name,description:tool.label+"：TradePilot 内置只读业务查询",category:"business_data",risk:"read_only" as const,policySource:"system",status:"active"}));
-      const external=(rows??[]).flatMap(connection=>(connection.protocol_tools??[]).map(tool=>({id:"external:"+connection.id+":"+String(tool.name??""),source:"external",connectionId:connection.id,connectionName:connection.name,protocol:connection.protocol,endpointUrl:connection.endpoint_url,connectionStatus:connection.status,name:String(tool.name??""),description:String(tool.description??""),method:tool.method,path:tool.path,risk:effectiveToolRisk(tool),policySource:tool.riskPolicySource==="user"?"user":"default",status:connection.status})));
-      return successResponse(request,{items:[...native,...external],nativeCount:native.length,externalCount:external.length});
+      const [registryRows,connections]=await Promise.all([
+        db<Array<{id:string;owner_id:string|null;tool_key:string;name:string;description:string;category:string;source:string;implementation_key:string|null;connection_id:string|null;protocol_tool_name:string|null;risk:ToolRisk;policy_source:string;enabled:boolean;status:string;input_schema:Record<string,unknown>;metadata:Record<string,unknown>}>>(env,"agent_tool_registry?or=(owner_id.is.null,owner_id.eq."+ownerId+")&select=id,owner_id,tool_key,name,description,category,source,implementation_key,connection_id,protocol_tool_name,risk,policy_source,enabled,status,input_schema,metadata&order=category.asc,name.asc"),
+        db<ConnectionRow[]>(env,"agent_connections?owner_id=eq."+ownerId+"&select=id,name,protocol,endpoint_url,status,protocol_tools,updated_at&order=created_at.desc&limit=100")
+      ]);
+      const native=(registryRows??[]).filter(row=>row.source==="system"&&row.enabled&&row.status==="active").map(row=>({id:row.id,source:"native",name:row.name,toolKey:row.tool_key,description:row.description,category:row.category,risk:"read_only" as const,policySource:"system",status:row.status,enabled:row.enabled,inputSchema:row.input_schema}));
+      const registered=(registryRows??[]).filter(row=>row.source==="external").map(row=>({id:row.id,source:"registered",name:row.name,toolKey:row.tool_key,description:row.description,category:row.category,connectionId:row.connection_id,protocolToolName:row.protocol_tool_name,risk:row.risk,policySource:row.policy_source,status:row.status,enabled:row.enabled,inputSchema:row.input_schema}));
+      const external=(connections??[]).flatMap(connection=>(connection.protocol_tools??[]).map(tool=>({id:"external:"+connection.id+":"+String(tool.name??""),source:"external",connectionId:connection.id,connectionName:connection.name,protocol:connection.protocol,endpointUrl:connection.endpoint_url,connectionStatus:connection.status,name:String(tool.name??""),description:String(tool.description??""),method:tool.method,path:tool.path,risk:effectiveToolRisk(tool),policySource:tool.riskPolicySource==="user"?"user":"default",status:connection.status})));
+      return successResponse(request,{items:[...native,...registered,...external],nativeCount:native.length,externalCount:external.length,registeredCount:registered.length});
+    }
+    if(path==="/api/v1/agent/tools"&&request.method==="POST"){
+      let body:Record<string,unknown>;try{body=await request.json() as Record<string,unknown>;}catch{return errorResponse(request,"INVALID_JSON","请求内容不是有效 JSON。",400);}
+      const connectionId=typeof body.connectionId==="string"?body.connectionId:"";
+      const toolName=typeof body.toolName==="string"?body.toolName.trim():"";
+      const displayName=typeof body.name==="string"?body.name.trim():toolName;
+      const category=typeof body.category==="string"?body.category.trim():"general";
+      if(!/^[0-9a-f-]{36}$/i.test(connectionId)||!toolName||toolName.length>120||displayName.length<1||displayName.length>120||!/^[a-z][a-z0-9_.-]{1,59}$/i.test(category))return errorResponse(request,"VALIDATION_ERROR","请提供有效连接、工具名称、显示名称和分类。",400);
+      const connections=await db<ConnectionRow[]>(env,"agent_connections?id=eq."+connectionId+"&owner_id=eq."+ownerId+"&select=id,owner_id,name,protocol,endpoint_url,auth_mode,encrypted_credentials,capabilities,protocol_tools,protocol_metadata,status,last_tested_at,last_error,created_at,updated_at&limit=1");
+      const connection=connections?.[0];if(!connection)return errorResponse(request,"CONNECTION_NOT_FOUND","找不到当前账户拥有的外部连接。",404);
+      const discovered=connection.protocol_tools?.find(tool=>tool.name===toolName);if(!discovered)return errorResponse(request,"TOOL_NOT_DISCOVERED","该工具尚未从连接发现，请先刷新连接工具。",409);
+      const registryKey="ext:"+connectionId+":"+toolName;
+      const rows=await db<Array<Record<string,unknown>>>(env,"agent_tool_registry?on_conflict=owner_id,tool_key&select=id,tool_key,name,description,category,source,connection_id,protocol_tool_name,risk,policy_source,enabled,status,input_schema",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=representation"},body:JSON.stringify({owner_id:ownerId,tool_key:registryKey,name:displayName,description:typeof body.description==="string"?body.description.slice(0,1000):String(discovered.description??""),category,source:"external",connection_id:connectionId,protocol_tool_name:toolName,risk:effectiveToolRisk(discovered),policy_source:discovered.riskPolicySource==="user"?"user":"default",enabled:true,status:connection.status==="active"?"active":"pending",input_schema:asRecord(discovered.inputSchema),metadata:{protocol:connection.protocol,registeredAt:new Date().toISOString()}})});
+      if(!rows?.[0])return errorResponse(request,"TOOL_REGISTRATION_FAILED","工具登记失败。",500);
+      return successResponse(request,rows[0],201);
+    }
+    const registryToolMatch=path.match(/^\/api\/v1\/agent\/tools\/([0-9a-f-]{36})$/i);
+    if(registryToolMatch&&request.method==="PUT"){
+      let body:Record<string,unknown>;try{body=await request.json() as Record<string,unknown>;}catch{return errorResponse(request,"INVALID_JSON","请求内容不是有效 JSON。",400);}
+      const patch:Record<string,unknown>={updated_at:new Date().toISOString()};
+      if(typeof body.name==="string"&&body.name.trim().length>0&&body.name.trim().length<=120)patch.name=body.name.trim();
+      if(typeof body.description==="string")patch.description=body.description.slice(0,1000);
+      if(typeof body.category==="string"&&/^[a-z][a-z0-9_.-]{1,59}$/i.test(body.category))patch.category=body.category;
+      if(typeof body.enabled==="boolean"){patch.enabled=body.enabled;patch.status=body.enabled?"active":"disabled";}
+      if(body.risk==="read_only"||body.risk==="approval_required"||body.risk==="blocked"){patch.risk=body.risk;patch.policy_source="user";}
+      const rows=await db<Array<Record<string,unknown>>>(env,"agent_tool_registry?id=eq."+registryToolMatch[1]+"&owner_id=eq."+ownerId+"&source=eq.external&select=id,tool_key,name,description,category,risk,policy_source,enabled,status,input_schema",{method:"PATCH",headers:{Prefer:"return=representation"},body:JSON.stringify(patch)});
+      if(!rows?.[0])return errorResponse(request,"TOOL_NOT_FOUND","找不到当前账户登记的工具。",404);
+      return successResponse(request,rows[0]);
+    }
+    if(registryToolMatch&&request.method==="DELETE"){
+      const rows=await db<Array<{id:string}>>(env,"agent_tool_registry?id=eq."+registryToolMatch[1]+"&owner_id=eq."+ownerId+"&source=eq.external&select=id",{method:"DELETE",headers:{Prefer:"return=representation"}});
+      if(!rows?.length)return errorResponse(request,"TOOL_NOT_FOUND","找不到当前账户登记的工具。",404);
+      return successResponse(request,{id:registryToolMatch[1],deleted:true});
     }
     if(path==="/api/v1/agent/connections"&&request.method==="POST"){
       let body:Record<string,unknown>;try{body=await request.json() as Record<string,unknown>;}catch{return errorResponse(request,"INVALID_JSON","请求内容不是有效 JSON。",400);}
@@ -690,6 +727,7 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
       const updated=await db<ConnectionRow[]>(env,"agent_connections?id=eq."+connection.id+"&owner_id=eq."+ownerId+"&updated_at=eq."+encodeURIComponent(connection.updated_at)+"&select="+publicConnectionFields,{method:"PATCH",headers:{Prefer:"return=representation"},body:JSON.stringify({protocol_tools:tools,protocol_metadata:metadata,updated_at:changedAt})});
       const saved=updated?.[0];
       if(!saved)return errorResponse(request,"TOOL_POLICY_CONFLICT","连接配置已被其他操作更新，请刷新后重试。",409);
+      await db<Array<{id:string}>>(env,"agent_tool_registry?owner_id=eq."+ownerId+"&connection_id=eq."+connection.id+"&protocol_tool_name=eq."+encodeURIComponent(toolName)+"&source=eq.external&select=id",{method:"PATCH",headers:{Prefer:"return=representation"},body:JSON.stringify({risk,policy_source:"user",updated_at:changedAt})});
       return successResponse(request,{connectionId:connection.id,toolName,risk,policySource:"user",connection:saved});
     }
     const discoverMatch=path.match(/^\/api\/v1\/agent\/connections\/([0-9a-f-]{36})\/discover$/i);
@@ -976,8 +1014,14 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
       let selectedTool:Record<string,unknown>|undefined;
       if(plannerMode){
         if(!/^[A-Z]{2}$/.test(country))return errorResponse(request,"VALIDATION_ERROR","请选择有效的目标国家。",400);
-        const available=await db<ConnectionRow[]>(env,"agent_connections?owner_id=eq."+ownerId+"&select=id,owner_id,name,protocol,endpoint_url,auth_mode,encrypted_credentials,capabilities,protocol_tools,protocol_metadata,status,last_tested_at,last_error,created_at,updated_at&order=created_at.desc&limit=100");
-        planner=await generateAgentPlan(env,ownerId,goal,country,engine,available??[]);
+        const [availableRows,enabledRegistryTools]=await Promise.all([
+          db<ConnectionRow[]>(env,"agent_connections?owner_id=eq."+ownerId+"&select=id,owner_id,name,protocol,endpoint_url,auth_mode,encrypted_credentials,capabilities,protocol_tools,protocol_metadata,status,last_tested_at,last_error,created_at,updated_at&order=created_at.desc&limit=100"),
+          db<Array<{connection_id:string;protocol_tool_name:string}>>(env,"agent_tool_registry?owner_id=eq."+ownerId+"&source=eq.external&enabled=eq.true&status=eq.active&select=connection_id,protocol_tool_name")
+        ]);
+        const enabledByConnection=new Map<string,Set<string>>();
+        for(const item of enabledRegistryTools??[]){if(!item.connection_id||!item.protocol_tool_name)continue;const names=enabledByConnection.get(item.connection_id)??new Set<string>();names.add(item.protocol_tool_name);enabledByConnection.set(item.connection_id,names);}
+        const available=(availableRows??[]).map(connection=>({...connection,protocol_tools:(connection.protocol_tools??[]).filter(tool=>enabledByConnection.get(connection.id)?.has(String(tool.name??"")))}));
+        planner=await generateAgentPlan(env,ownerId,goal,country,engine,available);
         if(requestedAgentKey){
           planner.agentKey=requestedAgentKey;
           if(["company_research","market_research","lead_scoring","trade_compliance"].includes(requestedAgentKey)&&planner.action.type==="internal_discovery"&&!planner.specialists.some(item=>item.agentKey===requestedAgentKey))planner.specialists.unshift({agentKey:requestedAgentKey,instruction:"按照用户指定的专业角色，结合本次搜索结果和前序 Agent 分析完成专项任务。"});

@@ -22,6 +22,7 @@ test("Tools registry treats legacy read_only flags as approval-required unless e
  const restore=withFetch(async(input)=>{
   const url=String(input);
   if(url.endsWith("/auth/v1/user"))return authResponse();
+  if(url.includes("/rest/v1/agent_tool_registry?or="))return Response.json(Array.from({length:10},(_,index)=>({id:"00000000-0000-4000-8000-"+String(index+1).padStart(12,"0"),owner_id:null,tool_key:"native_"+index,name:"Native "+index,description:"Read-only",category:"business_data",source:"system",implementation_key:"native_"+index,connection_id:null,protocol_tool_name:null,risk:"read_only",policy_source:"system",enabled:true,status:"active",input_schema:{},metadata:{}})));
   if(url.includes("/rest/v1/agent_connections?owner_id="))return Response.json([connectionRow()]);
   throw new Error("Unexpected fetch: "+url);
  });
@@ -48,6 +49,10 @@ test("Tools policy updates are owner-scoped and persist an explicit user decisio
   if(url.includes("/rest/v1/agent_connections?id=eq."+connectionId)&&init?.method==="PATCH"){
    persisted=JSON.parse(String(init.body)) as Record<string,unknown>;
    return Response.json([{...connectionRow(),protocol_tools:persisted.protocol_tools}]);
+  }
+  if(url.includes("/rest/v1/agent_tool_registry?owner_id=eq."+ownerId)&&init?.method==="PATCH"){
+   const registryPatch=JSON.parse(String(init.body)) as Record<string,unknown>;assert.equal(registryPatch.risk,"read_only");assert.equal(registryPatch.policy_source,"user");assert.equal(typeof registryPatch.updated_at,"string");
+   return Response.json([]);
   }
   throw new Error("Unexpected fetch: "+url+" "+String(init?.method));
  });
