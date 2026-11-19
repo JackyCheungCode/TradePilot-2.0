@@ -204,7 +204,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
   return (
     <div className={`tp-data-table${refreshing ? ' tp-data-table--refreshing' : ''}`}>
       <DataTable rows={carbonRows} headers={headers} isSortable>
-        {({ rows: renderedRows, getHeaderProps, getRowProps, getSelectionProps, getBatchActionProps, selectedRows: carbonSelectedRows }) => (
+        {({ rows: renderedRows, getHeaderProps, getRowProps, getSelectionProps, getBatchActionProps }) => (
           <TableContainer aria-label={ariaLabel}>
             <TableToolbar>
               {selectable && selectedRows.length > 0 && (
@@ -222,6 +222,12 @@ export function TpDataTable<T extends Record<string, unknown>>({
                 </TableBatchActions>
               )}
               <TableToolbarContent>
+                {selectable && selectedRows.length > 0 && (
+                  <div className="tp-data-table__selection-summary" aria-live="polite">
+                    <span>已选 {selectedRows.length} 条</span>
+                    <Button kind="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>清除选择</Button>
+                  </div>
+                )}
                 {onSearchChange && (
                   <TableToolbarSearch
                     persistent
