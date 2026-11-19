@@ -49,6 +49,8 @@ export function GeneratedDocumentsPage() {
       {loading ? <div className="tp-documents__loading"><InlineLoading description="正在加载单据…" /></div> : filtered.length ? <div className="tp-documents__table-wrap"><TpDataTable
         selectable
         ariaLabel="已生成单据列表"
+        detailPanel
+        onRowOpen={doc=>window.location.assign('/documents/'+doc.id)}
         columnSettingsKey="trade-generated-documents"
         rowKey="id"
         rows={filtered as (Doc & Record<string, unknown>)[]}
