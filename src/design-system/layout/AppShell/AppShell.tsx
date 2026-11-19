@@ -9,8 +9,9 @@ import { XiaoyaAvatar } from '@/features/agent/XiaoyaAvatar';
 import { XiaoyaSidePanel } from '@/features/agent/XiaoyaSidePanel';
 
 /**
- * Shared Carbon application frame.
- * Xiaoya is a global assistant entry, placed immediately before sign-out.
+ * Shared application frame.
+ * Customer communication is a first-class destination in the side navigation.
+ * Xiaoya remains a separate, clearly identified AI assistant.
  */
 export function AppShell() {
   const [sideNavExpanded, setSideNavExpanded] = useState(false);
@@ -18,7 +19,6 @@ export function AppShell() {
     typeof window !== 'undefined' && window.matchMedia('(max-width: 1055px)').matches
   );
   const [xiaoyaOpen, setXiaoyaOpen] = useState(false);
-  const [communicationsUnreadCount, setCommunicationsUnreadCount] = useState(0);
   const [signingOut, setSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -39,24 +39,6 @@ export function AppShell() {
       syncAvatar(data.session?.user ?? null);
     }).catch(() => { if (active) setAvatarUrl(null); });
     return () => { active = false; subscription?.unsubscribe(); };
-  }, []);
-
-  useEffect(() => {
-    let active = true;
-    let timer: number | undefined;
-    const loadUnreadCount = async () => {
-      try {
-        const client = await getSupabaseClient();
-        const { data, error } = await client.from('inbox_conversations').select('unread_count');
-        if (error) throw error;
-        if (active) setCommunicationsUnreadCount((data ?? []).reduce((total, row) => total + Math.max(0, Number(row.unread_count ?? 0)), 0));
-      } catch {
-        if (active) setCommunicationsUnreadCount(0);
-      }
-    };
-    void loadUnreadCount();
-    timer = window.setInterval(() => { void loadUnreadCount(); }, 30_000);
-    return () => { active = false; if (timer !== undefined) window.clearInterval(timer); };
   }, []);
 
   useEffect(() => {
@@ -81,7 +63,7 @@ export function AppShell() {
       if (error) throw error;
       navigate('/login', { replace: true });
     } catch (cause) {
-      setSignOutError(cause instanceof Error ? cause.message : '退出登录失败');
+      setSignOutError(cause instanceof Error ? cause.message : 'Sign out failed.');
     } finally {
       setSigningOut(false);
     }
@@ -92,28 +74,17 @@ export function AppShell() {
       <SkipToContent href="#main-content" />
       <Header aria-label="TradePilot" className="cds--g100">
         <HeaderMenuButton
-          aria-label={sideNavExpanded ? '收起导航菜单' : '展开导航菜单'}
+          aria-label={sideNavExpanded ? 'Collapse navigation' : 'Expand navigation'}
           aria-expanded={sideNavExpanded}
           isActive={sideNavExpanded}
           onClick={() => setSideNavExpanded((expanded) => !expanded)}
         />
-        <HeaderName href="/" prefix="" className="tp-header__brand" aria-label="TradePilot 首页">
+        <HeaderName href="/" prefix="" className="tp-header__brand" aria-label="TradePilot home">
           TradePilot
         </HeaderName>
         <HeaderGlobalBar>
           <HeaderGlobalAction
-            aria-label={communicationsUnreadCount > 0 ? `全渠道消息中心，${communicationsUnreadCount} 条未读消息` : '全渠道消息中心'}
-            tooltipAlignment="end"
-            className="tp-header-communications"
-            isActive={location.pathname.startsWith('/inbox')}
-            aria-expanded={location.pathname.startsWith('/inbox')}
-            onClick={() => navigate('/inbox')}
-          >
-            <semanticIcons.chat size={20} />
-            {communicationsUnreadCount > 0 && <span className="tp-header-unread-badge" aria-label={`${communicationsUnreadCount} 条未读消息`} aria-live="polite">{communicationsUnreadCount > 99 ? '99+' : communicationsUnreadCount}</span>}
-          </HeaderGlobalAction>
-          <HeaderGlobalAction
-            aria-label={xiaoyaOpen ? "关闭小雅 AI 助手" : "打开小雅 AI 助手"}
+            aria-label={xiaoyaOpen ? 'Close Xiaoya AI assistant' : 'Open Xiaoya AI assistant'}
             tooltipAlignment="end"
             isActive={xiaoyaOpen}
             aria-expanded={xiaoyaOpen}
@@ -122,45 +93,45 @@ export function AppShell() {
             <XiaoyaAvatar emotion="idle" size={30} />
           </HeaderGlobalAction>
           <OverflowMenu
-            ariaLabel="主题设置"
-            iconDescription="主题设置"
+            ariaLabel="Theme settings"
+            iconDescription="Theme settings"
             renderIcon={semanticIcons.asleep}
             flipped
             size="lg"
             className="tp-theme-menu"
           >
             <OverflowMenuItem
-              itemText={preference === 'system' ? <><semanticIcons.check size={16} /> 跟随设备系统</> : '跟随设备系统'}
+              itemText={preference === 'system' ? <><semanticIcons.check size={16} /> System</> : 'System'}
               onClick={() => setPreference('system')}
             />
             <OverflowMenuItem
-              itemText={preference === 'white' ? <><semanticIcons.check size={16} /> 白色</> : '白色'}
+              itemText={preference === 'white' ? <><semanticIcons.check size={16} /> White</> : 'White'}
               onClick={() => setPreference('white')}
             />
             <OverflowMenuItem
-              itemText={preference === 'g10' ? <><semanticIcons.check size={16} /> 浅灰色</> : '浅灰色'}
+              itemText={preference === 'g10' ? <><semanticIcons.check size={16} /> Light gray</> : 'Light gray'}
               onClick={() => setPreference('g10')}
             />
             <OverflowMenuItem
-              itemText={preference === 'g90' ? <><semanticIcons.check size={16} /> 深灰色</> : '深灰色'}
+              itemText={preference === 'g90' ? <><semanticIcons.check size={16} /> Dark gray</> : 'Dark gray'}
               onClick={() => setPreference('g90')}
             />
             <OverflowMenuItem
-              itemText={preference === 'dark' ? <><semanticIcons.check size={16} /> 深色</> : '深色'}
+              itemText={preference === 'dark' ? <><semanticIcons.check size={16} /> Dark</> : 'Dark'}
               onClick={() => setPreference('dark')}
             />
           </OverflowMenu>
           <OverflowMenu
-            ariaLabel="账户菜单"
-            iconDescription="账户菜单"
+            ariaLabel="Account menu"
+            iconDescription="Account menu"
             renderIcon={() => avatarUrl ? <img className="tp-account-menu__avatar" src={avatarUrl} alt="" /> : <semanticIcons.avatar size={20} />}
             flipped
             size="lg"
             className="tp-account-menu"
           >
-            <OverflowMenuItem itemText="个人设置" onClick={() => navigate('/personal-settings')} />
+            <OverflowMenuItem itemText="Personal settings" onClick={() => navigate('/personal-settings')} />
             <OverflowMenuItem
-              itemText={signingOut ? '正在退出系统…' : '退出系统'}
+              itemText={signingOut ? 'Signing out…' : 'Sign out'}
               disabled={signingOut}
               onClick={() => { if (!signingOut) void signOut(); }}
             />
@@ -168,7 +139,7 @@ export function AppShell() {
         </HeaderGlobalBar>
       </Header>
       <SideNav
-        aria-label="TradePilot 主导航"
+        aria-label="Primary navigation"
         className={`cds--g100 ${sideNavExpanded ? 'tp-sidenav--expanded' : 'tp-sidenav--rail'}`}
         expanded={sideNavExpanded}
         isPersistent={!isCompactViewport}
@@ -176,48 +147,54 @@ export function AppShell() {
         onOverlayClick={() => setSideNavExpanded(false)}
       >
         <div className="tp-sidenav__group">
-          <div className="tp-sidenav__group-label">工作台（Workspace）</div>
+          <div className="tp-sidenav__group-label">Workspace</div>
           <SideNavItems>
-            <SideNavLink href="/dashboard" isActive={location.pathname === '/dashboard' || location.pathname === '/'} title="概览（Overview）" renderIcon={semanticIcons.dashboard}>概览（Overview）</SideNavLink>
+            <SideNavLink href="/dashboard" isActive={location.pathname === '/dashboard' || location.pathname === '/'} title="Overview" renderIcon={semanticIcons.dashboard}>Overview</SideNavLink>
           </SideNavItems>
         </div>
         <div className="tp-sidenav__group">
-          <div className="tp-sidenav__group-label">情报与线索</div>
+          <div className="tp-sidenav__group-label">Intelligence &amp; Leads</div>
           <SideNavItems>
-            <SideNavLink href="/prospect-data" isActive={location.pathname.startsWith('/prospect-data') || location.pathname.startsWith('/prospect-history')} title="潜客数据（Prospect Data）" renderIcon={semanticIcons.database}>潜客数据（Prospect Data）</SideNavLink>
-            <SideNavLink href="/leads" isActive={location.pathname.startsWith('/leads')} title="线索（Lead）" renderIcon={semanticIcons.userFollow}>线索（Lead）</SideNavLink>
+            <SideNavLink href="/prospect-data" isActive={location.pathname.startsWith('/prospect-data') || location.pathname.startsWith('/prospect-history')} title="Prospect Data" renderIcon={semanticIcons.database}>Prospect Data</SideNavLink>
+            <SideNavLink href="/leads" isActive={location.pathname.startsWith('/leads')} title="Leads" renderIcon={semanticIcons.userFollow}>Leads</SideNavLink>
           </SideNavItems>
         </div>
         <div className="tp-sidenav__group">
-          <div className="tp-sidenav__group-label">客户管理</div>
+          <div className="tp-sidenav__group-label">Customers</div>
           <SideNavItems>
-            <SideNavLink href="/contacts" isActive={location.pathname.startsWith('/contacts')} title="联系人（Contact）" renderIcon={semanticIcons.user}>联系人（Contact）</SideNavLink>
-            <SideNavLink href="/accounts" isActive={location.pathname.startsWith('/accounts')} title="客户（Account）" renderIcon={semanticIcons.building}>客户（Account）</SideNavLink>
-            <SideNavLink href="/opportunities" isActive={location.pathname.startsWith('/opportunities')} title="商机（Opportunity）" renderIcon={semanticIcons.chart}>商机（Opportunity）</SideNavLink>
+            <SideNavLink href="/contacts" isActive={location.pathname.startsWith('/contacts')} title="Contacts" renderIcon={semanticIcons.user}>Contacts</SideNavLink>
+            <SideNavLink href="/accounts" isActive={location.pathname.startsWith('/accounts')} title="Accounts" renderIcon={semanticIcons.building}>Accounts</SideNavLink>
+            <SideNavLink href="/opportunities" isActive={location.pathname.startsWith('/opportunities')} title="Opportunities" renderIcon={semanticIcons.chart}>Opportunities</SideNavLink>
           </SideNavItems>
         </div>
         <div className="tp-sidenav__group">
-          <div className="tp-sidenav__group-label">贸易业务</div>
+          <div className="tp-sidenav__group-label">Customer Engagement</div>
           <SideNavItems>
-            <SideNavLink href="/quotes" isActive={location.pathname.startsWith('/quotes')} title="报价单（Quote）" renderIcon={semanticIcons.document}>报价单（Quote）</SideNavLink>
-            <SideNavLink href="/sales-orders" isActive={location.pathname.startsWith('/sales-orders')} title="销售订单（Sales Order）" renderIcon={semanticIcons.tasks}>销售订单（Sales Order）</SideNavLink>
-            <SideNavLink href="/documents" isActive={location.pathname.startsWith('/documents')} title="外贸单据智能制作中心（Trade Document Studio）" renderIcon={semanticIcons.documents}>外贸单据智能制作中心</SideNavLink>
-            <SideNavLink href="/shipments" isActive={location.pathname.startsWith('/shipments')} title="发运（Shipment）" renderIcon={semanticIcons.delivery}>发运（Shipment）</SideNavLink>
-            <SideNavLink href="/payments" isActive={location.pathname.startsWith('/payments')} title="收款（Payment）" renderIcon={semanticIcons.currency}>收款（Payment）</SideNavLink>
-            <SideNavLink href="/products" isActive={location.pathname.startsWith('/products')} title="产品（Product）" renderIcon={semanticIcons.product}>产品（Product）</SideNavLink>
+            <SideNavLink href="/inbox" isActive={location.pathname.startsWith('/inbox')} title="Customer Communication" renderIcon={semanticIcons.chat}>Customer Communication</SideNavLink>
           </SideNavItems>
         </div>
         <div className="tp-sidenav__group">
-          <div className="tp-sidenav__group-label">设置与系统</div>
+          <div className="tp-sidenav__group-label">Trade Operations</div>
           <SideNavItems>
-            <SideNavLink href="/trade-tools" isActive={location.pathname.startsWith('/trade-tools')} title="外贸工具（Trade tools）" renderIcon={semanticIcons.calculator}>外贸工具（Trade tools）</SideNavLink>
-            <SideNavLink href="/ai-agents" isActive={location.pathname.startsWith('/ai-agents')} title="AI 与 Agent" renderIcon={semanticIcons.api}>AI 与 Agent</SideNavLink>
-            <SideNavLink href="/settings" isActive={location.pathname.startsWith('/settings')} title="设置（Setting）" renderIcon={semanticIcons.settings}>设置（Setting）</SideNavLink>
-            <SideNavLink href="/security" isActive={location.pathname.startsWith('/security')} title="安全与身份认证（Security）" renderIcon={semanticIcons.security}>安全与身份认证（Security）</SideNavLink>
+            <SideNavLink href="/quotes" isActive={location.pathname.startsWith('/quotes')} title="Quotes" renderIcon={semanticIcons.document}>Quotes</SideNavLink>
+            <SideNavLink href="/sales-orders" isActive={location.pathname.startsWith('/sales-orders')} title="Sales Orders" renderIcon={semanticIcons.tasks}>Sales Orders</SideNavLink>
+            <SideNavLink href="/documents" isActive={location.pathname.startsWith('/documents')} title="Trade Documents" renderIcon={semanticIcons.documents}>Trade Documents</SideNavLink>
+            <SideNavLink href="/shipments" isActive={location.pathname.startsWith('/shipments')} title="Shipments" renderIcon={semanticIcons.delivery}>Shipments</SideNavLink>
+            <SideNavLink href="/payments" isActive={location.pathname.startsWith('/payments')} title="Payments" renderIcon={semanticIcons.currency}>Payments</SideNavLink>
+            <SideNavLink href="/products" isActive={location.pathname.startsWith('/products')} title="Products" renderIcon={semanticIcons.product}>Products</SideNavLink>
+          </SideNavItems>
+        </div>
+        <div className="tp-sidenav__group">
+          <div className="tp-sidenav__group-label">System</div>
+          <SideNavItems>
+            <SideNavLink href="/trade-tools" isActive={location.pathname.startsWith('/trade-tools')} title="Trade Tools" renderIcon={semanticIcons.calculator}>Trade Tools</SideNavLink>
+            <SideNavLink href="/ai-agents" isActive={location.pathname.startsWith('/ai-agents')} title="AI &amp; Agents" renderIcon={semanticIcons.api}>AI &amp; Agents</SideNavLink>
+            <SideNavLink href="/settings" isActive={location.pathname.startsWith('/settings')} title="Settings" renderIcon={semanticIcons.settings}>Settings</SideNavLink>
+            <SideNavLink href="/security" isActive={location.pathname.startsWith('/security')} title="Security" renderIcon={semanticIcons.security}>Security</SideNavLink>
           </SideNavItems>
         </div>
         <div className="tp-sidenav__footer">
-          <div className="tp-sidenav__contact">联系：xg.y@icloud.com</div>
+          <div className="tp-sidenav__contact">Support: xg.y@icloud.com</div>
           <div className="tp-sidenav__copyright">
             <span>© {new Date().getFullYear()}</span>
             <img src="/tradepilot-mark.svg" alt="TradePilot" />
@@ -226,7 +203,7 @@ export function AppShell() {
       </SideNav>
       <Content id="main-content" tabIndex={-1} className="tp-content">
         <div className="tp-content__main">
-          {signOutError && <InlineNotification kind="error" lowContrast title="退出登录失败" subtitle={signOutError} onCloseButtonClick={() => setSignOutError('')} />}
+          {signOutError && <InlineNotification kind="error" lowContrast title="Sign out failed" subtitle={signOutError} onCloseButtonClick={() => setSignOutError('')} />}
           <Outlet />
         </div>
       </Content>
