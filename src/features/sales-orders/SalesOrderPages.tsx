@@ -4,7 +4,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   Button, Link, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput, TextArea,
   Tabs, TabList, Tab, TabPanels, TabPanel, Table, TableHead, TableRow, TableHeader, TableBody, TableCell,
-  semanticIcons, BusinessLifecycle, WorldMapChart,
+  semanticIcons, BusinessLifecycle, WorldMapChart, TpDataTable,
 } from '@/design-system';
 import { LineChart, SimpleBarChart } from '@carbon/charts-react';
 import { ScaleTypes } from '@carbon/charts';
@@ -51,7 +51,7 @@ function paymentLabel(s:string){return ({unpaid:'未收款',partial:'部分收�
 function Metric({label,value,icon:Icon,detail}:{label:string;value:string;icon:React.ElementType;detail:string}){return <div className="tp-sales-orders__metric"><div className="tp-sales-orders__metric-head"><span>{label}</span><Icon size={24} aria-hidden="true"/></div><strong>{value}</strong><small>{detail}</small></div>}
 
 export function SalesOrderConsolePage(){
- const [rows,setRows]=useState<OrderRow[]>([]);const [accounts,setAccounts]=useState<Account[]>([]);const [loading,setLoading]=useState(true);const [error,setError]=useState('');const [query,setQuery]=useState('');const [status,setStatus]=useState('all');const [currency,setCurrency]=useState('USD');const [marketCountry,setMarketCountry]=useState('all');
+ const [rows,setRows]=useState<OrderRow[]>([]);const [accounts,setAccounts]=useState<Account[]>([]);const [loading,setLoading]=useState(true);const [error,setError]=useState('');const [query,setQuery]=useState('');const [status,setStatus]=useState('all');const [currency,setCurrency]=useState('USD');const [marketCountry,setMarketCountry]=useState('all');const [page,setPage]=useState(1);const [pageSize,setPageSize]=useState<10|20|50|100>(20);
  const load=useCallback(async()=>{setLoading(true);setError('');try{const db=await getSupabaseClient();const [orders,acc]=await Promise.all([db.from('trade_orders').select('*').eq('order_type','sales').order('created_at',{ascending:false}).range(0,2999),db.from('crm_accounts').select('id,account_name').eq('is_archived',false).order('account_name')]);if(orders.error)throw orders.error;if(acc.error)throw acc.error;setRows((orders.data||[]) as OrderRow[]);setAccounts((acc.data||[]) as Account[]);}catch(e){setError(e instanceof Error?e.message:'读取销售订单失败')}finally{setLoading(false)}},[]);
  useEffect(()=>{void load()},[load]);
  const accountMap=useMemo(()=>new Map(accounts.map(a=>[a.id,a.account_name])),[accounts]);
@@ -101,7 +101,23 @@ export function SalesOrderConsolePage(){
   <section className="tp-sales-orders__panel tp-sales-orders__market-panel"><div className="tp-sales-orders__panel-head"><div><h2>全球订单市场分布</h2><p>按订单收货目的国家 / 地区统计订单数量；选择地图或排名可筛选下方订单列表。</p></div><Tag type="blue">{orderMarkets.length} 个目的市场</Tag></div>{orderMarkets.length?<WorldMapChart data={orderMarkets} unitLabel="笔订单" selectedCode={marketCountry==='all'?undefined:marketCountry} onCountrySelect={code=>setMarketCountry(current=>current===code?'all':code)}/>:<p className="tp-sales-orders__empty">当前订单尚未提供可识别的目的国家 / 地区字段。</p>}</section>
   <section className="tp-sales-orders__panel"><div className="tp-sales-orders__panel-head"><div><h2>销售订单列表</h2><p>草稿可继续编辑；订单确认后商业条件锁定。</p></div><Tag type="blue">{filtered.length} 条记录</Tag></div>
    <div className="tp-sales-orders__filters"><TextInput id="sales-order-search" labelText="搜索销售订单" placeholder="订单号、客户、客户 PO 号" value={query} onChange={e=>setQuery(e.currentTarget.value)}/><Select id="sales-order-status" labelText="订单状态" value={status} onChange={e=>setStatus(e.currentTarget.value)}><SelectItem value="all" text="全部状态"/>{['draft','confirmed','preparing','partially_shipped','shipped','completed','cancelled'].map(s=><SelectItem key={s} value={s} text={stateLabel(s)}/>)}</Select></div>
-   {loading?<div className="tp-sales-orders__loading"><InlineLoading description="正在读取销售订单…"/></div>:<div className="tp-sales-orders__table-wrap"><Table><TableHead><TableRow><TableHeader>订单编号</TableHeader><TableHeader>客户</TableHeader><TableHeader>客户 PO</TableHeader><TableHeader>订单金额</TableHeader><TableHeader>订单日期</TableHeader><TableHeader>交付日期</TableHeader><TableHeader>发货状态</TableHeader><TableHeader>收款状态</TableHeader><TableHeader>订单状态</TableHeader></TableRow></TableHead><TableBody>{filtered.map(r=>{const s=orderState(r);return <TableRow key={r.id}><TableCell><Link href={'/sales-orders/'+r.id} className="tp-sales-orders__row-link">{r.order_number}</Link><span className="tp-sales-orders__secondary">{r.title}</span></TableCell><TableCell>{accountMap.get(r.crm_account_id||'')||'—'}</TableCell><TableCell>{r.customer_reference||'—'}</TableCell><TableCell>{money(totalFor(r),r.currency_code)}</TableCell><TableCell>{r.trade_date||'—'}</TableCell><TableCell>{r.delivery_date||'—'}</TableCell><TableCell>{fulfillmentLabel(r.metadata?.sales_order?.fulfillment_status)}</TableCell><TableCell>{paymentLabel(r.metadata?.sales_order?.payment_status)}</TableCell><TableCell><Tag type={s==='completed'?'green':s==='cancelled'?'red':s==='draft'?'cool-gray':s==='confirmed'?'blue':'teal'}>{stateLabel(s)}</Tag></TableCell></TableRow>})}</TableBody></Table>{!filtered.length&&<p className="tp-sales-orders__empty">没有符合条件的销售订单。</p>}</div>}
+   {loading?<div className="tp-sales-orders__loading"><InlineLoading description="正在读取销售订单…"/></div>:<div className="tp-sales-orders__table-wrap"><TpDataTable
+     ariaLabel="销售订单列表" columnSettingsKey="sales-orders" rowKey="id"
+     rows={filtered as (OrderRow & Record<string,unknown>)[]}
+     onRowOpen={row=>nav('/sales-orders/'+row.id)}
+     pagination={{page,pageSize,totalItems:filtered.length,onChange:(nextPage,nextSize)=>{setPage(nextPage);setPageSize(nextSize);}}}
+     columns={[
+      {key:'order_number',header:'订单编号',primary:true,minWidth:200,render:r=><div><Link href={'/sales-orders/'+r.id} className="tp-sales-orders__row-link">{r.order_number}</Link><span className="tp-sales-orders__secondary">{r.title}</span></div>},
+      {key:'account',header:'客户',minWidth:170,render:r=>accountMap.get(r.crm_account_id||'')||'—'},
+      {key:'customer_reference',header:'客户 PO',minWidth:130,render:r=>r.customer_reference||'—'},
+      {key:'amount',header:'订单金额',minWidth:140,render:r=>money(totalFor(r),r.currency_code)},
+      {key:'trade_date',header:'订单日期',minWidth:120,render:r=>r.trade_date||'—'},
+      {key:'delivery_date',header:'交付日期',minWidth:120,render:r=>r.delivery_date||'—'},
+      {key:'fulfillment',header:'发货状态',minWidth:120,render:r=>fulfillmentLabel(r.metadata?.sales_order?.fulfillment_status)},
+      {key:'payment',header:'收款状态',minWidth:120,render:r=>paymentLabel(r.metadata?.sales_order?.payment_status)},
+      {key:'status',header:'订单状态',minWidth:110,render:r=>{const state=orderState(r);return <Tag type={state==='completed'?'green':state==='cancelled'?'red':state==='draft'?'cool-gray':state==='confirmed'?'blue':'teal'}>{stateLabel(state)}</Tag>}},
+     ]}
+    />{!filtered.length&&<p className="tp-sales-orders__empty">没有符合条件的销售订单。</p>}</div>}
   </section>
  </main>;
 }
