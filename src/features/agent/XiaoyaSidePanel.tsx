@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Dropdown, Heading, Link, semanticIcons, ChatCustomElement, MessageResponseTypes, type ChatInstance, type CustomSendMessageOptions, type MessageRequest, type PublicConfig, type HistoryItem } from '@/design-system';
+import { Button, Dropdown, Heading, Link, Tile, semanticIcons, ChatCustomElement, MessageResponseTypes, type ChatInstance, type CustomSendMessageOptions, type MessageRequest, type PublicConfig, type HistoryItem } from '@/design-system';
 import { XiaoyaAvatar } from './XiaoyaAvatar';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/layout/XiaoyaSidePanel.scss';
@@ -515,7 +515,7 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
           )}
         </div>
         {taskSuggestion && (
-          <section className="tp-xiaoya-task" aria-label="小雅任务方案">
+          <Tile className="tp-xiaoya-task" aria-label="小雅任务方案">
             <div className="tp-xiaoya-task__heading">
               <semanticIcons.task size={20} />
               <strong>任务方案</strong>
@@ -535,7 +535,7 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
                 </Button>
               </div>
             )}
-          </section>
+          </Tile>
         )}
       </aside>
     </div>
