@@ -352,13 +352,13 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
   const statusText=statusLabel(payment.status);
   return <main className="tp-payments">
     <PageHeader className="tp-payments__header"><div><p className="tp-payments__eyebrow">TRADEPILOT / FINANCE / PAYMENT</p><h1>{editing?paymentNo:'创建收款（Payment）'}</h1><p>{editing?'维护收款资料、分配与核销记录。':'录入真实到账，可分配多个订单节点，也可保留为预收款。'}</p></div><div className="tp-responsive-header-actions">
-      {readOnly&&['draft','pending_confirmation'].includes(payment.status)&&<Button className="tp-responsive-header-actions__primary" kind="primary" disabled={saving} onClick={()=>void confirm()}>{payment.payment_type==='refund'?'确认退款 / 红冲':'确认收款并核销'}</Button>}
-      {readOnly&&['confirmed','partially_reconciled'].includes(payment.status)&&Number(payment.unallocated_amount)>0.005&&<Link className="tp-responsive-header-actions__primary" href={'/payments/'+id+'/allocate'}>分配预收余额</Link>}
-      {editing&&!readOnly&&['confirmed','partially_reconciled','reconciled'].includes(payment.status)&&<Button className="tp-responsive-header-actions__primary" kind="primary" disabled={saving} onClick={()=>void saveReconciliation()}>保存对账信息</Button>}
+      {readOnly&&['draft','pending_confirmation'].includes(payment.status)&&<Button className="tp-responsive-header-actions__primary" kind="primary" renderIcon={semanticIcons.check} disabled={saving} onClick={()=>void confirm()}>{payment.payment_type==='refund'?'确认退款 / 红冲':'确认收款并核销'}</Button>}
+      {readOnly&&['confirmed','partially_reconciled'].includes(payment.status)&&Number(payment.unallocated_amount)>0.005&&<Link className="tp-responsive-header-actions__primary" href={'/payments/'+id+'/allocate'} renderIcon={semanticIcons.add}>分配预收余额</Link>}
+      {editing&&!readOnly&&['confirmed','partially_reconciled','reconciled'].includes(payment.status)&&<Button className="tp-responsive-header-actions__primary" kind="primary" renderIcon={semanticIcons.save} disabled={saving} onClick={()=>void saveReconciliation()}>保存对账信息</Button>}
       <div className="tp-responsive-header-actions__secondary">
-        <Link href="/payments">返回收款列表</Link>
-        {readOnly&&payment.status==='draft'&&<Link href={'/payments/'+id+'/edit'}>编辑草稿</Link>}
-        {readOnly&&['confirmed','partially_reconciled','reconciled'].includes(payment.status)&&!payment.bank_reconciled&&<Link href={'/payments/'+id+'/edit'}>登记银行对账</Link>}
+        <Link href="/payments" renderIcon={semanticIcons.back}>返回收款列表</Link>
+        {readOnly&&payment.status==='draft'&&<Link href={'/payments/'+id+'/edit'} renderIcon={semanticIcons.edit}>编辑草稿</Link>}
+        {readOnly&&['confirmed','partially_reconciled','reconciled'].includes(payment.status)&&!payment.bank_reconciled&&<Link href={'/payments/'+id+'/edit'} renderIcon={semanticIcons.edit}>登记银行对账</Link>}
         {editing&&!readOnly&&payment.status==='draft'&&<Button kind="danger--tertiary" disabled={saving} onClick={()=>void voidPayment()}>作废</Button>}
       </div>
     </div></PageHeader>
