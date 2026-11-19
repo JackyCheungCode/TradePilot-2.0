@@ -632,7 +632,15 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
         const available=new Set((enabledSkills??[]).map(row=>row.agent_key.slice(6)));
         if(skillIds.some(id=>!available.has(id)))return errorResponse(request,"SKILL_NOT_AVAILABLE","只能分配当前账户已启用的 Skill 工作方法。",409);
       }
-      const config={systemPrompt,description,modelRef,skillIds};
+      const rawToolKeys=Array.isArray(input.toolKeys)?input.toolKeys:undefined;
+      const toolKeys=rawToolKeys?[...new Set(rawToolKeys.filter((value):value is string=>typeof value==="string"&&value.length>0&&value.length<=240))]:undefined;
+      if(rawToolKeys&&(rawToolKeys.length>20||toolKeys!.length!==rawToolKeys.length))return errorResponse(request,"VALIDATION_ERROR","Agent 外部工具分配数量或标识无效。",400);
+      if(toolKeys?.length){
+        const enabledTools=await db<Array<{tool_key:string}>>(env,"agent_tool_registry?owner_id=eq."+ownerId+"&source=eq.external&enabled=eq.true&status=eq.active&risk=neq.blocked&select=tool_key&limit=200");
+        const available=new Set((enabledTools??[]).map(row=>row.tool_key));
+        if(toolKeys.some(key=>!available.has(key)))return errorResponse(request,"TOOL_NOT_AVAILABLE","只能分配当前账户已登记、启用且未被禁止的外部工具。",409);
+      }
+      const config={systemPrompt,description,modelRef,skillIds,...(toolKeys===undefined?{}:{toolKeys})};
       const rows=await db<Array<Record<string,unknown>>>(env,"agent_profiles?on_conflict=owner_id,agent_key&select=agent_key,enabled,config,updated_at",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=representation"},body:JSON.stringify({owner_id:ownerId,agent_key:agentKey,enabled,config,updated_at:new Date().toISOString()})});
       return successResponse(request,rows?.[0]??{agent_key:agentKey,enabled,config},200);
     }
@@ -1168,12 +1176,14 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
       let selectedTool:Record<string,unknown>|undefined;
       if(plannerMode){
         if(!/^[A-Z]{2}$/.test(country))return errorResponse(request,"VALIDATION_ERROR","请选择有效的目标国家。",400);
-        const [availableRows,enabledRegistryTools]=await Promise.all([
+        const [availableRows,enabledRegistryTools,agentProfileRows]=await Promise.all([
           db<ConnectionRow[]>(env,"agent_connections?owner_id=eq."+ownerId+"&select=id,owner_id,name,protocol,endpoint_url,auth_mode,encrypted_credentials,capabilities,protocol_tools,protocol_metadata,status,last_tested_at,last_error,created_at,updated_at&order=created_at.desc&limit=100"),
-          db<Array<{connection_id:string;protocol_tool_name:string}>>(env,"agent_tool_registry?owner_id=eq."+ownerId+"&source=eq.external&enabled=eq.true&status=eq.active&select=connection_id,protocol_tool_name")
+          db<Array<{tool_key:string;connection_id:string;protocol_tool_name:string}>>(env,"agent_tool_registry?owner_id=eq."+ownerId+"&source=eq.external&enabled=eq.true&status=eq.active&risk=neq.blocked&select=tool_key,connection_id,protocol_tool_name"),
+          requestedAgentKey?db<Array<{config:Record<string,unknown>;enabled:boolean}>>(env,"agent_profiles?owner_id=eq."+ownerId+"&agent_key=eq."+requestedAgentKey+"&select=config,enabled&limit=1"):Promise.resolve([])
         ]);
+        const selectedToolKeys=Array.isArray(agentProfileRows?.[0]?.config?.toolKeys)?new Set(agentProfileRows[0].config.toolKeys.filter((value):value is string=>typeof value==="string")):null;
         const enabledByConnection=new Map<string,Set<string>>();
-        for(const item of enabledRegistryTools??[]){if(!item.connection_id||!item.protocol_tool_name)continue;const names=enabledByConnection.get(item.connection_id)??new Set<string>();names.add(item.protocol_tool_name);enabledByConnection.set(item.connection_id,names);}
+        for(const item of enabledRegistryTools??[]){if(!item.connection_id||!item.protocol_tool_name)continue;if(selectedToolKeys&&!selectedToolKeys.has(item.tool_key))continue;const names=enabledByConnection.get(item.connection_id)??new Set<string>();names.add(item.protocol_tool_name);enabledByConnection.set(item.connection_id,names);}
         const available=(availableRows??[]).map(connection=>({...connection,protocol_tools:(connection.protocol_tools??[]).filter(tool=>enabledByConnection.get(connection.id)?.has(String(tool.name??"")))}));
         planner=await generateAgentPlan(env,ownerId,goal,country,engine,available);
         if(requestedAgentKey){
