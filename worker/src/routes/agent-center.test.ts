@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { callAgentChatModel, handleAgentCenter } from "./agent-center.ts";
+import { callAgentChatModel, filterAgentConnectionsByToolKeys, handleAgentCenter } from "./agent-center.ts";
 
 const ownerId="123e4567-e89b-42d3-a456-426614174000";
 const connectionId="123e4567-e89b-42d3-a456-426614174001";
@@ -365,4 +365,24 @@ test("Agent profile rejects external Tool assignments outside the owner's enable
   assert.equal(response.status,409);
   assert.equal(writes,0);
  }finally{restore();}
+});
+
+
+test("Agent Tool filtering exposes only registered enabled tools assigned to the selected Agent",()=>{
+ const connections=[{id:"connection-a",protocol_tools:[{name:"search_one"},{name:"search_two"}]},{id:"connection-b",protocol_tools:[{name:"lookup_company"}]}] as unknown as Parameters<typeof filterAgentConnectionsByToolKeys>[0];
+ const registry=[
+  {tool_key:"ext:connection-a:search_one",connection_id:"connection-a",protocol_tool_name:"search_one"},
+  {tool_key:"ext:connection-a:search_two",connection_id:"connection-a",protocol_tool_name:"search_two"},
+  {tool_key:"ext:connection-b:lookup_company",connection_id:"connection-b",protocol_tool_name:"lookup_company"}
+ ];
+ const assigned=new Set(["ext:connection-a:search_two","ext:connection-b:lookup_company"]);
+ const filtered=filterAgentConnectionsByToolKeys(connections,registry,assigned);
+ assert.deepEqual(filtered.map(connection=>connection.protocol_tools.map(tool=>String(tool.name))),[["search_two"],["lookup_company"]]);
+});
+
+test("Agent Tool filtering returns no external tools when the Agent has an explicit empty assignment",()=>{
+ const connections=[{id:"connection-a",protocol_tools:[{name:"search_one"}]}] as unknown as Parameters<typeof filterAgentConnectionsByToolKeys>[0];
+ const registry=[{tool_key:"ext:connection-a:search_one",connection_id:"connection-a",protocol_tool_name:"search_one"}];
+ const filtered=filterAgentConnectionsByToolKeys(connections,registry,new Set());
+ assert.deepEqual(filtered[0].protocol_tools,[]);
 });
