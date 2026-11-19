@@ -227,12 +227,13 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
       setChatStatusVisible(false);
       conversationIdRef.current = created.id;
     } catch (error) {
+      if (requestId !== conversationRequestIdRef.current) return;
       console.error('[Xiaoya] New conversation could not be created', error);
       setAvatarEmotion('error');
       setWelcomePhase('error');
       setWelcomeVisible(true);
     }
-  }, [createConversation]);
+  }, []);
 
   const customLoadHistory = useCallback(async (instance: ChatInstance): Promise<HistoryItem[]> => {
     // Return an empty initial history immediately. Fetch and insert persisted history
