@@ -491,7 +491,7 @@ export function CustomerCommunicationsWidget({
           <header className={"tp-communication-header" + (fullPage ? " tp-communication-header--toolbar" : "")}>
             {!fullPage && <div className="tp-communication-heading"><span className="tp-communication-brand" aria-hidden="true"><semanticIcons.chat size={22} /></span><div><h1>沟通</h1><p>CRM 客户 · 全渠道会话 · 小雅辅助</p></div></div>}
             <div className="tp-communication-header-actions">
-              <Button type="button" kind="ghost" size="sm" onClick={() => void loadInbox()}>刷新</Button>
+              <Button type="button" kind="ghost" size="sm" renderIcon={semanticIcons.refresh} onClick={() => void loadInbox()}>刷新</Button>
               {!popupMode && <Button type="button" kind="ghost" size="sm" onClick={onClose}>返回工作台</Button>}
             </div>
           </header>
@@ -573,7 +573,7 @@ export function CustomerCommunicationsWidget({
 
           <main className="tp-communication-chat" aria-label="客户聊天窗口">
             <header className="tp-chat-header">
-              <Button type="button" kind="ghost" size="sm" className="tp-chat-back" onClick={() => setMobileChatOpen(false)}>客户列表</Button>
+              <Button type="button" kind="ghost" size="sm" className="tp-chat-back" renderIcon={semanticIcons.back} onClick={() => setMobileChatOpen(false)}>客户列表</Button>
               <Avatar name={activeCustomer.name} size="small" />
               <div className="tp-chat-heading"><strong>{activeCustomer.name}</strong><span>{activeCustomer.company} · {activeCustomer.country}</span></div>
               <div className="tp-chat-context"><span className="tp-chat-live-dot" /> 全渠道会话</div>

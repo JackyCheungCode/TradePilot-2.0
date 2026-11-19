@@ -234,7 +234,7 @@ export function OpportunityConsolePage() {
   const contactMap = new Map(contacts.map(c=>[c.id,contactName(c)]));
   return <main className="tp-opportunities">
     <PageHeader className="tp-opportunities__header"><div><p className="tp-opportunities__eyebrow">TRADEPILOT / CRM</p><h1>商机（Opportunity）</h1><p>管理销售机会、阶段、预测金额、客户关系与跟进计划。</p></div>
-      <div className="tp-opportunities__actions"><Button kind="tertiary" onClick={()=>void load()} disabled={loading}><semanticIcons.refresh size={16}/>刷新</Button><Link href="/opportunities/new" renderIcon={semanticIcons.add}>新建商机</Link></div>
+      <div className="tp-opportunities__actions"><Button kind="tertiary" renderIcon={semanticIcons.refresh} onClick={()=>void load()} disabled={loading}>刷新</Button><Link href="/opportunities/new" renderIcon={semanticIcons.add}>新建商机</Link></div>
     </PageHeader>
     {error&&<InlineNotification kind="error" title="商机数据读取失败" subtitle={error}/>}
     {archiveNotice&&<InlineNotification kind={archiveNotice.kind} title={archiveNotice.kind==='success'?'批量操作完成':'批量操作失败'} subtitle={archiveNotice.message} onCloseButtonClick={()=>setArchiveNotice(null)}/> }
@@ -379,7 +379,7 @@ export function OpportunityFormPage() {
     }catch(e){setError(e instanceof Error?e.message:'保存商机失败')}finally{setSaving(false)}
   };
   if(loading)return <main className="tp-opportunities"><TPSkeleton variant="profile" rows={5}/></main>;
-  return <main className="tp-opportunities"><PageHeader className="tp-opportunities__header"><div><p className="tp-opportunities__eyebrow">TRADEPILOT / CRM / OPPORTUNITY</p><h1>{editing?'编辑商机':'新建商机'}</h1><p>按业务分组维护商机信息；客户与联系人保持独立关联。</p></div><div className="tp-opportunities__actions"><Link href="/opportunities">返回列表</Link><Button kind="primary" disabled={saving} onClick={()=>void save()}>{saving?'保存中…':'保存商机'}</Button>{saving && <TPInlineLoading status="active" description="正在保存商机…" />}</div></PageHeader>
+  return <main className="tp-opportunities"><PageHeader className="tp-opportunities__header"><div><p className="tp-opportunities__eyebrow">TRADEPILOT / CRM / OPPORTUNITY</p><h1>{editing?'编辑商机':'新建商机'}</h1><p>按业务分组维护商机信息；客户与联系人保持独立关联。</p></div><div className="tp-opportunities__actions"><Link href="/opportunities" renderIcon={semanticIcons.back}>返回列表</Link><Button kind="primary" disabled={saving} onClick={()=>void save()}>{saving?'保存中…':'保存商机'}</Button>{saving && <TPInlineLoading status="active" description="正在保存商机…" />}</div></PageHeader>
     {error&&<InlineNotification kind="error" title="商机保存失败" subtitle={error}/>}
     <section className="tp-opportunities__primary"><div className="tp-opportunities__grid"><div className="tp-opportunities__field tp-opportunities__field--wide"><TextInput id="opp-name" labelText="商机名称 *" value={data.name} onChange={e=>set('name',e.currentTarget.value)} placeholder="例如：欧洲市场智能音箱采购项目"/></div><div className="tp-opportunities__field tp-opportunities__number-note"><span>商机编号</span><p>{editing?'保存时保留系统编号':'保存后自动生成'}</p></div>{select('opp-account','所属客户 *',data.account_id,v=>{set('account_id',v);set('primary_contact_id','')},accounts.map(a=>[a.id,a.account_name]))}{select('opp-contact','主要联系人',data.primary_contact_id,v=>set('primary_contact_id',v),[['','请选择联系人'],...availableContacts.map(c=>[c.id,contactName(c)] as [string,string])])}</div></section>
     <section className="tp-opportunities__tabs"><Tabs><TabList aria-label="商机字段分组" contained>{['商机信息','销售阶段','商业金额','销售管理','时间计划','竞争情况','跟进记录'].map(t=><Tab key={t}>{t}</Tab>)}</TabList><TabPanels>
@@ -391,7 +391,7 @@ export function OpportunityFormPage() {
       <TabPanel><div className="tp-opportunities__tab-content"><h2>竞争情况</h2><div className="tp-opportunities__grid">{label('opp-competitor','竞争对手',data.competitor,v=>set('competitor',v),'多个竞争对手以逗号分隔')}{label('opp-competitive-product','竞争产品',data.competitive_product,v=>set('competitive_product',v))}{area('opp-competitive-advantages','我方竞争优势',data.competitive_advantages,v=>set('competitive_advantages',v))}{area('opp-competitive-disadvantages','我方竞争劣势',data.competitive_disadvantages,v=>set('competitive_disadvantages',v))}</div></div></TabPanel>
       <TabPanel><div className="tp-opportunities__tab-content"><h2>跟进记录</h2><div className="tp-opportunities__grid">{area('opp-follow-up-summary','最近跟进结果',data.follow_up_summary,v=>set('follow_up_summary',v))}{area('opp-internal-notes','内部备注',data.internal_notes,v=>set('internal_notes',v))}</div><p className="tp-opportunities__hint">活动中心尚未建立独立活动实体；当前保存下一步行动与跟进摘要，不虚构活动记录。</p></div></TabPanel>
     </TabPanels></Tabs></section>
-    <footer className="tp-opportunities__footer"><span>商机名称、所属客户为必填项；主要联系人只能选择该客户下的联系人。</span><div><Link href="/opportunities">取消</Link><Button kind="primary" disabled={saving} onClick={()=>void save()}>{saving?'保存中…':'保存商机'}</Button></div></footer>
+    <footer className="tp-opportunities__footer"><span>商机名称、所属客户为必填项；主要联系人只能选择该客户下的联系人。</span><div><Link href="/opportunities" renderIcon={semanticIcons.close}>取消</Link><Button kind="primary" renderIcon={semanticIcons.save} disabled={saving} onClick={()=>void save()}>{saving?'保存中…':'保存商机'}</Button></div></footer>
   </main>;
 }
 
