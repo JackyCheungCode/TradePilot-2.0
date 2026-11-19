@@ -74,8 +74,8 @@ export function SkillsRegistry(){
     {initialSkills.map(([id,label,description])=>{
      const skill=skills.find(row=>row.id===id);
      const draft=drafts[id]??{repositoryUrl:'',branch:'main',skillPath:''};
-     return <section key={id} className="tp-settings__editor" style={{marginBottom:'1rem'}}>
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'1rem',flexWrap:'wrap'}}>
+     return <section key={id} className="tp-settings__editor">
+      <div className="tp-ai-control__skill-heading">
        <div><h4>{label}</h4><p><code>{id}</code> · {description}</p></div>
        {stateTag(skill?.state??'pending')}
       </div>
@@ -85,7 +85,7 @@ export function SkillsRegistry(){
        <TextInput id={'skill-path-'+id} labelText="Skill 目录（可选）" placeholder="skills/market-intel" value={draft.skillPath} onChange={event=>change(id,'skillPath',event.currentTarget.value)}/>
       </div>
       {skill?.state==='synced'&&<p>已同步：{String(skill.config.syncedAt??'')} · {String((skill.config.manifest as Record<string,unknown>|undefined)?.description??'')}</p>}
-      <div style={{display:'flex',gap:'.5rem',flexWrap:'wrap'}}>
+      <div className="tp-ai-control__skill-actions">
        <Button kind="tertiary" size="sm" disabled={busy===id||!draft.repositoryUrl.trim()} onClick={()=>void save(id)}>{busy===id?'处理中…':'保存来源'}</Button>
        <Button kind="primary" size="sm" disabled={busy===id||!draft.repositoryUrl.trim()} onClick={()=>void sync(id)}>{busy===id?'正在拉取…':'拉取配置'}</Button>
       </div>
