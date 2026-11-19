@@ -94,15 +94,22 @@ export function OpportunityConsolePage() {
     setLoading(true); setError('');
     try {
       const db = await getSupabaseClient();
-      const [a,c] = await Promise.all([
-        db.from('crm_accounts').select('id,account_name,country_code').eq('is_archived',false).order('account_name'),
-        db.from('crm_contacts').select('id,account_id,full_name,first_name,last_name').eq('is_archived',false).eq('is_active',true).order('first_name'),
-      ]);
-      if(a.error) throw a.error;
-      if(c.error) throw c.error;
-      const accountRows=(a.data||[]) as AccountOption[];
+      const accountRows:AccountOption[]=[];
+      for(let offset=0;;offset+=1000){
+        const result=await db.from('crm_accounts').select('id,account_name,country_code').eq('is_archived',false).order('account_name').range(offset,offset+999);
+        if(result.error) throw result.error;
+        accountRows.push(...(result.data||[]) as AccountOption[]);
+        if((result.data||[]).length<1000) break;
+      }
+      const contactRows:ContactOption[]=[];
+      for(let offset=0;;offset+=1000){
+        const result=await db.from('crm_contacts').select('id,account_id,full_name,first_name,last_name').eq('is_archived',false).eq('is_active',true).order('first_name').range(offset,offset+999);
+        if(result.error) throw result.error;
+        contactRows.push(...(result.data||[]) as ContactOption[]);
+        if((result.data||[]).length<1000) break;
+      }
       setAccounts(accountRows);
-      setContacts((c.data||[]) as ContactOption[]);
+      setContacts(contactRows);
       const accountIds=marketCountry==='all'?null:accountRows.filter(item=>String(item.country_code||'').toUpperCase()===marketCountry).map(item=>item.id);
       const safeTerm=query.trim().replace(/[\\%_(),."]/g, character => '\\\\'+character);
       const applyFilters=(builder:any)=>{
