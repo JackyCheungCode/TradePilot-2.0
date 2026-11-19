@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AreaChart, DonutChart, SimpleBarChart } from '@carbon/charts-react';
 import {
   Button, Link, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput, Tile,
-  Table, TableHead, TableRow, TableHeader, TableBody, TableCell, Pagination, semanticIcons,
+  semanticIcons, TpDataTable,
   Tabs, TabList, Tab, TabPanels, TabPanel, WorldMapChart,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
@@ -130,7 +130,6 @@ export function ProspectDataPage() {
       && (status === 'all' || row.status === status)
       && (country === 'all' || row.country === country);
   }), [rows, search, source, status, country]);
-  const visible = filtered.slice((page - 1) * pageSize, page * pageSize);
   const countriesCount = new Set(rows.map(row => row.country).filter(value => value !== '—')).size;
 
   const analytics = useMemo(() => {
@@ -223,24 +222,25 @@ export function ProspectDataPage() {
           <Select id="tp-prospect-data-status" labelText="处理状态" value={status} onChange={event => { setStatus(event.currentTarget.value); setPage(1); }}><SelectItem value="all" text="全部状态" /><SelectItem value="pending" text="待处理" /><SelectItem value="crm" text="已送入 CRM" /><SelectItem value="removed" text="手动移除" /><SelectItem value="discarded" text="已废弃" /></Select>
         </div>
         <div className="tp-prospect-hub__table-wrap">
-          {loading ? <div className="tp-prospect-hub__loading"><InlineLoading description="正在读取全部潜客数据…" /></div> : <Table size="lg">
-            <TableHead><TableRow>{['企业名称','国家 / 地区','官方网站 / 邮箱','获客来源','AI 评分','处理状态','任务编码','抓取时间'].map(label => <TableHeader key={label}>{label}</TableHeader>)}</TableRow></TableHead>
-            <TableBody>
-              {visible.map(row => <TableRow key={row.id}>
-                <TableCell><strong>{row.name}</strong>{row.industry !== '未分类' && <small>{row.industry}</small>}</TableCell>
-                <TableCell>{countryLabel(row.country)}</TableCell>
-                <TableCell><div className="tp-prospect-hub__contact">{row.website ? <a href={row.website.startsWith('http') ? row.website : 'https://' + row.website} target="_blank" rel="noreferrer">{row.website}</a> : '—'}<small>{row.email || row.phone || '暂无联系方式'}</small></div></TableCell>
-                <TableCell><div className="tp-prospect-hub__source-tags">{row.sources.map(item => <Tag key={item} type="blue">{item}</Tag>)}</div></TableCell>
-                <TableCell>{row.score === null ? '—' : <strong>{row.score} 分</strong>}</TableCell>
-                <TableCell><Tag type={statusType(row.status)}>{statusLabel(row.status)}</Tag></TableCell>
-                <TableCell><span className="tp-prospect-hub__code">{row.taskCode}</span></TableCell>
-                <TableCell>{fmt(row.capturedAt)}</TableCell>
-              </TableRow>)}
-              {!visible.length && !loading && <TableRow><TableCell colSpan={8}>没有符合当前筛选条件的潜客记录。</TableCell></TableRow>}
-            </TableBody>
-          </Table>}
+          <TpDataTable
+            ariaLabel="全部潜客列表"
+            columnSettingsKey="prospect-master-data"
+            rowKey="id"
+            rows={filtered as (Prospect & Record<string, unknown>)[]}
+            loading={loading}
+            pagination={{page,pageSize:pageSize as 10|20|50|100,totalItems:filtered.length,onChange:(nextPage,nextSize)=>{setPage(nextPage);setPageSize(nextSize);}}}
+            columns={[
+              {key:'name',header:'企业名称',primary:true,minWidth:200,render:row=><div><strong>{row.name}</strong>{row.industry!=='未分类'&&<small>{row.industry}</small>}</div>},
+              {key:'country',header:'国家 / 地区',minWidth:130,render:row=>countryLabel(row.country)},
+              {key:'website',header:'官方网站 / 邮箱',minWidth:220,render:row=><div className="tp-prospect-hub__contact">{row.website?<a href={row.website.startsWith('http')?row.website:'https://'+row.website} target="_blank" rel="noreferrer">{row.website}</a>:'—'}<small>{row.email||row.phone||'暂无联系方式'}</small></div>},
+              {key:'source',header:'获客来源',minWidth:180,render:row=><div className="tp-prospect-hub__source-tags">{row.sources.map(item=><Tag key={item} type="blue">{item}</Tag>)}</div>},
+              {key:'score',header:'AI 评分',minWidth:90,render:row=>row.score===null?'—':<strong>{row.score} 分</strong>},
+              {key:'status',header:'处理状态',minWidth:110,render:row=><Tag type={statusType(row.status)}>{statusLabel(row.status)}</Tag>},
+              {key:'taskCode',header:'任务编码',minWidth:130,render:row=><span className="tp-prospect-hub__code">{row.taskCode}</span>},
+              {key:'capturedAt',header:'抓取时间',minWidth:150,render:row=>fmt(row.capturedAt)},
+            ]}
+          />
         </div>
-        {!loading && <div className="tp-prospect-hub__pagination"><Pagination id="tp-prospect-data-pagination" page={page} pageSize={pageSize} pageSizes={[20,50,100]} totalItems={filtered.length} onChange={({page:nextPage,pageSize:nextSize})=>{setPage(nextPage);setPageSize(nextSize);}} /></div>}
       </section>
       <footer className="tp-prospect-data__footer"><span>TRADEPILOT · GLOBAL PROSPECT DATABASE</span><span>真实发现记录 · 企业去重口径 · {loading ? '正在同步' : '已加载 ' + rows.length.toLocaleString() + ' 条企业资产'}</span></footer>
     </main>
