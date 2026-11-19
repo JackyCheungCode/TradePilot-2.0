@@ -323,7 +323,7 @@ export function SettingsCenterPage() {
                       ]}
                       rowActions={[
                         {key:'edit',label:'编辑',onClick:item=>{setEditingCategoryId(item.id);setCategoryName(item.name);setCategoryCode(item.code||'');setCategoryParent(item.parent_id||'');}},
-                        {key:'toggle',label:item=>item.is_active?'停用':'启用',onClick:item=>void toggleCategory(item)},
+                        {key:'toggle',label:'切换状态',onClick:item=>void toggleCategory(item)},
                       ]}
                     />
                     {!filteredCategories.length && <p className="tp-settings__empty">暂无分类记录。</p>}
@@ -358,7 +358,7 @@ export function SettingsCenterPage() {
                       ]}
                       rowActions={[
                         {key:'edit',label:'编辑',onClick:item=>{setEditingAttributeId(item.id);setAttributeName(item.name);setDisplayType(item.display_type);setVariantMode(item.create_variant);}},
-                        {key:'toggle',label:item=>item.is_active?'停用':'启用',onClick:item=>void toggleAttribute(item)},
+                        {key:'toggle',label:'切换状态',onClick:item=>void toggleAttribute(item)},
                       ]}
                     />
                     {!filteredAttributes.length && <p className="tp-settings__empty">暂无规格属性。创建后可在产品规格配置中复用。</p>}
@@ -385,7 +385,7 @@ export function SettingsCenterPage() {
                         {key:'html_color',header:'颜色',minWidth:110,render:item=>item.html_color||'—'},
                         {key:'status',header:'状态',minWidth:100,render:item=><Tag type={item.is_active?'green':'cool-gray'}>{item.is_active?'启用':'停用'}</Tag>},
                       ]}
-                      rowActions={[{key:'toggle',label:item=>item.is_active?'停用':'启用',onClick:item=>void toggleAttributeValue(item)}]}
+                      rowActions={[{key:'toggle',label:'切换状态',onClick:item=>void toggleAttributeValue(item)}]}
                     />
                     {!attributeValues.filter((item) => !attributeValueAttribute || item.attribute_id === attributeValueAttribute).length && <p className="tp-settings__empty">该属性暂无可选值。</p>}
                   </div>
