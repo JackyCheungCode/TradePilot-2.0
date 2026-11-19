@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Dropdown, Heading, Link, Tile, semanticIcons, ChatCustomElement, MessageResponseTypes, type ChatInstance, type CustomSendMessageOptions, type MessageRequest, type PublicConfig, type HistoryItem } from '@/design-system';
+import { Button, Dropdown, Heading, Link, Tile, semanticIcons, ChatCustomElement, MessageResponseTypes, type ChatInstance, type CustomSendMessageOptions, type MessageRequest, type ChatCustomElementProps, type RenderCustomRequestFooter, type HistoryItem } from '@/design-system';
 import { XiaoyaAvatar } from './XiaoyaAvatar';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/layout/XiaoyaSidePanel.scss';
@@ -110,6 +110,8 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
   const [taskSuggestion, setTaskSuggestion] = useState<TaskSuggestion | null>(null);
   const [taskExecuting, setTaskExecuting] = useState(false);
   const [taskError, setTaskError] = useState('');
+  const [userAvatarUrl, setUserAvatarUrl] = useState('');
+  const [userDisplayName, setUserDisplayName] = useState('你');
   const chatInstanceRef = useRef<ChatInstance | null>(null);
   const conversationIdRef = useRef('');
   const historyLoadPromiseRef = useRef<Promise<void> | null>(null);
@@ -126,6 +128,36 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
   useEffect(() => {
     if (isOpen) setHasMounted(true);
   }, [isOpen]);
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      try {
+        const client = await getSupabaseClient();
+        const { data } = await client.auth.getSession();
+        const user = data.session?.user;
+        if (!active || !user) return;
+        const metadata = user.user_metadata as Record<string, unknown>;
+        const avatar = metadata.avatar_url || metadata.picture || metadata.avatar;
+        const displayName = metadata.full_name || metadata.name || metadata.preferred_username || user.email?.split('@')[0];
+        if (typeof avatar === 'string' && /^https:\/\//i.test(avatar)) setUserAvatarUrl(avatar);
+        if (typeof displayName === 'string' && displayName.trim()) setUserDisplayName(displayName.trim());
+      } catch (error) {
+        console.error('[Xiaoya] User avatar could not be loaded', error);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
+
+  const renderUserMessageIdentity = useCallback<RenderCustomRequestFooter>(() => (
+    <div className="tp-xiaoya-user-identity" aria-label={userDisplayName}>
+      <span className="tp-xiaoya-user-identity__avatar" aria-hidden="true">
+        {userAvatarUrl ? <img src={userAvatarUrl} alt="" /> : userDisplayName.slice(0, 1).toUpperCase()}
+      </span>
+      <span className="tp-xiaoya-user-identity__name">{userDisplayName}</span>
+    </div>
+  ), [userAvatarUrl, userDisplayName]);
+
 
   useEffect(() => {
     if (!isOpen) {
@@ -451,11 +483,13 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
     }
   }, [taskExecuting, taskSuggestion]);
 
-  const chatConfig = useMemo<PublicConfig>(() => ({
+  const chatConfig = useMemo<ChatCustomElementProps>(() => ({
+    className: 'tp-xiaoya-chat',
     aiEnabled: true,
     assistantName: '小雅',
     assistantAvatarUrl: '/xiaoya-avatar.svg',
     hideAvatar: false,
+    renderCustomRequestFooter: renderUserMessageIdentity,
     openChatByDefault: true,
     header: {
       isOn: false,
@@ -474,7 +508,7 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
       customLoadHistory,
       customSendMessage,
     },
-  }), [customLoadHistory, customSendMessage]);
+  }), [customLoadHistory, customSendMessage, renderUserMessageIdentity]);
 
   return (
     <div className={`tp-xiaoya-drawer-layer${isOpen ? ' is-open' : ''}`} aria-hidden={!isOpen}>
@@ -511,7 +545,7 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
           </Button>
         </div>
         <div className="tp-xiaoya-drawer__chat">
-          {hasMounted && <ChatCustomElement className="tp-xiaoya-chat" {...chatConfig} />}
+          {hasMounted && <ChatCustomElement {...chatConfig} />}
           {welcomeVisible && (
             <section className="tp-xiaoya-welcome" aria-label="小雅助手介绍">
               <div className={`tp-xiaoya-welcome__avatar tp-xiaoya-welcome__avatar--${avatarEmotion}`}>
