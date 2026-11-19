@@ -1,7 +1,7 @@
 import { PageHeader } from '@/design-system';
 import {useCallback,useEffect,useMemo,useState} from 'react';
 import {useNavigate,useParams} from 'react-router-dom';
-import {Button,Link,InlineLoading,InlineNotification,Select,SelectItem,Tag,TextInput,TextArea,Tabs,TabList,Tab,TabPanels,TabPanel,Table,TableHead,TableRow,TableHeader,TableBody,TableCell,Tile,LineChart,SimpleBarChart,ScaleTypes,semanticIcons,BusinessLifecycle,WorldMapChart} from '@/design-system';
+import {Button,Link,InlineLoading,InlineNotification,Select,SelectItem,Tag,TextInput,TextArea,Tabs,TabList,Tab,TabPanels,TabPanel,Table,TableHead,TableRow,TableHeader,TableBody,TableCell,Tile,LineChart,SimpleBarChart,ScaleTypes,semanticIcons,BusinessLifecycle,WorldMapChart,TpDataTable} from '@/design-system';
 import '@carbon/charts/styles.css';
 import '@/design-system/patterns/shipments.scss';
 import { useBusinessTransitionEvents } from '@/lib/useBusinessTransitionEvents';
@@ -24,7 +24,8 @@ function Field({f,value,onChange}:{f:string[];value:any;onChange:(v:string)=>voi
 function Metric({label,value,detail,icon:Icon}:{label:string;value:string;detail:string;icon:React.ElementType}){return <Tile className="tp-shipments__metric"><div className="tp-shipments__metric-head"><span>{label}</span><Icon size={20}/></div><strong>{value}</strong><small>{detail}</small></Tile>}
 
 export function ShipmentConsolePage(){
- const [rows,setRows]=useState<any[]>([]);const [loading,setLoading]=useState(true);const [error,setError]=useState('');const [q,setQ]=useState('');const [status,setStatus]=useState('all');const [countryFilter,setCountryFilter]=useState('all');
+ const nav=useNavigate();
+ const [rows,setRows]=useState<any[]>([]);const [loading,setLoading]=useState(true);const [error,setError]=useState('');const [q,setQ]=useState('');const [status,setStatus]=useState('all');const [countryFilter,setCountryFilter]=useState('all');const [page,setPage]=useState(1);const [pageSize,setPageSize]=useState<10|20|50|100>(20);
  const load=useCallback(async()=>{setLoading(true);try{const {getSupabaseClient}=await import('@/lib/supabase');const db=await getSupabaseClient();const {data,error}=await db.from('trade_shipments').select('*').order('created_at',{ascending:false});if(error)throw error;setRows(data||[])}catch(e){setError(e instanceof Error?e.message:'读取发运失败')}finally{setLoading(false)}},[]);
  useEffect(()=>{void load()},[load]);
  const shipmentCountry=(row:any)=>String(row.header?.destination_country||row.header?.destinationCountry||row.ship_to_address?.country_code||row.ship_to_address?.country||'').trim().toUpperCase();
@@ -40,7 +41,21 @@ export function ShipmentConsolePage(){
  <section className="tp-shipments__metrics"><Metric label="全部发运" value={String(rows.length)} detail="累计发运票数" icon={semanticIcons.package}/><Metric label="待订舱" value={String(count('pending_booking'))} detail="等待订舱安排" icon={semanticIcons.calendar}/><Metric label="运输中" value={String(count('in_transit')+count('departed'))} detail="已开船或运输中" icon={semanticIcons.delivery}/><Metric label="已到港" value={String(count('arrived'))} detail="等待清关 / 提柜" icon={semanticIcons.location}/><Metric label="异常发运" value={String(rows.filter(r=>r.exception_flag).length)} detail="需要跟进" icon={semanticIcons.warning}/><Metric label="累计票数" value={String(rows.length)} detail="多币种货值不合并" icon={semanticIcons.chart}/></section>
  <section className="tp-shipments__panel"><h2>发运分析</h2><p>按状态与近 6 个月创建趋势查看发运分布。</p><div className="tp-shipments__charts"><div><h3>状态分布</h3>{chart.length?<SimpleBarChart data={chart} options={opts}/>:<p>暂无发运数据</p>}</div><div><h3>近 6 个月发运趋势</h3><LineChart data={trend} options={opts}/></div></div></section>
  <section className="tp-shipments__panel tp-shipments__market-panel"><div className="tp-shipments__panel-head"><div><h2>全球发运目的地</h2><p>按目的国家 / 地区汇总发运票数；点击地图或排名可筛选发运列表。</p></div></div>{mapData.length?<WorldMapChart data={mapData} unitLabel="票发运" selectedCode={countryFilter==='all'?undefined:countryFilter} onCountrySelect={code=>setCountryFilter(current=>current===code?'all':code)}/>:<p>发运记录尚未提供可识别的目的国家 / 地区字段。</p>}</section>
- <section className="tp-shipments__panel"><h2>发运单列表</h2><div className="tp-shipments__filters"><TextInput id="shipment-q" labelText="搜索发运单" placeholder="发运单号、PO、承运人、订舱号、提单号" value={q} onChange={e=>setQ(e.currentTarget.value)}/><Select id="shipment-status-filter" labelText="发运状态" value={status} onChange={e=>setStatus(e.currentTarget.value)}><SelectItem value="all" text="全部状态"/>{states.map(([k,v])=><SelectItem key={k} value={k} text={v}/>)}</Select></div>{loading?<InlineLoading description="正在读取发运单…"/>:filtered.length===0?<p>没有符合条件的发运单。</p>:<div className="tp-shipments__table-wrap"><Table><TableHead><TableRow><TableHeader>发运单号</TableHeader><TableHeader>状态</TableHeader><TableHeader>来源订单</TableHeader><TableHeader>计划发货日</TableHeader><TableHeader>承运人</TableHeader><TableHeader>ETD / ETA</TableHeader><TableHeader>货值</TableHeader></TableRow></TableHead><TableBody>{filtered.map(r=><TableRow key={r.id}><TableCell><Link href={'/shipments/'+r.id} className="tp-shipments__link">{r.shipment_no}</Link></TableCell><TableCell><Tag type={r.exception_flag?'red':r.status==='delivered'?'green':'blue'}>{statusName(r.status)}</Tag></TableCell><TableCell>{r.order_id.slice(0,8)}</TableCell><TableCell>{r.planned_ship_date}</TableCell><TableCell>{fmt(r.header?.carrier)}</TableCell><TableCell>{fmt(r.header?.etd)} / {fmt(r.header?.eta)}</TableCell><TableCell>{money(r.shipment_value,r.currency_code)}</TableCell></TableRow>)}</TableBody></Table></div>}</section></main>;
+ <section className="tp-shipments__panel"><h2>发运单列表</h2><div className="tp-shipments__filters"><TextInput id="shipment-q" labelText="搜索发运单" placeholder="发运单号、PO、承运人、订舱号、提单号" value={q} onChange={e=>setQ(e.currentTarget.value)}/><Select id="shipment-status-filter" labelText="发运状态" value={status} onChange={e=>setStatus(e.currentTarget.value)}><SelectItem value="all" text="全部状态"/>{states.map(([k,v])=><SelectItem key={k} value={k} text={v}/>)}</Select></div>{loading?<InlineLoading description="正在读取发运单…"/>:<div className="tp-shipments__table-wrap"><TpDataTable
+ ariaLabel="发运单列表" columnSettingsKey="logistics-shipments" rowKey="id"
+ rows={filtered as (Record<string,unknown>)[]}
+ onRowOpen={row=>nav('/shipments/'+String(row.id))}
+ pagination={{page,pageSize,totalItems:filtered.length,onChange:(nextPage,nextSize)=>{setPage(nextPage);setPageSize(nextSize);}}}
+ columns={[
+  {key:'shipment_no',header:'发运单号',primary:true,minWidth:150,render:r=><Link href={'/shipments/'+String(r.id)} className="tp-shipments__link">{String(r.shipment_no||'—')}</Link>},
+  {key:'status',header:'状态',minWidth:110,render:r=><Tag type={r.exception_flag?'red':r.status==='delivered'?'green':'blue'}>{statusName(String(r.status||''))}</Tag>},
+  {key:'order_id',header:'来源订单',minWidth:120,render:r=>String(r.order_id||'').slice(0,8)||'—'},
+  {key:'planned_ship_date',header:'计划发货日',minWidth:130,render:r=>fmt(r.planned_ship_date)},
+  {key:'carrier',header:'承运人',minWidth:140,render:r=>fmt((r.header as Record<string,any>|undefined)?.carrier)},
+  {key:'schedule',header:'ETD / ETA',minWidth:160,render:r=>fmt((r.header as Record<string,any>|undefined)?.etd)+' / '+fmt((r.header as Record<string,any>|undefined)?.eta)},
+  {key:'shipment_value',header:'货值',minWidth:140,render:r=>money(Number(r.shipment_value||0),String(r.currency_code||'USD'))},
+ ]}
+ />}{!filtered.length&&!loading&&<p>没有符合条件的发运单。</p>}</div>}</section></main>;
 }
 
 export function ShipmentFormPage(){
