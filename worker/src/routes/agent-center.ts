@@ -358,7 +358,7 @@ async function loadXiaoyaWorkspaceContext(env:Env,ownerId:string):Promise<string
   :"当前暂时无法读取业务数据统计。";
 }
 
-function buildXiaoyaSystemPrompt(workspaceContext:string,toolCatalog:Array<{name:string;description:string}>=[],skillContext:string=""):string{
+function buildXiaoyaSystemPrompt(workspaceContext:string,toolCatalog:Array<{name:string;description:string;inputSchema?:Record<string,unknown>}>=[],skillContext:string=""):string{
  const rules=[
   "你是 TradePilot 的总协调 AI Agent「小雅」，不是只会闲聊的客服。你帮助外贸企业完成全球买家开发、市场研究、企业调查、潜客评估，以及 CRM、销售、订单、发运和收付款等业务分析。",
   "工作方式：先理解用户真正想解决的问题，结合本会话上下文，不重复询问已提供的信息；用户纠正过的条件优先于早先推断。",
@@ -379,7 +379,7 @@ function buildXiaoyaSystemPrompt(workspaceContext:string,toolCatalog:Array<{name
   "输出协议：只返回严格 JSON 对象，包含 reply 和 task 两个键；task 不需要执行时必须为 null。不得使用 Markdown 代码块，JSON 字符串必须正确转义。",
   "可调用的只读业务工具（只有用户询问具体记录、数量、状态、名单或历史任务时才调用；一般知识问答不要调用）：",
   "工具调用格式为 toolCalls 数组，每项包含 name 和 arguments。当前账户可用工具目录（由注册中心实时筛选，只有目录中的工具可以调用）：" + JSON.stringify(toolCatalog),
-  "工具 arguments 可包含 query（名称、编号或关键词）、country（ISO 两位国家代码）、status（状态）、limit（1 到 8）。一次最多调用三个工具。只可调用工具目录列出的只读业务工具，不可要求模型生成 SQL、表名、列名或任意 API 路径。",
+  "每个工具的 arguments 必须严格符合目录提供的 inputSchema。一次最多调用三个工具。外部工具只包含当前用户明确设置为 read_only、且连接与登记均启用的 MCP 或 REST GET 工具；不可要求模型生成 SQL、表名、列名或任意 API 路径。",
   "当用户询问某个业务实体或任务的实际情况时，先调用相关只读工具，再依据工具返回的真实记录回答。若无匹配记录，要明确说未查到，不得推断或编造。若需要比较不同业务模块，可以调用多个相关工具。",
   "工具结果中的 totalCount 是当前筛选条件下的精确总数，returnedCount 是实际返回的样本条数。回答数量问题必须使用 totalCount；分析具体记录时只能依据 rows 中返回的样本，不得把样本数说成总数。",
   "需要工具时返回 JSON：{reply:string,task:null|object,toolCalls:[{name:string,arguments:object}]}。无需工具时 toolCalls=[]。工具执行结果会由系统提供，不能声称执行过未返回结果的工具。",
@@ -433,6 +433,67 @@ async function executeXiaoyaReadTool(env:Env,ownerId:string,name:string,rawArgs:
  }catch(error){
   return {tool:name,label:tool.label,ok:false,error:String(error).slice(0,240)};
  }
+}
+
+
+type XiaoyaExternalTool={callName:string;connection:ConnectionRow;tool:Record<string,unknown>;label:string;inputSchema:Record<string,unknown>};
+function validateXiaoyaToolSchema(schema:Record<string,unknown>,value:unknown,depth=0):boolean{
+ if(depth>6)return false;
+ const type=typeof schema.type==="string"?schema.type:"object";
+ if(type==="object"){
+  if(!value||typeof value!=="object"||Array.isArray(value))return false;
+  const record=value as Record<string,unknown>,properties=asRecord(schema.properties),required=Array.isArray(schema.required)?schema.required.filter((item):item is string=>typeof item==="string"):[];
+  if(required.some(key=>record[key]===undefined))return false;
+  if(schema.additionalProperties===false&&Object.keys(record).some(key=>!Object.prototype.hasOwnProperty.call(properties,key)))return false;
+  return Object.entries(record).every(([key,item])=>!Object.prototype.hasOwnProperty.call(properties,key)||validateXiaoyaToolSchema(asRecord(properties[key]),item,depth+1));
+ }
+ if(type==="array")return Array.isArray(value)&&value.length<=100&&(!schema.items||value.every(item=>validateXiaoyaToolSchema(asRecord(schema.items),item,depth+1)));
+ if(type==="string")return typeof value==="string"&&value.length<=20000&&(typeof schema.maxLength!=="number"||value.length<=schema.maxLength)&&(typeof schema.minLength!=="number"||value.length>=schema.minLength);
+ if(type==="integer")return typeof value==="number"&&Number.isInteger(value);
+ if(type==="number")return typeof value==="number"&&Number.isFinite(value);
+ if(type==="boolean")return typeof value==="boolean";
+ if(type==="null")return value===null;
+ return false;
+}
+async function loadXiaoyaExternalTools(env:Env,ownerId:string):Promise<XiaoyaExternalTool[]>{
+ const [registry,connections]=await Promise.all([
+  db<Array<{id:string;connection_id:string|null;protocol_tool_name:string|null;name:string;description:string;input_schema:Record<string,unknown>;risk:string;policy_source:string}>>(env,"agent_tool_registry?owner_id=eq."+ownerId+"&source=eq.external&enabled=eq.true&status=eq.active&risk=eq.read_only&policy_source=eq.user&select=id,connection_id,protocol_tool_name,name,description,input_schema,risk,policy_source&order=tool_key.asc&limit=100").catch(()=>[]),
+  db<ConnectionRow[]>(env,"agent_connections?owner_id=eq."+ownerId+"&status=eq.active&select=id,owner_id,name,protocol,endpoint_url,auth_mode,encrypted_credentials,capabilities,protocol_tools,protocol_metadata,status,last_tested_at,last_error,created_at,updated_at&limit=100").catch(()=>[])
+ ]);
+ const byId=new Map((connections??[]).map(connection=>[connection.id,connection]));
+ const result:XiaoyaExternalTool[]=[];
+ for(const entry of registry??[]){
+  const connection=entry.connection_id?byId.get(entry.connection_id):undefined;
+  if(!connection||connection.status!=="active"||!["mcp","rest_api"].includes(connection.protocol)||!isPublicHttpsEndpoint(connection.endpoint_url))continue;
+  const tool=(connection.protocol_tools??[]).find(item=>item.name===entry.protocol_tool_name);
+  if(!tool||!isReadOnlyTool(tool)||effectiveToolRisk(tool)!=="read_only")continue;
+  if(connection.protocol==="rest_api"&&String(tool.method??"").toUpperCase()!=="GET")continue;
+  const callName="tp_ext_"+entry.id.replace(/-/g,"");
+  result.push({callName,connection,tool,label:entry.name||String(tool.name??"外部只读工具"),inputSchema:Object.keys(asRecord(entry.input_schema)).length?asRecord(entry.input_schema):asRecord(tool.inputSchema)});
+  if(result.length>=20)break;
+ }
+ return result;
+}
+async function executeXiaoyaExternalReadTools(env:Env,ownerId:string,rawCalls:unknown,advertised:XiaoyaExternalTool[]):Promise<Array<Record<string,unknown>>>{
+ if(!Array.isArray(rawCalls)||!advertised.length)return [];
+ const current=await loadXiaoyaExternalTools(env,ownerId);
+ const allowed=new Map(current.map(item=>[item.callName,item]));
+ const results:Array<Record<string,unknown>>=[];
+ for(const raw of rawCalls.slice(0,3)){
+  const call=asRecord(raw),name=typeof call.name==="string"?call.name:"",entry=allowed.get(name);
+  if(!entry||!advertised.some(item=>item.callName===name))continue;
+  const args=asRecord(call.arguments);
+  if(!validateXiaoyaToolSchema(entry.inputSchema,args)){
+   results.push({tool:name,label:entry.label,ok:false,error:"工具参数不符合已登记的输入结构，未执行。"});continue;
+  }
+  try{
+   const value=await executeExternalTool(env,ownerId,entry.connection,entry.tool,{id:crypto.randomUUID(),goal:"小雅聊天中的只读查询"},args);
+   results.push({tool:name,label:entry.label,ok:true,count:1,result:boundedResult(value)});
+  }catch(error){
+   results.push({tool:name,label:entry.label,ok:false,error:String(error).slice(0,300)});
+  }
+ }
+ return results;
 }
 
 async function executeXiaoyaReadTools(env:Env,ownerId:string,rawCalls:unknown,allowedNames:Set<string>):Promise<Array<Record<string,unknown>>>{
@@ -955,17 +1016,24 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
       // is sent to the model for this request but is not stored in conversation history.
       await db(env,"agent_chat_messages",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({owner_id:ownerId,conversation_id:conversationId,role:"user",content:message})});
       try{
-        const [workspaceContext,registeredTools,skillContext]=await Promise.all([
+        const [workspaceContext,registeredTools,skillContext,externalTools]=await Promise.all([
           loadXiaoyaWorkspaceContext(env,ownerId),
           db<Array<{tool_key:string;implementation_key:string|null;name:string;description:string}>>(env,"agent_tool_registry?owner_id=is.null&source=eq.system&enabled=eq.true&status=eq.active&select=tool_key,implementation_key,name,description").catch(()=>[]),
-          loadXiaoyaSkillContext(env,ownerId)
+          loadXiaoyaSkillContext(env,ownerId),
+          loadXiaoyaExternalTools(env,ownerId)
         ]);
         const allowedToolNames=new Set((registeredTools??[]).map(item=>item.implementation_key).filter((name):name is string=>typeof name==="string"&&Object.prototype.hasOwnProperty.call(xiaoyaReadTools,name)));
-        const toolCatalog=(registeredTools??[]).filter(item=>typeof item.implementation_key==="string"&&allowedToolNames.has(item.implementation_key)).map(item=>({name:item.implementation_key!,description:item.description||item.name}));
+        const nativeCatalog=(registeredTools??[]).filter(item=>typeof item.implementation_key==="string"&&allowedToolNames.has(item.implementation_key)).map(item=>({name:item.implementation_key!,description:item.description||item.name}));
+        const externalCatalog=externalTools.map(item=>({name:item.callName,description:item.label+"（外部只读工具，连接："+item.connection.name+"；参数结构见 inputSchema）",inputSchema:item.inputSchema}));
+        const toolCatalog=[...nativeCatalog,...externalCatalog];
         const systemPrompt=buildXiaoyaSystemPrompt(workspaceContext,toolCatalog,skillContext);
         const generated=await callAgentChatModel(env,turns,systemPrompt,"agent_chat",true,1800);
         const parsed=parsePlannerJson(generated.text);
-        const toolResults=await executeXiaoyaReadTools(env,ownerId,parsed.toolCalls,allowedToolNames);
+        const requestedToolCalls=Array.isArray(parsed.toolCalls)?parsed.toolCalls.slice(0,3):[];
+        const toolResults=[
+          ...await executeXiaoyaReadTools(env,ownerId,requestedToolCalls,allowedToolNames),
+          ...await executeXiaoyaExternalReadTools(env,ownerId,requestedToolCalls,externalTools)
+        ];
         let finalParsed=parsed;
         if(toolResults.length){
           const toolMessage="系统已执行以下只读业务工具。请严格依据结果回答用户，不要再调用工具；无记录时明确说明未查到。工具结果 JSON："+JSON.stringify(toolResults);
