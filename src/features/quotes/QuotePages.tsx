@@ -39,7 +39,7 @@ function calculate(lines: QuoteLine[], charges: Array<{name:string;amount:string
 function QuoteMetric({label,value,icon:Icon}:{label:string;value:string;icon:React.ElementType}) { return <div className="tp-quotes__metric"><div className="tp-quotes__metric-heading"><span>{label}</span><Icon size={24} aria-hidden="true"/></div><strong>{value}</strong></div>; }
 
 export function QuoteConsolePage() {
-  
+  const nav=useNavigate();
   const [rows,setRows]=useState<QuoteDoc[]>([]);
   const [trendRows,setTrendRows]=useState<QuoteDoc[]>([]);
   const [trendCurrency,setTrendCurrency]=useState('USD');
