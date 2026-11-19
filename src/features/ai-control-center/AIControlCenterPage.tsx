@@ -7,6 +7,7 @@ import { IntegrationsSettings } from '@/features/settings/IntegrationsSettings';
 import { ExternalAgentConnections } from './ExternalAgentConnections';
 import { AgentTaskMonitor } from './AgentTaskMonitor';
 import { AgentSecurityCenter } from './AgentSecurityCenter';
+import { SkillsRegistry } from './SkillsRegistry';
 
 type Section = { id: string; label: string; group: string; ready: boolean };
 const sections: Section[] = [
@@ -14,7 +15,7 @@ const sections: Section[] = [
   { id: 'models', label: '模型与供应商', group: 'AI 基础配置', ready: true },
   { id: 'agents', label: 'Agent 管理', group: 'Agent 能力', ready: true },
   { id: 'connections', label: '第三方 Agent 接入', group: 'Agent 能力', ready: true },
-  { id: 'skills', label: 'Skills 管理', group: 'Agent 能力', ready: false },
+  { id: 'skills', label: 'Skills 管理', group: 'Agent 能力', ready: true },
   { id: 'tools', label: 'Tools 管理', group: 'Agent 能力', ready: false },
   { id: 'tasks', label: '任务与调度', group: '执行管理', ready: true },
   { id: 'security', label: '权限与安全', group: '执行管理', ready: true },
@@ -115,6 +116,7 @@ export function AIControlCenterPage() {
               )}
               {active === 'agents' && <AgentSettings section="profiles" />}
               {active === 'connections' && <ExternalAgentConnections />}
+              {active === 'skills' && <SkillsRegistry />}
               {active === 'tasks' && <AgentTaskMonitor />}
               {active === 'security' && <AgentSecurityCenter />}
               {active === 'appearance' && <AgentSettings section="appearance" />}
