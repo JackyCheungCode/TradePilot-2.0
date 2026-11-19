@@ -70,10 +70,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
     () => selectionRows.filter((row) => selectedIds.has(String(row[rowKey]))),
     [selectionRows, selectedIds, rowKey],
   );
-  const pageIds = useMemo(() => rows.map((row) => String(row[rowKey])), [rows, rowKey]);
-  const selectedPageCount = pageIds.filter((id) => selectedIds.has(id)).length;
-  const allPageSelected = pageIds.length > 0 && selectedPageCount === pageIds.length;
-  const somePageSelected = selectedPageCount > 0 && !allPageSelected;
+
 
   useEffect(() => {
     const validIds = new Set(selectionRows.map((row) => String(row[rowKey])));
@@ -92,10 +89,10 @@ export function TpDataTable<T extends Record<string, unknown>>({
     });
   };
 
-  const togglePageSelection = (checked: boolean) => {
+  const togglePageSelection = (ids: string[], checked: boolean) => {
     setSelectedIds((current) => {
       const next = new Set(current);
-      pageIds.forEach((id) => checked ? next.add(id) : next.delete(id));
+      ids.forEach((id) => checked ? next.add(id) : next.delete(id));
       return next;
     });
   };
@@ -204,7 +201,14 @@ export function TpDataTable<T extends Record<string, unknown>>({
   return (
     <div className={`tp-data-table${refreshing ? ' tp-data-table--refreshing' : ''}`}>
       <DataTable rows={carbonRows} headers={headers} isSortable>
-        {({ rows: renderedRows, getHeaderProps, getRowProps, getSelectionProps, getBatchActionProps, selectedRows: carbonSelectedRows, selectRow }) => (
+        {({ rows: renderedRows, getHeaderProps, getRowProps, getSelectionProps, getBatchActionProps, selectedRows: carbonSelectedRows, selectRow }) => {
+          const pageStart = pagination ? (pagination.page - 1) * pagination.pageSize : 0;
+          const pageRows = pagination ? renderedRows.slice(pageStart, pageStart + pagination.pageSize) : renderedRows;
+          const pageIds = pageRows.map((row) => row.id);
+          const selectedPageCount = pageIds.filter((id) => selectedIds.has(id)).length;
+          const allPageSelected = pageIds.length > 0 && selectedPageCount === pageIds.length;
+          const somePageSelected = selectedPageCount > 0 && !allPageSelected;
+          return (
           <TableContainer aria-label={ariaLabel}>
             <TableToolbar>
               {selectable && selectedRows.length > 0 && (
@@ -320,7 +324,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
                   <TableRow>
                     {selectable && (
                       <TableSelectAll
-                        {...getSelectionProps({ onClick: () => togglePageSelection(!allPageSelected) })}
+                        {...getSelectionProps({ onClick: () => togglePageSelection(pageIds, !allPageSelected) })}
                         checked={allPageSelected}
                         indeterminate={somePageSelected}
                       />
@@ -343,7 +347,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {renderedRows.map((carbonRow) => {
+                  {pageRows.map((carbonRow) => {
                     const source = rows.find((row) => String(row[rowKey]) === carbonRow.id);
                     if (!source) return null;
                     return (
@@ -423,7 +427,8 @@ export function TpDataTable<T extends Record<string, unknown>>({
               />
             )}
           </TableContainer>
-        )}
+          );
+        }}
       </DataTable>
     </div>
   );
