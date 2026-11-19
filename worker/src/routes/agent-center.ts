@@ -11,6 +11,7 @@ export interface Env {
   SUPABASE_URL: string;
   SUPABASE_ANON_KEY: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
+  SKILL_ARTIFACTS?: { get(key:string):Promise<{arrayBuffer():Promise<ArrayBuffer>}|null> };
   AGENT_ENCRYPTION_KEY?: string;
   SERPER_API_KEY?: string;
   SERPAPI_API_KEY?: string;
@@ -355,7 +356,7 @@ async function loadXiaoyaWorkspaceContext(env:Env,ownerId:string):Promise<string
   :"当前暂时无法读取业务数据统计。";
 }
 
-function buildXiaoyaSystemPrompt(workspaceContext:string):string{
+function buildXiaoyaSystemPrompt(workspaceContext:string,toolCatalog:Array<{name:string;description:string}>=[],skillContext:string=""):string{
  const rules=[
   "你是 TradePilot 的总协调 AI Agent「小雅」，不是只会闲聊的客服。你帮助外贸企业完成全球买家开发、市场研究、企业调查、潜客评估，以及 CRM、销售、订单、发运和收付款等业务分析。",
   "工作方式：先理解用户真正想解决的问题，结合本会话上下文，不重复询问已提供的信息；用户纠正过的条件优先于早先推断。",
@@ -923,11 +924,17 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
       // is sent to the model for this request but is not stored in conversation history.
       await db(env,"agent_chat_messages",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({owner_id:ownerId,conversation_id:conversationId,role:"user",content:message})});
       try{
-        const workspaceContext=await loadXiaoyaWorkspaceContext(env,ownerId);
-        const systemPrompt=buildXiaoyaSystemPrompt(workspaceContext);
+        const [workspaceContext,registeredTools,skillContext]=await Promise.all([
+          loadXiaoyaWorkspaceContext(env,ownerId),
+          db<Array<{tool_key:string;implementation_key:string|null;name:string;description:string}>>(env,"agent_tool_registry?owner_id=is.null&source=eq.system&enabled=eq.true&status=eq.active&select=tool_key,implementation_key,name,description").catch(()=>[]),
+          loadXiaoyaSkillContext(env,ownerId)
+        ]);
+        const allowedToolNames=new Set((registeredTools??[]).map(item=>item.implementation_key).filter((name):name is string=>typeof name==="string"&&Object.prototype.hasOwnProperty.call(xiaoyaReadTools,name)));
+        const toolCatalog=(registeredTools??[]).filter(item=>typeof item.implementation_key==="string"&&allowedToolNames.has(item.implementation_key)).map(item=>({name:item.implementation_key!,description:item.description||item.name}));
+        const systemPrompt=buildXiaoyaSystemPrompt(workspaceContext,toolCatalog,skillContext);
         const generated=await callAgentChatModel(env,turns,systemPrompt,"agent_chat",true,1800);
         const parsed=parsePlannerJson(generated.text);
-        const toolResults=await executeXiaoyaReadTools(env,ownerId,parsed.toolCalls);
+        const toolResults=await executeXiaoyaReadTools(env,ownerId,parsed.toolCalls,allowedToolNames);
         let finalParsed=parsed;
         if(toolResults.length){
           const toolMessage="系统已执行以下只读业务工具。请严格依据结果回答用户，不要再调用工具；无记录时明确说明未查到。工具结果 JSON："+JSON.stringify(toolResults);
