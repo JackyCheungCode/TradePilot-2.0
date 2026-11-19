@@ -1,8 +1,8 @@
-import { errorResponse, successResponse } from "../lib/http";
+import { errorResponse, successResponse } from "../lib/http.ts";
 import type { DiscoveryRunInput } from "./discovery";
 import type { FacebookInput } from "./facebook-discovery";
 import type { InstagramInput } from "./instagram-discovery";
-import { readIntegrationSecrets } from "../lib/integrations";
+import { readIntegrationSecrets } from "../lib/integrations.ts";
 
 type Protocol = "rest_api" | "mcp" | "webhook";
 type AuthMode = "none" | "bearer" | "header" | "oauth2" | "webhook_secret";
