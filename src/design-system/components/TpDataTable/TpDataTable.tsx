@@ -8,7 +8,6 @@ import {
   Pagination,
   Popover,
   PopoverContent,
-  PopoverTrigger,
   Table,
   TableBatchAction,
   TableBatchActions,
@@ -199,11 +198,9 @@ export function TpDataTable<T extends Record<string, unknown>>({
                 {toolbarActions}
                 {columnSettingsKey && (
                   <Popover open={settingsOpen} onRequestClose={() => setSettingsOpen(false)}>
-                    <PopoverTrigger>
-                      <Button kind="ghost" size="sm" onClick={() => setSettingsOpen((open) => !open)}>
-                        列设置
-                      </Button>
-                    </PopoverTrigger>
+                    <Button kind="ghost" size="sm" onClick={() => setSettingsOpen((open) => !open)}>
+                      列设置
+                    </Button>
                     <PopoverContent>
                       <div className="tp-data-table__column-settings">
                         <strong>显示列</strong>
