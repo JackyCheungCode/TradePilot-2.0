@@ -103,6 +103,7 @@ export function LeadConsolePage() {
   const [countryFilter, setCountryFilter] = useState('all');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<10 | 20 | 50 | 100>(20);
+  useEffect(() => setPage(1), [search, statusFilter, sourceFilter, countryFilter]);
   const load = useCallback(async () => {
     setError('');
     try {
