@@ -131,7 +131,7 @@ test("Xiaoya chat executes only owner-scoped, explicitly approved external read-
  const registryId="123e4567-e89b-42d3-a456-426614174002";
  const callName="tp_ext_"+registryId.replace(/-/g,"");
  const seenSystems:string[]=[];const seenMessages:string[]=[];let modelCalls=0;let mcpToolCalls=0;
- const chatEnv={...env,AI:{async run(_model:string,_input:Record<string,unknown>){
+ const chatEnv={...env,AI:{async run(_model:string,input:Record<string,unknown>){
   const messages=input.messages as Array<{role:string;content:string}>;
   seenSystems.push(messages[0]?.content??"");seenMessages.push(messages.map(item=>item.content).join("\\n"));modelCalls++;
   return {response:JSON.stringify(modelCalls===1?{reply:"正在查询",task:null,toolCalls:[{name:callName,arguments:{query:"Acme"}}]}:{reply:"已查到外部系统记录",task:null,toolCalls:[]})};
