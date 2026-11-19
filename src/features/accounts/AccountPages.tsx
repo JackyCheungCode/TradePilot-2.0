@@ -52,8 +52,7 @@ export function AccountConsolePage(){
  <section className="tp-accounts__panel"><div className="tp-accounts__panel-head"><SectionTitle icon={<semanticIcons.dataVisualization size={20}/>}>客户行业结构</SectionTitle><p>按客户行业字段统计，最多展示前 8 类。</p></div>{industryData.length?<DonutChart data={industryData} options={{theme:document.documentElement.dataset.carbonTheme==='g100'?'g100':'white',height:'300px',donut:{center:{label:'客户行业'}},legend:{position:'right'},toolbar:{enabled:false}} as any}/>:<p className="tp-accounts__empty">暂无行业分类数据</p>}</section>
  <AccountMap rows={rows} selectedCode={countryFilter} onCountrySelect={code=>setCountryFilter(current=>current===code?'all':code)}/>
  <section className="tp-accounts__panel"><div className="tp-accounts__panel-head"><SectionTitle icon={<semanticIcons.building size={20}/>}>客户列表</SectionTitle><p>客户公司级主数据；人员信息在联系人对象维护。</p></div><div className="tp-accounts__filters">{f('搜索客户',input('account-search','搜索客户',query,setQuery,'名称、编号、国家、邮箱、税号'))}{f('客户状态',select('account-status','客户状态',status,setStatus,[['all','全部状态'],['active','活跃'],['dormant','休眠'],['lost','流失'],['blacklist','黑名单']]))}</div><TpDataTable
-      selectable
-                        selectable
+        selectable
  columns={[
   {key:'account_number',header:'客户编号',minWidth:120,render:r=>r.account_number||'—'},
   {key:'account_name',header:'客户名称',primary:true,minWidth:220,render:r=><div><Link href={'/accounts/'+r.id}>{r.account_name}</Link><small>{r.website||r.email||''}</small></div>},
