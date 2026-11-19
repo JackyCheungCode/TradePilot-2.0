@@ -21,6 +21,7 @@ export function GeneratedDocumentsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const [page,setPage]=useState(1);const [pageSize,setPageSize]=useState<10|20|50|100>(20);
   const load = useCallback(async () => {
     setLoading(true); setError('');
     try {
@@ -44,12 +45,13 @@ export function GeneratedDocumentsPage() {
     </PageHeader>
     {error && <InlineNotification kind="error" lowContrast title="单据列表读取失败" subtitle={error} />}
     <section className="tp-documents__list">
-      <div className="tp-documents__list-head"><div className="tp-documents__list-heading"><h2>单据记录</h2><p>按编号、名称或类型搜索；选择单据可查看内容和版本记录。</p></div><div className="tp-documents__search"><TextInput id="tp-generated-doc-search" labelText="搜索单据" hideLabel placeholder="单据编号、名称或类型" value={search} onChange={event => setSearch(event.currentTarget.value)} /></div></div>
+      <div className="tp-documents__list-head"><div className="tp-documents__list-heading"><h2>单据记录</h2><p>按编号、名称或类型搜索；选择单据可查看内容和版本记录。</p></div><div className="tp-documents__search"><TextInput id="tp-generated-doc-search" labelText="搜索单据" hideLabel placeholder="单据编号、名称或类型" value={search} onChange={event => {setSearch(event.currentTarget.value);setPage(1);}} /></div></div>
       {loading ? <div className="tp-documents__loading"><InlineLoading description="正在加载单据…" /></div> : filtered.length ? <div className="tp-documents__table-wrap"><TpDataTable
         ariaLabel="已生成单据列表"
         columnSettingsKey="trade-generated-documents"
         rowKey="id"
         rows={filtered as (Doc & Record<string, unknown>)[]}
+        pagination={{page,pageSize,totalItems:filtered.length,onChange:(nextPage,nextSize)=>{setPage(nextPage);setPageSize(nextSize);}}}
         columns={[
           {key:'document_number',header:'单据编号',primary:true,minWidth:220,render:doc=><div><strong>{doc.document_number}</strong><small className="tp-documents__cell-secondary">{doc.title}</small></div>},
           {key:'document_type',header:'单据类型',minWidth:180,render:doc=>labels[doc.document_type]||doc.document_type},
