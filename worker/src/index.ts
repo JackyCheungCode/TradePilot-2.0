@@ -12,6 +12,7 @@ import { handleFacebookDiscovery } from "./routes/facebook-discovery";
 import { InstagramDiscoveryWorkflow } from "./workflows/instagram-discovery";
 import { handleInstagramDiscovery } from "./routes/instagram-discovery";
 import { handleAgentCenter } from "./routes/agent-center";
+import { handleSkillRegistry } from "./routes/skill-registry";
 import { handleTradeTools } from "./routes/trade-tools";
 import { handleTradeDocuments } from "./routes/trade-documents";
 import { handleMasterData } from "./routes/master-data";
@@ -133,6 +134,7 @@ export default {
    }
    if (url.pathname.startsWith("/api/v1/actor-registry")) return await handleActorRegistry(request, env);
    if (url.pathname.startsWith("/api/v1/trade-tools/")) return await handleTradeTools(request, env);
+   if (url.pathname.startsWith("/api/v1/agent/skills")) return await handleSkillRegistry(request, env);
    if (url.pathname.startsWith("/api/v1/agent/")) return await handleAgentCenter(request, env);
    if (url.pathname.startsWith("/api/v1/trade/")) return await handleTradeDocuments(request, env);
    if (url.pathname.startsWith("/api/v1/master-data/")) return await handleMasterData(request, env);
