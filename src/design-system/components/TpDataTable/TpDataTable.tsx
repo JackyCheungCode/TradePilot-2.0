@@ -577,7 +577,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
                             else onRowOpen?.(source, event.currentTarget);
                           }
                         }}
-                        tabIndex={detailPanel || onRowOpen ? 0 : undefined}
+                        tabIndex={(detailPanel || onRowOpen) && (!canOpenRow || canOpenRow(source)) ? 0 : undefined}
                       >
                         {selectable && (
                           canSelectRow && !canSelectRow(source)
