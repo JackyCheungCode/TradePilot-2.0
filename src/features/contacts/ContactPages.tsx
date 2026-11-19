@@ -2,9 +2,9 @@ import { PageHeader } from '@/design-system';
 import { cloneElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-  Accordion, AccordionItem, Button, Link, Checkbox, ComboBox, InlineLoading, InlineNotification, Modal, MultiSelect,
+  Button, Link, Checkbox, ComboBox, InlineLoading, InlineNotification, Modal, MultiSelect,
   Select, SelectItem, Tab, TabList, TabPanel, TabPanels, Tabs, Tag, TextArea, TextInput, Tile, FileUploader, LineChart, ScaleTypes,
-  semanticIcons, Table, TableHead, TableRow, TableHeader, TableBody, TableCell, BusinessLifecycle, WorldMapChart,
+  semanticIcons, BusinessLifecycle, WorldMapChart, TpDataTable,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import { useCrmSettingOptions } from '../settings/CrmDomainSettings';
@@ -90,9 +90,10 @@ function SocialRows({items,onChange,platforms}:{items:ContactMethod[];onChange:(
 }
 
 
-const PAGE_SIZE = 15;
+const DEFAULT_PAGE_SIZE = 20;
 type CountryStat = { key: string; label: string; total: number; verified: number; active: number };
 type DailyStat = { date: string; count: number };
+type ContactTableRow = ContactRow & Record<string, unknown> & { __groupLabel?: string; __isGroup?: boolean };
 const GROUP_FIELDS = [
   {id:'country',text:'国家 / 地区'},{id:'account',text:'所属客户'},{id:'status',text:'联系人状态'},
   {id:'role',text:'联系人角色'},{id:'source',text:'联系人来源'},{id:'owner',text:'负责人'},
@@ -139,9 +140,12 @@ export function ContactConsolePage() {
   const [sourceFilter,setSourceFilter]=useState('all');
   const [primaryFilter,setPrimaryFilter]=useState('all');
   const [page,setPage]=useState(1);
+  const [pageSize,setPageSize]=useState<10|20|50|100>(DEFAULT_PAGE_SIZE);
   const [groupBy,setGroupBy]=useState('country');
   const [thenBy,setThenBy]=useState('account');
   const [showGroups,setShowGroups]=useState(true);
+  const [collapsedGroups,setCollapsedGroups]=useState<Set<string>>(()=>new Set());
+  const toggleGroup=(id:string)=>setCollapsedGroups(current=>{const next=new Set(current);if(next.has(id))next.delete(id);else next.add(id);return next;});
 
   const loadAnalytics=useCallback(async()=>{
     setAnalyticsLoading(true);
@@ -205,15 +209,15 @@ export function ContactConsolePage() {
       if(sourceFilter!=='all') listQuery=listQuery.eq('custom_fields->>source',sourceFilter);
       const q=query.trim().replace(/[^\p{L}\p{N}\s@+.-]/gu,' ').replace(/\s+/g,' ');
       if(q) listQuery=listQuery.or(['full_name','first_name','last_name','email','phone','mobile','job_title','department'].map(k=>k+'.ilike.%'+q+'%').join(','));
-      const from=(page-1)*PAGE_SIZE;
-      const {data,error:e,count}=await listQuery.range(from,from+PAGE_SIZE-1);
+      const from=(page-1)*pageSize;
+      const {data,error:e,count}=await listQuery.range(from,from+pageSize-1);
       if(e) throw e;
       setRows((data??[]) as unknown as ContactRow[]);
       setTotal(count??0);
     } catch(e) {
       setError(e instanceof Error?e.message:'读取联系人失败');
     } finally { setLoading(false); }
-  },[page,query,statusFilter,sourceFilter,primaryFilter]);
+  },[page,pageSize,query,statusFilter,sourceFilter,primaryFilter]);
 
   useEffect(()=>{void loadAnalytics();},[loadAnalytics]);
   useEffect(()=>{void loadRows();},[loadRows]);
@@ -229,13 +233,36 @@ export function ContactConsolePage() {
     });
     return [...parents.entries()].map(([label,children])=>({label,children:[...children.entries()].map(([childLabel,items])=>({label:childLabel,items}))}));
   },[rows,groupBy,thenBy,verifiedIds]);
-  const renderTable=(items:ContactRow[])=><div className="tp-contacts__table-scroll"><Table><TableHead><TableRow><TableHeader>联系人</TableHeader><TableHeader>所属客户</TableHeader><TableHeader>职位 / 部门</TableHeader><TableHeader>主要联系方式</TableHeader><TableHeader>角色</TableHeader><TableHeader>状态</TableHeader><TableHeader>主联系人</TableHeader></TableRow></TableHead><TableBody>{items.map(r=><TableRow key={r.id} onClick={()=>navigate('/contacts/'+r.id)} className="tp-contacts__click-row"><TableCell><strong>{r.full_name||[r.first_name,r.last_name].filter(Boolean).join(' ')||'未命名'}</strong><small>{r.email||'—'}</small></TableCell><TableCell>{r.crm_accounts?.account_name||'—'}</TableCell><TableCell>{r.job_title||'—'}<small>{r.department||''}</small></TableCell><TableCell>{r.email||r.mobile||r.phone||r.whatsapp||'—'}</TableCell><TableCell>{r.decision_role||'—'}</TableCell><TableCell><Tag type={r.is_active?'green':'cool-gray'}>{r.is_active?'在职':'非在职'}</Tag></TableCell><TableCell>{r.is_primary?'是':'—'}</TableCell></TableRow>)}</TableBody></Table></div>;
+  const tableColumns = useMemo(() => [
+    { key:'full_name', header:'联系人', primary:true, minWidth:190, render:(row:ContactTableRow) => row.__isGroup ? <div className="tp-contacts__table-group"><strong>{row.__groupLabel}</strong><Button kind="ghost" size="sm" onClick={()=>toggleGroup(row.id)}>{collapsedGroups.has(row.id)?'展开':'收起'}</Button></div> : <><strong>{row.full_name||[row.first_name,row.last_name].filter(Boolean).join(' ')||'未命名'}</strong><small>{row.email||'—'}</small></> },
+    { key:'account', header:'所属客户', minWidth:150, render:(row:ContactTableRow) => row.__isGroup ? '' : row.crm_accounts?.account_name||'—' },
+    { key:'job', header:'职位 / 部门', minWidth:140, render:(row:ContactTableRow) => row.__isGroup ? '' : <>{row.job_title||'—'}<small>{row.department||''}</small></> },
+    { key:'contact_method', header:'主要联系方式', minWidth:170, render:(row:ContactTableRow) => row.__isGroup ? '' : row.email||row.mobile||row.phone||row.whatsapp||'—' },
+    { key:'role', header:'角色', minWidth:110, render:(row:ContactTableRow) => row.__isGroup ? '' : row.decision_role||'—' },
+    { key:'status', header:'状态', minWidth:90, render:(row:ContactTableRow) => row.__isGroup ? '' : <Tag type={row.is_active?'green':'cool-gray'}>{row.is_active?'在职':'非在职'}</Tag> },
+    { key:'primary_contact', header:'主联系人', minWidth:90, render:(row:ContactTableRow) => row.__isGroup ? '' : row.is_primary?'是':'—' },
+  ], [collapsedGroups]);
+  const tableRows = useMemo(():ContactTableRow[] => {
+    if (!showGroups) return rows as unknown as ContactTableRow[];
+    const result:ContactTableRow[]=[];
+    grouped.forEach(group => {
+      const parentId='group-'+group.label;
+      result.push({id:parentId, __isGroup:true, __groupLabel:group.label+' · '+group.children.reduce((sum,x)=>sum+x.items.length,0)} as unknown as ContactTableRow);
+      if (collapsedGroups.has(parentId)) return;
+      group.children.forEach(child => {
+        const childId=parentId+'-'+child.label;
+        if (thenBy!=='none') result.push({id:childId, __isGroup:true, __groupLabel:'　'+child.label+' · '+child.items.length} as unknown as ContactTableRow);
+        if (collapsedGroups.has(childId)) return;
+        result.push(...child.items as unknown as ContactTableRow[]);
+      });
+    });
+    return result;
+  }, [rows, grouped, showGroups, thenBy, collapsedGroups]);
+  const tableSearchScope = [query,statusFilter,sourceFilter,primaryFilter].join('|');
+
   const countryMapData=countryStats.filter(item=>item.key!=='unknown').map(item=>({code:item.key,label:item.label,value:item.total,detail:'已验证 '+item.verified+' · 在职 '+item.active}));
   const dailyChartData=dailyStats.map(item=>({group:'每日新增',date:new Date(item.date+'T00:00:00'),value:item.count}));
   const dailyChartOptions={theme:document.documentElement.dataset.carbonTheme==='g100'?'g100':'white',title:'每日新增联系人',axes:{bottom:{title:'日期',mapsTo:'date',scaleType:ScaleTypes.TIME},left:{title:'新增联系人',mapsTo:'value',scaleType:ScaleTypes.LINEAR}},curve:'curveMonotoneX',points:{enabled:true},legend:{enabled:false},toolbar:{enabled:false},height:'280px'} as const;
-  const pages=Math.max(1,Math.ceil(total/PAGE_SIZE));
-  const start=total===0?0:(page-1)*PAGE_SIZE+1;
-  const end=Math.min(page*PAGE_SIZE,total);
   const refresh=()=>{void Promise.all([loadAnalytics(),loadRows()]);};
   return <main className="tp-contacts">
     <PageHeader className="tp-contacts__header"><div><p className="tp-contacts__eyebrow">TRADEPILOT / CRM</p><h1>联系人（Contact）</h1><p>管理客户组织中的联系人及其关系、联系方式与沟通偏好。</p></div><div className="tp-contacts__actions"><Button kind="tertiary" onClick={refresh} disabled={loading||analyticsLoading}><semanticIcons.refresh size={16}/>刷新</Button><Link href="/contacts/new" renderIcon={semanticIcons.add}>创建联系人</Link></div></PageHeader>
@@ -257,7 +284,7 @@ export function ContactConsolePage() {
       {analyticsLoading&&!dailyStats.length?<InlineLoading description="正在汇总每日新增…" />:dailyStats.some(item=>item.count>0)?<LineChart data={dailyChartData} options={dailyChartOptions}/>:<p className="tp-contacts__empty">最近 30 天暂无新增联系人记录。</p>}
     </section>
     <section className="tp-contacts__list-panel">
-      <div className="tp-contacts__list-head"><div><h2 className="tp-contacts__heading"><semanticIcons.users size={20} aria-hidden="true"/><span>联系人列表</span></h2><p>当前筛选共 {total.toLocaleString()} 条记录；每页最多 {PAGE_SIZE} 条。</p></div><div className="tp-contacts__search"><TextInput id="contacts-search" labelText="搜索联系人" placeholder="姓名、职位、邮箱或电话" value={query} onChange={e=>{setQuery(e.currentTarget.value);setPage(1);}}/></div></div>
+      <div className="tp-contacts__list-head"><div><h2 className="tp-contacts__heading"><semanticIcons.users size={20} aria-hidden="true"/><span>联系人列表</span></h2><p>当前筛选共 {total.toLocaleString()} 条记录；每页 20 条。</p></div><div className="tp-contacts__search"><TextInput id="contacts-search" labelText="搜索联系人" placeholder="姓名、职位、邮箱或电话" value={query} onChange={e=>{setQuery(e.currentTarget.value);setPage(1);}}/></div></div>
       <div className="tp-contacts__filters">
         <Select id="contacts-status-filter" labelText="状态筛选" value={statusFilter} onChange={e=>{setStatusFilter(e.currentTarget.value);setPage(1);}}><SelectItem value="all" text="全部状态"/><SelectItem value="active" text="在职"/><SelectItem value="inactive" text="非在职"/></Select>
         <Select id="contacts-source-filter" labelText="来源筛选" value={sourceFilter} onChange={e=>{setSourceFilter(e.currentTarget.value);setPage(1);}}><SelectItem value="all" text="全部来源"/><SelectItem value="manual" text="手动"/><SelectItem value="lead_conversion" text="线索转换"/><SelectItem value="import" text="导入"/><SelectItem value="business_card" text="名片识别"/><SelectItem value="ai_crawl" text="AI 抓取"/></Select>
@@ -265,9 +292,19 @@ export function ContactConsolePage() {
         <Select id="contacts-group-primary" labelText="一级分组" value={groupBy} onChange={e=>{const next=e.currentTarget.value;setGroupBy(next);if(next===thenBy)setThenBy('none');}}>{GROUP_FIELDS.map(x=><SelectItem key={x.id} value={x.id} text={x.text}/>)}</Select>
         <Select id="contacts-group-secondary" labelText="二级分组" value={thenBy} onChange={e=>setThenBy(e.currentTarget.value)}><SelectItem value="none" text="不使用二级分组"/>{GROUP_FIELDS.filter(x=>x.id!==groupBy).map(x=><SelectItem key={x.id} value={x.id} text={x.text}/>)}</Select>
       </div>
-      <div className="tp-contacts__group-toolbar"><span>分组视图 · 一级：{GROUP_FIELDS.find(x=>x.id===groupBy)?.text} · 二级：{thenBy==='none'?'关闭':GROUP_FIELDS.find(x=>x.id===thenBy)?.text}</span><Button kind="ghost" size="sm" onClick={()=>setShowGroups(v=>!v)}>{showGroups?'切换为平铺列表':'恢复分组视图'}</Button></div>
-      {loading?<InlineLoading description="正在读取联系人…" />:rows.length?showGroups?<Accordion>{grouped.map(group=><AccordionItem key={group.label} title={group.label+' · '+group.children.reduce((sum,x)=>sum+x.items.length,0)}>{thenBy==='none'?renderTable(group.children[0]?.items??[]):<Accordion>{group.children.map(child=><AccordionItem key={child.label} title={child.label+' · '+child.items.length}>{renderTable(child.items)}</AccordionItem>)}</Accordion>}</AccordionItem>)}</Accordion>:renderTable(rows):<p className="tp-contacts__empty">没有找到联系人记录。</p>}
-      <div className="tp-contacts__pagination"><span>显示 {start}–{end} 条，共 {total.toLocaleString()} 条</span><div><Button kind="tertiary" size="sm" disabled={loading||page<=1} onClick={()=>setPage(p=>Math.max(1,p-1))}><semanticIcons.chevronLeft size={16}/>上一页</Button><span>第 {page} / {pages} 页</span><Button kind="tertiary" size="sm" disabled={loading||page>=pages} onClick={()=>setPage(p=>Math.min(pages,p+1))}>下一页<semanticIcons.chevronRight size={16}/></Button></div></div>
+      <div className="tp-contacts__group-toolbar"><span>{showGroups?'分组视图':'平铺列表'} · 一级：{GROUP_FIELDS.find(x=>x.id===groupBy)?.text} · 二级：{thenBy==='none'?'关闭':GROUP_FIELDS.find(x=>x.id===thenBy)?.text}</span><Button kind="ghost" size="sm" onClick={()=>setShowGroups(v=>!v)}>{showGroups?'切换为平铺列表':'恢复分组视图'}</Button></div>
+      {loading?<InlineLoading description="正在读取联系人…" />:rows.length?<TpDataTable<ContactTableRow>
+        columns={tableColumns}
+        rows={tableRows}
+        rowKey="id"
+        ariaLabel="联系人列表"
+        loading={loading}
+        error={error||null}
+        columnSettingsKey="crm-contacts"
+        selectionScopeKey={tableSearchScope}
+        onRowOpen={(row)=>{if(!row.__isGroup) navigate('/contacts/'+row.id);}}
+        pagination={{page,pageSize,totalItems:total,serverSide:true,onChange:(nextPage,nextPageSize)=>{setPage(nextPage);setPageSize(nextPageSize);}}}
+      />:<p className="tp-contacts__empty">没有找到联系人记录。</p>}
     </section>
   </main>;
 }
