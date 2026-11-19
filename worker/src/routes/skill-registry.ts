@@ -303,7 +303,7 @@ function stateOf(config:SkillConfig):"pending"|"configured"|"synced"{
  return typeof config.syncedAt==="string"?"synced":typeof config.repositoryUrl==="string"&&config.repositoryUrl?"configured":"pending";
 }
 function skillConfig(source:Source,repositoryUrl:string,imported:Awaited<ReturnType<typeof fetchSkillBundle>>,artifact:ArtifactRef){
- return {repositoryUrl:repositoryUrl.trim(),branch:source.ref,skillPath:source.path,manifest:imported.manifest,contract:imported.contract.contract??null,contractStatus:imported.contract.status,contractErrors:imported.contract.errors,bundle:{...imported.package,artifact},securityReview:imported.review,syncedAt:imported.package.syncedAt,syncStatus:"package_synced",activationStatus:"disabled_pending_review"};
+ return {sourceType:"github",repositoryUrl:repositoryUrl.trim(),branch:source.ref,skillPath:source.path,manifest:imported.manifest,contract:imported.contract.contract??null,contractStatus:imported.contract.status,contractErrors:imported.contract.errors,bundle:{...imported.package,artifact},securityReview:imported.review,syncedAt:imported.package.syncedAt,syncStatus:"package_synced",activationStatus:"disabled_pending_review"};
 }
 export async function handleSkillRegistry(request:Request,env:Env):Promise<Response>{
  const ownerId=await ownerFromRequest(request,env);
