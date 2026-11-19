@@ -34,6 +34,7 @@ export interface TpPaginationConfig {
   page: number;
   pageSize: 10 | 20 | 50 | 100;
   totalItems: number;
+  serverSide?: boolean;
   onChange: (page: number, pageSize: 10 | 20 | 50 | 100) => void;
 }
 
@@ -59,5 +60,6 @@ export interface TpDataTableProps<T extends object> {
   selectionRows?: T[];
   /** Stable key for the active filter scope; changing it clears selections. */
   selectionScopeKey?: string;
+  onSortChange?: (key: string, direction: 'ASC' | 'DESC' | 'NONE') => void;
   ariaLabel?: string;
 }
