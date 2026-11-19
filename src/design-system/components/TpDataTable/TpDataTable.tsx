@@ -345,7 +345,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
                         className={`${activeRowId === carbonRow.id ? 'tp-data-table__row--active' : ''}`}
                         onClick={() => onRowOpen?.(source)}
                         onKeyDown={(event) => {
-                          if ((event.key === 'Enter' || event.key === ' ') && onRowOpen) {
+                          if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ') && onRowOpen) {
                             event.preventDefault();
                             onRowOpen(source);
                           }
@@ -356,7 +356,10 @@ export function TpDataTable<T extends Record<string, unknown>>({
                           <TableSelectRow
                             {...getSelectionProps({
                               row: carbonRow,
-                              onClick: () => toggleRowSelection(carbonRow.id, !selectedIds.has(carbonRow.id)),
+                              onClick: (event) => {
+                                event.stopPropagation();
+                                toggleRowSelection(carbonRow.id, !selectedIds.has(carbonRow.id));
+                              },
                             })}
                             checked={selectedIds.has(carbonRow.id)}
                           />
