@@ -2,8 +2,7 @@ import { PageHeader } from '@/design-system';
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
-  Link, InlineLoading, InlineNotification, Tag, Tile, Table, TableHead,
-  TableRow, TableHeader, TableBody, TableCell, semanticIcons, WorldMapChart,
+  Link, InlineLoading, InlineNotification, Tag, Tile, semanticIcons, WorldMapChart, TpDataTable,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import { DonutChart, SimpleBarChart } from '@carbon/charts-react';
@@ -40,6 +39,8 @@ export function ProspectHistoryPage() {
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState('');
+  const [runPage,setRunPage]=useState(1);const [runPageSize,setRunPageSize]=useState<10|20|50|100>(20);
+  const [resultPage,setResultPage]=useState(1);const [resultPageSize,setResultPageSize]=useState<10|20|50|100>(20);
   const selected = runs.find(run => run.id === runId) ?? null;
 
   useEffect(() => {
@@ -119,22 +120,24 @@ export function ProspectHistoryPage() {
         <div className="tp-prospect-hub__section-heading"><div><h2>全部发现任务</h2><p>最近 200 条任务记录 · 点击任务查看详情与结果</p></div><Tag type="blue">{runs.length} 条任务</Tag></div>
         {loading ? <div className="tp-prospect-hub__loading"><InlineLoading description="正在读取历史任务…" /></div> : (
           <div className="tp-prospect-hub__table-wrap">
-            <Table size="lg">
-              <TableHead><TableRow>{['任务编码','搜索主题','目标市场','发现渠道','执行状态','捕获数量','创建时间',''].map(label => <TableHeader key={label}>{label}</TableHeader>)}</TableRow></TableHead>
-              <TableBody>
-                {runs.map(run => <TableRow key={run.id}>
-                  <TableCell><strong className="tp-prospect-hub__code">{codeOf(run)}</strong></TableCell>
-                  <TableCell>{run.query || '—'}</TableCell>
-                  <TableCell>{(run.countries ?? []).join(', ') || '—'}</TableCell>
-                  <TableCell>{channelLabel(run.channel) !== '—' ? channelLabel(run.channel) : (run.providers ?? []).map(providerLabel).join(' / ') || '—'}</TableCell>
-                  <TableCell><Tag type={statusType(run.status)}>{statusLabel(run.status)}</Tag></TableCell>
-                  <TableCell>{(run.discovered_count ?? 0).toLocaleString()}</TableCell>
-                  <TableCell>{fmt(run.created_at)}</TableCell>
-                  <TableCell><Link href={'/prospect-history/' + run.id} renderIcon={semanticIcons.next}>查看详情与结果</Link></TableCell>
-                </TableRow>)}
-                {!runs.length && <TableRow><TableCell colSpan={8}>暂无历史任务。创建并执行潜客方案后，任务记录会显示在这里。</TableCell></TableRow>}
-              </TableBody>
-            </Table>
+            <TpDataTable
+              ariaLabel="潜客发现历史任务"
+              columnSettingsKey="prospect-history-runs"
+              rowKey="id"
+              rows={runs as (Run & Record<string,unknown>)[]}
+              pagination={{page:runPage,pageSize:runPageSize,totalItems:runs.length,onChange:(nextPage,nextSize)=>{setRunPage(nextPage);setRunPageSize(nextSize);}}}
+              columns={[
+                {key:'task_code',header:'任务编码',primary:true,minWidth:140,render:run=><strong className="tp-prospect-hub__code">{codeOf(run)}</strong>},
+                {key:'query',header:'搜索主题',minWidth:200,render:run=>run.query||'—'},
+                {key:'countries',header:'目标市场',minWidth:150,render:run=>(run.countries??[]).join(', ')||'—'},
+                {key:'channel',header:'发现渠道',minWidth:160,render:run=>channelLabel(run.channel)!=='—'?channelLabel(run.channel):(run.providers??[]).map(providerLabel).join(' / ')||'—'},
+                {key:'status',header:'执行状态',minWidth:110,render:run=><Tag type={statusType(run.status)}>{statusLabel(run.status)}</Tag>},
+                {key:'discovered_count',header:'捕获数量',minWidth:100,render:run=>(run.discovered_count??0).toLocaleString()},
+                {key:'created_at',header:'创建时间',minWidth:150,render:run=>fmt(run.created_at)},
+              ]}
+              rowActions={[{key:'view',label:'查看详情与结果',onClick:run=>{window.location.assign('/prospect-history/'+run.id)}}]}
+            />
+            {!runs.length&&<p className="tp-prospect-hub__empty">暂无历史任务。创建并执行潜客方案后，任务记录会显示在这里。</p>}
           </div>
         )}
       </Tile>
@@ -158,20 +161,22 @@ export function ProspectHistoryPage() {
           <div className="tp-prospect-hub__section-heading"><div><h3>执行日志</h3><p>任务的后台运行轨迹与结果反馈</p></div></div>
           <div className="tp-prospect-hub__section-heading"><div><h3>本次任务捕获结果</h3><p>仅显示关联到当前任务的企业记录</p></div><Tag type="blue">{results.length} 条结果</Tag></div>
           <div className="tp-prospect-hub__table-wrap">
-            <Table size="lg">
-              <TableHead><TableRow>{['企业名称','官网','国家','来源','AI 置信度','处理状态'].map(label => <TableHeader key={label}>{label}</TableHeader>)}</TableRow></TableHead>
-              <TableBody>
-                {results.map(item => { const record = item.record; const removed = item.is_removed || record?.status === 'removed'; const converted = record?.status === 'promoted' || !!record?.lead_id; return <TableRow key={item.id}>
-                  <TableCell>{record?.name || '未命名企业'}</TableCell>
-                  <TableCell>{record?.website || '—'}</TableCell>
-                  <TableCell>{record?.country_code || '—'}</TableCell>
-                  <TableCell>{providerLabel(item.provider)}</TableCell>
-                  <TableCell>{record?.confidence_score ?? '—'}</TableCell>
-                  <TableCell><Tag type={removed ? 'red' : converted ? 'green' : 'blue'}>{removed ? '手动移除' : converted ? '已送入 CRM' : '待处理'}</Tag></TableCell>
-                </TableRow>; })}
-                {!results.length && <TableRow><TableCell colSpan={6}>该任务暂未关联捕获结果。</TableCell></TableRow>}
-              </TableBody>
-            </Table>
+            <TpDataTable
+              ariaLabel="本次任务捕获结果"
+              columnSettingsKey="prospect-history-results"
+              rowKey="id"
+              rows={results as (RunResult & Record<string,unknown>)[]}
+              pagination={{page:resultPage,pageSize:resultPageSize,totalItems:results.length,onChange:(nextPage,nextSize)=>{setResultPage(nextPage);setResultPageSize(nextSize);}}}
+              columns={[
+                {key:'name',header:'企业名称',primary:true,minWidth:180,render:item=>item.record?.name||'未命名企业'},
+                {key:'website',header:'官网',minWidth:180,render:item=>item.record?.website||'—'},
+                {key:'country_code',header:'国家',minWidth:100,render:item=>item.record?.country_code||'—'},
+                {key:'provider',header:'来源',minWidth:120,render:item=>providerLabel(item.provider)},
+                {key:'confidence_score',header:'AI 置信度',minWidth:110,render:item=>item.record?.confidence_score??'—'},
+                {key:'status',header:'处理状态',minWidth:120,render:item=>{const removed=item.is_removed||item.record?.status==='removed';const converted=item.record?.status==='promoted'||!!item.record?.lead_id;return <Tag type={removed?'red':converted?'green':'blue'}>{removed?'手动移除':converted?'已送入 CRM':'待处理'}</Tag>}},
+              ]}
+            />
+            {!results.length&&<p className="tp-prospect-hub__empty">该任务暂未关联捕获结果。</p>}
           </div>
           {detailLoading ? <InlineLoading description="正在读取任务日志…" /> : <div className="tp-prospect-hub__logs">
             {logs.map(log => <div key={log.id}><time>{fmt(log.created_at)}</time><Tag type={log.level === 'error' ? 'red' : log.level === 'success' ? 'green' : 'gray'}>{log.level || 'info'}</Tag><span>{log.message || '—'}</span></div>)}

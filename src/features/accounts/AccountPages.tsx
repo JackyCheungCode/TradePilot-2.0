@@ -5,7 +5,7 @@ import { DonutChart } from '@carbon/charts-react';
 import {
   Button, Link, Checkbox, InlineLoading, InlineNotification, Modal, Select, SelectItem,
   Tag, TextArea, TextInput, Tabs, TabList, Tab, TabPanels, TabPanel, Table, TableHead,
-  TableRow, TableHeader, TableBody, TableCell, Tile, LineChart, ScaleTypes, semanticIcons, BusinessLifecycle, WorldMapChart,
+  TableRow, TableHeader, TableBody, TableCell, Tile, LineChart, ScaleTypes, semanticIcons, BusinessLifecycle, WorldMapChart, TpDataTable,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import { useCrmSettingOptions } from '../settings/CrmDomainSettings';
@@ -35,7 +35,7 @@ function AccountMap({rows,selectedCode,onCountrySelect}:{rows:Account[];selected
  return <section className="tp-accounts__panel"><div className="tp-accounts__panel-head"><SectionTitle icon={<semanticIcons.globe size={20}/>}>全球客户分布</SectionTitle><p>按客户主地址国家 / 地区汇总；地图为国家级统计，不代表公司精确地址。</p></div><WorldMapChart data={data} unitLabel="家客户" selectedCode={selectedCode==='all'?undefined:selectedCode} onCountrySelect={onCountrySelect}/></section>;
 }
 export function AccountConsolePage(){
- const [rows,setRows]=useState<Account[]>([]);const [contacts,setContacts]=useState<Contact[]>([]);const [loading,setLoading]=useState(true);const [error,setError]=useState('');const [query,setQuery]=useState('');const [status,setStatus]=useState('all');const [countryFilter,setCountryFilter]=useState('all');const [page,setPage]=useState(1);const size=15;
+ const [rows,setRows]=useState<Account[]>([]);const [contacts,setContacts]=useState<Contact[]>([]);const [loading,setLoading]=useState(true);const [error,setError]=useState('');const [query,setQuery]=useState('');const [status,setStatus]=useState('all');const [countryFilter,setCountryFilter]=useState('all');const [page,setPage]=useState(1);const [pageSize,setPageSize]=useState<10|20|50|100>(20);
  const load=useCallback(async()=>{setLoading(true);setError('');try{const db=await getSupabaseClient();const [a,c]=await Promise.all([db.from('crm_accounts').select('*').eq('is_archived',false).order('created_at',{ascending:false}).range(0,1999),db.from('crm_contacts').select('id,account_id,first_name,last_name,full_name,job_title,contact_role,decision_role,email,mobile,phone,whatsapp,is_primary,is_active,custom_fields').eq('is_archived',false).range(0,4999)]);if(a.error)throw a.error;if(c.error)throw c.error;setRows((a.data||[]) as Account[]);setContacts((c.data||[]) as Contact[])}catch(e){setError(e instanceof Error?e.message:'读取客户数据失败')}finally{setLoading(false)}},[]);
  useEffect(()=>{void load()},[load]);
  const filtered=useMemo(()=>rows.filter(r=>(status==='all'||customerStatus(r)===status)&&(countryFilter==='all'||String(r.country_code||'').toUpperCase()===countryFilter)&&[r.account_name,r.account_number,r.country_code,r.city,r.email,r.website,r.tax_number].join(' ').toLowerCase().includes(query.trim().toLowerCase())),[rows,status,countryFilter,query]);
@@ -51,7 +51,23 @@ export function AccountConsolePage(){
  <section className="tp-accounts__panel"><div className="tp-accounts__panel-head"><SectionTitle icon={<semanticIcons.chart size={20}/>}>每日新增趋势</SectionTitle><p>最近 30 天客户创建数量</p></div><LineChart data={daily} options={chartOptions}/></section>
  <section className="tp-accounts__panel"><div className="tp-accounts__panel-head"><SectionTitle icon={<semanticIcons.dataVisualization size={20}/>}>客户行业结构</SectionTitle><p>按客户行业字段统计，最多展示前 8 类。</p></div>{industryData.length?<DonutChart data={industryData} options={{theme:document.documentElement.dataset.carbonTheme==='g100'?'g100':'white',height:'300px',donut:{center:{label:'客户行业'}},legend:{position:'right'},toolbar:{enabled:false}} as any}/>:<p className="tp-accounts__empty">暂无行业分类数据</p>}</section>
  <AccountMap rows={rows} selectedCode={countryFilter} onCountrySelect={code=>setCountryFilter(current=>current===code?'all':code)}/>
- <section className="tp-accounts__panel"><div className="tp-accounts__panel-head"><SectionTitle icon={<semanticIcons.building size={20}/>}>客户列表</SectionTitle><p>客户公司级主数据；人员信息在联系人对象维护。</p></div><div className="tp-accounts__filters">{f('搜索客户',input('account-search','搜索客户',query,setQuery,'名称、编号、国家、邮箱、税号'))}{f('客户状态',select('account-status','客户状态',status,setStatus,[['all','全部状态'],['active','活跃'],['dormant','休眠'],['lost','流失'],['blacklist','黑名单']]))}</div><div className="tp-accounts__table-wrap"><Table><TableHead><TableRow><TableHeader>客户编号</TableHeader><TableHeader>客户名称</TableHeader><TableHeader>类型 / 等级</TableHeader><TableHeader>业务类型</TableHeader><TableHeader>国家 / 地区</TableHeader><TableHeader>主要联系人</TableHeader><TableHeader>状态</TableHeader><TableHeader>创建时间</TableHeader></TableRow></TableHead><TableBody>{filtered.slice((page-1)*size,page*size).map(r=>{const primary=contacts.find(c=>c.account_id===r.id&&c.is_primary);return <TableRow key={r.id}><TableCell>{r.account_number||'—'}</TableCell><TableCell><Link href={'/accounts/'+r.id}>{r.account_name}</Link><small>{r.website||r.email||''}</small></TableCell><TableCell>{r.company_type||r.account_type||'公司'} / {r.custom_fields?.grade||'未评级'}</TableCell><TableCell>{r.custom_fields?.businessType||'—'}</TableCell><TableCell>{countryName(r.country_code||'')}</TableCell><TableCell>{primary?.full_name||[primary?.first_name,primary?.last_name].filter(Boolean).join(' ')||'未设置'}</TableCell><TableCell><Tag type={customerStatus(r)==='active'?'green':customerStatus(r)==='blacklist'?'red':'cool-gray'}>{({active:'活跃',dormant:'休眠',lost:'流失',blacklist:'黑名单'} as Record<string,string>)[customerStatus(r)]||customerStatus(r)}</Tag></TableCell><TableCell>{new Date(r.created_at).toLocaleDateString('zh-TW')}</TableCell></TableRow>})}</TableBody></Table></div>{!filtered.length&&<p className="tp-accounts__empty">没有符合条件的客户。</p>}<div className="tp-accounts__pagination"><span>显示 {filtered.length?((page-1)*size+1):0}–{Math.min(page*size,filtered.length)} / {filtered.length} 条 · 每页最多 15 条</span><div><Button kind="ghost" size="sm" disabled={page<=1} onClick={()=>setPage(p=>p-1)}>上一页</Button><span>{page} / {Math.max(1,Math.ceil(filtered.length/size))}</span><Button kind="ghost" size="sm" disabled={page>=Math.ceil(filtered.length/size)} onClick={()=>setPage(p=>p+1)}>下一页</Button></div></div></section>
+ <section className="tp-accounts__panel"><div className="tp-accounts__panel-head"><SectionTitle icon={<semanticIcons.building size={20}/>}>客户列表</SectionTitle><p>客户公司级主数据；人员信息在联系人对象维护。</p></div><div className="tp-accounts__filters">{f('搜索客户',input('account-search','搜索客户',query,setQuery,'名称、编号、国家、邮箱、税号'))}{f('客户状态',select('account-status','客户状态',status,setStatus,[['all','全部状态'],['active','活跃'],['dormant','休眠'],['lost','流失'],['blacklist','黑名单']]))}</div><TpDataTable
+ columns={[
+  {key:'account_number',header:'客户编号',minWidth:120,render:r=>r.account_number||'—'},
+  {key:'account_name',header:'客户名称',primary:true,minWidth:220,render:r=><div><Link href={'/accounts/'+r.id}>{r.account_name}</Link><small>{r.website||r.email||''}</small></div>},
+  {key:'account_type',header:'类型 / 等级',minWidth:150,render:r=>(r.company_type||r.account_type||'公司')+' / '+(r.custom_fields?.grade||'未评级')},
+  {key:'business_type',header:'业务类型',minWidth:130,render:r=>r.custom_fields?.businessType||'—'},
+  {key:'country_code',header:'国家 / 地区',minWidth:130,render:r=>countryName(r.country_code||'')},
+  {key:'primary_contact',header:'主要联系人',minWidth:160,render:r=>{const primary=contacts.find(c=>c.account_id===r.id&&c.is_primary);return primary?.full_name||[primary?.first_name,primary?.last_name].filter(Boolean).join(' ')||'未设置'}},
+  {key:'status',header:'状态',minWidth:100,render:r=><Tag type={customerStatus(r)==='active'?'green':customerStatus(r)==='blacklist'?'red':'cool-gray'}>{({active:'活跃',dormant:'休眠',lost:'流失',blacklist:'黑名单'} as Record<string,string>)[customerStatus(r)]||customerStatus(r)}</Tag>},
+  {key:'created_at',header:'创建时间',minWidth:130,render:r=>new Date(r.created_at).toLocaleDateString('zh-TW')},
+ ]}
+ rows={filtered as (Account & Record<string,unknown>)[]}
+ rowKey="id"
+ ariaLabel="客户列表"
+ columnSettingsKey="crm-accounts"
+ pagination={{page,pageSize,totalItems:filtered.length,onChange:(nextPage,nextSize)=>{setPage(nextPage);setPageSize(nextSize);}}}
+/>{!filtered.length&&<p className="tp-accounts__empty">没有符合条件的客户。</p>}</section>
  </>}
  </main>
 }

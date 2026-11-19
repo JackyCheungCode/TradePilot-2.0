@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AreaChart } from '@carbon/charts-react';
 import {
   Button, Link, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput,
-  Table, TableHead, TableRow, TableHeader, TableBody, TableCell, TableContainer, semanticIcons, WorldMapChart, SimpleBarChart,
+  semanticIcons, WorldMapChart, SimpleBarChart, TpDataTable,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@carbon/charts/styles.css';
@@ -101,6 +101,9 @@ export function LeadConsolePage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [sourceFilter, setSourceFilter] = useState('all');
   const [countryFilter, setCountryFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<10 | 20 | 50 | 100>(20);
+  useEffect(() => setPage(1), [search, statusFilter, sourceFilter, countryFilter]);
   const load = useCallback(async () => {
     setError('');
     try {
@@ -227,28 +230,23 @@ export function LeadConsolePage() {
             {sourceOptions.map(key => <SelectItem key={key} value={key} text={sourceNames[key] ?? (key === 'unknown' ? '未标记来源' : key)} />)}
           </Select>
         </div>
-        <div className="tp-leads__table-wrap"><TableContainer><Table size="lg">
-          <TableHead><TableRow>
-            <TableHeader>线索编号</TableHeader><TableHeader>线索名称</TableHeader><TableHeader>国家 / 地区</TableHeader>
-            <TableHeader>来源</TableHeader><TableHeader>评级</TableHeader><TableHeader>状态</TableHeader><TableHeader>创建时间</TableHeader>
-          </TableRow></TableHead>
-          <TableBody>{filtered.map(row => {
-            const status = normalizeStatus(row);
-            const rating = valueOf(row.profile, 'rating');
-            return <TableRow key={row.id}>
-              <TableCell>{row.lead_number || '—'}</TableCell>
-              <TableCell><strong>{row.name || '未命名线索'}</strong><span className="tp-leads__cell-secondary">{row.website || row.email || row.phone || ''}</span></TableCell>
-              <TableCell>{countryName(row.country_code)}</TableCell>
-              <TableCell><Tag type="cool-gray">{sourceLabel(row)}</Tag></TableCell>
-              <TableCell><Tag type={rating === 'hot' ? 'red' : rating === 'warm' ? 'warm-gray' : 'blue'}>{rating === 'hot' ? '热' : rating === 'warm' ? '温' : rating === 'cold' ? '冷' : '未评级'}</Tag></TableCell>
-              <TableCell><Tag type={['invalid', 'rejected'].includes(status) ? 'red' : ['confirmed', 'qualified', 'converted'].includes(status) ? 'green' : 'blue'}>{statusLabel(status)}</Tag></TableCell>
-              <TableCell>{new Date(row.created_at).toLocaleDateString('zh-TW')}</TableCell>
-            </TableRow>;
-          })}</TableBody>
-        </Table></TableContainer></div>
-        {!filtered.length && <p className="tp-leads__empty">没有符合当前筛选条件的线索。</p>}
-        <div className="tp-leads__table-footer">显示 {filtered.length.toLocaleString()} 条 / 共 {total.toLocaleString()} 条正式线索</div>
-      </section>
+        <TpDataTable
+          ariaLabel="正式线索列表"
+          columnSettingsKey="crm-leads"
+          rowKey="id"
+          rows={filtered as (LeadRow & Record<string, unknown>)[]}
+          columns={[
+            { key: 'lead_number', header: '线索编号', minWidth: 130, render: row => row.lead_number || '—' },
+            { key: 'name', header: '线索名称', primary: true, minWidth: 220, render: row => <div><strong>{row.name || '未命名线索'}</strong><span className="tp-leads__cell-secondary">{row.website || row.email || row.phone || ''}</span></div> },
+            { key: 'country_code', header: '国家 / 地区', minWidth: 130, render: row => countryName(row.country_code) },
+            { key: 'source', header: '来源', minWidth: 130, render: row => <Tag type="cool-gray">{sourceLabel(row)}</Tag> },
+            { key: 'rating', header: '评级', minWidth: 90, render: row => { const rating = valueOf(row.profile, 'rating'); return <Tag type={rating === 'hot' ? 'red' : rating === 'warm' ? 'warm-gray' : 'blue'}>{rating === 'hot' ? '热' : rating === 'warm' ? '温' : rating === 'cold' ? '冷' : '未评级'}</Tag>; } },
+            { key: 'status', header: '状态', minWidth: 110, render: row => { const status = normalizeStatus(row); return <Tag type={['invalid', 'rejected'].includes(status) ? 'red' : ['confirmed', 'qualified', 'converted'].includes(status) ? 'green' : 'blue'}>{statusLabel(status)}</Tag>; } },
+            { key: 'created_at', header: '创建时间', minWidth: 130, render: row => new Date(row.created_at).toLocaleDateString('zh-TW') },
+          ]}
+          pagination={{ page, pageSize, totalItems: filtered.length, onChange: (nextPage, nextSize) => { setPage(nextPage); setPageSize(nextSize); } }}
+        />
+        <div className="tp-leads__table-footer">显示 {filtered.length.toLocaleString()} 条 / 共 {total.toLocaleString()} 条正式线索</div>      </section>
     </>}
   </main>;
 }

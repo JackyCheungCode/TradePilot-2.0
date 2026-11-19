@@ -3,8 +3,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Button, Link, ContentSwitcher, Switch, FileUploaderButton, InlineLoading, InlineNotification, MultiSelect, Select, SelectItem, Tag, TextInput, TextArea,
-  Tabs, TabList, Tab, TabPanels, TabPanel, Table, TableHead, TableRow, TableHeader, TableBody, TableCell,
-  Tile, LineChart, SimpleBarChart, ScaleTypes, semanticIcons, BusinessLifecycle, WorldMapChart,
+  Tabs, TabList, Tab, TabPanels, TabPanel,
+  Tile, LineChart, SimpleBarChart, ScaleTypes, semanticIcons, BusinessLifecycle, WorldMapChart, TpDataTable,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@carbon/charts/styles.css';
@@ -37,7 +37,7 @@ function Pick({id,label,value,onChange,options,disabled=false}:{id:string;label:
 }
 
 export function PaymentConsolePage() {
-  
+  const nav=useNavigate();
   const [rows,setRows]=useState<AnyRow[]>([]);
   const [allocations,setAllocations]=useState<AnyRow[]>([]);
   const [accounts,setAccounts]=useState<AnyRow[]>([]);
@@ -49,6 +49,8 @@ export function PaymentConsolePage() {
   const [currency,setCurrency]=useState('USD');
   const [marketCountry,setMarketCountry]=useState('all');
   const [view,setView]=useState<'payments'|'receivables'>('payments');
+  const [page,setPage]=useState(1);const [pageSize,setPageSize]=useState<10|20|50|100>(20);
+  useEffect(()=>setPage(1),[view,query,status,currency,marketCountry]);
 
   const load=useCallback(async()=>{
     setLoading(true);setError('');
@@ -143,7 +145,46 @@ export function PaymentConsolePage() {
     <section className="tp-payments__panel">
       <div className="tp-payments__view-switch"><ContentSwitcher size="sm" selectedIndex={view==='payments'?0:1} onChange={({name})=>{if(name){setView(String(name) as 'payments'|'receivables');setStatus('all')}}}><Switch name="payments" text="收款记录"/><Switch name="receivables" text="应收计划（账龄与催款）"/></ContentSwitcher><Tag type="blue">{view==='payments'?filtered.length:receivableFiltered.length} 条记录</Tag></div>
       <div className="tp-payments__filters"><TextInput id="payment-search" labelText="搜索" placeholder={view==='payments'?'收款编号、客户、付款人、流水号':'订单号、客户、收款节点'} value={query} onChange={e=>setQuery(e.currentTarget.value)}/><Select id="payment-status" labelText={view==='payments'?'收款状态':'应收状态'} value={status} onChange={e=>setStatus(e.currentTarget.value)}><SelectItem value="all" text="全部状态"/>{view==='payments'?PAYMENT_STATES.map(([k,v])=><SelectItem key={k} value={k} text={v}/>):['待触发','未收','部分收','已收齐','逾期','已核销差异'].map(k=><SelectItem key={k} value={k} text={k}/>)}</Select></div>
-      {loading?<InlineLoading description="正在读取收款与应收数据…"/>:view==='payments'?<div className="tp-payments__table-wrap"><Table><TableHead><TableRow><TableHeader>收款编号</TableHeader><TableHeader>状态</TableHeader><TableHeader>客户</TableHeader><TableHeader>到账日期</TableHeader><TableHeader>付款方式</TableHeader><TableHeader>汇款金额</TableHeader><TableHeader>实际入账</TableHeader><TableHeader>已分配</TableHeader><TableHeader>未分配</TableHeader></TableRow></TableHead><TableBody>{filtered.map(r=><TableRow key={r.id}><TableCell><Link href={'/payments/'+r.id} className="tp-payments__link">{r.payment_no}</Link>{r.is_third_party&&<Tag type="warm-gray">第三方</Tag>}</TableCell><TableCell><Tag type={r.status==='reconciled'?'green':r.status==='voided'?'red':r.status==='draft'?'cool-gray':'blue'}>{statusLabel(r.status)}</Tag></TableCell><TableCell>{accountMap.get(r.account_id)||'—'}</TableCell><TableCell>{r.received_date||'—'}</TableCell><TableCell>{r.payment_method}</TableCell><TableCell>{money(r.amount,r.currency)}</TableCell><TableCell>{money(r.net_received,r.currency)}</TableCell><TableCell>{money(r.allocated_total,r.currency)}</TableCell><TableCell>{money(r.unallocated_amount,r.currency)}</TableCell></TableRow>)}</TableBody></Table>{!filtered.length&&<p className="tp-payments__empty">没有符合条件的收款记录。</p>}</div>:<div className="tp-payments__table-wrap"><Table><TableHead><TableRow><TableHeader>订单</TableHeader><TableHeader>客户</TableHeader><TableHeader>收款节点</TableHeader><TableHeader>触发条件</TableHeader><TableHeader>应收金额</TableHeader><TableHeader>已收金额</TableHeader><TableHeader>未收金额</TableHeader><TableHeader>到期日</TableHeader><TableHeader>逾期天数</TableHeader><TableHeader>账龄</TableHeader><TableHeader>状态</TableHeader><TableHeader>催款级别</TableHeader><TableHeader>最近催款</TableHeader><TableHeader>下次跟进</TableHeader><TableHeader>跟进记录</TableHeader><TableHeader>承诺付款日</TableHeader><TableHeader>争议 / 原因</TableHeader></TableRow></TableHead><TableBody>{receivableFiltered.map(r=><TableRow key={r.order_id+'-'+r.id}><TableCell>{r.order_number}</TableCell><TableCell>{r.customer}</TableCell><TableCell>{r.node_name}</TableCell><TableCell>{r.trigger||'—'}</TableCell><TableCell>{money(r.amount,r.currency)}</TableCell><TableCell>{money(r.received,r.currency)}</TableCell><TableCell>{money(r.outstanding,r.currency)}</TableCell><TableCell>{r.due_date||'—'}</TableCell><TableCell>{r.overdue_days}</TableCell><TableCell>{r.aging_bucket}</TableCell><TableCell><Tag type={['已收齐','已核销差异'].includes(r.node_status)?'green':r.node_status==='逾期'?'red':'blue'}>{r.node_status}</Tag></TableCell><TableCell>{r.reminder_level}</TableCell><TableCell>{r.last_reminder_at?new Date(r.last_reminder_at).toLocaleDateString():'—'}</TableCell><TableCell>{r.next_followup_date||'—'}</TableCell><TableCell>{r.followup_note||'—'}</TableCell><TableCell>{r.promised_date||'—'}</TableCell><TableCell>{r.dispute_flag?<><Tag type="red">有争议</Tag><small>{r.dispute_reason||''}</small></>:'—'}</TableCell></TableRow>)}</TableBody></Table>{!receivableFiltered.length&&<p className="tp-payments__empty">当前币种没有应收计划记录。</p>}</div>}
+      {loading?<InlineLoading description="正在读取收款与应收数据…"/>:view==='payments'?<div className="tp-payments__table-wrap"><TpDataTable
+        ariaLabel="收款记录列表" columnSettingsKey="finance-payments" rowKey="id"
+        rows={filtered as (AnyRow & Record<string,unknown>)[]}
+        onRowOpen={row=>nav('/payments/'+String(row.id))}
+        pagination={{page,pageSize,totalItems:filtered.length,onChange:(nextPage,nextSize)=>{setPage(nextPage);setPageSize(nextSize);}}}
+        columns={[
+          {key:'payment_no',header:'收款编号',primary:true,minWidth:170,render:r=><div><Link href={'/payments/'+r.id} className="tp-payments__link">{r.payment_no}</Link>{r.is_third_party&&<Tag type="warm-gray">第三方</Tag>}</div>},
+          {key:'status',header:'状态',minWidth:110,render:r=><Tag type={r.status==='reconciled'?'green':r.status==='voided'?'red':r.status==='draft'?'cool-gray':'blue'}>{statusLabel(r.status)}</Tag>},
+          {key:'account',header:'客户',minWidth:150,render:r=>accountMap.get(r.account_id)||'—'},
+          {key:'received_date',header:'到账日期',minWidth:120,render:r=>r.received_date||'—'},
+          {key:'payment_method',header:'付款方式',minWidth:120,render:r=>r.payment_method||'—'},
+          {key:'amount',header:'汇款金额',minWidth:140,render:r=>money(r.amount,r.currency)},
+          {key:'net_received',header:'实际入账',minWidth:140,render:r=>money(r.net_received,r.currency)},
+          {key:'allocated_total',header:'已分配',minWidth:140,render:r=>money(r.allocated_total,r.currency)},
+          {key:'unallocated_amount',header:'未分配',minWidth:140,render:r=>money(r.unallocated_amount,r.currency)},
+        ]}
+      />{!filtered.length&&<p className="tp-payments__empty">没有符合条件的收款记录。</p>}</div>:<div className="tp-payments__table-wrap"><TpDataTable
+        ariaLabel="应收计划列表" columnSettingsKey="finance-receivables" rowKey="id"
+        rows={receivableFiltered as (AnyRow & Record<string,unknown>)[]}
+        pagination={{page,pageSize,totalItems:receivableFiltered.length,onChange:(nextPage,nextSize)=>{setPage(nextPage);setPageSize(nextSize);}}}
+        columns={[
+          {key:'order_number',header:'订单',primary:true,minWidth:140,render:r=>r.order_number||'—'},
+          {key:'customer',header:'客户',minWidth:150,render:r=>r.customer},
+          {key:'node_name',header:'收款节点',minWidth:130,render:r=>r.node_name},
+          {key:'trigger',header:'触发条件',minWidth:150,render:r=>r.trigger||'—'},
+          {key:'amount',header:'应收金额',minWidth:130,render:r=>money(r.amount,r.currency)},
+          {key:'received',header:'已收金额',minWidth:130,render:r=>money(r.received,r.currency)},
+          {key:'outstanding',header:'未收金额',minWidth:130,render:r=>money(r.outstanding,r.currency)},
+          {key:'due_date',header:'到期日',minWidth:120,render:r=>r.due_date||'—'},
+          {key:'overdue_days',header:'逾期天数',minWidth:100,render:r=>r.overdue_days},
+          {key:'aging_bucket',header:'账龄',minWidth:90,render:r=>r.aging_bucket},
+          {key:'node_status',header:'状态',minWidth:120,render:r=><Tag type={['已收齐','已核销差异'].includes(r.node_status)?'green':r.node_status==='逾期'?'red':'blue'}>{r.node_status}</Tag>},
+          {key:'reminder_level',header:'催款级别',minWidth:100,render:r=>r.reminder_level},
+          {key:'last_reminder_at',header:'最近催款',minWidth:130,render:r=>r.last_reminder_at?new Date(r.last_reminder_at).toLocaleDateString():'—'},
+          {key:'next_followup_date',header:'下次跟进',minWidth:120,render:r=>r.next_followup_date||'—'},
+          {key:'followup_note',header:'跟进记录',minWidth:180,render:r=>r.followup_note||'—'},
+          {key:'promised_date',header:'承诺付款日',minWidth:120,render:r=>r.promised_date||'—'},
+          {key:'dispute',header:'争议 / 原因',minWidth:160,render:r=>r.dispute_flag?<div><Tag type="red">有争议</Tag><small>{r.dispute_reason||''}</small></div>:'—'},
+        ]}
+      />{!receivableFiltered.length&&<p className="tp-payments__empty">当前币种没有应收计划记录。</p>}</div>}
     </section>
   </main>;
 }
