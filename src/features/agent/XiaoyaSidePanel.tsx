@@ -455,6 +455,7 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
     aiEnabled: true,
     assistantName: '小雅',
     assistantAvatarUrl: '/xiaoya-avatar.svg',
+    hideAvatar: false,
     openChatByDefault: true,
     header: {
       isOn: false,
@@ -514,16 +515,16 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
           {welcomeVisible && (
             <section className="tp-xiaoya-welcome" aria-label="小雅助手介绍">
               <div className={`tp-xiaoya-welcome__avatar tp-xiaoya-welcome__avatar--${avatarEmotion}`}>
-                <XiaoyaAvatar emotion={avatarEmotion} size={192} />
+                <XiaoyaAvatar emotion={avatarEmotion} size={64} />
               </div>
-              <Heading className="tp-xiaoya-welcome__title">{welcomePhase === 'greeting' ? '你好，我是小雅！' : welcomePhase === 'loading' ? '稍等，正在加载。' : welcomePhase === 'error' ? '暂时无法加载，请稍后重试。' : '有什么可以帮你？'}</Heading>
+              <Heading className="tp-xiaoya-welcome__title">{welcomePhase === 'greeting' ? '你好，我是小雅！' : welcomePhase === 'loading' ? '小雅正在整理对话…' : welcomePhase === 'error' ? '暂时无法加载，请稍后重试。' : '有什么可以帮你？'}</Heading>
               {welcomePhase === 'greeting' && <p className="tp-xiaoya-welcome__description cds--type-label-01">我可以结合当前页面上下文，帮你分析业务数据、查找信息、梳理问题并完成日常工作。</p>}
             </section>
           )}
           {chatStatusVisible && !welcomeVisible && (
             <div className="tp-xiaoya-chat-status" role="status" aria-live="polite">
               <XiaoyaAvatar emotion={avatarEmotion} size={48} />
-              <span>{avatarEmotion === 'thinking' ? '稍等，正在加载。' : avatarEmotion === 'success' ? '有什么可以帮你？' : '小雅遇到了一点问题'}</span>
+              <span>{avatarEmotion === 'thinking' ? '小雅正在思考…' : avatarEmotion === 'success' ? '有什么可以帮你？' : '小雅遇到了一点问题'}</span>
             </div>
           )}
         </div>
