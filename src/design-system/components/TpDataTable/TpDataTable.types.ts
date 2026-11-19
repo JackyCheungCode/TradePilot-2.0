@@ -55,5 +55,7 @@ export interface TpDataTableProps<T extends object> {
   onSearchChange?: (value: string) => void;
   toolbarActions?: ReactNode;
   columnSettingsKey?: string;
+  /** Full filtered result set used to resolve selections across pagination pages. */
+  selectionRows?: T[];
   ariaLabel?: string;
 }
