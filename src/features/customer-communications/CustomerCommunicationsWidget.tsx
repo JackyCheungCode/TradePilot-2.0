@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { getSupabaseClient } from '@/lib/supabase';
-import { Button, semanticIcons, Dropdown, Search, TextArea, TextInput } from '@/design-system';
+import { Button, semanticIcons, Dropdown, Search, TextArea, TextInput, TPSkeleton } from '@/design-system';
 
 type Channel = 'whatsapp' | 'messenger' | 'instagram' | 'email' | 'telegram' | 'wechat' | 'line';
 type Filter = 'all' | 'unread' | 'pending' | 'resolved';
@@ -495,7 +495,7 @@ export function CustomerCommunicationsWidget({
               {!popupMode && <Button type="button" kind="ghost" size="sm" onClick={onClose}>返回工作台</Button>}
             </div>
           </header>
-          <div className="tp-communication-empty">{loading ? '正在读取 CRM 客户…' : loadError || '暂无 CRM 客户。请先在客户档案或联系人模块添加客户。'}</div>
+          {loading ? <div className="tp-communication-empty tp-communication-empty--loading"><TPSkeleton variant="conversation" rows={5}/></div> : <div className="tp-communication-empty">{loadError || '暂无 CRM 客户。请先在客户档案或联系人模块添加客户。'}</div>}
         </section>
       </div>
     );
