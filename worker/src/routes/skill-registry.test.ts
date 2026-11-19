@@ -236,3 +236,44 @@ test("ZIP Skill upload rejects path traversal entries",async()=>{
   assert.match(payload.error.message,/SKILL_ZIP_PATH_BLOCKED/);
  }finally{restore();}
 });
+
+
+test("Skill instruction-only activation is owner-scoped and verifies the stored artifact",async()=>{
+ artifactObjects.clear();
+ const digest="a".repeat(64),key="sha256/"+digest+".json",artifactBody=JSON.stringify({schemaVersion:1,files:[{path:"SKILL.md",encoding:"utf-8",content:"---\nname: demo-skill\ndescription: Demo\n---\n"}]});
+ artifactObjects.set(key,{body:artifactBody,customMetadata:{sha256:digest,format:"tradepilot-skill-bundle-v1"}});
+ let saved:Record<string,unknown>|undefined;
+ const config={bundle:{artifact:{key,sha256:digest,size:new TextEncoder().encode(artifactBody).length,fileCount:1}},activationStatus:"disabled_pending_review"};
+ const restore=withFetch(async(input,init)=>{
+  const url=String(input);
+  if(url.endsWith("/auth/v1/user"))return Response.json({id:ownerId});
+  if(url.includes("/rest/v1/agent_profiles?owner_id=")&&!init?.method)return Response.json([{config,enabled:false}]);
+  if(url.includes("/rest/v1/agent_profiles?owner_id=")&&init?.method==="PATCH"){saved=JSON.parse(String(init.body)) as Record<string,unknown>;return new Response(null,{status:204});}
+  throw new Error("Unexpected fetch: "+url+" "+String(init?.method));
+ });
+ try{
+  const response=await handleSkillRegistry(new Request("https://worker.test/api/v1/agent/skills/demo-skill",{method:"PATCH",headers:{Authorization:"Bearer user-access-token","Content-Type":"application/json"},body:JSON.stringify({enabled:true})}),env);
+  const payload=await response.json() as {data:{enabled:boolean;executionMode:string;activationStatus:string}};
+  assert.equal(response.status,200);
+  assert.equal(payload.data.enabled,true);
+  assert.equal(payload.data.executionMode,"instruction_only");
+  assert.equal(payload.data.activationStatus,"instruction_only_enabled");
+  assert.equal(saved?.enabled,true);
+  assert.equal((saved?.config as Record<string,unknown>).activationStatus,"instruction_only_enabled");
+ }finally{restore();}
+});
+
+test("Skill instruction-only activation refuses missing or invalid artifact references",async()=>{
+ const restore=withFetch(async(input,init)=>{
+  const url=String(input);
+  if(url.endsWith("/auth/v1/user"))return Response.json({id:ownerId});
+  if(url.includes("/rest/v1/agent_profiles?owner_id="))return Response.json([{config:{bundle:{}},enabled:false}]);
+  throw new Error("Unexpected fetch: "+url+" "+String(init?.method));
+ });
+ try{
+  const response=await handleSkillRegistry(new Request("https://worker.test/api/v1/agent/skills/demo-skill",{method:"PATCH",headers:{Authorization:"Bearer user-access-token","Content-Type":"application/json"},body:JSON.stringify({enabled:true})}),env);
+  assert.equal(response.status,409);
+  const payload=await response.json() as {error:{code:string}};
+  assert.equal(payload.error.code,"SKILL_PACKAGE_REQUIRED");
+ }finally{restore();}
+});

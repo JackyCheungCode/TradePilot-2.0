@@ -116,6 +116,15 @@ export function SkillsRegistry(){
   }catch(cause){setError(cause instanceof Error?cause.message:'手动注册 Skill 失败。');}
   finally{setBusy('');}
  };
+ const toggleInstructionUse=async(skill:Skill)=>{
+  setBusy(skill.id);setError("");setNotice("");
+  try{
+   const result=await skillRequest<{enabled:boolean;activationStatus:string;executionMode:string}>("/api/v1/agent/skills/"+skill.id,{method:"PATCH",body:JSON.stringify({enabled:!skill.enabled})});
+   setNotice(result.enabled?"已允许小雅使用 "+skill.label+" 的 SKILL.md 工作方法；不会执行包内脚本。":"已停用 "+skill.label+"，小雅不再加载其工作方法。");
+   await load();
+  }catch(cause){setError(cause instanceof Error?cause.message:"更新 Skill 使用权限失败。");}
+  finally{setBusy("");}
+ };
  const remove=async(id:string)=>{
   if(removeConfirm!==id){setRemoveConfirm(id);return;}
   setBusy(id);setError('');setNotice('');
@@ -184,6 +193,7 @@ export function SkillsRegistry(){
       <div className="tp-ai-control__skill-actions">
        <Button kind="tertiary" size="sm" disabled={busy!==''||!draft.repositoryUrl.trim()} onClick={()=>void save(skill.id)}>保存来源</Button>
        <Button kind="primary" size="sm" disabled={busy!==''||!draft.repositoryUrl.trim()} onClick={()=>void sync(skill.id)}>{busy===skill.id?'正在导入完整包…':'重新导入完整包并检查'}</Button>
+       <Button kind={skill.enabled?"tertiary":"primary"} size="sm" disabled={busy!==''||skill.state!=='synced'} onClick={()=>void toggleInstructionUse(skill)}>{busy===skill.id?"正在更新…":skill.enabled?"停止供小雅使用":"允许小雅使用方法"}</Button>
        <Button kind="tertiary" size="sm" disabled={busy!==''} onClick={()=>void remove(skill.id)}>{removeConfirm===skill.id?'再次点击确认移除':'移除 Skill'}</Button>
       </div>
       {bundle.fileCount>0&&<div className="tp-settings__section-item"><span>已导入文件</span><strong>{bundle.fileCount} 个 · {formatBytes(bundle.totalBytes)}</strong></div>}
@@ -212,7 +222,7 @@ export function SkillsRegistry(){
        {domains.length>0&&<p>域名：{domains.join('、')}</p>}
       </div>}
       {bundle.fileCount===0&&<p>尚未导入完整 Skill 包。填写来源并点击“重新导入完整包并检查”。</p>}
-      <InlineNotification kind="warning" lowContrast title="未开放执行" subtitle="完整包导入和启发式静态检查不构成安全认证。当前不会安装依赖、运行脚本或启用 Skill；需完成权限清单、人工复核和隔离运行时建设后才能开放执行。"/>
+      <InlineNotification kind="warning" lowContrast title="仅工作方法模式" subtitle="允许小雅使用只读的 SKILL.md 指引，不会安装依赖或运行脚本。Skill 内容始终视为不可信资料，不能覆盖系统规则或扩大工具权限。真正的脚本执行仍需独立隔离沙箱。"/>
      </section>;
     })}
    </div>}

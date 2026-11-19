@@ -354,6 +354,24 @@ export async function handleSkillRegistry(request:Request,env:Env):Promise<Respo
   const match=url.pathname.match(/^\/api\/v1\/agent\/skills\/([a-z0-9-]+)(\/sync)?$/);
   if(!match)return errorResponse(request,"NOT_FOUND","Skill 接口不存在。",404);
   const skillId=match[1],agentKey="skill:"+skillId;
+  if(request.method==="PATCH"&&!match[2]){
+   let body:{enabled?:unknown};try{body=await request.json() as {enabled?:unknown};}catch{return errorResponse(request,"INVALID_JSON","请求内容不是有效 JSON。",400);}
+   if(typeof body.enabled!=="boolean")return errorResponse(request,"VALIDATION_ERROR","enabled 必须是布尔值。",400);
+   const rows=await db<Array<{config:SkillConfig;enabled:boolean}>>(env,"agent_profiles?owner_id=eq."+ownerId+"&agent_key=eq."+encodeURIComponent(agentKey)+"&select=config,enabled&limit=1");
+   const existing=rows[0];if(!existing)return errorResponse(request,"SKILL_NOT_FOUND","找不到此 Skill，或你没有权限修改它。",404);
+   const config=existing.config??{};
+   if(body.enabled){
+    const bundle=config.bundle&&typeof config.bundle==="object"?config.bundle as Record<string,unknown>:{ };
+    const artifact=bundle.artifact&&typeof bundle.artifact==="object"?bundle.artifact as Record<string,unknown>:{ };
+    const key=typeof artifact.key==="string"?artifact.key:"",digest=typeof artifact.sha256==="string"?artifact.sha256:"";
+    if(!/^sha256\/[a-f0-9]{64}\.json$/.test(key)||digest!==key.slice(7,-5)||!env.SKILL_ARTIFACTS)return errorResponse(request,"SKILL_PACKAGE_REQUIRED","必须先导入完整 Skill 包，才能允许小雅使用其工作方法。",409);
+    const head=await env.SKILL_ARTIFACTS.head(key);
+    if(!head||head.customMetadata?.sha256!==digest||head.size!==Number(artifact.size))return errorResponse(request,"SKILL_ARTIFACT_INVALID","Skill 包不存在或完整性元数据校验失败，请重新导入。",409);
+   }
+   const nextConfig={...config,activationStatus:body.enabled?"instruction_only_enabled":"disabled_by_user"};
+   await db(env,"agent_profiles?owner_id=eq."+ownerId+"&agent_key=eq."+encodeURIComponent(agentKey),{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({enabled:body.enabled,config:nextConfig,updated_at:new Date().toISOString()})});
+   return successResponse(request,{id:skillId,enabled:body.enabled,activationStatus:nextConfig.activationStatus,executionMode:"instruction_only"});
+  }
   if(request.method==="DELETE"&&!match[2]){
    const existing=await db<Array<{config:SkillConfig}>>(env,"agent_profiles?owner_id=eq."+ownerId+"&agent_key=eq."+encodeURIComponent(agentKey)+"&select=config&limit=1");
    if(!existing.length)return errorResponse(request,"SKILL_NOT_FOUND","找不到此 Skill，或你没有权限移除它。",404);
