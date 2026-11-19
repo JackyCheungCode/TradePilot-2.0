@@ -1,7 +1,7 @@
 im
 function githubSkillFetch(contract:Record<string,unknown>,onStored:(row:Record<string,unknown>)=>void){
  const sourceFiles=[
-  {path:"skills/demo/SKILL.md",content:"---\\nname: demo-skill\\ndescription: Demo skill\\n---\\n"},
+  {path:"skills/demo/SKILL.md",content:"---\nname: demo-skill\ndescription: Demo skill\n---\n"},
   {path:"skills/demo/index.mjs",content:"export async function run(input){ return {result:input.query}; }"},
   {path:"skills/demo/package.json",content:'{"dependencies":{}}'},
   {path:"skills/demo/skill.json",content:JSON.stringify(contract)},
@@ -66,7 +66,8 @@ test("Skill package import stores a bounded bundle, review findings and disabled
   assert.equal(response.status,200,JSON.stringify(responseBody));
   const payload=responseBody as {data:{id:string;package:{fileCount:number};securityReview:{requiresHumanReview:boolean;findings:Array<{code:string}>}}};
   assert.equal(payload.data.id,"demo-skill");
-  assert.equal(payload.data.package.fileCount,3);\n  assert.equal(payload.data.contractStatus,"missing");
+  assert.equal(payload.data.package.fileCount,3);
+  assert.equal(payload.data.contractStatus,"missing");
   assert.equal(payload.data.securityReview.requiresHumanReview,true);
   assert.ok(payload.data.securityReview.findings.some(item=>item.code==="NETWORK_ACCESS"));
   assert.ok(stored);
@@ -77,7 +78,8 @@ test("Skill package import stores a bounded bundle, review findings and disabled
   const bundle=config.bundle as {files:Array<{path:string}>};
   assert.equal(bundle.files.length,3);
   assert.ok((config.securityReview as {dependencies:string[]}).dependencies.includes("zod"));
-  assert.equal(config.activationStatus,"disabled_pending_review");\n  assert.equal(config.contractStatus,"missing");
+  assert.equal(config.activationStatus,"disabled_pending_review");
+  assert.equal(config.contractStatus,"missing");
  }finally{restore();}
 });
 
