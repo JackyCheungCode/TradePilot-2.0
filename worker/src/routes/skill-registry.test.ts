@@ -1,4 +1,32 @@
-import test from "node:test";
+im
+function githubSkillFetch(contract:Record<string,unknown>,onStored:(row:Record<string,unknown>)=>void){
+ const sourceFiles=[
+  {path:"skills/demo/SKILL.md",content:"---\\nname: demo-skill\\ndescription: Demo skill\\n---\\n"},
+  {path:"skills/demo/index.mjs",content:"export async function run(input){ return {result:input.query}; }"},
+  {path:"skills/demo/package.json",content:'{"dependencies":{}}'},
+  {path:"skills/demo/skill.json",content:JSON.stringify(contract)},
+ ];
+ const entries=sourceFiles.map((file,index)=>({path:file.path,type:"blob",size:new TextEncoder().encode(file.content).length,sha:"blob-"+index}));
+ return async(input:string|URL|Request,init?:RequestInit)=>{
+  const url=String(input);
+  if(url.endsWith("/auth/v1/user"))return Response.json({id:ownerId});
+  if(url.includes("api.github.com/repos/acme/skills/commits/main"))return Response.json({sha:"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"});
+  if(url.includes("api.github.com/repos/acme/skills/git/trees/aaaaaaaa"))return Response.json({truncated:false,tree:entries});
+  const source=sourceFiles.find(file=>url.endsWith("/"+file.path));
+  if(source&&url.includes("raw.githubusercontent.com/acme/skills/"))return new Response(source.content);
+  if(url.includes("/rest/v1/agent_profiles")){onStored(JSON.parse(String(init?.body)) as Record<string,unknown>);return new Response(null,{status:201});}
+  throw new Error("Unexpected fetch: "+url);
+ };
+}
+const validSkillContract:Record<string,unknown>={
+ schemaVersion:1,name:"demo-skill",version:"1.0.0",runtime:"dynamic_worker",entrypoint:"index.mjs",
+ inputSchema:{type:"object",properties:{query:{type:"string",maxLength:200}},required:["query"],additionalProperties:false},
+ outputSchema:{type:"object",properties:{result:{type:"string"}},required:["result"],additionalProperties:false},
+ requiredTools:["native:market.search"],
+ permissions:{networkHosts:["api.example.com"],dataScopes:["market_data:read"],secrets:[],sideEffects:[]},
+ limits:{timeoutSeconds:30,memoryMb:128,maxOutputBytes:64000},
+};
+port test from "node:test";
 import assert from "node:assert/strict";
 import { handleSkillRegistry } from "./skill-registry.ts";
 
@@ -38,7 +66,7 @@ test("Skill package import stores a bounded bundle, review findings and disabled
   assert.equal(response.status,200,JSON.stringify(responseBody));
   const payload=responseBody as {data:{id:string;package:{fileCount:number};securityReview:{requiresHumanReview:boolean;findings:Array<{code:string}>}}};
   assert.equal(payload.data.id,"demo-skill");
-  assert.equal(payload.data.package.fileCount,3);
+  assert.equal(payload.data.package.fileCount,3);\n  assert.equal(payload.data.contractStatus,"missing");
   assert.equal(payload.data.securityReview.requiresHumanReview,true);
   assert.ok(payload.data.securityReview.findings.some(item=>item.code==="NETWORK_ACCESS"));
   assert.ok(stored);
@@ -49,7 +77,7 @@ test("Skill package import stores a bounded bundle, review findings and disabled
   const bundle=config.bundle as {files:Array<{path:string}>};
   assert.equal(bundle.files.length,3);
   assert.ok((config.securityReview as {dependencies:string[]}).dependencies.includes("zod"));
-  assert.equal(config.activationStatus,"disabled_pending_review");
+  assert.equal(config.activationStatus,"disabled_pending_review");\n  assert.equal(config.contractStatus,"missing");
  }finally{restore();}
 });
 
@@ -77,5 +105,41 @@ test("unauthenticated Skill package imports are rejected",async()=>{
  try{
   const response=await handleSkillRegistry(request({repositoryUrl:"https://github.com/acme/skills"}),env);
   assert.equal(response.status,401);
+ }finally{restore();}
+});
+
+test("valid skill.json contract is validated and stored without enabling execution",async()=>{
+ let stored:Record<string,unknown>|undefined;
+ const restore=withFetch(githubSkillFetch(validSkillContract,row=>{stored=row;}));
+ try{
+  const response=await handleSkillRegistry(request({repositoryUrl:"https://github.com/acme/skills/tree/main/skills/demo"}),env);
+  const payload=await response.json() as {data:{contractStatus:string;contractErrors:string[];package:{fileCount:number}}};
+  assert.equal(response.status,200);
+  assert.equal(payload.data.contractStatus,"valid");
+  assert.equal(payload.data.contractErrors.length,0);
+  assert.equal(payload.data.package.fileCount,4);
+  assert.ok(stored);
+  const config=stored.config as Record<string,unknown>;
+  assert.equal(config.contractStatus,"valid");
+  assert.equal((config.contract as {runtime:string}).runtime,"dynamic_worker");
+  assert.equal(config.activationStatus,"disabled_pending_review");
+  assert.equal(stored.enabled,false);
+ }finally{restore();}
+});
+
+test("invalid network destinations invalidate the Skill contract and remain disabled",async()=>{
+ let stored:Record<string,unknown>|undefined;
+ const invalid={...validSkillContract,permissions:{networkHosts:["169.254.169.254"],dataScopes:[],secrets:[],sideEffects:[]}};
+ const restore=withFetch(githubSkillFetch(invalid,row=>{stored=row;}));
+ try{
+  const response=await handleSkillRegistry(request({repositoryUrl:"https://github.com/acme/skills/tree/main/skills/demo"}),env);
+  const payload=await response.json() as {data:{contractStatus:string;contractErrors:string[];securityReview:{findings:Array<{code:string}>}}};
+  assert.equal(response.status,200);
+  assert.equal(payload.data.contractStatus,"invalid");
+  assert.ok(payload.data.contractErrors.some(error=>error.includes("networkHosts")));
+  assert.ok(payload.data.securityReview.findings.some(item=>item.code==="SKILL_CONTRACT_INVALID"));
+  assert.ok(stored);
+  assert.equal(stored.enabled,false);
+  assert.equal((stored.config as Record<string,unknown>).activationStatus,"disabled_pending_review");
  }finally{restore();}
 });
