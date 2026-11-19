@@ -234,6 +234,7 @@ export function LeadConsolePage() {
         selectable
           ariaLabel="正式线索列表"
           detailPanel
+          error={error||null} onRetry={load}
           selectionScopeKey={[search,statusFilter,sourceFilter,countryFilter].join('|')}
           columnSettingsKey="crm-leads"
           rowKey="id"
