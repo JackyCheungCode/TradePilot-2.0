@@ -50,6 +50,10 @@ test("Tools policy updates are owner-scoped and persist an explicit user decisio
    persisted=JSON.parse(String(init.body)) as Record<string,unknown>;
    return Response.json([{...connectionRow(),protocol_tools:persisted.protocol_tools}]);
   }
+  if(url.includes("/rest/v1/agent_tool_registry?owner_id=eq."+ownerId)&&init?.method==="PATCH"){
+   const registryPatch=JSON.parse(String(init.body)) as Record<string,unknown>;assert.equal(registryPatch.risk,"read_only");assert.equal(registryPatch.policy_source,"user");assert.equal(typeof registryPatch.updated_at,"string");
+   return Response.json([]);
+  }
   throw new Error("Unexpected fetch: "+url+" "+String(init?.method));
  });
  try{
