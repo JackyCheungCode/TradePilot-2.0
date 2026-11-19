@@ -67,6 +67,7 @@ export function AccountConsolePage(){
  rowKey="id"
  ariaLabel="客户列表"
  detailPanel
+ selectionScopeKey={[query,status,countryFilter].join('|')}
  onRowOpen={row=>nav('/accounts/'+row.id)}
  columnSettingsKey="crm-accounts"
  pagination={{page,pageSize,totalItems:filtered.length,onChange:(nextPage,nextSize)=>{setPage(nextPage);setPageSize(nextSize);}}}
