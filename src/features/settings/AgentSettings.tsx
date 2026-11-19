@@ -5,7 +5,9 @@ import { AgentHistoryManagement } from './AgentHistoryManagement';
 
 type Provider = { id: string; name: string; model: string; protocol: string; configured?: boolean | string; baseUrl?: string; providerKey?: string; secretName?: string };
 type AIConfig = { providers?: Provider[]; taskModels?: Record<string,string>; defaultModel?: string };
-type SkillOption = { id:string; label:string; enabled:boolean; state:string };\ntype ToolOption = { toolKey:string; name:string; source:string; enabled?:boolean; status?:string; risk:string; connectionName?:string };\ntype ToolRegistry = { items:ToolOption[] };
+type SkillOption = { id:string; label:string; enabled:boolean; state:string };
+type ToolOption = { toolKey:string; name:string; source:string; enabled?:boolean; status?:string; risk:string; connectionName?:string };
+type ToolRegistry = { items:ToolOption[] };
 type Profile = { agent_key: string; enabled: boolean; config: { systemPrompt?: string; description?: string; modelRef?: string; skillIds?: string[]; toolKeys?: string[] } };
 type Appearance = { shape: string; color: string; styleId: string; variant: string; face: string; eyeColor: string; eyeScale: number };
 const agentLabels: Record<string,string> = {
@@ -26,7 +28,8 @@ export function AgentSettings({ section }: { section: string }) {
   const [providers,setProviders] = useState<Provider[]>([]);
   const [selectedModel,setSelectedModel] = useState('');
   const [profiles,setProfiles] = useState<Profile[]>([]);
-  const [skills,setSkills] = useState<SkillOption[]>([]);\n  const [tools,setTools] = useState<ToolOption[]>([]);
+  const [skills,setSkills] = useState<SkillOption[]>([]);
+  const [tools,setTools] = useState<ToolOption[]>([]);
   const [appearance,setAppearance] = useState<Appearance>({shape:'blob',color:'ivory',styleId:'vector',variant:'soft',face:'cute',eyeColor:'#1A1A1A',eyeScale:1});
   const [avatarAgents,setAvatarAgents] = useState<Record<string,Appearance>>({});
   const [loading,setLoading] = useState(true);
@@ -44,11 +47,13 @@ export function AgentSettings({ section }: { section: string }) {
         agentApi<AIConfig>('/api/v1/settings/ai-config'),
         agentApi<Profile[]>('/api/v1/agent/profiles'),
         agentApi<{default?:Appearance;agents?:Record<string,Appearance>}>('/api/v1/agent/appearance'),
-        agentApi<SkillOption[]>('/api/v1/agent/skills'),\n        agentApi<ToolRegistry>('/api/v1/agent/tools'),
+        agentApi<SkillOption[]>('/api/v1/agent/skills'),
+        agentApi<ToolRegistry>('/api/v1/agent/tools'),
       ]);
       const available = (config.providers || []).filter(item => item.configured !== false && item.configured !== 'false');
       setProviders(available);
-      setSkills(skillRows || []);\n      setTools((toolRegistry.items || []).filter(tool => tool.source === 'registered' && tool.enabled !== false && tool.status === 'active' && tool.risk !== 'blocked' && Boolean(tool.toolKey)));
+      setSkills(skillRows || []);
+      setTools((toolRegistry.items || []).filter(tool => tool.source === 'registered' && tool.enabled !== false && tool.status === 'active' && tool.risk !== 'blocked' && Boolean(tool.toolKey)));
       const currentValue = config.taskModels?.agent_chat || config.defaultModel || '';
       const legacyProvider = available.find(item => item.model === currentValue);
       const current = currentValue && !currentValue.includes('::') && legacyProvider ? providerValue(legacyProvider) : currentValue || (available[0] ? providerValue(available[0]) : '');
