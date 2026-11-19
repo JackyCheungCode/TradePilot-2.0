@@ -146,6 +146,7 @@ function validateSkillContract(files:BundleFile[],manifest:Record<string,string>
  const requiredTools=Array.isArray(value.requiredTools)?value.requiredTools:[];
  if(!Array.isArray(value.requiredTools)||requiredTools.length>50||requiredTools.some(item=>typeof item!=="string"||!/^[a-z][a-z0-9_.:-]{1,100}$/.test(item))||new Set(requiredTools).size!==requiredTools.length)errors.push("requiredTools 必须是最多 50 个不重复的稳定工具标识。");
  const permissions=value.permissions&&typeof value.permissions==="object"&&!Array.isArray(value.permissions)?value.permissions as Record<string,unknown>:{};
+ if(!value.permissions||typeof value.permissions!=="object"||Array.isArray(value.permissions))errors.push("permissions 必须是明确声明的对象。");
  for(const key of Object.keys(permissions))if(!["networkHosts","dataScopes","secrets","sideEffects"].includes(key))errors.push("不支持的权限字段："+key+"。");
  const list=(key:string,max:number,pattern:RegExp)=>{const items=permissions[key]??[];if(!Array.isArray(items)||items.length>max||items.some(item=>typeof item!=="string"||!pattern.test(item))||new Set(items).size!==items.length){errors.push("permissions."+key+" 格式无效或数量超限。");return [] as string[];}return items as string[];};
  const networkHosts=list("networkHosts",30,/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$/i);
@@ -226,7 +227,7 @@ async function fetchSkillBundle(source:Source){
  const manifest=parseFrontmatter(skillFile.content);
  const contract=validateSkillContract(files,manifest);
  const review={...staticReview(files,manifest),contractStatus:contract.status,contractErrors:contract.errors};
- if(contract.status==="invalid")review.findings.push({severity:"high",code:"SKILL_CONTRACT_INVALID",message:"skill.json 契约校验失败；当前版本不能进入执行审核。"});
+ if(contract.status==="invalid"){review.riskLevel="high";review.findings.push({severity:"high",code:"SKILL_CONTRACT_INVALID",message:"skill.json 契约校验失败；当前版本不能进入执行审核。"});}
  return {manifest,contract,files,package:{fileCount:files.length,totalBytes:actualBytes,limits:{maxFiles:MAX_FILES,maxFileBytes:MAX_FILE_BYTES,maxTotalBytes:MAX_BUNDLE_BYTES},syncedAt:new Date().toISOString(),sourceRef:source.ref,commitSha},review};
 }
 function publicConfig(config:SkillConfig):SkillConfig{
