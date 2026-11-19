@@ -32,7 +32,7 @@ export function AgentTaskMonitor(){
   };
   const openDetail=async(id:string)=>{setBusy(true);setError('');try{setDetail(await taskRequest<RunDetail>('/api/v1/agent/runs/'+id));}catch(cause){setError(cause instanceof Error?cause.message:'读取任务详情失败。');}finally{setBusy(false);}};
   return <div className="tp-settings-agent">
-    {error&&<InlineNotification kind="error" title="任务操作失败" subtitle={error} onCloseButtonClick={()=>setError('')}/>}{notice&&<InlineNotification kind="success" title="操作已提交" subtitle={notice} onCloseButtonClick={()=>setNotice('')}/ >}
+    {error&&<InlineNotification kind="error" title="任务操作失败" subtitle={error} onCloseButtonClick={()=>setError('')}/>}{notice&&<InlineNotification kind="success" title="操作已提交" subtitle={notice} onCloseButtonClick={()=>setNotice('')}/>}
     <section className="tp-settings__editor">
       <div><h4>Agent 执行任务</h4><p>查看小雅与 Agent 的任务状态、执行事件、日志和结果。任务数据来自现有 Agent Runs 服务。</p></div>
       <Button kind="tertiary" size="md" onClick={()=>void load()} disabled={loading}>刷新任务</Button>
