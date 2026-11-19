@@ -2,7 +2,7 @@ import { PageHeader } from '@/design-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
-  Button, Link, InlineLoading, InlineNotification, TextInput, TextArea, Table, TableHead, TableRow,
+  Button, Link, TPSkeleton, InlineNotification, TextInput, TextArea, Table, TableHead, TableRow,
   TableHeader, TableBody, TableCell,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
@@ -173,7 +173,7 @@ export function DocumentPreviewPage() {
   const isPackingList = doc?.document_type === 'packing_list';
   const showPricing = templateConfig.showPrices !== false && ['quotation','request_for_quotation','commercial_invoice','proforma_invoice','sales_contract','sales_confirmation','purchase_order','purchase_confirmation','tax_invoice','credit_note','debit_note','bill_of_exchange'].includes(doc?.document_type || '');
 
-  if (loading) return <main className="tp-document-preview"><div className="tp-document-preview__loading"><InlineLoading description="正在读取单据与版本快照…" /></div></main>;
+  if (loading) return <main className="tp-document-preview"><div className="tp-document-preview__loading"><TPSkeleton variant="profile" rows={6}/></div></main>;
   if (!doc) return <main className="tp-document-preview"><InlineNotification kind="error" title="无法打开单据" subtitle={error || '单据不存在。'} /><Link href="/documents">返回单据中心</Link></main>;
 
   return <main className="tp-document-preview">
