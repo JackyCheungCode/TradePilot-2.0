@@ -1,5 +1,6 @@
 /** Single application-wide stylesheet entry point. */
 @use './carbon';
+@use '../components/TPLoading/tp-loading';
 @use '../layout/AppShell/styles';
 
 @use './customer-communications';
