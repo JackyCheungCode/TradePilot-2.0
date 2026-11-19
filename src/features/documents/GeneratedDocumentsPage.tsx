@@ -2,7 +2,7 @@ import { PageHeader } from '@/design-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Link, InlineLoading, InlineNotification, TextInput, Tag, TpDataTable,
+  Link, TPSkeleton, InlineNotification, TextInput, Tag, TpDataTable,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/documents.scss';
@@ -48,7 +48,7 @@ export function GeneratedDocumentsPage() {
     {error && <InlineNotification kind="error" lowContrast title="单据列表读取失败" subtitle={error} />}
     <section className="tp-documents__list">
       <div className="tp-documents__list-head"><div className="tp-documents__list-heading"><h2>单据记录</h2><p>按编号、名称或类型搜索；选择单据可查看内容和版本记录。</p></div><div className="tp-documents__search"><TextInput id="tp-generated-doc-search" labelText="搜索单据" hideLabel placeholder="单据编号、名称或类型" value={search} onChange={event => {setSearch(event.currentTarget.value);setPage(1);}} /></div></div>
-      {loading ? <div className="tp-documents__loading"><InlineLoading description="正在加载单据…" /></div> : filtered.length ? <div className="tp-documents__table-wrap"><TpDataTable
+      {loading ? <div className="tp-documents__loading"><TPSkeleton variant="table" rows={6}/></div> : filtered.length ? <div className="tp-documents__table-wrap"><TpDataTable
         selectable
         ariaLabel="已生成单据列表"
         detailPanel
