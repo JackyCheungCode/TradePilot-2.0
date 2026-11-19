@@ -727,7 +727,6 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
         }
         tools=tools.slice(0,150);const openApiHost=new URL(connection.endpoint_url);const apiBase=new URL(spec.servers?.[0]?.url??openApiHost.origin,connection.endpoint_url);if(!isPublicHttpsEndpoint(apiBase.href)||apiBase.hostname!==openApiHost.hostname)throw new Error("OPENAPI_SERVER_NOT_ALLOWED: OpenAPI server 必须使用配置端点的同一公网主机。");metadata={title:spec.info?.title??connection.name,version:spec.info?.version??"",openapi:spec.openapi,baseUrl:apiBase.toString().replace(/\/$/,""),toolCount:tools.length};
       }else{
-        const capabilityList=connection.capabilities??[];
         const description="向已登记的 Webhook 发送任务请求";const previous=(connection.protocol_tools??[]).find(item=>item.name==="trigger_webhook");const sameDefinition=!!previous&&previous.description===description&&previous.protocol==="webhook";const userPolicy=sameDefinition&&previous?.riskPolicySource==="user"&&["read_only","approval_required","blocked"].includes(String(previous.risk));tools=[{name:"trigger_webhook",description,risk:userPolicy?previous!.risk:"approval_required",riskPolicySource:userPolicy?"user":"default",protocol:"webhook"}];
         metadata={toolCount:1,mode:"outbound_webhook"};
       }
