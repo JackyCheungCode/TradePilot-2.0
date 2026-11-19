@@ -520,7 +520,7 @@ export function CustomerCommunicationsWidget({
               <Avatar name={activeCustomer.name} size="small" />
               <div className="tp-chat-heading"><strong>{activeCustomer.name}</strong><span>{activeCustomer.company} · {activeCustomer.country}</span></div>
               <div className="tp-chat-context"><span className="tp-chat-live-dot" /> 全渠道会话</div>
-              {popupMode ? <Button type="button" kind="ghost" size="sm" className="tp-chat-popup-close" onClick={() => window.close()}><span>关闭窗口</span><semanticIcons.close size={16} /></Button> : null>
+              {popupMode ? <Button type="button" kind="ghost" size="sm" className="tp-chat-popup-close" onClick={() => window.close()}><span>关闭窗口</span><semanticIcons.close size={16} /></Button> : null}
             </header>
             <div className="tp-chat-timeline">
               <div className="tp-chat-timeline-label">消息时间线</div>
