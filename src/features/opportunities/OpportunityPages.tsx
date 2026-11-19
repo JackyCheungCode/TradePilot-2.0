@@ -119,6 +119,7 @@ export function OpportunityConsolePage() {
       <div className="tp-opportunities__filters"><TextInput id="opportunity-search" labelText="搜索商机" placeholder="名称、编号、来源或负责人" value={query} onChange={e=>setQuery(e.currentTarget.value)}/><Select id="opportunity-stage-filter" labelText="销售阶段" value={stage} onChange={e=>setStage(e.currentTarget.value)}><SelectItem value="all" text="全部阶段"/>{stages.map(([v,t])=><SelectItem key={v} value={v} text={t}/>)}</Select></div>
       <TpDataTable
         ariaLabel="商机列表"
+        columnSettingsKey="opportunities"
         columns={[
           { key: 'name', header: '商机名称', primary: true, required: true, sortable: true, minWidth: 220, render: row => <span><Link href={`/opportunities/${row.id}`} className="tp-opportunities__row-link">{row.name}</Link><span className="tp-opportunities__secondary">{row.opportunity_number}</span></span> },
           { key: 'account', header: '所属客户', minWidth: 180, sortable: true, render: row => accountMap.get(row.account_id) || '—' },
