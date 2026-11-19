@@ -48,6 +48,12 @@ export interface TpDataTableProps<T extends object> {
   batchActions?: TpBatchAction<T>[];
   rowActions?: TpRowAction<T>[];
   onRowOpen?: (row: T, triggerElement?: HTMLElement) => void;
+  /** Opens an IBM Products SidePanel with the selected record while keeping the list in context. */
+  detailPanel?: boolean;
+  /** Optional guard for rows that are structural/group rows rather than records. */
+  canOpenRow?: (row: T) => boolean;
+  /** Optional record title shown in the detail SidePanel. */
+  detailTitle?: (row: T) => string;
   activeRowId?: string;
   loading?: boolean;
   refreshing?: boolean;
