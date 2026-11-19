@@ -45,7 +45,7 @@ export function ShipmentConsolePage(){
  <section className="tp-shipments__panel"><h2>发运单列表</h2><div className="tp-shipments__filters"><TextInput id="shipment-q" labelText="搜索发运单" placeholder="发运单号、PO、承运人、订舱号、提单号" value={q} onChange={e=>setQ(e.currentTarget.value)}/><Select id="shipment-status-filter" labelText="发运状态" value={status} onChange={e=>setStatus(e.currentTarget.value)}><SelectItem value="all" text="全部状态"/>{states.map(([k,v])=><SelectItem key={k} value={k} text={v}/>)}</Select></div>{loading?<InlineLoading description="正在读取发运单…"/>:<div className="tp-shipments__table-wrap"><TpDataTable
         selectable
  ariaLabel="发运单列表"
- detailPanel selectionScopeKey={[q,status,countryFilter].join('|')} columnSettingsKey="logistics-shipments" rowKey="id"
+ detailPanel error={error||null} onRetry={load} selectionScopeKey={[q,status,countryFilter].join('|')} columnSettingsKey="logistics-shipments" rowKey="id"
  rows={filtered as (Record<string,unknown>)[]}
  onRowOpen={row=>nav('/shipments/'+String(row.id))}
  pagination={{page,pageSize,totalItems:filtered.length,onChange:(nextPage,nextSize)=>{setPage(nextPage);setPageSize(nextSize);}}}
