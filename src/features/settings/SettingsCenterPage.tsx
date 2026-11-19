@@ -15,7 +15,6 @@ import { TradeDocumentSettings } from './TradeDocumentSettings';
 import { DocumentTypeSettings } from './DocumentTypeSettings';
 import { DocumentTemplateSettings } from './DocumentTemplateSettings';
 import { TradeOperationsSettings } from './TradeOperationsSettings';
-import { AgentSettings } from './AgentSettings';
 import { IntegrationsSettings } from './IntegrationsSettings';
 import { EnterpriseProfileSettings } from './EnterpriseProfileSettings';
 
@@ -34,19 +33,10 @@ const domains: Domain[] = [
   { id: 'enterprise', label: '企业档案', icon: <semanticIcons.building size={20} />, available: true },
   { id: 'trade-documents', label: '单据配置', icon: <semanticIcons.document size={20} />, available: true },
   { id: 'trade-operations', label: '发运与收款', icon: <semanticIcons.delivery size={20} />, available: true },
-  { id: 'agent', label: 'Agent 设置', icon: <semanticIcons.settings size={20} />, available: true },
 ];
 
 const integrationSections: Section[] = [
   { id: 'api', label: 'API 集成', group: '集成与 API', description: '统一管理 Apify、DeepL、Google Maps、DHL、UPS、FedEx、Cloudflare Workers AI 与 Omnibox 等 API 凭证。', implemented: true },
-  { id: 'ai', label: 'AI 模型集成', group: '集成与 API', description: '添加多个国内外 AI 供应商和模型配置，支持动态获取模型、连接测试和独立保存。', implemented: true },
-];
-
-const agentSections: Section[] = [
-  { id: 'models', label: '模型配置', group: '小雅与 Agent', description: '设置小雅使用的模型供应商、对话模型和任务规划模型。', implemented: true },
-  { id: 'profiles', label: 'Agent 管理', group: '小雅与 Agent', description: '管理内置专业 Agent 的启用状态与专属指令。', implemented: true },
-  { id: 'appearance', label: '头像与形象', group: '小雅与 Agent', description: '配置小雅默认头像的形状、配色和视觉风格。', implemented: true },
-  { id: 'history', label: 'AI 历史记录', group: '小雅与 Agent', description: '查看、筛选并批量移除小雅的历史对话记录。', implemented: true },
 ];
 
 const tradeOperationsSections: Section[] = [
@@ -110,7 +100,7 @@ export function SettingsCenterPage() {
   const [variantMode, setVariantMode] = useState('never');
   useEffect(()=>setPage(1),[domain,section,query,attributeValueAttribute]);
 
-  const activeSections: Section[] = domain === 'enterprise' ? enterpriseSections : domain === 'integrations' ? integrationSections : domain === 'agent' ? agentSections : domain === 'trade-operations' ? tradeOperationsSections : domain === 'trade-documents' ? tradeDocumentSections : domain === 'opportunities' ? opportunitySettingSections : domain === 'contacts' || domain === 'accounts' || domain === 'leads' ? crmSettingSections[domain as CrmSettingsDomain] : productSections;
+  const activeSections: Section[] = domain === 'enterprise' ? enterpriseSections : domain === 'integrations' ? integrationSections : domain === 'trade-operations' ? tradeOperationsSections : domain === 'trade-documents' ? tradeDocumentSections : domain === 'opportunities' ? opportunitySettingSections : domain === 'contacts' || domain === 'accounts' || domain === 'leads' ? crmSettingSections[domain as CrmSettingsDomain] : productSections;
   const connectedCount = activeSections.filter(item => item.integration === 'connected' || item.implemented === true).length;
   const configOnlyCount = activeSections.filter(item => item.integration === 'config-only').length;
   const activeSection = activeSections.find((item) => item.id === section) ?? activeSections[0];
@@ -265,9 +255,9 @@ export function SettingsCenterPage() {
         <Column sm={4} md={6} lg={12}><section className="tp-settings__workspace">
           <div className="tp-settings__workspace-heading">
             <div>
-              <p className="tp-settings__eyebrow">{domain === 'enterprise' ? 'ENTERPRISE PROFILE' : domain === 'integrations' ? 'INTEGRATIONS & APIS' : domain === 'agent' ? 'AGENT SETTINGS' : domain === 'trade-operations' ? 'TRADE OPERATIONS SETTINGS' : domain === 'trade-documents' ? 'TRADE DOCUMENT SETTINGS' : domain === 'opportunities' ? 'OPPORTUNITY SETTINGS' : domain === 'contacts' ? 'CONTACT SETTINGS' : domain === 'accounts' ? 'ACCOUNT SETTINGS' : domain === 'leads' ? 'LEAD SETTINGS' : 'PRODUCT SETTINGS'}</p>
-              <h2>{domain === 'enterprise' ? '企业档案' : domain === 'integrations' ? '集成与 API' : domain === 'agent' ? 'Agent 设置' : domain === 'trade-operations' ? '发运与收款设置' : domain === 'trade-documents' ? '单据配置' : domain === 'opportunities' ? '商机设置' : domain === 'contacts' ? '联系人设置' : domain === 'accounts' ? '客户设置' : domain === 'leads' ? '线索设置' : '产品设置'}</h2>
-              <p>{domain === 'enterprise' ? '维护当前使用企业的统一主档；报价、销售订单及贸易单据使用这里的卖方身份和银行资料。' : domain === 'integrations' ? '统一管理全站 API 凭证与 AI 模型供应商；各业务模块直接调用已保存的集成配置。' : domain === 'agent' ? '集中配置小雅模型、专业 Agent 与头像形象。' : domain === 'trade-operations' ? '集中管理共享基础数据，并分别配置发运与收款业务规则。' : domain === 'trade-documents' ? '逐种管理外贸单据的数据来源、空白创建、字段校验和正式确认规则。' : domain === 'opportunities' ? '维护销售流程、商机分类、销售组织、活动与预测规则。' : domain === 'contacts' ? '维护联系人身份、组织、联系方式、沟通偏好、合规与数据规则。' : domain === 'accounts' ? '维护客户主数据、客户分级、地址、交易财务、销售归属与风险规则。' : domain === 'leads' ? '维护线索分类、来源画像、资格评估、分配跟进、查重与转换规则。' : '维护产品主数据字典、模板、包装贸易规则和数据校验策略。'}</p>
+              <p className="tp-settings__eyebrow">{domain === 'enterprise' ? 'ENTERPRISE PROFILE' : domain === 'integrations' ? 'INTEGRATIONS & APIS' : domain === 'trade-operations' ? 'TRADE OPERATIONS SETTINGS' : domain === 'trade-documents' ? 'TRADE DOCUMENT SETTINGS' : domain === 'opportunities' ? 'OPPORTUNITY SETTINGS' : domain === 'contacts' ? 'CONTACT SETTINGS' : domain === 'accounts' ? 'ACCOUNT SETTINGS' : domain === 'leads' ? 'LEAD SETTINGS' : 'PRODUCT SETTINGS'}</p>
+              <h2>{domain === 'enterprise' ? '企业档案' : domain === 'integrations' ? '集成与 API' : domain === 'trade-operations' ? '发运与收款设置' : domain === 'trade-documents' ? '单据配置' : domain === 'opportunities' ? '商机设置' : domain === 'contacts' ? '联系人设置' : domain === 'accounts' ? '客户设置' : domain === 'leads' ? '线索设置' : '产品设置'}</h2>
+              <p>{domain === 'enterprise' ? '维护当前使用企业的统一主档；报价、销售订单及贸易单据使用这里的卖方身份和银行资料。' : domain === 'integrations' ? '统一管理业务模块依赖的第三方 API 凭证；各业务模块直接调用已保存的集成配置。' : domain === 'trade-operations' ? '集中管理共享基础数据，并分别配置发运与收款业务规则。' : domain === 'trade-documents' ? '逐种管理外贸单据的数据来源、空白创建、字段校验和正式确认规则。' : domain === 'opportunities' ? '维护销售流程、商机分类、销售组织、活动与预测规则。' : domain === 'contacts' ? '维护联系人身份、组织、联系方式、沟通偏好、合规与数据规则。' : domain === 'accounts' ? '维护客户主数据、客户分级、地址、交易财务、销售归属与风险规则。' : domain === 'leads' ? '维护线索分类、来源画像、资格评估、分配跟进、查重与转换规则。' : '维护产品主数据字典、模板、包装贸易规则和数据校验策略。'}</p>
             </div>
             {domain === 'trade-operations' ? <div className="tp-settings__workspace-status"><Tag type="green">设置配置已接入 3/3</Tag><Tag type="cool-gray">业务流程联动分阶段接入</Tag></div> : domain === "contacts" || domain === "accounts" || domain === "leads" ? <div className="tp-settings__workspace-status"><Tag type="green">字典已接入 {connectedCount}/{activeSections.length}</Tag><Tag type="cool-gray">规则待接入 {configOnlyCount}</Tag></div> : <Tag type="green">已接入 {activeSections.length} 项</Tag>}
           </div>
@@ -400,7 +390,7 @@ export function SettingsCenterPage() {
                 </>
               )}
 
-              {domain === 'enterprise' ? <EnterpriseProfileSettings /> : domain === 'integrations' ? <IntegrationsSettings section={section} /> : domain === 'agent' ? <AgentSettings section={section} /> : domain === 'trade-operations' ? <TradeOperationsSettings scope={section as 'shared' | 'shipment' | 'payment'} /> : domain === 'trade-documents' ? (section === 'document-types' ? <DocumentTypeSettings /> : section === 'templates' ? <DocumentTemplateSettings /> : <TradeDocumentSettings scope={section as 'shared' | 'quotation' | 'sales_order'} />) : domain === 'opportunities' ? <OpportunitySettings section={section} /> : domain === 'contacts' || domain === 'accounts' || domain === 'leads' ? <CrmDomainSettings domain={domain as CrmSettingsDomain} section={section} /> : !['categories','attributes'].includes(section) && <ProductAdvancedSettings section={section} /> }
+              {domain === 'enterprise' ? <EnterpriseProfileSettings /> : domain === 'integrations' ? <IntegrationsSettings section={section} /> : domain === 'trade-operations' ? <TradeOperationsSettings scope={section as 'shared' | 'shipment' | 'payment'} /> : domain === 'trade-documents' ? (section === 'document-types' ? <DocumentTypeSettings /> : section === 'templates' ? <DocumentTemplateSettings /> : <TradeDocumentSettings scope={section as 'shared' | 'quotation' | 'sales_order'} />) : domain === 'opportunities' ? <OpportunitySettings section={section} /> : domain === 'contacts' || domain === 'accounts' || domain === 'leads' ? <CrmDomainSettings domain={domain as CrmSettingsDomain} section={section} /> : !['categories','attributes'].includes(section) && <ProductAdvancedSettings section={section} /> }
 
             </div>
             </Column>
