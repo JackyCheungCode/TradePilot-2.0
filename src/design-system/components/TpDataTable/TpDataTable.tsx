@@ -204,11 +204,17 @@ export function TpDataTable<T extends Record<string, unknown>>({
   return (
     <div className={`tp-data-table${refreshing ? ' tp-data-table--refreshing' : ''}`}>
       <DataTable rows={carbonRows} headers={headers} isSortable>
-        {({ rows: renderedRows, getHeaderProps, getRowProps, getSelectionProps, getBatchActionProps }) => (
+        {({ rows: renderedRows, getHeaderProps, getRowProps, getSelectionProps, getBatchActionProps, selectedRows: carbonSelectedRows, selectRow }) => (
           <TableContainer aria-label={ariaLabel}>
             <TableToolbar>
               {selectable && selectedRows.length > 0 && (
-                <TableBatchActions {...getBatchActionProps()}>
+                <TableBatchActions
+                  {...getBatchActionProps()}
+                  onCancel={() => {
+                    setSelectedIds(new Set());
+                    getBatchActionProps().onCancel();
+                  }}
+                >
                   {batchActions.map((action) => (
                     <TableBatchAction
                       key={action.key}
@@ -225,7 +231,10 @@ export function TpDataTable<T extends Record<string, unknown>>({
                 {selectable && selectedRows.length > 0 && (
                   <div className="tp-data-table__selection-summary" aria-live="polite">
                     <span>已选 {selectedRows.length} 条</span>
-                    <Button kind="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>清除选择</Button>
+                    <Button kind="ghost" size="sm" onClick={() => {
+                      carbonSelectedRows.forEach((row) => selectRow(row.id));
+                      setSelectedIds(new Set());
+                    }}>清除选择</Button>
                   </div>
                 )}
                 {onSearchChange && (
@@ -311,10 +320,9 @@ export function TpDataTable<T extends Record<string, unknown>>({
                   <TableRow>
                     {selectable && (
                       <TableSelectAll
-                        {...getSelectionProps()}
+                        {...getSelectionProps({ onClick: () => togglePageSelection(!allPageSelected) })}
                         checked={allPageSelected}
                         indeterminate={somePageSelected}
-                        onSelect={() => togglePageSelection(!allPageSelected)}
                       />
                     )}
                     {headers.map((header) => (
@@ -346,9 +354,11 @@ export function TpDataTable<T extends Record<string, unknown>>({
                       >
                         {selectable && (
                           <TableSelectRow
-                            {...getSelectionProps({ row: carbonRow })}
+                            {...getSelectionProps({
+                              row: carbonRow,
+                              onClick: () => toggleRowSelection(carbonRow.id, !selectedIds.has(carbonRow.id)),
+                            })}
                             checked={selectedIds.has(carbonRow.id)}
-                            onSelect={() => toggleRowSelection(carbonRow.id, !selectedIds.has(carbonRow.id))}
                           />
                         )}
                         {visibleColumns.map((column) => (
