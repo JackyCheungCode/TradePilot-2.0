@@ -1077,9 +1077,11 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
       const snapshot=asRecord(approval.operation_snapshot);
       const runRows=await db<Array<{id:string;goal:string;status:string}>>(env,"agent_runs?id=eq."+approval.run_id+"&owner_id=eq."+ownerId+"&select=id,goal,status&limit=1");
       const run=runRows?.[0];if(!run)return errorResponse(request,"RUN_NOT_FOUND","审批关联的 Agent 任务不存在。",404);
+      if(run.status!=="awaiting_approval")return errorResponse(request,"RUN_NOT_AWAITING_APPROVAL","关联任务已不在等待审批状态，已阻止执行。",409);
       const note=typeof body.note==="string"?body.note.slice(0,1000):null;
       if(decision==="reject"){
-        await db(env,"agent_approvals?id=eq."+approval.id+"&owner_id=eq."+ownerId+"&status=eq.pending",{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({status:"rejected",decision_note:note,decided_at:new Date().toISOString()})});
+        const rejected=await db<Array<{id:string}>>(env,"agent_approvals?id=eq."+approval.id+"&owner_id=eq."+ownerId+"&status=eq.pending&select=id",{method:"PATCH",headers:{Prefer:"return=representation"},body:JSON.stringify({status:"rejected",decision_note:note,decided_at:new Date().toISOString()})});
+        if(!rejected?.length)return errorResponse(request,"APPROVAL_ALREADY_DECIDED","该审批已被处理，不能重复操作。",409);
         await db(env,"agent_runs?id=eq."+run.id+"&owner_id=eq."+ownerId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({status:"cancelled",error_message:"人工审批已拒绝。",completed_at:new Date().toISOString(),updated_at:new Date().toISOString()})});
         await db(env,"discovery_runs?id=eq."+run.id+"&owner_id=eq."+ownerId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({status:"cancelled",progress:100,message:"人工审批已拒绝。"})});
         await writeRunLog(env,ownerId,run.id,"info","人工审批已拒绝。",{approvalId:approval.id});
