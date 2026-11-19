@@ -43,7 +43,7 @@ function countryName(code: string): string {
   catch { return code; }
 }
 function normalizeStatus(row: LeadRow): string {
-  return valueOf(row.profile, 'lead_status') || row.status || 'draft';
+  return row.status === 'rejected' ? 'rejected' : valueOf(row.profile, 'lead_status') || row.status || 'draft';
 }
 function statusLabel(status: string): string {
   return statusNames[status] ?? status;
@@ -239,6 +239,44 @@ export function LeadConsolePage() {
           columnSettingsKey="crm-leads"
           rowKey="id"
           rows={filtered as (LeadRow & Record<string, unknown>)[]}
+          batchActions={[
+            {
+              key: 'mark-rejected',
+              label: '标记为已失效',
+              confirmation: '将所选正式线索标记为已失效。此操作不会删除线索记录。',
+              onClick: async (selected) => {
+                const ids = selected.filter((row) => normalizeStatus(row) !== 'rejected').map((row) => row.id);
+                if (!ids.length) throw new Error('所选线索均已标记为失效。');
+                const client = await getSupabaseClient();
+                const { data, error: updateError } = await client.from('leads')
+                  .update({ status: 'rejected', updated_at: new Date().toISOString() })
+                  .eq('is_formal', true)
+                  .in('id', ids)
+                  .select('id');
+                if (updateError) throw updateError;
+                if ((data ?? []).length !== ids.length) throw new Error(`仅更新 ${(data ?? []).length} / ${ids.length} 条线索，请检查权限或刷新后重试。`);
+                await load();
+              },
+            },
+            {
+              key: 'restore-review',
+              label: '恢复为待审核',
+              confirmation: '将所选已失效线索恢复为待审核状态。此操作不会修改线索资料。',
+              onClick: async (selected) => {
+                const ids = selected.filter((row) => normalizeStatus(row) === 'rejected').map((row) => row.id);
+                if (!ids.length) throw new Error('所选线索中没有已失效记录。');
+                const client = await getSupabaseClient();
+                const { data, error: updateError } = await client.from('leads')
+                  .update({ status: 'review', updated_at: new Date().toISOString() })
+                  .eq('is_formal', true)
+                  .in('id', ids)
+                  .select('id');
+                if (updateError) throw updateError;
+                if ((data ?? []).length !== ids.length) throw new Error(`仅恢复 ${(data ?? []).length} / ${ids.length} 条线索，请检查权限或刷新后重试。`);
+                await load();
+              },
+            },
+          ]}
           columns={[
             { key: 'lead_number', header: '线索编号', minWidth: 130, render: row => row.lead_number || '—' },
             { key: 'name', header: '线索名称', primary: true, minWidth: 220, render: row => <div><strong>{row.name || '未命名线索'}</strong><span className="tp-leads__cell-secondary">{row.website || row.email || row.phone || ''}</span></div> },

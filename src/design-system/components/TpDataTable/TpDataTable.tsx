@@ -156,6 +156,9 @@ export function TpDataTable<T extends Record<string, unknown>>({
     setBatchFeedback(null);
     try {
       await action.onClick(selectedRows);
+      setSelectedIds(new Set());
+      selectedRowCache.current.clear();
+      setSelectionRevision((revision) => revision + 1);
       setBatchFeedback({ kind: 'success', title: '批量操作已完成', subtitle: action.label });
       setPendingBatchAction(null);
     } catch (cause) {
