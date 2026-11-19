@@ -535,10 +535,10 @@ async function loadXiaoyaSkillContext(env:Env,ownerId:string):Promise<string>{
 }
 
 type ChatTurn={role:"user"|"assistant";content:string};
-export async function callAgentChatModel(env:Env,messages:ChatTurn[],systemOverride?:string,taskKey="agent_chat",jsonResponse=true,maxTokens=900):Promise<{text:string;model:string}>{
+export async function callAgentChatModel(env:Env,messages:ChatTurn[],systemOverride?:string,taskKey="agent_chat",jsonResponse=true,maxTokens=900,modelOverride?:string):Promise<{text:string;model:string}>{
  const settings=await db<Array<{config:Record<string,unknown>}>>(env,"ai_provider_settings?id=eq.true&select=config&limit=1");
  const config=asRecord(settings?.[0]?.config),taskModels=asRecord(config.taskModels);
- const selectedRef=String(taskModels[taskKey]??taskModels.agent_planning??config.defaultModel??"@cf/google/gemma-4-26b-a4b-it");
+ const selectedRef=String(modelOverride||taskModels[taskKey]||taskModels.agent_planning||config.defaultModel||"@cf/google/gemma-4-26b-a4b-it");
  const separator=selectedRef.indexOf("::");
  const selectedProviderId=separator>0?selectedRef.slice(0,separator):"";
  const selectedModel=separator>0?selectedRef.slice(separator+2):selectedRef;
@@ -618,8 +618,9 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
       const input=asRecord(body.config);
       const systemPrompt=typeof input.systemPrompt==="string"?input.systemPrompt.trim():"";
       const description=typeof input.description==="string"?input.description.trim():"";
-      if(systemPrompt.length>12000||description.length>1000)return errorResponse(request,"VALIDATION_ERROR","Agent 指令或描述超出长度限制。",400);
-      const config={systemPrompt,description};
+      const modelRef=typeof input.modelRef==="string"?input.modelRef.trim():"";
+      if(systemPrompt.length>12000||description.length>1000||modelRef.length>300)return errorResponse(request,"VALIDATION_ERROR","Agent 指令、描述或模型标识超出长度限制。",400);
+      const config={systemPrompt,description,modelRef};
       const rows=await db<Array<Record<string,unknown>>>(env,"agent_profiles?on_conflict=owner_id,agent_key&select=agent_key,enabled,config,updated_at",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=representation"},body:JSON.stringify({owner_id:ownerId,agent_key:agentKey,enabled,config,updated_at:new Date().toISOString()})});
       return successResponse(request,rows?.[0]??{agent_key:agentKey,enabled,config},200);
     }

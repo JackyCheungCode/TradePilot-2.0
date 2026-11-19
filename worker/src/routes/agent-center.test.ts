@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { handleAgentCenter } from "./agent-center.ts";
+import { callAgentChatModel, handleAgentCenter } from "./agent-center.ts";
 
 const ownerId="123e4567-e89b-42d3-a456-426614174000";
 const connectionId="123e4567-e89b-42d3-a456-426614174001";
@@ -17,6 +17,41 @@ function connectionRow(){
   {name:"dangerous_write",description:"Update external records",risk:"blocked",riskPolicySource:"user",protocol:"mcp"},
  ],protocol_metadata:{},status:"active",last_tested_at:null,last_error:null,created_at:"2026-11-19T00:00:00Z",updated_at:"2026-11-19T00:00:00Z"};
 }
+
+
+test("Agent profile persists a dedicated model reference",async()=>{
+ let saved:Record<string,unknown>|undefined;
+ const restore=withFetch(async(input,init)=>{
+  const url=String(input);
+  if(url.endsWith("/auth/v1/user"))return authResponse();
+  if(url.includes("/rest/v1/agent_profiles?on_conflict=owner_id,agent_key")&&init?.method==="POST"){
+   saved=JSON.parse(String(init.body)) as Record<string,unknown>;
+   return Response.json([{agent_key:"market_research",enabled:true,config:saved.config,updated_at:"2026-11-19T00:00:00Z"}]);
+  }
+  throw new Error("Unexpected fetch: "+url+" "+String(init?.method));
+ });
+ try{
+  const response=await handleAgentCenter(new Request("https://worker.test/api/v1/agent/profiles/market_research",{method:"PUT",headers:{Authorization:"Bearer user-token","Content-Type":"application/json"},body:JSON.stringify({enabled:true,config:{description:"Research",systemPrompt:"Be evidence-led",modelRef:"provider-1::model-special"}})}),env);
+  assert.equal(response.status,200);
+  assert.equal((saved?.config as Record<string,unknown>).modelRef,"provider-1::model-special");
+ }finally{restore();}
+});
+
+test("Agent chat model resolver honors a per-agent model override",async()=>{
+ let selected="";
+ const modelEnv={...env,AI:{async run(model:string){selected=model;return {response:"model response"};}}};
+ const restore=withFetch(async(input)=>{
+  const url=String(input);
+  if(url.includes("/rest/v1/ai_provider_settings"))return Response.json([{config:{defaultModel:"provider-1::model-default",taskModels:{company_analysis:"provider-1::model-default"},providers:[{id:"provider-1",name:"Test provider",model:"model-special",protocol:"workers-ai",providerKey:"workers-ai",configured:true}]}}]);
+  throw new Error("Unexpected fetch: "+url);
+ });
+ try{
+  const result=await callAgentChatModel(modelEnv,[],"system","company_analysis",false,100,"provider-1::model-special");
+  assert.equal(selected,"model-special");
+  assert.equal(result.model,"model-special");
+  assert.equal(result.text,"model response");
+ }finally{restore();}
+});
 
 test("Tools registry treats legacy read_only flags as approval-required unless explicitly user-approved",async()=>{
  const restore=withFetch(async(input)=>{
