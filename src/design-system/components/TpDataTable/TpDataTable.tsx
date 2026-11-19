@@ -268,10 +268,11 @@ export function TpDataTable<T extends Record<string, unknown>>({
     detailLauncherRef.current = trigger ?? detailLauncherRef.current;
     const id = String(row[rowKey]);
     const url = new URL(window.location.href);
+    const currentId = url.searchParams.get('tpRecord');
     url.searchParams.set('tpRecord', id);
     const state = { ...(window.history.state ?? {}), __tpDataTableDetail: true };
     if (replace) window.history.replaceState(state, '', url);
-    else if (url.searchParams.get('tpRecord') !== id) window.history.pushState(state, '', url);
+    else if (currentId !== id) window.history.pushState(state, '', url);
     setDetailRowId(id);
   };
   const closeDetail = () => {
