@@ -727,6 +727,7 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
       const updated=await db<ConnectionRow[]>(env,"agent_connections?id=eq."+connection.id+"&owner_id=eq."+ownerId+"&updated_at=eq."+encodeURIComponent(connection.updated_at)+"&select="+publicConnectionFields,{method:"PATCH",headers:{Prefer:"return=representation"},body:JSON.stringify({protocol_tools:tools,protocol_metadata:metadata,updated_at:changedAt})});
       const saved=updated?.[0];
       if(!saved)return errorResponse(request,"TOOL_POLICY_CONFLICT","连接配置已被其他操作更新，请刷新后重试。",409);
+      await db<Array<{id:string}>>(env,"agent_tool_registry?owner_id=eq."+ownerId+"&connection_id=eq."+connection.id+"&protocol_tool_name=eq."+encodeURIComponent(toolName)+"&source=eq.external&select=id",{method:"PATCH",headers:{Prefer:"return=representation"},body:JSON.stringify({risk,policy_source:"user",updated_at:changedAt})});
       return successResponse(request,{connectionId:connection.id,toolName,risk,policySource:"user",connection:saved});
     }
     const discoverMatch=path.match(/^\/api\/v1\/agent\/connections\/([0-9a-f-]{36})\/discover$/i);
