@@ -5,7 +5,7 @@ import { AgentHistoryManagement } from './AgentHistoryManagement';
 
 type Provider = { id: string; name: string; model: string; protocol: string; configured?: boolean | string; baseUrl?: string; providerKey?: string; secretName?: string };
 type AIConfig = { providers?: Provider[]; taskModels?: Record<string,string>; defaultModel?: string };
-type Profile = { agent_key: string; enabled: boolean; config: { systemPrompt?: string; description?: string } };
+type Profile = { agent_key: string; enabled: boolean; config: { systemPrompt?: string; description?: string; modelRef?: string } };
 type Appearance = { shape: string; color: string; styleId: string; variant: string; face: string; eyeColor: string; eyeScale: number };
 const agentLabels: Record<string,string> = {
   buyer_development: '全球买家开发 Agent', market_research: '市场研究 Agent',
@@ -116,6 +116,7 @@ export function AgentSettings({ section }: { section: string }) {
         <Select id="agent-profile-enabled" labelText="启用状态" hideLabel value={activeProfile.enabled ? 'enabled' : 'disabled'} onChange={event => setProfiles(rows => rows.map(item => item.agent_key === activeAgent ? {...item,enabled:event.currentTarget.value === 'enabled'} : item))}>
           <SelectItem value="enabled" text="启用" /><SelectItem value="disabled" text="停用" />
         </Select>
+        <Select id="agent-profile-model" labelText="专属模型" value={activeProfile.config.modelRef || ''} onChange={event => setProfiles(rows => rows.map(item => item.agent_key === activeAgent ? {...item,config:{...item.config,modelRef:event.currentTarget.value}} : item))}><SelectItem value="" text="跟随小雅默认模型" />{providers.map(item => <SelectItem key={item.id} value={providerValue(item)} text={item.name + ' · ' + item.model} />)}</Select>
         <TextArea id="agent-profile-description" labelText="Agent 描述" rows={2} value={activeProfile.config.description || ''} onChange={event => setProfiles(rows => rows.map(item => item.agent_key === activeAgent ? {...item,config:{...item.config,description:event.currentTarget.value}} : item))} />
         <TextArea id="agent-profile-prompt" labelText="系统指令" rows={6} value={activeProfile.config.systemPrompt || ''} onChange={event => setProfiles(rows => rows.map(item => item.agent_key === activeAgent ? {...item,config:{...item.config,systemPrompt:event.currentTarget.value}} : item))} />
       </> : <p>尚未保存该 Agent 的自定义配置；首次保存后即可管理启用状态和指令。</p>}
