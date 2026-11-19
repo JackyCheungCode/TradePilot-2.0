@@ -2,8 +2,11 @@ import { useEffect, useState } from 'react';
 import { Button, InlineLoading, InlineNotification, Tag, TextInput } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 
+type Finding = { severity:'high'|'medium'|'low'; code:string; message:string; file?:string };
 type Skill = { id:string; label:string; description:string; sourceType:'starter'|'custom'; state:'pending'|'configured'|'synced'; enabled:boolean; config:Record<string,unknown> };
 type Draft = { repositoryUrl:string; branch:string; skillPath:string };
+type SecurityReview = { status?:string; riskLevel?:string; requiresHumanReview?:boolean; findings?:Finding[]; dependencies?:string[]; networkDomains?:string[]; limitations?:string[] };
+type SkillBundle = { fileCount?:number; totalBytes?:number; syncedAt?:string };
 async function skillRequest<T>(path:string,init:RequestInit={}):Promise<T>{
  const client=await getSupabaseClient();const {data}=await client.auth.getSession();
  if(!data.session?.access_token)throw new Error('登录状态已失效，请重新登录。');
@@ -13,9 +16,27 @@ async function skillRequest<T>(path:string,init:RequestInit={}):Promise<T>{
  return payload.data as T;
 }
 function stateTag(state:Skill['state']){
- if(state==='synced')return <Tag type="green">已同步配置</Tag>;
+ if(state==='synced')return <Tag type="green">完整包已同步</Tag>;
  if(state==='configured')return <Tag type="blue">已填写来源</Tag>;
  return <Tag type="cool-gray">待配置</Tag>;
+}
+function riskTag(level:string){
+ if(level==='high')return <Tag type="red">高风险信号</Tag>;
+ if(level==='medium')return <Tag type="warm-gray">需重点复核</Tag>;
+ if(level==='low')return <Tag type="blue">发现外部引用</Tag>;
+ return <Tag type="cool-gray">尚无结论</Tag>;
+}
+function reviewOf(config:Record<string,unknown>):SecurityReview{
+ return config.securityReview&&typeof config.securityReview==='object'?config.securityReview as SecurityReview:{};
+}
+function bundleOf(config:Record<string,unknown>):SkillBundle{
+ const bundle=config.bundle&&typeof config.bundle==='object'?config.bundle as Record<string,unknown>:{};
+ return {fileCount:Number(bundle.fileCount??0),totalBytes:Number(bundle.totalBytes??0),syncedAt:String(bundle.syncedAt??'')};
+}
+function formatBytes(value:number){
+ if(value<1024)return value+' B';
+ if(value<1024*1024)return (value/1024).toFixed(1)+' KB';
+ return (value/1024/1024).toFixed(2)+' MB';
 }
 export function SkillsRegistry(){
  const [skills,setSkills]=useState<Skill[]>([]);
@@ -29,7 +50,7 @@ export function SkillsRegistry(){
   setLoading(true);setError('');
   try{
    const rows=await skillRequest<Skill[]>('/api/v1/agent/skills');setSkills(rows);
-   setDrafts(Object.fromEntries(rows.map(row=>[row.id,{repositoryUrl:String(row.config.repositoryUrl??''),branch:String(row.config.branch??'main'),skillPath:String(row.config.skillPath??'')}])));
+   setDrafts(Object.fromEntries(rows.map(row=>[row.id,{repositoryUrl:String(row.config.repositoryUrl??''),branch:String(row.config.branch??'main'),skillPath:String(row.config.skillPath??'')}]))); 
   }catch(cause){setError(cause instanceof Error?cause.message:'读取 Skill 列表失败。');}
   finally{setLoading(false);}
  };
@@ -40,62 +61,76 @@ export function SkillsRegistry(){
   setBusy(id);setError('');setNotice('');
   try{
    await skillRequest('/api/v1/agent/skills/'+id,{method:'PUT',body:JSON.stringify(draft)});
-   setNotice(id+'：GitHub 来源已保存。');await load();
+   setNotice(id+'：GitHub 来源已保存。完整包尚未导入。');await load();
   }catch(cause){setError(cause instanceof Error?cause.message:'保存 GitHub 来源失败。');}
   finally{setBusy('');}
  };
  const sync=async(id:string)=>{
   setBusy(id);setError('');setNotice('');
   try{
-   const result=await skillRequest<{manifest:{name:string;description:string};source:{owner:string;repo:string}}>('/api/v1/agent/skills/'+id+'/sync',{method:'POST',body:'{}'});
-   setNotice(id+'：已从 GitHub 拉取并校验 SKILL.md（'+result.source.owner+'/'+result.source.repo+'）。');await load();
-  }catch(cause){setError(cause instanceof Error?cause.message:'拉取 Skill 配置失败。');}
+   const result=await skillRequest<{manifest:{name:string;description:string};source:{owner:string;repo:string};package:{fileCount:number;totalBytes:number};securityReview:SecurityReview}>('/api/v1/agent/skills/'+id+'/sync',{method:'POST',body:'{}'});
+   setNotice(id+'：已导入 '+result.package.fileCount+' 个文件（'+formatBytes(result.package.totalBytes)+'），初步静态检查完成；仍须人工安全审核。');await load();
+  }catch(cause){setError(cause instanceof Error?cause.message:'导入 Skill 完整包失败。');}
   finally{setBusy('');}
  };
  const add=async()=>{
   if(!newSource.repositoryUrl.trim())return;
   setBusy('__new__');setError('');setNotice('');
   try{
-   const result=await skillRequest<{id:string;manifest:{description:string}}>('/api/v1/agent/skills',{method:'POST',body:JSON.stringify(newSource)});
-   setNotice('已新增 Skill：'+result.id+'。配置已同步，当前保持停用状态。');
+   const result=await skillRequest<{id:string;package:{fileCount:number;totalBytes:number};securityReview:SecurityReview}>('/api/v1/agent/skills',{method:'POST',body:JSON.stringify(newSource)});
+   setNotice('已新增 '+result.id+'：导入 '+result.package.fileCount+' 个文件（'+formatBytes(result.package.totalBytes)+'），初步静态检查完成。Skill 保持停用，等待人工审核。');
    setNewSource({repositoryUrl:'',branch:'main',skillPath:''});await load();
   }catch(cause){setError(cause instanceof Error?cause.message:'新增 Skill 失败。');}
   finally{setBusy('');}
  };
  return <div className="tp-settings-agent">
-  <InlineNotification kind="info" lowContrast title="可扩展 Skills 注册中心" subtitle="这里的十个条目只是初始建议，不是数量上限。你可以持续从 GitHub 新增 Skill；系统读取 SKILL.md 并登记名称、描述和来源。复杂 Skill 可先登记配置，经过依赖、权限与运行环境审核后再启用。" />
+  <InlineNotification kind="info" lowContrast title="可扩展 Skills 注册中心" subtitle="初始十个条目不是数量上限。导入会读取 SKILL.md 和受限范围内的完整目录文件，识别依赖、外部域名及部分高风险代码模式。所有导入项默认停用；静态检查不等于安全认证，也不会执行任何 Skill 代码。" />
   {error&&<InlineNotification kind="error" title="操作失败" subtitle={error} onCloseButtonClick={()=>setError('')}/>}
   {notice&&<InlineNotification kind="success" title="操作完成" subtitle={notice} onCloseButtonClick={()=>setNotice('')}/>}
   <div className="tp-settings__editor">
    <h3>从 GitHub 新增 Skill</h3>
-   <p>支持公开仓库根目录或具体 Skill 目录。系统会读取目录中的 SKILL.md，并以 frontmatter 的 name 作为唯一标识。</p>
+   <p>支持公开仓库根目录或具体 Skill 目录。系统校验 SKILL.md，并在文件数量、单文件大小和总大小限制内导入文本及资源文件。</p>
    <div className="tp-settings__editor-grid">
     <TextInput id="new-skill-repository" labelText="GitHub 仓库 / Skill 目录 URL" placeholder="https://github.com/owner/repo/tree/main/skills/my-skill" value={newSource.repositoryUrl} onChange={event=>setNewSource(current=>({...current,repositoryUrl:event.currentTarget.value}))}/>
     <TextInput id="new-skill-branch" labelText="分支（可选）" value={newSource.branch} onChange={event=>setNewSource(current=>({...current,branch:event.currentTarget.value}))}/>
     <TextInput id="new-skill-path" labelText="Skill 目录（可选）" placeholder="skills/my-skill" value={newSource.skillPath} onChange={event=>setNewSource(current=>({...current,skillPath:event.currentTarget.value}))}/>
    </div>
-   <Button kind="primary" disabled={busy!==''||!newSource.repositoryUrl.trim()} onClick={()=>void add()}>{busy==='__new__'?'正在拉取并登记…':'新增并拉取配置'}</Button>
+   <Button kind="primary" disabled={busy!==''||!newSource.repositoryUrl.trim()} onClick={()=>void add()}>{busy==='__new__'?'正在导入并检查…':'新增并导入完整包'}</Button>
   </div>
   <div className="tp-settings__editor">
    <h3>Skills 注册表 <Tag type="cool-gray">{skills.length} 项</Tag></h3>
    {loading?<InlineLoading description="正在读取 Skill 注册表…"/>:skills.length===0?<p>尚无 Skill 记录。可以从 GitHub 新增第一个 Skill。</p>:<div className="tp-settings__section-layout">
     {skills.map(skill=>{
      const draft=drafts[skill.id]??{repositoryUrl:'',branch:'main',skillPath:''};
+     const review=reviewOf(skill.config),bundle=bundleOf(skill.config),findings=review.findings??[];
+     const dependencies=review.dependencies??[],domains=review.networkDomains??[];
      return <section key={skill.id} className="tp-settings__editor">
       <div className="tp-ai-control__skill-heading">
        <div><h4>{skill.label}</h4><p><code>{skill.id}</code> · {skill.description}</p></div>
-       <div className="tp-ai-control__skill-actions">{stateTag(skill.state)}{skill.sourceType==='custom'?<Tag type="purple">自定义</Tag>:<Tag type="cool-gray">初始清单</Tag>}</div>
+       <div className="tp-ai-control__skill-actions">{stateTag(skill.state)}{skill.sourceType==='custom'?<Tag type="purple">自定义</Tag>:<Tag type="cool-gray">初始清单</Tag>}{skill.enabled&&<Tag type="red">当前已启用</Tag>}</div>
       </div>
       <div className="tp-settings__editor-grid">
        <TextInput id={'skill-repo-'+skill.id} labelText="GitHub 仓库 / Skill 目录 URL" placeholder="https://github.com/owner/repo/tree/main/skills/name" value={draft.repositoryUrl} onChange={event=>change(skill.id,'repositoryUrl',event.currentTarget.value)}/>
        <TextInput id={'skill-branch-'+skill.id} labelText="分支（可选）" value={draft.branch} onChange={event=>change(skill.id,'branch',event.currentTarget.value)}/>
        <TextInput id={'skill-path-'+skill.id} labelText="Skill 目录（可选）" placeholder="skills/name" value={draft.skillPath} onChange={event=>change(skill.id,'skillPath',event.currentTarget.value)}/>
       </div>
-      {skill.state==='synced'&&<p>已同步：{String(skill.config.syncedAt??'')} · {String((skill.config.manifest as Record<string,unknown>|undefined)?.version??'未声明版本')}</p>}
       <div className="tp-ai-control__skill-actions">
        <Button kind="tertiary" size="sm" disabled={busy!==''||!draft.repositoryUrl.trim()} onClick={()=>void save(skill.id)}>保存来源</Button>
-       <Button kind="primary" size="sm" disabled={busy!==''||!draft.repositoryUrl.trim()} onClick={()=>void sync(skill.id)}>{busy===skill.id?'正在拉取…':'重新拉取配置'}</Button>
+       <Button kind="primary" size="sm" disabled={busy!==''||!draft.repositoryUrl.trim()} onClick={()=>void sync(skill.id)}>{busy===skill.id?'正在导入完整包…':'重新导入完整包并检查'}</Button>
       </div>
+      {bundle.fileCount>0&&<div className="tp-settings__section-item"><span>已导入文件</span><strong>{bundle.fileCount} 个 · {formatBytes(bundle.totalBytes)}</strong></div>}
+      {review.status&&<div className="tp-settings__section-item"><span>安全审核状态</span><span>{riskTag(review.riskLevel??'')} <Tag type="warm-gray">等待人工审核</Tag></span></div>}
+      {findings.length>0&&<div className="tp-settings__editor">
+       <h5>静态检查发现</h5>
+       {findings.map((finding,index)=><div key={finding.code+'-'+index} className="tp-ai-control__status-row"><span>{finding.message}{finding.file&&<><br/><code>{finding.file}</code></>}</span><Tag type={finding.severity==='high'?'red':finding.severity==='medium'?'warm-gray':'blue'}>{finding.severity==='high'?'高':finding.severity==='medium'?'中':'低'} · {finding.code}</Tag></div>)}
+      </div>}
+      {(dependencies.length>0||domains.length>0)&&<div className="tp-settings__editor">
+       <h5>运行依赖与外部访问线索</h5>
+       {dependencies.length>0&&<p>依赖：{dependencies.join('、')}</p>}
+       {domains.length>0&&<p>域名：{domains.join('、')}</p>}
+      </div>}
+      {bundle.fileCount===0&&<p>尚未导入完整 Skill 包。填写来源并点击“重新导入完整包并检查”。</p>}
+      <InlineNotification kind="warning" lowContrast title="未开放执行" subtitle="完整包导入和启发式静态检查不构成安全认证。当前不会安装依赖、运行脚本或启用 Skill；需完成权限清单、人工复核和隔离运行时建设后才能开放执行。"/>
      </section>;
     })}
    </div>}
