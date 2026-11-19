@@ -193,6 +193,7 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
       setWelcomePhase('ready');
       setAvatarEmotion('success');
     } catch (error) {
+      if (requestId !== conversationRequestIdRef.current) return;
       console.error('[Xiaoya] Conversation could not be opened', error);
       setAvatarEmotion('error');
       setWelcomeVisible(true);
@@ -208,6 +209,7 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
       const created = await createConversation();
       if (requestId !== conversationRequestIdRef.current) return;
       await instance.messaging.clearConversation();
+      if (requestId !== conversationRequestIdRef.current) return;
       setWelcomeVisible(true);
       setWelcomePhase('ready');
       setAvatarEmotion('success');
