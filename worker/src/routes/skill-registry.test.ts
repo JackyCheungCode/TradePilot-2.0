@@ -1,4 +1,17 @@
-im
+import test from "node:test";
+import assert from "node:assert/strict";
+import { handleSkillRegistry } from "./skill-registry.ts";
+
+const ownerId="123e4567-e89b-42d3-a456-426614174000";
+const env={SUPABASE_URL:"https://project.supabase.co",SUPABASE_ANON_KEY:"anon-test-key",SUPABASE_SERVICE_ROLE_KEY:"service-test-key"};
+function withFetch(handler:(input:string|URL|Request,init?:RequestInit)=>Promise<Response>){
+ const original=globalThis.fetch;globalThis.fetch=handler as typeof fetch;
+ return ()=>{globalThis.fetch=original;};
+}
+function request(body:unknown){
+ return new Request("https://worker.test/api/v1/agent/skills",{method:"POST",headers:{Authorization:"Bearer user-access-token","Content-Type":"application/json"},body:JSON.stringify(body)});
+}
+
 function githubSkillFetch(contract:Record<string,unknown>,onStored:(row:Record<string,unknown>)=>void){
  const sourceFiles=[
   {path:"skills/demo/SKILL.md",content:"---\nname: demo-skill\ndescription: Demo skill\n---\n"},
@@ -26,19 +39,7 @@ const validSkillContract:Record<string,unknown>={
  permissions:{networkHosts:["api.example.com"],dataScopes:["market_data:read"],secrets:[],sideEffects:[]},
  limits:{timeoutSeconds:30,memoryMb:128,maxOutputBytes:64000},
 };
-port test from "node:test";
-import assert from "node:assert/strict";
-import { handleSkillRegistry } from "./skill-registry.ts";
 
-const ownerId="123e4567-e89b-42d3-a456-426614174000";
-const env={SUPABASE_URL:"https://project.supabase.co",SUPABASE_ANON_KEY:"anon-test-key",SUPABASE_SERVICE_ROLE_KEY:"service-test-key"};
-function withFetch(handler:(input:string|URL|Request,init?:RequestInit)=>Promise<Response>){
- const original=globalThis.fetch;globalThis.fetch=handler as typeof fetch;
- return ()=>{globalThis.fetch=original;};
-}
-function request(body:unknown){
- return new Request("https://worker.test/api/v1/agent/skills",{method:"POST",headers:{Authorization:"Bearer user-access-token","Content-Type":"application/json"},body:JSON.stringify(body)});
-}
 
 test("Skill package import stores a bounded bundle, review findings and disabled state under the authenticated owner",async()=>{
  let stored:Record<string,unknown>|undefined;
