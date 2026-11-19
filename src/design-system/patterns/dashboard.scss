@@ -344,3 +344,35 @@
 .tp-workbench__metric:nth-child(5n+4){--tp-metric-accent:var(--cds-support-error)}
 .tp-workbench__metric:nth-child(5n+5){--tp-metric-accent:var(--cds-interactive)}
 .tp-workbench__metric-icon{color:var(--tp-metric-accent,var(--cds-icon-secondary))}
+
+
+/* Dashboard hierarchy and Carbon control sizing refinements */
+.tp-workbench__metrics { margin-top: 0; }
+.tp-workbench__metric-icon { background: transparent; }
+.tp-workbench__filter-note {
+  flex: 0 1 auto;
+  max-width: 34rem;
+  padding: 0;
+  line-height: 1.45;
+}
+.tp-workbench__global-map-switch { min-width: 0; }
+.tp-workbench__global-map-switch .cds--content-switcher {
+  display: flex;
+  min-width: 0;
+  width: 100%;
+}
+.tp-workbench__global-map-switch .cds--content-switcher-btn {
+  min-width: 0;
+  flex: 1 1 0;
+  padding-inline: .35rem;
+  white-space: nowrap;
+}
+.tp-workbench__global-map-switch .cds--content-switcher-btn__label {
+  overflow: visible;
+  text-overflow: clip;
+}
+@media (max-width: 600px) {
+  .tp-workbench__filter-note { max-width: none; }
+  .tp-workbench__global-map-switch .cds--content-switcher { flex-wrap: wrap; }
+  .tp-workbench__global-map-switch .cds--content-switcher-btn { flex: 1 1 45%; }
+}

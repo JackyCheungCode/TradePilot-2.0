@@ -608,7 +608,6 @@ export function CustomerCommunicationsWidget({
 
             <form className="tp-chat-composer" onSubmit={sendMessage}>
               <div className="tp-chat-routing">
-                <span>回复渠道</span>
                 <div className="tp-chat-channel-picker">
                   <Dropdown
                     id="communication-reply-channel"
