@@ -52,3 +52,29 @@ values
  ('search_agent_runs','Agent 执行任务查询','查询当前账户拥有权的 Agent 执行任务','agent_operations','system','search_agent_runs','read_only','system',true,'active'),
  ('search_discovery_runs','潜客发现任务查询','查询当前账户拥有权的潜客发现任务','agent_operations','system','search_discovery_runs','read_only','system',true,'active')
 on conflict do nothing;
+
+
+-- Preserve all previously discovered external tools as enabled registry entries.
+insert into public.agent_tool_registry
+  (owner_id,tool_key,name,description,category,source,connection_id,protocol_tool_name,risk,policy_source,enabled,status,input_schema,metadata)
+select
+  c.owner_id,
+  'ext:' || c.id::text || ':' || coalesce(t.value->>'name',''),
+  left(coalesce(t.value->>'name','External tool'),120),
+  left(coalesce(t.value->>'description',''),1000),
+  'external_integration',
+  'external',
+  c.id,
+  t.value->>'name',
+  case when t.value->>'risk'='blocked' then 'blocked'
+       when t.value->>'risk'='read_only' and t.value->>'riskPolicySource'='user' then 'read_only'
+       else 'approval_required' end,
+  case when t.value->>'riskPolicySource'='user' then 'user' else 'default' end,
+  true,
+  case when c.status='active' then 'active' else 'pending' end,
+  case when jsonb_typeof(t.value->'inputSchema')='object' then t.value->'inputSchema' else '{}'::jsonb end,
+  jsonb_build_object('protocol',c.protocol,'migratedFrom','agent_connections.protocol_tools')
+from public.agent_connections c
+cross join lateral jsonb_array_elements(coalesce(c.protocol_tools,'[]'::jsonb)) as t(value)
+where coalesce(t.value->>'name','') <> ''
+on conflict (owner_id,tool_key) do nothing;
