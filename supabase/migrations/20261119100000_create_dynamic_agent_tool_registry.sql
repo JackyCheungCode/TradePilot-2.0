@@ -28,7 +28,7 @@ create table if not exists public.agent_tool_registry (
 create unique index if not exists agent_tool_registry_system_key_uq
   on public.agent_tool_registry(tool_key) where source='system';
 create unique index if not exists agent_tool_registry_owner_key_uq
-  on public.agent_tool_registry(owner_id,tool_key) where source='external';
+  on public.agent_tool_registry(owner_id,tool_key);
 create index if not exists agent_tool_registry_owner_updated_idx
   on public.agent_tool_registry(owner_id,updated_at desc) where owner_id is not null;
 alter table public.agent_tool_registry enable row level security;
