@@ -343,11 +343,11 @@ export function TpDataTable<T extends Record<string, unknown>>({
                       <TableRow
                         {...getRowProps({ row: carbonRow })}
                         className={`${activeRowId === carbonRow.id ? 'tp-data-table__row--active' : ''}`}
-                        onClick={() => onRowOpen?.(source)}
+                        onClick={(event) => onRowOpen?.(source, event.currentTarget)}
                         onKeyDown={(event) => {
                           if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ') && onRowOpen) {
                             event.preventDefault();
-                            onRowOpen(source);
+                            onRowOpen(source, event.currentTarget);
                           }
                         }}
                         tabIndex={onRowOpen ? 0 : undefined}
