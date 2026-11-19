@@ -231,8 +231,7 @@ export function LeadConsolePage() {
           </Select>
         </div>
         <TpDataTable
-      selectable
-                        selectable
+        selectable
           ariaLabel="正式线索列表"
           columnSettingsKey="crm-leads"
           rowKey="id"
