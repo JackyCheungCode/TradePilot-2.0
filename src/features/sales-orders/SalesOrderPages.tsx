@@ -2,7 +2,7 @@ import { PageHeader } from '@/design-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
-  Button, Link, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput, TextArea,
+  Button, Link, TPSkeleton, TPInlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput, TextArea,
   Tabs, TabList, Tab, TabPanels, TabPanel, Table, TableHead, TableRow, TableHeader, TableBody, TableCell,
   semanticIcons, BusinessLifecycle, WorldMapChart, TpDataTable,
 } from '@/design-system';
@@ -102,7 +102,7 @@ export function SalesOrderConsolePage(){
   <section className="tp-sales-orders__panel tp-sales-orders__market-panel"><div className="tp-sales-orders__panel-head"><div><h2>全球订单市场分布</h2><p>按订单收货目的国家 / 地区统计订单数量；选择地图或排名可筛选下方订单列表。</p></div><Tag type="blue">{orderMarkets.length} 个目的市场</Tag></div>{orderMarkets.length?<WorldMapChart data={orderMarkets} unitLabel="笔订单" selectedCode={marketCountry==='all'?undefined:marketCountry} onCountrySelect={code=>setMarketCountry(current=>current===code?'all':code)}/>:<p className="tp-sales-orders__empty">当前订单尚未提供可识别的目的国家 / 地区字段。</p>}</section>
   <section className="tp-sales-orders__panel"><div className="tp-sales-orders__panel-head"><div><h2>销售订单列表</h2><p>草稿可继续编辑；订单确认后商业条件锁定。</p></div><Tag type="blue">{filtered.length} 条记录</Tag></div>
    <div className="tp-sales-orders__filters"><TextInput id="sales-order-search" labelText="搜索销售订单" placeholder="订单号、客户、客户 PO 号" value={query} onChange={e=>setQuery(e.currentTarget.value)}/><Select id="sales-order-status" labelText="订单状态" value={status} onChange={e=>setStatus(e.currentTarget.value)}><SelectItem value="all" text="全部状态"/>{['draft','confirmed','preparing','partially_shipped','shipped','completed','cancelled'].map(s=><SelectItem key={s} value={s} text={stateLabel(s)}/>)}</Select></div>
-   {loading?<div className="tp-sales-orders__loading"><InlineLoading description="正在读取销售订单…"/></div>:<div className="tp-sales-orders__table-wrap"><TpDataTable
+   {loading?<div className="tp-sales-orders__loading"><TPSkeleton variant="table" rows={6}/></div>:<div className="tp-sales-orders__table-wrap"><TpDataTable
         selectable
      ariaLabel="销售订单列表"
      detailPanel error={error||null} onRetry={load} selectionScopeKey={[query,status,currency,marketCountry].join('|')} columnSettingsKey="sales-orders" rowKey="id"
@@ -150,7 +150,7 @@ export function SalesOrderFormPage(){
  const itemRows=finalLines.filter(l=>l.line_type==='product'&&l.line_status!=='cancelled').map((l,i)=>({owner_id:user.id,order_id:savedId,product_id:l.product_id||null,line_number:i+1,sku:l.sku||null,product_name:l.name,description:l.description||l.spec||null,hs_code:l.hs_code||null,origin_country_code:l.origin_country||null,quantity:Math.max(0.000001,l.quantity),unit:l.unit||'pcs',unit_price:l.unit_price,discount_amount:Number((l.quantity*l.unit_price*l.discount_pct/100).toFixed(2)),tax_rate:l.tax_rate,net_weight:Number(l.net_weight)||null,gross_weight:Number(l.gross_weight)||null,weight_unit:'kg',amount:Math.max(0,l.quantity)*Math.max(0,l.unit_price)*(1-Math.max(0,l.discount_pct)/100),product_snapshot:{...l,customer_sku:l.customer_sku,plans:l.plans}}));if(itemRows.length){const insItems=await db.from('trade_order_items').insert(itemRows);if(insItems.error)throw insItems.error;}
  const ev=await db.from('trade_document_events').insert({owner_id:user.id,order_id:savedId,event_type:orderId?'sales_order_draft_updated':'sales_order_created',payload:{order_number:orderNo||'existing',source_quote_id:quoteId,grand_total:totals.grand_total}});if(ev.error)throw ev.error;nav('/sales-orders/'+savedId,{replace:true});
  }catch(e){setError(e instanceof Error?e.message:'保存销售订单失败')}finally{setSaving(false)}};
- if(loading)return <main className="tp-sales-orders"><InlineLoading description="正在准备销售订单…"/></main>;
+ if(loading)return <main className="tp-sales-orders"><TPSkeleton variant="profile" rows={5}/></main>;
  return <main className="tp-sales-orders"><PageHeader className="tp-sales-orders__header"><div><p className="tp-sales-orders__eyebrow">TRADEPILOT / SALES / ORDER</p><h1>{orderId?'编辑销售订单':'创建销售订单'}</h1><p>{sourceQuote?'从已接受报价单继承产品、客户与商业条款。':'可独立创建订单，也可从已接受报价单转换。'}</p></div><div className="tp-sales-orders__actions"><Link href="/sales-orders">返回列表</Link><Button kind="primary" disabled={saving} onClick={()=>void save()}>{saving?'保存中…':'保存草稿'}</Button></div></PageHeader>
  {error&&<InlineNotification kind="error" title="销售订单操作失败" subtitle={error}/>}
  <section className="tp-sales-orders__form-shell">
@@ -235,7 +235,7 @@ export function SalesOrderDetailPage(){
  if(next==='cancelled'&&order.status==='active'&&so.settings_snapshot?.order?.allowCancelAfterConfirm!=='true')throw new Error('设置中心禁止取消已确认订单。');
  if(next==='cancelled'&&!cancelReason.trim())throw new Error('请填写取消原因。');if(next==='cancelled'&&['shipped','partially_shipped'].includes(so.fulfillment_status||''))throw new Error('订单已有发货记录，不能取消整份订单；请按未发货数量走订单变更流程。');if(next==='cancelled'&&Number(so.totals?.paid_amount||0)>0)throw new Error('订单已有收款，请先完成退款记录后再取消。');
  const result=await db.rpc('confirm_sales_order_status_transition',{p_order_id:order.id,p_expected_status:orderState(order),p_target_status:next,p_reason:next==='cancelled'?cancelReason.trim():null});if(result.error)throw result.error;await load();}catch(e){setError(e instanceof Error?e.message:'更新订单状态失败')}};
- if(loading)return <main className="tp-sales-orders"><InlineLoading description="正在读取销售订单…"/></main>;
+ if(loading)return <main className="tp-sales-orders"><TPSkeleton variant="profile" rows={6}/></main>;
  if(!order)return <main className="tp-sales-orders"><InlineNotification kind="error" title="销售订单不可用" subtitle={error||'订单不存在'}/><Link href="/sales-orders">返回列表</Link></main>;
  const so=order.metadata?.sales_order||{};const s=orderState(order);const totals=so.totals||{};const form=so.form||{};const lines=so.order_lines||[];const payments=so.payment_schedule||[];const paid=Number(totals.paid_amount||0);const outstanding=Number(totals.outstanding_amount||Math.max(0,Number(totals.grand_total||0)-paid));
  return <main className="tp-sales-orders"><PageHeader className="tp-sales-orders__header"><div><p className="tp-sales-orders__eyebrow">TRADEPILOT / SALES / ORDER</p><h1>{order.order_number}</h1><p>{order.title} · {so.account_snapshot?.account_name||'客户'} · V{Number(so.revision||0)+1}</p></div><div className="tp-responsive-header-actions">{s==='draft'&&<Button className="tp-responsive-header-actions__primary" kind="primary" onClick={()=>void transition('confirmed')}>确认订单并锁定价格</Button>}<div className="tp-responsive-header-actions__secondary"><Link href="/sales-orders">返回列表</Link>{order.locked_at&&<Link href={'/documents?order_id='+order.id+'&category=sales&document_type=proforma_invoice'}>生成单据</Link>}{s==='draft'&&<Link href={'/sales-orders/'+order.id+'/edit'}>编辑草稿</Link>}</div></div></PageHeader>
