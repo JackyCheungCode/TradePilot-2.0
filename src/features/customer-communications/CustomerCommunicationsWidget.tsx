@@ -225,7 +225,7 @@ export function CustomerCommunicationsWidget({
           email: contact.email || '',
           phone: contact.phone || contact.mobile || '',
           tags,
-          status: related.length && related.every((item) => item.status === 'resolved') ? 'resolved' : 'pending',
+          status: latestConversation && ['resolved', 'closed'].includes(latestConversation.status ?? '') ? 'resolved' : 'pending',
           unread,
           lastActivityAt: timestamp(latestConversation?.last_message_at) || timestamp(contact.updated_at),
           lastPreview: latestConversation?.last_message_preview || '尚无消息',
@@ -325,14 +325,14 @@ export function CustomerCommunicationsWidget({
     .sort((a, b) => b.lastActivityAt - a.lastActivityAt), [customers, identities, messages, search, filter, channelFilter]);
 
   const updateCustomerConversationStatus = async () => {
-    if (!activeCustomer || statusBusy) return;
+    if (!activeCustomer?.latestConversationId || statusBusy) return;
     const nextStatus = activeCustomer.status === 'resolved' ? 'pending' : 'resolved';
     setStatusBusy(true);
     setNotice('');
     try {
       const client = await getSupabaseClient();
       const { error } = await client.from('inbox_conversations')
-        .update({ status: nextStatus }).eq('contact_id', activeCustomer.id);
+        .update({ status: nextStatus }).eq('id', activeCustomer.latestConversationId);
       if (error) throw error;
       setCustomers((current) => current.map((customer) => customer.id === activeCustomer.id
         ? { ...customer, status: nextStatus } : customer));
