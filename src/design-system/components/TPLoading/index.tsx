@@ -22,8 +22,8 @@ export function TPLoading({
   if (!active) return children ? <>{children}</> : null;
   return (
     <div className={['tp-loading', withOverlay ? 'tp-loading--overlay' : '', className].filter(Boolean).join(' ')} role="status" aria-live="polite">
-      <Loading active withOverlay={withOverlay} small={small} description={description} />
       {children}
+      <Loading active withOverlay={withOverlay} small={small} description={description} />
     </div>
   );
 }
