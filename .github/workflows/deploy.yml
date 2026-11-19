@@ -42,3 +42,5 @@ jobs:
             exit 1
           fi
           npm run worker:deploy
+
+# Production deployment is intentionally triggered by every develop branch update.
