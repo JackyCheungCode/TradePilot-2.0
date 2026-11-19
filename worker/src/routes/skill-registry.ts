@@ -1,6 +1,7 @@
 import { errorResponse, successResponse } from "../lib/http.ts";
 
-type Env = { SUPABASE_URL:string; SUPABASE_ANON_KEY:string; SUPABASE_SERVICE_ROLE_KEY:string };
+type Env = { SUPABASE_URL:string; SUPABASE_ANON_KEY:string; SUPABASE_SERVICE_ROLE_KEY:string; SKILL_ARTIFACTS:R2Bucket };
+type ArtifactRef = { key:string; sha256:string; size:number; fileCount:number; contentType:string };
 type SkillConfig = Record<string, unknown>;
 type Source = { owner:string; repo:string; ref:string; path:string };
 type BundleFile = { path:string; size:number; encoding:"utf-8"|"base64"; content:string; sha:string };
@@ -84,6 +85,23 @@ function safeRelativePath(path:string,root:string):boolean{
  if(!relative||relative.split("/").some(part=>part.startsWith("." )&&part!==".well-known"))return false;
  if(BLOCKED_FILE.test(relative)||BLOCKED_BINARY.test(relative))return false;
  return true;
+}
+async function persistSkillBundle(env:Env,files:BundleFile[]):Promise<ArtifactRef>{
+ const ordered=[...files].sort((a,b)=>a.path.localeCompare(b.path));
+ const payload=JSON.stringify({schemaVersion:1,files:ordered});
+ const bytes=new TextEncoder().encode(payload);
+ const digestBuffer=await crypto.subtle.digest("SHA-256",bytes);
+ const digest=Array.from(new Uint8Array(digestBuffer),byte=>byte.toString(16).padStart(2,"0")).join("");
+ const key="sha256/"+digest+".json";
+ const existing=await env.SKILL_ARTIFACTS.head(key);
+ if(existing){
+  if(existing.customMetadata?.sha256!==digest||existing.size!==bytes.byteLength)throw new Error("SKILL_ARTIFACT_INTEGRITY_MISMATCH：内容寻址对象与预期摘要不一致。");
+ }else{
+  await env.SKILL_ARTIFACTS.put(key,payload,{httpMetadata:{contentType:"application/json; charset=utf-8"},customMetadata:{sha256:digest,format:"tradepilot-skill-bundle-v1"}});
+ }
+ const verified=await env.SKILL_ARTIFACTS.head(key);
+ if(!verified||verified.customMetadata?.sha256!==digest||verified.size!==bytes.byteLength)throw new Error("SKILL_ARTIFACT_WRITE_VERIFY_FAILED：Skill 包写入 R2 后校验失败。");
+ return {key,sha256:digest,size:bytes.byteLength,fileCount:ordered.length,contentType:"application/json"};
 }
 function base64(bytes:Uint8Array):string{
  let binary="";for(let i=0;i<bytes.length;i+=0x8000)binary+=String.fromCharCode(...bytes.subarray(i,i+0x8000));
@@ -233,13 +251,13 @@ async function fetchSkillBundle(source:Source){
 function publicConfig(config:SkillConfig):SkillConfig{
  const bundle=config.bundle&&typeof config.bundle==="object"?config.bundle as Record<string,unknown>:{};
  const contract=config.contract&&typeof config.contract==="object"?config.contract as Record<string,unknown>:null;
- return {repositoryUrl:config.repositoryUrl,branch:config.branch,skillPath:config.skillPath,manifest:config.manifest,contractStatus:config.contractStatus??"missing",contractErrors:config.contractErrors??[],contractSummary:contract?{version:contract.version,runtime:contract.runtime,entrypoint:contract.entrypoint,requiredTools:contract.requiredTools,permissions:contract.permissions,limits:contract.limits}:null,syncedAt:config.syncedAt,syncStatus:config.syncStatus,activationStatus:config.activationStatus,bundle:Object.keys(bundle).length?{fileCount:bundle.fileCount,totalBytes:bundle.totalBytes,syncedAt:bundle.syncedAt,sourceRef:bundle.sourceRef,commitSha:bundle.commitSha}:undefined,securityReview:config.securityReview};
+ return {repositoryUrl:config.repositoryUrl,branch:config.branch,skillPath:config.skillPath,manifest:config.manifest,contractStatus:config.contractStatus??"missing",contractErrors:config.contractErrors??[],contractSummary:contract?{version:contract.version,runtime:contract.runtime,entrypoint:contract.entrypoint,requiredTools:contract.requiredTools,permissions:contract.permissions,limits:contract.limits}:null,syncedAt:config.syncedAt,syncStatus:config.syncStatus,activationStatus:config.activationStatus,bundle:Object.keys(bundle).length?{fileCount:bundle.fileCount,totalBytes:bundle.totalBytes,syncedAt:bundle.syncedAt,sourceRef:bundle.sourceRef,commitSha:bundle.commitSha,artifact:bundle.artifact}:undefined,securityReview:config.securityReview};
 }
 function stateOf(config:SkillConfig):"pending"|"configured"|"synced"{
  return typeof config.syncedAt==="string"?"synced":typeof config.repositoryUrl==="string"&&config.repositoryUrl?"configured":"pending";
 }
-function skillConfig(source:Source,repositoryUrl:string,imported:Awaited<ReturnType<typeof fetchSkillBundle>>){
- return {repositoryUrl:repositoryUrl.trim(),branch:source.ref,skillPath:source.path,manifest:imported.manifest,contract:imported.contract.contract??null,contractStatus:imported.contract.status,contractErrors:imported.contract.errors,bundle:{...imported.package,files:imported.files},securityReview:imported.review,syncedAt:imported.package.syncedAt,syncStatus:"package_synced",activationStatus:"disabled_pending_review"};
+function skillConfig(source:Source,repositoryUrl:string,imported:Awaited<ReturnType<typeof fetchSkillBundle>>,artifact:ArtifactRef){
+ return {repositoryUrl:repositoryUrl.trim(),branch:source.ref,skillPath:source.path,manifest:imported.manifest,contract:imported.contract.contract??null,contractStatus:imported.contract.status,contractErrors:imported.contract.errors,bundle:{...imported.package,artifact},securityReview:imported.review,syncedAt:imported.package.syncedAt,syncStatus:"package_synced",activationStatus:"disabled_pending_review"};
 }
 export async function handleSkillRegistry(request:Request,env:Env):Promise<Response>{
  const ownerId=await ownerFromRequest(request,env);
@@ -258,7 +276,8 @@ export async function handleSkillRegistry(request:Request,env:Env):Promise<Respo
    if(typeof body.repositoryUrl!=="string"||body.repositoryUrl.length>500)return errorResponse(request,"INVALID_REPOSITORY_URL","请填写有效的 GitHub 仓库地址。",400);
    const source=parseSource(body.repositoryUrl,body.branch??"",body.skillPath??"");
    const imported=await fetchSkillBundle(source);const id=imported.manifest.name;const agentKey="skill:"+id;
-   const config=skillConfig(source,body.repositoryUrl,imported);
+   const artifact=await persistSkillBundle(env,imported.files);
+   const config=skillConfig(source,body.repositoryUrl,imported,artifact);
    await db(env,"agent_profiles?on_conflict=owner_id,agent_key",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({owner_id:ownerId,agent_key:agentKey,enabled:false,config,updated_at:new Date().toISOString()})});
    return successResponse(request,{id,label:imported.manifest.display_name||id,state:"package_synced",manifest:imported.manifest,contractStatus:imported.contract.status,contractErrors:imported.contract.errors,package:imported.package,securityReview:imported.review,activationStatus:"disabled_pending_review"});
   }
@@ -284,7 +303,8 @@ export async function handleSkillRegistry(request:Request,env:Env):Promise<Respo
    const source=parseSource(repositoryUrl,String(config.branch??""),String(config.skillPath??""));
    const imported=await fetchSkillBundle(source);
    if(imported.manifest.name!==skillId)return errorResponse(request,"SKILL_ID_MISMATCH","SKILL.md 的 name 与当前 Skill 标识不一致。",422);
-   const next={...skillConfig(source,repositoryUrl,imported),createdFrom:config.createdFrom??"github_import"};
+   const artifact=await persistSkillBundle(env,imported.files);
+   const next={...skillConfig(source,repositoryUrl,imported,artifact),createdFrom:config.createdFrom??"github_import"};
    await db(env,"agent_profiles?owner_id=eq."+ownerId+"&agent_key=eq."+encodeURIComponent(agentKey),{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({enabled:false,config:next,updated_at:new Date().toISOString()})});
    return successResponse(request,{id:skillId,state:"package_synced",manifest:imported.manifest,contractStatus:imported.contract.status,contractErrors:imported.contract.errors,package:imported.package,securityReview:imported.review,activationStatus:"disabled_pending_review"});
   }
