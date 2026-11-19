@@ -85,8 +85,9 @@ test("Tools policy rejects unsupported risk values",async()=>{
 
 
 test("Xiaoya chat receives enabled Skill instructions and only registry-enabled native tools",async()=>{
- const artifactKey="sha256/"+"a".repeat(64)+".json";
  const artifactBody=JSON.stringify({schemaVersion:1,files:[{path:"SKILL.md",encoding:"utf-8",content:"---\\nname: demo-skill\\ndescription: Demo workflow\\n---\\n\\nUse a three-step evidence review workflow.",size:100,sha:"x"}]});
+ const artifactDigest=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(artifactBody))),byte=>byte.toString(16).padStart(2,"0")).join("");
+ const artifactKey="sha256/"+artifactDigest+".json";
  const artifactBucket={async get(key:string){return key===artifactKey?{async arrayBuffer(){return new TextEncoder().encode(artifactBody).buffer;}}:null;}};
  const seenSystems:string[]=[];let modelCalls=0;let leadQueries=0;
  const chatEnv={...env,SKILL_ARTIFACTS:artifactBucket,AI:{async run(_model:string,input:Record<string,unknown>){
