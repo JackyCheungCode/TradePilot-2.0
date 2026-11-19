@@ -47,6 +47,7 @@ export function GeneratedDocumentsPage() {
     <section className="tp-documents__list">
       <div className="tp-documents__list-head"><div className="tp-documents__list-heading"><h2>单据记录</h2><p>按编号、名称或类型搜索；选择单据可查看内容和版本记录。</p></div><div className="tp-documents__search"><TextInput id="tp-generated-doc-search" labelText="搜索单据" hideLabel placeholder="单据编号、名称或类型" value={search} onChange={event => {setSearch(event.currentTarget.value);setPage(1);}} /></div></div>
       {loading ? <div className="tp-documents__loading"><InlineLoading description="正在加载单据…" /></div> : filtered.length ? <div className="tp-documents__table-wrap"><TpDataTable
+      selectable
                         selectable
         ariaLabel="已生成单据列表"
         columnSettingsKey="trade-generated-documents"
