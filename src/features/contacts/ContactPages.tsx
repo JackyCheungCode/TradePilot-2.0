@@ -90,7 +90,7 @@ function SocialRows({items,onChange,platforms}:{items:ContactMethod[];onChange:(
 }
 
 
-const PAGE_SIZE = 20;
+const DEFAULT_PAGE_SIZE = 20;
 type CountryStat = { key: string; label: string; total: number; verified: number; active: number };
 type DailyStat = { date: string; count: number };
 type ContactTableRow = ContactRow & Record<string, unknown> & { __groupLabel?: string; __isGroup?: boolean };
@@ -140,6 +140,7 @@ export function ContactConsolePage() {
   const [sourceFilter,setSourceFilter]=useState('all');
   const [primaryFilter,setPrimaryFilter]=useState('all');
   const [page,setPage]=useState(1);
+  const [pageSize,setPageSize]=useState<10|20|50|100>(DEFAULT_PAGE_SIZE);
   const [groupBy,setGroupBy]=useState('country');
   const [thenBy,setThenBy]=useState('account');
   const [showGroups,setShowGroups]=useState(true);
@@ -206,15 +207,15 @@ export function ContactConsolePage() {
       if(sourceFilter!=='all') listQuery=listQuery.eq('custom_fields->>source',sourceFilter);
       const q=query.trim().replace(/[^\p{L}\p{N}\s@+.-]/gu,' ').replace(/\s+/g,' ');
       if(q) listQuery=listQuery.or(['full_name','first_name','last_name','email','phone','mobile','job_title','department'].map(k=>k+'.ilike.%'+q+'%').join(','));
-      const from=(page-1)*PAGE_SIZE;
-      const {data,error:e,count}=await listQuery.range(from,from+PAGE_SIZE-1);
+      const from=(page-1)*pageSize;
+      const {data,error:e,count}=await listQuery.range(from,from+pageSize-1);
       if(e) throw e;
       setRows((data??[]) as unknown as ContactRow[]);
       setTotal(count??0);
     } catch(e) {
       setError(e instanceof Error?e.message:'读取联系人失败');
     } finally { setLoading(false); }
-  },[page,query,statusFilter,sourceFilter,primaryFilter]);
+  },[page,pageSize,query,statusFilter,sourceFilter,primaryFilter]);
 
   useEffect(()=>{void loadAnalytics();},[loadAnalytics]);
   useEffect(()=>{void loadRows();},[loadRows]);
@@ -243,7 +244,7 @@ export function ContactConsolePage() {
     if (!showGroups) return rows as ContactTableRow[];
     const result:ContactTableRow[]=[];
     grouped.forEach(group => {
-      result.push({id:'group-'+group.label, __isGroup:true, __groupLabel:group.label+' · '+group.children.reduce((sum,x)=>sum+x.items.length,0)} as ContactTableRow);
+      result.push({id:'group-'+group.label, __isGroup:true, __groupLabel:group.label+' · '+group.children.reduce((sum,x)=>sum+x.items.length,0)} as unknown as ContactTableRow);
       group.children.forEach(child => {
         if (thenBy!=='none') result.push({id:'group-'+group.label+'-'+child.label, __isGroup:true, __groupLabel:'　'+child.label+' · '+child.items.length} as ContactTableRow);
         result.push(...child.items as ContactTableRow[]);
@@ -256,9 +257,9 @@ export function ContactConsolePage() {
   const countryMapData=countryStats.filter(item=>item.key!=='unknown').map(item=>({code:item.key,label:item.label,value:item.total,detail:'已验证 '+item.verified+' · 在职 '+item.active}));
   const dailyChartData=dailyStats.map(item=>({group:'每日新增',date:new Date(item.date+'T00:00:00'),value:item.count}));
   const dailyChartOptions={theme:document.documentElement.dataset.carbonTheme==='g100'?'g100':'white',title:'每日新增联系人',axes:{bottom:{title:'日期',mapsTo:'date',scaleType:ScaleTypes.TIME},left:{title:'新增联系人',mapsTo:'value',scaleType:ScaleTypes.LINEAR}},curve:'curveMonotoneX',points:{enabled:true},legend:{enabled:false},toolbar:{enabled:false},height:'280px'} as const;
-  const pages=Math.max(1,Math.ceil(total/PAGE_SIZE));
-  const start=total===0?0:(page-1)*PAGE_SIZE+1;
-  const end=Math.min(page*PAGE_SIZE,total);
+  const pages=Math.max(1,Math.ceil(total/pageSize));
+  const start=total===0?0:(page-1)*pageSize+1;
+  const end=Math.min(page*pageSize,total);
   const refresh=()=>{void Promise.all([loadAnalytics(),loadRows()]);};
   return <main className="tp-contacts">
     <PageHeader className="tp-contacts__header"><div><p className="tp-contacts__eyebrow">TRADEPILOT / CRM</p><h1>联系人（Contact）</h1><p>管理客户组织中的联系人及其关系、联系方式与沟通偏好。</p></div><div className="tp-contacts__actions"><Button kind="tertiary" onClick={refresh} disabled={loading||analyticsLoading}><semanticIcons.refresh size={16}/>刷新</Button><Link href="/contacts/new" renderIcon={semanticIcons.add}>创建联系人</Link></div></PageHeader>
@@ -299,7 +300,7 @@ export function ContactConsolePage() {
         columnSettingsKey="crm-contacts"
         selectionScopeKey={tableSearchScope}
         onRowOpen={(row)=>{if(!row.__isGroup) navigate('/contacts/'+row.id);}}
-        pagination={{page,pageSize:20,totalItems:total,serverSide:true,onChange:(nextPage)=>setPage(nextPage)}}
+        pagination={{page,pageSize,totalItems:total,serverSide:true,onChange:(nextPage,nextPageSize)=>{setPage(nextPage);setPageSize(nextPageSize);}}}
       />:<p className="tp-contacts__empty">没有找到联系人记录。</p>}
     </section>
   </main>;
