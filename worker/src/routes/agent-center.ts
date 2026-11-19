@@ -733,7 +733,9 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
       if(!tools.length)throw new Error("AGENT_NO_TOOLS_DISCOVERED: 该端点没有发现可用工具。");
       const policyAudit=connection.protocol_metadata?.toolPolicyAudit;
       if(Array.isArray(policyAudit))metadata.toolPolicyAudit=policyAudit.slice(-50);
-      await db<ConnectionRow[]>(env,"agent_connections?id=eq."+connection.id+"&owner_id=eq."+ownerId,{method:"PATCH",headers:{Prefer:"return=representation"},body:JSON.stringify({protocol_tools:tools,protocol_metadata:metadata,status:"active",last_tested_at:new Date().toISOString(),last_error:null,updated_at:new Date().toISOString()})});
+      const discoveredAt=new Date().toISOString();
+      const saved=await db<ConnectionRow[]>(env,"agent_connections?id=eq."+connection.id+"&owner_id=eq."+ownerId+"&updated_at=eq."+encodeURIComponent(connection.updated_at),{method:"PATCH",headers:{Prefer:"return=representation"},body:JSON.stringify({protocol_tools:tools,protocol_metadata:metadata,status:"active",last_tested_at:discoveredAt,last_error:null,updated_at:discoveredAt})});
+      if(!saved?.length)return errorResponse(request,"CONNECTION_CHANGED_DURING_DISCOVERY","连接或工具权限在能力发现期间已更新，请重新发现，避免覆盖最新权限策略。",409);
       return successResponse(request,{connectionId:connection.id,status:"active",tools,metadata},200);
     }
 
