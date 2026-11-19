@@ -254,7 +254,7 @@ function extractModelText(value:unknown):string{
  if(Array.isArray(content.parts))return content.parts.map(item=>String(asRecord(item).text??"")).join("\\n");
  return "";
 }
-function parsePlannerJson(raw:string):Record<string,unknown>{
+export function parsePlannerJson(raw:string):Record<string,unknown>{
  const cleaned=raw.trim().replace(/^```(?:json)?/i,"").replace(/```$/,"").trim();
  const start=cleaned.indexOf("{"),end=cleaned.lastIndexOf("}");
  if(start<0||end<=start)throw new Error("AGENT_PLANNER_INVALID_JSON");
@@ -441,7 +441,7 @@ async function executeXiaoyaReadTool(env:Env,ownerId:string,name:string,rawArgs:
 }
 
 
-type XiaoyaExternalTool={callName:string;connection:ConnectionRow;tool:Record<string,unknown>;label:string;inputSchema:Record<string,unknown>};
+export type XiaoyaExternalTool={callName:string;connection:ConnectionRow;tool:Record<string,unknown>;label:string;inputSchema:Record<string,unknown>};
 function validateXiaoyaToolSchema(schema:Record<string,unknown>,value:unknown,depth=0):boolean{
  if(depth>6)return false;
  const type=typeof schema.type==="string"?schema.type:"object";
@@ -460,14 +460,17 @@ function validateXiaoyaToolSchema(schema:Record<string,unknown>,value:unknown,de
  if(type==="null")return value===null;
  return false;
 }
-async function loadXiaoyaExternalTools(env:Env,ownerId:string):Promise<XiaoyaExternalTool[]>{
+export async function loadXiaoyaExternalTools(env:Env,ownerId:string,selectedToolKeys?:string[]):Promise<XiaoyaExternalTool[]>{
+ if(selectedToolKeys&&selectedToolKeys.length===0)return [];
+ const selected=selectedToolKeys?new Set(selectedToolKeys):null;
  const [registry,connections]=await Promise.all([
-  db<Array<{id:string;connection_id:string|null;protocol_tool_name:string|null;name:string;description:string;input_schema:Record<string,unknown>;risk:string;policy_source:string}>>(env,"agent_tool_registry?owner_id=eq."+ownerId+"&source=eq.external&enabled=eq.true&status=eq.active&risk=eq.read_only&policy_source=eq.user&select=id,connection_id,protocol_tool_name,name,description,input_schema,risk,policy_source&order=tool_key.asc&limit=100").catch(()=>[]),
+  db<Array<{id:string;tool_key:string;connection_id:string|null;protocol_tool_name:string|null;name:string;description:string;input_schema:Record<string,unknown>;risk:string;policy_source:string}>>(env,"agent_tool_registry?owner_id=eq."+ownerId+"&source=eq.external&enabled=eq.true&status=eq.active&risk=eq.read_only&policy_source=eq.user&select=id,tool_key,connection_id,protocol_tool_name,name,description,input_schema,risk,policy_source&order=tool_key.asc&limit=100").catch(()=>[]),
   db<ConnectionRow[]>(env,"agent_connections?owner_id=eq."+ownerId+"&status=eq.active&select=id,owner_id,name,protocol,endpoint_url,auth_mode,encrypted_credentials,capabilities,protocol_tools,protocol_metadata,status,last_tested_at,last_error,created_at,updated_at&limit=100").catch(()=>[])
  ]);
  const byId=new Map((connections??[]).map(connection=>[connection.id,connection]));
  const result:XiaoyaExternalTool[]=[];
  for(const entry of registry??[]){
+  if(selected&&!selected.has(entry.tool_key))continue;
   const connection=entry.connection_id?byId.get(entry.connection_id):undefined;
   if(!connection||connection.status!=="active"||!["mcp","rest_api"].includes(connection.protocol)||!isPublicHttpsEndpoint(connection.endpoint_url))continue;
   const tool=(connection.protocol_tools??[]).find(item=>item.name===entry.protocol_tool_name);
@@ -479,7 +482,7 @@ async function loadXiaoyaExternalTools(env:Env,ownerId:string):Promise<XiaoyaExt
  }
  return result;
 }
-async function executeXiaoyaExternalReadTools(env:Env,ownerId:string,rawCalls:unknown,advertised:XiaoyaExternalTool[]):Promise<Array<Record<string,unknown>>>{
+export async function executeXiaoyaExternalReadTools(env:Env,ownerId:string,rawCalls:unknown,advertised:XiaoyaExternalTool[]):Promise<Array<Record<string,unknown>>>{
  if(!Array.isArray(rawCalls)||!advertised.length)return [];
  const current=await loadXiaoyaExternalTools(env,ownerId);
  const allowed=new Map(current.map(item=>[item.callName,item]));
