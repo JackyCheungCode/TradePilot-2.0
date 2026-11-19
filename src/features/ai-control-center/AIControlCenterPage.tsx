@@ -4,13 +4,14 @@ import { ContainedList, ContainedListItem, Grid, Column, InlineNotification, Tag
 import '@/design-system/patterns/settings.scss';
 import { AgentSettings } from '@/features/settings/AgentSettings';
 import { IntegrationsSettings } from '@/features/settings/IntegrationsSettings';
+import { ExternalAgentConnections } from './ExternalAgentConnections';
 
 type Section = { id: string; label: string; group: string; ready: boolean };
 const sections: Section[] = [
   { id: 'overview', label: 'AI 总览', group: 'AI 平台', ready: true },
   { id: 'models', label: '模型与供应商', group: 'AI 基础配置', ready: true },
   { id: 'agents', label: 'Agent 管理', group: 'Agent 能力', ready: true },
-  { id: 'connections', label: '第三方 Agent 接入', group: 'Agent 能力', ready: false },
+  { id: 'connections', label: '第三方 Agent 接入', group: 'Agent 能力', ready: true },
   { id: 'skills', label: 'Skills 管理', group: 'Agent 能力', ready: false },
   { id: 'tools', label: 'Tools 管理', group: 'Agent 能力', ready: false },
   { id: 'tasks', label: '任务与调度', group: '执行管理', ready: false },
@@ -111,6 +112,7 @@ export function AIControlCenterPage() {
                 </>
               )}
               {active === 'agents' && <AgentSettings section="profiles" />}
+              {active === 'connections' && <ExternalAgentConnections />}
               {active === 'appearance' && <AgentSettings section="appearance" />}
               {active === 'history' && <AgentSettings section="history" />}
               {!sections.find(item => item.id === active)?.ready && (
