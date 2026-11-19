@@ -453,7 +453,7 @@ async function loadXiaoyaSkillContext(env:Env,ownerId:string):Promise<string>{
  for(const row of rows??[]){
   if(sections.length>=5||budget<=0)break;
   const config=asRecord(row.config),bundle=asRecord(config.bundle),artifact=asRecord(bundle.artifact),key=typeof artifact.key==="string"?artifact.key:"";
-  if(!/^sha256\\/[a-f0-9]{64}\\.json$/.test(key))continue;
+  if(!/^sha256\/[a-f0-9]{64}\.json$/.test(key))continue;
   try{
    const object=await env.SKILL_ARTIFACTS.get(key);if(!object)continue;
    const bytes=new Uint8Array(await object.arrayBuffer());
