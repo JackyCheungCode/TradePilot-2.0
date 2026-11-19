@@ -357,7 +357,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
     return () => window.removeEventListener('popstate', syncFromUrl);
   }, [detailPanel]);
 
-  const rowById = useMemo(() => new Map(rows.map((row) => [String(row[rowKey]), row])), [rows, rowKey]);
+  const rowById = useMemo(() => new Map(rows.map((row) => [String(row[rowKey]), row] as const)), [rows, rowKey]);
   const carbonRows = useMemo(() => rows.map((row) => ({
     id: String(row[rowKey]),
     ...Object.fromEntries(visibleColumns.map((column) => [column.key, displayValue(row, column)])),
