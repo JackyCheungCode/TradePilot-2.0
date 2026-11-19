@@ -224,6 +224,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
                   {...getBatchActionProps()}
                   onCancel={() => {
                     setSelectedIds(new Set());
+                    selectedRowCache.current.clear();
                     getBatchActionProps().onCancel();
                   }}
                 >
@@ -246,6 +247,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
                     <Button kind="ghost" size="sm" onClick={() => {
                       carbonSelectedRows.forEach((row) => selectRow(row.id));
                       setSelectedIds(new Set());
+                      selectedRowCache.current.clear();
                     }}>清除选择</Button>
                   </div>
                 )}
