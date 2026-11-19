@@ -51,6 +51,7 @@ function paymentLabel(s:string){return ({unpaid:'未收款',partial:'部分收�
 function Metric({label,value,icon:Icon,detail}:{label:string;value:string;icon:React.ElementType;detail:string}){return <div className="tp-sales-orders__metric"><div className="tp-sales-orders__metric-head"><span>{label}</span><Icon size={24} aria-hidden="true"/></div><strong>{value}</strong><small>{detail}</small></div>}
 
 export function SalesOrderConsolePage(){
+ const nav=useNavigate();
  const [rows,setRows]=useState<OrderRow[]>([]);const [accounts,setAccounts]=useState<Account[]>([]);const [loading,setLoading]=useState(true);const [error,setError]=useState('');const [query,setQuery]=useState('');const [status,setStatus]=useState('all');const [currency,setCurrency]=useState('USD');const [marketCountry,setMarketCountry]=useState('all');const [page,setPage]=useState(1);const [pageSize,setPageSize]=useState<10|20|50|100>(20);
  const load=useCallback(async()=>{setLoading(true);setError('');try{const db=await getSupabaseClient();const [orders,acc]=await Promise.all([db.from('trade_orders').select('*').eq('order_type','sales').order('created_at',{ascending:false}).range(0,2999),db.from('crm_accounts').select('id,account_name').eq('is_archived',false).order('account_name')]);if(orders.error)throw orders.error;if(acc.error)throw acc.error;setRows((orders.data||[]) as OrderRow[]);setAccounts((acc.data||[]) as Account[]);}catch(e){setError(e instanceof Error?e.message:'读取销售订单失败')}finally{setLoading(false)}},[]);
  useEffect(()=>{void load()},[load]);
