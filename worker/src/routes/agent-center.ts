@@ -432,14 +432,42 @@ async function executeXiaoyaReadTool(env:Env,ownerId:string,name:string,rawArgs:
  }
 }
 
-async function executeXiaoyaReadTools(env:Env,ownerId:string,rawCalls:unknown):Promise<Array<Record<string,unknown>>>{
+async function executeXiaoyaReadTools(env:Env,ownerId:string,rawCalls:unknown,allowedNames:Set<string>):Promise<Array<Record<string,unknown>>>{
  if(!Array.isArray(rawCalls))return [];
  const results:Array<Record<string,unknown>>=[];
  for(const raw of rawCalls.slice(0,3)){
   const call=asRecord(raw),name=typeof call.name==="string"?call.name:"";
+  if(!allowedNames.has(name))continue;
   results.push(await executeXiaoyaReadTool(env,ownerId,name,call.arguments));
  }
  return results;
+}
+
+async function loadXiaoyaSkillContext(env:Env,ownerId:string):Promise<string>{
+ if(!env.SKILL_ARTIFACTS)return "";
+ const rows=await db<Array<{agent_key:string;config:Record<string,unknown>}>>(env,"agent_profiles?owner_id=eq."+ownerId+"&enabled=eq.true&agent_key=like.skill%3A*&select=agent_key,config&order=updated_at.desc&limit=20");
+ const sections:string[]=[];let budget=16000;
+ for(const row of rows??[]){
+  if(sections.length>=5||budget<=0)break;
+  const config=asRecord(row.config),bundle=asRecord(config.bundle),artifact=asRecord(bundle.artifact),key=typeof artifact.key==="string"?artifact.key:"";
+  if(!/^sha256\\/[a-f0-9]{64}\\.json$/.test(key))continue;
+  try{
+   const object=await env.SKILL_ARTIFACTS.get(key);if(!object)continue;
+   const bytes=new Uint8Array(await object.arrayBuffer());
+   if(bytes.byteLength>800000)continue;
+   const expected=typeof artifact.sha256==="string"?artifact.sha256:"";
+   const digest=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",bytes)),byte=>byte.toString(16).padStart(2,"0")).join("");
+   if(!expected||digest!==expected)continue;
+   const parsed=asRecord(JSON.parse(new TextDecoder().decode(bytes))),files=Array.isArray(parsed.files)?parsed.files:[];
+   const skillFile=files.map(asRecord).find(file=>file.path==="SKILL.md"&&file.encoding==="utf-8"&&typeof file.content==="string");
+   if(!skillFile)continue;
+   const content=String(skillFile.content).slice(0,Math.min(6000,budget));
+   const manifest=asRecord(config.manifest),name=String(manifest.name??row.agent_key.slice(6));
+   const description=String(manifest.description??"");
+   sections.push(JSON.stringify({name,description,instructions:content}));budget-=content.length;
+  }catch{/* An unavailable or malformed Skill is skipped; chat remains available. */}
+ }
+ return sections.join("\\n");
 }
 
 type ChatTurn={role:"user"|"assistant";content:string};
