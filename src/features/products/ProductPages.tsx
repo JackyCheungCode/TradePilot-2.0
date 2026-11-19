@@ -108,6 +108,7 @@ export function ProductConsolePage(){
  rowKey="id"
  ariaLabel="产品目录"
  detailPanel
+ selectionScopeKey={[query,status,countryFilter].join('|')}
  columnSettingsKey="catalog-products"
  onRowOpen={row=>nav('/products/'+row.id)}
  pagination={{page,pageSize,totalItems:filtered.length,onChange:(nextPage,nextSize)=>{setPage(nextPage);setPageSize(nextSize);}}}
