@@ -31,7 +31,8 @@ export interface WorkerEnv {
  ASSETS: { fetch(request: Request): Promise<Response> };
  SUPABASE_URL: string;
  SUPABASE_ANON_KEY: string;
- SUPABASE_SERVICE_ROLE_KEY: string;\n SKILL_ARTIFACTS: SkillArtifactBucket;
+ SUPABASE_SERVICE_ROLE_KEY: string;
+ SKILL_ARTIFACTS: SkillArtifactBucket;
  ACTOR_GATEWAY_API_TOKEN?: string;
  INBOX_SCANNER_URL?: string;
  INBOX_SCANNER_HMAC_SECRET?: string;
