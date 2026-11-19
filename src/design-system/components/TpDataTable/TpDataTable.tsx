@@ -70,8 +70,8 @@ export function TpDataTable<T extends Record<string, unknown>>({
   const selectedRowCache = useRef(new Map<string, T>());
 
   useEffect(() => {
-    rows.forEach((row) => selectedRowCache.current.set(String(row[rowKey]), row));
-  }, [rows, rowKey]);
+    selectionRows.forEach((row) => selectedRowCache.current.set(String(row[rowKey]), row));
+  }, [selectionRows, rowKey]);
 
   const selectedRows = useMemo(
     () => [...selectedIds].map((id) => selectedRowCache.current.get(id)).filter((row): row is T => Boolean(row)),
