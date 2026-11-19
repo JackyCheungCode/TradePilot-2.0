@@ -3,7 +3,7 @@ import { Button, InlineLoading, InlineNotification, Tag, TextInput } from '@/des
 import { getSupabaseClient } from '@/lib/supabase';
 
 type Finding = { severity:'high'|'medium'|'low'; code:string; message:string; file?:string };
-type Skill = { id:string; label:string; description:string; sourceType:'starter'|'custom'; state:'pending'|'configured'|'synced'; enabled:boolean; config:Record<string,unknown> };
+type Skill = { id:string; label:string; description:string; sourceType:string; state:'pending'|'configured'|'synced'; enabled:boolean; config:Record<string,unknown> };
 type Draft = { repositoryUrl:string; branch:string; skillPath:string };
 type SecurityReview = { status?:string; riskLevel?:string; requiresHumanReview?:boolean; findings?:Finding[]; dependencies?:string[]; networkDomains?:string[]; limitations?:string[] };
 type SkillBundle = { fileCount:number; totalBytes:number; syncedAt:string };
@@ -93,11 +93,11 @@ export function SkillsRegistry(){
   finally{setBusy('');}
  };
  return <div className="tp-settings-agent">
-  <InlineNotification kind="info" lowContrast title="可扩展 Skills 注册中心" subtitle="初始十个条目不是数量上限。导入会读取 SKILL.md、完整目录文件和可选的 skill.json 执行契约，识别依赖、外部域名及部分高风险代码模式。所有导入项默认停用；契约有效和静态检查通过均不等于安全认证，也不会执行任何 Skill 代码。" />
+  <InlineNotification kind="info" lowContrast title="开放式 Skills 注册中心" subtitle="Skill 数量不设固定上限，注册表只展示你实际添加的项目。当前导入来源为公开 GitHub 仓库；系统读取 SKILL.md、完整目录文件和可选的 skill.json 执行契约，并识别依赖、外部域名及部分高风险代码模式。所有导入项默认停用；契约有效和静态检查通过均不等于安全认证，也不会执行任何 Skill 代码。" />
   {error&&<InlineNotification kind="error" title="操作失败" subtitle={error} onCloseButtonClick={()=>setError('')}/>}
   {notice&&<InlineNotification kind="success" title="操作完成" subtitle={notice} onCloseButtonClick={()=>setNotice('')}/>}
   <div className="tp-settings__editor">
-   <h3>从 GitHub 新增 Skill</h3>
+   <h3>从 GitHub 注册 Skill</h3>
    <p>支持公开仓库根目录或具体 Skill 目录。系统校验 SKILL.md，并在文件数量、单文件大小和总大小限制内导入文本及资源文件。</p>
    <div className="tp-settings__editor-grid">
     <TextInput id="new-skill-repository" labelText="GitHub 仓库 / Skill 目录 URL" placeholder="https://github.com/owner/repo/tree/main/skills/my-skill" value={newSource.repositoryUrl} onChange={event=>setNewSource(current=>({...current,repositoryUrl:event.currentTarget.value}))}/>
@@ -108,7 +108,7 @@ export function SkillsRegistry(){
   </div>
   <div className="tp-settings__editor">
    <h3>Skills 注册表 <Tag type="cool-gray">{skills.length} 项</Tag></h3>
-   {loading?<InlineLoading description="正在读取 Skill 注册表…"/>:skills.length===0?<p>尚无 Skill 记录。可以从 GitHub 新增第一个 Skill。</p>:<div className="tp-settings__section-layout">
+   {loading?<InlineLoading description="正在读取 Skill 注册表…"/>:skills.length===0?<p>尚无 Skill 记录。可以从 GitHub 注册第一个 Skill。</p>:<div className="tp-settings__section-layout">
     {skills.map(skill=>{
      const draft=drafts[skill.id]??{repositoryUrl:'',branch:'main',skillPath:''};
      const review=reviewOf(skill.config),bundle=bundleOf(skill.config),findings=review.findings??[],contract=contractOf(skill.config),contractStatus=String(skill.config.contractStatus??"missing"),contractErrors=Array.isArray(skill.config.contractErrors)?skill.config.contractErrors as string[]:[];
@@ -116,7 +116,7 @@ export function SkillsRegistry(){
      return <section key={skill.id} className="tp-settings__editor">
       <div className="tp-ai-control__skill-heading">
        <div><h4>{skill.label}</h4><p><code>{skill.id}</code> · {skill.description}</p></div>
-       <div className="tp-ai-control__skill-actions">{stateTag(skill.state)}{skill.sourceType==='custom'?<Tag type="purple">自定义</Tag>:<Tag type="cool-gray">初始清单</Tag>}{skill.enabled&&<Tag type="red">当前已启用</Tag>}</div>
+       <div className="tp-ai-control__skill-actions">{stateTag(skill.state)}{skill.sourceType==='custom'?<Tag type="purple">已注册</Tag>:<Tag type="cool-gray">已注册</Tag>}{skill.enabled&&<Tag type="red">当前已启用</Tag>}</div>
       </div>
       <div className="tp-settings__editor-grid">
        <TextInput id={'skill-repo-'+skill.id} labelText="GitHub 仓库 / Skill 目录 URL" placeholder="https://github.com/owner/repo/tree/main/skills/name" value={draft.repositoryUrl} onChange={event=>change(skill.id,'repositoryUrl',event.currentTarget.value)}/>
