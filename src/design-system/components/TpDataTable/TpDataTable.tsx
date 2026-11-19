@@ -124,6 +124,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
   const [preferencesReady, setPreferencesReady] = useState(!columnSettingsKey);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [detailRowId, setDetailRowId] = useState<string | null>(null);
+  const [pendingDetailNavigation, setPendingDetailNavigation] = useState<{ targetPage: number; direction: -1 | 1; sourceRows: T[] } | null>(null);
   const detailLauncherRef = useRef<HTMLElement | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [selectionRevision, setSelectionRevision] = useState(0);
@@ -302,10 +303,30 @@ export function TpDataTable<T extends Record<string, unknown>>({
   };
   const moveDetail = (offset: -1 | 1) => {
     if (!detailRow) return;
-    const index = rows.findIndex((row) => String(row[rowKey]) === String(detailRow[rowKey]));
-    const next = rows[index + offset];
-    if (next) openDetail(next, detailLauncherRef.current ?? undefined, true);
+    const navigableRows = rows.filter((row) => !canOpenRow || canOpenRow(row));
+    const index = navigableRows.findIndex((row) => String(row[rowKey]) === String(detailRow[rowKey]));
+    const next = navigableRows[index + offset];
+    if (next) {
+      openDetail(next, detailLauncherRef.current ?? undefined, true);
+      return;
+    }
+    if (pagination?.serverSide) {
+      const targetPage = pagination.page + offset;
+      const totalPages = Math.max(1, Math.ceil(pagination.totalItems / pagination.pageSize));
+      if (targetPage >= 1 && targetPage <= totalPages) {
+        setPendingDetailNavigation({ targetPage, direction: offset, sourceRows: rows });
+        pagination.onChange(targetPage, pagination.pageSize);
+      }
+    }
   };
+
+  useEffect(() => {
+    if (!pendingDetailNavigation || !pagination?.serverSide || pagination.page !== pendingDetailNavigation.targetPage || rows === pendingDetailNavigation.sourceRows) return;
+    const navigableRows = rows.filter((row) => !canOpenRow || canOpenRow(row));
+    const next = pendingDetailNavigation.direction > 0 ? navigableRows[0] : navigableRows[navigableRows.length - 1];
+    if (next) openDetail(next, detailLauncherRef.current ?? undefined, true);
+    setPendingDetailNavigation(null);
+  }, [pendingDetailNavigation, pagination?.page, pagination?.serverSide, rows, canOpenRow]);
 
   useEffect(() => {
     if (!detailPanel) return;
