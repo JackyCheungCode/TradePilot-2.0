@@ -70,7 +70,7 @@ function downloadSelectedRows<T extends Record<string, unknown>>(
       return csvSafeValue(flattenExportValue(value));
     }).join(',')),
   ];
-  const blob = new Blob(['\\uFEFF', lines.join('\\r\\n')], { type: 'text/csv;charset=utf-8;' });
+  const blob = new Blob(['\uFEFF', lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;
