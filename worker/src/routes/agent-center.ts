@@ -32,6 +32,11 @@ type ConnectionRow = {
 const publicConnectionFields = "id,name,protocol,endpoint_url,auth_mode,capabilities,protocol_tools,protocol_metadata,status,last_tested_at,last_error,created_at,updated_at";
 function isReadOnlyTool(tool:Record<string,unknown>):boolean{return tool.risk==="read_only"&&tool.riskPolicySource==="user";}
 function effectiveToolRisk(tool:Record<string,unknown>):ToolRisk{return tool.risk==="blocked"?"blocked":isReadOnlyTool(tool)?"read_only":"approval_required";}
+export function filterAgentConnectionsByToolKeys(connections:ConnectionRow[],registryTools:Array<{tool_key:string;connection_id:string;protocol_tool_name:string}>,selectedToolKeys:Set<string>|null):ConnectionRow[]{
+ const enabledByConnection=new Map<string,Set<string>>();
+ for(const item of registryTools){if(!item.connection_id||!item.protocol_tool_name)continue;if(selectedToolKeys&&!selectedToolKeys.has(item.tool_key))continue;const names=enabledByConnection.get(item.connection_id)??new Set<string>();names.add(item.protocol_tool_name);enabledByConnection.set(item.connection_id,names);}
+ return connections.map(connection=>({...connection,protocol_tools:(connection.protocol_tools??[]).filter(tool=>enabledByConnection.get(connection.id)?.has(String(tool.name??"")))}));
+}
 
 async function ownerFromRequest(request:Request,env:Env):Promise<string|null>{
   const token=request.headers.get("Authorization")?.match(/^Bearer\s+(\S+)$/i)?.[1];
@@ -1182,9 +1187,7 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
           requestedAgentKey?db<Array<{config:Record<string,unknown>;enabled:boolean}>>(env,"agent_profiles?owner_id=eq."+ownerId+"&agent_key=eq."+requestedAgentKey+"&select=config,enabled&limit=1"):Promise.resolve([])
         ]);
         const selectedToolKeys=Array.isArray(agentProfileRows?.[0]?.config?.toolKeys)?new Set(agentProfileRows[0].config.toolKeys.filter((value):value is string=>typeof value==="string")):null;
-        const enabledByConnection=new Map<string,Set<string>>();
-        for(const item of enabledRegistryTools??[]){if(!item.connection_id||!item.protocol_tool_name)continue;if(selectedToolKeys&&!selectedToolKeys.has(item.tool_key))continue;const names=enabledByConnection.get(item.connection_id)??new Set<string>();names.add(item.protocol_tool_name);enabledByConnection.set(item.connection_id,names);}
-        const available=(availableRows??[]).map(connection=>({...connection,protocol_tools:(connection.protocol_tools??[]).filter(tool=>enabledByConnection.get(connection.id)?.has(String(tool.name??"")))}));
+        const available=filterAgentConnectionsByToolKeys(availableRows??[],enabledRegistryTools??[],selectedToolKeys);
         planner=await generateAgentPlan(env,ownerId,goal,country,engine,available);
         if(requestedAgentKey){
           planner.agentKey=requestedAgentKey;
