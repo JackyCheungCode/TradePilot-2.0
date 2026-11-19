@@ -119,6 +119,7 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const onCloseRef = useRef(onClose);
   const conversationRequestIdRef = useRef(0);
+  const conversationMutationRef = useRef<Promise<void>>(Promise.resolve());
   onCloseRef.current = onClose;
   pathnameRef.current = pathname;
 
@@ -202,6 +203,19 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
     return created.id;
   }, [createConversation, refreshConversations]);
 
+  const replaceChatHistory = useCallback(async (requestId: number, rows: AgentMessage[]) => {
+    const instance = chatInstanceRef.current;
+    if (!instance) return;
+    const operation = conversationMutationRef.current.then(async () => {
+      if (requestId !== conversationRequestIdRef.current) return;
+      await instance.messaging.clearConversation();
+      if (requestId !== conversationRequestIdRef.current) return;
+      if (rows.length) await instance.messaging.insertHistory(toHistoryItems(rows));
+    });
+    conversationMutationRef.current = operation.catch(() => undefined);
+    await operation;
+  }, []);
+
   const selectConversation = useCallback(async (conversationId: string) => {
     const instance = chatInstanceRef.current;
     if (!instance || conversationId === conversationIdRef.current) return;
@@ -212,9 +226,7 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
     try {
       const rows = await agentRequest<AgentMessage[]>(`/api/v1/agent/conversations/${conversationId}/messages`);
       if (requestId !== conversationRequestIdRef.current) return;
-      await instance.messaging.clearConversation();
-      if (requestId !== conversationRequestIdRef.current) return;
-      if (rows.length) await instance.messaging.insertHistory(toHistoryItems(rows));
+      await replaceChatHistory(requestId, rows);
       if (requestId !== conversationRequestIdRef.current) return;
       conversationIdRef.current = conversationId;
       setSelectedConversationId(conversationId);
@@ -237,7 +249,7 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
       setWelcomeVisible(true);
       setWelcomePhase('error');
     }
-  }, []);
+  }, [replaceChatHistory]);
 
   const startNewConversation = useCallback(async () => {
     const instance = chatInstanceRef.current;
@@ -252,7 +264,7 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
       conversationIdRef.current = created.id;
       setSelectedConversationId(created.id);
       setConversations((current) => [created, ...current.filter((item) => item.id !== created.id)]);
-      await instance.messaging.clearConversation();
+      await replaceChatHistory(requestId, []);
       if (requestId !== conversationRequestIdRef.current) return;
       setWelcomeVisible(true);
       setWelcomePhase('ready');
@@ -268,7 +280,7 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
       setWelcomePhase('error');
       setWelcomeVisible(true);
     }
-  }, []);
+  }, [replaceChatHistory]);
 
   const customLoadHistory = useCallback(async (instance: ChatInstance): Promise<HistoryItem[]> => {
     // Return an empty initial history immediately. Fetch and insert persisted history
@@ -293,7 +305,7 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
       } : null);
       if (rows.length) {
         setWelcomeVisible(false);
-        await instance.messaging.insertHistory(toHistoryItems(rows));
+        await replaceChatHistory(requestId, rows);
       } else {
         setWelcomeVisible(true);
         setWelcomePhase('ready');
@@ -305,7 +317,7 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
       setAvatarEmotion('error');
     });
     return [];
-  }, [ensureConversation]);
+  }, [ensureConversation, replaceChatHistory]);
 
   const customSendMessage = useCallback(async (
     request: MessageRequest,
