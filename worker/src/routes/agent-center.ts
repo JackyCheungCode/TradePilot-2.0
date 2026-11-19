@@ -5,7 +5,7 @@ import type { InstagramInput } from "./instagram-discovery";
 import { readIntegrationSecrets } from "../lib/integrations";
 
 type Protocol = "rest_api" | "mcp" | "webhook";
-type AuthMode = "none" | "bearer" | "header" | "oauth2" | "webhook_secret";
+type AuthMode = "none" | "bearer" | "header" | "oauth2" | "webhook_secret";\ntype ToolRisk = "read_only" | "approval_required" | "blocked";
 export interface Env {
   SUPABASE_URL: string;
   SUPABASE_ANON_KEY: string;
@@ -27,7 +27,7 @@ type ConnectionRow = {
   auth_mode:AuthMode; encrypted_credentials:string|null; capabilities:string[]; protocol_tools:Array<Record<string,unknown>>; protocol_metadata:Record<string,unknown>; status:string; last_tested_at:string|null;
   last_error:string|null; created_at:string; updated_at:string;
 };
-const publicConnectionFields = "id,name,protocol,endpoint_url,auth_mode,capabilities,protocol_tools,protocol_metadata,status,last_tested_at,last_error,created_at,updated_at";
+const publicConnectionFields = "id,name,protocol,endpoint_url,auth_mode,capabilities,protocol_tools,protocol_metadata,status,last_tested_at,last_error,created_at,updated_at";\nfunction isReadOnlyTool(tool:Record<string,unknown>):boolean{return tool.risk==="read_only"&&tool.riskPolicySource==="user";}\nfunction effectiveToolRisk(tool:Record<string,unknown>):ToolRisk{return tool.risk==="blocked"?"blocked":isReadOnlyTool(tool)?"read_only":"approval_required";}
 
 async function ownerFromRequest(request:Request,env:Env):Promise<string|null>{
   const token=request.headers.get("Authorization")?.match(/^Bearer\s+(\S+)$/i)?.[1];
@@ -258,7 +258,7 @@ async function generateAgentPlan(env:Env,_ownerId:string,goal:string,country:str
  const selectedModel=String(taskModels.agent_planning??taskModels.company_analysis??config.defaultModel??"@cf/google/gemma-4-26b-a4b-it");
  const providers=Array.isArray(config.providers)?config.providers.map(asRecord):[];
  const provider=providers.find(item=>item.model===selectedModel)??(selectedModel.startsWith("@cf/")?{id:"workers-ai",protocol:"workers-ai",baseUrl:"",model:selectedModel}:null);
- const tools=connections.filter(row=>row.status==="active").flatMap(row=>(row.protocol_tools??[]).map(tool=>({connectionId:row.id,connectionName:row.name,protocol:row.protocol,name:tool.name,description:tool.description??"",risk:tool.risk==="read_only"?"read_only":"approval_required",inputSchema:tool.inputSchema??{}})));
+ const tools=connections.filter(row=>row.status==="active").flatMap(row=>(row.protocol_tools??[]).filter(tool=>effectiveToolRisk(tool)!=="blocked").map(tool=>({connectionId:row.id,connectionName:row.name,protocol:row.protocol,name:tool.name,description:tool.description??"",risk:effectiveToolRisk(tool),inputSchema:tool.inputSchema??{}})));
  const system="You are TradePilot's task planner for international B2B trade. Return ONLY strict JSON, no markdown. Schema: {agentKey:string,summary:string,steps:string[],specialists:Array<{agentKey:string,instruction:string}>,action:{type:'internal_discovery',query:string,country:string,limitPerCountry:number}|{type:'external_tool',connectionId:string,toolName:string,arguments:object}|{type:'needs_clarification',question:string}}. Available agentKey values: buyer_development, market_research, company_research, lead_scoring, multilingual_sales, follow_up, trade_compliance. Choose exactly one executable action. For finding importers, distributors, wholesalers, buyers, or prospects use internal_discovery unless an exact suitable external tool is listed. For external_tool you MUST choose exact connectionId and toolName from the supplied list and provide arguments matching its schema. Never invent tools. If the goal is not executable with available tools, use needs_clarification. All read-only research/search tools may run automatically. Never plan sending email, CRM imports, writes, deletes, merges, purchases, or other side effects as automatic; choose the relevant write tool only if it will be gated by human approval. Country must be a two-letter ISO code. Keep steps to 2-5 concise actions. For buyer discovery, propose a sequence of 1-3 specialist agents AFTER the discovery action, chosen from company_research, market_research, lead_scoring, trade_compliance. Each specialist must receive a short concrete instruction based on the goal and the previous discovery results. Never include email sending or CRM import. For non-discovery research, specialists may be empty. The specialists are sequential and each receives prior specialist outputs.";
  const user=JSON.stringify({goal,marketCountry:country,searchEngine,availableTools:tools});
  let raw="";
@@ -679,7 +679,7 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
         await fetch(connection.endpoint_url,{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json, text/event-stream",...headers,...(init.sessionId?{"Mcp-Session-Id":init.sessionId}:{})},body:JSON.stringify({jsonrpc:"2.0",method:"notifications/initialized"}),signal:AbortSignal.timeout(15000)});
         const listed=await mcpRequest(connection.endpoint_url,headers,{jsonrpc:"2.0",id:2,method:"tools/list",params:{}},init.sessionId??undefined);
         const result=listed.body.result as {tools?:Array<Record<string,unknown>>}|undefined;
-        tools=(result?.tools??[]).slice(0,100).map(tool=>{const name=String(tool.name??"").slice(0,120);const description=String(tool.description??"").slice(0,1000);const safe=/^(search|find|lookup|list|get|read|query|discover|research|analyze|analyse|fetch|scrape)([-_ .]|$)/i.test(name)&&!/(send|write|create|update|delete|remove|import|export|purchase|payment)/i.test(name+" "+description);return {name,description,inputSchema:tool.inputSchema??{},risk:safe?"read_only":"approval_required",protocol:"mcp"};}).filter(tool=>tool.name);
+        tools=(result?.tools??[]).slice(0,100).map(tool=>{const name=String(tool.name??"").slice(0,120);const description=String(tool.description??"").slice(0,1000);const previous=(connection.protocol_tools??[]).find(item=>item.name===name);const userPolicy=previous?.riskPolicySource==="user"&&["read_only","approval_required","blocked"].includes(String(previous.risk));return {name,description,inputSchema:tool.inputSchema??{},risk:userPolicy?previous!.risk:"approval_required",riskPolicySource:userPolicy?"user":"default",protocol:"mcp"};}).filter(tool=>tool.name);
         metadata={serverInfo:initResult.serverInfo??{},protocolVersion:initResult.protocolVersion??"2025-03-26",toolCount:tools.length};
       }else if(connection.protocol==="rest_api"){
         const response=await fetch(connection.endpoint_url,{method:"GET",headers:{Accept:"application/json",...headers},signal:AbortSignal.timeout(20000)});
@@ -691,13 +691,13 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
             if(!["get","post","put","patch","delete"].includes(method)||!operation||typeof operation!=="object")continue;
             const op=operation as Record<string,unknown>;
             const name=String(op.operationId??(method+"_"+routePath.replace(/[^a-z0-9]+/gi,"_"))).slice(0,120);
-            tools.push({name,description:String(op.summary??op.description??name).slice(0,1000),method:method.toUpperCase(),path:routePath,parameters:op.parameters??[],requestBody:op.requestBody??null,risk:method==="get"?"read_only":"approval_required",protocol:"rest_api"});
+            const previous=(connection.protocol_tools??[]).find(item=>item.name===name);const userPolicy=previous?.riskPolicySource==="user"&&["read_only","approval_required","blocked"].includes(String(previous.risk));tools.push({name,description:String(op.summary??op.description??name).slice(0,1000),method:method.toUpperCase(),path:routePath,parameters:op.parameters??[],requestBody:op.requestBody??null,risk:userPolicy?previous!.risk:"approval_required",riskPolicySource:userPolicy?"user":"default",protocol:"rest_api"});
           }
         }
         tools=tools.slice(0,150);const openApiHost=new URL(connection.endpoint_url);const apiBase=new URL(spec.servers?.[0]?.url??openApiHost.origin,connection.endpoint_url);if(!isPublicHttpsEndpoint(apiBase.href)||apiBase.hostname!==openApiHost.hostname)throw new Error("OPENAPI_SERVER_NOT_ALLOWED: OpenAPI server 必须使用配置端点的同一公网主机。");metadata={title:spec.info?.title??connection.name,version:spec.info?.version??"",openapi:spec.openapi,baseUrl:apiBase.toString().replace(/\/$/,""),toolCount:tools.length};
       }else{
         const capabilityList=connection.capabilities??[];
-        tools=[{name:"trigger_webhook",description:"向已登记的 Webhook 发送任务请求",risk:capabilityList.some(x=>["buyer_discovery","market_research","company_research"].includes(x))?"read_only":"approval_required",protocol:"webhook"}];
+        const previous=(connection.protocol_tools??[]).find(item=>item.name==="trigger_webhook");const userPolicy=previous?.riskPolicySource==="user"&&["read_only","approval_required","blocked"].includes(String(previous.risk));tools=[{name:"trigger_webhook",description:"向已登记的 Webhook 发送任务请求",risk:userPolicy?previous!.risk:"approval_required",riskPolicySource:userPolicy?"user":"default",protocol:"webhook"}];
         metadata={toolCount:1,mode:"outbound_webhook"};
       }
       if(!tools.length)throw new Error("AGENT_NO_TOOLS_DISCOVERED: 该端点没有发现可用工具。");
@@ -719,7 +719,7 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
       const runRows=await db<Array<{id:string;goal:string;status:string;connection_id:string|null}>>(env,"agent_runs?id=eq."+runId+"&owner_id=eq."+ownerId+"&select=id,goal,status,connection_id&limit=1");
       const run=runRows?.[0];if(!run)return errorResponse(request,"RUN_NOT_FOUND","Agent 任务不存在。",404);
       if(!["planned","queued"].includes(run.status))return errorResponse(request,"RUN_NOT_READY","只有草案或排队中的 Agent 任务可以启动工具。",409);
-      const risk=tool.risk==="read_only"?"read_only":"approval_required";
+      const risk=effectiveToolRisk(tool);\n      if(risk==="blocked")return errorResponse(request,"TOOL_BLOCKED","此工具已被管理员禁止调用。",403);
       const snapshot={connectionId:connection.id,connectionName:connection.name,endpointUrl:connection.endpoint_url,protocol:connection.protocol,toolName,tool,arguments:args,runId,goal:run.goal};
       if(risk==="approval_required"){
         const actionType=approvalActionType(toolName,String(tool.description??""),typeof tool.method==="string"?tool.method:undefined);
@@ -985,7 +985,7 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
             await env.LEAD_DISCOVERY_WORKFLOW!.create({id:runId,params:{runId,ownerId,input}});
           }
         }else if(actionType==="external_tool"&&connection&&selectedTool&&planner?.action.type==="external_tool"){
-          const risk=selectedTool.risk==="read_only"?"read_only":"approval_required";
+          const risk=effectiveToolRisk(selectedTool);\n          if(risk==="blocked")throw new Error("AGENT_TOOL_BLOCKED");
           const args=planner.action.arguments;
           const snapshot={connectionId:connection.id,connectionName:connection.name,endpointUrl:connection.endpoint_url,protocol:connection.protocol,toolName:planner.action.toolName,tool:selectedTool,arguments:args,runId,goal};
           if(risk==="approval_required"){
