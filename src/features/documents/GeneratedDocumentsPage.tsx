@@ -1,8 +1,7 @@
 import { PageHeader } from '@/design-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Link, InlineLoading, InlineNotification, TextInput, Tag, Table, TableHead, TableRow,
-  TableHeader, TableBody, TableCell,
+  Link, InlineLoading, InlineNotification, TextInput, Tag, TpDataTable,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/documents.scss';
@@ -46,7 +45,22 @@ export function GeneratedDocumentsPage() {
     {error && <InlineNotification kind="error" lowContrast title="单据列表读取失败" subtitle={error} />}
     <section className="tp-documents__list">
       <div className="tp-documents__list-head"><div className="tp-documents__list-heading"><h2>单据记录</h2><p>按编号、名称或类型搜索；选择单据可查看内容和版本记录。</p></div><div className="tp-documents__search"><TextInput id="tp-generated-doc-search" labelText="搜索单据" hideLabel placeholder="单据编号、名称或类型" value={search} onChange={event => setSearch(event.currentTarget.value)} /></div></div>
-      {loading ? <div className="tp-documents__loading"><InlineLoading description="正在加载单据…" /></div> : filtered.length ? <div className="tp-documents__table-wrap"><Table size="lg"><TableHead><TableRow><TableHeader>单据编号</TableHeader><TableHeader>单据类型</TableHeader><TableHeader>币种</TableHeader><TableHeader>语言</TableHeader><TableHeader>版本</TableHeader><TableHeader>状态</TableHeader><TableHeader>创建时间</TableHeader><TableHeader>操作</TableHeader></TableRow></TableHead><TableBody>{filtered.map(doc => <TableRow key={doc.id}><TableCell><strong>{doc.document_number}</strong><small className="tp-documents__cell-secondary">{doc.title}</small></TableCell><TableCell>{labels[doc.document_type] || doc.document_type}</TableCell><TableCell>{doc.currency_code || '—'}</TableCell><TableCell>{doc.locale || '—'}</TableCell><TableCell>v{doc.current_version || 1}</TableCell><TableCell><Tag type={doc.status === 'issued' ? 'green' : ['void','voided'].includes(doc.status) ? 'red' : 'blue'}>{statusLabel(doc.status)}</Tag></TableCell><TableCell>{dateLabel(doc.created_at)}</TableCell><TableCell><Link href={'/documents/' + doc.id}>查看</Link></TableCell></TableRow>)}</TableBody></Table></div> : <div className="tp-documents__empty"><p>{docs.length ? '没有符合条件的单据。' : '还没有生成单据。创建单据后，记录会显示在这里。'}</p><Link href="/documents">新建单据</Link></div>}
+      {loading ? <div className="tp-documents__loading"><InlineLoading description="正在加载单据…" /></div> : filtered.length ? <div className="tp-documents__table-wrap"><TpDataTable
+        ariaLabel="已生成单据列表"
+        columnSettingsKey="trade-generated-documents"
+        rowKey="id"
+        rows={filtered as (Doc & Record<string, unknown>)[]}
+        columns={[
+          {key:'document_number',header:'单据编号',primary:true,minWidth:220,render:doc=><div><strong>{doc.document_number}</strong><small className="tp-documents__cell-secondary">{doc.title}</small></div>},
+          {key:'document_type',header:'单据类型',minWidth:180,render:doc=>labels[doc.document_type]||doc.document_type},
+          {key:'currency_code',header:'币种',minWidth:90,render:doc=>doc.currency_code||'—'},
+          {key:'locale',header:'语言',minWidth:90,render:doc=>doc.locale||'—'},
+          {key:'current_version',header:'版本',minWidth:80,render:doc=>'v'+(doc.current_version||1)},
+          {key:'status',header:'状态',minWidth:110,render:doc=><Tag type={doc.status==='issued'?'green':['void','voided'].includes(doc.status)?'red':'blue'}>{statusLabel(doc.status)}</Tag>},
+          {key:'created_at',header:'创建时间',minWidth:130,render:doc=>dateLabel(doc.created_at)},
+        ]}
+        rowActions={[{key:'view',label:'查看',onClick:doc=>{window.location.assign('/documents/'+doc.id)}}]}
+      /></div> : <div className="tp-documents__empty"><p>{docs.length ? '没有符合条件的单据。' : '还没有生成单据。创建单据后，记录会显示在这里。'}</p><Link href="/documents">新建单据</Link></div>}
     </section>
   </main>;
 }
