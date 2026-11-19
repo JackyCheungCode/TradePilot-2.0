@@ -4,6 +4,16 @@ type Env = { SUPABASE_URL:string; SUPABASE_ANON_KEY:string; SUPABASE_SERVICE_ROL
 type SkillConfig = Record<string, unknown>;
 type Source = { owner:string; repo:string; ref:string; path:string };
 type BundleFile = { path:string; size:number; encoding:"utf-8"|"base64"; content:string; sha:string };
+type SkillRuntime = "dynamic_worker" | "sandbox_nodejs" | "sandbox_python";
+type SkillContract = {
+ schemaVersion:1; name:string; version:string; runtime:SkillRuntime; entrypoint:string;
+ inputSchema:Record<string,unknown>; outputSchema:Record<string,unknown>;
+ requiredTools:string[];
+ permissions:{networkHosts:string[];dataScopes:string[];secrets:string[];sideEffects:string[]};
+ limits:{timeoutSeconds:number;memoryMb:number;maxOutputBytes:number};
+};
+type ContractResult = {status:"missing"|"valid"|"invalid";contract?:SkillContract;errors:string[]};
+
 type ReviewFinding = { severity:"high"|"medium"|"low"; code:string; message:string; file?:string };
 const STARTER_SKILLS = [
   ["market-intel","全球市场情报","市场规模、趋势、竞品与价格研究"],
@@ -80,6 +90,80 @@ function base64(bytes:Uint8Array):string{
  return btoa(binary);
 }
 function extension(path:string):string{return path.slice(path.lastIndexOf("/")+1).match(/\.[^.]+$/)?.[0].toLowerCase()??"";}
+const CONTRACT_SCHEMA_KEYS=new Set(["type","description","properties","required","items","enum","minimum","maximum","minLength","maxLength","minItems","maxItems","pattern","additionalProperties"]);
+function validateSchemaNode(value:unknown,path:string,depth:number,budget:{nodes:number},errors:string[]):void{
+ if(depth>8){errors.push(path+"：JSON Schema 嵌套超过 8 层。");return;}
+ if(!value||typeof value!=="object"||Array.isArray(value)){errors.push(path+"：必须是 JSON Schema 对象。");return;}
+ budget.nodes++;if(budget.nodes>200){errors.push("JSON Schema 节点数量超过 200。");return;}
+ const schema=value as Record<string,unknown>;
+ for(const key of Object.keys(schema))if(!CONTRACT_SCHEMA_KEYS.has(key))errors.push(path+"：不支持 JSON Schema 关键字 "+key+"。");
+ const allowedTypes=["object","array","string","number","integer","boolean","null"];
+ if(typeof schema.type!=="string"||!allowedTypes.includes(schema.type))errors.push(path+".type：类型无效。");
+ if(schema.description!==undefined&&(typeof schema.description!=="string"||schema.description.length>500))errors.push(path+".description：描述过长或类型无效。");
+ if(schema.enum!==undefined&&(!Array.isArray(schema.enum)||schema.enum.length<1||schema.enum.length>50||schema.enum.some(item=>item!==null&&!["string","number","boolean"].includes(typeof item))))errors.push(path+".enum：枚举值无效。");
+ for(const key of ["minimum","maximum","minLength","maxLength","minItems","maxItems"]){const value=schema[key];if(value!==undefined&&(!Number.isFinite(value)||typeof value!=="number"||value<0))errors.push(path+"."+key+"：必须是非负有限数值。");}
+ if(schema.type==="object"){
+  const properties=schema.properties;
+  if(!properties||typeof properties!=="object"||Array.isArray(properties))errors.push(path+".properties：对象类型必须声明 properties。");
+  else{
+   const entries=Object.entries(properties as Record<string,unknown>);
+   if(entries.length>50)errors.push(path+".properties：字段数量超过 50。");
+   for(const [name,child] of entries){if(!/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(name))errors.push(path+".properties：字段名无效："+name);validateSchemaNode(child,path+".properties."+name,depth+1,budget,errors);}
+   if(schema.required!==undefined&&(!Array.isArray(schema.required)||schema.required.some(name=>typeof name!=="string"||!(name in (properties as Record<string,unknown>)))))errors.push(path+".required：必须只引用已声明字段。");
+  }
+  if(schema.additionalProperties!==false)errors.push(path+".additionalProperties：对象必须显式设置为 false。");
+ }else if(schema.type==="array"){
+  if(schema.items===undefined)errors.push(path+".items：数组类型必须声明 items。");
+  else validateSchemaNode(schema.items,path+".items",depth+1,budget,errors);
+ }else if(schema.properties!==undefined||schema.required!==undefined||schema.items!==undefined||schema.additionalProperties!==undefined){
+  errors.push(path+"：当前类型不允许 properties、required、items 或 additionalProperties。");
+ }
+ if(schema.pattern!==undefined){if(typeof schema.pattern!=="string"||schema.pattern.length>200)errors.push(path+".pattern：正则表达式无效或过长。");else try{new RegExp(schema.pattern);}catch{errors.push(path+".pattern：正则表达式无法编译。");}}
+}
+function validateSkillContract(files:BundleFile[],manifest:Record<string,string>):ContractResult{
+ const file=files.find(item=>item.path==="skill.json");
+ if(!file)return {status:"missing",errors:["缺少 skill.json。当前 Skill 仅有说明文件和源码，尚未声明可验证的执行契约。"]};
+ if(file.encoding!=="utf-8")return {status:"invalid",errors:["skill.json 必须是 UTF-8 JSON 文本。"]};
+ let raw:unknown;try{raw=JSON.parse(file.content);}catch{return {status:"invalid",errors:["skill.json 不是有效 JSON。"]};}
+ if(!raw||typeof raw!=="object"||Array.isArray(raw))return {status:"invalid",errors:["skill.json 根节点必须是对象。"]};
+ const value=raw as Record<string,unknown>,errors:string[]=[];
+ const allowed=new Set(["schemaVersion","name","version","runtime","entrypoint","inputSchema","outputSchema","requiredTools","permissions","limits"]);
+ for(const key of Object.keys(value))if(!allowed.has(key))errors.push("不支持的契约字段："+key+"。");
+ if(value.schemaVersion!==1)errors.push("schemaVersion 必须为 1。");
+ if(value.name!==manifest.name)errors.push("契约 name 必须与 SKILL.md frontmatter name 一致。");
+ if(typeof value.version!=="string"||!/^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$/.test(value.version))errors.push("version 必须是语义化版本号。");
+ if(!["dynamic_worker","sandbox_nodejs","sandbox_python"].includes(String(value.runtime)))errors.push("runtime 必须是 dynamic_worker、sandbox_nodejs 或 sandbox_python。");
+ const entrypoint=typeof value.entrypoint==="string"?value.entrypoint:"";
+ if(!entrypoint||entrypoint.startsWith("/")||entrypoint.includes("\\\\")||entrypoint.split("/").some(part=>!part||part==="."||part===".."||part.startsWith(".")))errors.push("entrypoint 必须是包内安全相对路径。");
+ const entry=files.find(item=>item.path===entrypoint);
+ if(entrypoint&&!entry)errors.push("entrypoint 指向的文件不存在："+entrypoint+"。");
+ if(entry&&entry.encoding!=="utf-8")errors.push("entrypoint 必须是可审查的 UTF-8 文本文件。");
+ const extension=entrypoint.slice(entrypoint.lastIndexOf(".")).toLowerCase();
+ if(value.runtime==="dynamic_worker"&&![".js",".mjs"].includes(extension))errors.push("dynamic_worker 仅接受 .js 或 .mjs 入口文件。");
+ if(value.runtime==="sandbox_nodejs"&&![".js",".mjs",".cjs"].includes(extension))errors.push("sandbox_nodejs 入口必须是 JavaScript 文件。");
+ if(value.runtime==="sandbox_python"&&extension!==".py")errors.push("sandbox_python 入口必须是 .py 文件。");
+ const requiredTools=Array.isArray(value.requiredTools)?value.requiredTools:[];
+ if(!Array.isArray(value.requiredTools)||requiredTools.length>50||requiredTools.some(item=>typeof item!=="string"||!/^[a-z][a-z0-9_.:-]{1,100}$/.test(item))||new Set(requiredTools).size!==requiredTools.length)errors.push("requiredTools 必须是最多 50 个不重复的稳定工具标识。");
+ const permissions=value.permissions&&typeof value.permissions==="object"&&!Array.isArray(value.permissions)?value.permissions as Record<string,unknown>:{};
+ for(const key of Object.keys(permissions))if(!["networkHosts","dataScopes","secrets","sideEffects"].includes(key))errors.push("不支持的权限字段："+key+"。");
+ const list=(key:string,max:number,pattern:RegExp)=>{const items=permissions[key]??[];if(!Array.isArray(items)||items.length>max||items.some(item=>typeof item!=="string"||!pattern.test(item))||new Set(items).size!==items.length){errors.push("permissions."+key+" 格式无效或数量超限。");return [] as string[];}return items as string[];};
+ const networkHosts=list("networkHosts",30,/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$/i);
+ if(networkHosts.some(host=>host==="localhost"||host.endsWith(".local")||host.endsWith(".internal")))errors.push("networkHosts 不允许 localhost、.local 或 .internal 主机。");
+ const dataScopes=list("dataScopes",50,/^(leads|contacts|companies|opportunities|quotes|orders|documents|market_data|products):(read|write|delete|export)$/);
+ const secrets=list("secrets",30,/^[a-z][a-z0-9_.-]{1,79}$/i);
+ const sideEffectSet=["send_email","send_message","create_record","update_record","delete_record","bulk_import","export_data","external_webhook","payment","file_write"];
+ const sideEffects=list("sideEffects",30,/^[a-z][a-z0-9_]{1,39}$/);
+ for(const effect of sideEffects)if(!sideEffectSet.includes(effect))errors.push("不支持的副作用声明："+effect+"。");
+ const limits=value.limits&&typeof value.limits==="object"&&!Array.isArray(value.limits)?value.limits as Record<string,unknown>:{};
+ for(const key of Object.keys(limits))if(!["timeoutSeconds","memoryMb","maxOutputBytes"].includes(key))errors.push("不支持的资源限制："+key+"。");
+ const ranges:{key:string;min:number;max:number}[]=[{key:"timeoutSeconds",min:1,max:600},{key:"memoryMb",min:64,max:2048},{key:"maxOutputBytes",min:1024,max:1000000}];
+ for(const range of ranges){const n=limits[range.key];if(typeof n!=="number"||!Number.isInteger(n)||n<range.min||n>range.max)errors.push("limits."+range.key+" 必须在 "+range.min+"–"+range.max+" 范围内。");}
+ const schemaBudget={nodes:0};
+ validateSchemaNode(value.inputSchema,"inputSchema",0,schemaBudget,errors);
+ validateSchemaNode(value.outputSchema,"outputSchema",0,schemaBudget,errors);
+ if(errors.length)return {status:"invalid",errors};
+ return {status:"valid",errors:[],contract:{schemaVersion:1,name:String(value.name),version:String(value.version),runtime:value.runtime as SkillRuntime,entrypoint,inputSchema:value.inputSchema as Record<string,unknown>,outputSchema:value.outputSchema as Record<string,unknown>,requiredTools:requiredTools as string[],permissions:{networkHosts,dataScopes,secrets,sideEffects},limits:{timeoutSeconds:Number(limits.timeoutSeconds),memoryMb:Number(limits.memoryMb),maxOutputBytes:Number(limits.maxOutputBytes)}}};
+}
 function staticReview(files:BundleFile[],manifest:Record<string,string>){
  const findings:ReviewFinding[]=[];
  const dependencies=new Set<string>(),domains=new Set<string>();
