@@ -2,7 +2,7 @@ import { PageHeader } from '@/design-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-  Button, Link, Checkbox, FileUploaderButton, TPSkeleton, InlineNotification, MultiSelect, Select, SelectItem,
+  Button, Link, Checkbox, FileUploaderButton, TPSkeleton, TPInlineLoading, InlineNotification, MultiSelect, Select, SelectItem,
   Tag, TextArea, TextInput, Tabs, TabList, Tab, TabPanels, TabPanel, Table, TableHead,
   TableRow, TableHeader, TableBody, TableCell, semanticIcons, WorldMapChart, TpDataTable,
 } from '@/design-system';
@@ -68,7 +68,7 @@ function RowsEditor({title,rows,fields,onChange,addLabel='添加一行'}:{title:
 }
 function Metric({label,value,icon}:{label:string;value:string;icon:React.ReactNode}){return <section className="tp-products__metric"><div><span>{label}</span>{icon}</div><strong>{value}</strong></section>}
 function ProductHeader({editing,onSave,saving,onExport}:{editing:boolean;onSave?:()=>void;saving?:boolean;onExport?:()=>void}){
- return <PageHeader className="tp-products__header"><div><p className="tp-products__eyebrow">TRADEPILOT / CATALOG</p><h1>{editing?'编辑产品':'新建产品'}</h1><p>维护产品主数据，供报价、订单与贸易单据统一引用。</p></div><div className="tp-products__actions"><Link href="/products">返回列表</Link>{onExport&&<Button kind="tertiary" onClick={onExport}><semanticIcons.download size={16}/>导出</Button>}{onSave&&<Button kind="primary" disabled={saving} onClick={onSave}>{saving?'保存中…':'保存产品'}</Button>}</div></PageHeader>;
+ return <PageHeader className="tp-products__header"><div><p className="tp-products__eyebrow">TRADEPILOT / CATALOG</p><h1>{editing?'编辑产品':'新建产品'}</h1><p>维护产品主数据，供报价、订单与贸易单据统一引用。</p></div><div className="tp-products__actions"><Link href="/products">返回列表</Link>{onExport&&<Button kind="tertiary" onClick={onExport}><semanticIcons.download size={16}/>导出</Button>}{onSave&&<Button kind="primary" disabled={saving} onClick={onSave}>{saving?'保存中…':'保存产品'}</Button>}{saving && <TPInlineLoading status="active" description="正在保存产品资料…" />}</div></PageHeader>;
 }
 
 export function ProductConsolePage(){
@@ -150,7 +150,7 @@ export function ProductFormPage(){
  {label:'统计',content:<div className="tp-products__detail-grid"><div><span>累计报价次数</span><strong>由报价模块自动统计</strong></div><div><span>累计订单数</span><strong>由订单明细自动统计</strong></div><div><span>累计销量 / 销售额</span><strong>由已确认订单自动统计</strong></div><div><span>最近销售 / 报价日期</span><strong>关联单据生成后自动计算</strong></div><div><span>采购该产品的客户数</span><strong>由客户订单关联自动统计</strong></div></div>},
  {label:'备注与系统字段',content:<>{defs([{key:'internal_notes',label:'内部备注',type:'textarea'}])}<div className="tp-products__detail-grid"><div><span>创建方式</span><strong>{data.created_via||'手动'}</strong></div><div><span>SKU 规则</span><strong>{referenced?'已被订单引用，SKU 已锁定':'未被交易明细引用'}</strong></div></div></>}
  ];
- return <main className="tp-products"><ProductHeader editing={editing} onSave={()=>void save()} saving={saving}/>{error&&<InlineNotification kind="error" title="产品保存失败" subtitle={error}/>}<section className="tp-products__form-shell"><div className="tp-products__form-summary"><span>{editing?'产品编辑':'新产品建档'}</span><Tag type={data.product_status==='on_sale'?'green':'blue'}>{statusOptions.find(x=>x[0]===data.product_status)?.[1]}</Tag></div><Tabs selectedIndex={tab} onChange={({selectedIndex})=>setTab(selectedIndex)}><TabList aria-label="产品字段分组" contained>{tabs.map(t=><Tab key={t.label}>{t.label}</Tab>)}</TabList><TabPanels>{tabs.map(t=><TabPanel key={t.label}><div className="tp-products__tab-content">{t.content}</div></TabPanel>)}</TabPanels></Tabs><div className="tp-products__footer"><span>带 * 为必填项。所有字段保存到产品主数据。</span><div><Button kind="tertiary" onClick={()=>setTab(Math.max(0,tab-1))} disabled={tab===0}>上一步</Button><Button kind="tertiary" onClick={()=>setTab(Math.min(tabs.length-1,tab+1))} disabled={tab===tabs.length-1}>下一步</Button><Button kind="primary" onClick={()=>void save()} disabled={saving}>{saving?'保存中…':'保存产品'}</Button></div></div></section></main>;
+ return <main className="tp-products"><ProductHeader editing={editing} onSave={()=>void save()} saving={saving}/>{error&&<InlineNotification kind="error" title="产品保存失败" subtitle={error}/>}<section className="tp-products__form-shell"><div className="tp-products__form-summary"><span>{editing?'产品编辑':'新产品建档'}</span><Tag type={data.product_status==='on_sale'?'green':'blue'}>{statusOptions.find(x=>x[0]===data.product_status)?.[1]}</Tag></div><Tabs selectedIndex={tab} onChange={({selectedIndex})=>setTab(selectedIndex)}><TabList aria-label="产品字段分组" contained>{tabs.map(t=><Tab key={t.label}>{t.label}</Tab>)}</TabList><TabPanels>{tabs.map(t=><TabPanel key={t.label}><div className="tp-products__tab-content">{t.content}</div></TabPanel>)}</TabPanels></Tabs><div className="tp-products__footer"><span>带 * 为必填项。所有字段保存到产品主数据。</span><div><Button kind="tertiary" onClick={()=>setTab(Math.max(0,tab-1))} disabled={tab===0}>上一步</Button><Button kind="tertiary" onClick={()=>setTab(Math.min(tabs.length-1,tab+1))} disabled={tab===tabs.length-1}>下一步</Button><Button kind="primary" onClick={()=>void save()} disabled={saving}>{saving?'保存中…':'保存产品'}</Button>{saving && <TPInlineLoading status="active" description="正在保存产品资料…" />}</div></div></section></main>;
 }
 
 export function ProductDetailPage(){
