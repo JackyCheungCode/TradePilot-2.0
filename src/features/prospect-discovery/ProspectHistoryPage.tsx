@@ -168,6 +168,7 @@ export function ProspectHistoryPage() {
         selectable
               ariaLabel="本次任务捕获结果"
               detailPanel
+              selectionScopeKey="prospect-history-results"
               columnSettingsKey="prospect-history-results"
               rowKey="id"
               rows={results as (RunResult & Record<string,unknown>)[]}
