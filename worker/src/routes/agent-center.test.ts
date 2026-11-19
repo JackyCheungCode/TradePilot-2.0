@@ -13,7 +13,7 @@ function authResponse(){return Response.json({id:ownerId});}
 function connectionRow(){
  return {id:connectionId,owner_id:ownerId,name:"Demo MCP",protocol:"mcp",endpoint_url:"https://tools.example.com/mcp",auth_mode:"none",encrypted_credentials:null,capabilities:[],protocol_tools:[
   {name:"legacy_search",description:"Search records",risk:"read_only",protocol:"mcp"},
-  {name:"approved_search",description:"Search with user policy",risk:"read_only",riskPolicySource:"user",protocol:"mcp"},
+  {name:"approved_search",description:"Search with user policy",risk:"read_only",riskPolicySource:"user",protocol:"mcp",inputSchema:{type:"object",properties:{query:{type:"string",minLength:1,maxLength:80}},required:["query"],additionalProperties:false}},
   {name:"dangerous_write",description:"Update external records",risk:"blocked",riskPolicySource:"user",protocol:"mcp"},
  ],protocol_metadata:{},status:"active",last_tested_at:null,last_error:null,created_at:"2026-11-19T00:00:00Z",updated_at:"2026-11-19T00:00:00Z"};
 }
@@ -123,5 +123,88 @@ test("Xiaoya chat receives enabled Skill instructions and only registry-enabled 
   assert.ok(seenSystems[0].includes("Use a three-step evidence review workflow."));
   assert.ok(seenSystems[0].includes("search_leads"));
   assert.ok(!seenSystems[0].includes("search_crm_contacts"));
+ }finally{restore();}
+});
+
+
+test("Xiaoya chat executes only owner-scoped, explicitly approved external read-only tools",async()=>{
+ const registryId="123e4567-e89b-42d3-a456-426614174002";
+ const callName="tp_ext_"+registryId.replace(/-/g,"");
+ const seenSystems:string[]=[];const seenMessages:string[]=[];let modelCalls=0;let mcpToolCalls=0;
+ const chatEnv={...env,AI:{async run(_model:string,input:Record<string,unknown>){
+  const messages=input.messages as Array<{role:string;content:string}>;
+  seenSystems.push(messages[0]?.content??"");seenMessages.push(messages.map(item=>item.content).join("\\n"));modelCalls++;
+  return {response:JSON.stringify(modelCalls===1?{reply:"正在查询",task:null,toolCalls:[{name:callName,arguments:{query:"Acme"}}]}:{reply:"已查到外部系统记录",task:null,toolCalls:[]})};
+ }}};
+ const restore=withFetch(async(input,init)=>{
+  const url=String(input);
+  if(url.endsWith("/auth/v1/user"))return authResponse();
+  if(url.includes("/rest/v1/agent_conversations?")&&(!init?.method||init.method==="GET"))return Response.json([]);
+  if(url.endsWith("/rest/v1/agent_conversations")&&init?.method==="POST")return Response.json([{id:"123e4567-e89b-42d3-a456-426614174099",title:"新聊天"}]);
+  if(url.includes("/rest/v1/agent_conversations?id=eq.")&&init?.method==="PATCH")return Response.json([]);
+  if(url.includes("/rest/v1/agent_chat_messages?")&&(!init?.method||init.method==="GET"))return Response.json([]);
+  if(url.endsWith("/rest/v1/agent_chat_messages")&&init?.method==="POST")return new Headers(init.headers).get("Prefer")==="return=representation"?Response.json([{id:"assistant-message-id"}]):Response.json([]);
+  if(url.includes("/rest/v1/ai_provider_settings"))return Response.json([]);
+  if(url.includes("/rest/v1/agent_tool_registry?owner_id=is.null"))return Response.json([]);
+  if(url.includes("/rest/v1/agent_tool_registry?owner_id=eq."+ownerId))return Response.json([{id:registryId,connection_id:connectionId,protocol_tool_name:"approved_search",name:"已批准的外部查询",description:"只读查询",input_schema:{type:"object",properties:{query:{type:"string",minLength:1,maxLength:80}},required:["query"],additionalProperties:false},risk:"read_only",policy_source:"user"}]);
+  if(url.includes("/rest/v1/agent_connections?owner_id=eq."+ownerId))return Response.json([connectionRow()]);
+  if(url.includes("/rest/v1/agent_profiles?owner_id=eq."+ownerId))return Response.json([]);
+  if(url==="https://tools.example.com/mcp"&&init?.method==="POST"){
+   const payload=JSON.parse(String(init.body??"")) as {method?:string};
+   if(payload.method==="initialize")return Response.json({jsonrpc:"2.0",id:1,result:{protocolVersion:"2025-03-26",serverInfo:{name:"Demo"}}},{headers:{"Mcp-Session-Id":"session-1"}});
+   if(payload.method==="tools/call"){mcpToolCalls++;return Response.json({jsonrpc:"2.0",id:2,result:{content:[{type:"text",text:"Acme external record"}]}});}
+   return new Response(null,{status:202});
+  }
+  if(url.includes("/rest/v1/")&&init?.method!=="POST")return new Response("[]",{headers:{"content-range":"0-0/0"}});
+  throw new Error("Unexpected fetch: "+url+" "+String(init?.method));
+ });
+ try{
+  const response=await handleAgentCenter(new Request("https://worker.test/api/v1/agent/chat",{method:"POST",headers:{Authorization:"Bearer user-token","Content-Type":"application/json"},body:JSON.stringify({message:"查询外部系统中的 Acme 记录"})}),chatEnv);
+  const payload=await response.json() as {data?:{reply:string;toolsUsed:Array<{name:string;label:string}>};error?:{message:string}};
+  assert.equal(response.status,200,JSON.stringify(payload));
+  assert.equal(payload.data?.reply,"已查到外部系统记录");
+  assert.equal(modelCalls,2);
+  assert.equal(mcpToolCalls,1);
+  assert.deepEqual(payload.data?.toolsUsed.map(item=>item.name),[callName]);
+  assert.ok(seenSystems[0].includes(callName));
+  assert.ok(seenMessages[1].includes("Acme external record"));
+ }finally{restore();}
+});
+
+test("Xiaoya rejects invalid external tool arguments before invoking the connector",async()=>{
+ const registryId="123e4567-e89b-42d3-a456-426614174002";
+ const callName="tp_ext_"+registryId.replace(/-/g,"");
+ let modelCalls=0;let mcpToolCalls=0;
+ const chatEnv={...env,AI:{async run(_model:string,input:Record<string,unknown>){
+  modelCalls++;
+  return {response:JSON.stringify(modelCalls===1?{reply:"尝试查询",task:null,toolCalls:[{name:callName,arguments:{query:42}}]}:{reply:"参数不符合工具要求，未执行。",task:null,toolCalls:[]})};
+ }}};
+ const restore=withFetch(async(input,init)=>{
+  const url=String(input);
+  if(url.endsWith("/auth/v1/user"))return authResponse();
+  if(url.includes("/rest/v1/agent_conversations?")&&(!init?.method||init.method==="GET"))return Response.json([]);
+  if(url.endsWith("/rest/v1/agent_conversations")&&init?.method==="POST")return Response.json([{id:"123e4567-e89b-42d3-a456-426614174099",title:"新聊天"}]);
+  if(url.includes("/rest/v1/agent_conversations?id=eq.")&&init?.method==="PATCH")return Response.json([]);
+  if(url.includes("/rest/v1/agent_chat_messages?")&&(!init?.method||init.method==="GET"))return Response.json([]);
+  if(url.endsWith("/rest/v1/agent_chat_messages")&&init?.method==="POST")return new Headers(init.headers).get("Prefer")==="return=representation"?Response.json([{id:"assistant-message-id"}]):Response.json([]);
+  if(url.includes("/rest/v1/ai_provider_settings"))return Response.json([]);
+  if(url.includes("/rest/v1/agent_tool_registry?owner_id=is.null"))return Response.json([]);
+  if(url.includes("/rest/v1/agent_tool_registry?owner_id=eq."+ownerId))return Response.json([{id:registryId,connection_id:connectionId,protocol_tool_name:"approved_search",name:"已批准的外部查询",description:"只读查询",input_schema:{type:"object",properties:{query:{type:"string",minLength:1,maxLength:80}},required:["query"],additionalProperties:false},risk:"read_only",policy_source:"user"}]);
+  if(url.includes("/rest/v1/agent_connections?owner_id=eq."+ownerId))return Response.json([connectionRow()]);
+  if(url.includes("/rest/v1/agent_profiles?owner_id=eq."+ownerId))return Response.json([]);
+  if(url==="https://tools.example.com/mcp"&&init?.method==="POST"){
+   const payload=JSON.parse(String(init.body??"")) as {method?:string};
+   if(payload.method==="initialize")return Response.json({jsonrpc:"2.0",id:1,result:{protocolVersion:"2025-03-26",serverInfo:{name:"Demo"}}},{headers:{"Mcp-Session-Id":"session-1"}});
+   if(payload.method==="tools/call"){mcpToolCalls++;return Response.json({jsonrpc:"2.0",id:2,result:{content:[]}});}
+   return new Response(null,{status:202});
+  }
+  if(url.includes("/rest/v1/")&&init?.method!=="POST")return new Response("[]",{headers:{"content-range":"0-0/0"}});
+  throw new Error("Unexpected fetch: "+url+" "+String(init?.method));
+ });
+ try{
+  const response=await handleAgentCenter(new Request("https://worker.test/api/v1/agent/chat",{method:"POST",headers:{Authorization:"Bearer user-token","Content-Type":"application/json"},body:JSON.stringify({message:"查询外部系统记录"})}),chatEnv);
+  assert.equal(response.status,200);
+  assert.equal(modelCalls,2);
+  assert.equal(mcpToolCalls,0);
  }finally{restore();}
 });
