@@ -39,6 +39,7 @@ export function ProspectHistoryPage() {
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState('');
+  const [reloadKey, setReloadKey] = useState(0);
   const [runPage,setRunPage]=useState(1);const [runPageSize,setRunPageSize]=useState<10|20|50|100>(20);
   const [resultPage,setResultPage]=useState(1);const [resultPageSize,setResultPageSize]=useState<10|20|50|100>(20);
   const selected = runs.find(run => run.id === runId) ?? null;
@@ -57,13 +58,13 @@ export function ProspectHistoryPage() {
       } finally { if (active) setLoading(false); }
     })();
     return () => { active = false; };
-  }, []);
+  }, [reloadKey]);
 
   useEffect(() => {
     if (!runId) { setLogs([]); return; }
     let active = true;
     (async () => {
-      setDetailLoading(true);
+      setDetailLoading(true); setError('');
       try {
         const db = await getSupabaseClient();
         const { data, error: queryError } = await db.from('discovery_run_logs').select('*').eq('run_id', runId).order('created_at', { ascending: true }).limit(500);
@@ -79,7 +80,7 @@ export function ProspectHistoryPage() {
       } finally { if (active) setDetailLoading(false); }
     })();
     return () => { active = false; };
-  }, [runId]);
+  }, [runId, reloadKey]);
 
   const statusData = useMemo(() => {
     const counts = new Map<string, number>();
@@ -124,6 +125,7 @@ export function ProspectHistoryPage() {
         selectable
               ariaLabel="潜客发现历史任务"
               detailPanel
+              error={error||null} onRetry={()=>setReloadKey(value=>value+1)}
               selectionScopeKey="prospect-history-runs"
               columnSettingsKey="prospect-history-runs"
               rowKey="id"
@@ -168,6 +170,7 @@ export function ProspectHistoryPage() {
         selectable
               ariaLabel="本次任务捕获结果"
               detailPanel
+              error={error||null} onRetry={()=>setReloadKey(value=>value+1)}
               selectionScopeKey="prospect-history-results"
               columnSettingsKey="prospect-history-results"
               rowKey="id"
