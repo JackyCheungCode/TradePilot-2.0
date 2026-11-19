@@ -56,7 +56,7 @@ export interface TpDataTableProps<T extends object> {
   onSearchChange?: (value: string) => void;
   toolbarActions?: ReactNode;
   columnSettingsKey?: string;
-  /** Full filtered result set used to resolve selections across pagination pages. */
+  /** Rows supplied by the current result page; selected records are cached as pages change. */
   selectionRows?: T[];
   /** Stable key for the active filter scope; changing it clears selections. */
   selectionScopeKey?: string;
