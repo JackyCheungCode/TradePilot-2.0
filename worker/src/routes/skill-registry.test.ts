@@ -157,3 +157,40 @@ test("invalid network destinations invalidate the Skill contract and remain disa
   assert.equal((stored.config as Record<string,unknown>).activationStatus,"disabled_pending_review");
  }finally{restore();}
 });
+
+test("manual Skill registration stores validated markdown privately and remains disabled",async()=>{
+ let stored:Record<string,unknown>|undefined;
+ const restore=withFetch(async(input,init)=>{
+  const url=String(input);
+  if(url.endsWith("/auth/v1/user"))return Response.json({id:ownerId});
+  if(url.includes("/rest/v1/agent_profiles")){stored=JSON.parse(String(init?.body)) as Record<string,unknown>;return new Response(null,{status:201});}
+  throw new Error("Unexpected fetch: "+url);
+ });
+ try{
+  const response=await handleSkillRegistry(request({sourceType:"manual",skillMd:"---\\nname: manual-demo\\ndescription: A manually authored Skill\\n---\\n\\n# Instructions\\nReview the provided input."}),env);
+  const payload=await response.json() as {data:{id:string;contractStatus:string;activationStatus:string}};
+  assert.equal(response.status,200);
+  assert.equal(payload.data.id,"manual-demo");
+  assert.equal(payload.data.contractStatus,"missing");
+  assert.equal(payload.data.activationStatus,"disabled_pending_review");
+  assert.ok(stored);
+  assert.equal(stored.enabled,false);
+  assert.equal((stored.config as Record<string,unknown>).sourceType,"manual");
+  assert.equal(artifactObjects.size,1);
+ }finally{restore();}
+});
+
+test("manual Skill registration rejects invalid frontmatter before storage",async()=>{
+ let writes=0;
+ const restore=withFetch(async(input)=>{
+  const url=String(input);
+  if(url.endsWith("/auth/v1/user"))return Response.json({id:ownerId});
+  if(url.includes("/rest/v1/agent_profiles"))writes++;
+  throw new Error("Unexpected fetch: "+url);
+ });
+ try{
+  const response=await handleSkillRegistry(request({sourceType:"manual",skillMd:"# Missing frontmatter"}),env);
+  assert.equal(response.status,502);
+  assert.equal(writes,0);
+ }finally{restore();}
+});
