@@ -5,7 +5,7 @@ import { getSupabaseClient } from '@/lib/supabase';
 type Risk='read_only'|'approval_required'|'blocked';
 type Tool={
  id:string;source:'native'|'external'|'registered';name:string;description:string;risk:Risk;policySource:'system'|'default'|'user';
- connectionId?:string;connectionName?:string;protocol?:string;endpointUrl?:string;connectionStatus?:string;method?:string;path?:string;
+ connectionId?:string;connectionName?:string;protocol?:string;endpointUrl?:string;connectionStatus?:string;method?:string;path?:string;enabled?:boolean;status?:string;
 };
 type Registry={items:Tool[];nativeCount:number;externalCount:number;registeredCount?:number};
 async function toolRequest<T>(path:string,init:RequestInit={}):Promise<T>{
@@ -51,6 +51,7 @@ export function ToolsRegistry(){
  const registered=registry.items.filter(tool=>tool.source==='registered');
  const register=async(tool:Tool)=>{if(!tool.connectionId)return;setBusy(tool.id);setError('');setNotice('');try{await toolRequest('/api/v1/agent/tools',{method:'POST',body:JSON.stringify({connectionId:tool.connectionId,toolName:tool.name,name:tool.name,description:tool.description,category:'external_integration'})});setNotice(tool.name+' 已登记到工具注册中心。');await load();}catch(cause){setError(cause instanceof Error?cause.message:'工具登记失败。');}finally{setBusy('');}};
  const removeRegistered=async(tool:Tool)=>{setBusy(tool.id);setError('');try{await toolRequest('/api/v1/agent/tools/'+tool.id,{method:'DELETE'});setNotice(tool.name+' 已从个人工具注册表移除。');await load();}catch(cause){setError(cause instanceof Error?cause.message:'移除工具失败。');}finally{setBusy('');}};
+ const toggleRegistered=async(tool:Tool)=>{setBusy(tool.id);setError('');try{await toolRequest('/api/v1/agent/tools/'+tool.id,{method:'PUT',body:JSON.stringify({enabled:tool.enabled===false})});setNotice(tool.name+(tool.enabled===false?' 已启用。':' 已停用。'));await load();}catch(cause){setError(cause instanceof Error?cause.message:'更新工具状态失败。');}finally{setBusy('');}};
  const groups=[...new Map(external.map(tool=>[tool.connectionId??'',{id:tool.connectionId??'',name:tool.connectionName??'外部连接',protocol:tool.protocol??'',status:tool.connectionStatus??'',tools:external.filter(item=>item.connectionId===tool.connectionId)}])).values()];
  return <div className="tp-settings-agent">
   <InlineNotification kind="info" lowContrast title="工具权限按显式策略控制" subtitle="内置业务查询工具由系统固定为只读。所有外部 MCP、REST API 和 Webhook 工具默认要求人工审批；只有经过确认的工具才可设置为只读自动执行。禁止调用的工具不会进入 Agent 规划候选。修改策略会使旧审批快照失效。" />
@@ -66,7 +67,7 @@ export function ToolsRegistry(){
     </ContainedList>}
     <h4>已登记的扩展工具</h4>
     {!registered.length?<p>尚未登记个人扩展工具。可在下方发现的外部工具中选择“登记工具”。</p>:<ContainedList kind="on-page" label="已登记扩展工具" size="md">
-     {registered.map(tool=><ContainedListItem key={tool.id}><div className="tp-ai-control__skill-heading"><div><strong>{tool.name}</strong><p>{tool.description||'外部扩展工具'} · {tool.risk==='blocked'?'禁止调用':tool.risk==='read_only'?'只读自动执行':'执行前人工审批'}</p></div><Button kind="danger--tertiary" size="sm" disabled={busy!==''} onClick={()=>void removeRegistered(tool)}>移除登记</Button></div></ContainedListItem>)}
+     {registered.map(tool=><ContainedListItem key={tool.id}><div className="tp-ai-control__skill-heading"><div><strong>{tool.name}</strong><p>{tool.description||'外部扩展工具'} · {tool.risk==='blocked'?'禁止调用':tool.risk==='read_only'?'只读自动执行':'执行前人工审批'}</p></div><div><Tag type={tool.enabled===false?'cool-gray':'green'}>{tool.enabled===false?'已停用':'已启用'}</Tag> <Button kind="tertiary" size="sm" disabled={busy!==''} onClick={()=>void toggleRegistered(tool)}>{tool.enabled===false?'启用':'停用'}</Button> <Button kind="danger--tertiary" size="sm" disabled={busy!==''} onClick={()=>void removeRegistered(tool)}>移除登记</Button></div></div></ContainedListItem>)}
     </ContainedList>}
     <h4>外部 MCP / REST / Webhook 工具</h4>
     {!groups.length?<p>尚未发现外部工具。先到「第三方 Agent 接入」登记连接并发现能力。</p>:groups.map(group=><section className="tp-settings__editor" key={group.id}>
