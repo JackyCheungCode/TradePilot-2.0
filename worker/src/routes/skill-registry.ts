@@ -96,6 +96,7 @@ function validateSchemaNode(value:unknown,path:string,depth:number,budget:{nodes
  if(!value||typeof value!=="object"||Array.isArray(value)){errors.push(path+"：必须是 JSON Schema 对象。");return;}
  budget.nodes++;if(budget.nodes>200){errors.push("JSON Schema 节点数量超过 200。");return;}
  const schema=value as Record<string,unknown>;
+ if(depth===0&&schema.type!=="object")errors.push(path+"：根 Schema 必须声明 object 类型。");
  for(const key of Object.keys(schema))if(!CONTRACT_SCHEMA_KEYS.has(key))errors.push(path+"：不支持 JSON Schema 关键字 "+key+"。");
  const allowedTypes=["object","array","string","number","integer","boolean","null"];
  if(typeof schema.type!=="string"||!allowedTypes.includes(schema.type))errors.push(path+".type：类型无效。");
