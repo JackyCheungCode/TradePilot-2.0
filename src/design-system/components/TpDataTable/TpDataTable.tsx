@@ -314,7 +314,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
                         {...getSelectionProps()}
                         checked={allPageSelected}
                         indeterminate={somePageSelected}
-                        onChange={(_event: React.ChangeEvent<HTMLInputElement>, checked: boolean) => togglePageSelection(checked)}
+                        onSelect={() => togglePageSelection(!allPageSelected)}
                       />
                     )}
                     {headers.map((header) => (
@@ -348,7 +348,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
                           <TableSelectRow
                             {...getSelectionProps({ row: carbonRow })}
                             checked={selectedIds.has(carbonRow.id)}
-                            onChange={(_event: React.ChangeEvent<HTMLInputElement>, checked: boolean) => toggleRowSelection(carbonRow.id, checked)}
+                            onSelect={() => toggleRowSelection(carbonRow.id, !selectedIds.has(carbonRow.id))}
                           />
                         )}
                         {visibleColumns.map((column) => (
