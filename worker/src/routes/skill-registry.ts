@@ -106,8 +106,11 @@ function staticReview(files:BundleFile[],manifest:Record<string,string>){
  return {status:"pending_human_review",riskLevel:high?"high":medium?"medium":findings.length?"low":"unclassified",requiresHumanReview:true,automatedChecks:"heuristic_only",findings,dependencies:[...dependencies].sort(),networkDomains:[...domains].sort(),limitations:["静态规则扫描不是沙箱，也不能证明代码安全。","尚未执行依赖安装、脚本或任何 Skill 代码。","未声明的动态网络目标、混淆代码和运行时行为无法由本次扫描完整识别。"],manifestName:manifest.name};
 }
 async function fetchSkillBundle(source:Source){
- const api="https://api.github.com/repos/"+encodeURIComponent(source.owner)+"/"+encodeURIComponent(source.repo)+"/git/trees/"+encodeURIComponent(source.ref)+"?recursive=1";
- const tree=await githubJson(api);
+ const repository="https://api.github.com/repos/"+encodeURIComponent(source.owner)+"/"+encodeURIComponent(source.repo);
+ const commit=await githubJson(repository+"/commits/"+encodeURIComponent(source.ref));
+ const commitSha=String(commit.sha??"");
+ if(!/^[a-f0-9]{40}$/i.test(commitSha))throw new Error("GITHUB_COMMIT_INVALID：无法固定 Skill 来源提交。");
+ const tree=await githubJson(repository+"/git/trees/"+commitSha+"?recursive=1");
  if(tree.truncated===true)throw new Error("SKILL_TREE_TRUNCATED：仓库目录过大或 GitHub 返回不完整目录，拒绝导入不完整 Skill。");
  const entries=Array.isArray(tree.tree)?tree.tree as Array<Record<string,unknown>>:[];
  const root=source.path.replace(/^\/+|\/+$/g,"");
@@ -120,7 +123,7 @@ async function fetchSkillBundle(source:Source){
  if(declaredBytes>MAX_BUNDLE_BYTES)throw new Error("SKILL_PACKAGE_TOO_LARGE：Skill 包原始文件总量超过 "+MAX_BUNDLE_BYTES+" 字节。");
  const files:BundleFile[]=[];let actualBytes=0;
  for(const entry of candidates){
-  const path=String(entry.path),rawUrl="https://raw.githubusercontent.com/"+encodeURIComponent(source.owner)+"/"+encodeURIComponent(source.repo)+"/"+source.ref.split("/").map(encodeURIComponent).join("/")+"/"+path.split("/").map(encodeURIComponent).join("/");
+  const path=String(entry.path),rawUrl="https://raw.githubusercontent.com/"+encodeURIComponent(source.owner)+"/"+encodeURIComponent(source.repo)+"/"+commitSha+"/"+path.split("/").map(encodeURIComponent).join("/");
   const response=await fetch(rawUrl,{headers:{"User-Agent":"TradePilot-Skill-Registry"},redirect:"manual",signal:AbortSignal.timeout(15000)});
   if(response.status>=300&&response.status<400)throw new Error("GITHUB_REDIRECT_BLOCKED：已阻止非预期跳转。");
   if(!response.ok)throw new Error("SKILL_FILE_FETCH_FAILED："+path+"（HTTP "+response.status+"）。");
@@ -137,7 +140,7 @@ async function fetchSkillBundle(source:Source){
  if(skillFile.size>100000)throw new Error("SKILL.md 超过 100 KB 限制。");
  const manifest=parseFrontmatter(skillFile.content);
  const review=staticReview(files,manifest);
- return {manifest,files,package:{fileCount:files.length,totalBytes:actualBytes,limits:{maxFiles:MAX_FILES,maxFileBytes:MAX_FILE_BYTES,maxTotalBytes:MAX_BUNDLE_BYTES},syncedAt:new Date().toISOString(),sourceRef:source.ref},review};
+ return {manifest,files,package:{fileCount:files.length,totalBytes:actualBytes,limits:{maxFiles:MAX_FILES,maxFileBytes:MAX_FILE_BYTES,maxTotalBytes:MAX_BUNDLE_BYTES},syncedAt:new Date().toISOString(),sourceRef:source.ref,commitSha},review};
 }
 function publicConfig(config:SkillConfig):SkillConfig{
  const bundle=config.bundle&&typeof config.bundle==="object"?config.bundle as Record<string,unknown>:{};
