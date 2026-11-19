@@ -325,14 +325,21 @@ export function TpDataTable<T extends Record<string, unknown>>({
                         indeterminate={somePageSelected}
                       />
                     )}
-                    {headers.map((header) => (
-                      <TableHeader
-                        {...getHeaderProps({ header })}
-                        className={header.key === '__actions' ? 'tp-data-table__actions-heading' : undefined}
+                    {headers.map((header) => {
+                      const column = visibleColumns.find((item) => item.key === header.key);
+                      return (
+                        <TableHeader
+                          {...getHeaderProps({ header })}
+                          className={header.key === '__actions' ? 'tp-data-table__actions-heading' : undefined}
+                          style={column ? {
+                            minWidth: column.minWidth ? `${column.minWidth}px` : undefined,
+                            textAlign: column.align === 'end' ? 'right' : column.align === 'center' ? 'center' : 'left',
+                          } : undefined}
                         >
-                        {header.header}
-                      </TableHeader>
-                    ))}
+                          {header.header}
+                        </TableHeader>
+                      );
+                    })}
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -365,7 +372,14 @@ export function TpDataTable<T extends Record<string, unknown>>({
                           />
                         )}
                         {visibleColumns.map((column) => (
-                          <TableCell key={column.key} className={column.longText ? 'tp-data-table__long-text' : undefined}>
+                          <TableCell
+                            key={column.key}
+                            className={column.longText ? 'tp-data-table__long-text' : undefined}
+                            style={{
+                              minWidth: column.minWidth ? `${column.minWidth}px` : undefined,
+                              textAlign: column.align === 'end' ? 'right' : column.align === 'center' ? 'center' : 'left',
+                            }}
+                          >
                             {displayValue(source, column)}
                           </TableCell>
                         ))}
