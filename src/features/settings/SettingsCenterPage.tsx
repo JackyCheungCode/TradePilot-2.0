@@ -90,7 +90,6 @@ export function SettingsCenterPage() {
   const [section, setSection] = useState(() => searchParams.get('section') || (searchParams.get('domain') === 'integrations' ? 'api' : 'categories'));
   const [query, setQuery] = useState('');
   const [page,setPage]=useState(1);const [pageSize,setPageSize]=useState<10|20|50|100>(20);
-  useEffect(()=>setPage(1),[domain,section,query,attributeValueAttribute]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [attributes, setAttributes] = useState<Attribute[]>([]);
   const [attributeValues, setAttributeValues] = useState<AttributeValue[]>([]);
@@ -109,6 +108,7 @@ export function SettingsCenterPage() {
   const [editingAttributeId, setEditingAttributeId] = useState<string | null>(null);
   const [displayType, setDisplayType] = useState('select');
   const [variantMode, setVariantMode] = useState('never');
+  useEffect(()=>setPage(1),[domain,section,query,attributeValueAttribute]);
 
   const activeSections: Section[] = domain === 'enterprise' ? enterpriseSections : domain === 'integrations' ? integrationSections : domain === 'agent' ? agentSections : domain === 'trade-operations' ? tradeOperationsSections : domain === 'trade-documents' ? tradeDocumentSections : domain === 'opportunities' ? opportunitySettingSections : domain === 'contacts' || domain === 'accounts' || domain === 'leads' ? crmSettingSections[domain as CrmSettingsDomain] : productSections;
   const connectedCount = activeSections.filter(item => item.integration === 'connected' || item.implemented === true).length;
