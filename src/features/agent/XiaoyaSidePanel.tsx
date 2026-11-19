@@ -364,6 +364,34 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
     }
   }, [ensureConversation, refreshConversations]);
 
+  useEffect(() => {
+    const runId = taskSuggestion?.runId;
+    if (!isOpen || !runId || ['succeeded', 'failed', 'cancelled'].includes(taskSuggestion.runStatus || '')) return;
+    let active = true;
+    const pollRun = async () => {
+      try {
+        const detail = await agentRequest<{
+          run: { status: string };
+          discoveryRun?: { progress?: number };
+        }>('/api/v1/agent/runs/' + runId);
+        if (!active) return;
+        setTaskSuggestion((current) => current?.runId === runId ? {
+          ...current,
+          runStatus: detail.run.status,
+          runProgress: Number(detail.discoveryRun?.progress ?? current.runProgress ?? 0),
+        } : current);
+      } catch (error) {
+        console.error('[Xiaoya] Task status could not be refreshed', error);
+      }
+    };
+    void pollRun();
+    const timer = window.setInterval(() => { void pollRun(); }, 5000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [isOpen, taskSuggestion?.runId, taskSuggestion?.runStatus]);
+
   const startTask = useCallback(async () => {
     const suggestion = taskSuggestion;
     if (!suggestion || taskExecuting || suggestion.runId) return;
@@ -497,7 +525,7 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
             {taskError && <p className="tp-xiaoya-task__error" role="alert">{taskError}</p>}
             {taskSuggestion.runId ? (
               <div className="tp-xiaoya-task__actions">
-                <span className="tp-xiaoya-task__status">{taskSuggestion.runStatus === 'succeeded' ? '执行完成' : taskSuggestion.runStatus === 'failed' ? '执行失败' : '任务已提交'} · {taskSuggestion.runProgress ?? 0}%</span>
+                <span className="tp-xiaoya-task__status" role="status" aria-live="polite">{taskSuggestion.runStatus === 'succeeded' ? '执行完成' : taskSuggestion.runStatus === 'failed' ? '执行失败' : '任务已提交'} · {taskSuggestion.runProgress ?? 0}%</span>
                 <Link href="/recent-tasks">查看任务中心</Link>
               </div>
             ) : (
