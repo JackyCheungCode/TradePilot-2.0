@@ -59,10 +59,46 @@ export function TpDataTable<T extends Record<string, unknown>>({
   toolbarActions,
   ariaLabel = '数据列表',
   columnSettingsKey,
+  selectionRows = rows,
 }: TpDataTableProps<T>) {
   const [columnPreferences, setColumnPreferences] = useState<{ order: string[]; hidden: string[] } | null>(null);
   const [preferencesReady, setPreferencesReady] = useState(!columnSettingsKey);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+
+  const selectedRows = useMemo(
+    () => selectionRows.filter((row) => selectedIds.has(String(row[rowKey]))),
+    [selectionRows, selectedIds, rowKey],
+  );
+  const pageIds = useMemo(() => rows.map((row) => String(row[rowKey])), [rows, rowKey]);
+  const selectedPageCount = pageIds.filter((id) => selectedIds.has(id)).length;
+  const allPageSelected = pageIds.length > 0 && selectedPageCount === pageIds.length;
+  const somePageSelected = selectedPageCount > 0 && !allPageSelected;
+
+  useEffect(() => {
+    const validIds = new Set(selectionRows.map((row) => String(row[rowKey])));
+    setSelectedIds((current) => {
+      const next = new Set([...current].filter((id) => validIds.has(id)));
+      return next.size === current.size ? current : next;
+    });
+  }, [selectionRows, rowKey]);
+
+  const toggleRowSelection = (id: string, checked: boolean) => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  };
+
+  const togglePageSelection = (checked: boolean) => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      pageIds.forEach((id) => checked ? next.add(id) : next.delete(id));
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (!columnSettingsKey) {
@@ -171,13 +207,13 @@ export function TpDataTable<T extends Record<string, unknown>>({
         {({ rows: renderedRows, getHeaderProps, getRowProps, getSelectionProps, getBatchActionProps, selectedRows: carbonSelectedRows }) => (
           <TableContainer aria-label={ariaLabel}>
             <TableToolbar>
-              {selectable && carbonSelectedRows.length > 0 && (
+              {selectable && selectedRows.length > 0 && (
                 <TableBatchActions {...getBatchActionProps()}>
                   {batchActions.map((action) => (
                     <TableBatchAction
                       key={action.key}
                       tabIndex={0}
-                      onClick={() => void action.onClick(carbonSelectedRows.map((selected) => rows.find((row) => String(row[rowKey]) === selected.id)).filter((row): row is T => Boolean(row)))}
+                      onClick={() => void action.onClick(selectedRows)}
                       disabled={action.disabled}
                     >
                       {action.label}
@@ -267,7 +303,14 @@ export function TpDataTable<T extends Record<string, unknown>>({
               <Table size={typeof window !== 'undefined' && window.innerWidth < 672 ? 'lg' : 'md'}>
                 <TableHead>
                   <TableRow>
-                    {selectable && <TableSelectAll {...getSelectionProps()} />}
+                    {selectable && (
+                      <TableSelectAll
+                        {...getSelectionProps()}
+                        checked={allPageSelected}
+                        indeterminate={somePageSelected}
+                        onChange={(_event: React.ChangeEvent<HTMLInputElement>, checked: boolean) => togglePageSelection(checked)}
+                      />
+                    )}
                     {headers.map((header) => (
                       <TableHeader
                         {...getHeaderProps({ header })}
@@ -298,6 +341,8 @@ export function TpDataTable<T extends Record<string, unknown>>({
                         {selectable && (
                           <TableSelectRow
                             {...getSelectionProps({ row: carbonRow })}
+                            checked={selectedIds.has(carbonRow.id)}
+                            onChange={(_event: React.ChangeEvent<HTMLInputElement>, checked: boolean) => toggleRowSelection(carbonRow.id, checked)}
                           />
                         )}
                         {visibleColumns.map((column) => (
