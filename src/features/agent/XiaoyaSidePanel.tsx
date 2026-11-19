@@ -108,6 +108,8 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
       previousFocusRef.current = null;
       return;
     }
+    const previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
     previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const dialog = dialogRef.current;
     dialog?.focus();
@@ -137,7 +139,10 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
       }
     };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = previousBodyOverflow;
+    };
   }, [isOpen]);
 
   useEffect(() => () => {
@@ -206,8 +211,14 @@ export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
     if (!instance) return;
     const requestId = ++conversationRequestIdRef.current;
     try {
-      const created = await createConversation();
+      const created = await agentRequest<Conversation>('/api/v1/agent/conversations', {
+        method: 'POST',
+        body: JSON.stringify({ title: '新聊天' }),
+      });
       if (requestId !== conversationRequestIdRef.current) return;
+      conversationIdRef.current = created.id;
+      setSelectedConversationId(created.id);
+      setConversations((current) => [created, ...current.filter((item) => item.id !== created.id)]);
       await instance.messaging.clearConversation();
       if (requestId !== conversationRequestIdRef.current) return;
       setWelcomeVisible(true);
