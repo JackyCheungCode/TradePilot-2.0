@@ -1,6 +1,10 @@
 import {
   Button,
   Checkbox,
+  ComposedModal,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
   DataTable,
   DataTableSkeleton,
   InlineNotification,
@@ -133,7 +137,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
   const [selectionRevision, setSelectionRevision] = useState(0);
   const [batchFeedback, setBatchFeedback] = useState<{ kind: 'success' | 'error'; title: string; subtitle: string } | null>(null);
   const [batchBusy, setBatchBusy] = useState(false);
-  const [pendingBatchAction, setPendingBatchAction] = useState<TpDataTableProps<T>['batchActions'][number] | null>(null);
+  const [pendingBatchAction, setPendingBatchAction] = useState<NonNullable<TpDataTableProps<T>['batchActions']>[number] | null>(null);
   const selectedRowCache = useRef(new Map<string, T>());
 
   useEffect(() => {

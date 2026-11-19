@@ -23,8 +23,6 @@ export interface TpBatchAction<T> {
   label: string;
   onClick: (rows: T[]) => void | Promise<void>;
   disabled?: boolean;
-  /** Required confirmation text for destructive or irreversible bulk actions. */
-  confirmation?: string;
 }
 
 export interface TpRowAction<T> {
