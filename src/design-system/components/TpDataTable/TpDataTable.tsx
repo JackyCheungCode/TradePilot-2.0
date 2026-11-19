@@ -1,10 +1,6 @@
 import {
   Button,
   Checkbox,
-  ComposedModal,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
   DataTable,
   DataTableSkeleton,
   InlineNotification,
@@ -137,7 +133,6 @@ export function TpDataTable<T extends Record<string, unknown>>({
   const [selectionRevision, setSelectionRevision] = useState(0);
   const [batchFeedback, setBatchFeedback] = useState<{ kind: 'success' | 'error'; title: string; subtitle: string } | null>(null);
   const [batchBusy, setBatchBusy] = useState(false);
-  const [pendingBatchAction, setPendingBatchAction] = useState<NonNullable<TpDataTableProps<T>['batchActions']>[number] | null>(null);
   const selectedRowCache = useRef(new Map<string, T>());
 
   useEffect(() => {
@@ -146,25 +141,9 @@ export function TpDataTable<T extends Record<string, unknown>>({
   }, [selectionRows, rowKey]);
 
   const selectedRows = useMemo(
-    () => [...selectedIds].map((id) => selectedRowCache.current.get(id)).filter((row): row is T => row !== undefined),
+    () => [...selectedIds].map((id) => selectedRowCache.current.get(id)).filter((row): row is T => Boolean(row)),
     [selectedIds, selectionRevision],
   );
-  const hasSelection = selectedIds.size > 0;
-
-  const runBatchAction = async (action: NonNullable<TpDataTableProps<T>['batchActions']>[number]) => {
-    if (batchBusy || action.disabled || selectedRows.length === 0) return;
-    setBatchBusy(true);
-    setBatchFeedback(null);
-    try {
-      await action.onClick(selectedRows);
-      setBatchFeedback({ kind: 'success', title: '批量操作已完成', subtitle: action.label });
-      setPendingBatchAction(null);
-    } catch (cause) {
-      setBatchFeedback({ kind: 'error', title: '批量操作失败', subtitle: cause instanceof Error ? cause.message : '操作未能完成，请重试' });
-    } finally {
-      setBatchBusy(false);
-    }
-  };
 
 
   const previousSelectionScope = useRef(selectionScopeKey);
@@ -183,9 +162,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
     }
   }, [selectionScopeKey]);
 
-  const toggleRowSelection = (id: string, row: T, checked: boolean) => {
-    if (checked) selectedRowCache.current.set(id, row);
-    setSelectionRevision((revision) => revision + 1);
+  const toggleRowSelection = (id: string, checked: boolean) => {
     setSelectedIds((current) => {
       const next = new Set(current);
       if (checked) next.add(id);
@@ -195,11 +172,6 @@ export function TpDataTable<T extends Record<string, unknown>>({
   };
 
   const togglePageSelection = (ids: string[], checked: boolean) => {
-    ids.forEach((id) => {
-      const row = rowById.get(id);
-      if (checked && row) selectedRowCache.current.set(id, row);
-    });
-    setSelectionRevision((revision) => revision + 1);
     setSelectedIds((current) => {
       const next = new Set(current);
       ids.forEach((id) => {
@@ -421,7 +393,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
           return (
           <TableContainer aria-label={ariaLabel}>
             <TableToolbar>
-              {selectable && hasSelection && (
+              {selectable && selectedRows.length > 0 && (
                 <TableBatchActions
                   {...getBatchActionProps()}
                   onCancel={() => {
@@ -461,11 +433,24 @@ export function TpDataTable<T extends Record<string, unknown>>({
                     })} disabled={batchBusy}>归档所选</TableBatchAction>
                   )}
                   {batchActions.map((action) => (
-                    <TableBatchAction key={action.key} tabIndex={0} onClick={() => {
-                      if (batchBusy || action.disabled) return;
-                      if (action.confirmation) setPendingBatchAction(action);
-                      else void runBatchAction(action);
-                    }} disabled={batchBusy || action.disabled}>
+                    <TableBatchAction
+                      key={action.key}
+                      tabIndex={0}
+                      onClick={async () => {
+                        if (batchBusy || action.disabled) return;
+                        setBatchBusy(true);
+                        setBatchFeedback(null);
+                        try {
+                          await action.onClick(selectedRows);
+                          setBatchFeedback({ kind: 'success', title: '批量操作已完成', subtitle: action.label });
+                        } catch (cause) {
+                          setBatchFeedback({ kind: 'error', title: '批量操作失败', subtitle: cause instanceof Error ? cause.message : '操作未能完成，请重试' });
+                        } finally {
+                          setBatchBusy(false);
+                        }
+                      }}
+                      disabled={batchBusy || action.disabled}
+                    >
                       {action.label}
                     </TableBatchAction>
                   ))}
@@ -623,7 +608,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
                                   row: carbonRow,
                                   onClick: (event) => {
                                     event.stopPropagation();
-                                    toggleRowSelection(carbonRow.id, rowById.get(carbonRow.id)!, !selectedIds.has(carbonRow.id));
+                                    toggleRowSelection(carbonRow.id, !selectedIds.has(carbonRow.id));
                                   },
                                 })}
                                 checked={selectedIds.has(carbonRow.id)}
@@ -726,16 +711,6 @@ export function TpDataTable<T extends Record<string, unknown>>({
             </div>
           )}
         </SidePanel>
-      )}
-      {pendingBatchAction && (
-        <ComposedModal open onClose={() => !batchBusy && setPendingBatchAction(null)} size="sm">
-          <ModalHeader title={`确认${pendingBatchAction.label}`} />
-          <ModalBody><p>{pendingBatchAction.confirmation}</p><p>涉及 {selectedRows.length} 条所选记录。此操作将按当前账号权限执行。</p></ModalBody>
-          <ModalFooter>
-            <Button kind="secondary" disabled={batchBusy} onClick={() => setPendingBatchAction(null)}>取消</Button>
-            <Button kind="danger" disabled={batchBusy || selectedRows.length === 0} onClick={() => void runBatchAction(pendingBatchAction)}>{batchBusy ? '正在处理…' : '确认执行'}</Button>
-          </ModalFooter>
-        </ComposedModal>
       )}
     </div>
   );

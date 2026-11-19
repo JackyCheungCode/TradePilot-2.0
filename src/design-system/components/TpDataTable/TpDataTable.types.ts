@@ -23,6 +23,8 @@ export interface TpBatchAction<T> {
   label: string;
   onClick: (rows: T[]) => void | Promise<void>;
   disabled?: boolean;
+  /** Confirmation copy shown before executing destructive batch actions. */
+  confirmation?: string;
 }
 
 export interface TpRowAction<T> {
