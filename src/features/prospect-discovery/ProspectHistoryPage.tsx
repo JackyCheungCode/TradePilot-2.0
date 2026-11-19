@@ -123,6 +123,7 @@ export function ProspectHistoryPage() {
             <TpDataTable
         selectable
               ariaLabel="潜客发现历史任务"
+              detailPanel
               columnSettingsKey="prospect-history-runs"
               rowKey="id"
               rows={runs as (Run & Record<string,unknown>)[]}
