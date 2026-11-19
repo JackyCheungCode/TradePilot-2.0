@@ -1,9 +1,0 @@
-/** Single application-wide stylesheet entry point. */
-@use './carbon';
-@use '../layout/AppShell/styles';
-
-@use './customer-communications';
-
-@use '../data-visualization/world-map-chart';
-
-@use '@carbon/ibm-products/scss/components/SidePanel';

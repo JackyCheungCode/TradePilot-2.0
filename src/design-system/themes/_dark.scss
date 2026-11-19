@@ -1,7 +1,0 @@
-/** IBM Carbon G100 theme, scoped to the application theme boundary. */
-@use '@carbon/react/scss/themes' as carbon-themes;
-@use '@carbon/react/scss/theme' as carbon-theme;
-
-:root[data-carbon-theme='g100'] {
-  @include carbon-theme.theme(carbon-themes.$g100);
-}
