@@ -105,7 +105,9 @@ export function AIControlCenterPage() {
                     <div className="tp-ai-control__status-row"><span>内置 Agent 配置</span><Tag type="green">已接入</Tag></div>
                     <div className="tp-ai-control__status-row"><span>第三方 Agent / MCP 连接管理</span><Tag type="green">已接入</Tag></div>
                     <div className="tp-ai-control__status-row"><span>Skills 注册中心</span><Tag type="green">已接入</Tag></div>
-                    <div className="tp-ai-control__status-row"><span>任务监控与人工审批</span><Tag type="green">已接入</Tag></div>\n                    <div className="tp-ai-control__status-row"><span>Tools 注册中心与显式权限策略</span><Tag type="green">已接入</Tag></div>\n                    <div className="tp-ai-control__status-row"><span>隔离执行运行时与运行指标</span><Tag type="cool-gray">待建设</Tag></div>
+                    <div className="tp-ai-control__status-row"><span>任务监控与人工审批</span><Tag type="green">已接入</Tag></div>
+                    <div className="tp-ai-control__status-row"><span>Tools 注册中心与显式权限策略</span><Tag type="green">已接入</Tag></div>
+                    <div className="tp-ai-control__status-row"><span>隔离执行运行时与运行指标</span><Tag type="cool-gray">待建设</Tag></div>
                   </div>
                 </>
               )}
