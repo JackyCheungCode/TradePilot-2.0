@@ -2,7 +2,7 @@ import { PageHeader } from '@/design-system';
 import { cloneElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-  Accordion, AccordionItem, Button, Link, Checkbox, ComboBox, InlineLoading, InlineNotification, Modal, MultiSelect,
+  Button, Link, Checkbox, ComboBox, InlineLoading, InlineNotification, Modal, MultiSelect,
   Select, SelectItem, Tab, TabList, TabPanel, TabPanels, Tabs, Tag, TextArea, TextInput, Tile, FileUploader, LineChart, ScaleTypes,
   semanticIcons, BusinessLifecycle, WorldMapChart, TpDataTable,
 } from '@/design-system';
