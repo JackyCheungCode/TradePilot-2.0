@@ -284,7 +284,7 @@ test("Agent workflow pause, resume and cancel controls call the owner-scoped Clo
  const calls:string[]=[];
  const workflowEnv={...env,AGENT_ORCHESTRATION_WORKFLOW:{
   create:async()=>({id:runId}),
-  get:(id:string)=>({status:async()=>({status:workflowStatus}),pause:async()=>{calls.push("pause");workflowStatus="paused";},resume:async()=>{calls.push("resume");workflowStatus="running";},terminate:async()=>{calls.push("terminate");workflowStatus="terminated";},restart:async()=>{calls.push("restart");workflowStatus="running";}})
+  get:()=>({status:async()=>({status:workflowStatus}),pause:async()=>{calls.push("pause");workflowStatus="paused";},resume:async()=>{calls.push("resume");workflowStatus="running";},terminate:async()=>{calls.push("terminate");workflowStatus="terminated";},restart:async()=>{calls.push("restart");workflowStatus="running";}})
  }};
  const restore=withFetch(async(input,init)=>{
   const url=String(input);
