@@ -645,7 +645,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
         <SidePanel
           className="tp-data-table__detail-panel"
           open={Boolean(detailRow)}
-          title={detailRow ? (detailTitle?.(detailRow) || String(detailRow[visibleColumns.find((column) => column.primary)?.key ?? rowKey] ?? ariaLabel + '详情')) : ariaLabel + '详情'}
+          title={detailRow ? (detailTitle?.(detailRow) || String(detailRow[String(visibleColumns.find((column) => column.primary)?.key ?? rowKey)] ?? ariaLabel + '详情')) : ariaLabel + '详情'}
           subtitle={detailRow ? `记录 ID：${String(detailRow[rowKey])}` : undefined}
           size="lg"
           placement="right"
