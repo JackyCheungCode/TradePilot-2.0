@@ -160,6 +160,7 @@ export function CustomerCommunicationsWidget({
   const [profileOpen, setProfileOpen] = useState(true);
   const [notice, setNotice] = useState('');
   const [sending, setSending] = useState(false);
+  const [statusBusy, setStatusBusy] = useState(false);
   const [aiBusyAction, setAiBusyAction] = useState<'summary' | 'reply_draft' | 'intent' | null>(null);
   const [aiResult, setAiResult] = useState('');
   const [aiResultAction, setAiResultAction] = useState<'reply_draft' | 'intent' | null>(null);
@@ -322,6 +323,26 @@ export function CustomerCommunicationsWidget({
       return matchesSearch && matchesFilter && matchesChannel;
     })
     .sort((a, b) => b.lastActivityAt - a.lastActivityAt), [customers, identities, messages, search, filter, channelFilter]);
+
+  const updateCustomerConversationStatus = async () => {
+    if (!activeCustomer || statusBusy) return;
+    const nextStatus = activeCustomer.status === 'resolved' ? 'pending' : 'resolved';
+    setStatusBusy(true);
+    setNotice('');
+    try {
+      const client = await getSupabaseClient();
+      const { error } = await client.from('inbox_conversations')
+        .update({ status: nextStatus }).eq('contact_id', activeCustomer.id);
+      if (error) throw error;
+      setCustomers((current) => current.map((customer) => customer.id === activeCustomer.id
+        ? { ...customer, status: nextStatus } : customer));
+      setNotice(nextStatus === 'resolved' ? '该客户的会话已标记为已解决。' : '该客户的会话已重新打开。');
+    } catch (cause) {
+      setNotice(cause instanceof Error ? cause.message : '更新会话状态失败，请稍后重试。');
+    } finally {
+      setStatusBusy(false);
+    }
+  };
 
   const selectCustomer = (customer: Customer) => {
     setActiveCustomerId(customer.id);
@@ -520,6 +541,7 @@ export function CustomerCommunicationsWidget({
               <Avatar name={activeCustomer.name} size="small" />
               <div className="tp-chat-heading"><strong>{activeCustomer.name}</strong><span>{activeCustomer.company} · {activeCustomer.country}</span></div>
               <div className="tp-chat-context"><span className="tp-chat-live-dot" /> 全渠道会话</div>
+              <Button type="button" kind={activeCustomer.status === 'resolved' ? 'tertiary' : 'ghost'} size="sm" disabled={statusBusy} onClick={() => void updateCustomerConversationStatus()}>{statusBusy ? '更新中…' : activeCustomer.status === 'resolved' ? '重新打开' : '标记已解决'}</Button>
               {popupMode ? <Button type="button" kind="ghost" size="sm" className="tp-chat-popup-close" onClick={() => window.close()}><span>关闭窗口</span><semanticIcons.close size={16} /></Button> : null}
             </header>
             <div className="tp-chat-timeline">
