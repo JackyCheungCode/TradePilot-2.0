@@ -125,19 +125,21 @@
 
 .tp-xiaoya-welcome__avatar {
   display: grid;
-  width: 12rem;
-  height: 12rem;
+  width: 4rem;
+  height: 4rem;
   place-items: center;
   margin-block-end: var(--tp-space-02);
 }
 
 .tp-xiaoya-welcome__avatar .tp-xiaoya-avatar {
-  width: 12rem;
-  height: 12rem;
+  width: 4rem;
+  height: 4rem;
 }
 
 .tp-xiaoya-welcome__title {
   margin: 0;
+  font-size: 1.25rem;
+  line-height: 1.5rem;
   font-weight: 400;
 }
 
