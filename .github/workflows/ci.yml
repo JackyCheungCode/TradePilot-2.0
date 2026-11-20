@@ -40,21 +40,7 @@ jobs:
           node-version: 22
 
       - name: Install dependencies
-        run: npm install
-      - name: Generate deterministic npm lockfile
-        run: npm install --package-lock-only --ignore-scripts --package-lock=true
-      - name: Emit generated npm lockfile for repository commit
-        run: |
-          python3 - <<'PY'
-          import base64, hashlib
-          data = open("package-lock.json", "rb").read()
-          encoded = base64.b64encode(data).decode("ascii")
-          print("LOCKFILE_BYTES=" + str(len(data)))
-          print("LOCKFILE_SHA256=" + hashlib.sha256(data).hexdigest())
-          chunk_size = 12000
-          for index in range(0, len(encoded), chunk_size):
-              print("LOCKFILE_CHUNK_%04d=%s" % (index // chunk_size, encoded[index:index + chunk_size]))
-          PY
+        run: npm ci
       - name: Validate trade lifecycle migrations in isolated PostgreSQL
         env:
           PGHOST: 127.0.0.1
@@ -90,7 +76,6 @@ jobs:
           path: |
             .wrangler/dry-run/
             dist/client/
-            package-lock.json
           if-no-files-found: error
           retention-days: 1
 
