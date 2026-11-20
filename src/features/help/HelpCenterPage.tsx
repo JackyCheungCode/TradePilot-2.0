@@ -19,10 +19,70 @@ const sections: HelpSection[] = [
   { id: 'troubleshooting', title: '常见问题与安全提示', summary: '登录、数据加载、任务执行、消息发送、金额和单证异常的排查建议。', route: '/security', steps: ['先确认登录状态、权限和筛选条件', '查看页面错误提示及任务日志', '核对外部服务连接、额度和授权', '检查记录编号、币种、版本和关联业务', '反馈问题时不要发送密码、验证码或令牌'] },
 ];
 
+
+type HelpRoute = { label: string; route: string };
+const routeDirectory: HelpRoute[] = [
+  { label: "登录", route: "/login" },
+  { label: "工作台总览", route: "/dashboard" },
+  { label: "帮助中心", route: "/help" },
+  { label: "沟通工作区", route: "/communications" },
+  { label: "小雅工作区", route: "/agent" },
+  { label: "AI 与 Agent 总览", route: "/ai-agents" },
+  { label: "潜客发现", route: "/prospect-discovery" },
+  { label: "历史任务列表", route: "/prospect-history" },
+  { label: "历史任务详情", route: "/prospect-history/:runId" },
+  { label: "潜客数据", route: "/prospect-data" },
+  { label: "线索列表", route: "/leads" },
+  { label: "新建线索", route: "/leads/new" },
+  { label: "客户列表", route: "/accounts" },
+  { label: "新建客户", route: "/accounts/new" },
+  { label: "客户详情", route: "/accounts/:id" },
+  { label: "编辑客户", route: "/accounts/:id/edit" },
+  { label: "联系人列表", route: "/contacts" },
+  { label: "新建联系人", route: "/contacts/new" },
+  { label: "联系人详情", route: "/contacts/:id" },
+  { label: "编辑联系人", route: "/contacts/:id/edit" },
+  { label: "销售机会列表", route: "/opportunities" },
+  { label: "新建销售机会", route: "/opportunities/new" },
+  { label: "销售机会详情", route: "/opportunities/:id" },
+  { label: "编辑销售机会", route: "/opportunities/:id/edit" },
+  { label: "报价单列表", route: "/quotes" },
+  { label: "新建报价单", route: "/quotes/new" },
+  { label: "报价单详情", route: "/quotes/:id" },
+  { label: "编辑报价单", route: "/quotes/:id/edit" },
+  { label: "销售订单列表", route: "/sales-orders" },
+  { label: "新建销售订单", route: "/sales-orders/new" },
+  { label: "销售订单详情", route: "/sales-orders/:id" },
+  { label: "编辑销售订单", route: "/sales-orders/:id/edit" },
+  { label: "产品列表", route: "/products" },
+  { label: "新建产品", route: "/products/new" },
+  { label: "产品详情", route: "/products/:id" },
+  { label: "编辑产品", route: "/products/:id/edit" },
+  { label: "贸易单证中心", route: "/documents" },
+  { label: "单证工作台", route: "/documents/studio" },
+  { label: "模板中心", route: "/documents/templates" },
+  { label: "企业单证资料", route: "/documents/company-profile" },
+  { label: "已生成单据", route: "/documents/generated" },
+  { label: "单据预览/详情", route: "/documents/:id" },
+  { label: "发运列表", route: "/shipments" },
+  { label: "新建发运", route: "/shipments/new" },
+  { label: "发运详情", route: "/shipments/:id" },
+  { label: "编辑发运", route: "/shipments/:id/edit" },
+  { label: "收款列表", route: "/payments" },
+  { label: "新建收款", route: "/payments/new" },
+  { label: "收款详情", route: "/payments/:id" },
+  { label: "收款分配", route: "/payments/:id/allocate" },
+  { label: "编辑收款", route: "/payments/:id/edit" },
+  { label: "贸易工具中心", route: "/trade-tools" },
+  { label: "系统设置", route: "/settings" },
+  { label: "个人设置", route: "/personal-settings" },
+  { label: "安全中心", route: "/security" },
+];
+
 export function HelpCenterPage() {
   const [query, setQuery] = useState('');
   const [expanded, setExpanded] = useState<string>('overview');
-  const filtered = useMemo(() => {
+  const filteredRoutes = useMemo(() => {\n    const normalized = query.trim().toLocaleLowerCase();\n    if (!normalized) return routeDirectory;\n    return routeDirectory.filter(item => (item.label + ' ' + item.route).toLocaleLowerCase().includes(normalized));\n  }, [query]);\n  const filtered = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
     if (!normalized) return sections;
     return sections.filter(section => [section.title, section.summary, ...section.steps].join(' ').toLocaleLowerCase().includes(normalized));
@@ -50,6 +110,24 @@ export function HelpCenterPage() {
         <TextInput id="help-search" labelText="搜索帮助内容" placeholder="输入页面名称、操作或关键词" value={query} onChange={(event: React.ChangeEvent<HTMLInputElement>) => setQuery(event.currentTarget.value)} />
         <span>{filtered.length} 个板块</span>
       </div>
+      <section className="tp-help__route-directory" aria-label="全站页面索引">
+        <div className="tp-help__route-heading">
+          <h2>全站页面索引</h2>
+          <span>{filteredRoutes.length} 个页面入口</span>
+        </div>
+        <ul>
+          {filteredRoutes.map(item => (
+            <li key={item.route}>
+              <span>{item.label}</span>
+              {item.route.includes(':') ? (
+                <span className="tp-help__route-pattern">{item.route}（从对应列表打开具体记录）</span>
+              ) : (
+                <Link href={item.route} renderIcon={semanticIcons.launch}>{item.route}</Link>
+              )}
+            </li>
+          ))}
+        </ul>
+      </section>
       <section className="tp-help__sections" aria-label="帮助文档目录">
         {filtered.map((section, index) => (
           <Tile className={'tp-help__section ' + (expanded === section.id ? 'is-expanded' : '')} key={section.id}>
