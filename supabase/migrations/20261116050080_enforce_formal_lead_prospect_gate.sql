@@ -1,7 +1,7 @@
 create or replace function public.create_formal_lead(p_lead jsonb)
 returns jsonb
 language plpgsql
-set search_path = public
+set search_path = ''
 as $function$
 declare
   v_owner uuid := auth.uid();
