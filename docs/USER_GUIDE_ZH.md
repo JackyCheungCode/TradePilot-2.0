@@ -442,8 +442,11 @@ AI 与 Agent 中心集中管理 AI 模型、Agent、外部 Agent、Skills、Tool
 | 帮助中心 | `/help` | 帮助目录 | 搜索说明、跳转模块 |
 | 沟通工作区 | `/communications` | 会话工作区 | 查看会话、处理消息 |
 | 旧收件箱入口 | `/inbox` | 兼容跳转 | 自动转到沟通工作区 |
+| 旧收件箱入口 | `/inbox` | 兼容跳转 | 自动转到沟通工作区 |
 | 小雅工作区 | `/agent` | AI 对话/任务 | 通过自然语言发起辅助任务 |
 | AI 与 Agent 中心 | `/ai-agents` | 配置工作区 | 模型、Agent、连接、Skills、Tools、任务、安全 |
+| AI 子分区 | `/ai-agents?section=models/agents/connections/skills/tools/tasks/security/appearance/history` | 页面内分区 | 通过 section 参数定位对应配置面板 |
+| AI 运行监控 | `/ai-agents?section=monitoring` | 后续接入 | 当前页面标记为后续接入 |
 | 潜客发现 | `/prospect-discovery` | 五步向导 | 选择数据源、参数、执行、评分、决策人 |
 | 历史任务列表 | `/prospect-history` | 任务列表 | 查看发现任务与执行结果 |
 | 历史任务详情 | `/prospect-history/:runId` | 任务详情 | 查看单次任务日志、结果和状态 |
@@ -656,7 +659,7 @@ AI 与 Agent 中心使用 URL 参数切换分区：
 
 ### 17.13 页面覆盖核对说明
 
-本手册逐项列出当前 `src/app/router.tsx` 中的页面路由，包括列表、新建、详情、编辑、分配和兼容跳转。路由存在只代表前端有页面入口，不代表账号一定有访问权限，也不代表外部服务已经连接。对于设置中心内部由 `section` 或页面状态切换的子分区，需结合对应设置页面的实际配置项继续阅读第 11、12 节。
+本手册逐项列出当前 `src/app/router.tsx` 中的 58 个路由声明（其中根路径 `/` 会重定向到 `/dashboard`），包括列表、新建、详情、编辑、分配和兼容跳转。路由存在只代表前端有页面入口，不代表账号一定有访问权限，也不代表外部服务已经连接。对于设置中心内部由 `section` 或页面状态切换的子分区，需结合对应设置页面的实际配置项继续阅读第 11、12 节。
 
 
 ---
