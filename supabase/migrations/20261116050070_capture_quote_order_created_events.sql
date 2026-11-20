@@ -2,7 +2,7 @@ create or replace function public.capture_quote_created_lifecycle_event()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 begin
   if new.document_type <> 'quotation' then return new; end if;
@@ -32,7 +32,7 @@ create or replace function public.capture_sales_order_created_lifecycle_event()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 begin
   if new.order_type <> 'sales' then return new; end if;
