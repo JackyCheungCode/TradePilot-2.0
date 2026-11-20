@@ -60,7 +60,16 @@ export function DashboardPage() {
     setError('');
     try {
       const db = await getSupabaseClient();
-      const queries = await Promise.all([
+      const activitiesPromise = (async () => {
+        const { data: sessionData } = await db.auth.getSession();
+        const token = sessionData.session?.access_token;
+        if (!token) throw new Error('登录状态已失效，请重新登录。');
+        const response = await fetch('/api/v1/master-data/crm/activities?order=created_at.desc&limit=5000', { headers: { Authorization: 'Bearer ' + token } });
+        const payload = await response.json() as { data?: Row[]; error?: { message?: string } };
+        if (!response.ok || !Array.isArray(payload.data)) throw new Error(payload.error?.message || 'CRM 活动读取失败。');
+        return payload.data;
+      })();
+      const [queries, activities] = await Promise.all([Promise.all([
         db.from('crm_accounts').select('id,country_code,created_at,status,industry,account_name,source_lead_id').eq('is_archived', false).limit(5000),
         db.from('leads').select('id,country_code,status,created_at,is_formal').limit(5000),
         db.from('crm_opportunities').select('id,account_id,stage,status,amount,currency_code,probability,forecast_probability,created_at,expected_close_date,is_archived').eq('is_archived', false).limit(5000),
@@ -69,12 +78,11 @@ export function DashboardPage() {
         db.from('trade_shipments').select('id,status,created_at,planned_ship_date,actual_ship_date,shipment_value,currency_code,exception_flag,account_id,order_id').limit(5000),
         db.from('trade_payments').select('id,payment_type,status,payment_date,received_date,currency,amount,net_received,amount_base,refund_amount,refund_date,created_at,account_id').limit(5000),
         db.from('agent_runs').select('id,goal,status,created_at,started_at,completed_at,error_message,actual_cost_usd').order('created_at', { ascending: false }).limit(5000),
-        db.from('crm_activities').select('id,activity_type,summary,due_at,status,created_at,account_id,opportunity_id').order('created_at', { ascending: false }).limit(5000),
         db.from('discovery_records').select('id,channel,status,country_code,created_at,lead_id').limit(5000),
         db.from('crm_contacts').select('id,account_id,created_at,is_active,is_archived').eq('is_archived', false).limit(5000),
         db.from('trade_products').select('id,sku,name,category,brand,is_active,is_archived,created_at').eq('is_archived', false).limit(5000),
         db.from('discovery_runs').select('id,query,search_config,channel,created_at,countries').order('created_at', { ascending: false }).limit(5000),
-      ]);
+      ]), activitiesPromise]);
       const failed = queries.find(result => result.error);
       if (failed?.error) throw new Error(failed.error.message);
       setData({
@@ -82,7 +90,7 @@ export function DashboardPage() {
         opportunities: safeArray(queries[2].data), documents: safeArray(queries[3].data),
         orders: safeArray(queries[4].data), shipments: safeArray(queries[5].data),
         payments: safeArray(queries[6].data), products: safeArray(queries[11].data), agentRuns: safeArray(queries[7].data),
-        activities: safeArray(queries[8].data), discovery: safeArray(queries[9].data), discoveryRuns: safeArray(queries[12].data),
+        activities: safeArray(activities), discovery: safeArray(queries[8].data), discoveryRuns: safeArray(queries[11].data),
         updatedAt: new Date().toISOString(),
       });
     } catch (cause) {
