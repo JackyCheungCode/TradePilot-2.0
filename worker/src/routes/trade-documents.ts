@@ -1,4 +1,4 @@
-import { errorResponse, successResponse } from "../lib/http";
+import { errorResponse, successResponse } from "../lib/http.ts";
 
 interface Env { SUPABASE_URL:string; SUPABASE_ANON_KEY:string; SUPABASE_SERVICE_ROLE_KEY:string; BROWSER:{quickAction(action:'pdf',input:Record<string,unknown>):Promise<Response>}; }
 type Json=Record<string,unknown>;
