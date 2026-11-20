@@ -636,11 +636,18 @@ export async function handleInbox(request: Request, env: InboxEnv): Promise<Resp
       if (before && !Number.isNaN(Date.parse(before))) params.push("created_at=lt." + encodeURIComponent(before));
       const messages = await db<Row[]>(dbEnv, "inbox_messages?" + params.join("&"));
       const messageIds = unique(messages.map(row => row.id));
-      const attachments = messageIds.length
-        ? await db<Row[]>(dbEnv,
+      let attachments: Row[] = [];
+      if (messageIds.length) {
+        try {
+          attachments = await db<Row[]>(dbEnv,
             "inbox_attachments?select=id,message_id,original_file_name,content_type,file_size_bytes,scan_status,created_at&owner_id=eq." +
-            ownerId + "&message_id=in.(" + messageIds.join(",") + ")&order=created_at.asc")
-        : [];
+            ownerId + "&message_id=in.(" + messageIds.join(",") + ")&order=created_at.asc");
+        } catch (cause) {
+          // The private-attachment migration is intentionally held until scanner
+          // infrastructure is ready. Keep ordinary text-message history available.
+          if (!(cause instanceof Error) || !cause.message.includes("PGRST205")) throw cause;
+        }
+      }
       const attachmentsByMessage = new Map<string, Row[]>();
       for (const attachment of attachments) {
         const key = String(attachment.message_id);
