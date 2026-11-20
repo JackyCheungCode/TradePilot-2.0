@@ -2,7 +2,7 @@ create or replace function public.capture_quote_issue_lifecycle_event()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 declare
   v_from text;
