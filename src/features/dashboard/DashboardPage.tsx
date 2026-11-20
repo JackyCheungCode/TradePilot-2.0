@@ -86,10 +86,10 @@ export function DashboardPage() {
       const failed = queries.find(result => result.error);
       if (failed?.error) throw new Error(failed.error.message);
       setData({
-        accounts: safeArray(queries[0].data), contacts: safeArray(queries[10].data), leads: safeArray(queries[1].data),
+        accounts: safeArray(queries[0].data), contacts: safeArray(queries[9].data), leads: safeArray(queries[1].data),
         opportunities: safeArray(queries[2].data), documents: safeArray(queries[3].data),
         orders: safeArray(queries[4].data), shipments: safeArray(queries[5].data),
-        payments: safeArray(queries[6].data), products: safeArray(queries[11].data), agentRuns: safeArray(queries[7].data),
+        payments: safeArray(queries[6].data), products: safeArray(queries[10].data), agentRuns: safeArray(queries[7].data),
         activities: safeArray(activities), discovery: safeArray(queries[8].data), discoveryRuns: safeArray(queries[11].data),
         updatedAt: new Date().toISOString(),
       });
