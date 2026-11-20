@@ -2,7 +2,7 @@ create or replace function public.capture_opportunity_created_lifecycle_event()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 begin
   insert into public.business_transition_events(
