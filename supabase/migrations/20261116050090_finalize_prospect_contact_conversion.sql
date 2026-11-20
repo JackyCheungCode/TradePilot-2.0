@@ -8,13 +8,13 @@ create or replace function public.finalize_prospect_contact_conversion(
 ) returns jsonb
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 declare
   v_uid uuid := auth.uid();
   v_record public.discovery_records%rowtype;
 begin
-  if v_uid is distinct from p_owner_id and coalesce(auth.role(),'') <> 'service_role' then
+  if v_uid is distinct from p_owner_id and coalesce(auth.jwt()->>'role','') <> 'service_role' then
     raise exception 'Not authorized for this prospect';
   end if;
 
