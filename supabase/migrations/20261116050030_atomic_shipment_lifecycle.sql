@@ -6,7 +6,7 @@ create or replace function public.confirm_shipment_status_transition(
 ) returns uuid
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 declare
   v_owner uuid := auth.uid();
@@ -67,7 +67,7 @@ create or replace function public.capture_shipment_created_event()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 begin
   insert into public.business_transition_events(
