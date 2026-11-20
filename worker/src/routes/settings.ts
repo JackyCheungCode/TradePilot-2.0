@@ -159,7 +159,7 @@ async function testAIProvider(providerKey:string,protocol:AIProtocol,baseUrl:str
   if(providerKey==="cloudflare-workers-ai"){
    if(env.AI){await env.AI.run(model,{messages:[{role:"user",content:"Reply with OK"}]});return {ok:true,message:"Cloudflare Workers AI 连接成功"};}
    const secrets=await readVaultSecrets([apiSecretNames.cloudflareAccountId],env);
-   const account=secrets[apiSecretNames.cloudflareAccountId]||env.CLOUDFLARE_ACCOUNT_ID||"";
+   const account=secrets[apiSecretNames.cloudflareAccountId]||"";
    if(!account||!key)return {ok:false,message:"请先配置 Cloudflare Account ID 和 Workers AI API Token"};
    const r=await fetch("https://api.cloudflare.com/client/v4/accounts/"+encodeURIComponent(account)+"/ai/run/"+encodeURIComponent(model),{method:"POST",headers:{Authorization:"Bearer "+key,"Content-Type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:"Reply with OK"}]})});
    return {ok:r.ok,message:r.ok?"Cloudflare Workers AI 测试成功":"Workers AI 请求失败（HTTP "+r.status+"）"};
