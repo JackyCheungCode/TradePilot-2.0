@@ -4,7 +4,7 @@ create or replace function public.confirm_prospect_review(
 ) returns jsonb
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 declare
   v_uid uuid := auth.uid();
@@ -13,7 +13,7 @@ declare
   v_raw jsonb;
   v_stage text;
 begin
-  if v_uid is distinct from p_owner_id and coalesce(auth.role(),'') <> 'service_role' then
+  if v_uid is distinct from p_owner_id and coalesce(auth.jwt()->>'role','') <> 'service_role' then
     raise exception 'Not authorized for this prospect';
   end if;
 
@@ -54,7 +54,7 @@ create or replace function public.promote_prospect_to_lead(
 ) returns jsonb
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 declare
   v_uid uuid := auth.uid();
@@ -66,7 +66,7 @@ declare
   v_lead_id uuid;
   v_now timestamptz := now();
 begin
-  if v_uid is distinct from p_owner_id and coalesce(auth.role(),'') <> 'service_role' then
+  if v_uid is distinct from p_owner_id and coalesce(auth.jwt()->>'role','') <> 'service_role' then
     raise exception 'Not authorized for this prospect';
   end if;
 
@@ -145,7 +145,7 @@ create or replace function public.capture_prospect_terminal_event()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 declare
   v_from text;
@@ -190,7 +190,7 @@ create or replace function public.capture_prospect_discovered_event()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 begin
   insert into public.business_transition_events(
