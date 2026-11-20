@@ -1,9 +1,18 @@
 name: Deploy TradePilot Worker
 
 on:
-  push:
-    branches: [develop]
+  # Production deployment is deliberately manual. A normal develop push must
+  # never publish to production before the full readiness gate is approved.
   workflow_dispatch:
+    inputs:
+      release_confirmation:
+        description: "Select approved only after the production readiness checklist passes"
+        required: true
+        type: choice
+        options:
+          - hold
+          - approved
+        default: hold
 
 permissions:
   contents: read
@@ -13,10 +22,11 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  validate-and-deploy:
+    if: github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout develop commit
+      - name: Checkout exact develop commit
         uses: actions/checkout@v4
         with:
           ref: ${{ github.sha }}
@@ -29,10 +39,20 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Validate private ClamAV scanner service
+        run: |
+          node --check services/inbox-scanner/server.mjs
+          node --test services/inbox-scanner/server.test.mjs
+          SCANNER_HMAC_SECRET=$(printf 'a%.0s' {1..64}) docker compose -f services/inbox-scanner/docker-compose.yml config --quiet
+
+      - name: Run server-side guardrail tests
+        run: npm run test:guardrails
+
       - name: Build frontend and validate Worker
         run: npm run build && npm run worker:validate
 
-      - name: Deploy existing TradePilot Worker
+      - name: Deploy production Worker only after explicit approval
+        if: inputs.release_confirmation == 'approved'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ea4e98dce9c478d7dd5c07f10e5c722d
@@ -43,4 +63,6 @@ jobs:
           fi
           npm run worker:deploy
 
-# Production deployment is intentionally triggered by every develop branch update.
+      - name: Confirm production deployment intentionally held
+        if: inputs.release_confirmation != 'approved'
+        run: echo "Validation completed. Production deployment was intentionally held.";
