@@ -125,7 +125,7 @@ export function HelpCenterPage() {
       </section>
       <div className="tp-help__search">
         <TextInput id="help-search" labelText="搜索帮助内容" placeholder="输入页面名称、操作或关键词" value={query} onChange={(event: React.ChangeEvent<HTMLInputElement>) => setQuery(event.currentTarget.value)} />
-        <span>{filtered.length} 个板块</span>
+        <span>{filtered.length} 个板块 · {filteredRoutes.length} 个页面</span>
       </div>
       <section className="tp-help__route-directory" aria-label="全站页面索引">
         <div className="tp-help__route-heading">
