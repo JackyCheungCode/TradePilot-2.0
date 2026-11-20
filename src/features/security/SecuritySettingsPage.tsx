@@ -27,7 +27,6 @@ type Enrollment = {
   secret: string;
 };
 
-type RecoveryStatus = { total: number; remaining: number };
 type WebAuthnStatus = { enabled: boolean; granted: boolean; credentials: Array<{ id: string; name: string }> };
 type WebAuthnAction = 'register' | 'enable' | 'disable' | 'revoke';
 
@@ -65,8 +64,6 @@ export function SecuritySettingsPage() {
   const [showDisable, setShowDisable] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [recoveryStatus, setRecoveryStatus] = useState<RecoveryStatus>({ total: 0, remaining: 0 });
-  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
   const [webAuthnStatus, setWebAuthnStatus] = useState<WebAuthnStatus>({ enabled: false, granted: false, credentials: [] });
   const [webAuthnAvailable, setWebAuthnAvailable] = useState(false);
   const [webAuthnStepUp, setWebAuthnStepUp] = useState<{ factorId: string; challengeId: string; action: WebAuthnAction; credentialId?: string } | null>(null);
@@ -174,17 +171,6 @@ export function SecuritySettingsPage() {
       setPasskeys((passkeyResult.data ?? []) as PasskeyRecord[]);
       setTotpFactors((factorResult.data?.totp ?? []) as TotpFactor[]);
 
-      // No recovery-code enrollment is a normal first-use state, not a page-load failure.
-      const recoveryResult = await client.auth.mfa.recoveryCodes.getStatus();
-      if (recoveryResult.error) {
-        if (/has not enrolled recovery codes/i.test(recoveryResult.error.message ?? '')) {
-          setRecoveryStatus({ total: 0, remaining: 0 });
-        } else {
-          throw recoveryResult.error;
-        }
-      } else {
-        setRecoveryStatus((recoveryResult.data ?? { total: 0, remaining: 0 }) as RecoveryStatus);
-      }
       try {
         const status = await callWebAuthn<WebAuthnStatus>(client, '/api/v1/webauthn/status');
         setWebAuthnStatus(status); setWebAuthnAvailable(true);
@@ -329,38 +315,6 @@ export function SecuritySettingsPage() {
       setError(cause instanceof Error ? cause.message : '无法关闭多因子认证。');
     } finally {
       setBusy(false);
-    }
-  };
-
-  const generateRecoveryCodes = async () => {
-    setBusy(true);
-    setError('');
-    setNotice('');
-    setRecoveryCodes([]);
-    try {
-      const client = await getSupabaseClient();
-      const hasExistingSet = recoveryStatus.total > 0;
-      const result = hasExistingSet
-        ? await client.auth.mfa.recoveryCodes.regenerate()
-        : await client.auth.mfa.recoveryCodes.generate({ friendlyName: 'TradePilot 备用恢复代码' });
-      if (result.error) throw result.error;
-      setRecoveryCodes(result.data.codes);
-      setNotice('恢复代码只显示这一次，请立即复制并保存在安全位置。');
-      const status = await client.auth.mfa.recoveryCodes.getStatus();
-      if (!status.error) setRecoveryStatus(status.data as RecoveryStatus);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : '无法生成备用恢复代码。');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const copyRecoveryCodes = async () => {
-    try {
-      await navigator.clipboard.writeText(recoveryCodes.join('\n'));
-      setNotice('恢复代码已复制。请将其保存在密码管理器等安全位置。');
-    } catch {
-      setError('无法访问剪贴板，请手动复制恢复代码。');
     }
   };
 
@@ -525,19 +479,11 @@ export function SecuritySettingsPage() {
             {verifiedTotp && (
               <div className="tp-security__recovery">
                 <div>
-                  <h3>备用恢复代码</h3>
-                  <p>已生成 {recoveryStatus.total} 个恢复代码，剩余 {recoveryStatus.remaining} 个可用。每个代码只能使用一次。</p>
+                  <h3>备用验证方式</h3>
+                  <p>当前 Supabase Auth 服务未开放恢复码接口。建议注册第二个身份验证器作为备用因子，避免单一设备丢失导致无法登录。</p>
                 </div>
-                <Button kind="tertiary" size="sm" disabled={busy} onClick={() => void generateRecoveryCodes()}>
-                  {recoveryStatus.total > 0 ? '重新生成恢复代码' : '生成恢复代码'}
-                </Button>
-                {recoveryCodes.length > 0 && (
-                  <div className="tp-security__recovery-codes">
-                    <p>请立即保存。离开此页面后将无法再次查看：</p>
-                    <code>{recoveryCodes.join('\n')}</code>
-                    <Button kind="tertiary" size="sm" onClick={() => void copyRecoveryCodes()}>复制恢复代码</Button>
-                  </div>
-                )}
+              </div>
+            )}
               </div>
             )}
           </section>
