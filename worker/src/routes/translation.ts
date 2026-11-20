@@ -1,5 +1,5 @@
-import { errorResponse, successResponse } from "../lib/http";
-import { readIntegrationSecret } from "../lib/integrations";
+import { errorResponse, successResponse } from "../lib/http.ts";
+import { readIntegrationSecret } from "../lib/integrations.ts";
 
 interface TranslationEnv {
   SUPABASE_URL: string;
