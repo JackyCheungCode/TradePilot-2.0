@@ -22,7 +22,7 @@ export function getSupabaseClient(): Promise<SupabaseClient> {
             persistSession: true,
             autoRefreshToken: true,
             detectSessionInUrl: true,
-            experimental: { passkey: true, recoveryCodes: true },
+            experimental: { passkey: true },
           },
         });
       })
