@@ -1,7 +1,7 @@
-import { errorResponse, successResponse } from "../lib/http";
-import { handleTranslation } from "./translation";
-import { readIntegrationSecrets, runConfiguredAI } from "./settings";
-import { sendInboxProviderMessage, type InboxProviderSecrets } from "./inbox-providers";
+import { errorResponse, successResponse } from "../lib/http.ts";
+import { handleTranslation } from "./translation.ts";
+import { readIntegrationSecrets, runConfiguredAI } from "./settings.ts";
+import { sendInboxProviderMessage, type InboxProviderSecrets } from "./inbox-providers.ts";
 
 interface InboxEnv {
   SUPABASE_URL: string;
