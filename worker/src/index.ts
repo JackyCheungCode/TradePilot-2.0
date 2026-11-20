@@ -45,8 +45,6 @@ export interface WorkerEnv {
  FEDEX_CLIENT_SECRET?: string;
  SERPER_API_KEY?: string;
  SERPAPI_API_KEY?: string;
- CLOUDFLARE_API_TOKEN?: string;
- CLOUDFLARE_ACCOUNT_ID?: string;
  CLOUDFLARE_WORKER_NAME?: string;
  AGENT_ENCRYPTION_KEY?: string;
  AI: { run(model:string,input:Record<string,unknown>): Promise<unknown> };
