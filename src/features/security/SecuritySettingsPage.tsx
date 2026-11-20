@@ -484,8 +484,6 @@ export function SecuritySettingsPage() {
                 </div>
               </div>
             )}
-              </div>
-            )}
           </section>
 
           <section className="tp-security__section tp-security__note">
