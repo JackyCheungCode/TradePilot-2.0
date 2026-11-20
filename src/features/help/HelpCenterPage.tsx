@@ -61,7 +61,7 @@ export function HelpCenterPage() {
             {expanded === section.id && (
               <div className="tp-help__section-body">
                 <ol>{section.steps.map(step => <li key={step}>{step}</li>)}</ol>
-                <Link href={section.route} renderIcon={semanticIcons.launch}>打开相关页面</Link>
+                <Link href={section.route} renderIcon={semanticIcons.externalLink}>打开相关页面</Link>
               </div>
             )}
           </Tile>
