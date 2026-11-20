@@ -94,7 +94,12 @@ const routeDirectory: HelpRoute[] = [
 export function HelpCenterPage() {
   const [query, setQuery] = useState('');
   const [expanded, setExpanded] = useState<string>('overview');
-  const filteredRoutes = useMemo(() => {\n    const normalized = query.trim().toLocaleLowerCase();\n    if (!normalized) return routeDirectory;\n    return routeDirectory.filter(item => (item.label + ' ' + item.route).toLocaleLowerCase().includes(normalized));\n  }, [query]);\n  const filtered = useMemo(() => {
+  const filteredRoutes = useMemo(() => {
+    const normalized = query.trim().toLocaleLowerCase();
+    if (!normalized) return routeDirectory;
+    return routeDirectory.filter(item => (item.label + ' ' + item.route).toLocaleLowerCase().includes(normalized));
+  }, [query]);
+  const filtered = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
     if (!normalized) return sections;
     return sections.filter(section => [section.title, section.summary, ...section.steps].join(' ').toLocaleLowerCase().includes(normalized));
