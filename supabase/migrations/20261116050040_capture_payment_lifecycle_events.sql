@@ -2,7 +2,7 @@ create or replace function public.capture_trade_payment_lifecycle_event()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 declare
   v_actor uuid := auth.uid();
@@ -52,7 +52,7 @@ create or replace function public.capture_trade_payment_created_event()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 begin
   insert into public.business_transition_events(
@@ -77,7 +77,7 @@ create or replace function public.capture_trade_payment_reconciliation_event()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 begin
   if new.reconcile_status is not distinct from old.reconcile_status then
