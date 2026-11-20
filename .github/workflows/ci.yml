@@ -76,6 +76,7 @@ jobs:
           path: |
             .wrangler/dry-run/
             dist/client/
+            package-lock.json
           if-no-files-found: error
           retention-days: 1
 
