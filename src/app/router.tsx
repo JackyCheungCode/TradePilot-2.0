@@ -31,6 +31,7 @@ import { DocumentTemplateCenterPage } from '../features/documents/DocumentTempla
 import { DocumentCompanyProfilePage } from '../features/documents/DocumentCompanyProfilePage';
 import { CommunicationPage } from '../features/communications/CommunicationPage';
 import { HelpCenterPage } from '../features/help/HelpCenterPage';
+import { NotFoundPage } from '../features/not-found/NotFoundPage';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -98,6 +99,7 @@ export const router = createBrowserRouter([
           { path: 'accounts/new', element: <AccountFormPage /> },
           { path: 'accounts/:id/edit', element: <AccountFormPage /> },
           { path: 'accounts/:id', element: <AccountDetailPage /> },
+          { path: '*', element: <NotFoundPage /> },
         ],
       },
     ],
