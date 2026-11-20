@@ -84,6 +84,13 @@ export function AppShell() {
         </HeaderName>
         <HeaderGlobalBar>
           <HeaderGlobalAction
+            aria-label="帮助中心"
+            tooltipAlignment="end"
+            onClick={() => navigate('/help')}
+          >
+            <semanticIcons.information size={20} />
+          </HeaderGlobalAction>
+          <HeaderGlobalAction
             aria-label={xiaoyaOpen ? 'Close Xiaoya AI assistant' : 'Open Xiaoya AI assistant'}
             tooltipAlignment="end"
             isActive={xiaoyaOpen}
