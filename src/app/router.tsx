@@ -30,6 +30,7 @@ import { DocumentStudioPage } from '../features/documents/DocumentStudioPage';
 import { DocumentTemplateCenterPage } from '../features/documents/DocumentTemplateCenterPage';
 import { DocumentCompanyProfilePage } from '../features/documents/DocumentCompanyProfilePage';
 import { CommunicationPage } from '../features/communications/CommunicationPage';
+import { HelpCenterPage } from '../features/help/HelpCenterPage';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -42,6 +43,7 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <Navigate to="/dashboard" replace /> },
           { path: 'dashboard', element: <DashboardPage /> },
+          { path: 'help', element: <HelpCenterPage /> },
           { path: 'communications', element: <CommunicationPage /> },
           { path: 'inbox', element: <Navigate to="/communications" replace /> },
           { path: 'agent', element: <AgentWorkspacePage /> },
