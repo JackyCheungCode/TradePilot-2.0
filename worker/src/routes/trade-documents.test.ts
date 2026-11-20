@@ -8,6 +8,7 @@ const env = {
   SUPABASE_URL: "https://project.supabase.co",
   SUPABASE_ANON_KEY: "anon-test-key",
   SUPABASE_SERVICE_ROLE_KEY: "service-test-key",
+  BROWSER: { async quickAction() { return Response.json({ ok: true }); } },
 };
 
 function withFetch(handler: (input: string | URL | Request, init?: RequestInit) => Promise<Response>) {
