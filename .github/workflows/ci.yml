@@ -41,6 +41,8 @@ jobs:
 
       - name: Install dependencies
         run: npm install
+      - name: Generate deterministic npm lockfile
+        run: npm install --package-lock-only --ignore-scripts --package-lock=true
       - name: Validate trade lifecycle migrations in isolated PostgreSQL
         env:
           PGHOST: 127.0.0.1
