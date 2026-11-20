@@ -168,7 +168,7 @@ export function HelpCenterPage() {
   const filteredRoutes = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
     if (!normalized) return routeDirectory;
-    return routeDirectory.filter(item => (item.label + ' ' + item.route).toLocaleLowerCase().includes(normalized));
+    return routeDirectory.filter(item => (item.label + ' ' + item.route + ' ' + (routeSummaries[item.route] ?? '')).toLocaleLowerCase().includes(normalized));
   }, [query]);
   const filtered = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
