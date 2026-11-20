@@ -10,7 +10,7 @@ create or replace function public.record_prospect_contact_enrichment(
 ) returns jsonb
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 declare
   v_uid uuid := auth.uid();
@@ -20,7 +20,7 @@ declare
   v_event text;
   v_now timestamptz := now();
 begin
-  if v_uid is distinct from p_owner_id and coalesce(auth.role(),'') <> 'service_role' then
+  if v_uid is distinct from p_owner_id and coalesce(auth.jwt()->>'role','') <> 'service_role' then
     raise exception 'Not authorized for this prospect';
   end if;
 
