@@ -15,8 +15,6 @@ interface SettingsEnv {
   FEDEX_CLIENT_SECRET?: string;
   SERPER_API_KEY?: string;
   SERPAPI_API_KEY?: string;
-  CLOUDFLARE_API_TOKEN?: string;
-  CLOUDFLARE_ACCOUNT_ID?: string;
   CLOUDFLARE_WORKER_NAME?: string;
   AI?: { run(model:string,input:Record<string,unknown>): Promise<unknown> };
 }
@@ -39,7 +37,7 @@ type AIConfig = {defaultModel:string;taskModels:Record<string,string>;providers:
 const defaultAIConfig:AIConfig={defaultModel:"@cf/google/gemma-4-26b-a4b-it",taskModels:{},providers:[{id:"workers-ai",providerKey:"cloudflare-workers-ai",name:"Cloudflare Workers AI",protocol:"workers-ai",baseUrl:"",model:"@cf/google/gemma-4-26b-a4b-it",configured:true}]};
 const legacyAISecrets:Record<string,string>={openai:"AI_PROVIDER_OPENAI_API_KEY",anthropic:"AI_PROVIDER_ANTHROPIC_API_KEY",gemini:"AI_PROVIDER_GEMINI_API_KEY",deepseek:"AI_PROVIDER_DEEPSEEK_API_KEY",qwen:"AI_PROVIDER_QWEN_API_KEY",zhipu:"AI_PROVIDER_ZHIPU_API_KEY",kimi:"AI_PROVIDER_KIMI_API_KEY",minimax:"AI_PROVIDER_MINIMAX_API_KEY",openrouter:"AI_PROVIDER_OPENROUTER_API_KEY",siliconflow:"AI_PROVIDER_SILICONFLOW_API_KEY",custom:"AI_PROVIDER_CUSTOM_API_KEY"};
 const apiSecretNames:Record<string,string>={actorGateway:"tradepilot_api_"+String.fromCharCode(97,112,105,102,121),deepl:"tradepilot_api_deepl",googleMaps:"tradepilot_api_google_maps",dhl:"tradepilot_api_dhl",upsClientId:"tradepilot_api_ups_client_id",upsClientSecret:"tradepilot_api_ups_"+"client_secret",fedexClientId:"tradepilot_api_fedex_client_id",fedexClientSecret:"tradepilot_api_fedex_"+"client_secret",cloudflareApiToken:"tradepilot_api_cloudflare_token",cloudflareAccountId:"tradepilot_api_cloudflare_account_id",serper:"tradepilot_api_serper",serpapi:"tradepilot_api_serpapi",omnibox:"tradepilot_api_omnibox",apollo:"tradepilot_api_apollo",zoominfoClientId:"tradepilot_api_zoominfo_client_id",["zoominfoClient"+"Secret"]:"tradepilot_api_zoominfo_"+"client_secret",abstractEmailValidation:"tradepilot_api_abstract_email_validation",abstractPhoneValidation:"tradepilot_api_abstract_phone_validation",whatsappCheckKey:"tradepilot_api_whatsapp_check_key",jinaReader:"tradepilot_api_jina_reader",["whatsappAccess"+"Token"]:"tradepilot_channel_whatsapp_access_token",whatsappPhoneNumberId:"tradepilot_channel_whatsapp_phone_number_id",whatsappBusinessAccountId:"tradepilot_channel_whatsapp_business_account_id",["whatsappApp"+"Secret"]:"tradepilot_channel_whatsapp_app_secret",whatsappVerifyToken:"tradepilot_channel_whatsapp_verify_token",["lineChannelAccess"+"Token"]:"tradepilot_channel_line_access_token",["lineChannel"+"Secret"]:"tradepilot_channel_line_secret",["messengerPageAccess"+"Token"]:"tradepilot_channel_messenger_page_access_token",messengerPageId:"tradepilot_channel_messenger_page_id",["messengerApp"+"Secret"]:"tradepilot_channel_messenger_app_secret",messengerVerifyToken:"tradepilot_channel_messenger_verify_token",["telegramBot"+"Token"]:"tradepilot_channel_telegram_bot_token",["telegramWebhook"+"Secret"]:"tradepilot_channel_telegram_webhook_secret",wecomCorpId:"tradepilot_channel_wecom_corp_id",wecomAgentId:"tradepilot_channel_wecom_agent_id",["wecom"+"Secret"]:"tradepilot_channel_wecom_secret",["wecom"+"Token"]:"tradepilot_channel_wecom_token",wecomEncodingAESKey:"tradepilot_channel_wecom_encoding_aes_key",emailImapHost:"tradepilot_channel_email_imap_host",emailImapPort:"tradepilot_channel_email_imap_port",emailSmtpHost:"tradepilot_channel_email_smtp_host",emailSmtpPort:"tradepilot_channel_email_smtp_port",emailUsername:"tradepilot_channel_email_username",["emailPass"+"word"]:"tradepilot_channel_email_password",emailFromAddress:"tradepilot_channel_email_from_address"};
-const legacyApiEnv:Record<string,string>={actorGateway:"ACTOR_GATEWAY_API_TOKEN",deepl:"DEEPL_API_KEY",googleMaps:"GOOGLE_MAPS_API_KEY",dhl:"DHL_API_KEY",upsClientId:"UPS_CLIENT_ID",upsClientSecret:"UPS_CLIENT_SECRET",fedexClientId:"FEDEX_CLIENT_ID",fedexClientSecret:"FEDEX_CLIENT_SECRET",cloudflareApiToken:"CLOUDFLARE_API_TOKEN",cloudflareAccountId:"CLOUDFLARE_ACCOUNT_ID",serper:"SERPER_API_KEY",serpapi:"SERPAPI_API_KEY",omnibox:"OMNIBOX_API_KEY",apollo:"APOLLO_API_KEY",zoominfoClientId:"ZOOMINFO_CLIENT_ID",zoominfoClientSecret:"ZOOMINFO_CLIENT_SECRET"};
+const legacyApiEnv:Record<string,string>={actorGateway:"ACTOR_GATEWAY_API_TOKEN",deepl:"DEEPL_API_KEY",googleMaps:"GOOGLE_MAPS_API_KEY",dhl:"DHL_API_KEY",upsClientId:"UPS_CLIENT_ID",upsClientSecret:"UPS_CLIENT_SECRET",fedexClientId:"FEDEX_CLIENT_ID",fedexClientSecret:"FEDEX_CLIENT_SECRET",serper:"SERPER_API_KEY",serpapi:"SERPAPI_API_KEY",omnibox:"OMNIBOX_API_KEY",apollo:"APOLLO_API_KEY",zoominfoClientId:"ZOOMINFO_CLIENT_ID",zoominfoClientSecret:"ZOOMINFO_CLIENT_SECRET"};
 async function vaultRpc<T>(name:string,args:Record<string,unknown>,env:SettingsEnv):Promise<T>{
  const key=env.SUPABASE_SERVICE_ROLE_KEY??"";
  if(!key)throw new Error("服务端凭证存储未配置");
@@ -79,7 +77,7 @@ async function readAIConfig(env:SettingsEnv):Promise<AIConfig>{
  const providers=(c.providers??defaultAIConfig.providers).map(p=>({...p,providerKey:p.providerKey??(p.id==="workers-ai"?"cloudflare-workers-ai":p.id),secretName:p.secretName??(legacyAISecrets[p.id]?undefined:undefined)}));
  const secretNames=providers.map(p=>p.secretName).filter((x):x is string=>Boolean(x));
  const secrets=await readVaultSecrets(secretNames,env);
- return {...defaultAIConfig,...c,providers:providers.map(p=>({...p,configured:p.protocol==="workers-ai"?(Boolean(env.AI)||Boolean(secrets.tradepilot_api_cloudflare_token)||Boolean(env.CLOUDFLARE_API_TOKEN)):Boolean((p.secretName&&secrets[p.secretName])||(legacyAISecrets[p.providerKey]&&envSecret(env,legacyAISecrets[p.providerKey])))}))};
+ return {...defaultAIConfig,...c,providers:providers.map(p=>({...p,configured:p.protocol==="workers-ai"?(Boolean(env.AI)||Boolean(secrets.tradepilot_api_cloudflare_token)):Boolean((p.secretName&&secrets[p.secretName])||(legacyAISecrets[p.providerKey]&&envSecret(env,legacyAISecrets[p.providerKey])))}))};
 }
 async function writeAIConfig(config:AIConfig,env:SettingsEnv){
  const key=env.SUPABASE_SERVICE_ROLE_KEY??"";
@@ -117,7 +115,7 @@ async function providerApiKey(providerKey:string,secretName:string|undefined,api
  if(apiKey?.trim())return apiKey.trim();
  if(providerKey==="cloudflare-workers-ai"){
   const secrets=await readVaultSecrets([apiSecretNames.cloudflareApiToken],env);
-  return secrets[apiSecretNames.cloudflareApiToken]||env.CLOUDFLARE_API_TOKEN||"";
+  return secrets[apiSecretNames.cloudflareApiToken]||"";
  }
  if(secretName){const secrets=await readVaultSecrets([secretName],env);return secrets[secretName]||"";}
  const legacy=legacyAISecrets[providerKey];return legacy?envSecret(env,legacy):"";
@@ -128,7 +126,7 @@ async function listAIModels(providerKey:string,protocol:AIProtocol,baseUrl:strin
  let response:Response;
  if(providerKey==="cloudflare-workers-ai"){
   const secrets=await readVaultSecrets([apiSecretNames.cloudflareAccountId],env);
-  const account=secrets[apiSecretNames.cloudflareAccountId]||env.CLOUDFLARE_ACCOUNT_ID||"";
+  const account=secrets[apiSecretNames.cloudflareAccountId]||"";
   if(!account||!key)throw new Error("请先在 API 集成的 Cloudflare 配置中填写 Account ID 和 Workers AI API Token");
   response=await fetch("https://api.cloudflare.com/client/v4/accounts/"+encodeURIComponent(account)+"/ai/models/search?per_page=100&page=1&hide_experimental=true",{headers:{Authorization:"Bearer "+key}});
  }else{
@@ -475,7 +473,7 @@ export async function handleSettings(request: Request, env: SettingsEnv): Promis
       return successResponse(request,{ok:r.ok,message:r.ok?"FedEx OAuth 认证成功":"FedEx OAuth 认证失败（HTTP "+r.status+"）"});
     }
     if(service==="cloudflare"){
-      const token=secret("cloudflareApiToken");const account=secret("cloudflareAccountId")||env.CLOUDFLARE_ACCOUNT_ID||"";
+      const token=secret("cloudflareApiToken");const account=secret("cloudflareAccountId")||"";
       if(!token||!account)return successResponse(request,{ok:false,message:"请同时填写 Cloudflare Workers AI API Token 和 Account ID"});
       const r=await fetch("https://api.cloudflare.com/client/v4/accounts/"+encodeURIComponent(account)+"/ai/models/search?per_page=1",{headers:{Authorization:"Bearer "+token}});
       return successResponse(request,{ok:r.ok,message:r.ok?"Cloudflare Workers AI API Token 与 Account ID 可用":"Cloudflare API 返回 HTTP "+r.status+"；请确认 Workers AI Read 权限"});
