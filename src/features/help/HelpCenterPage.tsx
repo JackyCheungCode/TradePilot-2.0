@@ -122,7 +122,7 @@ export function HelpCenterPage() {
               {item.route.includes(':') ? (
                 <span className="tp-help__route-pattern">{item.route}（从对应列表打开具体记录）</span>
               ) : (
-                <Link href={item.route} renderIcon={semanticIcons.launch}>{item.route}</Link>
+                <Link href={item.route} renderIcon={semanticIcons.externalLink}>{item.route}</Link>
               )}
             </li>
           ))}
