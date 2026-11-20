@@ -54,7 +54,6 @@ export default defineConfig({
       AGENT_ENCRYPTION_KEY: bindings.secret(),
       AI_PROVIDER_OPENROUTER_API_KEY: bindings.secret(),
       APIFY_API_TOKEN: bindings.secret(),
-      CLOUDFLARE_API_TOKEN: bindings.secret(),
       DEEPL_API_KEY: bindings.secret(),
       GOOGLE_MAPS_API_KEY: bindings.secret(),
       SERPAPI_API_KEY: bindings.secret(),
