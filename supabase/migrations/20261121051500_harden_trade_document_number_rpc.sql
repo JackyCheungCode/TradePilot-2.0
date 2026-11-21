@@ -4,7 +4,7 @@ create or replace function public.next_trade_document_number(
   p_sequence_year integer
 ) returns bigint
 language plpgsql
-security invoker
+security definer
 set search_path = ''
 as $function$
 declare
