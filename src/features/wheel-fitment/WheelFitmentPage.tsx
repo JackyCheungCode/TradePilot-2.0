@@ -230,7 +230,7 @@ export function WheelFitmentPage() {
           <div className="tp-fitment-inline-note"><span className="cds--label">当前车辆</span><strong>{selectedVehicle || '尚未选择'}</strong></div>
           <Button kind="primary" onClick={() => void searchVehicle()} disabled={!make || !model || Boolean(busy)}>{busy === 'vehicle' ? '正在查询原厂规格…' : '查询原厂及适配规格'}</Button>
           <div className="tp-fitment-inline-note"><TextInput id="vehicle-vin" labelText="VIN 辅助识别（选填）" placeholder="输入 17 位 VIN" value={vin} onChange={event => setVin(event.currentTarget.value)} /><Button kind="tertiary" onClick={() => void decodeVin()} disabled={!vin || Boolean(busy)}>解码 VIN</Button></div>
-          {vinResult && <details><summary>查看 NHTSA VIN 解码完整响应</summary><pre className="tp-fitment-json">{JSON.stringify(vinResult, null, 2)}</pre></details>}
+          {vinResult !== null && <details><summary>查看 NHTSA VIN 解码完整响应</summary><pre className="tp-fitment-json">{JSON.stringify(vinResult, null, 2)}</pre></details>}
           {!make && <InlineNotification kind="info" lowContrast title="品牌目录加载说明" subtitle="目录会合并 Wheel-Size 与 ANKUSI 返回结果。未配置 Wheel-Size API Key 时，仍可使用 ANKUSI 开放数据覆盖的品牌与车辆记录。" />}
         </Tile>
       </section>
