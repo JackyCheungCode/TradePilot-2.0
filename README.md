@@ -1,4 +1,6 @@
-# TradePilot-2.0
+# Harmonia
+
+Harmonia is a global trade intelligence and business operations workspace.
 
 ## API attribution
 

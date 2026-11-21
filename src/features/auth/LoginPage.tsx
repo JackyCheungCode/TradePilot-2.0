@@ -220,8 +220,8 @@ export function LoginPage() {
   return (
     <main className="tp-login">
       <section className="tp-login__surface" aria-labelledby="tp-login-title">
-        <p className="tp-login__eyebrow">TRADEPILOT / SECURE ACCESS</p>
-        <h1 id="tp-login-title">{step === 'mfa' ? '验证身份' : step === 'webauthn' ? '生物识别验证' : '登录 TradePilot'}</h1>
+        <p className="tp-login__eyebrow">HARMONIA / SECURE ACCESS</p>
+        <h1 id="tp-login-title">{step === 'mfa' ? '验证身份' : step === 'webauthn' ? '生物识别验证' : '登录 Harmonia'}</h1>
         <p className="tp-login__description">
           {step === 'mfa'
             ? '请输入身份验证器生成的一次性验证码。'
@@ -307,7 +307,7 @@ export function LoginPage() {
             }}>取消并返回登录</Button>
           </div>
         )}
-        <p className="tp-login__footnote">此工作区使用管理员创建的账户，不提供公开注册。Passkey 使用设备本地验证，不会向 TradePilot 发送生物特征数据。</p>
+        <p className="tp-login__footnote">此工作区使用管理员创建的账户，不提供公开注册。Passkey 使用设备本地验证，不会向 Harmonia 发送生物特征数据。</p>
       </section>
     </main>
   );

@@ -72,15 +72,15 @@ export function AppShell() {
   return (
     <>
       <SkipToContent href="#main-content" />
-      <Header aria-label="TradePilot" className="cds--g100">
+      <Header aria-label="Harmonia" className="cds--g100">
         <HeaderMenuButton
           aria-label={sideNavExpanded ? 'Collapse navigation' : 'Expand navigation'}
           aria-expanded={sideNavExpanded}
           isActive={sideNavExpanded}
           onClick={() => setSideNavExpanded((expanded) => !expanded)}
         />
-        <HeaderName href="/" prefix="" className="tp-header__brand" style={{ marginLeft: "0.5rem" }} aria-label="TradePilot home">
-          TradePilot
+        <HeaderName href="/" prefix="" className="tp-header__brand" style={{ marginLeft: "0.5rem" }} aria-label="Harmonia home">
+          Harmonia
         </HeaderName>
         <HeaderGlobalBar>
           <HeaderGlobalAction
