@@ -6,9 +6,7 @@ import { ActorSchemaFields } from './ActorSchemaFields';
 import { ExecutionStep } from './ExecutionStep';
 import { ScoringStep } from './ScoringStep';
 import { DecisionMakerStep } from './DecisionMakerStep';
-import { DigitalTwinWorkflow, type DigitalTwinMetric } from './DigitalTwinWorkflow';
 import '@/design-system/patterns/prospect-discovery.scss';
-import '@/design-system/patterns/digital-twin-workflow.scss';
 
 const createPlanTaskCode = () => 'TPD-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-' + Math.random().toString(36).slice(2, 8).toUpperCase();
 const EMPTY_DISCOVERY_SOURCES: Array<{ id: string; name: string; category?: string }> = [];
@@ -46,7 +44,7 @@ export function ProspectDiscoveryPage() {
   const handleDecisionTelemetry = useCallback((snapshot: DecisionTelemetry) => setDecision(snapshot), []);
   const actorSourcesForSchema = selectedSources ?? EMPTY_DISCOVERY_SOURCES;
 
-  const metrics: DigitalTwinMetric[] = [
+  const metrics = [
     {
       status: actorSchemaReady ? '配置完成' : selectedSourceCount > 0 ? '待完成参数' : '待选择数据源',
       detail: selectedSourceCount + ' 个数据源 · ' + (actorSchemaReady ? '已启用可执行 Actor' : '需要完成 Schema 配置'),
@@ -103,7 +101,7 @@ export function ProspectDiscoveryPage() {
   };
 
   return (
-    <main className="tp-prospect-discovery tp-prospect-discovery--digital-twin">
+    <main className="tp-prospect-discovery">
       <PageHeader className="tp-prospect-discovery__page-header">
         <div>
           <p className="tp-prospect-discovery__eyebrow">HARMONIA / GLOBAL TRADE INTELLIGENCE</p>
@@ -126,8 +124,6 @@ export function ProspectDiscoveryPage() {
         <strong>任务方案 ID：{planTaskCode}</strong>
         <span>工作节点状态由实际任务与后端返回数据驱动，不生成模拟进度。</span>
       </div>
-
-      <DigitalTwinWorkflow activeStage={activeStage} metrics={metrics} selectedSources={selectedSources ?? []} onStageChange={goToStage} />
 
       <section className="tp-prospect-discovery__work-panel">
         <div className="tp-prospect-discovery__work-panel-heading">
