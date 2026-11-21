@@ -103,7 +103,6 @@ grant select, insert on public.record_activity_attachments to authenticated;
 grant select on public.record_audit_events to authenticated;
 
 create schema if not exists private;
-revoke all on schema private from public, anon, authenticated;
 
 create or replace function private.capture_record_audit_event()
 returns trigger
