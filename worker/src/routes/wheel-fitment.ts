@@ -71,8 +71,8 @@ function uniqueStrings(values: unknown[]): string[] {
   }).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 }
 
-function catalogOptions(values: unknown[]): Array<{ id: string; name: string; logoKey: string }> {
-  const options = new Map<string, { id: string; name: string; logoKey: string }>();
+function catalogOptions(values: unknown[]): Array<{ id: string; name: string; logoKey: string; logoUrl?: string }> {
+  const options = new Map<string, { id: string; name: string; logoKey: string; logoUrl?: string }>();
   for (const value of values) {
     if (typeof value === "string" || typeof value === "number") {
       const name = String(value).trim();
@@ -83,7 +83,8 @@ function catalogOptions(values: unknown[]): Array<{ id: string; name: string; lo
     const item = value as JsonRecord;
     const name = String(item.name ?? item.make ?? item.manufacturer ?? item.brand ?? item.model ?? item.title ?? "").trim();
     const id = String(item.slug ?? item.id ?? item.code ?? name).trim();
-    if (name && id && !options.has(id)) options.set(id, { id, name, logoKey: logoKey(name) });
+    const logoUrl = typeof (item.logo ?? item.logo_url ?? item.image ?? item.image_url) === "string" ? String(item.logo ?? item.logo_url ?? item.image ?? item.image_url) : undefined;
+    if (name && id && !options.has(id)) options.set(id, { id, name, logoKey: logoKey(name), ...(logoUrl ? { logoUrl } : {}) });
   }
   return [...options.values()].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
 }
