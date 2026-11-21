@@ -222,7 +222,6 @@ export function DecisionMakerStep({ onTelemetry }: { onTelemetry?: (snapshot: De
   };
 
   const selectedCandidateCount = selectedRows.reduce((sum, row) => sum + (selectedCandidateKeys[row.id] ?? []).length, 0);
-  const enrichedCount = rows.filter(row => row.enrichment === 'complete').length;
   const syncedCount = rows.filter(row => row.crm === 'synced').length;
   useEffect(() => { onTelemetry?.({ total: rows.length, enriched: enrichedCount, synced: syncedCount, running, progress }); }, [rows.length, enrichedCount, syncedCount, running, progress, onTelemetry]);
   const allReady = rows.some(row => row.enrichment === 'complete' && row.candidateCount > 0);
