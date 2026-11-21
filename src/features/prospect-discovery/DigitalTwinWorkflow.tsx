@@ -114,6 +114,7 @@ export function DigitalTwinWorkflow({ activeStage, metrics, onStageChange }: Pro
                 )}
                 <span className="tp-digital-twin__node-detail">{metric.detail}</span>
               </Button>
+              {/* A connector is highlighted only when the upstream task reports completion. */}
               {index < stages.length - 1 && <span className={`tp-digital-twin__connector ${metric.state === 'complete' ? 'tp-digital-twin__connector--passed' : ''}`} aria-hidden="true"><i /></span>}
             </div>
           );
