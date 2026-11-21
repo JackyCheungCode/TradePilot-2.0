@@ -31,7 +31,7 @@ const catalog:Catalog[]=[
 const apiCards=[
 {id:'actorGateway',name:'通用数据采集平台',logo:'',initial:'AG',description:'连接采集平台，管理 Actor 目录、输入参数与执行能力。',fields:[{key:'actorGateway',label:'访问令牌'}],test:'actorGateway'},
 {id:'serper',name:'Serper',logo:'',initial:'S',description:'Google 搜索引擎数据 API。',fields:[{key:'serper',label:'API Key'}],test:'serper'},
-{id:'serpapi',name:'SerpApi',logo:'',initial:'S',description:'多类型搜索结果 API。',fields:[{key:'serpapi',label:'API Key'}],test:'serpapi'},
+{id:'serpapi',name:'SerpApi',logo:'',initial:'S',description:'多类型搜索结果 API。',fields:[{key:'serpapi',label:'API Key'}],test:'serpapi'},\n{id:'wheelSize',name:'Wheel-Size',logo:'',initial:'W',description:'车辆品牌、车型、年款、世代、配置及原厂轮毂/轮胎规格数据库。用于 Harmonia 轮毂适配查询。',fields:[{key:'wheelSize',label:'Wheel-Size API Key'}],test:'wheelSize'},
 {id:'deepl',name:'DeepL',logo:'deepl',initial:'D',description:'外贸工具在线翻译。',fields:[{key:'deepl',label:'API Key'}],test:'deepl'},
 {id:'googleMaps',name:'Google Maps（New）',logo:'googlemaps',initial:'G',description:'地理编码与时区识别；需启用 Geocoding API 和 Time Zone API。',fields:[{key:'googleMaps',label:'API Key'}],test:'googleMaps'},
 {id:'dhl',name:'DHL',logo:'dhl',initial:'DHL',description:'DHL Shipment Tracking 官方接口。',fields:[{key:'dhl',label:'API Subscription Key'}],test:'dhl'},
