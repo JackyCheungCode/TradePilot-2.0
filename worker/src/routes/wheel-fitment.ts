@@ -17,7 +17,7 @@ function text(value: string | null): string {
   return (value ?? "").trim();
 }
 
-function jsonHeaders(): HeadersInit {
+function jsonHeaders(): Record<string, string> {
   return { Accept: "application/json", "User-Agent": "TradePilot-Harmonia/1.0" };
 }
 
