@@ -33,16 +33,16 @@ begin
   where owner_id=owner_a and record_type='shipment' and record_id=shipment_id and event_type='shipment_created';
   if event_count <> 1 then raise exception 'Shipment creation event was not captured'; end if;
 
-  if has_function_privilege('authenticated','public.confirm_trade_payment(uuid)','EXECUTE') is false
-     or has_function_privilege('anon','public.confirm_trade_payment(uuid)','EXECUTE') then
+  if to_regprocedure('public.confirm_trade_payment(uuid)') is not null and
+     (not has_function_privilege('authenticated','public.confirm_trade_payment(uuid)','EXECUTE') or has_function_privilege('anon','public.confirm_trade_payment(uuid)','EXECUTE')) then
     raise exception 'Payment confirmation RPC grants are incorrect';
   end if;
-  if has_function_privilege('authenticated','public.void_trade_payment(uuid,text)','EXECUTE') is false
-     or has_function_privilege('anon','public.void_trade_payment(uuid,text)','EXECUTE') then
+  if to_regprocedure('public.void_trade_payment(uuid,text)') is not null and
+     (not has_function_privilege('authenticated','public.void_trade_payment(uuid,text)','EXECUTE') or has_function_privilege('anon','public.void_trade_payment(uuid,text)','EXECUTE')) then
     raise exception 'Payment void RPC grants are incorrect';
   end if;
-  if has_function_privilege('authenticated','public.allocate_confirmed_trade_payment(uuid,jsonb)','EXECUTE') is false
-     or has_function_privilege('anon','public.allocate_confirmed_trade_payment(uuid,jsonb)','EXECUTE') then
+  if to_regprocedure('public.allocate_confirmed_trade_payment(uuid,jsonb)') is not null and
+     (not has_function_privilege('authenticated','public.allocate_confirmed_trade_payment(uuid,jsonb)','EXECUTE') or has_function_privilege('anon','public.allocate_confirmed_trade_payment(uuid,jsonb)','EXECUTE')) then
     raise exception 'Payment allocation RPC grants are incorrect';
   end if;
   if has_function_privilege('authenticated','public.create_formal_lead(jsonb)','EXECUTE') is false
