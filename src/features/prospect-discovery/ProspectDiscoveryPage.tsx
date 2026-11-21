@@ -127,7 +127,7 @@ export function ProspectDiscoveryPage() {
         <span>工作节点状态由实际任务与后端返回数据驱动，不生成模拟进度。</span>
       </div>
 
-      <DigitalTwinWorkflow activeStage={activeStage} metrics={metrics} onStageChange={goToStage} />
+      <DigitalTwinWorkflow activeStage={activeStage} metrics={metrics} selectedSources={selectedSources ?? []} onStageChange={goToStage} />
 
       <section className="tp-prospect-discovery__work-panel">
         <div className="tp-prospect-discovery__work-panel-heading">
