@@ -79,6 +79,7 @@ export function WheelFitmentPage() {
   const [selectedRecord, setSelectedRecord] = useState('');
   const [sources, setSources] = useState<ApiPayload['data'] extends infer D ? D extends { sources?: infer S } ? S : never : never>([]);
   const [raw, setRaw] = useState<Record<string, unknown> | null>(null);
+  const [retrievedAt, setRetrievedAt] = useState('');
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [manufacturer, setManufacturer] = useState<Manufacturer | null>(null);
@@ -160,6 +161,7 @@ export function WheelFitmentPage() {
     if (!result) return;
     setRecords(result.records ?? []);
     setRaw(result.raw ?? null);
+    setRetrievedAt(String((result as Record<string, unknown>).retrievedAt ?? new Date().toISOString()));
     setSources(result.sources ?? []);
     setSelectedRecord('');
   };
@@ -221,8 +223,8 @@ export function WheelFitmentPage() {
             </Column>
             <Column sm={4} md={4} lg={4}><Select id="vehicle-model" labelText="车型 / 车系" value={model} disabled={!make || models.length === 0} onChange={event => void chooseModel(event.currentTarget.value)}><SelectItem value="" text="请选择车型" />{models.map(item => <SelectItem key={item} value={item} text={item} />)}</Select></Column>
             <Column sm={4} md={4} lg={4}><Select id="vehicle-year" labelText="年款" value={year} disabled={!model || years.length === 0} onChange={event => void chooseYear(event.currentTarget.value)}><SelectItem value="" text="请选择年款" />{years.map(item => <SelectItem key={item} value={item} text={item} />)}</Select></Column>
-            <Column sm={4} md={4} lg={4}><Select id="vehicle-generation" labelText="世代 / 底盘" value={generation} disabled={!model || generations.length === 0} onChange={event => { setGeneration(event.currentTarget.value); setRecords([]); }}><SelectItem value="" text="全部世代 / 未指定" />{generations.map((item, index) => <SelectItem key={index} value={asLabel(item)} text={asLabel(item)} />)}</Select></Column>
-            <Column sm={4} md={4} lg={4}><Select id="vehicle-modification" labelText="配置 / 动力版本" value={modification} disabled={!model || modifications.length === 0} onChange={event => setModification(event.currentTarget.value)}><SelectItem value="" text="全部配置 / 未指定" />{modifications.map((item, index) => <SelectItem key={index} value={asLabel(item)} text={asLabel(item)} />)}</Select></Column>
+            <Column sm={4} md={4} lg={4}><Select id="vehicle-generation" labelText="世代 / 底盘" value={generation} disabled={!model || generations.length === 0} onChange={event => { setGeneration(event.currentTarget.value); setRecords([]); }}><SelectItem value="" text="全部世代 / 未指定" />{generations.map((item, index) => <SelectItem key={index} value={String((item as Record<string, unknown>)?.slug ?? (item as Record<string, unknown>)?.id ?? asLabel(item))} text={asLabel(item)} />)}</Select></Column>
+            <Column sm={4} md={4} lg={4}><Select id="vehicle-modification" labelText="配置 / 动力版本" value={modification} disabled={!model || modifications.length === 0} onChange={event => setModification(event.currentTarget.value)}><SelectItem value="" text="全部配置 / 未指定" />{modifications.map((item, index) => <SelectItem key={index} value={String((item as Record<string, unknown>)?.slug ?? (item as Record<string, unknown>)?.id ?? asLabel(item))} text={asLabel(item)} />)}</Select></Column>
             <Column sm={4} md={4} lg={4}><Select id="vehicle-region" labelText="销售市场 / 数据区域" value={region} onChange={event => { setRegion(event.currentTarget.value); setModels([]); setYears([]); setRecords([]); }}><SelectItem value="all" text="全部可用市场" /><SelectItem value="usdm" text="北美 USDM" /><SelectItem value="eudm" text="欧洲 EUDM" /><SelectItem value="jdm" text="日本 JDM" /><SelectItem value="cndm" text="中国" /><SelectItem value="seadm" text="东南亚" /><SelectItem value="ocdm" text="大洋洲" /><SelectItem value="cdm" text="加拿大" /></Select></Column>
           </Grid>
           <div className="tp-fitment-inline-note"><span className="cds--label">当前车辆</span><strong>{selectedVehicle || '尚未选择'}</strong></div>
@@ -235,6 +237,7 @@ export function WheelFitmentPage() {
 
       <section aria-labelledby="oem-section-title">
         <div className="tp-fitment-section-heading"><div><p className="cds--label">STEP 02</p><h2 id="oem-section-title">原厂规格与多配置结果</h2><p>同一车型可能有多种年款、动力、刹车及前后轴组合，必须逐条确认。</p></div><Tag type={records.length ? 'green' : 'cool-gray'}>{records.length} 条记录</Tag></div>
+        {retrievedAt && <p className="cds--label">数据查询时间：{new Date(retrievedAt).toLocaleString()}</p>}
         {records.length === 0 ? <InlineNotification kind="warning" lowContrast title="尚无原厂规格结果" subtitle="请完成车辆选择并执行查询。若没有匹配记录，请检查销售市场、年款、世代或配置，不要用相似车型数据代替。" /> : <>
           <Grid condensed>
             {records.map((item, index) => <Column key={item.id} sm={4} md={8} lg={8}>
