@@ -71,6 +71,11 @@ begin
   if not exists(select 1 from public.business_transition_events where owner_id=owner_a and record_type='contact' and record_id=contact_id and event_type='contact_contact_preference_changed') then
     raise exception 'Contact do-not-contact lifecycle event was not captured';
   end if;
+  insert into public.crm_contact_methods(owner_id,contact_id,method_type,platform,value,is_verified)
+  values(owner_a,contact_id,'email','email','ci@example.test',true);
+  if not exists(select 1 from public.business_transition_events where owner_id=owner_a and record_type='contact' and record_id=contact_id and event_type='contact_method_verification_changed') then
+    raise exception 'Contact method verification event was not captured';
+  end if;
 
   insert into public.trade_shipments(owner_id,order_id,planned_ship_date,owner_name)
   values(owner_a,gen_random_uuid(),current_date,'CI shipment')
