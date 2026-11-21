@@ -1,8 +1,8 @@
 name: Deploy TradePilot Worker
 
 on:
-  # Production deployment is deliberately manual. A normal develop push must
-  # never publish to production before the full readiness gate is approved.
+  # Production release requires manual approval or an explicitly marked develop commit.
+  # Ordinary develop pushes do not publish to production.
   workflow_dispatch:
     inputs:
       release_confirmation:
