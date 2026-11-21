@@ -1,6 +1,6 @@
 import { PageHeader } from '@/design-system';
 import { useCallback, useEffect, useState } from 'react';
-import { Button, Link, Tag, semanticIcons } from '@/design-system';
+import { Button, Link, Tag, ProgressIndicator, ProgressStep, semanticIcons } from '@/design-system';
 import { PlatformSelectionStep } from './PlatformSelectionStep';
 import { ActorSchemaFields } from './ActorSchemaFields';
 import { ExecutionStep } from './ExecutionStep';
@@ -120,6 +120,27 @@ export function ProspectDiscoveryPage() {
         <strong>任务方案 ID：{planTaskCode}</strong>
         <span>工作节点状态由实际任务与后端返回数据驱动，不生成模拟进度。</span>
       </div>
+
+      <nav className="tp-prospect-discovery__stage-navigation" aria-label="潜客发现五个业务步骤">
+        <ProgressIndicator currentIndex={activeStage} spaceEqually>
+          {[
+            { label: '全球企业发现', description: '选择平台与配置采集参数' },
+            { label: '数据采集与整合', description: '执行任务并汇总企业数据' },
+            { label: 'AI 企业智能分析', description: '评分与企业价值分析' },
+            { label: '决策者识别与验证', description: '联系人补全与人工核验' },
+            { label: '潜客资产沉淀', description: '确认并同步 CRM' },
+          ].map((step, index) => (
+            <ProgressStep
+              key={step.label}
+              label={step.label}
+              description={step.description}
+              current={index === activeStage}
+              complete={index < activeStage}
+              onClick={() => setActiveStage(index)}
+            />
+          ))}
+        </ProgressIndicator>
+      </nav>
 
       <section className="tp-prospect-discovery__work-panel">
         <div className="tp-prospect-discovery__work-panel-heading">
