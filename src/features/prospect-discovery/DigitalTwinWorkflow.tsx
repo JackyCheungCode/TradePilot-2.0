@@ -212,7 +212,7 @@ export function DigitalTwinWorkflow({ activeStage, metrics, selectedSources, onS
         <div className="tp-digital-twin__viewport-heading">
           <div><strong>3D 数字孪生视角</strong><span>拖动旋转场景 · 缩放观察设备结构</span></div>
           <div className="tp-digital-twin__viewport-controls">
-            <Button kind="ghost" size="sm" onClick={() => setZoom(value => Math.max(75, value - 10))} aria-label="缩小 3D 场景">−</Button>
+            <Button kind="ghost" size="sm" onClick={() => setZoom(value => Math.max(80, value - 10))} aria-label="缩小 3D 场景">−</Button>
             <span>{zoom}%</span>
             <Button kind="ghost" size="sm" onClick={() => setZoom(value => Math.min(150, value + 10))} aria-label="放大 3D 场景">+</Button>
             <Button kind="ghost" size="sm" onClick={() => { setRotation({ x: 2, y: -3 }); setZoom(100); }}>重置视角</Button>
