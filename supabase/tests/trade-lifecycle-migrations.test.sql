@@ -11,6 +11,8 @@ declare
   lead_id uuid;
   payment_id uuid;
   quote_id uuid;
+  customer_id uuid;
+  contact_id uuid;
   shipment_status text;
   lifecycle_stage text;
   result jsonb;
@@ -43,6 +45,32 @@ begin
 
   document_number := public.next_trade_document_number(owner_a,'ci_test',2026);
   if document_number < 1 then raise exception 'Document number sequence did not allocate a positive value'; end if;
+
+  insert into public.crm_accounts(owner_id,account_name)
+  values(owner_a,'CI customer lifecycle')
+  returning id into customer_id;
+  if not exists(select 1 from public.business_transition_events where owner_id=owner_a and record_type='customer' and record_id=customer_id and event_type='customer_created') then
+    raise exception 'Customer creation event was not captured';
+  end if;
+  perform public.confirm_customer_status_transition(customer_id,'active','dormant','CI customer status test');
+  if not exists(select 1 from public.crm_accounts where id=customer_id and status='inactive' and custom_fields->>'customerStatus'='dormant') then
+    raise exception 'Customer status transition did not persist';
+  end if;
+
+  insert into public.crm_contacts(owner_id,account_id,first_name)
+  values(owner_a,customer_id,'CI contact')
+  returning id into contact_id;
+  if not exists(select 1 from public.business_transition_events where owner_id=owner_a and record_type='contact' and record_id=contact_id and event_type='contact_created') then
+    raise exception 'Contact creation event was not captured';
+  end if;
+  perform public.confirm_contact_active_transition(contact_id,true,false,'CI contact status test');
+  if not exists(select 1 from public.crm_contacts where id=contact_id and is_active=false) then
+    raise exception 'Contact status transition did not persist';
+  end if;
+  update public.crm_contacts set do_not_contact=true where id=contact_id;
+  if not exists(select 1 from public.business_transition_events where owner_id=owner_a and record_type='contact' and record_id=contact_id and event_type='contact_contact_preference_changed') then
+    raise exception 'Contact do-not-contact lifecycle event was not captured';
+  end if;
 
   insert into public.trade_shipments(owner_id,order_id,planned_ship_date,owner_name)
   values(owner_a,gen_random_uuid(),current_date,'CI shipment')
