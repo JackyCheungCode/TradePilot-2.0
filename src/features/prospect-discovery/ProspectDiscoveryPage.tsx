@@ -7,7 +7,7 @@ import { ExecutionStep } from './ExecutionStep';
 import { ScoringStep } from './ScoringStep';
 import { DecisionMakerStep } from './DecisionMakerStep';
 import { DigitalTwinWorkflow } from './DigitalTwinWorkflow';
-import './digital-twin-workflow.scss';
+import '@/design-system/patterns/digital-twin-workflow.scss';
 import '@/design-system/patterns/prospect-discovery.scss';
 
 const createPlanTaskCode = () => 'TPD-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-' + Math.random().toString(36).slice(2, 8).toUpperCase();
