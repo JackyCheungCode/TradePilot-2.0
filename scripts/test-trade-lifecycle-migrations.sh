@@ -4,7 +4,6 @@ set -euo pipefail
 psql -v ON_ERROR_STOP=1 -f supabase/tests/fixtures/trade-lifecycle-baseline.sql
 
 migrations=(
-  20261116050030_atomic_shipment_lifecycle.sql
   20261121052901_capture_payment_lifecycle_events.sql
   20261121053148_restore_atomic_prospect_lifecycle.sql
   20261121053151_restore_prospect_contact_enrichment.sql
