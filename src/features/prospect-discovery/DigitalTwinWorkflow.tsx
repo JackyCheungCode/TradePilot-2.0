@@ -114,7 +114,7 @@ export function DigitalTwinWorkflow({ activeStage, metrics, onStageChange }: Pro
                 )}
                 <span className="tp-digital-twin__node-detail">{metric.detail}</span>
               </Button>
-              {index < stages.length - 1 && <span className={`tp-digital-twin__connector ${index < activeStage ? 'tp-digital-twin__connector--passed' : ''}`} aria-hidden="true"><i /></span>}
+              {index < stages.length - 1 && <span className={`tp-digital-twin__connector ${metric.state === 'complete' ? 'tp-digital-twin__connector--passed' : ''}`} aria-hidden="true"><i /></span>}
             </div>
           );
         })}

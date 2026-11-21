@@ -57,7 +57,10 @@
   &__node-detail { @include type-style('label-01'); color: var(--cds-text-secondary); border-top: 1px solid var(--cds-border-subtle-01); padding-top: $spacing-03; width: 100%; line-height: 1.45; }
   &__node-progress { display: block; width: 100%; height: .25rem; background: var(--cds-border-subtle-01); overflow: hidden; }
   &__node-progress i { display: block; height: 100%; background: var(--cds-interactive); transition: width 240ms ease; }
-  &__connector { display: none; }
+  &__connector { position: absolute; z-index: 3; top: 48%; right: -$spacing-04; display: block; width: $spacing-04; height: 2px; background: var(--cds-border-subtle-01); }
+  &__connector i { position: absolute; top: -2px; left: 0; width: 6px; height: 6px; border-radius: 50%; background: var(--cds-support-success); opacity: 0; }
+  &__connector--passed { background: var(--cds-support-success); }
+  &__connector--passed i { opacity: 1; animation: tp-data-pulse 1.8s ease-in-out infinite; }
 
   &__scene {
     position: relative;
@@ -96,13 +99,14 @@
   &__machine i:nth-child(3) { transform: translateZ(18px) translateY(-4px); border-color: var(--cds-interactive); }
   &__conveyor { position: absolute; bottom: 13%; display: flex; gap: .35rem; transform: rotateX(58deg) rotateZ(-28deg); }
   &__conveyor i { width: .9rem; height: .9rem; background: var(--cds-support-info); border: 1px solid var(--cds-layer-01); box-shadow: 0 4px 0 var(--cds-border-subtle-01); }
-  &__data-chip { position: absolute; width: .65rem; height: .65rem; background: var(--cds-support-success); transform: rotateX(55deg) rotateZ(45deg); box-shadow: 0 0 10px rgba(36,161,72,.3); }
+  &__data-chip { position: absolute; width: .65rem; height: .65rem; background: var(--cds-support-success); transform: rotateX(55deg) rotateZ(45deg); box-shadow: 0 0 10px rgba(36,161,72,.3); animation: tp-data-float 3.2s ease-in-out infinite; }
   &__data-chip--one { top: 20%; left: 22%; } &__data-chip--two { top: 32%; right: 18%; background: var(--cds-support-info); }
 
   &__ai-core { position: relative; z-index: 2; display: grid; place-items: center; width: 3.7rem; height: 3.7rem; border-radius: 50%; color: white; background: radial-gradient(circle at 34% 28%, #9bd9ff, #0f62fe 48%, #003a8c 100%); box-shadow: inset -8px -7px 15px rgba(0,20,60,.3), 0 0 24px rgba(15,98,254,.24); transform: translateZ(18px); }
   &__ai-core span { @include type-style('heading-compact-02'); font-weight: 600; }
   &__ai-ring { position: absolute; width: 6.4rem; height: 2.8rem; border: 1px solid var(--cds-interactive); border-radius: 50%; transform: rotateX(66deg) rotateZ(-24deg); opacity: .65; }
-  &__ai-ring--two { width: 5.4rem; height: 5.4rem; transform: rotateY(68deg) rotateX(12deg); border-color: var(--cds-support-info); }
+  &__ai-ring--two { width: 5.4rem; height: 5.4rem; transform: rotateY(68deg) rotateX(12deg); border-color: var(--cds-support-info); animation: tp-ai-orbit 14s linear infinite reverse; }
+  &__ai-ring--one { animation: tp-ai-orbit 18s linear infinite; }
   &__ai-node { position: absolute; width: .38rem; height: .38rem; border-radius: 50%; background: var(--cds-support-success); box-shadow: 0 0 10px rgba(36,161,72,.5); }
   &__ai-node--one { top: 17%; left: 22%; } &__ai-node--two { right: 18%; top: 34%; } &__ai-node--three { bottom: 14%; left: 40%; }
 
@@ -126,6 +130,9 @@
 }
 
 @keyframes tp-orbit { from { transform: rotate(-18deg) rotateX(62deg) rotateZ(0); } to { transform: rotate(-18deg) rotateX(62deg) rotateZ(360deg); } }
+@keyframes tp-ai-orbit { from { rotate: 0deg; } to { rotate: 360deg; } }
+@keyframes tp-data-float { 0%, 100% { translate: 0 0; } 50% { translate: 0 -7px; } }
+@keyframes tp-data-pulse { 0%, 100% { transform: translateX(0); opacity: .35; } 50% { transform: translateX(9px); opacity: 1; } }
 
 .tp-prospect-discovery--digital-twin {
   .tp-prospect-discovery__page-header { border-bottom: 0; margin-bottom: $spacing-04; }
@@ -153,11 +160,13 @@
 
 @media (max-width: 1200px) {
   .tp-digital-twin__nodes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .tp-digital-twin__connector { display: none; }
 }
 @media (max-width: 760px) {
   .tp-digital-twin { padding: $spacing-04; }
   .tp-digital-twin__heading { align-items: flex-start; flex-direction: column; }
   .tp-digital-twin__nodes { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: $spacing-03; }
+  .tp-digital-twin__connector { display: none; }
   .tp-digital-twin__node.cds--btn { min-height: 17rem; padding: $spacing-03; }
   .tp-prospect-discovery--digital-twin .tp-prospect-discovery__work-panel { padding: $spacing-04; }
   .tp-prospect-discovery--digital-twin .tp-prospect-discovery__asset-center { grid-template-columns: 1fr; padding: $spacing-04; }
@@ -172,6 +181,6 @@
   .tp-prospect-discovery--digital-twin .tp-prospect-discovery__work-panel-heading { flex-direction: column; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .tp-digital-twin__orbit--one { animation: none; }
+  .tp-digital-twin__orbit--one, .tp-digital-twin__ai-ring, .tp-digital-twin__data-chip, .tp-digital-twin__connector--passed i { animation: none; }
   .tp-digital-twin__node.cds--btn { transition: none; }
 }
