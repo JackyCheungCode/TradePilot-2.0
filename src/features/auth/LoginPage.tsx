@@ -220,8 +220,8 @@ export function LoginPage() {
   return (
     <main className="tp-login">
       <section className="tp-login__surface" aria-labelledby="tp-login-title">
-        <p className="tp-login__eyebrow">TRADEPILOT / SECURE ACCESS</p>
-        <h1 id="tp-login-title">{step === 'mfa' ? '验证身份' : step === 'webauthn' ? '生物识别验证' : '登录 TradePilot'}</h1>
+        <p className="tp-login__eyebrow">HARMONIA / SECURE ACCESS</p>
+        <h1 id="tp-login-title">{step === 'mfa' ? '验证身份' : step === 'webauthn' ? '生物识别验证' : '登录 Harmonia'}</h1>
         <p className="tp-login__description">
           {step === 'mfa'
             ? '请输入身份验证器生成的一次性验证码。'
