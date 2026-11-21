@@ -4,7 +4,7 @@ import { Button, Dropdown, InlineNotification, Tag, TextInput, TPInlineLoading, 
 import { getSupabaseClient } from '@/lib/supabase';
 import './wheel-fitment.scss';
 
-type VehicleOption = { id: string; text: string; logoKey?: string };
+type VehicleOption = { id: string; text: string; logoKey?: string; logoUrl?: string };
 type FitmentRecord = { id: string; provider: string; confidence: string; record: Record<string, unknown> };
 type ApiResult<T> = { data?: T; error?: { message?: string } };
 type CatalogResult = { items?: unknown[]; records?: FitmentRecord[]; sources?: Array<{id:string;status:string;license?:string}>; limitations?: string[]; raw?: unknown };
@@ -41,7 +41,7 @@ const flatten = (value: unknown, prefix = '', depth = 0): Array<[string,string]>
 };
 function BrandMark({option}:{option:VehicleOption|null}) {
   if (!option) return <span className="tp-wheel__brand-fallback">?</span>;
-  return <img className="tp-wheel__brand-logo" src={'https://cdn.simpleicons.org/' + encodeURIComponent(option.logoKey || option.text.toLowerCase().replace(/[^a-z0-9]/g,''))} alt="" onError={event => { event.currentTarget.style.display='none'; }} />;
+  return <img className="tp-wheel__brand-logo" src={option.logoUrl || ('https://cdn.simpleicons.org/' + encodeURIComponent(option.logoKey || option.text.toLowerCase().replace(/[^a-z0-9]/g,'')))} alt={option.text + ' logo'} onError={event => { event.currentTarget.style.display='none'; }} />;
 }
 
 export function WheelFitmentPage() {
@@ -82,7 +82,7 @@ export function WheelFitmentPage() {
     if(typeof item === 'string' || typeof item === 'number') return {id:String(item),text:String(item)};
     const value = item as Record<string,unknown>;
     const text = String(value.name ?? value.make ?? value.model ?? value.year ?? value.title ?? value.slug ?? '配置 ' + (index + 1));
-    return {id:String(value.id ?? value.slug ?? text),text,logoKey:typeof value.logoKey === 'string' ? value.logoKey : undefined};
+    return {id:String(value.id ?? value.slug ?? text),text,logoKey:typeof value.logoKey === 'string' ? value.logoKey : undefined,logoUrl:typeof value.logoUrl === 'string' ? value.logoUrl : undefined};
   });
 
   const loadMakes = useCallback(async () => {
