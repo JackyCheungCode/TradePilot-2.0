@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PageHeader } from '@/design-system';
-import { Button, Dropdown, InlineNotification, Tag, TextInput, TPInlineLoading, semanticIcons } from '@/design-system';
+import { Button, ComboBox, Dropdown, InlineNotification, Tag, TextInput, TPInlineLoading, semanticIcons } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import './wheel-fitment.scss';
 
@@ -42,6 +42,9 @@ const flatten = (value: unknown, prefix = '', depth = 0): Array<[string,string]>
 function BrandMark({option}:{option:VehicleOption|null}) {
   if (!option) return <span className="tp-wheel__brand-fallback">?</span>;
   return <img className="tp-wheel__brand-logo" src={option.logoUrl || ('https://cdn.simpleicons.org/' + encodeURIComponent(option.logoKey || option.text.toLowerCase().replace(/[^a-z0-9]/g,'')))} alt={option.text + ' logo'} onError={event => { event.currentTarget.style.display='none'; }} />;
+}
+function BrandOptionItem(item:VehicleOption) {
+  return <span className="tp-wheel__brand-option"><img src={item.logoUrl || ('https://cdn.simpleicons.org/' + encodeURIComponent(item.logoKey || item.text.toLowerCase().replace(/[^a-z0-9]/g,'')))} alt="" onError={event=>{event.currentTarget.style.visibility='hidden';}}/><span>{item.text}</span></span>;
 }
 
 export function WheelFitmentPage() {
@@ -158,7 +161,7 @@ export function WheelFitmentPage() {
     <section className="tp-wheel__section">
       <div className="tp-wheel__section-title"><div><h2>01 · 选择车辆</h2><p>先确认车辆身份，再读取对应市场、年款与配置的原厂规格。</p></div>{catalogBusy && <TPInlineLoading status="active" description="读取车辆目录…"/>}</div>
       <div className="tp-wheel__vehicle-grid">
-        <div className="tp-wheel__field"><label>车辆品牌</label><div className="tp-wheel__brand-select"><BrandMark option={make}/><Dropdown id="wheel-make" titleText="" label="选择制造商" items={makes} itemToString={(item:VehicleOption|null)=>item?.text || ''} selectedItem={make} onChange={({selectedItem}:{selectedItem:VehicleOption|null})=>{setMake(selectedItem);setModel(null);setYear(null);setGeneration(null);setModification(null);setModels([]);setYears([]);setGenerations([]);setModifications([]);setRecords([]);setSelectedRecord(null);if(selectedItem) void loadDependent('models',{make:selectedItem.id,region},setModels);}}/></div></div>
+        <div className="tp-wheel__field"><ComboBox id="wheel-make" titleText="车辆品牌" placeholder="搜索或选择制造商" items={makes} itemToString={(item:VehicleOption|null)=>item?.text || ''} itemToElement={BrandOptionItem} selectedItem={make} onChange={({selectedItem}:{selectedItem:VehicleOption|null})=>{setMake(selectedItem);setModel(null);setYear(null);setGeneration(null);setModification(null);setModels([]);setYears([]);setGenerations([]);setModifications([]);setRecords([]);setSelectedRecord(null);if(selectedItem) void loadDependent('models',{make:selectedItem.id,region},setModels);}}/></div>
         <div className="tp-wheel__field"><label>车型</label><Dropdown id="wheel-model" titleText="" label="选择车型" items={models} itemToString={(item:VehicleOption|null)=>item?.text || ''} selectedItem={model} disabled={!make} onChange={({selectedItem}:{selectedItem:VehicleOption|null})=>{setModel(selectedItem);setYear(null);setGeneration(null);setModification(null);setRecords([]);if(selectedItem) void loadDependent('years',{make:make?.id || '',model:selectedItem.id,region},setYears);}}/></div>
         <div className="tp-wheel__field"><label>年款</label><Dropdown id="wheel-year" titleText="" label="选择年款（可选）" items={years} itemToString={(item:VehicleOption|null)=>item?.text || ''} selectedItem={year} disabled={!model} onChange={({selectedItem}:{selectedItem:VehicleOption|null})=>{setYear(selectedItem);setGeneration(null);setModification(null);if(selectedItem) void loadDependent('generations',{make:make?.id||'',model:model?.id||'',year:selectedItem.id,region},setGenerations);}}/></div>
         <div className="tp-wheel__field"><label>世代</label><Dropdown id="wheel-generation" titleText="" label="选择世代（可选）" items={generations} itemToString={(item:VehicleOption|null)=>item?.text || ''} selectedItem={generation} disabled={!model} onChange={({selectedItem}:{selectedItem:VehicleOption|null})=>{setGeneration(selectedItem);setModification(null);if(selectedItem) void loadDependent('modifications',{make:make?.id||'',model:model?.id||'',year:year?.id||'',generation:selectedItem.id,region},setModifications);}}/></div>
