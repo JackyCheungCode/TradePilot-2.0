@@ -19,6 +19,20 @@ const getToken = async () => {
   if (!data.session?.access_token) throw new Error('登录状态已失效，请重新登录。');
   return data.session.access_token;
 };
+const findNumericField = (value: unknown, keys: string[], depth = 0): number | null => {
+  if (depth > 6 || !value || typeof value !== 'object') return null;
+  if (Array.isArray(value)) {
+    for (const item of value) { const found=findNumericField(item,keys,depth+1); if(found!==null) return found; }
+    return null;
+  }
+  const object=value as Record<string,unknown>;
+  for (const key of keys) {
+    const candidate=object[key];
+    if ((typeof candidate==='number' || typeof candidate==='string') && candidate!=='' && Number.isFinite(Number(candidate))) return Number(candidate);
+  }
+  for (const nested of Object.values(object)) { const found=findNumericField(nested,keys,depth+1); if(found!==null) return found; }
+  return null;
+};
 const flatten = (value: unknown, prefix = '', depth = 0): Array<[string,string]> => {
   if (depth > 3 || value === null || value === undefined) return [];
   if (Array.isArray(value)) return value.flatMap((item, index) => flatten(item, prefix ? prefix + '.' + (index + 1) : String(index + 1), depth + 1));
@@ -50,8 +64,8 @@ export function WheelFitmentPage() {
   const [sourceInfo,setSourceInfo] = useState<CatalogResult>({});
   const [vin,setVin] = useState('');
   const [vinResult,setVinResult] = useState<unknown>(null);
-  const [baseline,setBaseline] = useState({width:'8',diameter:'18',offset:'35',tireWidth:'225',aspect:'45'});
-  const [proposal,setProposal] = useState({width:'8.5',diameter:'19',offset:'35',tireWidth:'235',aspect:'40'});
+  const [baseline,setBaseline] = useState({width:'',diameter:'',offset:'',tireWidth:'',aspect:''});
+  const [proposal,setProposal] = useState({width:'',diameter:'',offset:'',tireWidth:'',aspect:''});
   const [calculated,setCalculated] = useState(false);
 
   const query = useCallback(async (kind:string, params:Record<string,string> = {}):Promise<CatalogResult> => {
@@ -117,6 +131,22 @@ export function WheelFitmentPage() {
   },[baseline,proposal]);
 
   const selectedFields = useMemo(()=>selectedRecord ? flatten(selectedRecord.record).filter(([key])=>!key.toLowerCase().includes('image')) : [],[selectedRecord]);
+  const applyOemBaseline = () => {
+    if (!selectedRecord) return;
+    const record=selectedRecord.record;
+    const values={
+      width:findNumericField(record,['rim_width','rim_width_in','rim_width_inches']),
+      diameter:findNumericField(record,['rim_diameter','rim_diameter_in','rim_diameter_inches']),
+      offset:findNumericField(record,['rim_offset','offset','et']),
+      tireWidth:findNumericField(record,['tire_width_mm','section_width','tire_width']),
+      aspect:findNumericField(record,['tire_aspect_ratio','aspect_ratio']),
+    };
+    const next={width:values.width===null?'':String(values.width),diameter:values.diameter===null?'':String(values.diameter),offset:values.offset===null?'':String(values.offset),tireWidth:values.tireWidth===null?'':String(values.tireWidth),aspect:values.aspect===null?'':String(values.aspect)};
+    setBaseline(next);
+    setProposal({...next});
+    setCalculated(false);
+    if(Object.values(values).every(value=>value===null)) setError('已选择原厂记录，但该记录的前轴规格字段未能自动识别。请展开原始数据并手动填写基准参数。');
+  };
   const setBaseField=(key:string,value:string)=>setBaseline(current=>({...current,[key]:value}));
   const setProposalField=(key:string,value:string)=>setProposal(current=>({...current,[key]:value}));
   const renderMeasure=(label:string,key:keyof typeof baseline,value:string,onChange:(key:string,value:string)=>void,step='1')=><TextInput id={'wheel-base-'+key} labelText={label} type="number" step={step} value={value} onChange={event=>onChange(key,event.currentTarget.value)}/>;
@@ -133,7 +163,7 @@ export function WheelFitmentPage() {
         <div className="tp-wheel__field"><label>年款</label><Dropdown id="wheel-year" titleText="" label="选择年款（可选）" items={years} itemToString={(item:VehicleOption|null)=>item?.text || ''} selectedItem={year} disabled={!model} onChange={({selectedItem}:{selectedItem:VehicleOption|null})=>{setYear(selectedItem);setGeneration(null);setModification(null);if(selectedItem) void loadDependent('generations',{make:make?.text||'',model:model?.text||'',year:selectedItem.text,region},setGenerations);}}/></div>
         <div className="tp-wheel__field"><label>世代</label><Dropdown id="wheel-generation" titleText="" label="选择世代（可选）" items={generations} itemToString={(item:VehicleOption|null)=>item?.text || ''} selectedItem={generation} disabled={!model} onChange={({selectedItem}:{selectedItem:VehicleOption|null})=>{setGeneration(selectedItem);setModification(null);if(selectedItem) void loadDependent('modifications',{make:make?.text||'',model:model?.text||'',year:year?.text||'',generation:selectedItem.text,region},setModifications);}}/></div>
         <div className="tp-wheel__field"><label>具体配置 / 动力版本</label><Dropdown id="wheel-modification" titleText="" label="选择配置（可选）" items={modifications} itemToString={(item:VehicleOption|null)=>item?.text || ''} selectedItem={modification} disabled={!model} onChange={({selectedItem}:{selectedItem:VehicleOption|null})=>setModification(selectedItem)}/></div>
-        <div className="tp-wheel__field"><label>销售市场</label><Dropdown id="wheel-region" titleText="" label="选择市场" items={[{id:'all',text:'全部市场'},{id:'us',text:'美国'},{id:'eu',text:'欧洲'},{id:'uk',text:'英国'},{id:'jp',text:'日本'},{id:'au',text:'澳大利亚'}]} itemToString={(item:{id:string;text:string}|null)=>item?.text||''} selectedItem={{id:region,text:({all:'全部市场',us:'美国',eu:'欧洲',uk:'英国',jp:'日本',au:'澳大利亚'} as Record<string,string>)[region]||'全部市场'}} onChange={({selectedItem}:{selectedItem:{id:string;text:string}|null})=>setRegion(selectedItem?.id||'all')}/></div>
+        <div className="tp-wheel__field"><label>销售市场</label><Dropdown id="wheel-region" titleText="" label="选择市场" items={[{id:'all',text:'全部市场'},{id:'usdm',text:'美国（USDM）'},{id:'cdm',text:'加拿大（CDM）'},{id:'eudm',text:'欧洲（EUDM）'},{id:'jdm',text:'日本（JDM）'},{id:'chdm',text:'中国及港澳（CHDM）'},{id:'sam',text:'东南亚（SAM）'},{id:'audm',text:'澳大利亚及大洋洲（AUDM）'}]} itemToString={(item:{id:string;text:string}|null)=>item?.text||''} selectedItem={{id:region,text:({all:'全部市场',usdm:'美国（USDM）',cdm:'加拿大（CDM）',eudm:'欧洲（EUDM）',jdm:'日本（JDM）',chdm:'中国及港澳（CHDM）',sam:'东南亚（SAM）',audm:'澳大利亚及大洋洲（AUDM）'} as Record<string,string>)[region]||'全部市场'}} onChange={({selectedItem}:{selectedItem:{id:string;text:string}|null})=>setRegion(selectedItem?.id||'all')}/></div>
       </div>
       <div className="tp-wheel__actions"><Button kind="primary" renderIcon={semanticIcons.search} disabled={!make||!model||busy} onClick={()=>void findVehicle()}>查询原厂规格</Button><span>数据结果可能包含多个前后轴、制动套件或地区配置，请逐条确认。</span></div>
       <div className="tp-wheel__vin"><div><h3>VIN 辅助识别</h3><p>可使用 11–17 位 VIN 解码车辆信息；VIN 解码不等于轮毂适配认证。</p></div><div className="tp-wheel__vin-controls"><TextInput id="wheel-vin" labelText="车辆识别码（VIN）" value={vin} onChange={event=>setVin(event.currentTarget.value.toUpperCase())} placeholder="输入 VIN"/><Button kind="tertiary" disabled={busy||vin.trim().length<11} onClick={()=>void decodeVin()}>解码 VIN</Button></div>{vinResult!==null&&<pre>{JSON.stringify(vinResult,null,2)}</pre>}</div>
@@ -141,7 +171,7 @@ export function WheelFitmentPage() {
     <section className="tp-wheel__section">
       <div className="tp-wheel__section-title"><div><h2>02 · 原厂规格数据库</h2><p>保留各数据源的原始配置记录，不将不同车型或轴位错误合并。</p></div><Tag type="cool-gray">{records.length} 条记录</Tag></div>
       {!records.length ? <div className="tp-wheel__empty"><semanticIcons.product size={28}/><p>选择车辆并查询后，原厂轮毂、轮胎、PCD、中心孔与 ET 等信息将在这里呈现。</p></div> : <div className="tp-wheel__records">{records.map(record=><button type="button" key={record.id} className={'tp-wheel__record '+(selectedRecord?.id===record.id?'is-selected':'')} onClick={()=>{setSelectedRecord(record);setCalculated(false);}}><span><strong>{record.provider}</strong><small>{record.id}</small></span><Tag type={record.confidence==='professional_database'?'green':'blue'}>{record.confidence==='professional_database'?'专业数据库':'开放参考数据'}</Tag><semanticIcons.chevronRight size={16}/></button>)}</div>}
-      {selectedRecord&&<div className="tp-wheel__record-detail"><div className="tp-wheel__record-heading"><h3>选中配置 · {selectedRecord.provider}</h3><Tag type="cool-gray">原始数据保留</Tag></div><div className="tp-wheel__data-grid">{selectedFields.slice(0,48).map(([key,value],index)=><div key={key+'-'+index}><span>{key}</span><strong>{value}</strong></div>)}</div><details><summary>查看完整原始数据</summary><pre>{JSON.stringify(selectedRecord.record,null,2)}</pre></details></div>}
+      {selectedRecord&&<div className="tp-wheel__record-detail"><div className="tp-wheel__record-heading"><h3>选中配置 · {selectedRecord.provider}</h3><Button kind="tertiary" size="sm" onClick={applyOemBaseline}>填入基准规格</Button></div><div className="tp-wheel__data-grid">{selectedFields.slice(0,48).map(([key,value],index)=><div key={key+'-'+index}><span>{key}</span><strong>{value}</strong></div>)}</div><details><summary>查看完整原始数据</summary><pre>{JSON.stringify(selectedRecord.record,null,2)}</pre></details></div>}
       {sourceInfo.sources?.length ? <div className="tp-wheel__sources"><strong>数据源状态</strong>{sourceInfo.sources.map(source=><Tag key={source.id} type={source.status==='available'?'green':'cool-gray'}>{source.id}: {source.status}</Tag>)}</div>:null}
     </section>
     <section className="tp-wheel__section">
