@@ -32,6 +32,48 @@ const directLogos: Record<string, string> = {
   aliexpress: 'aliexpress.svg', shopify: 'shopify.svg', tiktok: 'tiktok.svg',
   telegram: 'telegram.svg', whatsapp: 'whatsapp.svg', wechat: 'wechat.svg',
 };
+const spriteLogos: Record<string, { file: string; symbol: string }> = {
+  'google-search': { file: 'platform-sprite-search.svg', symbol: 'google' },
+  'google-news': { file: 'platform-sprite-search.svg', symbol: 'googlenews' },
+  duckduckgo: { file: 'platform-sprite-search.svg', symbol: 'duckduckgo' },
+  baidu: { file: 'platform-sprite-search.svg', symbol: 'baidu' },
+  'x-twitter': { file: 'platform-sprite-social.svg', symbol: 'x' },
+  reddit: { file: 'platform-sprite-social.svg', symbol: 'reddit' },
+  pinterest: { file: 'platform-sprite-social.svg', symbol: 'pinterest' },
+  threads: { file: 'platform-sprite-social.svg', symbol: 'threads' },
+  youtube: { file: 'platform-sprite-media.svg', symbol: 'youtube' },
+  vimeo: { file: 'platform-sprite-media.svg', symbol: 'vimeo' },
+  twitch: { file: 'platform-sprite-media.svg', symbol: 'twitch' },
+  ebay: { file: 'platform-sprite-media.svg', symbol: 'ebay' },
+  etsy: { file: 'platform-sprite-social-media.svg', symbol: 'etsy' },
+  medium: { file: 'platform-sprite-community.svg', symbol: 'medium' },
+  tumblr: { file: 'platform-sprite-community.svg', symbol: 'tumblr' },
+  snapchat: { file: 'platform-sprite-community.svg', symbol: 'snapchat' },
+  quora: { file: 'platform-sprite-community.svg', symbol: 'quora' },
+  wappalyzer: { file: 'platform-sprite-webtech.svg', symbol: 'wappalyzer' },
+  similarweb: { file: 'platform-sprite-webtech.svg', symbol: 'similarweb' },
+  webflow: { file: 'platform-sprite-webtech.svg', symbol: 'webflow' },
+  wix: { file: 'platform-sprite-webtech.svg', symbol: 'wix' },
+  crunchbase: { file: 'platform-sprite-business.svg', symbol: 'crunchbase' },
+  'product-hunt': { file: 'platform-sprite-business.svg', symbol: 'producthunt' },
+  github: { file: 'platform-sprite-business.svg', symbol: 'github' },
+  taobao: { file: 'platform-sprite-business.svg', symbol: 'taobao' },
+  rakuten: { file: 'platform-sprite-retail.svg', symbol: 'rakuten' },
+  target: { file: 'platform-sprite-retail.svg', symbol: 'target' },
+  newegg: { file: 'platform-sprite-retail.svg', symbol: 'newegg' },
+  shopee: { file: 'platform-sprite-retail.svg', symbol: 'shopee' },
+  naver: { file: 'platform-sprite-regional.svg', symbol: 'naver' },
+  xing: { file: 'platform-sprite-regional.svg', symbol: 'xing' },
+  bilibili: { file: 'platform-sprite-more.svg', symbol: 'bilibili' },
+  'yelp-local': { file: 'platform-sprite-more.svg', symbol: 'yelp' },
+};
+
+function PlatformLogo({ source }: { source: Source }) {
+  if (directLogos[source.id]) return <img src={'/platform-logos/' + directLogos[source.id]} alt="" />;
+  const sprite = spriteLogos[source.id];
+  if (sprite) return <svg viewBox="0 0 24 24" aria-hidden="true"><use href={'/platform-logos/' + sprite.file + '#' + sprite.symbol} /></svg>;
+  return <b>{source.name.slice(0, 2).toUpperCase()}</b>;
+}
 
 function Scene({ id, sources }: { id: string; sources: Source[] }) {
   if (id === 'globe') return (
@@ -42,9 +84,7 @@ function Scene({ id, sources }: { id: string; sources: Source[] }) {
       <div className="tp-digital-twin__source-orbit">
         {sources.slice(0, 8).map((source, index) => (
           <span className="tp-digital-twin__source-logo" key={source.id} style={{ '--source-left': ((index - 3.5) * 1.55) + 'rem', '--source-top': (index % 2 ? 'calc(50% - 2.5rem)' : 'calc(50% - 3.2rem)'), animationDelay: (index * -180) + 'ms' } as CSSProperties}>
-            {directLogos[source.id]
-              ? <img src={'/platform-logos/' + directLogos[source.id]} alt={source.name} />
-              : <b>{source.name.slice(0, 2).toUpperCase()}</b>}
+            <PlatformLogo source={source} />
           </span>
         ))}
       </div>
@@ -182,8 +222,8 @@ export function DigitalTwinWorkflow({ activeStage, metrics, selectedSources, onS
           <div className="tp-digital-twin__viewport-grid" />
           <div className="tp-digital-twin__viewport-model" style={{ transform: `perspective(1000px) rotateX(${rotation.x}deg) rotateY(${rotation.y}deg) scale(${zoom})` }}>
             <div className="tp-digital-twin__viewport-platforms">
-              {selectedSources.length ? selectedSources.slice(0, 8).map(source => (
-                <span key={source.id}>{directLogos[source.id] ? <img src={'/platform-logos/' + directLogos[source.id]} alt="" /> : <b>{source.name.slice(0, 2)}</b>}{source.name}</span>
+              {selectedSources.length ? selectedSources.map(source => (
+                <span key={source.id}><PlatformLogo source={source} />{source.name}</span>
               )) : <span className="tp-digital-twin__empty-source">选择平台后，已选来源将在这里接入流水线</span>}
             </div>
             {stages.map((stage, index) => (
