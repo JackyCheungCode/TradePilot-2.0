@@ -71,6 +71,23 @@ function uniqueStrings(values: unknown[]): string[] {
   }).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 }
 
+function catalogOptions(values: unknown[]): Array<{ id: string; name: string; logoKey: string }> {
+  const options = new Map<string, { id: string; name: string; logoKey: string }>();
+  for (const value of values) {
+    if (typeof value === "string" || typeof value === "number") {
+      const name = String(value).trim();
+      if (name && !options.has(name)) options.set(name, { id: name, name, logoKey: logoKey(name) });
+      continue;
+    }
+    if (!value || typeof value !== "object") continue;
+    const item = value as JsonRecord;
+    const name = String(item.name ?? item.make ?? item.manufacturer ?? item.brand ?? item.model ?? item.title ?? "").trim();
+    const id = String(item.slug ?? item.id ?? item.code ?? name).trim();
+    if (name && id && !options.has(id)) options.set(id, { id, name, logoKey: logoKey(name) });
+  }
+  return [...options.values()].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+}
+
 async function catalog(request: Request, env: WheelFitmentEnv, kind: string): Promise<Response> {
   const url = new URL(request.url);
   const make = text(url.searchParams.get("make"));
@@ -92,7 +109,7 @@ async function catalog(request: Request, env: WheelFitmentEnv, kind: string): Pr
       const ankData = ank.status === "fulfilled" ? ank.value : null;
       const names = uniqueStrings([...arrayFrom(wsData), ...arrayFrom(ankData)]);
       return successResponse(request, {
-        items: names.map(name => ({ name, logoKey: logoKey(name) })),
+        items: catalogOptions([...arrayFrom(wsData), ...arrayFrom(ankData)]),
         sources: [
           { id: "wheel-size", status: wsData ? "available" : hasWheelSizeKey ? "error" : "not_configured" },
           { id: "ankusi", status: ankData ? "available" : "error", license: "CC BY 4.0" },
@@ -119,10 +136,11 @@ async function catalog(request: Request, env: WheelFitmentEnv, kind: string): Pr
       const ankItems = arrayFrom(ankData);
       let items: unknown[] = wsItems;
       if (kind === "models") {
-        items = uniqueStrings([...wsItems, ...ankItems.map(item => (item as JsonRecord).model)]);
+        items = catalogOptions([...wsItems, ...ankItems.map(item => (item as JsonRecord).model)]);
       } else if (kind === "years") {
         items = uniqueStrings([...wsItems, ...ankItems.map(item => (item as JsonRecord).year)]);
       }
+      if (kind === "generations" || kind === "modifications") items = catalogOptions(wsItems);
       return successResponse(request, {
         items,
         raw: { wheelSize: wsData, ankusi: ankData },
