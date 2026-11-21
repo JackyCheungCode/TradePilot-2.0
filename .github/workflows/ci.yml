@@ -102,3 +102,26 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ea4e98dce9c478d7dd5c07f10e5c722d
         run: npm run worker:deploy
 
+      - name: Smoke test production Worker
+        if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+        shell: bash
+        run: |
+          set -euo pipefail
+          base_url="https://tradepilot.xg-y.workers.dev"
+          for attempt in $(seq 1 12); do
+            root_status=$(curl --silent --show-error --output /tmp/tradepilot-root.html --write-out '%{http_code}' "$base_url/" || true)
+            health_status=$(curl --silent --show-error --output /tmp/tradepilot-health.json --write-out '%{http_code}' "$base_url/api/v1/health" || true)
+            if [ "$root_status" = "200" ] && grep -q "Harmonia" /tmp/tradepilot-root.html \
+              && [ "$health_status" = "200" ] \
+              && grep -Eq '"status"[[:space:]]*:[[:space:]]*"ok"' /tmp/tradepilot-health.json; then
+              echo "Production Worker root and API health checks passed."
+              cat /tmp/tradepilot-health.json
+              exit 0
+            fi
+            echo "Smoke attempt $attempt/12 failed (root=$root_status, health=$health_status); retrying."
+            sleep 5
+          done
+          echo "::error::Production Worker smoke test failed."
+          cat /tmp/tradepilot-health.json || true
+          exit 1
+
