@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { callAgentChatModel, filterAgentConnectionsByToolKeys, handleAgentCenter } from "./agent-center.ts";
+import { callAgentChatModel, filterAgentConnectionsByToolKeys, filterEnabledAgentSpecialists, handleAgentCenter } from "./agent-center.ts";
 
 const ownerId="123e4567-e89b-42d3-a456-426614174000";
 const connectionId="123e4567-e89b-42d3-a456-426614174001";
@@ -17,6 +17,40 @@ function connectionRow(){
   {name:"dangerous_write",description:"Update external records",risk:"blocked",riskPolicySource:"user",protocol:"mcp"},
  ],protocol_metadata:{},status:"active",last_tested_at:null,last_error:null,created_at:"2026-11-19T00:00:00Z",updated_at:"2026-11-19T00:00:00Z"};
 }
+
+test("Disabled optional specialists are skipped while enabled specialists continue",()=>{
+ const planned=[
+  {agentKey:"company_research",instruction:"Research company evidence"},
+  {agentKey:"lead_scoring",instruction:"Score the buyer"},
+  {agentKey:"market_research",instruction:"Summarize the market"},
+ ];
+ const result=filterEnabledAgentSpecialists(planned,[
+  {agent_key:"company_research",enabled:false},
+  {agent_key:"lead_scoring",enabled:false},
+  {agent_key:"market_research",enabled:true},
+ ]);
+ assert.deepEqual(result.enabled,[planned[2]]);
+ assert.deepEqual(result.skipped,["company_research","lead_scoring"]);
+ assert.equal(result.requestedDisabled,false);
+});
+
+test("A directly requested disabled specialist is rejected before execution",()=>{
+ const result=filterEnabledAgentSpecialists(
+  [{agentKey:"company_research",instruction:"Research company evidence"}],
+  [{agent_key:"company_research",enabled:false}],
+  "company_research",
+ );
+ assert.equal(result.requestedDisabled,true);
+ assert.deepEqual(result.enabled,[]);
+});
+
+test("Missing specialist profiles retain the default enabled behavior",()=>{
+ const planned=[{agentKey:"market_research",instruction:"Summarize the market"}];
+ const result=filterEnabledAgentSpecialists(planned,[]);
+ assert.deepEqual(result.enabled,planned);
+ assert.deepEqual(result.skipped,[]);
+ assert.equal(result.requestedDisabled,false);
+});
 
 
 test("Agent profile persists a dedicated model reference",async()=>{
