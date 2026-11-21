@@ -1,4 +1,5 @@
 import { errorResponse, successResponse } from "../lib/http";
+import { readIntegrationSecret } from "../lib/integrations";
 
 export interface WheelFitmentEnv {
   WHEELSIZE_API_KEY?: string;
@@ -85,7 +86,7 @@ async function catalog(request: Request, env: WheelFitmentEnv, kind: string): Pr
       return successResponse(request, {
         items: names.map(name => ({ name, logoKey: logoKey(name) })),
         sources: [
-          { id: "wheel-size", status: wsData ? "available" : env.WHEELSIZE_API_KEY ? "error" : "not_configured" },
+          { id: "wheel-size", status: wsData ? "available" : hasWheelSizeKey ? "error" : "not_configured" },
           { id: "ankusi", status: ankData ? "available" : "error", license: "CC BY 4.0" },
         ],
       });
@@ -143,7 +144,7 @@ async function catalog(request: Request, env: WheelFitmentEnv, kind: string): Pr
         records: rows,
         raw: { wheelSize: wsData, ankusi: ankData },
         sources: [
-          { id: "wheel-size", status: wsData ? "available" : env.WHEELSIZE_API_KEY ? "error_or_no_match" : "not_configured", fields: ["OE wheels", "OE tires", "aftermarket options", "PCD", "center bore", "offset", "torque", "thread", "tire pressure", "powertrain", "region"] },
+          { id: "wheel-size", status: wsData ? "available" : hasWheelSizeKey ? "error_or_no_match" : "not_configured", fields: ["OE wheels", "OE tires", "aftermarket options", "PCD", "center bore", "offset", "torque", "thread", "tire pressure", "powertrain", "region"] },
           { id: "ankusi", status: ankData ? "available" : "no_match", license: "CC BY 4.0", attribution: "ANKUSI Wheel Fitment Dataset" },
         ],
         limitations: ["同一车型可能返回多个配置及前后轴规格；请逐条核对车身、动力、市场与刹车套件。", "开放数据集中的 flush/max 仅为参考，不是制造商安全认证。"],
