@@ -32,3 +32,5 @@
 }
 
 .tp-data-table__activity-heading,.tp-data-table__activity-cell{white-space:nowrap;text-align:center}.tp-data-table__activity-cell .cds--btn{min-width:2rem;padding-inline:.5rem;justify-content:center}
+
+.tp-data-table__activity-action--overdue{color:var(--cds-support-error)!important}.tp-data-table__activity-action--overdue .cds--btn__icon{fill:var(--cds-support-error)}

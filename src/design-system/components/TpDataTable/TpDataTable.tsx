@@ -37,7 +37,12 @@ import type { TpBatchAction, TpDataTableProps } from './TpDataTable.types';
 import './TpDataTable.scss';
 import { TPInlineLoading } from '../TPInlineLoading';
 
-const activityRoutes: Record<string,string> = { 'crm-accounts':'/accounts', 'crm-contacts':'/contacts', opportunities:'/opportunities', 'sales-quotes':'/quotes', 'sales-orders':'/sales-orders', 'logistics-shipments':'/shipments', 'finance-payments':'/payments', 'catalog-products':'/products' };
+const activityRoutes: Record<string,{route:string;recordType:string}> = {
+  'crm-accounts':{route:'/accounts',recordType:'crm_accounts'}, 'crm-contacts':{route:'/contacts',recordType:'crm_contacts'},
+  opportunities:{route:'/opportunities',recordType:'crm_opportunities'}, 'sales-quotes':{route:'/quotes',recordType:'trade_documents'},
+  'sales-orders':{route:'/sales-orders',recordType:'trade_orders'}, 'logistics-shipments':{route:'/shipments',recordType:'trade_shipments'},
+  'finance-payments':{route:'/payments',recordType:'trade_payments'}, 'catalog-products':{route:'/products',recordType:'trade_products'}
+};
 
 function flattenExportValue(value: unknown): string {
   if (value === null || value === undefined) return '';
@@ -316,9 +321,39 @@ export function TpDataTable<T extends Record<string, unknown>>({
     }).map((column) => column.key);
   }, [columns, columnPreferences]);
   const activityRoute = columnSettingsKey ? activityRoutes[columnSettingsKey] : undefined;
+  const activityPageIds = useMemo(() => {
+    const visibleRows = pagination && !pagination.serverSide
+      ? rows.slice((pagination.page - 1) * pagination.pageSize, pagination.page * pagination.pageSize)
+      : rows;
+    return visibleRows.map((row) => String(row[rowKey])).filter((id) => /^[0-9a-f-]{36}$/i.test(id));
+  }, [rows, rowKey, pagination?.page, pagination?.pageSize, pagination?.serverSide]);
+  const [activitySummary, setActivitySummary] = useState<Record<string,{activities:number;openTasks:number;overdue:boolean}>>({});
+  useEffect(() => {
+    if (!activityRoute || activityPageIds.length === 0) { setActivitySummary({}); return; }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const db = await getSupabaseClient();
+        const [activityResult, taskResult] = await Promise.all([
+          db.from('record_activities').select('record_id').eq('record_type', activityRoute.recordType).in('record_id', activityPageIds),
+          db.from('record_activity_tasks').select('record_id,status,due_at').eq('record_type', activityRoute.recordType).in('record_id', activityPageIds),
+        ]);
+        if (activityResult.error) throw activityResult.error;
+        if (taskResult.error) throw taskResult.error;
+        const summary: Record<string,{activities:number;openTasks:number;overdue:boolean}> = {};
+        activityPageIds.forEach((id) => { summary[id] = {activities:0,openTasks:0,overdue:false}; });
+        (activityResult.data || []).forEach((item) => { const row=summary[item.record_id]; if(row) row.activities += 1; });
+        (taskResult.data || []).forEach((item) => { const row=summary[item.record_id]; if(row && item.status==='open'){ row.openTasks += 1; if(item.due_at && new Date(item.due_at).getTime()<Date.now()) row.overdue=true; } });
+        if (!cancelled) setActivitySummary(summary);
+      } catch {
+        if (!cancelled) setActivitySummary({});
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activityRoute, activityPageIds.join('|')]);
   const headers = useMemo(() => [
     ...visibleColumns.map((column) => ({ key: column.key, header: column.header, isSortable: column.sortable !== false && (!pagination?.serverSide || Boolean(onSortChange)) })),
-    ...(activityRoute ? [{ key: '__activity', header: '活动' }] : []),
+    ...(activityRoute ? [{ key: '__activity', header: '活动 / 待办' }] : []),
     ...(rowActions.length ? [{ key: '__actions', header: '操作' }] : []),
   ], [visibleColumns, activityRoute, rowActions.length, pagination?.serverSide, onSortChange]);
   const detailRow = detailPanel && detailRowId
@@ -664,11 +699,12 @@ export function TpDataTable<T extends Record<string, unknown>>({
                               size="sm"
                               renderIcon={Activity}
                               iconDescription="查看活动与修改记录"
+                              className={activitySummary[String(source[rowKey])]?.overdue ? 'tp-data-table__activity-action--overdue' : undefined}
                               onClick={(event: React.MouseEvent) => {
                                 event.stopPropagation();
-                                window.location.assign(activityRoute + '/' + encodeURIComponent(String(source[rowKey])));
+                                window.location.assign(activityRoute.route + '/' + encodeURIComponent(String(source[rowKey])));
                               }}
-                            />
+                            >{(activitySummary[String(source[rowKey])]?.activities || 0) + (activitySummary[String(source[rowKey])]?.openTasks || 0) || '活动'}</Button>
                           </TableCell>
                         )}
                         {rowActions.length > 0 && (
