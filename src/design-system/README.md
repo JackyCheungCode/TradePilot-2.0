@@ -1,4 +1,4 @@
-# TradePilot Design System
+# Harmonia Design System
 
 The local design system is the only approved source for visual foundations and UI primitives. Feature pages compose these resources; they do not redefine them.
 
