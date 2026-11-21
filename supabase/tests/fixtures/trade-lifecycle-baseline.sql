@@ -146,6 +146,20 @@ create table public."crm_contacts" (
   "archived_at" timestamp with time zone,
   "archived_reason" text
 );
+create table public."crm_contact_methods" (
+  "id" uuid default gen_random_uuid() not null,
+  "owner_id" uuid not null,
+  "contact_id" uuid not null,
+  "method_type" text not null,
+  "platform" text default ''::text not null,
+  "value" text not null,
+  "label" text,
+  "is_primary" boolean default false not null,
+  "is_verified" boolean default false not null,
+  "sort_order" integer default 0 not null,
+  "created_at" timestamp with time zone default now() not null,
+  "updated_at" timestamp with time zone default now() not null
+);
 create table public."crm_opportunities" (
   "id" uuid default gen_random_uuid() not null,
   "owner_id" uuid not null,
