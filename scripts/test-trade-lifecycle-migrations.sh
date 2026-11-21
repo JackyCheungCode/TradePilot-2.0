@@ -16,7 +16,7 @@ migrations=(
   20261121043400_create_global_activity_audit_system.sql
   20261121044356_harden_activity_foreign_key_indexes.sql
   20261121050347_restore_atomic_shipment_lifecycle.sql
-  20261121051500_harden_trade_document_number_rpc.sql
+  20261121052119_harden_trade_document_number_rpc.sql
 )
 
 for migration in "${migrations[@]}"; do
