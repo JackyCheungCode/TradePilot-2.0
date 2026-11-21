@@ -11,7 +11,7 @@ const migrations = [
   "20261116050090_finalize_prospect_contact_conversion.sql",
   "20261116050100_capture_opportunity_created_event.sql",
   "20261116050110_capture_quote_issue_lifecycle_event.sql",
-  "20261121130000_create_global_activity_audit_system.sql",
+  "20261121043400_create_global_activity_audit_system.sql",
 ];
 
 let failed = false;
