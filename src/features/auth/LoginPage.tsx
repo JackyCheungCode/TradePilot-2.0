@@ -307,7 +307,7 @@ export function LoginPage() {
             }}>取消并返回登录</Button>
           </div>
         )}
-        <p className="tp-login__footnote">此工作区使用管理员创建的账户，不提供公开注册。Passkey 使用设备本地验证，不会向 TradePilot 发送生物特征数据。</p>
+        <p className="tp-login__footnote">此工作区使用管理员创建的账户，不提供公开注册。Passkey 使用设备本地验证，不会向 Harmonia 发送生物特征数据。</p>
       </section>
     </main>
   );
