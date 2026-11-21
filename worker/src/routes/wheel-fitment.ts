@@ -107,7 +107,6 @@ async function catalog(request: Request, env: WheelFitmentEnv, kind: string): Pr
       ]);
       const wsData = ws.status === "fulfilled" ? ws.value : null;
       const ankData = ank.status === "fulfilled" ? ank.value : null;
-      const names = uniqueStrings([...arrayFrom(wsData), ...arrayFrom(ankData)]);
       return successResponse(request, {
         items: catalogOptions([...arrayFrom(wsData), ...arrayFrom(ankData)]),
         sources: [
