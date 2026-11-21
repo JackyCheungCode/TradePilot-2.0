@@ -6,6 +6,8 @@ import { ActorSchemaFields } from './ActorSchemaFields';
 import { ExecutionStep } from './ExecutionStep';
 import { ScoringStep } from './ScoringStep';
 import { DecisionMakerStep } from './DecisionMakerStep';
+import { DigitalTwinWorkflow } from './DigitalTwinWorkflow';
+import './digital-twin-workflow.scss';
 import '@/design-system/patterns/prospect-discovery.scss';
 
 const createPlanTaskCode = () => 'TPD-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-' + Math.random().toString(36).slice(2, 8).toUpperCase();
@@ -124,6 +126,8 @@ export function ProspectDiscoveryPage() {
         <strong>任务方案 ID：{planTaskCode}</strong>
         <span>工作节点状态由实际任务与后端返回数据驱动，不生成模拟进度。</span>
       </div>
+
+      <DigitalTwinWorkflow activeStage={activeStage} metrics={metrics} selectedSources={selectedSources ?? []} onSelect={goToStage} />
 
       <section className="tp-prospect-discovery__work-panel">
         <div className="tp-prospect-discovery__work-panel-heading">
