@@ -37,6 +37,7 @@ const countryLabel = (code: string) => {
 };
 const chartTheme = () => document.documentElement.dataset.carbonTheme === 'g100' ? 'g100' : 'white';
 const safeArray = (value: unknown): Row[] => Array.isArray(value) ? value as Row[] : [];
+const isDemoData = (value: unknown) => value === true || value === 'true';
 const amountFrom = (row: Row, amount: unknown): number | null => {
   const value = Number(amount || 0);
   const currency = String(row.currency_code || row.currency || BASE_CURRENCY).toUpperCase();
@@ -88,7 +89,8 @@ export function DashboardPage() {
       setData({
         accounts: safeArray(queries[0].data), contacts: safeArray(queries[9].data), leads: safeArray(queries[1].data),
         opportunities: safeArray(queries[2].data), documents: safeArray(queries[3].data),
-        orders: safeArray(queries[4].data), shipments: safeArray(queries[5].data),
+        orders: safeArray(queries[4].data).filter(row => !isDemoData(row.metadata?.demo_data)),
+        shipments: safeArray(queries[5].data).filter(row => !isDemoData(row.header?.demo_data)),
         payments: safeArray(queries[6].data), products: safeArray(queries[10].data), agentRuns: safeArray(queries[7].data),
         activities: safeArray(activities), discovery: safeArray(queries[8].data), discoveryRuns: safeArray(queries[11].data),
         updatedAt: new Date().toISOString(),
