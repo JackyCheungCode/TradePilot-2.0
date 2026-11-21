@@ -44,6 +44,7 @@ function calc(lines:OrderLine[],charges:Array<{name:string;amount:string;taxable
  const grand=products-orderDiscount+fee+(taxMode==='inclusive'?0:lineTax+feeTax);
  return {product_subtotal:products,line_discount_total:lines.filter(l=>l.line_type==='product'&&l.line_status!=='cancelled').reduce((s,l)=>s+Math.max(0,Number(l.quantity)||0)*Math.max(0,Number(l.unit_price)||0)*(Math.max(0,Number(l.discount_pct)||0)/100),0),order_discount:orderDiscount,charge_subtotal:fee,tax_total:lineTax+feeTax,grand_total:grand,total_cost:lines.filter(l=>l.line_type==='product'&&l.line_status!=='cancelled').reduce((s,l)=>s+(Number(l.quantity)||0)*(Number(l.cost_price)||0),0)};
 }
+const isDemoOrder=(row:OrderRow)=>row.metadata?.demo_data===true||row.metadata?.demo_data==='true';
 function orderState(o:OrderRow){return String(o.metadata?.sales_order?.order_status||(o.status==='draft'?'draft':o.status==='active'?'confirmed':o.status==='completed'?'completed':o.status==='cancelled'?'cancelled':o.status));}
 function stateLabel(s:string){return ({draft:'草稿',confirmed:'已确认',preparing:'备货中',partially_shipped:'部分发货',shipped:'已发货',completed:'已完成',cancelled:'已取消'} as Record<string,string>)[s]||s;}
 function fulfillmentLabel(s:string){return ({not_shipped:'未发货',partially_shipped:'部分发货',shipped:'已发货'} as Record<string,string>)[s]||s||'未发货';}
@@ -56,22 +57,23 @@ export function SalesOrderConsolePage(){
  const load=useCallback(async()=>{setLoading(true);setError('');try{const db=await getSupabaseClient();const [orders,acc]=await Promise.all([db.from('trade_orders').select('*').eq('order_type','sales').order('created_at',{ascending:false}).range(0,2999),db.from('crm_accounts').select('id,account_name').eq('is_archived',false).order('account_name')]);if(orders.error)throw orders.error;if(acc.error)throw acc.error;setRows((orders.data||[]) as OrderRow[]);setAccounts((acc.data||[]) as Account[]);}catch(e){setError(e instanceof Error?e.message:'读取销售订单失败')}finally{setLoading(false)}},[]);
  useEffect(()=>{void load()},[load]);
  const accountMap=useMemo(()=>new Map(accounts.map(a=>[a.id,a.account_name])),[accounts]);
+ const operationalRows=useMemo(()=>rows.filter(row=>!isDemoOrder(row)),[rows]);
  const orderCountry=(row:OrderRow)=>String(row.shipping?.destination_country||row.delivery_address?.country_code||row.delivery_address?.country||row.metadata?.sales_order?.shipping?.destination_country||'').trim().toUpperCase();
- const orderMarkets=useMemo(()=>{const counts=new Map<string,number>();rows.forEach(row=>{const code=orderCountry(row);if(code)counts.set(code,(counts.get(code)||0)+1)});return [...counts.entries()].map(([code,value])=>{let label=code;try{label=new Intl.DisplayNames(['zh-TW'],{type:'region'}).of(code)||code}catch{}return {code,label,value}}).sort((a,b)=>b.value-a.value)},[rows]);
+ const orderMarkets=useMemo(()=>{const counts=new Map<string,number>();operationalRows.forEach(row=>{const code=orderCountry(row);if(code)counts.set(code,(counts.get(code)||0)+1)});return [...counts.entries()].map(([code,value])=>{let label=code;try{label=new Intl.DisplayNames(['zh-TW'],{type:'region'}).of(code)||code}catch{}return {code,label,value}}).sort((a,b)=>b.value-a.value)},[operationalRows]);
  const filtered=rows.filter(r=>(status==='all'||orderState(r)===status)&&(marketCountry==='all'||orderCountry(r)===marketCountry)&&[r.order_number,r.title,r.customer_reference,accountMap.get(r.crm_account_id||'')].join(' ').toLowerCase().includes(query.trim().toLowerCase()));
- const count=(s:string)=>rows.filter(r=>orderState(r)===s).length;
+ const count=(s:string)=>operationalRows.filter(r=>orderState(r)===s).length;
  const totalFor=(r:OrderRow)=>Number(r.metadata?.sales_order?.totals?.grand_total||0);
- const currencyOrderValue=rows.filter(r=>r.currency_code===currency).reduce((sum,r)=>sum+totalFor(r),0);
- const currencyOutstanding=rows.filter(r=>r.currency_code===currency).reduce((sum,r)=>sum+Number(r.metadata?.sales_order?.totals?.outstanding_amount||0),0);
+ const currencyOrderValue=operationalRows.filter(r=>r.currency_code===currency).reduce((sum,r)=>sum+totalFor(r),0);
+ const currencyOutstanding=operationalRows.filter(r=>r.currency_code===currency).reduce((sum,r)=>sum+Number(r.metadata?.sales_order?.totals?.outstanding_amount||0),0);
  const statusData=['draft','confirmed','preparing','partially_shipped','shipped','completed','cancelled'].map(s=>({group:stateLabel(s),key:'订单数量',value:count(s)})).filter(x=>x.value>0);
- const fulfillmentData=['not_shipped','partially_shipped','shipped'].map(s=>({group:fulfillmentLabel(s),key:'订单数量',value:rows.filter(r=>(r.metadata?.sales_order?.fulfillment_status||'not_shipped')===s).length})).filter(x=>x.value>0);
- const paymentData=['unpaid','partial','paid','overdue'].map(s=>({group:paymentLabel(s),key:'订单数量',value:rows.filter(r=>(r.metadata?.sales_order?.payment_status||'unpaid')===s).length})).filter(x=>x.value>0);
- const invoiceData=[['uninvoiced','未开票'],['partial','部分开票'],['invoiced','已开票']].map(([key,label])=>({group:label,key:'订单数量',value:rows.filter(r=>(r.metadata?.sales_order?.invoice_status||'uninvoiced')===key).length})).filter(x=>x.value>0);
- const procurementData=[['not_started','未备货'],['in_progress','备货中'],['ready','已备齐']].map(([key,label])=>({group:label,key:'订单数量',value:rows.filter(r=>(r.metadata?.sales_order?.procurement_status||'not_started')===key).length})).filter(x=>x.value>0);
+ const fulfillmentData=['not_shipped','partially_shipped','shipped'].map(s=>({group:fulfillmentLabel(s),key:'订单数量',value:operationalRows.filter(r=>(r.metadata?.sales_order?.fulfillment_status||'not_shipped')===s).length})).filter(x=>x.value>0);
+ const paymentData=['unpaid','partial','paid','overdue'].map(s=>({group:paymentLabel(s),key:'订单数量',value:operationalRows.filter(r=>(r.metadata?.sales_order?.payment_status||'unpaid')===s).length})).filter(x=>x.value>0);
+ const invoiceData=[['uninvoiced','未开票'],['partial','部分开票'],['invoiced','已开票']].map(([key,label])=>({group:label,key:'订单数量',value:operationalRows.filter(r=>(r.metadata?.sales_order?.invoice_status||'uninvoiced')===key).length})).filter(x=>x.value>0);
+ const procurementData=[['not_started','未备货'],['in_progress','备货中'],['ready','已备齐']].map(([key,label])=>({group:label,key:'订单数量',value:operationalRows.filter(r=>(r.metadata?.sales_order?.procurement_status||'not_started')===key).length})).filter(x=>x.value>0);
  const days=Array.from({length:30},(_,i)=>{const d=new Date();d.setDate(d.getDate()-(29-i));d.setHours(0,0,0,0);return d;});
  const dayKey=(d:Date)=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
  const amountMap=new Map<string,number>();const countMap=new Map<string,number>();days.forEach(d=>{amountMap.set(dayKey(d),0);countMap.set(dayKey(d),0)});
- rows.forEach(r=>{const key=r.created_at?dayKey(new Date(r.created_at)):'';if(!countMap.has(key))return;countMap.set(key,(countMap.get(key)||0)+1);if(r.currency_code===currency)amountMap.set(key,(amountMap.get(key)||0)+totalFor(r));});
+ operationalRows.forEach(r=>{const key=r.created_at?dayKey(new Date(r.created_at)):'';if(!countMap.has(key))return;countMap.set(key,(countMap.get(key)||0)+1);if(r.currency_code===currency)amountMap.set(key,(amountMap.get(key)||0)+totalFor(r));});
  const dailyAmount=days.map(d=>({group:(d.getMonth()+1)+'/'+d.getDate(),key:currency+' 订单金额',value:Number(amountMap.get(dayKey(d))||0)}));
  const dailyCount=days.map(d=>({group:(d.getMonth()+1)+'/'+d.getDate(),key:'订单数量',value:Number(countMap.get(dayKey(d))||0)}));
  const options={theme:document.documentElement.dataset.carbonTheme==='g100'?'g100':'white',height:'260px',color:{pairing:{numberOfVariants:14,option:1}},legend:{enabled:false},toolbar:{enabled:false},axes:{bottom:{title:'日期',mapsTo:'group',scaleType:ScaleTypes.LABELS},left:{mapsTo:'value',scaleType:ScaleTypes.LINEAR}}};
@@ -79,7 +81,7 @@ export function SalesOrderConsolePage(){
   <PageHeader className="tp-sales-orders__header"><div><p className="tp-sales-orders__eyebrow">TRADEPILOT / SALES</p><h1>销售订单（Sales Order）</h1><p>管理订单承诺、价格锁定、收款计划与交付履约。</p></div><div className="tp-sales-orders__actions"><Button kind="tertiary" onClick={()=>void load()} disabled={loading}><semanticIcons.refresh size={16}/>刷新</Button><Link href="/sales-orders/new" renderIcon={semanticIcons.add}>创建销售订单</Link></div></PageHeader>
   {error&&<InlineNotification kind="error" title="销售订单读取失败" subtitle={error}/>}
   <section className="tp-sales-orders__metrics">
-   <Metric label="全部订单" value={String(rows.length)} detail="累计销售订单" icon={semanticIcons.document}/>
+   <Metric label="全部订单" value={String(operationalRows.length)} detail="不含演示数据" icon={semanticIcons.document}/>
    <Metric label="订单总金额" value={money(currencyOrderValue,currency)} detail={currency+' · 已创建订单'} icon={semanticIcons.document}/>
    <Metric label="草稿" value={String(count('draft'))} detail="尚未确认" icon={semanticIcons.edit}/>
    <Metric label="已确认" value={String(count('confirmed'))} detail="价格与条款已锁定" icon={semanticIcons.success}/>
@@ -89,7 +91,7 @@ export function SalesOrderConsolePage(){
    <Metric label="已完成" value={String(count('completed'))} detail="履约闭环" icon={semanticIcons.success}/>
   </section>
   <section className="tp-sales-orders__panel"><div className="tp-sales-orders__panel-head"><div><h2>订单分析</h2><p>按创建日期、金额币种、订单状态、履约状态和收款状态分析。</p></div><Select id="sales-order-currency" labelText="金额统计币种" value={currency} onChange={e=>setCurrency(e.currentTarget.value)}>{CURRENCIES.map(c=><SelectItem key={c} value={c} text={c}/>)}</Select></div>
-   {rows.length===0&&!loading?<p className="tp-sales-orders__empty">暂无销售订单，创建订单后将自动生成趋势与状态分析。</p>:<div className="tp-sales-orders__charts">
+   {operationalRows.length===0&&!loading?<p className="tp-sales-orders__empty">暂无销售订单，创建订单后将自动生成趋势与状态分析。</p>:<div className="tp-sales-orders__charts">
     <div className="tp-sales-orders__chart"><h3>每日销售订单金额 <span>{currency} · 最近 30 天</span></h3><LineChart data={dailyAmount} options={{...options,axes:{...options.axes,left:{title:'订单金额（'+currency+'）',mapsTo:'value',scaleType:ScaleTypes.LINEAR}}}}/></div>
     <div className="tp-sales-orders__chart"><h3>每日新增销售订单数量</h3><SimpleBarChart data={dailyCount} options={{...options,axes:{...options.axes,left:{title:'订单数量',mapsTo:'value',scaleType:ScaleTypes.LINEAR}}}}/></div>
     <div className="tp-sales-orders__chart"><h3>订单状态分布</h3>{statusData.length?<SimpleBarChart data={statusData} options={options}/>:<p className="tp-sales-orders__empty">暂无状态数据</p>}</div>
@@ -110,7 +112,7 @@ export function SalesOrderConsolePage(){
      onRowOpen={row=>nav('/sales-orders/'+row.id)}
      pagination={{page,pageSize,totalItems:filtered.length,onChange:(nextPage,nextSize)=>{setPage(nextPage);setPageSize(nextSize);}}}
      columns={[
-      {key:'order_number',header:'订单编号',primary:true,minWidth:200,render:r=><div><Link href={'/sales-orders/'+r.id} className="tp-sales-orders__row-link">{r.order_number}</Link><span className="tp-sales-orders__secondary">{r.title}</span></div>},
+      {key:'order_number',header:'订单编号',primary:true,minWidth:200,render:r=><div><Link href={'/sales-orders/'+r.id} className="tp-sales-orders__row-link">{r.order_number}</Link>{isDemoOrder(r)&&<Tag type="cool-gray">演示数据</Tag>}<span className="tp-sales-orders__secondary">{r.title}</span></div>},
       {key:'account',header:'客户',minWidth:170,render:r=>accountMap.get(r.crm_account_id||'')||'—'},
       {key:'customer_reference',header:'客户 PO',minWidth:130,render:r=>r.customer_reference||'—'},
       {key:'amount',header:'订单金额',minWidth:140,render:r=>money(totalFor(r),r.currency_code)},
