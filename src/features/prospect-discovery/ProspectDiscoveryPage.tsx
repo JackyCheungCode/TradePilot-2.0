@@ -1,5 +1,5 @@
 import { PageHeader } from '@/design-system';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Button, Link, Tag, semanticIcons } from '@/design-system';
 import { PlatformSelectionStep } from './PlatformSelectionStep';
 import { ActorSchemaFields } from './ActorSchemaFields';
@@ -80,6 +80,22 @@ export function ProspectDiscoveryPage() {
       state: decision.synced > 0 ? 'complete' : 'pending',
     },
   ];
+
+  // Follow the newest real task signal while preserving manual navigation between telemetry updates.
+  useEffect(() => {
+    if (decision.synced > 0) setActiveStage(4);
+    else if (decision.running || decision.enriched > 0) setActiveStage(3);
+    else if (!scoring.loading && scoring.total > 0) setActiveStage(2);
+    else if (execution.status !== 'idle' || actorSchemaReady) setActiveStage(1);
+  }, [
+    actorSchemaReady,
+    decision.enriched,
+    decision.running,
+    decision.synced,
+    execution.status,
+    scoring.loading,
+    scoring.total,
+  ]);
 
   const goToStage = (stage: number) => {
     setActiveStage(stage);
