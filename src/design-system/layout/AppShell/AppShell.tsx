@@ -189,7 +189,6 @@ export function AppShell() {
             <SideNavLink href="/shipments" isActive={location.pathname.startsWith('/shipments')} title="物流发货" renderIcon={semanticIcons.delivery}>物流发货</SideNavLink>
             <SideNavLink href="/payments" isActive={location.pathname.startsWith('/payments')} title="收款管理" renderIcon={semanticIcons.currency}>收款管理</SideNavLink>
             <SideNavLink href="/products" isActive={location.pathname.startsWith('/products')} title="产品管理" renderIcon={semanticIcons.product}>产品管理</SideNavLink>
-            <SideNavLink href="/wheel-fitment" isActive={location.pathname.startsWith('/wheel-fitment')} title="轮毂适配与改装" renderIcon={semanticIcons.product}>轮毂适配与改装</SideNavLink>
           </SideNavItems>
         </div>
         <div className="tp-sidenav__group">
