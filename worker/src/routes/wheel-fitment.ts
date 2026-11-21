@@ -138,7 +138,8 @@ async function catalog(request: Request, env: WheelFitmentEnv, kind: string): Pr
         ...ankRows.map((record, index) => ({ id: `ankusi-${index}`, provider: "ANKUSI", confidence: "open_reference_dataset", record })),
       ];
       return successResponse(request, {
-        vehicle: { make, model, year: year || null, generation: generation || null, modification: modification || null, region },
+        vehicle: { make, model, year: year || null, generation: generation || null, modification: modification || null, region: region ?? "all" },
+        retrievedAt: new Date().toISOString(),
         records: rows,
         raw: { wheelSize: wsData, ankusi: ankData },
         sources: [
