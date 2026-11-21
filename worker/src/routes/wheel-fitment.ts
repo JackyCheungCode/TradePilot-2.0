@@ -57,7 +57,7 @@ function uniqueStrings(values: unknown[]): string[] {
     if (typeof value === "string" || typeof value === "number") return String(value);
     if (value && typeof value === "object") {
       const item = value as JsonRecord;
-      return String(item.name ?? item.slug ?? item.year ?? item.title ?? "");
+      return String(item.name ?? item.make ?? item.manufacturer ?? item.brand ?? item.slug ?? item.year ?? item.title ?? "");
     }
     return "";
   }).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
@@ -69,7 +69,8 @@ async function catalog(request: Request, env: WheelFitmentEnv, kind: string): Pr
   const model = text(url.searchParams.get("model"));
   const year = text(url.searchParams.get("year"));
   const generation = text(url.searchParams.get("generation"));
-  const region = text(url.searchParams.get("region")) || "all";
+  const requestedRegion = text(url.searchParams.get("region")) || "all";
+  const region = requestedRegion === "all" ? undefined : requestedRegion;
   const modification = text(url.searchParams.get("modification"));
 
   try {
