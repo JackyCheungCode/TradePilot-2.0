@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
   Button, ComboBox, Column, Grid, InlineNotification, NumberInput, Select, SelectItem,
-  Tag, TextInput, Tile, semanticIcons,
+  Tag, TextInput, Tile,
 } from '@/design-system';
 
 type Manufacturer = { id: string; name: string; country: string; domain: string; logo: string };
@@ -123,7 +123,7 @@ export function WheelFitmentPage() {
                     </div>
                   )}
                   selectedItem={manufacturer}
-                  onChange={({ selectedItem }: { selectedItem: Manufacturer | null }) => setManufacturer(selectedItem)}
+                  onChange={({ selectedItem }) => setManufacturer(selectedItem ?? null)}
                 />
               </Column>
               {selectedManufacturer && (
