@@ -172,14 +172,14 @@ export function WheelFitmentPage() {
   };
   const selectBaseline = (item: FitmentRecord) => {
     setSelectedRecord(item.id);
-    const wheelText = String(item.record.oe_wheel ?? item.record.oem_rim ?? recordStrings(item.record).find(value => /\\d{1,2}(?:\\.\\d)?\\s*[x×]\\s*\\d+(?:\\.\\d)?J?/i.test(value)) ?? '');
+    const wheelText = String(item.record.oe_wheel ?? item.record.oem_rim ?? recordStrings(item.record).find(value => /\d{1,2}(?:\.\d)?\s*[x×]\s*\d+(?:\.\d)?J?/i.test(value)) ?? '');
     const parsed = wheelSpec(wheelText);
     if (parsed) {
       setFrontOldWidth(parsed.width); setFrontOldEt(parsed.et);
       setRearOldWidth(parsed.width); setRearOldEt(parsed.et);
     }
-    const tireText = String(item.record.oe_tire ?? item.record.oem_tire ?? recordStrings(item.record).find(value => /\\d{3}\\/\\d{2}R\\d{2}/i.test(value)) ?? '');
-    if (/^\\d{3}\\/\\d{2}R\\d{2}$/i.test(tireText.trim())) setOldTire(tireText.trim());
+    const tireText = String(item.record.oe_tire ?? item.record.oem_tire ?? recordStrings(item.record).find(value => /\d{3}\/\d{2}R\d{2}/i.test(value)) ?? '');
+    if (/^\d{3}\/\d{2}R\d{2}$/i.test(tireText.trim())) setOldTire(tireText.trim());
   };
 
   const selected = records.find(item => item.id === selectedRecord) ?? null;
