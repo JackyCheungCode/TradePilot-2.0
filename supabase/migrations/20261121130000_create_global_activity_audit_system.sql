@@ -102,7 +102,10 @@ grant select, insert, delete on public.record_followers to authenticated;
 grant select, insert on public.record_activity_attachments to authenticated;
 grant select on public.record_audit_events to authenticated;
 
-create or replace function public.capture_record_audit_event()
+create schema if not exists private;
+revoke all on schema private from public, anon, authenticated;
+
+create or replace function private.capture_record_audit_event()
 returns trigger
 language plpgsql
 security definer
@@ -171,7 +174,7 @@ begin
     ) then
       execute format('drop trigger if exists %I on public.%I', v_table || '_record_audit', v_table);
       execute format(
-        'create trigger %I after insert or update or delete on public.%I for each row execute function public.capture_record_audit_event()',
+        'create trigger %I after insert or update or delete on public.%I for each row execute function private.capture_record_audit_event()',
         v_table || '_record_audit', v_table
       );
     end if;
@@ -179,4 +182,4 @@ begin
 end;
 $$;
 
-revoke all on function public.capture_record_audit_event() from public, anon, authenticated;
+revoke all on function private.capture_record_audit_event() from public, anon, authenticated;
