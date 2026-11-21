@@ -18,6 +18,25 @@ declare
   document_number bigint;
   error_message text;
 begin
+  if to_regprocedure('public.confirm_quote_status_transition(uuid,text,text,text)') is null
+     or to_regprocedure('public.confirm_quote_status_transition(uuid,text,text)') is not null then
+    raise exception 'Quote status RPC signature is not aligned with the current frontend';
+  end if;
+  if not has_function_privilege('authenticated','public.confirm_quote_status_transition(uuid,text,text,text)','EXECUTE')
+     or has_function_privilege('anon','public.confirm_quote_status_transition(uuid,text,text,text)','EXECUTE') then
+    raise exception 'Quote status RPC grants are incorrect';
+  end if;
+  if to_regprocedure('public.confirm_sales_order_status_transition(uuid,text,text,text)') is null
+     or not has_function_privilege('authenticated','public.confirm_sales_order_status_transition(uuid,text,text,text)','EXECUTE')
+     or has_function_privilege('anon','public.confirm_sales_order_status_transition(uuid,text,text,text)','EXECUTE') then
+    raise exception 'Sales order status RPC signature or grants are incorrect';
+  end if;
+  if not has_function_privilege('authenticated','public.confirm_customer_status_transition(uuid,text,text,text)','EXECUTE')
+     or has_function_privilege('anon','public.confirm_customer_status_transition(uuid,text,text,text)','EXECUTE')
+     or not has_function_privilege('authenticated','public.confirm_contact_active_transition(uuid,boolean,boolean,text)','EXECUTE')
+     or has_function_privilege('anon','public.confirm_contact_active_transition(uuid,boolean,boolean,text)','EXECUTE') then
+    raise exception 'Customer/contact status RPC grants are incorrect';
+  end if;
   insert into auth.users(id) values(owner_a),(owner_b) on conflict do nothing;
   perform set_config('request.jwt.claim.sub', owner_a::text, true);
   perform set_config('request.jwt.claims', jsonb_build_object('sub',owner_a,'role','authenticated','aal','aal2')::text, true);
@@ -223,6 +242,13 @@ begin
   end if;
   if not exists(select 1 from public.business_transition_events where record_id=quote_id and event_type='quote_status_changed') then
     raise exception 'Quote issue event was not captured';
+  end if;
+  perform public.confirm_quote_status_transition(quote_id,'sent','accepted','CI customer accepted quote');
+  if not exists(select 1 from public.business_transition_events where record_id=quote_id and event_type='quote_status_changed' and to_status='accepted') then
+    raise exception 'Quote acceptance transition event was not captured';
+  end if;
+  if not exists(select 1 from public.trade_documents where id=quote_id and status='approved' and content->>'quote_status'='accepted') then
+    raise exception 'Quote acceptance did not persist the expected status';
   end if;
 
   insert into public.trade_orders(owner_id,order_number,order_type,title)
