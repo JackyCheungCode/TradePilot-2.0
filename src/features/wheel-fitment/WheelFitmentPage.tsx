@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PageHeader } from '@/design-system';
 import { Button, ComboBox, Dropdown, InlineNotification, Tag, TextInput, TPInlineLoading, semanticIcons } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
-import './wheel-fitment.scss';
+import '@/design-system/patterns/wheel-fitment.scss';
 
 type VehicleOption = { id: string; text: string; logoKey?: string; logoUrl?: string };
 type FitmentRecord = { id: string; provider: string; confidence: string; record: Record<string, unknown> };
