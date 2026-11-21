@@ -1,3 +1,16 @@
+-- Ensure the sequence table exists in clean and existing environments.
+create table if not exists public.trade_document_number_sequences (
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  sequence_key text not null,
+  sequence_year integer not null,
+  next_value bigint not null default 1 check (next_value > 0),
+  updated_at timestamptz not null default now(),
+  primary key (owner_id,sequence_key,sequence_year)
+);
+alter table public.trade_document_number_sequences enable row level security;
+revoke all on public.trade_document_number_sequences from anon, authenticated;
+grant all on public.trade_document_number_sequences to service_role;
+
 create or replace function public.next_trade_document_number(
   p_owner_id uuid,
   p_sequence_key text,
