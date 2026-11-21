@@ -94,7 +94,7 @@ test("global guardrail settings require a valid authenticated user", async () =>
 });
 
 
-test("theme preference GET is scoped to the authenticated account and defaults to dark", async () => {
+test("theme preference GET is scoped to the authenticated account and defaults to white", async () => {
   const calls: Array<{ url: string; headers: Headers }> = [];
   const restore = withFetch(async (input, init) => {
     const url = String(input);
@@ -109,7 +109,7 @@ test("theme preference GET is scoped to the authenticated account and defaults t
     }), env);
     assert.equal(response.status, 200);
     const payload = await response.json() as { data: { preference: string } };
-    assert.equal(payload.data.preference, "dark");
+    assert.equal(payload.data.preference, "white");
     assert.equal(calls.length, 2);
     assert.equal(calls[1].headers.get("apikey"), env.SUPABASE_ANON_KEY);
     assert.equal(calls[1].headers.get("authorization"), "Bearer user-access-token");
