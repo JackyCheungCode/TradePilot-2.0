@@ -220,7 +220,7 @@ export function DigitalTwinWorkflow({ activeStage, metrics, selectedSources, onS
         </div>
         <div className="tp-digital-twin__viewport-canvas" onPointerDown={beginRotate} onPointerMove={rotateScene} onPointerUp={endRotate} onPointerCancel={endRotate}>
           <div className="tp-digital-twin__viewport-grid" />
-          <div className="tp-digital-twin__viewport-model"><div className="tp-digital-twin__viewport-rotate-x" style={{ transform: `rotateX(${rotation.x}deg)` }}><div className="tp-digital-twin__viewport-rotate-y" style={{ transform: `rotateY(${rotation.y}deg)` }}><div className="tp-digital-twin__viewport-model-scale" style={{ transform: `scale(${zoom / 100})` }}>
+          <div className="tp-digital-twin__viewport-model"><div className="tp-digital-twin__viewport-rotate-x" style={{ transform: `rotateX(${rotation.x}deg)` }}><div className="tp-digital-twin__viewport-rotate-y" style={{ transform: `rotateY(${rotation.y}deg)` }}><div className={`tp-digital-twin__viewport-model-scale tp-digital-twin__viewport-model-scale--zoom-${zoom}`}>
             <div className="tp-digital-twin__viewport-platforms">
               {selectedSources.length ? selectedSources.map(source => (
                 <span key={source.id}><PlatformLogo source={source} />{source.name}</span>
