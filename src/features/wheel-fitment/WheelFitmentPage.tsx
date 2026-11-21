@@ -42,8 +42,6 @@ export function WheelFitmentPage() {
   const [rearNewEt, setRearNewEt] = useState('40');
   const [oldTire, setOldTire] = useState('245/40R19');
   const [newTire, setNewTire] = useState('255/35R20');
-  const [frontDiameter, setFrontDiameter] = useState('19');
-  const [newDiameter, setNewDiameter] = useState('20');
 
   const front = useMemo(() => {
     const widthDelta = (numberValue(frontNewWidth) - numberValue(frontOldWidth)) * 25.4 / 2;
@@ -151,12 +149,6 @@ export function WheelFitmentPage() {
               <SelectItem value="extreme" text="Extreme · 极限改装"/>
             </Select>
             <Grid condensed>
-              <Column sm={2} md={4} lg={8}>
-                <NumberInput id="fitment-oem-diameter" label="原厂直径（英寸）" min={10} max={30} value={frontDiameter} onChange={(_event, state) => setFrontDiameter(String(state.value ?? ''))}/>
-              </Column>
-              <Column sm={2} md={4} lg={8}>
-                <NumberInput id="fitment-target-diameter" label="目标直径（英寸）" min={10} max={30} value={newDiameter} onChange={(_event, state) => setNewDiameter(String(state.value ?? ''))}/>
-              </Column>
               <Column sm={4} md={8} lg={16}>
                 <TextInput id="fitment-oem-tire" labelText="原厂轮胎规格（例：245/40R19）" value={oldTire} onChange={event => setOldTire(event.currentTarget.value)}/>
               </Column>
