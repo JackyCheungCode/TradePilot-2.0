@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { Button, Tag } from '@/design-system';
 
 export type DigitalTwinMetric = {
@@ -71,6 +72,12 @@ function Scene({ id }: { id: string }) {
 }
 
 export function DigitalTwinWorkflow({ activeStage, metrics, onStageChange }: Props) {
+  const activeNodeRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    activeNodeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  }, [activeStage]);
+
   return (
     <section className="tp-digital-twin" aria-label="五个工作节点数字孪生流程">
       <div className="tp-digital-twin__heading">
@@ -90,7 +97,7 @@ export function DigitalTwinWorkflow({ activeStage, metrics, onStageChange }: Pro
           const metric = metrics[index] ?? { status: '待开始', detail: '等待前序工作' };
           const active = activeStage === index;
           return (
-            <div className="tp-digital-twin__node-wrap" key={stage.id}>
+            <div className="tp-digital-twin__node-wrap" key={stage.id} ref={active ? activeNodeRef : undefined}>
               <Button
                 kind={active ? 'primary' : 'ghost'}
                 size="lg"
