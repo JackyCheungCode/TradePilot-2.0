@@ -15,11 +15,15 @@ declare
   lifecycle_stage text;
   result jsonb;
   event_count integer;
+  document_number bigint;
   error_message text;
 begin
   insert into auth.users(id) values(owner_a),(owner_b) on conflict do nothing;
   perform set_config('request.jwt.claim.sub', owner_a::text, true);
   perform set_config('request.jwt.claims', jsonb_build_object('sub',owner_a,'role','authenticated','aal','aal2')::text, true);
+
+  document_number := public.next_trade_document_number(owner_a,'ci_test',2026);
+  if document_number < 1 then raise exception 'Document number sequence did not allocate a positive value'; end if;
 
   insert into public.trade_shipments(owner_id,order_id,planned_ship_date,owner_name)
   values(owner_a,gen_random_uuid(),current_date,'CI shipment')
@@ -28,6 +32,8 @@ begin
   select count(*) into event_count from public.business_transition_events
   where owner_id=owner_a and record_type='shipment' and record_id=shipment_id and event_type='shipment_created';
   if event_count <> 1 then raise exception 'Shipment creation event was not captured'; end if;
+  if not has_function_privilege('authenticated','public.next_trade_document_number(uuid,text,integer)','EXECUTE') then raise exception 'Authenticated role cannot allocate document numbers'; end if;
+  if has_function_privilege('anon','public.next_trade_document_number(uuid,text,integer)','EXECUTE') then raise exception 'Anonymous role can allocate document numbers'; end if;
 
   perform public.confirm_shipment_status_transition(shipment_id,'draft','pending_booking','CI lifecycle test');
   select status into shipment_status from public.trade_shipments where id=shipment_id;
@@ -39,6 +45,16 @@ begin
 
   perform set_config('request.jwt.claim.sub', owner_b::text, true);
   perform set_config('request.jwt.claims', jsonb_build_object('sub',owner_b,'role','authenticated','aal','aal2')::text, true);
+  begin
+    perform public.next_trade_document_number(owner_a,'ci_test',2026);
+    raise exception 'TEST_EXPECTED_DENIAL: document number';
+  exception when others then
+    get stacked diagnostics error_message = message_text;
+    if error_message = 'TEST_EXPECTED_DENIAL: document number' then raise; end if;
+    if error_message not like '%Not authorized to allocate a document number%' then
+      raise exception 'Unexpected cross-owner document number response: %',error_message;
+    end if;
+  end;
   begin
     perform public.confirm_shipment_status_transition(shipment_id,'pending_booking','booked','cross-owner test');
     raise exception 'TEST_EXPECTED_DENIAL: shipment';
