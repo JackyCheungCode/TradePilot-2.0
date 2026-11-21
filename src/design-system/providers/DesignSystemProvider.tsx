@@ -78,7 +78,7 @@ export function DesignSystemProvider({ children }: DesignSystemProviderProps) {
       activeUserId = nextUserId;
       setUserId(nextUserId);
       if (!nextUserId || !nextSession) {
-        setPreferenceState('dark');
+        setPreferenceState('white');
         return;
       }
 
@@ -115,7 +115,7 @@ export function DesignSystemProvider({ children }: DesignSystemProviderProps) {
       if (alive) {
         setSession(null);
         setUserId(null);
-        setPreferenceState('dark');
+        setPreferenceState('white');
       }
     });
 
