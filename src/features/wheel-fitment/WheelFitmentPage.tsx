@@ -39,10 +39,6 @@ const flatten = (value: unknown, prefix = '', depth = 0): Array<[string,string]>
   if (typeof value !== 'object') return prefix ? [[prefix, String(value)]] : [];
   return Object.entries(value as Record<string,unknown>).flatMap(([key,item]) => flatten(item, prefix ? prefix + ' / ' + key : key, depth + 1));
 };
-function BrandMark({option}:{option:VehicleOption|null}) {
-  if (!option) return <span className="tp-wheel__brand-fallback">?</span>;
-  return <img className="tp-wheel__brand-logo" src={option.logoUrl || ('https://cdn.simpleicons.org/' + encodeURIComponent(option.logoKey || option.text.toLowerCase().replace(/[^a-z0-9]/g,'')))} alt={option.text + ' logo'} onError={event => { event.currentTarget.style.display='none'; }} />;
-}
 function BrandOptionItem(item:VehicleOption) {
   return <span className="tp-wheel__brand-option"><img src={item.logoUrl || ('https://cdn.simpleicons.org/' + encodeURIComponent(item.logoKey || item.text.toLowerCase().replace(/[^a-z0-9]/g,'')))} alt="" onError={event=>{event.currentTarget.style.visibility='hidden';}}/><span>{item.text}</span></span>;
 }
@@ -150,9 +146,9 @@ export function WheelFitmentPage() {
     setCalculated(false);
     if(Object.values(values).every(value=>value===null)) setError('已选择原厂记录，但该记录的前轴规格字段未能自动识别。请展开原始数据并手动填写基准参数。');
   };
-  const setBaseField=(key:string,value:string)=>setBaseline(current=>({...current,[key]:value}));
-  const setProposalField=(key:string,value:string)=>setProposal(current=>({...current,[key]:value}));
-  const renderMeasure=(label:string,key:keyof typeof baseline,value:string,onChange:(key:string,value:string)=>void,step='1')=><TextInput id={'wheel-base-'+key} labelText={label} type="number" step={step} value={value} onChange={event=>onChange(key,event.currentTarget.value)}/>;
+  const setBaseField=(key:keyof typeof baseline,value:string)=>setBaseline(current=>({...current,[key]:value}));
+  const setProposalField=(key:keyof typeof proposal,value:string)=>setProposal(current=>({...current,[key]:value}));
+  const renderMeasure=(label:string,key:keyof typeof baseline,value:string,onChange:(key:keyof typeof baseline,value:string)=>void,step='1')=><TextInput id={'wheel-base-'+key} labelText={label} type="number" step={step} value={value} onChange={event=>onChange(key,event.currentTarget.value)}/>;
   const renderProposal=(label:string,key:keyof typeof proposal,value:string)=><TextInput id={'wheel-proposal-'+key} labelText={label} type="number" step="1" value={value} onChange={event=>setProposalField(key,event.currentTarget.value)}/>;
 
   return <main className="tp-wheel">
