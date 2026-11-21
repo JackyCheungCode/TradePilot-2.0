@@ -1060,3 +1060,24 @@
   fill: currentColor;
   padding: .375rem;
 }
+
+
+/* Five-stage business navigation remains visible independently of the removed 3D view. */
+.tp-prospect-discovery__stage-navigation {
+  min-width: 0;
+  overflow-x: auto;
+  padding: 1rem 0 1.5rem;
+  margin-bottom: 1rem;
+}
+.tp-prospect-discovery__stage-navigation .cds--progress {
+  min-width: 720px;
+}
+@media (max-width: 672px) {
+  .tp-prospect-discovery__stage-navigation {
+    margin-inline: -1rem;
+    padding-inline: 1rem;
+  }
+  .tp-prospect-discovery__stage-navigation .cds--progress {
+    min-width: 680px;
+  }
+}
