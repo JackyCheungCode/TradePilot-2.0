@@ -327,23 +327,26 @@ export function TpDataTable<T extends Record<string, unknown>>({
       : rows;
     return visibleRows.map((row) => String(row[rowKey])).filter((id) => /^[0-9a-f-]{36}$/i.test(id));
   }, [rows, rowKey, pagination?.page, pagination?.pageSize, pagination?.serverSide]);
-  const [activitySummary, setActivitySummary] = useState<Record<string,{activities:number;openTasks:number;overdue:boolean}>>({});
+  const [activitySummary, setActivitySummary] = useState<Record<string,{activities:number;openTasks:number;changes:number;overdue:boolean}>>({});
   useEffect(() => {
     if (!activityRoute || activityPageIds.length === 0) { setActivitySummary({}); return; }
     let cancelled = false;
     void (async () => {
       try {
         const db = await getSupabaseClient();
-        const [activityResult, taskResult] = await Promise.all([
+        const [activityResult, taskResult, auditResult] = await Promise.all([
           db.from('record_activities').select('record_id').eq('record_type', activityRoute.recordType).in('record_id', activityPageIds),
           db.from('record_activity_tasks').select('record_id,status,due_at').eq('record_type', activityRoute.recordType).in('record_id', activityPageIds),
+          db.from('record_audit_events').select('record_id').eq('record_type', activityRoute.recordType).in('record_id', activityPageIds),
         ]);
         if (activityResult.error) throw activityResult.error;
         if (taskResult.error) throw taskResult.error;
-        const summary: Record<string,{activities:number;openTasks:number;overdue:boolean}> = {};
-        activityPageIds.forEach((id) => { summary[id] = {activities:0,openTasks:0,overdue:false}; });
+        if (auditResult.error) throw auditResult.error;
+        const summary: Record<string,{activities:number;openTasks:number;changes:number;overdue:boolean}> = {};
+        activityPageIds.forEach((id) => { summary[id] = {activities:0,openTasks:0,changes:0,overdue:false}; });
         (activityResult.data || []).forEach((item) => { const row=summary[item.record_id]; if(row) row.activities += 1; });
         (taskResult.data || []).forEach((item) => { const row=summary[item.record_id]; if(row && item.status==='open'){ row.openTasks += 1; if(item.due_at && new Date(item.due_at).getTime()<Date.now()) row.overdue=true; } });
+        (auditResult.data || []).forEach((item) => { const row=summary[item.record_id]; if(row) row.changes += 1; });
         if (!cancelled) setActivitySummary(summary);
       } catch {
         if (!cancelled) setActivitySummary({});
@@ -704,7 +707,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
                                 event.stopPropagation();
                                 window.location.assign(activityRoute.route + '/' + encodeURIComponent(String(source[rowKey])));
                               }}
-                            >{(activitySummary[String(source[rowKey])]?.activities || 0) + (activitySummary[String(source[rowKey])]?.openTasks || 0) || '活动'}</Button>
+                            >{(activitySummary[String(source[rowKey])]?.activities || 0) + (activitySummary[String(source[rowKey])]?.openTasks || 0) + (activitySummary[String(source[rowKey])]?.changes || 0) || '活动'}</Button>
                           </TableCell>
                         )}
                         {rowActions.length > 0 && (
