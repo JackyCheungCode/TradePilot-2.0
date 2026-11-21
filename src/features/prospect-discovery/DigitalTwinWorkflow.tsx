@@ -110,9 +110,7 @@ export function DigitalTwinWorkflow({ activeStage, metrics, onStageChange }: Pro
                 </span>
                 {metric.value && <span className="tp-digital-twin__node-value">{metric.value}</span>}
                 {typeof metric.progress === 'number' && metric.state === 'active' && (
-                  <span className="tp-digital-twin__node-progress" aria-label={`真实任务进度 ${metric.progress}%`}>
-                    <i style={{ width: metric.progress + '%' }} />
-                  </span>
+                  <span className="tp-digital-twin__node-progress" aria-label={`真实任务进度 ${metric.progress}%`}>真实任务进度 {metric.progress}%</span>
                 )}
                 <span className="tp-digital-twin__node-detail">{metric.detail}</span>
               </Button>
