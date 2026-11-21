@@ -8,7 +8,7 @@ migrations=(
   20261121052901_capture_payment_lifecycle_events.sql
   20261121053148_restore_atomic_prospect_lifecycle.sql
   20261121053151_restore_prospect_contact_enrichment.sql
-  20261116050080_enforce_formal_lead_prospect_gate.sql
+  20261121053416_enforce_formal_lead_prospect_gate.sql
   20261121053155_restore_final_prospect_contact_conversion.sql
   20261121043400_create_global_activity_audit_system.sql
   20261121044356_harden_activity_foreign_key_indexes.sql
