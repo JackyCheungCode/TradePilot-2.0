@@ -240,8 +240,8 @@
   &__source-orbit { position: absolute; inset: 0; transform-style: preserve-3d; pointer-events: none; }
   &__source-logo {
     position: absolute;
-    left: calc(50% + (var(--source-index) - 3.5) * 1.55rem);
-    top: calc(50% - 3.2rem - (var(--source-index) % 2) * .7rem);
+    left: calc(50% + var(--source-left));
+    top: var(--source-top);
     display: grid;
     place-items: center;
     width: 1.35rem;
@@ -251,7 +251,7 @@
     background: var(--cds-layer);
     box-shadow: 0 3px 9px rgba(0, 30, 70, .2);
     animation: tp-source-float 3s ease-in-out infinite;
-    animation-delay: calc(var(--source-index) * -180ms);
+    animation-delay: 0ms;
     img { width: 100%; height: 100%; object-fit: contain; }
     b { @include type-style('legal-01'); color: var(--cds-text-primary); }
   }
