@@ -155,7 +155,7 @@ export function DigitalTwinWorkflow({ activeStage, metrics, selectedSources, onS
     const dx = event.clientX - dragRef.current.x;
     const dy = event.clientY - dragRef.current.y;
     dragRef.current = { x: event.clientX, y: event.clientY };
-    setRotation(current => ({ x: Math.max(-2, Math.min(6, current.x - Math.round(dy / 18)), y: Math.max(-6, Math.min(6, current.y + Math.round(dx / 18)) }));
+    setRotation(current => ({ x: Math.max(-2, Math.min(6, current.x - Math.round(dy / 18))), y: Math.max(-6, Math.min(6, current.y + Math.round(dx / 18))) }));
   };
   const endRotate = () => { dragRef.current = null; };
 
