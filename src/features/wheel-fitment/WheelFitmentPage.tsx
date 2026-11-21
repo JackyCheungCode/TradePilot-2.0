@@ -1,38 +1,86 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Button, ComboBox, Column, Grid, InlineNotification, NumberInput, Select, SelectItem,
   Tag, TextInput, Tile,
 } from '@/design-system';
+import { getSupabaseClient } from '@/lib/supabase';
 
+type MakeItem = { name: string; logoKey?: string };
+type FitmentRecord = { id: string; provider: string; confidence: string; record: Record<string, unknown> };
+type ApiPayload = {
+  data?: {
+    items?: unknown[];
+    records?: FitmentRecord[];
+    raw?: Record<string, unknown>;
+    sources?: Array<{ id: string; status: string; license?: string; attribution?: string; fields?: string[] }>;
+    limitations?: string[];
+    vehicle?: Record<string, unknown>;
+  };
+  error?: { message?: string };
+};
 type Manufacturer = { id: string; name: string; country: string; domain: string; logo: string };
 const manufacturers: Manufacturer[] = [
-  { id: 'bbs', name: 'BBS', country: 'Germany', domain: 'bbs.com', logo: 'https://logo.clearbit.com/bbs.com' },
-  { id: 'oz', name: 'OZ Racing', country: 'Italy', domain: 'ozracing.com', logo: 'https://logo.clearbit.com/ozracing.com' },
-  { id: 'enkei', name: 'Enkei', country: 'Japan', domain: 'enkei.com', logo: 'https://logo.clearbit.com/enkei.com' },
-  { id: 'rays', name: 'RAYS / VOLK RACING', country: 'Japan', domain: 'rayswheels.co.jp', logo: 'https://logo.clearbit.com/rayswheels.co.jp' },
-  { id: 'work', name: 'WORK Wheels', country: 'Japan', domain: 'workwheelsusa.com', logo: 'https://logo.clearbit.com/workwheelsusa.com' },
-  { id: 'hre', name: 'HRE Performance Wheels', country: 'United States', domain: 'hrewheels.com', logo: 'https://logo.clearbit.com/hrewheels.com' },
-  { id: 'vossen', name: 'Vossen', country: 'United States', domain: 'vossenwheels.com', logo: 'https://logo.clearbit.com/vossenwheels.com' },
-  { id: 'rotiform', name: 'Rotiform', country: 'United States', domain: 'rotiform.com', logo: 'https://logo.clearbit.com/rotiform.com' },
-  { id: 'konig', name: 'Konig', country: 'United States', domain: 'konigwheels.com', logo: 'https://logo.clearbit.com/konigwheels.com' },
-  { id: 'forgeline', name: 'Forgeline', country: 'United States', domain: 'forgeline.com', logo: 'https://logo.clearbit.com/forgeline.com' },
-  { id: 'method', name: 'Method Race Wheels', country: 'United States', domain: 'methodracewheels.com', logo: 'https://logo.clearbit.com/methodracewheels.com' },
-  { id: 'fuel', name: 'Fuel Off-Road', country: 'United States', domain: 'fueloffroad.com', logo: 'https://logo.clearbit.com/fueloffroad.com' },
+  { id: 'bbs', name: 'BBS', country: 'Germany', domain: 'bbs.com', logo: 'https://cdn.simpleicons.org/bmw' },
+  { id: 'oz', name: 'OZ Racing', country: 'Italy', domain: 'ozracing.com', logo: 'https://cdn.simpleicons.org/ozon' },
+  { id: 'enkei', name: 'Enkei', country: 'Japan', domain: 'enkei.com', logo: 'https://cdn.simpleicons.org/enkei' },
+  { id: 'rays', name: 'RAYS / VOLK RACING', country: 'Japan', domain: 'rayswheels.co.jp', logo: 'https://cdn.simpleicons.org/ray' },
+  { id: 'work', name: 'WORK Wheels', country: 'Japan', domain: 'workwheelsusa.com', logo: 'https://cdn.simpleicons.org/workplace' },
+  { id: 'hre', name: 'HRE Performance Wheels', country: 'United States', domain: 'hrewheels.com', logo: 'https://cdn.simpleicons.org/hp' },
+  { id: 'vossen', name: 'Vossen', country: 'United States', domain: 'vossenwheels.com', logo: 'https://cdn.simpleicons.org/v' },
+  { id: 'rotiform', name: 'Rotiform', country: 'United States', domain: 'rotiform.com', logo: 'https://cdn.simpleicons.org/r' },
+  { id: 'konig', name: 'Konig', country: 'United States', domain: 'konigwheels.com', logo: 'https://cdn.simpleicons.org/k' },
+  { id: 'forgeline', name: 'Forgeline', country: 'United States', domain: 'forgeline.com', logo: 'https://cdn.simpleicons.org/forgejo' },
+  { id: 'method', name: 'Method Race Wheels', country: 'United States', domain: 'methodracewheels.com', logo: 'https://cdn.simpleicons.org/m' },
+  { id: 'fuel', name: 'Fuel Off-Road', country: 'United States', domain: 'fueloffroad.com', logo: 'https://cdn.simpleicons.org/f' },
 ];
 
-const numberValue = (value: string) => {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
-};
 const fmt = (value: number) => Number.isFinite(value) ? value.toFixed(1) : '—';
+const toNumber = (value: string) => value.trim() === '' ? null : Number.isFinite(Number(value)) ? Number(value) : null;
+const asLabel = (value: unknown): string => {
+  if (typeof value === 'string' || typeof value === 'number') return String(value);
+  if (value && typeof value === 'object') {
+    const item = value as Record<string, unknown>;
+    return String(item.name ?? item.slug ?? item.year ?? item.trim ?? item.title ?? '');
+  }
+  return '';
+};
+const tireDiameter = (value: string): number | null => {
+  const match = value.trim().match(/^(\d{3})\/(\d{2})R(\d{2})$/i);
+  if (!match) return null;
+  return Number(match[3]) * 25.4 + 2 * Number(match[1]) * Number(match[2]) / 100;
+};
+const wheelSpec = (value: string) => {
+  const match = value.match(/(\d{1,2}(?:\.\d)?)\s*[x×]\s*(\d{1,2}(?:\.\d)?)\s*J?\s*(?:at\s*)?ET\s*(-?\d+(?:\.\d+)?)/i);
+  return match ? { diameter: match[1], width: match[2], et: match[3] } : null;
+};
+const recordStrings = (value: unknown, output: string[] = [], depth = 0): string[] => {
+  if (depth > 6 || value == null) return output;
+  if (typeof value === 'string') { output.push(value); return output; }
+  if (Array.isArray(value)) { value.forEach(item => recordStrings(item, output, depth + 1)); return output; }
+  if (typeof value === 'object') Object.values(value as Record<string, unknown>).forEach(item => recordStrings(item, output, depth + 1));
+  return output;
+};
 
 export function WheelFitmentPage() {
-  const [vehicleMake, setVehicleMake] = useState('');
-  const [vehicleModel, setVehicleModel] = useState('');
+  const [makes, setMakes] = useState<MakeItem[]>([]);
+  const [models, setModels] = useState<string[]>([]);
+  const [years, setYears] = useState<string[]>([]);
+  const [generations, setGenerations] = useState<unknown[]>([]);
+  const [modifications, setModifications] = useState<unknown[]>([]);
+  const [make, setMake] = useState<MakeItem | null>(null);
+  const [model, setModel] = useState('');
   const [year, setYear] = useState('');
-  const [trim, setTrim] = useState('');
-  const [chassis, setChassis] = useState('');
-  const [market, setMarket] = useState('global');
+  const [generation, setGeneration] = useState('');
+  const [modification, setModification] = useState('');
+  const [region, setRegion] = useState('all');
+  const [vin, setVin] = useState('');
+  const [vinResult, setVinResult] = useState<unknown>(null);
+  const [records, setRecords] = useState<FitmentRecord[]>([]);
+  const [selectedRecord, setSelectedRecord] = useState('');
+  const [sources, setSources] = useState<ApiPayload['data'] extends infer D ? D extends { sources?: infer S } ? S : never : never>([]);
+  const [raw, setRaw] = useState<Record<string, unknown> | null>(null);
+  const [busy, setBusy] = useState('');
+  const [error, setError] = useState('');
   const [manufacturer, setManufacturer] = useState<Manufacturer | null>(null);
   const [style, setStyle] = useState('oem-plus');
   const [frontOldWidth, setFrontOldWidth] = useState('8');
@@ -43,266 +91,190 @@ export function WheelFitmentPage() {
   const [rearOldEt, setRearOldEt] = useState('44');
   const [rearNewWidth, setRearNewWidth] = useState('10');
   const [rearNewEt, setRearNewEt] = useState('40');
-  const [oldTire, setOldTire] = useState('245/40R19');
-  const [newTire, setNewTire] = useState('255/35R20');
+  const [oldTire, setOldTire] = useState('');
+  const [newTire, setNewTire] = useState('');
 
+  const request = useCallback(async (path: string) => {
+    const client = await getSupabaseClient();
+    const { data: sessionData } = await client.auth.getSession();
+    if (!sessionData.session?.access_token) throw new Error('登录会话已失效，请重新登录。');
+    const response = await fetch('/api/v1/wheel-fitment/' + path, {
+      headers: { Accept: 'application/json', Authorization: 'Bearer ' + sessionData.session.access_token },
+    });
+    const payload = await response.json() as ApiPayload;
+    if (!response.ok) throw new Error(payload.error?.message || '车辆数据查询失败。');
+    return payload.data ?? {};
+  }, []);
+
+  const load = useCallback(async (kind: string, params: Record<string, string> = {}) => {
+    setBusy(kind); setError('');
+    try {
+      const query = new URLSearchParams(params);
+      const result = await request(kind + (query.size ? '?' + query.toString() : ''));
+      return result;
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '车辆数据查询失败。');
+      return null;
+    } finally { setBusy(''); }
+  }, [request]);
+
+  useEffect(() => {
+    let active = true;
+    void load('makes', { region }).then(result => {
+      if (!active || !result?.items) return;
+      setMakes(result.items.map(item => typeof item === 'string' ? { name: item } : item as MakeItem));
+      setSources(result.sources ?? []);
+    });
+    return () => { active = false; };
+  }, [load, region]);
+
+  const chooseMake = async (item: MakeItem | null) => {
+    setMake(item); setModel(''); setYear(''); setGeneration(''); setModification('');
+    setModels([]); setYears([]); setGenerations([]); setModifications([]); setRecords([]); setRaw(null);
+    if (!item) return;
+    const result = await load('models', { make: item.name, region });
+    if (result?.items) setModels(result.items.map(asLabel).filter(Boolean));
+  };
+  const chooseModel = async (value: string) => {
+    setModel(value); setYear(''); setGeneration(''); setModification('');
+    setYears([]); setGenerations([]); setModifications([]); setRecords([]); setRaw(null);
+    if (!make || !value) return;
+    const [yearResult, generationResult] = await Promise.all([
+      load('years', { make: make.name, model: value, region }),
+      load('generations', { make: make.name, model: value, region }),
+    ]);
+    if (yearResult?.items) setYears(yearResult.items.map(asLabel).filter(Boolean));
+    if (generationResult?.items) setGenerations(generationResult.items);
+  };
+  const chooseYear = async (value: string) => {
+    setYear(value); setModification(''); setModifications([]); setRecords([]); setRaw(null);
+    if (!make || !model || !value) return;
+    const result = await load('modifications', { make: make.name, model, year: value, region });
+    if (result?.items) setModifications(result.items);
+  };
+  const searchVehicle = async () => {
+    if (!make || !model) { setError('请先选择车辆品牌和车型。'); return; }
+    const result = await load('vehicle', {
+      make: make.name, model, year, generation, modification, region,
+    });
+    if (!result) return;
+    setRecords(result.records ?? []);
+    setRaw(result.raw ?? null);
+    setSources(result.sources ?? []);
+    setSelectedRecord('');
+  };
+  const decodeVin = async () => {
+    if (!vin.trim()) { setError('请输入 VIN。'); return; }
+    const result = await load('vin', { vin: vin.trim() });
+    if (result) setVinResult(result.raw ?? result);
+  };
+
+  const selected = records.find(item => item.id === selectedRecord) ?? null;
+  const selectedStrings = selected ? recordStrings(selected.record) : [];
+  const selectedRim = selectedStrings.map(wheelSpec).find(Boolean) ?? null;
+  const selectedTireText = selectedStrings.find(value => /\d{3}\/\d{2}R\d{2}/i.test(value)) ?? '';
   const front = useMemo(() => {
-    const widthDelta = (numberValue(frontNewWidth) - numberValue(frontOldWidth)) * 25.4 / 2;
-    const etDelta = numberValue(frontNewEt) - numberValue(frontOldEt);
-    return { inner: widthDelta + etDelta, outer: widthDelta - etDelta };
+    const oldW = toNumber(frontOldWidth), oldE = toNumber(frontOldEt), newW = toNumber(frontNewWidth), newE = toNumber(frontNewEt);
+    if ([oldW, oldE, newW, newE].some(value => value === null)) return null;
+    const half = ((newW as number) - (oldW as number)) * 25.4 / 2;
+    const et = (newE as number) - (oldE as number);
+    return { inner: half + et, outer: half - et };
   }, [frontOldWidth, frontOldEt, frontNewWidth, frontNewEt]);
   const rear = useMemo(() => {
-    const widthDelta = (numberValue(rearNewWidth) - numberValue(rearOldWidth)) * 25.4 / 2;
-    const etDelta = numberValue(rearNewEt) - numberValue(rearOldEt);
-    return { inner: widthDelta + etDelta, outer: widthDelta - etDelta };
+    const oldW = toNumber(rearOldWidth), oldE = toNumber(rearOldEt), newW = toNumber(rearNewWidth), newE = toNumber(rearNewEt);
+    if ([oldW, oldE, newW, newE].some(value => value === null)) return null;
+    const half = ((newW as number) - (oldW as number)) * 25.4 / 2;
+    const et = (newE as number) - (oldE as number);
+    return { inner: half + et, outer: half - et };
   }, [rearOldWidth, rearOldEt, rearNewWidth, rearNewEt]);
-  const tireComparison = useMemo(() => {
-    const parse = (value: string) => {
-      const match = value.trim().match(/^(\d{3})\/(\d{2})R(\d{2})$/i);
-      if (!match) return null;
-      const width = Number(match[1]);
-      const aspect = Number(match[2]);
-      const rim = Number(match[3]);
-      return rim * 25.4 + 2 * width * aspect / 100;
-    };
-    const oldValue = parse(oldTire);
-    const newValue = parse(newTire);
-    if (!oldValue || !newValue) return null;
-    return { oldValue, newValue, delta: (newValue - oldValue) / oldValue * 100 };
-  }, [oldTire, newTire]);
-
-  const selectedVehicle = [vehicleMake, vehicleModel, year, trim, chassis].filter(Boolean).join(' · ');
+  const oldDiameter = tireDiameter(oldTire);
+  const newDiameter = tireDiameter(newTire);
+  const tireDelta = oldDiameter && newDiameter ? (newDiameter - oldDiameter) / oldDiameter * 100 : null;
+  const selectedVehicle = [make?.name, model, year, generation, modification].filter(Boolean).join(' · ');
 
   return (
     <main className="tp-wheel-fitment">
       <div className="tp-page-heading">
-        <div>
-          <p className="cds--label">HARMONIA / WHEEL ENGINEERING</p>
-          <h1>轮毂适配与改装</h1>
-          <p>先识别车辆，再读取原厂规格、定义改装目标并验证轮毂适配性。</p>
-        </div>
-        <Tag type="blue">工程计算工作台</Tag>
+        <div><p className="cds--label">HARMONIA / WHEEL ENGINEERING</p><h1>轮毂适配与改装</h1><p>多数据源车辆识别、原厂规格检索、改装计算与适配验证。</p></div>
+        <Tag type="blue">多源数据工作台</Tag>
       </div>
-
-      <InlineNotification
-        kind="info"
-        lowContrast
-        title="数据完整性"
-        subtitle="当前版本提供车辆信息录入和几何计算。车辆数据库、OEM 参数、刹车模板及实车间隙尚未接入；未验证项目会明确标记，不会推断为安全适配。"
-      />
+      {error && <InlineNotification kind="error" lowContrast title="查询未完成" subtitle={error} onCloseButtonClick={() => setError('')} />}
+      <InlineNotification kind="info" lowContrast title="数据源策略" subtitle="优先调用 Wheel-Size 专业适配 API；同时使用 ANKUSI 开放数据集补充 PCD、中心孔、原厂及参考改装规格。VIN 由 NHTSA vPIC 辅助解码。各来源原始响应均保留，不会把参考数据标记为安全认证。" />
 
       <section aria-labelledby="vehicle-section-title">
-        <div className="tp-fitment-section-heading">
-          <div><p className="cds--label">STEP 01</p><h2 id="vehicle-section-title">选择车辆</h2><p>车辆是适配计算的起点。请尽可能填写具体年款、配置和底盘代号。</p></div>
-          <Tag type={selectedVehicle ? 'green' : 'cool-gray'}>{selectedVehicle ? '已填写车辆信息' : '待填写'}</Tag>
-        </div>
+        <div className="tp-fitment-section-heading"><div><p className="cds--label">STEP 01</p><h2 id="vehicle-section-title">车辆识别与目录</h2><p>品牌、车型、年款、世代、具体配置和销售市场逐级筛选。</p></div><Tag type={make && model ? 'green' : 'cool-gray'}>{make && model ? '车辆已选择' : '等待选择'}</Tag></div>
         <Tile>
           <Grid condensed>
             <Column sm={4} md={4} lg={4}>
-              <TextInput id="vehicle-make" labelText="车辆品牌" placeholder="例如 BMW" value={vehicleMake} onChange={event => setVehicleMake(event.currentTarget.value)} />
+              <ComboBox id="vehicle-make" titleText="车辆品牌（含品牌标识）" placeholder={busy === 'makes' ? '正在加载品牌目录…' : '搜索品牌'} items={makes} itemToString={(item: MakeItem | null) => item?.name ?? ''} itemToElement={(item: MakeItem) => <div className="tp-fitment-manufacturer-option"><img src={`https://cdn.simpleicons.org/${item.logoKey || item.name.toLowerCase().replace(/[^a-z0-9]/g, '')}`} alt="" width="28" height="28" onError={event => { event.currentTarget.style.visibility = 'hidden'; }} /><strong>{item.name}</strong></div>} selectedItem={make} onChange={({ selectedItem }) => void chooseMake(selectedItem ?? null)} />
             </Column>
-            <Column sm={4} md={4} lg={4}>
-              <TextInput id="vehicle-model" labelText="车型 / 车系" placeholder="例如 M3" value={vehicleModel} onChange={event => setVehicleModel(event.currentTarget.value)} />
-            </Column>
-            <Column sm={4} md={4} lg={4}>
-              <TextInput id="vehicle-year" labelText="年款" placeholder="例如 2024" value={year} onChange={event => setYear(event.currentTarget.value)} />
-            </Column>
-            <Column sm={4} md={4} lg={4}>
-              <TextInput id="vehicle-trim" labelText="具体配置 / 版本" placeholder="例如 Competition xDrive" value={trim} onChange={event => setTrim(event.currentTarget.value)} />
-            </Column>
-            <Column sm={4} md={4} lg={4}>
-              <TextInput id="vehicle-chassis" labelText="底盘代号（选填）" placeholder="例如 G80" value={chassis} onChange={event => setChassis(event.currentTarget.value)} />
-            </Column>
-            <Column sm={4} md={4} lg={4}>
-              <Select id="vehicle-market" labelText="销售市场" value={market} onChange={event => setMarket(event.currentTarget.value)}>
-                <SelectItem value="global" text="全球 / 未指定" />
-                <SelectItem value="us" text="北美" />
-                <SelectItem value="eu" text="欧洲" />
-                <SelectItem value="jp" text="日本" />
-                <SelectItem value="cn" text="中国" />
-              </Select>
-            </Column>
+            <Column sm={4} md={4} lg={4}><Select id="vehicle-model" labelText="车型 / 车系" value={model} disabled={!make || models.length === 0} onChange={event => void chooseModel(event.currentTarget.value)}><SelectItem value="" text="请选择车型" />{models.map(item => <SelectItem key={item} value={item} text={item} />)}</Select></Column>
+            <Column sm={4} md={4} lg={4}><Select id="vehicle-year" labelText="年款" value={year} disabled={!model || years.length === 0} onChange={event => void chooseYear(event.currentTarget.value)}><SelectItem value="" text="请选择年款" />{years.map(item => <SelectItem key={item} value={item} text={item} />)}</Select></Column>
+            <Column sm={4} md={4} lg={4}><Select id="vehicle-generation" labelText="世代 / 底盘" value={generation} disabled={!model || generations.length === 0} onChange={event => { setGeneration(event.currentTarget.value); setRecords([]); }}><SelectItem value="" text="全部世代 / 未指定" />{generations.map((item, index) => <SelectItem key={index} value={asLabel(item)} text={asLabel(item)} />)}</Select></Column>
+            <Column sm={4} md={4} lg={4}><Select id="vehicle-modification" labelText="配置 / 动力版本" value={modification} disabled={!model || modifications.length === 0} onChange={event => setModification(event.currentTarget.value)}><SelectItem value="" text="全部配置 / 未指定" />{modifications.map((item, index) => <SelectItem key={index} value={asLabel(item)} text={asLabel(item)} />)}</Select></Column>
+            <Column sm={4} md={4} lg={4}><Select id="vehicle-region" labelText="销售市场 / 数据区域" value={region} onChange={event => { setRegion(event.currentTarget.value); setModels([]); setYears([]); setRecords([]); }}><SelectItem value="all" text="全部可用市场" /><SelectItem value="usdm" text="北美 USDM" /><SelectItem value="eudm" text="欧洲 EUDM" /><SelectItem value="jdm" text="日本 JDM" /><SelectItem value="cn" text="中国" /><SelectItem value="sea" text="东南亚" /><SelectItem value="oceania" text="大洋洲" /><SelectItem value="cdm" text="加拿大" /></Select></Column>
           </Grid>
-          <div className="tp-fitment-inline-note">
-            <span className="cds--label">当前车辆</span>
-            <strong>{selectedVehicle || '尚未选择车辆'}</strong>
-            <span className="cds--label">市场：{market.toUpperCase()}</span>
-          </div>
-          <InlineNotification kind="warning" lowContrast title="车辆目录尚未连接" subtitle="以上是车辆身份字段，不是虚构的车型数据库下拉选项。接入车辆数据源后，将升级为品牌、车型、年款、配置逐级检索，并支持 VIN 辅助识别。" />
+          <div className="tp-fitment-inline-note"><span className="cds--label">当前车辆</span><strong>{selectedVehicle || '尚未选择'}</strong></div>
+          <Button kind="primary" onClick={() => void searchVehicle()} disabled={!make || !model || Boolean(busy)}>{busy === 'vehicle' ? '正在查询原厂规格…' : '查询原厂及适配规格'}</Button>
+          <div className="tp-fitment-inline-note"><TextInput id="vehicle-vin" labelText="VIN 辅助识别（选填）" placeholder="输入 17 位 VIN" value={vin} onChange={event => setVin(event.currentTarget.value)} /><Button kind="tertiary" onClick={() => void decodeVin()} disabled={!vin || Boolean(busy)}>解码 VIN</Button></div>
+          {vinResult && <details><summary>查看 NHTSA VIN 解码完整响应</summary><pre className="tp-fitment-json">{JSON.stringify(vinResult, null, 2)}</pre></details>}
+          {!make && <InlineNotification kind="info" lowContrast title="品牌目录加载说明" subtitle="目录会合并 Wheel-Size 与 ANKUSI 返回结果。未配置 Wheel-Size API Key 时，仍可使用 ANKUSI 开放数据覆盖的品牌与车辆记录。" />}
         </Tile>
       </section>
 
       <section aria-labelledby="oem-section-title">
-        <div className="tp-fitment-section-heading">
-          <div><p className="cds--label">STEP 02</p><h2 id="oem-section-title">原厂规格与基准</h2><p>填写车辆原厂前后轴轮毂及轮胎规格，作为改装比较基准。</p></div>
-          <Tag type="cool-gray">需数据源确认</Tag>
-        </div>
-        <Tile>
+        <div className="tp-fitment-section-heading"><div><p className="cds--label">STEP 02</p><h2 id="oem-section-title">原厂规格与多配置结果</h2><p>同一车型可能有多种年款、动力、刹车及前后轴组合，必须逐条确认。</p></div><Tag type={records.length ? 'green' : 'cool-gray'}>{records.length} 条记录</Tag></div>
+        {records.length === 0 ? <InlineNotification kind="warning" lowContrast title="尚无原厂规格结果" subtitle="请完成车辆选择并执行查询。若没有匹配记录，请检查销售市场、年款、世代或配置，不要用相似车型数据代替。" /> : <>
           <Grid condensed>
-            <Column sm={4} md={8} lg={8}>
-              <h3>前轴 / Front axle</h3>
-              <Grid condensed>
-                <Column sm={2} md={4} lg={8}><NumberInput id="front-oem-width" label="原厂宽度（J）" min={4} max={15} step={0.5} value={frontOldWidth} onChange={(_e, state) => setFrontOldWidth(String(state.value ?? ''))} /></Column>
-                <Column sm={2} md={4} lg={8}><NumberInput id="front-oem-et" label="原厂偏距 ET（mm）" min={-100} max={150} value={frontOldEt} onChange={(_e, state) => setFrontOldEt(String(state.value ?? ''))} /></Column>
-              </Grid>
-            </Column>
-            <Column sm={4} md={8} lg={8}>
-              <h3>后轴 / Rear axle</h3>
-              <Grid condensed>
-                <Column sm={2} md={4} lg={8}><NumberInput id="rear-oem-width" label="原厂宽度（J）" min={4} max={15} step={0.5} value={rearOldWidth} onChange={(_e, state) => setRearOldWidth(String(state.value ?? ''))} /></Column>
-                <Column sm={2} md={4} lg={8}><NumberInput id="rear-oem-et" label="原厂偏距 ET（mm）" min={-100} max={150} value={rearOldEt} onChange={(_e, state) => setRearOldEt(String(state.value ?? ''))} /></Column>
-              </Grid>
-            </Column>
-            <Column sm={4} md={8} lg={8}><TextInput id="fitment-oem-tire" labelText="原厂轮胎规格" value={oldTire} onChange={event => setOldTire(event.currentTarget.value)} placeholder="245/40R19" /></Column>
-            <Column sm={4} md={8} lg={8}><p className="cds--label">待补充的 OEM 关键参数</p><p>PCD · 中心孔 CB · 螺栓规格 · 前后轴原厂差异 · 原厂刹车配置</p></Column>
+            {records.map((item, index) => <Column key={item.id} sm={4} md={8} lg={8}>
+              <Tile>
+                <div className="tp-fitment-section-heading"><div><h3>{item.provider} · 规格记录 {index + 1}</h3><p className="cds--label">{item.confidence === 'professional_database' ? '专业适配数据库' : '开放参考数据集'}</p></div><Tag type={item.provider === 'Wheel-Size' ? 'green' : 'blue'}>{item.provider}</Tag></div>
+                <p>{String(item.record.make ?? make?.name ?? '')} {String(item.record.model ?? model)} {String(item.record.year ?? year)}</p>
+                <p><strong>PCD：</strong>{String(item.record.technical && (item.record.technical as Record<string, unknown>).bolt_pattern || item.record.bolt_pattern || '未提供')}</p>
+                <p><strong>中心孔：</strong>{String(item.record.technical && (item.record.technical as Record<string, unknown>).center_bore || item.record.center_bore_mm || '未提供')} mm</p>
+                <p><strong>原厂轮毂：</strong>{String(item.record.oe_wheel ?? '请展开查看完整 OE 数据')}</p>
+                <p><strong>参考改装：</strong>{String(item.record.flush_wheel ?? item.record.max_wheel ?? '未提供')}</p>
+                <Button kind={selectedRecord === item.id ? 'primary' : 'tertiary'} size="sm" onClick={() => setSelectedRecord(item.id)}>{selectedRecord === item.id ? '已选为计算基准' : '选择此记录为计算基准'}</Button>
+                <details><summary>查看该条 API 完整字段</summary><pre className="tp-fitment-json">{JSON.stringify(item.record, null, 2)}</pre></details>
+              </Tile>
+            </Column>)}
           </Grid>
-        </Tile>
+          {selected && <InlineNotification kind="info" lowContrast title="已选择计算基准" subtitle={`来源：${selected.provider}。系统保留原始记录；若该记录含前后轴轮毂/轮胎信息，可在下方核对后用于计算。`} />}
+        </>}
+        {raw && <details><summary>查看所有数据源原始响应（包含未映射字段）</summary><pre className="tp-fitment-json">{JSON.stringify(raw, null, 2)}</pre></details>}
       </section>
 
       <section aria-labelledby="target-section-title">
-        <div className="tp-fitment-section-heading">
-          <div><p className="cds--label">STEP 03</p><h2 id="target-section-title">定义改装目标</h2><p>设定目标尺寸与轮胎组合；系统按前后轴分别计算。</p></div>
-        </div>
+        <div className="tp-fitment-section-heading"><div><p className="cds--label">STEP 03</p><h2 id="target-section-title">客户改装需求与参数</h2><p>选择方案取向，或直接输入客户指定的前后轴轮毂和轮胎参数。</p></div></div>
         <Tile>
           <Grid condensed>
-            <Column sm={4} md={8} lg={8}>
-              <Select id="fitment-style" labelText="改装取向" value={style} onChange={event => setStyle(event.currentTarget.value)}>
-                <SelectItem value="oem-plus" text="OEM Plus · 原厂升级" />
-                <SelectItem value="performance" text="Performance · 运动性能" />
-                <SelectItem value="flush" text="Flush · 视觉齐平" />
-                <SelectItem value="extreme" text="Extreme · 极限改装" />
-              </Select>
-            </Column>
-            <Column sm={4} md={8} lg={8}><TextInput id="fitment-new-tire" labelText="目标轮胎规格" value={newTire} onChange={event => setNewTire(event.currentTarget.value)} placeholder="255/35R20" /></Column>
+            <Column sm={4} md={8} lg={8}><Select id="fitment-style" labelText="改装取向" value={style} onChange={event => setStyle(event.currentTarget.value)}><SelectItem value="oem-plus" text="OEM Plus · 原厂升级" /><SelectItem value="performance" text="Performance · 运动性能" /><SelectItem value="flush" text="Flush · 视觉齐平" /><SelectItem value="extreme" text="Extreme · 极限改装" /></Select></Column>
+            <Column sm={4} md={8} lg={8}><TextInput id="target-tire" labelText="目标轮胎规格" placeholder="例如 255/35R20" value={newTire} onChange={event => setNewTire(event.currentTarget.value)} /></Column>
           </Grid>
           <Grid condensed>
-            <Column sm={4} md={8} lg={8}>
-              <h3>前轴目标尺寸</h3>
-              <Grid condensed>
-                <Column sm={2} md={4} lg={8}><NumberInput id="front-new-width" label="目标宽度（J）" min={4} max={15} step={0.5} value={frontNewWidth} onChange={(_e, state) => setFrontNewWidth(String(state.value ?? ''))} /></Column>
-                <Column sm={2} md={4} lg={8}><NumberInput id="front-new-et" label="目标偏距 ET（mm）" min={-100} max={150} value={frontNewEt} onChange={(_e, state) => setFrontNewEt(String(state.value ?? ''))} /></Column>
-              </Grid>
-            </Column>
-            <Column sm={4} md={8} lg={8}>
-              <h3>后轴目标尺寸</h3>
-              <Grid condensed>
-                <Column sm={2} md={4} lg={8}><NumberInput id="rear-new-width" label="目标宽度（J）" min={4} max={15} step={0.5} value={rearNewWidth} onChange={(_e, state) => setRearNewWidth(String(state.value ?? ''))} /></Column>
-                <Column sm={2} md={4} lg={8}><NumberInput id="rear-new-et" label="目标偏距 ET（mm）" min={-100} max={150} value={rearNewEt} onChange={(_e, state) => setRearNewEt(String(state.value ?? ''))} /></Column>
-              </Grid>
-            </Column>
+            <Column sm={4} md={8} lg={8}><h3>前轴</h3><NumberInput id="front-old-width" label="基准 J" min={4} max={15} step={0.5} value={frontOldWidth} onChange={(_event, state) => setFrontOldWidth(String(state.value ?? ''))} /><NumberInput id="front-old-et" label="基准 ET（mm）" value={frontOldEt} onChange={(_event, state) => setFrontOldEt(String(state.value ?? ''))} /><NumberInput id="front-new-width" label="目标 J" min={4} max={15} step={0.5} value={frontNewWidth} onChange={(_event, state) => setFrontNewWidth(String(state.value ?? ''))} /><NumberInput id="front-new-et" label="目标 ET（mm）" value={frontNewEt} onChange={(_event, state) => setFrontNewEt(String(state.value ?? ''))} /></Column>
+            <Column sm={4} md={8} lg={8}><h3>后轴</h3><NumberInput id="rear-old-width" label="基准 J" min={4} max={15} step={0.5} value={rearOldWidth} onChange={(_event, state) => setRearOldWidth(String(state.value ?? ''))} /><NumberInput id="rear-old-et" label="基准 ET（mm）" value={rearOldEt} onChange={(_event, state) => setRearOldEt(String(state.value ?? ''))} /><NumberInput id="rear-new-width" label="目标 J" min={4} max={15} step={0.5} value={rearNewWidth} onChange={(_event, state) => setRearNewWidth(String(state.value ?? ''))} /><NumberInput id="rear-new-et" label="目标 ET（mm）" value={rearNewEt} onChange={(_event, state) => setRearNewEt(String(state.value ?? ''))} /></Column>
           </Grid>
+          <Grid condensed><Column sm={4} md={8} lg={8}><TextInput id="baseline-tire" labelText="基准轮胎规格" placeholder="例如 245/40R19" value={oldTire} onChange={event => setOldTire(event.currentTarget.value)} /></Column><Column sm={4} md={8} lg={8}><p className="cds--label">已选数据基准</p><p>{selected ? selected.provider + ' · ' + selected.id : '手动参数 / 尚未选择数据库记录'}</p>{selectedTireText && <p>记录中识别到轮胎：{selectedTireText}</p>}{selectedRim && <p>识别到轮毂参数：{selectedRim.width}J ET{selectedRim.et}</p>}</Column></Grid>
+          <InlineNotification kind="info" lowContrast title="参数来源与确认" subtitle="目前保留手动输入作为明确基准。API 返回的复杂 OE 前后轴组合需按完整原始字段核对后录入，系统不会把无法确定轴位的字符串自动套用到前后轴。" />
         </Tile>
       </section>
 
       <section aria-labelledby="analysis-section-title">
-        <div className="tp-fitment-section-heading">
-          <div><p className="cds--label">STEP 04</p><h2 id="analysis-section-title">适配计算与验证</h2><p>计算值只描述几何变化，不代表车辆具有相同数值的实际剩余间隙。</p></div>
-          <Tag type="blue">实时计算</Tag>
-        </div>
+        <div className="tp-fitment-section-heading"><div><p className="cds--label">STEP 04</p><h2 id="analysis-section-title">几何计算与完整适配验证</h2><p>所有计算只在输入有效时显示；理论位移不能替代实车剩余间隙。</p></div><Tag type="blue">实时计算</Tag></div>
         <Tile>
           <Grid condensed>
-            <Column sm={4} md={8} lg={8}>
-              <h3>前轴几何变化</h3>
-              <p><strong>内侧边缘变化：{fmt(front.inner)} mm</strong></p>
-              <p className="cds--label">ΔInner = ((Jnew − Jold) × 25.4 ÷ 2) + (ETnew − ETold)</p>
-              <p><strong>外侧边缘变化：{fmt(front.outer)} mm</strong></p>
-              <p className="cds--label">ΔOuter = ((Jnew − Jold) × 25.4 ÷ 2) − (ETnew − ETold)</p>
-            </Column>
-            <Column sm={4} md={8} lg={8}>
-              <h3>后轴几何变化</h3>
-              <p><strong>内侧边缘变化：{fmt(rear.inner)} mm</strong></p>
-              <p className="cds--label">ΔInner = ((Jnew − Jold) × 25.4 ÷ 2) + (ETnew − ETold)</p>
-              <p><strong>外侧边缘变化：{fmt(rear.outer)} mm</strong></p>
-              <p className="cds--label">ΔOuter = ((Jnew − Jold) × 25.4 ÷ 2) − (ETnew − ETold)</p>
-            </Column>
+            <Column sm={4} md={8} lg={8}><h3>前轴几何变化</h3>{front ? <><p><strong>内侧边缘：{fmt(front.inner)} mm</strong></p><p><strong>外侧边缘：{fmt(front.outer)} mm</strong></p></> : <p>请填写有效的基准及目标 J / ET。</p>}<p className="cds--label">ΔInner = ((Jnew − Jold) × 25.4 ÷ 2) + (ETnew − ETold)</p><p className="cds--label">ΔOuter = ((Jnew − Jold) × 25.4 ÷ 2) − (ETnew − ETold)</p></Column>
+            <Column sm={4} md={8} lg={8}><h3>后轴几何变化</h3>{rear ? <><p><strong>内侧边缘：{fmt(rear.inner)} mm</strong></p><p><strong>外侧边缘：{fmt(rear.outer)} mm</strong></p></> : <p>请填写有效的基准及目标 J / ET。</p>}<p className="cds--label">正内侧值 = 内侧空间减少；正外侧值 = 向翼子板突出。</p></Column>
           </Grid>
-          <div className="tp-fitment-result-strip">
-            <div><span className="cds--label">内侧正值</span><strong>向悬挂侧移动，间隙减少</strong></div>
-            <div><span className="cds--label">外侧正值</span><strong>向翼子板侧突出</strong></div>
-          </div>
         </Tile>
-        <Tile>
-          <h3>轮胎外径对比</h3>
-          {tireComparison ? (
-            <>
-              <Grid condensed>
-                <Column sm={4} md={4} lg={4}><p className="cds--label">原厂理论外径</p><h4>{fmt(tireComparison.oldValue)} mm</h4></Column>
-                <Column sm={4} md={4} lg={4}><p className="cds--label">目标理论外径</p><h4>{fmt(tireComparison.newValue)} mm</h4></Column>
-                <Column sm={4} md={4} lg={4}><p className="cds--label">外径变化率</p><h4>{fmt(tireComparison.delta)}%</h4></Column>
-              </Grid>
-              <p className="cds--label">D = 轮辋直径 × 25.4 + 2 × 胎宽 × 扁平比 ÷ 100</p>
-              <p className="cds--label">变化率 = (目标外径 − 原厂外径) ÷ 原厂外径 × 100%</p>
-              <Tag type={Math.abs(tireComparison.delta) <= 2 ? 'green' : 'red'}>{Math.abs(tireComparison.delta) <= 2 ? '理论变化在 ±2% 内' : '外径变化需重点复核'}</Tag>
-            </>
-          ) : <InlineNotification kind="warning" lowContrast title="轮胎规格无法识别" subtitle="请使用 245/40R19 格式输入。" />}
-        </Tile>
-        <Tile>
-          <h3>必须完成的适配验证</h3>
-          <Grid condensed>
-            <Column sm={4} md={8} lg={8}>
-              <p><Tag type="cool-gray">待验证</Tag> PCD、中心孔、螺栓规格与座型</p>
-              <p><Tag type="cool-gray">待验证</Tag> 卡钳外形、刹车盘与辐条间隙</p>
-              <p><Tag type="cool-gray">待验证</Tag> 避震器、转向及悬挂压缩空间</p>
-            </Column>
-            <Column sm={4} md={8} lg={8}>
-              <p><Tag type="cool-gray">待验证</Tag> 轮胎实际断面宽度与负载指数</p>
-              <p><Tag type="cool-gray">待验证</Tag> 翼子板及动态行驶间隙</p>
-              <p><Tag type="cool-gray">待验证</Tag> 当地法规及实车安装测试</p>
-            </Column>
-          </Grid>
-          <InlineNotification kind="warning" lowContrast title="当前结果不是安全适配认证" subtitle="没有实测间隙、刹车模板或可靠 fitment 数据时，不计算或承诺最大/最小安全尺寸范围。" />
-        </Tile>
+        <Tile><h3>轮胎外径与速度表影响</h3>{oldDiameter && newDiameter && tireDelta !== null ? <Grid condensed><Column sm={4} md={4} lg={4}><p className="cds--label">基准外径</p><h4>{fmt(oldDiameter)} mm</h4></Column><Column sm={4} md={4} lg={4}><p className="cds--label">目标外径</p><h4>{fmt(newDiameter)} mm</h4></Column><Column sm={4} md={4} lg={4}><p className="cds--label">外径变化</p><h4>{fmt(tireDelta)}%</h4></Column><Column sm={4} md={4} lg={4}><p className="cds--label">理论实际速度（表显 100 km/h）</p><h4>{fmt(100 * newDiameter / oldDiameter)} km/h</h4></Column></Grid> : <InlineNotification kind="warning" lowContrast title="需要有效轮胎规格" subtitle="请输入基准和目标规格，例如 245/40R19 与 255/35R20。" />}<p className="cds--label">D = 25.4 × 轮辋直径 + 2 × 胎宽 × 扁平比 ÷ 100；Vactual = Vindicated × Dnew ÷ Dold。</p></Tile>
+        <Tile><h3>适配验证矩阵</h3><Grid condensed><Column sm={4} md={8} lg={8}><p><Tag type="cool-gray">需车辆/轮毂数据</Tag> PCD、螺栓孔数、中心孔与定位环</p><p><Tag type="cool-gray">需制造商数据</Tag> 螺栓/螺母牙距、座型、紧固扭矩</p><p><Tag type="cool-gray">需 3D 模板</Tag> 卡钳、刹车盘、辐条背部间隙</p><p><Tag type="cool-gray">需实车测量</Tag> 悬挂、转向全行程、压缩空间</p></Column><Column sm={4} md={8} lg={8}><p><Tag type="cool-gray">需轮胎厂数据</Tag> 实际断面宽度、负载指数、速度级别</p><p><Tag type="cool-gray">需实车测量</Tag> 翼子板、内衬及动态间隙</p><p><Tag type="cool-gray">需车辆资料</Tag> 轴荷、载重、胎压及 TPMS</p><p><Tag type="cool-gray">需地区规则</Tag> 轮胎外径、轮距、车身突出法规</p></Column></Grid><InlineNotification kind="warning" lowContrast title="当前不能给出安全认证" subtitle="几何计算可自动完成；但未取得对应车型、刹车套件和具体轮毂型号的模板或实测间隙前，只能给出待验证建议，不会输出已安全适配。" /></Tile>
       </section>
 
-      <section aria-labelledby="product-section-title">
-        <div className="tp-fitment-section-heading">
-          <div><p className="cds--label">STEP 05 · OPTIONAL</p><h2 id="product-section-title">筛选轮毂产品</h2><p>制造商品牌仅用于缩小产品目录范围，不参与车辆几何适配计算。必须进一步匹配系列、型号及具体尺寸。</p></div>
-          <Tag type="cool-gray">可选条件</Tag>
-        </div>
-        <Tile>
-          <Grid condensed>
-            <Column sm={4} md={8} lg={8}>
-              <ComboBox
-                id="wheel-manufacturer"
-                titleText="轮毂制造商（可选）"
-                placeholder="不限定品牌，或搜索制造商"
-                items={manufacturers}
-                itemToString={(item: Manufacturer | null) => item?.name ?? ''}
-                itemToElement={(item: Manufacturer) => (
-                  <div className="tp-fitment-manufacturer-option">
-                    <img src={item.logo} alt="" width="32" height="32" onError={event => { event.currentTarget.hidden = true; }} />
-                    <span><strong>{item.name}</strong><small>{item.country}</small></span>
-                  </div>
-                )}
-                selectedItem={manufacturer}
-                onChange={({ selectedItem }) => setManufacturer(selectedItem ?? null)}
-              />
-            </Column>
-            <Column sm={4} md={8} lg={8}>
-              <p className="cds--label">筛选逻辑</p>
-              <p>{manufacturer ? '已指定制造商：' + manufacturer.name + '。后续产品目录将按车辆适配条件过滤该品牌的具体型号。' : '未限定制造商。产品目录接入后，将展示所有满足车辆规格的品牌与产品。'}</p>
-              <Button kind="ghost" size="sm" disabled={!manufacturer} onClick={() => setManufacturer(null)}>清除品牌筛选</Button>
-            </Column>
-          </Grid>
-          <InlineNotification kind="info" lowContrast title="产品目录尚未接入" subtitle="当前制造商列表仅是筛选原型。尚无可验证的品牌产品型号、尺寸库存或制造商适配认证，不会显示虚构产品。" />
-        </Tile>
-      </section>
+      <section aria-labelledby="product-section-title"><div className="tp-fitment-section-heading"><div><p className="cds--label">STEP 05 · OPTIONAL</p><h2 id="product-section-title">轮毂制造商筛选</h2><p>制造商只用于后续产品目录筛选，不作为车辆计算的前置条件。</p></div></div><Tile><ComboBox id="wheel-manufacturer" titleText="轮毂制造商（可选）" placeholder="不限定品牌，或搜索制造商" items={manufacturers} itemToString={(item: Manufacturer | null) => item?.name ?? ''} itemToElement={(item: Manufacturer) => <div className="tp-fitment-manufacturer-option"><img src={item.logo} alt="" width="28" height="28" onError={event => { event.currentTarget.style.visibility = 'hidden'; }} /><span><strong>{item.name}</strong><small>{item.country}</small></span></div>} selectedItem={manufacturer} onChange={({ selectedItem }) => setManufacturer(selectedItem ?? null)} /><Button kind="ghost" size="sm" disabled={!manufacturer} onClick={() => setManufacturer(null)}>清除制造商筛选</Button><InlineNotification kind="info" lowContrast title="具体产品目录仍需接入" subtitle="只有获得具体系列、型号、轮辋尺寸、负载额定值及卡钳模板后，才可以验证某个实际产品。" /></Tile></section>
 
-      <div className="tp-fitment-footer">
-        <p className="cds--label">DATA SOURCES / INTEGRATION ROADMAP</p>
-        <p>后续按车辆识别、OEM 规格、改装 fitment、轮胎、刹车模板分别接入数据源，并保存来源、授权、更新时间及冲突记录。</p>
-        <div className="tp-fitment-source-list">
-          <Tag type="blue">NHTSA vPIC · VIN 识别</Tag>
-          <Tag type="blue">ANKUSI · 轮毂参数候选源</Tag>
-          <Tag type="blue">AIWT · 车辆基础规格</Tag>
-          <Tag type="blue">VehDB · 轮胎数据</Tag>
-          <Tag type="blue">Wheel-Size · 专业适配数据</Tag>
-        </div>
-        <Button kind="tertiary" onClick={() => {
-          setVehicleMake(''); setVehicleModel(''); setYear(''); setTrim(''); setChassis('');
-          setMarket('global'); setManufacturer(null);
-        }}>清除车辆与产品筛选</Button>
-      </div>
+      <section className="tp-fitment-footer"><p className="cds--label">DATA PROVIDERS / ATTRIBUTION</p>{sources.map(source => <p key={source.id}><strong>{source.id}</strong> · {source.status}{source.license ? ' · ' + source.license : ''}</p>)}<p>ANKUSI Wheel Fitment Dataset — CC BY 4.0，需保留来源署名。Wheel-Size API 的车辆查询属于用户主动操作；API Key 仅保存在 Worker Secret 中。</p><p>数据更新时间及授权范围以各供应商响应和服务协议为准。原始响应保留于本次查询结果，供逐字段审查。</p></section>
     </main>
   );
 }
