@@ -37,6 +37,14 @@ export function filterAgentConnectionsByToolKeys(connections:ConnectionRow[],reg
  for(const item of registryTools){if(!item.connection_id||!item.protocol_tool_name)continue;if(selectedToolKeys&&!selectedToolKeys.has(item.tool_key))continue;const names=enabledByConnection.get(item.connection_id)??new Set<string>();names.add(item.protocol_tool_name);enabledByConnection.set(item.connection_id,names);}
  return connections.map(connection=>({...connection,protocol_tools:(connection.protocol_tools??[]).filter(tool=>enabledByConnection.get(connection.id)?.has(String(tool.name??"")))}));
 }
+type AgentSpecialist = {agentKey:string;instruction:string};
+type AgentProfileState = {agent_key:string;enabled:boolean};
+export function filterEnabledAgentSpecialists(specialists:AgentSpecialist[],profiles:AgentProfileState[],requestedAgentKey?:string):{enabled:AgentSpecialist[];skipped:string[];requestedDisabled:boolean}{
+ const enabledByKey=new Map(profiles.map(profile=>[profile.agent_key,profile.enabled]));
+ const requestedDisabled=Boolean(requestedAgentKey&&enabledByKey.get(requestedAgentKey)===false);
+ const skipped=specialists.filter(item=>enabledByKey.get(item.agentKey)===false).map(item=>item.agentKey);
+ return {enabled:specialists.filter(item=>enabledByKey.get(item.agentKey)!==false),skipped,requestedDisabled};
+}
 
 async function ownerFromRequest(request:Request,env:Env):Promise<string|null>{
   const token=request.headers.get("Authorization")?.match(/^Bearer\s+(\S+)$/i)?.[1];
@@ -1179,14 +1187,17 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
       let planner:PlannerResult|undefined;
       let connection:ConnectionRow|undefined;
       let selectedTool:Record<string,unknown>|undefined;
+      let skippedSpecialists:string[]=[];
+      let plannedSpecialists:Array<{agentKey:string;instruction:string}>=[];
       if(plannerMode){
         if(!/^[A-Z]{2}$/.test(country))return errorResponse(request,"VALIDATION_ERROR","请选择有效的目标国家。",400);
         const [availableRows,enabledRegistryTools,agentProfileRows]=await Promise.all([
           db<ConnectionRow[]>(env,"agent_connections?owner_id=eq."+ownerId+"&select=id,owner_id,name,protocol,endpoint_url,auth_mode,encrypted_credentials,capabilities,protocol_tools,protocol_metadata,status,last_tested_at,last_error,created_at,updated_at&order=created_at.desc&limit=100"),
           db<Array<{tool_key:string;connection_id:string;protocol_tool_name:string}>>(env,"agent_tool_registry?owner_id=eq."+ownerId+"&source=eq.external&enabled=eq.true&status=eq.active&risk=neq.blocked&select=tool_key,connection_id,protocol_tool_name"),
-          requestedAgentKey?db<Array<{config:Record<string,unknown>;enabled:boolean}>>(env,"agent_profiles?owner_id=eq."+ownerId+"&agent_key=eq."+requestedAgentKey+"&select=config,enabled&limit=1"):Promise.resolve([])
+          db<Array<{agent_key:string;config:Record<string,unknown>;enabled:boolean}>>(env,"agent_profiles?owner_id=eq."+ownerId+"&select=agent_key,enabled,config")
         ]);
-        const selectedToolKeys=Array.isArray(agentProfileRows?.[0]?.config?.toolKeys)?new Set(agentProfileRows[0].config.toolKeys.filter((value):value is string=>typeof value==="string")):null;
+        const requestedProfile=agentProfileRows?.find(profile=>profile.agent_key===requestedAgentKey);
+        const selectedToolKeys=Array.isArray(requestedProfile?.config?.toolKeys)?new Set(requestedProfile.config.toolKeys.filter((value):value is string=>typeof value==="string")):null;
         const available=filterAgentConnectionsByToolKeys(availableRows??[],enabledRegistryTools??[],selectedToolKeys);
         planner=await generateAgentPlan(env,ownerId,goal,country,engine,available);
         if(requestedAgentKey){
@@ -1194,6 +1205,11 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
           if(["company_research","market_research","lead_scoring","trade_compliance"].includes(requestedAgentKey)&&planner.action.type==="internal_discovery"&&!planner.specialists.some(item=>item.agentKey===requestedAgentKey))planner.specialists.unshift({agentKey:requestedAgentKey,instruction:"按照用户指定的专业角色，结合本次搜索结果和前序 Agent 分析完成专项任务。"});
           planner.specialists=planner.specialists.slice(0,3);
         }
+        plannedSpecialists=[...planner.specialists];
+        const specialistFilter=filterEnabledAgentSpecialists(plannedSpecialists,agentProfileRows??[],requestedAgentKey);
+        if(specialistFilter.requestedDisabled)return errorResponse(request,"AGENT_DISABLED","该专业 Agent 当前已停用，请先在 Agent 设置中启用后再直接调用。",409);
+        skippedSpecialists=specialistFilter.skipped;
+        planner.specialists=specialistFilter.enabled;
         if(planner.action.type==="internal_discovery"){country=planner.action.country;limit=planner.action.limitPerCountry;}
         if(planner.action.type==="external_tool"){
           const externalAction=planner.action;
@@ -1215,11 +1231,11 @@ export async function handleAgentCenter(request:Request,env:Env):Promise<Respons
       const taskCode="AGENT-"+new Date().toISOString().slice(0,10).replace(/-/g,"")+"-"+runId.replace(/-/g,"").slice(0,6).toUpperCase();
       const initialStatus=internalSearch||actionType==="external_tool"?"queued":"planned";
       const agentKey=requestedAgentKey||planner?.agentKey||"buyer_development";
-      const plan={planner:{summary:planner?.summary??"直接执行用户指定的买家发现任务。",steps:planner?.steps??["启动 TradePilot 原生买家发现搜索"],model:planner?.model??"manual",fallback:planner?.fallback??false},execution_state:initialStatus,action:planner?.action??{type:"internal_discovery",country,searchEngine:engine,limitPerCountry:limit},specialists:planner?.specialists??[],execution_steps:[...(internalSearch?[{agentKey:"buyer_development",title:"全球买家发现",status:"queued"}]:[]),...(planner?.specialists??[]).map(s=>({agentKey:s.agentKey,title:s.agentKey,instruction:s.instruction,status:"queued"}))],policy:{search_and_analysis:"automatic",send_email:"approval_required",bulk_import:"approval_required"}};
+      const plan={planner:{summary:planner?.summary??"直接执行用户指定的买家发现任务。",steps:planner?.steps??["启动 TradePilot 原生买家发现搜索"],model:planner?.model??"manual",fallback:planner?.fallback??false},execution_state:initialStatus,action:planner?.action??{type:"internal_discovery",country,searchEngine:engine,limitPerCountry:limit},specialists:planner?.specialists??[],skipped_specialists:skippedSpecialists,execution_steps:[...(internalSearch?[{agentKey:"buyer_development",title:"全球买家发现",status:"queued"}]:[]),...plannedSpecialists.map(s=>({agentKey:s.agentKey,title:s.agentKey,instruction:s.instruction,status:skippedSpecialists.includes(s.agentKey)?"skipped":"queued",...(skippedSpecialists.includes(s.agentKey)?{skipReason:"agent_disabled"}:{})}))],policy:{search_and_analysis:"automatic",send_email:"approval_required",bulk_import:"approval_required"}};
       const rows=await db<Array<{id:string;agent_key:string;goal:string;status:string;created_at:string}>>(env,"agent_runs",{method:"POST",headers:{Prefer:"return=representation"},body:JSON.stringify({id:runId,owner_id:ownerId,agent_key:agentKey,goal,status:initialStatus,plan,connection_id:connection?.id??null})});
       const run=rows?.[0];if(!run)return errorResponse(request,"RUN_CREATE_FAILED","Agent 任务创建失败。",500);
       try{
-        const userMessage=planner?.summary??(internalSearch?"TradePilot 买家开发 Agent 已启动原生搜索工作流。":"Agent 任务已创建。");
+        const userMessage=(planner?.summary??(internalSearch?"TradePilot 买家开发 Agent 已启动原生搜索工作流。":"Agent 任务已创建。"))+(skippedSpecialists.length?"；已跳过停用的专业 Agent："+skippedSpecialists.join("、"):"");
         await db(env,"discovery_runs",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({id:runId,owner_id:ownerId,query:goal,countries:internalSearch?[country]:["GLOBAL"],limit_per_country:internalSearch?limit:1,status:initialStatus,progress:0,discovered_count:0,created_lead_count:0,message:userMessage,task_code:taskCode,channel:"agent",providers:internalSearch?[engine]:connection?[connection.protocol]:["agent"],search_config:{...(internalSearch?{searchEngine:engine,searchTypes:["web"],searchLanguage:"en"}:{}),agentKey,planner:plan.planner}})});
         await db(env,"discovery_run_logs",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({run_id:runId,owner_id:ownerId,level:"info",message:"Agent 规划完成："+userMessage,payload:{agentKey,steps:plan.planner.steps,actionType}})});
         await db(env,"agent_run_events",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({owner_id:ownerId,run_id:runId,event_type:"plan_created",message:"Agent 已自动选择专业角色并生成执行方案。",payload:{agentKey,steps:plan.planner.steps,actionType,model:plan.planner.model}})});
