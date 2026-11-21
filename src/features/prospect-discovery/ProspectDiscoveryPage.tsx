@@ -95,10 +95,6 @@ export function ProspectDiscoveryPage() {
     scoring.total,
   ]);
 
-  const goToStage = (stage: number) => {
-    setActiveStage(stage);
-    if (stage === 0 && configSubstep === 1 && !selectedSourceCount) setConfigSubstep(0);
-  };
 
   return (
     <main className="tp-prospect-discovery">
