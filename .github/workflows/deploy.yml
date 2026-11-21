@@ -1,0 +1,93 @@
+
+name: Deploy TradePilot Worker
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_confirmation:
+        description: "Production release approval"
+        required: true
+        type: choice
+        options:
+          - hold
+          - approved
+        default: hold
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tradepilot-production-deploy
+  cancel-in-progress: false
+
+jobs:
+  validate-and-deploy:
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tradepilot_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d tradepilot_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout exact develop commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate trade lifecycle migrations
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: tradepilot_test
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+          bash scripts/test-trade-lifecycle-migrations.sh
+
+      - name: Validate private ClamAV scanner
+        run: |
+          node --check services/inbox-scanner/server.mjs
+          node --test services/inbox-scanner/server.test.mjs
+          SCANNER_HMAC_SECRET=$(printf 'a%.0s' {1..64}) docker compose -f services/inbox-scanner/docker-compose.yml config --quiet
+
+      - name: Run server-side guardrail tests
+        run: npm run test:guardrails
+
+      - name: Build frontend and validate Worker
+        run: npm run build && npm run worker:validate
+
+      - name: Deploy production Worker
+        if: inputs.release_confirmation == 'approved'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ea4e98dce9c478d7dd5c07f10e5c722d
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::Missing CLOUDFLARE_API_TOKEN"
+            exit 1
+          fi
+          npm run worker:deploy
+
+      - name: Confirm deployment held
+        if: inputs.release_confirmation != 'approved'
+        run: echo "Validation completed. Production deployment held."
