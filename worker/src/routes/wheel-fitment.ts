@@ -3,6 +3,8 @@ import { readIntegrationSecret } from "../lib/integrations";
 
 export interface WheelFitmentEnv {
   WHEELSIZE_API_KEY?: string;
+  SUPABASE_URL: string;
+  SUPABASE_SERVICE_ROLE_KEY: string;
 }
 
 const ANKUSI = "https://ankusiwheels.com/wp-json/ankusi/v1";
@@ -33,9 +35,14 @@ function withQuery(base: string, values: Record<string, string | undefined>): st
   return url.toString();
 }
 
+async function wheelSizeKey(env: WheelFitmentEnv): Promise<string> {
+  return await readIntegrationSecret(env, "tradepilot_api_wheel_size", "WHEELSIZE_API_KEY");
+}
+
 async function wheelSize(path: string, params: Record<string, string | undefined>, env: WheelFitmentEnv): Promise<unknown | null> {
-  if (!env.WHEELSIZE_API_KEY) return null;
-  return await getJson(withQuery(WHEEL_SIZE + path, { ...params, user_key: env.WHEELSIZE_API_KEY }));
+  const key = await wheelSizeKey(env);
+  if (!key) return null;
+  return await getJson(withQuery(WHEEL_SIZE + path, { ...params, user_key: key }));
 }
 
 async function ankusi(path: string, params: Record<string, string | undefined> = {}): Promise<unknown | null> {
@@ -75,6 +82,7 @@ async function catalog(request: Request, env: WheelFitmentEnv, kind: string): Pr
   const modification = text(url.searchParams.get("modification"));
 
   try {
+    const hasWheelSizeKey = Boolean(await wheelSizeKey(env));
     if (kind === "makes") {
       const [ws, ank] = await Promise.allSettled([
         wheelSize("/makes/", { region }, env),
@@ -119,7 +127,7 @@ async function catalog(request: Request, env: WheelFitmentEnv, kind: string): Pr
         items,
         raw: { wheelSize: wsData, ankusi: ankData },
         sources: [
-          { id: "wheel-size", status: wsData ? "available" : env.WHEELSIZE_API_KEY ? "error" : "not_configured" },
+          { id: "wheel-size", status: wsData ? "available" : hasWheelSizeKey ? "error" : "not_configured" },
           { id: "ankusi", status: ankData ? "available" : "not_available_for_this_dimension", license: "CC BY 4.0" },
         ],
       });
