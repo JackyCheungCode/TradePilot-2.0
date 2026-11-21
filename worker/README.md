@@ -1,4 +1,4 @@
-# TradePilot Worker
+# Harmonia Worker Runtime
 
 This directory contains the TypeScript source recovered from the currently deployed Cloudflare Worker named `tradepilot`.
 
