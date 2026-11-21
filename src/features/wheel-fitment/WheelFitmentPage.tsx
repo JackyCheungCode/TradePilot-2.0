@@ -168,6 +168,17 @@ export function WheelFitmentPage() {
     const result = await load('vin', { vin: vin.trim() });
     if (result) setVinResult(result.raw ?? result);
   };
+  const selectBaseline = (item: FitmentRecord) => {
+    setSelectedRecord(item.id);
+    const wheelText = String(item.record.oe_wheel ?? item.record.oem_rim ?? recordStrings(item.record).find(value => /\\d{1,2}(?:\\.\\d)?\\s*[x×]\\s*\\d+(?:\\.\\d)?J?/i.test(value)) ?? '');
+    const parsed = wheelSpec(wheelText);
+    if (parsed) {
+      setFrontOldWidth(parsed.width); setFrontOldEt(parsed.et);
+      setRearOldWidth(parsed.width); setRearOldEt(parsed.et);
+    }
+    const tireText = String(item.record.oe_tire ?? item.record.oem_tire ?? recordStrings(item.record).find(value => /\\d{3}\\/\\d{2}R\\d{2}/i.test(value)) ?? '');
+    if (/^\\d{3}\\/\\d{2}R\\d{2}$/i.test(tireText.trim())) setOldTire(tireText.trim());
+  };
 
   const selected = records.find(item => item.id === selectedRecord) ?? null;
   const selectedStrings = selected ? recordStrings(selected.record) : [];
@@ -234,7 +245,7 @@ export function WheelFitmentPage() {
                 <p><strong>中心孔：</strong>{String(item.record.technical && (item.record.technical as Record<string, unknown>).center_bore || item.record.center_bore_mm || '未提供')} mm</p>
                 <p><strong>原厂轮毂：</strong>{String(item.record.oe_wheel ?? '请展开查看完整 OE 数据')}</p>
                 <p><strong>参考改装：</strong>{String(item.record.flush_wheel ?? item.record.max_wheel ?? '未提供')}</p>
-                <Button kind={selectedRecord === item.id ? 'primary' : 'tertiary'} size="sm" onClick={() => setSelectedRecord(item.id)}>{selectedRecord === item.id ? '已选为计算基准' : '选择此记录为计算基准'}</Button>
+                <Button kind={selectedRecord === item.id ? 'primary' : 'tertiary'} size="sm" onClick={() => selectBaseline(item)}>{selectedRecord === item.id ? '已选为计算基准' : '选择此记录为计算基准'}</Button>
                 <details><summary>查看该条 API 完整字段</summary><pre className="tp-fitment-json">{JSON.stringify(item.record, null, 2)}</pre></details>
               </Tile>
             </Column>)}
