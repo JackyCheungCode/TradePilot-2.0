@@ -11,7 +11,10 @@ create table if not exists public.record_activities (
   created_by uuid references auth.users(id) on delete set null,
   edited_at timestamptz,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  unique (id, owner_id),
+  constraint record_activities_parent_owner_fk foreign key (parent_activity_id, owner_id)
+    references public.record_activities(id, owner_id) on delete restrict
 );
 
 create table if not exists public.record_activity_tasks (
@@ -53,7 +56,9 @@ create table if not exists public.record_activity_attachments (
   file_size bigint check (file_size is null or file_size >= 0),
   uploaded_by uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default now(),
-  unique (owner_id, storage_bucket, storage_path)
+  unique (owner_id, storage_bucket, storage_path),
+  constraint record_activity_attachments_owner_fk foreign key (activity_id, owner_id)
+    references public.record_activities(id, owner_id) on delete cascade
 );
 
 create table if not exists public.record_audit_events (
@@ -72,6 +77,7 @@ create index if not exists record_activities_record_idx on public.record_activit
 create index if not exists record_activities_owner_idx on public.record_activities(owner_id, created_at desc);
 create index if not exists record_activity_tasks_record_idx on public.record_activity_tasks(owner_id, record_type, record_id, status, due_at);
 create index if not exists record_activity_tasks_assignee_idx on public.record_activity_tasks(owner_id, assigned_to, status, due_at);
+create index if not exists record_activity_attachments_activity_idx on public.record_activity_attachments(owner_id, activity_id, created_at desc);
 create index if not exists record_followers_user_idx on public.record_followers(owner_id, user_id, created_at desc);
 create index if not exists record_audit_events_record_idx on public.record_audit_events(owner_id, record_type, record_id, created_at desc);
 create index if not exists record_audit_events_owner_idx on public.record_audit_events(owner_id, created_at desc);

@@ -166,6 +166,17 @@ begin
   update public.trade_documents
   set status='issued',content=jsonb_build_object('quote_status','sent')
   where id=quote_id;
+  if not exists(select 1 from public.record_audit_events where owner_id=owner_a and record_type='trade_documents' and record_id=quote_id and event_type='created') then
+    raise exception 'Generic record audit did not capture quotation creation';
+  end if;
+  if not exists(select 1 from public.record_audit_events where owner_id=owner_a and record_type='trade_documents' and record_id=quote_id and event_type='updated'
+    and field_changes->'status'->>'old'='draft' and field_changes->'status'->>'new'='issued') then
+    raise exception 'Generic record audit did not capture field-level quotation changes';
+  end if;
+  if has_table_privilege('authenticated','public.record_audit_events','UPDATE')
+    or has_table_privilege('authenticated','public.record_audit_events','DELETE') then
+    raise exception 'Authenticated users must not be able to mutate immutable audit events';
+  end if;
   if not exists(select 1 from public.business_transition_events where record_id=quote_id and event_type='quote_created') then
     raise exception 'Quote creation event was not captured';
   end if;
