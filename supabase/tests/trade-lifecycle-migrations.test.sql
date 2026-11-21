@@ -32,6 +32,23 @@ begin
   select count(*) into event_count from public.business_transition_events
   where owner_id=owner_a and record_type='shipment' and record_id=shipment_id and event_type='shipment_created';
   if event_count <> 1 then raise exception 'Shipment creation event was not captured'; end if;
+
+  if has_function_privilege('authenticated','public.confirm_trade_payment(uuid)','EXECUTE') is false
+     or has_function_privilege('anon','public.confirm_trade_payment(uuid)','EXECUTE') then
+    raise exception 'Payment confirmation RPC grants are incorrect';
+  end if;
+  if has_function_privilege('authenticated','public.void_trade_payment(uuid,text)','EXECUTE') is false
+     or has_function_privilege('anon','public.void_trade_payment(uuid,text)','EXECUTE') then
+    raise exception 'Payment void RPC grants are incorrect';
+  end if;
+  if has_function_privilege('authenticated','public.allocate_confirmed_trade_payment(uuid,jsonb)','EXECUTE') is false
+     or has_function_privilege('anon','public.allocate_confirmed_trade_payment(uuid,jsonb)','EXECUTE') then
+    raise exception 'Payment allocation RPC grants are incorrect';
+  end if;
+  if has_function_privilege('authenticated','public.create_formal_lead(jsonb)','EXECUTE') is false
+     or has_function_privilege('anon','public.create_formal_lead(jsonb)','EXECUTE') then
+    raise exception 'Formal lead creation RPC grants are incorrect';
+  end if;
   if not has_function_privilege('authenticated','public.next_trade_document_number(uuid,text,integer)','EXECUTE') then raise exception 'Authenticated role cannot allocate document numbers'; end if;
   if has_function_privilege('anon','public.next_trade_document_number(uuid,text,integer)','EXECUTE') then raise exception 'Anonymous role can allocate document numbers'; end if;
 
