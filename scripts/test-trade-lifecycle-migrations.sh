@@ -15,6 +15,7 @@ migrations=(
   20261116050110_capture_quote_issue_lifecycle_event.sql
   20261121043400_create_global_activity_audit_system.sql
   20261121044356_harden_activity_foreign_key_indexes.sql
+  20261121050347_restore_atomic_shipment_lifecycle.sql
 )
 
 for migration in "${migrations[@]}"; do
