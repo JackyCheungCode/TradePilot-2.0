@@ -261,6 +261,15 @@ create table public."leads" (
   "lead_number" text default ('LD-'::text || upper(substr(replace((gen_random_uuid())::text, '-'::text, ''::text), 1, 10))) not null,
   "profile" jsonb default '{}'::jsonb not null
 );
+create table public."trade_document_events" (
+  "id" uuid default gen_random_uuid() not null,
+  "owner_id" uuid not null,
+  "document_id" uuid,
+  "order_id" uuid,
+  "event_type" text not null,
+  "payload" jsonb default '{}'::jsonb not null,
+  "created_at" timestamp with time zone default now() not null
+);
 create table public."trade_documents" (
   "id" uuid default gen_random_uuid() not null,
   "owner_id" uuid not null,
