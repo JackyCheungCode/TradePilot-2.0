@@ -41,7 +41,7 @@ function Scene({ id, sources }: { id: string; sources: Source[] }) {
       <div className="tp-digital-twin__scan" />
       <div className="tp-digital-twin__source-orbit">
         {sources.slice(0, 8).map((source, index) => (
-          <span className="tp-digital-twin__source-logo" key={source.id} style={{ '--source-index': index } as CSSProperties}>
+          <span className="tp-digital-twin__source-logo" key={source.id} style={{ '--source-left': ((index - 3.5) * 1.55) + 'rem', '--source-top': (index % 2 ? 'calc(50% - 2.5rem)' : 'calc(50% - 3.2rem)'), animationDelay: (index * -180) + 'ms' } as CSSProperties}>
             {directLogos[source.id]
               ? <img src={'/platform-logos/' + directLogos[source.id]} alt={source.name} />
               : <b>{source.name.slice(0, 2).toUpperCase()}</b>}
