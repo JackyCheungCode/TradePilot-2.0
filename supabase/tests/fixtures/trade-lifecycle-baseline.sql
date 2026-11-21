@@ -3,6 +3,7 @@
 -- No production records, credentials, RLS policies, or production migration history are included.
 create extension if not exists pgcrypto;
 create schema if not exists auth;
+create table if not exists auth.users (id uuid primary key);
 do $$ begin create role anon nologin; exception when duplicate_object then null; end $$;
 do $$ begin create role authenticated nologin; exception when duplicate_object then null; end $$;
 do $$ begin create role service_role nologin bypassrls; exception when duplicate_object then null; end $$;

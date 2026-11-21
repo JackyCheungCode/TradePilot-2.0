@@ -17,6 +17,7 @@ declare
   event_count integer;
   error_message text;
 begin
+  insert into auth.users(id) values(owner_a),(owner_b) on conflict do nothing;
   perform set_config('request.jwt.claim.sub', owner_a::text, true);
   perform set_config('request.jwt.claims', jsonb_build_object('sub',owner_a,'role','authenticated','aal','aal2')::text, true);
 
