@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - feature/omnichannel-inbox
-      - develop
     paths:
       - "src/**"
       - "worker/**"
@@ -36,7 +35,7 @@ jobs:
       - name: Checkout feature branch
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: feature/omnichannel-inbox
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
