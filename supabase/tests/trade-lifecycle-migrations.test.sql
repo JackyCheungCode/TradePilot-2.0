@@ -68,6 +68,29 @@ begin
   ) then
     raise exception 'Trigger-only SECURITY DEFINER functions must not be exposed as RPC endpoints';
   end if;
+  if exists (
+    select 1 from pg_indexes
+    where (tablename,indexname) in (
+      ('crm_opportunity_setting_items','crm_opportunity_setting_items_owner_type_idx'),
+      ('discovery_records','discovery_records_entity_owner_idx'),
+      ('leads','leads_entity_owner_idx'),
+      ('trade_products','trade_products_owner_category_idx')
+    )
+  ) then
+    raise exception 'Duplicate index cleanup migration did not remove redundant indexes';
+  end if;
+  if exists (
+    select 1 from pg_policies
+    where schemaname='public'
+      and (
+        (tablename='agent_tool_registry' and policyname='agent_tool_registry_owner_read' and qual not ilike '%SELECT auth.uid%')
+        or (tablename='actor_registry' and policyname='actor_registry_owner_all' and (qual not ilike '%SELECT auth.uid%' or with_check not ilike '%SELECT auth.uid%'))
+        or (tablename='actor_schema_versions' and policyname='actor_schema_versions_owner_all' and (qual not ilike '%SELECT auth.uid%' or with_check not ilike '%SELECT auth.uid%'))
+        or (tablename='actor_raw_records' and policyname='actor_raw_records_owner_all' and (qual not ilike '%SELECT auth.uid%' or with_check not ilike '%SELECT auth.uid%'))
+      )
+  ) then
+    raise exception 'Actor RLS owner policies were not optimized with initplan-safe auth.uid calls';
+  end if;
   insert into auth.users(id) values(owner_a),(owner_b) on conflict do nothing;
   perform set_config('request.jwt.claim.sub', owner_a::text, true);
   perform set_config('request.jwt.claims', jsonb_build_object('sub',owner_a,'role','authenticated','aal','aal2')::text, true);
