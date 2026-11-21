@@ -15,10 +15,10 @@ type Lead = {
   address?: string; phone?: string; runId?: string; confidence?: number; reviewed?: boolean; guardrailReview?: boolean; duplicateReview?: boolean;
   status: 'pending' | 'scored'; score?: number; fit?: number; persona?: number; scale?: number; intent?: number; comment?: string;
 };
-type Props = { onContinueToEnrichment: () => void };
+type Props = { onContinueToEnrichment: () => void; onTelemetry?: (snapshot: { total: number; scored: number; loading: boolean }) => void };
 
 
-export function ScoringStep({ onContinueToEnrichment }: Props) {
+export function ScoringStep({ onContinueToEnrichment, onTelemetry }: Props) {
   const [rows, setRows] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -97,6 +97,7 @@ export function ScoringStep({ onContinueToEnrichment }: Props) {
   const selectedRows = rows.filter(row => selected.includes(row.id));
   const sourceOptions = useMemo(() => [...new Set(rows.map(row => row.source).filter(Boolean))], [rows]);
   const scoredCount = rows.filter(row => row.status === 'scored').length;
+  useEffect(() => { onTelemetry?.({ total: rows.length, scored: scoredCount, loading }); }, [rows.length, scoredCount, loading, onTelemetry]);
   const toggleOne = (id: string) => setSelected(current => current.includes(id) ? current.filter(value => value !== id) : [...current, id]);
   const togglePage = () => setSelected(current => visible.every(row => current.includes(row.id))
     ? current.filter(id => !visible.some(row => row.id === id))

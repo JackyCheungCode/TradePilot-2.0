@@ -19,6 +19,7 @@ type Props = {
   onEditStep: (step: number) => void;
   onContinueToScoring: (recordIds: string[]) => void;
   planTaskCode: string;
+  onTelemetry?: (snapshot: { status: 'idle' | 'running' | 'completed' | 'failed'; progress: number; captured: number; runCount: number; recordCount: number }) => void;
 };
 
 const nowTime = () => new Date().toLocaleTimeString('en-GB', { hour12: false });
@@ -49,7 +50,7 @@ async function getAccessToken() {
   return data.session.access_token;
 }
 
-export function ExecutionStep({ sources, actorParameters = {}, onContinueToScoring, planTaskCode }: Props) {
+export function ExecutionStep({ sources, actorParameters = {}, onContinueToScoring, planTaskCode, onTelemetry }: Props) {
   const channels = useMemo(() => sources, [sources]);
   const [status, setStatus] = useState<'idle' | 'running' | 'completed' | 'failed'>('idle');
   const [progress, setProgress] = useState(0);
@@ -69,6 +70,10 @@ export function ExecutionStep({ sources, actorParameters = {}, onContinueToScori
   const [schemaSaveStatus, setSchemaSaveStatus] = useState<'idle' | 'saved' | 'partial' | 'failed'>('idle');
   const [schemaSaveMessage, setSchemaSaveMessage] = useState('');
   const appendLog = (message: string) => setLogs(current => [...current.slice(-79), '[' + nowTime() + '] ' + message]);
+
+  useEffect(() => {
+    onTelemetry?.({ status, progress, captured, runCount: runs.length, recordCount: recordIds.length });
+  }, [status, progress, captured, runs.length, recordIds.length, onTelemetry]);
   const runStorageKey = 'tradepilot.prospectDiscovery.runs.' + planTaskCode;
   const actorPlans = Array.isArray(actorParameters.actors) ? actorParameters.actors as Array<Record<string, unknown>> : [];
   const enabledActorPlans = actorPlans.filter(actor =>

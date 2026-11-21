@@ -65,7 +65,9 @@ function mapRecord(record: Record<string, unknown>): ContactRow {
   };
 }
 
-export function DecisionMakerStep() {
+type DecisionMakerTelemetry = { total: number; enriched: number; synced: number; running: boolean; progress: number };
+
+export function DecisionMakerStep({ onTelemetry }: { onTelemetry?: (snapshot: DecisionMakerTelemetry) => void }) {
   const [rows, setRows] = useState<ContactRow[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [selectedCandidateKeys, setSelectedCandidateKeys] = useState<Record<string, string[]>>({});
@@ -220,6 +222,9 @@ export function DecisionMakerStep() {
   };
 
   const selectedCandidateCount = selectedRows.reduce((sum, row) => sum + (selectedCandidateKeys[row.id] ?? []).length, 0);
+  const enrichedCount = rows.filter(row => row.enrichment === 'complete').length;
+  const syncedCount = rows.filter(row => row.crm === 'synced').length;
+  useEffect(() => { onTelemetry?.({ total: rows.length, enriched: enrichedCount, synced: syncedCount, running, progress }); }, [rows.length, enrichedCount, syncedCount, running, progress, onTelemetry]);
   const allReady = rows.some(row => row.enrichment === 'complete' && row.candidateCount > 0);
   const emailTag = (row: ContactRow) => row.email
     ? <Tag type={row.emailStatus === 'valid' ? 'green' : 'warm-gray'}>{row.emailStatus === 'valid' ? '已验证' : '待核验'}</Tag>
