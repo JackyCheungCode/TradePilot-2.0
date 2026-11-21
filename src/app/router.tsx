@@ -32,7 +32,6 @@ import { DocumentCompanyProfilePage } from '../features/documents/DocumentCompan
 import { CommunicationPage } from '../features/communications/CommunicationPage';
 import { HelpCenterPage } from '../features/help/HelpCenterPage';
 import { NotFoundPage } from '../features/not-found/NotFoundPage';
-import { WheelFitmentPage } from '../features/wheel-fitment/WheelFitmentPage';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -88,7 +87,6 @@ export const router = createBrowserRouter([
           { path: 'products/:id/edit', element: <ProductFormPage /> },
           { path: 'products/:id', element: <ProductDetailPage /> },
           { path: 'trade-tools', element: <TradeToolsHubPage /> },
-          { path: 'wheel-fitment', element: <WheelFitmentPage /> },
           { path: 'trade-tools/legacy', element: <TradeToolsPage /> },
           { path: 'settings', element: <SettingsCenterPage /> },
           { path: 'personal-settings', element: <PersonalSettingsPage /> },
