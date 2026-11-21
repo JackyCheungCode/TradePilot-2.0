@@ -2,6 +2,7 @@
 set -euo pipefail
 
 psql -v ON_ERROR_STOP=1 -f supabase/tests/fixtures/trade-lifecycle-baseline.sql
+psql -v ON_ERROR_STOP=1 -f supabase/tests/fixtures/actor-index-baseline.sql
 
 migrations=(
   20261121043400_create_global_activity_audit_system.sql
@@ -18,6 +19,7 @@ migrations=(
   20261121053701_restore_atomic_customer_contact_lifecycle.sql
   20261121053734_restore_atomic_sales_order_lifecycle.sql
   20261121064642_revoke_public_execute_from_trigger_only_definer_functions.sql
+  20261121064909_deduplicate_indexes_and_optimize_actor_rls_policies.sql
 )
 
 for migration in "${migrations[@]}"; do
