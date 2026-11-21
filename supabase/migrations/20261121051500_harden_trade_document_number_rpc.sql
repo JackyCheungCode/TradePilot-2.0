@@ -38,3 +38,18 @@ $function$;
 
 revoke all on function public.next_trade_document_number(uuid,text,integer) from public, anon;
 grant execute on function public.next_trade_document_number(uuid,text,integer) to authenticated, service_role;
+
+-- RPCs that mutate financial or CRM records must never be callable by anonymous clients.
+alter function public.confirm_trade_payment(uuid) set search_path = '';
+alter function public.void_trade_payment(uuid,text) set search_path = '';
+alter function public.allocate_confirmed_trade_payment(uuid,jsonb) set search_path = '';
+alter function public.create_formal_lead(jsonb) set search_path = '';
+
+revoke all on function public.confirm_trade_payment(uuid) from public, anon;
+revoke all on function public.void_trade_payment(uuid,text) from public, anon;
+revoke all on function public.allocate_confirmed_trade_payment(uuid,jsonb) from public, anon;
+revoke all on function public.create_formal_lead(jsonb) from public, anon;
+grant execute on function public.confirm_trade_payment(uuid) to authenticated, service_role;
+grant execute on function public.void_trade_payment(uuid,text) to authenticated, service_role;
+grant execute on function public.allocate_confirmed_trade_payment(uuid,jsonb) to authenticated, service_role;
+grant execute on function public.create_formal_lead(jsonb) to authenticated, service_role;
