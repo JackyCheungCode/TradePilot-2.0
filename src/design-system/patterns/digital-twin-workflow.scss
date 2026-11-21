@@ -240,8 +240,8 @@
   &__source-orbit { position: absolute; inset: 0; transform-style: preserve-3d; pointer-events: none; }
   &__source-logo {
     position: absolute;
-    left: calc(50% + var(--source-left));
-    top: var(--source-top);
+    left: 50%;
+    top: 50%;
     display: grid;
     place-items: center;
     width: 1.35rem;
@@ -291,7 +291,8 @@
   &__viewport-canvas { position: relative; min-height: 20rem; display: grid; place-items: center; overflow: hidden; perspective: 1000px; background: radial-gradient(ellipse at 50% 72%, var(--cds-layer-03), var(--cds-layer-01) 72%); cursor: grab; touch-action: pan-y; }
   &__viewport-canvas:active { cursor: grabbing; }
   &__viewport-grid { position: absolute; inset: 18% 4% 0; opacity: .28; background-image: linear-gradient(var(--cds-border-subtle-01) 1px, transparent 1px), linear-gradient(90deg, var(--cds-border-subtle-01) 1px, transparent 1px); background-size: 28px 28px; transform: perspective(380px) rotateX(62deg) scale(1.3); transform-origin: center bottom; }
-  &__viewport-model { position: relative; width: min(92%, 62rem); height: 15rem; transform-style: preserve-3d; transition: transform 160ms ease-out; }
+  &__viewport-model { position: relative; width: min(92%, 62rem); height: 15rem; transform-style: preserve-3d; }
+  &__viewport-rotate-x, &__viewport-rotate-y, &__viewport-model-scale { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; transition: transform 160ms ease-out; }
   &__viewport-platforms { position: absolute; left: 0; top: -1.3rem; display: flex; flex-wrap: wrap; gap: 5px; max-width: 100%; }
   &__viewport-platforms > span { display: inline-flex; align-items: center; gap: 4px; padding: 3px 6px; border-radius: 2px; background: var(--cds-layer); color: var(--cds-text-secondary); box-shadow: 0 2px 5px rgba(0, 25, 55, .1); @include type-style('legal-01'); }
   &__viewport-platforms img, &__viewport-platforms svg { width: 13px; height: 13px; object-fit: contain; flex: 0 0 13px; }
@@ -337,4 +338,35 @@
 @media (prefers-reduced-motion: reduce) {
   .tp-digital-twin__source-logo, .tp-digital-twin__scrape-beam { animation: none; }
   .tp-digital-twin__viewport-model, .tp-digital-twin__machine-stage { transition: none; }
+}
+
+.tp-digital-twin {
+  &__source-logo--1 { left: 18%; top: 19%; animation-delay: -.2s; }
+  &__source-logo--2 { left: 34%; top: 5%; animation-delay: -.4s; }
+  &__source-logo--3 { left: 55%; top: 4%; animation-delay: -.6s; }
+  &__source-logo--4 { left: 75%; top: 19%; animation-delay: -.8s; }
+  &__source-logo--5 { left: 16%; top: 68%; animation-delay: -1s; }
+  &__source-logo--6 { left: 35%; top: 82%; animation-delay: -1.2s; }
+  &__source-logo--7 { left: 60%; top: 82%; animation-delay: -1.4s; }
+  &__source-logo--8 { left: 79%; top: 65%; animation-delay: -1.6s; }
+  &__node-progress--0 i { width: 0%; }
+  &__node-progress--10 i { width: 10%; }
+  &__node-progress--20 i { width: 20%; }
+  &__node-progress--30 i { width: 30%; }
+  &__node-progress--40 i { width: 40%; }
+  &__node-progress--50 i { width: 50%; }
+  &__node-progress--60 i { width: 60%; }
+  &__node-progress--70 i { width: 70%; }
+  &__node-progress--80 i { width: 80%; }
+  &__node-progress--90 i { width: 90%; }
+  &__node-progress--100 i { width: 100%; }
+}
+@for $x from -2 through 6 {
+  .tp-digital-twin__viewport-rotate-x[data-rotate-x="#{$x}"] { transform: rotateX(#{$x * 6}deg); }
+}
+@for $y from -6 through 6 {
+  .tp-digital-twin__viewport-rotate-y[data-rotate-y="#{$y}"] { transform: rotateY(#{$y * 6}deg); }
+}
+@each $zoom in (75, 80, 90, 100, 110, 120, 130, 140, 150) {
+  .tp-digital-twin__viewport-model-scale--zoom-#{$zoom} { transform: scale($zoom * .01); }
 }
