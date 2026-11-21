@@ -5,7 +5,7 @@ psql -v ON_ERROR_STOP=1 -f supabase/tests/fixtures/trade-lifecycle-baseline.sql
 
 migrations=(
   20261116050030_atomic_shipment_lifecycle.sql
-  20261116050040_capture_payment_lifecycle_events.sql
+  20261121052901_capture_payment_lifecycle_events.sql
   20261116050050_atomic_prospect_lifecycle.sql
   20261116050060_atomic_prospect_contact_enrichment.sql
   20261116050070_capture_quote_order_created_events.sql
