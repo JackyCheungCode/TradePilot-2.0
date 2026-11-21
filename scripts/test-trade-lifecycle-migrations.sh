@@ -14,6 +14,7 @@ migrations=(
   20261116050100_capture_opportunity_created_event.sql
   20261116050110_capture_quote_issue_lifecycle_event.sql
   20261121043400_create_global_activity_audit_system.sql
+  20261121044100_harden_activity_foreign_key_indexes.sql
 )
 
 for migration in "${migrations[@]}"; do

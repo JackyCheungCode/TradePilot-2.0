@@ -174,6 +174,13 @@ begin
     and field_changes->'status'->>'old'='draft' and field_changes->'status'->>'new'='issued') then
     raise exception 'Generic record audit did not capture field-level quotation changes';
   end if;
+  if not exists(select 1 from pg_indexes where schemaname='public' and indexname='record_activities_parent_owner_fk_idx')
+    or not exists(select 1 from pg_indexes where schemaname='public' and indexname='record_activity_attachments_owner_fk_idx')
+    or not exists(select 1 from pg_indexes where schemaname='public' and indexname='record_activity_tasks_assigned_to_idx')
+    or not exists(select 1 from pg_indexes where schemaname='public' and indexname='record_audit_events_actor_id_idx')
+    or not exists(select 1 from pg_indexes where schemaname='public' and indexname='record_followers_user_id_idx') then
+    raise exception 'Activity foreign-key indexes are missing';
+  end if;
   if has_table_privilege('authenticated','public.record_audit_events','UPDATE')
     or has_table_privilege('authenticated','public.record_audit_events','DELETE') then
     raise exception 'Authenticated users must not be able to mutate immutable audit events';
