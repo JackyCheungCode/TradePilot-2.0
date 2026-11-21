@@ -29,12 +29,15 @@ import {
   TableToolbarSearch,
   Tag,
 } from '@carbon/react';
+import { Activity } from '@carbon/icons-react';
 import { SidePanel } from '@carbon/ibm-products';
 import { isValidElement, useEffect, useMemo, useRef, useState } from 'react';
 import { getSupabaseClient } from '@/lib/supabase';
 import type { TpBatchAction, TpDataTableProps } from './TpDataTable.types';
 import './TpDataTable.scss';
 import { TPInlineLoading } from '../TPInlineLoading';
+
+const activityRoutes: Record<string,string> = { 'crm-accounts':'/accounts', 'crm-contacts':'/contacts', opportunities:'/opportunities', 'sales-quotes':'/quotes', 'sales-orders':'/sales-orders', 'logistics-shipments':'/shipments', 'finance-payments':'/payments', 'catalog-products':'/products' };
 
 function flattenExportValue(value: unknown): string {
   if (value === null || value === undefined) return '';
@@ -312,10 +315,12 @@ export function TpDataTable<T extends Record<string, unknown>>({
       return ai - bi;
     }).map((column) => column.key);
   }, [columns, columnPreferences]);
+  const activityRoute = columnSettingsKey ? activityRoutes[columnSettingsKey] : undefined;
   const headers = useMemo(() => [
     ...visibleColumns.map((column) => ({ key: column.key, header: column.header, isSortable: column.sortable !== false && (!pagination?.serverSide || Boolean(onSortChange)) })),
+    ...(activityRoute ? [{ key: '__activity', header: '活动' }] : []),
     ...(rowActions.length ? [{ key: '__actions', header: '操作' }] : []),
-  ], [visibleColumns, rowActions.length, pagination?.serverSide, onSortChange]);
+  ], [visibleColumns, activityRoute, rowActions.length, pagination?.serverSide, onSortChange]);
   const detailRow = detailPanel && detailRowId
     ? rows.find((row) => String(row[rowKey]) === detailRowId) ?? null
     : null;
@@ -590,7 +595,7 @@ export function TpDataTable<T extends Record<string, unknown>>({
                               onSortChange(sortState.sortHeaderKey, direction);
                             }
                           } })}
-                          className={header.key === '__actions' ? 'tp-data-table__actions-heading' : undefined}
+                          className={header.key === '__actions' ? 'tp-data-table__actions-heading' : header.key === '__activity' ? 'tp-data-table__activity-heading' : undefined}
                           style={column ? {
                             minWidth: column.minWidth ? `${column.minWidth}px` : undefined,
                             textAlign: column.align === 'end' ? 'right' : column.align === 'center' ? 'center' : 'left',
@@ -652,6 +657,20 @@ export function TpDataTable<T extends Record<string, unknown>>({
                             {displayValue(source, column)}
                           </TableCell>
                         ))}
+                        {activityRoute && (
+                          <TableCell className="tp-data-table__activity-cell">
+                            <Button
+                              kind="ghost"
+                              size="sm"
+                              renderIcon={Activity}
+                              iconDescription="查看活动与修改记录"
+                              onClick={(event: React.MouseEvent) => {
+                                event.stopPropagation();
+                                window.location.assign(activityRoute + '/' + encodeURIComponent(String(source[rowKey])));
+                              }}
+                            />
+                          </TableCell>
+                        )}
                         {rowActions.length > 0 && (
                           <TableCell className="tp-data-table__actions-cell">
                             <OverflowMenu ariaLabel="行操作" flipped>

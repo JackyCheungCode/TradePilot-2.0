@@ -30,3 +30,5 @@
   .tp-data-table__detail-fields{grid-template-columns:minmax(0,1fr)}
   .tp-data-table__detail-content{padding:var(--cds-spacing-03)}
 }
+
+.tp-data-table__activity-heading,.tp-data-table__activity-cell{white-space:nowrap;text-align:center}.tp-data-table__activity-cell .cds--btn{min-width:2rem;padding-inline:.5rem;justify-content:center}
