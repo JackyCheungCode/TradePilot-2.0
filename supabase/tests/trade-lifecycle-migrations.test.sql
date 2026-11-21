@@ -39,6 +39,35 @@ begin
      or has_function_privilege('anon','public.confirm_contact_active_transition(uuid,boolean,boolean,text)','EXECUTE') then
     raise exception 'Customer/contact status RPC grants are incorrect';
   end if;
+  if exists (
+    select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+    where n.nspname='public'
+      and p.proname in (
+        'capture_automatic_sales_order_completion_event',
+        'capture_contact_created_event',
+        'capture_contact_employment_status_event',
+        'capture_contact_method_verification_event',
+        'capture_contact_preference_change_event',
+        'capture_crm_archive_lifecycle_event',
+        'capture_customer_created_event',
+        'capture_opportunity_created_lifecycle_event',
+        'capture_prospect_discovered_event',
+        'capture_prospect_terminal_event',
+        'capture_quote_created_lifecycle_event',
+        'capture_quote_issue_lifecycle_event',
+        'capture_sales_order_created_lifecycle_event',
+        'capture_shipment_created_event',
+        'capture_trade_payment_created_event',
+        'capture_trade_payment_lifecycle_event',
+        'capture_trade_payment_reconciliation_event'
+      )
+      and (
+        has_function_privilege('anon',p.oid,'EXECUTE')
+        or has_function_privilege('authenticated',p.oid,'EXECUTE')
+      )
+  ) then
+    raise exception 'Trigger-only SECURITY DEFINER functions must not be exposed as RPC endpoints';
+  end if;
   insert into auth.users(id) values(owner_a),(owner_b) on conflict do nothing;
   perform set_config('request.jwt.claim.sub', owner_a::text, true);
   perform set_config('request.jwt.claims', jsonb_build_object('sub',owner_a,'role','authenticated','aal','aal2')::text, true);
