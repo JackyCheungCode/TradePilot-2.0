@@ -272,7 +272,7 @@ export async function handleSettings(request: Request, env: SettingsEnv): Promis
         if (!response.ok) throw new Error("读取账户主题偏好失败（HTTP " + response.status + "）");
         const rows = await response.json() as Array<{ config?: { preference?: unknown }; config_version?: number; updated_at?: string }>;
         const saved = rows[0]?.config?.preference;
-        const preference = saved === "white" || saved === "g10" || saved === "g90" || saved === "dark" || saved === "system" ? saved : "dark";
+        const preference = saved === "white" || saved === "g10" || saved === "g90" || saved === "dark" || saved === "system" ? saved : "white";
         return successResponse(request, { preference, configVersion: rows[0]?.config_version ?? 0, updatedAt: rows[0]?.updated_at ?? null });
       }
 
