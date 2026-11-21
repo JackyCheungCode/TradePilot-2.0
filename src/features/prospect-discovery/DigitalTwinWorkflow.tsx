@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react';
+import type { PointerEvent as ReactPointerEvent } from 'react';
 import { Button, Tag } from '@/design-system';
 
 export type DigitalTwinMetric = {
@@ -83,7 +83,7 @@ function Scene({ id, sources }: { id: string; sources: Source[] }) {
       <div className="tp-digital-twin__scan" />
       <div className="tp-digital-twin__source-orbit">
         {sources.slice(0, 8).map((source, index) => (
-          <span className="tp-digital-twin__source-logo" key={source.id} style={{ '--source-left': ((index - 3.5) * 1.55) + 'rem', '--source-top': (index % 2 ? 'calc(50% - 2.5rem)' : 'calc(50% - 3.2rem)'), animationDelay: (index * -180) + 'ms' } as CSSProperties}>
+          <span className={`tp-digital-twin__source-logo tp-digital-twin__source-logo--${index + 1}`} key={source.id}>
             <PlatformLogo source={source} />
           </span>
         ))}
@@ -139,8 +139,8 @@ function Scene({ id, sources }: { id: string; sources: Source[] }) {
 export function DigitalTwinWorkflow({ activeStage, metrics, selectedSources, onStageChange }: Props) {
   const activeNodeRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{ x: number; y: number } | null>(null);
-  const [rotation, setRotation] = useState({ x: 12, y: -18 });
-  const [zoom, setZoom] = useState(1);
+  const [rotation, setRotation] = useState({ x: 2, y: -3 });
+  const [zoom, setZoom] = useState(100);
 
   useEffect(() => {
     activeNodeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
@@ -155,7 +155,7 @@ export function DigitalTwinWorkflow({ activeStage, metrics, selectedSources, onS
     const dx = event.clientX - dragRef.current.x;
     const dy = event.clientY - dragRef.current.y;
     dragRef.current = { x: event.clientX, y: event.clientY };
-    setRotation(current => ({ x: Math.max(-12, Math.min(38, current.x - dy * 0.35)), y: current.y + dx * 0.35 }));
+    setRotation(current => ({ x: Math.max(-2, Math.min(6, current.x - Math.round(dy / 18)), y: Math.max(-6, Math.min(6, current.y + Math.round(dx / 18)) }));
   };
   const endRotate = () => { dragRef.current = null; };
 
@@ -199,7 +199,7 @@ export function DigitalTwinWorkflow({ activeStage, metrics, selectedSources, onS
                 </span>
                 {metric.value && <span className="tp-digital-twin__node-value">{metric.value}</span>}
                 {typeof metric.progress === 'number' && metric.state === 'active' && (
-                  <span className="tp-digital-twin__node-progress" aria-label={`真实任务进度 ${metric.progress}%`}><i style={{ width: metric.progress + '%' }} /></span>
+                  <span className={`tp-digital-twin__node-progress tp-digital-twin__node-progress--${Math.round(metric.progress / 10) * 10}`} aria-label={`真实任务进度 ${metric.progress}%`}><i /></span>
                 )}
                 <span className="tp-digital-twin__node-detail">{metric.detail}</span>
               </Button>
@@ -212,15 +212,15 @@ export function DigitalTwinWorkflow({ activeStage, metrics, selectedSources, onS
         <div className="tp-digital-twin__viewport-heading">
           <div><strong>3D 数字孪生视角</strong><span>拖动旋转场景 · 缩放观察设备结构</span></div>
           <div className="tp-digital-twin__viewport-controls">
-            <Button kind="ghost" size="sm" onClick={() => setZoom(value => Math.max(.75, +(value - .1).toFixed(2)))} aria-label="缩小 3D 场景">−</Button>
-            <span>{Math.round(zoom * 100)}%</span>
-            <Button kind="ghost" size="sm" onClick={() => setZoom(value => Math.min(1.5, +(value + .1).toFixed(2)))} aria-label="放大 3D 场景">+</Button>
-            <Button kind="ghost" size="sm" onClick={() => { setRotation({ x: 12, y: -18 }); setZoom(1); }}>重置视角</Button>
+            <Button kind="ghost" size="sm" onClick={() => setZoom(value => Math.max(75, value - 10))} aria-label="缩小 3D 场景">−</Button>
+            <span>{zoom}%</span>
+            <Button kind="ghost" size="sm" onClick={() => setZoom(value => Math.min(150, value + 10))} aria-label="放大 3D 场景">+</Button>
+            <Button kind="ghost" size="sm" onClick={() => { setRotation({ x: 2, y: -3 }); setZoom(100); }}>重置视角</Button>
           </div>
         </div>
         <div className="tp-digital-twin__viewport-canvas" onPointerDown={beginRotate} onPointerMove={rotateScene} onPointerUp={endRotate} onPointerCancel={endRotate}>
           <div className="tp-digital-twin__viewport-grid" />
-          <div className="tp-digital-twin__viewport-model" style={{ transform: `perspective(1000px) rotateX(${rotation.x}deg) rotateY(${rotation.y}deg) scale(${zoom})` }}>
+          <div className="tp-digital-twin__viewport-model"><div className="tp-digital-twin__viewport-rotate-x" data-rotate-x={rotation.x}><div className="tp-digital-twin__viewport-rotate-y" data-rotate-y={rotation.y}><div className={`tp-digital-twin__viewport-model-scale tp-digital-twin__viewport-model-scale--zoom-${zoom}`}>
             <div className="tp-digital-twin__viewport-platforms">
               {selectedSources.length ? selectedSources.map(source => (
                 <span key={source.id}><PlatformLogo source={source} />{source.name}</span>
@@ -235,7 +235,7 @@ export function DigitalTwinWorkflow({ activeStage, metrics, selectedSources, onS
               </div>
             ))}
             <div className="tp-digital-twin__machine-ground" />
-          </div>
+          </div></div></div></div>
         </div>
         <div className="tp-digital-twin__viewport-footnote">当前聚焦：{stages[activeStage]?.title} · 场景节点与上方任务状态同步；动画不代替真实任务执行。</div>
       </div>
