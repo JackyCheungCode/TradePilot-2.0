@@ -17,6 +17,7 @@ migrations=(
   20261121053617_restore_atomic_quote_lifecycle.sql
   20261121053701_restore_atomic_customer_contact_lifecycle.sql
   20261121053734_restore_atomic_sales_order_lifecycle.sql
+  20261121064642_revoke_public_execute_from_trigger_only_definer_functions.sql
 )
 
 for migration in "${migrations[@]}"; do
