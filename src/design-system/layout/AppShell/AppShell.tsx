@@ -7,6 +7,7 @@ import {
 import { getSupabaseClient } from '@/lib/supabase';
 import { XiaoyaAvatar } from '@/features/agent/XiaoyaAvatar';
 import { XiaoyaSidePanel } from '@/features/agent/XiaoyaSidePanel';
+import { RecordActivityPanel } from '@/features/activity/RecordActivityPanel';
 
 /**
  * Shared application frame.
@@ -25,6 +26,10 @@ export function AppShell() {
   const { preference, setPreference } = useThemePreference();
   const navigate = useNavigate();
   const location = useLocation();
+  const pathParts = location.pathname.split('/').filter(Boolean);
+  const recordRoute = pathParts.length === 2 && /^[0-9a-f-]{36}$/i.test(pathParts[1]) ? pathParts : null;
+  const recordTypeByRoute: Record<string,string> = { accounts: 'crm_accounts', contacts: 'crm_contacts', opportunities: 'crm_opportunities', quotes: 'trade_documents', 'sales-orders': 'trade_orders', shipments: 'trade_shipments', payments: 'trade_payments', products: 'trade_products' };
+  const activityRecordType = recordRoute ? recordTypeByRoute[recordRoute[0]] : undefined;
 
   useEffect(() => {
     let active = true;
@@ -178,6 +183,7 @@ export function AppShell() {
           <div className="tp-sidenav__group-label">客户沟通</div>
           <SideNavItems>
             <SideNavLink href="/communications" isActive={location.pathname.startsWith('/communications') || location.pathname.startsWith('/inbox')} title="沟通" renderIcon={semanticIcons.chat}>沟通</SideNavLink>
+            <SideNavLink href="/activities" isActive={location.pathname.startsWith('/activities')} title="活动与审计" renderIcon={semanticIcons.calendar}>活动与审计</SideNavLink>
           </SideNavItems>
         </div>
         <div className="tp-sidenav__group">
@@ -206,6 +212,7 @@ export function AppShell() {
         <div className="tp-content__main">
           {signOutError && <InlineNotification kind="error" lowContrast title="Sign out failed" subtitle={signOutError} onCloseButtonClick={() => setSignOutError('')} />}
           <Outlet />
+          {activityRecordType && recordRoute && <RecordActivityPanel recordType={activityRecordType} recordId={recordRoute[1]} />}
         </div>
       </Content>
       <XiaoyaSidePanel isOpen={xiaoyaOpen} onClose={() => setXiaoyaOpen(false)} pathname={location.pathname} />

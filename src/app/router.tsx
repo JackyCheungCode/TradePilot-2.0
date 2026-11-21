@@ -32,6 +32,7 @@ import { DocumentCompanyProfilePage } from '../features/documents/DocumentCompan
 import { CommunicationPage } from '../features/communications/CommunicationPage';
 import { HelpCenterPage } from '../features/help/HelpCenterPage';
 import { NotFoundPage } from '../features/not-found/NotFoundPage';
+import { ActivityCenterPage } from '../features/activity/ActivityCenterPage';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -46,6 +47,7 @@ export const router = createBrowserRouter([
           { path: 'dashboard', element: <DashboardPage /> },
           { path: 'help', element: <HelpCenterPage /> },
           { path: 'communications', element: <CommunicationPage /> },
+          { path: 'activities', element: <ActivityCenterPage /> },
           { path: 'inbox', element: <Navigate to="/communications" replace /> },
           { path: 'agent', element: <AgentWorkspacePage /> },
           { path: 'ai-agents', element: <AIControlCenterPage /> },
