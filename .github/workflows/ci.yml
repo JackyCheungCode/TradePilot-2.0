@@ -81,3 +81,24 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+      # Production deploy is part of the same CI run. It can execute only for
+      # a push to develop and only after every validation/build/package step
+      # above has succeeded. Pull requests never receive the deployment secret.
+      - name: Verify Cloudflare deployment secret is configured
+        if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::Production deploy blocked: repository secret CLOUDFLARE_API_TOKEN is missing."
+            exit 1
+          fi
+          echo "Cloudflare deployment secret is configured (value not displayed)."
+
+      - name: Deploy production Worker
+        if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ea4e98dce9c478d7dd5c07f10e5c722d
+        run: npm run worker:deploy
+
