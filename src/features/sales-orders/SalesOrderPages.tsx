@@ -1,15 +1,13 @@
 import { PageHeader } from '@/design-system';
-import { ComposedModal, ModalBody, ModalFooter, ModalHeader } from '@carbon/react';
+
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   Button, Link, TPSkeleton, TPInlineLoading, InlineNotification, Select, SelectItem, Tag, TextInput, TextArea,
   Tabs, TabList, Tab, TabPanels, TabPanel, Table, TableHead, TableRow, TableHeader, TableBody, TableCell,
   semanticIcons, BusinessLifecycle, WorldMapChart, TpDataTable,
+  ComposedModal, ModalBody, ModalFooter, ModalHeader, LineChart, SimpleBarChart, ScaleTypes,
 } from '@/design-system';
-import { LineChart, SimpleBarChart } from '@carbon/charts-react';
-import { ScaleTypes } from '@carbon/charts';
-import '@carbon/charts/styles.css';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/sales-orders.scss';
 import { useBusinessTransitionEvents } from '@/lib/useBusinessTransitionEvents';
