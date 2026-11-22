@@ -1,4 +1,5 @@
 import { PageHeader } from '@/design-system';
+import { ComposedModal, ModalBody, ModalFooter, ModalHeader } from '@carbon/react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
@@ -230,12 +231,13 @@ export function SalesOrderFormPage(){
 }
 
 export function SalesOrderDetailPage(){
- const {id}=useParams();const lifecycleEvents=useBusinessTransitionEvents('sales_order',id);const [order,setOrder]=useState<OrderRow|null>(null);const [items,setItems]=useState<any[]>([]);const [loading,setLoading]=useState(true);const [error,setError]=useState('');const [tab,setTab]=useState(0);const [cancelReason,setCancelReason]=useState('');
+ const {id}=useParams();const lifecycleEvents=useBusinessTransitionEvents('sales_order',id);const [order,setOrder]=useState<OrderRow|null>(null);const [items,setItems]=useState<any[]>([]);const [loading,setLoading]=useState(true);const [error,setError]=useState('');const [tab,setTab]=useState(0);const [cancelReason,setCancelReason]=useState('');const [cancelConfirmOpen,setCancelConfirmOpen]=useState(false);
  const load=useCallback(async()=>{setLoading(true);try{const db=await getSupabaseClient();const [o,i]=await Promise.all([db.from('trade_orders').select('*').eq('id',id).eq('order_type','sales').single(),db.from('trade_order_items').select('*').eq('order_id',id).order('line_number')]);if(o.error)throw o.error;if(i.error)throw i.error;setOrder(o.data as OrderRow);setItems(i.data||[]);}catch(e){setError(e instanceof Error?e.message:'读取销售订单详情失败')}finally{setLoading(false)}},[id]);
  useEffect(()=>{void load()},[load]);
- const transition=async(next:string)=>{if(!order)return;setError('');try{const db=await getSupabaseClient();const {data:s}=await db.auth.getSession();const user=s.session?.user;if(!user)throw new Error('登录状态已失效');const so=order.metadata?.sales_order||{};const total=Number(so.totals?.grand_total||0);if(next==='confirmed'){const steps=so.payment_schedule||[];const ratio=steps.reduce((v:number,p:any)=>v+Number(p.ratio||0),0);const amount=steps.reduce((v:number,p:any)=>v+Number(p.amount||0),0);if(Math.abs(ratio-100)>0.01||Math.abs(amount-total)>0.02)throw new Error('确认订单前，收款计划比例必须合计 100%，金额必须等于订单总额。');if(!items.length)throw new Error('确认订单至少需要一条有效产品行。');const orderLines=so.order_lines||[];for(const line of orderLines.filter((x:any)=>x.line_type==='product'&&x.line_status!=='cancelled')){const planQty=(line.plans||[]).reduce((v:number,p:any)=>v+Number(p.quantity||0),0);if(Math.abs(planQty-Number(line.confirmed_qty||0))>0.0001)throw new Error('产品 '+line.name+' 的交货计划数量必须等于确认数量。');}const d=so.form||{};if(!d.incoterm_place||!d.transport_mode||!d.destination_country||!d.payment_method||!d.bank_account_id)throw new Error('确认订单前，请完成贸易条款、运输方式、目的国、付款方式和收款账户。');if(d.payment_method==='LC'){const dates=orderLines.flatMap((x:any)=>(x.plans||[]).map((p:any)=>p.due_date).filter(Boolean)).sort();const latest=dates[dates.length-1];if(latest&&d.lc_expiry<=latest)throw new Error('信用证有效期必须晚于最迟计划装运日期。');}if(so.settings_snapshot?.order?.requireApproval==='true')throw new Error('设置已启用订单审批，但审批流程尚未接入；暂不能直接确认订单。');}
+ const transition=async(next:string,confirmed=false)=>{if(!order)return;setError('');try{const db=await getSupabaseClient();const {data:s}=await db.auth.getSession();const user=s.session?.user;if(!user)throw new Error('登录状态已失效');const so=order.metadata?.sales_order||{};const total=Number(so.totals?.grand_total||0);if(next==='confirmed'){const steps=so.payment_schedule||[];const ratio=steps.reduce((v:number,p:any)=>v+Number(p.ratio||0),0);const amount=steps.reduce((v:number,p:any)=>v+Number(p.amount||0),0);if(Math.abs(ratio-100)>0.01||Math.abs(amount-total)>0.02)throw new Error('确认订单前，收款计划比例必须合计 100%，金额必须等于订单总额。');if(!items.length)throw new Error('确认订单至少需要一条有效产品行。');const orderLines=so.order_lines||[];for(const line of orderLines.filter((x:any)=>x.line_type==='product'&&x.line_status!=='cancelled')){const planQty=(line.plans||[]).reduce((v:number,p:any)=>v+Number(p.quantity||0),0);if(Math.abs(planQty-Number(line.confirmed_qty||0))>0.0001)throw new Error('产品 '+line.name+' 的交货计划数量必须等于确认数量。');}const d=so.form||{};if(!d.incoterm_place||!d.transport_mode||!d.destination_country||!d.payment_method||!d.bank_account_id)throw new Error('确认订单前，请完成贸易条款、运输方式、目的国、付款方式和收款账户。');if(d.payment_method==='LC'){const dates=orderLines.flatMap((x:any)=>(x.plans||[]).map((p:any)=>p.due_date).filter(Boolean)).sort();const latest=dates[dates.length-1];if(latest&&d.lc_expiry<=latest)throw new Error('信用证有效期必须晚于最迟计划装运日期。');}if(so.settings_snapshot?.order?.requireApproval==='true')throw new Error('设置已启用订单审批，但审批流程尚未接入；暂不能直接确认订单。');}
  if(next==='cancelled'&&order.status==='active'&&so.settings_snapshot?.order?.allowCancelAfterConfirm!=='true')throw new Error('设置中心禁止取消已确认订单。');
  if(next==='cancelled'&&!cancelReason.trim())throw new Error('请填写取消原因。');if(next==='cancelled'&&['shipped','partially_shipped'].includes(so.fulfillment_status||''))throw new Error('订单已有发货记录，不能取消整份订单；请按未发货数量走订单变更流程。');if(next==='cancelled'&&Number(so.totals?.paid_amount||0)>0)throw new Error('订单已有收款，请先完成退款记录后再取消。');
+ if(next==='cancelled'&&!confirmed){setCancelConfirmOpen(true);return;}
  const result=await db.rpc('confirm_sales_order_status_transition',{p_order_id:order.id,p_expected_status:orderState(order),p_target_status:next,p_reason:next==='cancelled'?cancelReason.trim():null});if(result.error)throw result.error;await load();}catch(e){setError(e instanceof Error?e.message:'更新订单状态失败')}};
  if(loading)return <main className="tp-sales-orders"><TPSkeleton variant="profile" rows={6}/></main>;
  if(!order)return <main className="tp-sales-orders"><InlineNotification kind="error" title="销售订单不可用" subtitle={error||'订单不存在'}/><Link href="/sales-orders">返回列表</Link></main>;
@@ -255,5 +257,17 @@ export function SalesOrderDetailPage(){
   <TabPanel><div className="tp-sales-orders__tab-content"><h2>条款与备注</h2><p>{form.terms_text||'暂无对外条款'}</p><p>{form.remarks_external||'暂无客户备注'}</p><div className="tp-sales-orders__internal"><strong>内部备注（仅内部）</strong><p>{form.notes_internal||'暂无'}</p></div></div></TabPanel>
   <TabPanel><div className="tp-sales-orders__tab-content"><h2>变更与取消记录</h2>{(so.change_log||[]).length?<Table><TableHead><TableRow><TableHeader>时间</TableHeader><TableHeader>操作</TableHeader><TableHeader>原因 / 说明</TableHeader></TableRow></TableHead><TableBody>{so.change_log.map((x:any,i:number)=><TableRow key={i}><TableCell>{new Date(x.at).toLocaleString()}</TableCell><TableCell>{stateLabel(x.action)}</TableCell><TableCell>{x.reason}</TableCell></TableRow>)}</TableBody></Table>:<p>暂无变更记录。</p>}{['draft','confirmed'].includes(s)&&<div className="tp-sales-orders__cancel"><TextInput id="so-cancel-reason" labelText="取消原因（必填）" value={cancelReason} onChange={e=>setCancelReason(e.currentTarget.value)}/><Button kind="danger" renderIcon={semanticIcons.delete} disabled={s==='confirmed'&&(so.settings_snapshot?.order?.allowCancelAfterConfirm!=='true'||['shipped','partially_shipped'].includes(so.fulfillment_status||'')||paid>0)} onClick={()=>void transition('cancelled')}>取消订单</Button></div>}</div></TabPanel>
  </TabPanels></Tabs></section>
+ <ComposedModal open={cancelConfirmOpen} onClose={()=>setCancelConfirmOpen(false)} size="sm">
+  <ModalHeader title="确认取消销售订单？" />
+  <ModalBody>
+   <p>订单 <strong>{order.order_number}</strong> 将被取消。该操作会写入订单状态变更记录，请确认原因和业务影响。</p>
+   <p><strong>取消原因：</strong>{cancelReason.trim()||'—'}</p>
+   <p>确认时系统会再次校验发货、收款及订单取消策略；如不符合条件，取消操作将被拒绝。</p>
+  </ModalBody>
+  <ModalFooter>
+   <Button kind="secondary" onClick={()=>setCancelConfirmOpen(false)}>返回修改</Button>
+   <Button kind="danger" disabled={!cancelReason.trim()} onClick={()=>{setCancelConfirmOpen(false);void transition('cancelled',true);}}>确认取消订单</Button>
+  </ModalFooter>
+ </ComposedModal>
  </main>;
 }
