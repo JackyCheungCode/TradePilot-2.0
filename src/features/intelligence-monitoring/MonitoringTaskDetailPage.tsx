@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-  PageHeader, Button, Tag, Tile, Grid, Column, InlineNotification, TpDataTable,
+  PageHeader, Button, Tag, Tile, Grid, Column, InlineNotification, TpDataTable, Select, SelectItem, TextInput,
 } from '@/design-system';
 import type { TpTableColumn } from '@/design-system';
 import { Task, Activity, Analytics, Play, Pause } from '@/design-system/icons';
@@ -27,7 +27,8 @@ type RelatedObject = { id: string; platform: string; label: string; source_url: 
 type RunRow = { id: string; status: string; current_stage: string | null; started_at: string | null; finished_at: string | null; heartbeat_at: string | null; discovered_count: number; new_count: number; analyzed_count: number; error_message: string | null; created_at: string };
 type LogRow = { id: string; level: string; event: string; message: string; created_at: string };
 const formatDate = (value: string | null | undefined) => value ? new Date(value).toLocaleString('zh-TW', { hour12: false }) : '—';
-const platformLabel = (value: string) => ({ facebook:'Facebook', instagram:'Instagram', x:'X', tiktok:'TikTok', youtube:'YouTube', reddit:'Reddit', google_maps:'Google Maps', telegram:'Telegram', linkedin:'LinkedIn', forum:'行业论坛', pinterest:'Pinterest' }[value] ?? value);
+const platformNames: Record<string, string> = { facebook:'Facebook', instagram:'Instagram', x:'X', tiktok:'TikTok', youtube:'YouTube', reddit:'Reddit', google_maps:'Google Maps', telegram:'Telegram', linkedin:'LinkedIn', forum:'行业论坛', pinterest:'Pinterest' };
+const platformLabel = (value: string) => platformNames[value] ?? value;
 const gradeTag = (grade: string) => <Tag type={grade === 'S' ? 'green' : grade === 'A' ? 'blue' : grade === 'B' ? 'purple' : 'cool-gray'}>{grade === 'unclassified' ? '待分析' : grade + ' 级'}</Tag>;
 const statusLabel = (value: string) => ({ queued:'排队等待', running:'正在执行', succeeded:'执行成功', partial:'部分成功', failed:'执行失败', skipped:'已跳过', paused:'已暂停', draft:'草稿' }[value] ?? value);
 
@@ -214,12 +215,12 @@ export function MonitoringTaskDetailPage() {
       <section className="tp-intelligence-monitoring__section">
         <div className="tp-intelligence-monitoring__section-heading"><Analytics size={20} /><div><h2>监听结果</h2><p>只显示当前任务采集的数据，分页读取数据库中的全部记录。</p></div></div>
         <div className="tp-intelligence-monitoring__filter-bar tp-intelligence-monitoring__filter-bar--wide">
-          <label>平台<select value={platformFilter} onChange={event=>{setPlatformFilter(event.target.value);setResultPage(1);}}><option value="all">全部平台</option>{objects.map(object=><option key={object.platform} value={object.platform}>{platformLabel(object.platform)}</option>)}</select></label>
-          <label>AI 判定<select value={gradeFilter} onChange={event=>{setGradeFilter(event.target.value);setResultPage(1);}}><option value="all">全部等级</option><option value="S">S 级</option><option value="A">A 级</option><option value="B">B 级</option><option value="C">C 级</option><option value="unclassified">待分析</option></select></label>
-          <label>搜索<input value={search} onChange={event=>setSearch(event.target.value)} placeholder="搜索内容、发布者、意向…" /></label>
+          <Select id="task-detail-platform" labelText="平台" size="sm" value={platformFilter} onChange={event=>{setPlatformFilter(event.currentTarget.value);setResultPage(1);}}><SelectItem value="all" text="全部平台" />{objects.map(object=><SelectItem key={object.id} value={object.platform} text={platformLabel(object.platform)} />)}</Select>
+          <Select id="task-detail-grade" labelText="AI 判定" size="sm" value={gradeFilter} onChange={event=>{setGradeFilter(event.currentTarget.value);setResultPage(1);}}><SelectItem value="all" text="全部等级" /><SelectItem value="S" text="S 级" /><SelectItem value="A" text="A 级" /><SelectItem value="B" text="B 级" /><SelectItem value="C" text="C 级" /><SelectItem value="unclassified" text="待分析" /></Select>
+          <TextInput id="task-detail-search" labelText="搜索当前页" size="sm" value={search} onChange={event=>setSearch(event.currentTarget.value)} placeholder="内容、发布者、意向…" />
           <span>共 {resultCount.toLocaleString('zh-CN')} 条</span>
         </div>
-        <TpDataTable<DetailResult> ariaLabel="当前监听任务的全部采集结果" columns={resultColumns} rows={filteredResults} rowKey="id" loading={resultsLoading} emptyState="该任务尚未采集到结果。" columnSettingsKey="monitoring-task-detail-results" pagination={{page:resultPage,pageSize:20,totalItems:Math.max(0,Math.ceil(resultCount/pageSize)*pageSize),serverSide:true,onChange:nextPage=>setResultPage(nextPage)}} />
+        <TpDataTable<DetailResult> ariaLabel="当前监听任务的全部采集结果" columns={resultColumns} rows={filteredResults} rowKey="id" loading={resultsLoading} emptyState="该任务尚未采集到结果。" columnSettingsKey="monitoring-task-detail-results" pagination={{page:resultPage,pageSize:20,totalItems:resultCount,serverSide:true,onChange:nextPage=>setResultPage(nextPage)}} />
       </section>
     </>}
   </main>;
