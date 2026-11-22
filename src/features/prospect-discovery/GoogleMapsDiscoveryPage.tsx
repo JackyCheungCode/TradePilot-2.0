@@ -14,7 +14,9 @@ type ProspectRow = {
   id: string; name?: string; country_code?: string; address?: string; phone?: string; email?: string;
   website?: string; latitude?: number | null; longitude?: number | null; status?: string;
   confidence_score?: number | null; lead_id?: string | null; raw_data?: Record<string, unknown> | null;
-  created_at?: string; [key: string]: unknown;
+  created_at?: string;
+  discovery_record_occurrences?: Array<{ provider?: string; captured_at?: string; raw_data?: Record<string, unknown> | null }>;
+  [key: string]: unknown;
 };
 type ApiEnvelope<T> = { data?: T; error?: { message?: string } };
 type Geometry = { type: 'Polygon' | 'MultiPolygon'; coordinates: unknown };
@@ -232,7 +234,10 @@ export function GoogleMapsDiscoveryPage() {
     ]);
     setRunStatus(String(run.status ?? ''));
     setRunMessage(String(run.message ?? ''));
-    setResults(rows ?? []);
+    setResults((rows ?? []).map(row => {
+      const occurrence = (row.discovery_record_occurrences ?? []).find(item => item.provider === 'google_maps');
+      return { ...row, raw_data: { ...(row.raw_data ?? {}), ...(occurrence?.raw_data ?? {}) } };
+    }));
   }, []);
 
   useEffect(() => {
