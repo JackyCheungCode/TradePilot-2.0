@@ -10,7 +10,6 @@ const ACTORS:Record<string,string>={
  facebook:"apify~facebook-posts-scraper",
  instagram:"apify~instagram-scraper",
  tiktok:"clockworks~tiktok-scraper",
- youtube:"streamers~youtube-scraper",
  google_maps:"compass~google-maps-reviews-scraper",
 };
 const now=()=>new Date().toISOString();
