@@ -509,31 +509,41 @@ export function GoogleMapsDiscoveryPage() {
         <Accordion>
           <AccordionItem title="高级响应字段（可能增加 Google Maps 费用）">
             <div className="tp-gmaps-discovery__advanced-note">基础字段已包含电话、官网、评分与营业时间等 Enterprise 数据；高级字段进一步包含评论、摘要、无障碍、停车、支付、餐饮与其他 Atmosphere 属性。Google 按字段组合对应 SKU 计费；启用前请确认 Google Cloud 项目的 Places API 计费设置。</div>
-            <Checkbox id="gmaps-advanced-fields" labelText="请求高级字段" checked={includeAdvanced} onChange={event => setIncludeAdvanced(event.currentTarget.checked)} />
+            <div className="tp-gmaps-discovery__advanced-rows">
+              {advancedFieldRows.map((row, index) => (
+                <div className="tp-gmaps-discovery__advanced-row" key={row.id}>
+                  <div className="tp-gmaps-discovery__field">
+                    <label>高级响应字段 {index + 1}</label>
+                    <Select id={'gmaps-advanced-field-' + row.id} labelText="高级响应字段" hideLabel value={row.field} onChange={event => setAdvancedFieldRows(current => current.map(item => item.id === row.id ? { ...item, field: event.currentTarget.value } : item))}>
+                      {advancedFields.map(field => <SelectItem key={field} value={field} text={(fieldLabels[field] || field) + ' · ' + field} disabled={advancedFieldRows.some(item => item.id !== row.id && item.field === field)} />)}
+                    </Select>
+                  </div>
+                  <div className="tp-gmaps-discovery__field">
+                    <label>保存模式</label>
+                    <Select id={'gmaps-save-mode-' + row.id} labelText="保存模式" hideLabel value={row.saveMode} onChange={event => setAdvancedFieldRows(current => current.map(item => item.id === row.id ? { ...item, saveMode: event.currentTarget.value as 'raw' | 'text' | 'non_empty' } : item))}>
+                      <SelectItem value="raw" text="原始值保存" />
+                      <SelectItem value="text" text="文本化保存" />
+                      <SelectItem value="non_empty" text="仅保存非空值" />
+                    </Select>
+                  </div>
+                  <Button kind="ghost" size="sm" renderIcon={semanticIcons.close} hasIconOnly iconDescription="移除此字段" onClick={() => setAdvancedFieldRows(current => current.filter(item => item.id !== row.id))} />
+                </div>
+              ))}
+              <Button kind="tertiary" size="sm" renderIcon={semanticIcons.add} onClick={() => {
+                const nextField = advancedFields.find(field => !advancedFieldRows.some(item => item.field === field));
+                if (nextField) setAdvancedFieldRows(current => [...current, { id: String(Date.now()) + '-' + String(current.length), field: nextField, saveMode: 'raw' }]);
+              }} disabled={advancedFieldRows.length >= advancedFields.length}>添加字段</Button>
+            </div>
             <div className="tp-gmaps-discovery__field-list">
-              {[...standardFields, ...(includeAdvanced ? advancedFields : [])].map(field => <span key={field}>{fieldLabels[field] || field}</span>)}
+              {standardFields.map(field => <span key={field}>{fieldLabels[field] || field}</span>)}
+              {advancedFieldRows.map(row => <span key={row.id}>{fieldLabels[row.field] || row.field} · {row.saveMode === 'raw' ? '原始值' : row.saveMode === 'text' ? '文本化' : '非空值'}</span>)}
             </div>
             <div className="tp-gmaps-discovery__request-summary">
-              <strong>请求字段掩码（X-Goog-FieldMask）</strong>
+              <strong>基础字段 {standardFields.length} 项 · 自选高级字段 {advancedFieldRows.length} 项</strong>
               <code>{requestedFields.join(',')},nextPageToken</code>
             </div>
           </AccordionItem>
-          <AccordionItem title="请求参数说明">
-            <div className="tp-gmaps-discovery__request-params">
-              <span><b>HTTP</b> POST /v1/places:searchText</span>
-              <span><b>Content-Type</b> application/json</span>
-              <span><b>X-Goog-Api-Key</b> Cloudflare Worker 服务端密钥，不暴露在浏览器</span>
-              <span><b>textQuery</b> 当前关键词 + 选定地理范围</span>
-              <span><b>regionCode</b> {country || '未选择'}</span>
-              <span><b>languageCode</b> {language.google}</span>
-              <span><b>pageSize</b> 按结果上限分页请求（每页最多 20）</span>
-              <span><b>includedType / strictTypeFiltering</b> 由企业类型过滤映射</span>
-              <span><b>minRating / openNow</b> 由上方筛选条件决定</span>
-              <span><b>rankPreference</b> {rankPreference}</span>
-              <span><b>includePureServiceAreaBusinesses</b> {includePureServiceAreaBusinesses ? 'true' : 'false'}</span>
-              <span><b>pageToken</b> 后续分页自动处理</span>
-            </div>
-          </AccordionItem>
+dionItem>
         </Accordion>
         <div className="tp-gmaps-discovery__actions">
           <Button kind="primary" renderIcon={semanticIcons.search} onClick={() => void startDiscovery()} disabled={busy || !country || !keyword.trim()}>{busy ? '正在创建任务…' : '开始 Google Maps 发现'}</Button>
@@ -545,7 +555,19 @@ export function GoogleMapsDiscoveryPage() {
           <div><span>04</span><div><h2>Google Maps 发现结果</h2><p>保留 API 返回的原始 Place 字段；表格按实际返回字段自动扩展列，不丢弃未知字段。</p></div></div>
           {runId && <Tag type={runStatus === 'completed' ? 'green' : runStatus === 'failed' ? 'red' : 'blue'}>{runStatus || '任务处理中'}</Tag>}
         </div>
-        {runId && <div className="tp-gmaps-discovery__run-summary"><strong>任务：{runId}</strong><span>{runMessage}</span><span>已读取 {results.length} 条记录</span></div>}
+        {runId && <div className="tp-gmaps-discovery__run-panel">
+          <div className="tp-gmaps-discovery__run-summary"><strong>任务编号：{runTaskCode || runId}</strong><span>任务 ID：{runId}</span><Tag type={runStatus === 'completed' ? 'green' : runStatus === 'failed' ? 'red' : 'blue'}>{runStatus || '任务处理中'}</Tag><span>已读取 {results.length} 条记录</span></div>
+          <div className="tp-gmaps-discovery__progress">
+            <div><strong>任务进度</strong><span>{runProgress}%</span></div>
+            <div className="tp-gmaps-discovery__progress-track" role="progressbar" aria-label="Google Maps 发现任务进度" aria-valuemin={0} aria-valuemax={100} aria-valuenow={runProgress}><span style={{ width: runProgress + '%' }} /></div>
+            <p>{runMessage}</p>
+          </div>
+          <div className="tp-gmaps-discovery__logs">
+            <strong>执行日志</strong>
+            {runLogs.map(log => <div key={log.id}><time>{log.createdAt ? new Date(log.createdAt).toLocaleString('zh-TW', { hour12: false }) : '—'}</time><Tag type={log.level === 'error' ? 'red' : log.level === 'success' ? 'green' : 'gray'}>{log.level || 'info'}</Tag><span>{log.message || '—'}</span></div>)}
+            {!runLogs.length && <p>任务启动后，日志会实时显示在这里。</p>}
+          </div>
+        </div>}
         <TpDataTable
           columns={columns}
           rows={tableRows}
