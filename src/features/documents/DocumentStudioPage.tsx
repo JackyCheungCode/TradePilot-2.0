@@ -321,7 +321,7 @@ export function DocumentStudioPage() {
     </section>
     <ComposedModal open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)} size="sm">
       <ModalHeader title="删除模板元素？" />
-      <ModalBody><p>确定从当前模板设计中删除 <strong>{selected?.label || selected?.type || '所选元素'}</strong>？保存模板后，此修改才会写入模板版本。</p></ModalBody>
+      <ModalBody><p>确定从当前模板设计中删除 <strong>{selected?.name || selected?.type || '所选元素'}</strong>？保存模板后，此修改才会写入模板版本。</p></ModalBody>
       <ModalFooter>
         <Button kind="secondary" onClick={() => setDeleteConfirmOpen(false)}>取消</Button>
         <Button kind="danger" onClick={confirmRemoveSelected}>确认删除元素</Button>
