@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ComposedModal, ModalBody, ModalFooter, ModalHeader } from '@carbon/react';
 import { Button, ContainedList, ContainedListItem, TPSkeleton, InlineNotification, Tag } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 
@@ -17,7 +18,7 @@ function runStatus(status:string){const kind=status==='succeeded'||status==='com
 
 export function AgentTaskMonitor(){
   const [runs,setRuns]=useState<Run[]>([]);const [detail,setDetail]=useState<RunDetail|null>(null);
-  const [loading,setLoading]=useState(true);const [busy,setBusy]=useState(false);const [error,setError]=useState('');const [notice,setNotice]=useState('');
+  const [loading,setLoading]=useState(true);const [busy,setBusy]=useState(false);const [error,setError]=useState('');const [notice,setNotice]=useState('');const [cancelConfirm,setCancelConfirm]=useState<Run|null>(null);
   const load=async()=>{setLoading(true);setError('');try{setRuns(await taskRequest<Run[]>('/api/v1/agent/runs'));}catch(cause){setError(cause instanceof Error?cause.message:'读取任务失败。');}finally{setLoading(false);}};
   useEffect(()=>{void load();},[]);
   const runAction=async(id:string,action:'pause'|'resume'|'cancel'|'retry')=>{
@@ -46,7 +47,7 @@ export function AgentTaskMonitor(){
             {Boolean(run.plan?.workflowId)&&<div className="tp-ai-control__skill-actions">
               {run.status==='running'&&<Button kind="tertiary" size="sm" disabled={busy} onClick={()=>void runAction(run.id,'pause')}>暂停</Button>}
               {run.status==='paused'&&<Button kind="tertiary" size="sm" disabled={busy} onClick={()=>void runAction(run.id,'resume')}>恢复</Button>}
-              {['queued','running','paused'].includes(run.status)&&<Button kind="danger--tertiary" size="sm" disabled={busy} onClick={()=>void runAction(run.id,'cancel')}>取消任务</Button>}
+              {['queued','running','paused'].includes(run.status)&&<Button kind="danger--tertiary" size="sm" disabled={busy} onClick={()=>setCancelConfirm(run)}>取消任务</Button>}
               {run.status==='failed'&&<Button kind="tertiary" size="sm" disabled={busy} onClick={()=>void runAction(run.id,'retry')}>从头重试</Button>}
             </div>}
           </div>
@@ -64,5 +65,16 @@ export function AgentTaskMonitor(){
       </ContainedList>}
       <Button kind="tertiary" size="sm" onClick={()=>setDetail(null)}>关闭详情</Button>
     </section>}
+    <ComposedModal open={Boolean(cancelConfirm)} onClose={()=>setCancelConfirm(null)} size="sm">
+      <ModalHeader title="取消 Agent 任务？" />
+      <ModalBody>
+        <p>确定取消以下任务吗？任务取消后，当前执行流程将终止。</p>
+        <p><strong>{cancelConfirm?.goal}</strong></p>
+      </ModalBody>
+      <ModalFooter>
+        <Button kind="secondary" onClick={()=>setCancelConfirm(null)}>继续执行</Button>
+        <Button kind="danger" disabled={busy} onClick={()=>{const run=cancelConfirm;setCancelConfirm(null);if(run)void runAction(run.id,'cancel');}}>确认取消任务</Button>
+      </ModalFooter>
+    </ComposedModal>
   </div>;
 }
