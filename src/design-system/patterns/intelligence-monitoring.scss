@@ -135,3 +135,25 @@
     }
   }
 }
+
+.tp-intelligence-monitoring__filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--cds-spacing-03);
+  min-width: 18rem;
+}
+.tp-intelligence-monitoring__filters .cds--select {
+  min-width: 10rem;
+}
+@media (max-width: 672px) {
+  .tp-intelligence-monitoring__filters {
+    width: 100%;
+    min-width: 0;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .tp-intelligence-monitoring__filters .cds--select {
+    width: 100%;
+  }
+}
