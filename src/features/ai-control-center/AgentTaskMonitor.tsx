@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ComposedModal, ModalBody, ModalFooter, ModalHeader } from '@carbon/react';
-import { Button, ContainedList, ContainedListItem, TPSkeleton, InlineNotification, Tag } from '@/design-system';
+import { Button, ContainedList, ContainedListItem, TPSkeleton, InlineNotification, Tag, ComposedModal, ModalBody, ModalFooter, ModalHeader } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 
 type Run = { id:string; agent_key:string; goal:string; status:string; plan?:Record<string,unknown>; result?:Record<string,unknown>; error_message?:string; estimated_cost_usd?:number; actual_cost_usd?:number; created_at:string; updated_at:string };
