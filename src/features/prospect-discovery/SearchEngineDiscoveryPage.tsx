@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { PageHeader, Button, Checkbox, ComboBox, InlineNotification, Link, NumberInput, Select, SelectItem, Tag, TextArea, TextInput, Tile, semanticIcons } from '@/design-system';
+import { PageHeader, Button, Checkbox, ComboBox, InlineNotification, Link, NumberInput, Tag, TextArea, TextInput, Tile, semanticIcons } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
+import '@/design-system/patterns/search-engine-discovery.scss';
 
 type Country = { cca2: string; cca3?: string; name: { common: string } };
 type ExclusionCategory = { key: string; label: string; domains: string[]; enabled: boolean };
@@ -117,7 +118,7 @@ export function SearchEngineDiscoveryPage() {
     <main>
       <PageHeader>
         <div>
-          <p style={{ color: 'var(--cds-text-secondary)', fontSize: '0.75rem', letterSpacing: '0.08em' }}>GLOBAL PROSPECT DISCOVERY / SEARCH ENGINE</p>
+          <p className="tp-search-discovery__eyebrow">GLOBAL PROSPECT DISCOVERY / SEARCH ENGINE</p>
           <h1>搜索引擎发现</h1>
           <p>从产品名称出发，发现目标国家的制造商、品牌商、供应商、进口商与分销商，并核验企业官网。</p>
         </div>
@@ -127,44 +128,44 @@ export function SearchEngineDiscoveryPage() {
       {error && <InlineNotification kind="error" title="操作未完成" subtitle={error} onCloseButtonClick={() => setError('')} />}
       {notice && <InlineNotification kind="success" title="任务已提交" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
 
-      <Tile style={{ marginBottom: '1rem' }}>
+      <Tile className="tp-search-discovery__tile">
         <h2>1. 搜索目标</h2>
         <p>输入产品名称，选择希望发现客户的国家或地区。国家参数用于定位搜索市场，网站域名不会被当作企业所在地证明。</p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(16rem, 2fr) minmax(14rem, 1fr)', gap: '1rem', marginTop: '1rem' }}>
+        <div className="tp-search-discovery__target-grid">
           <TextInput id="search-product" labelText="产品名称" placeholder="例如：Wireless Earbuds" value={product} onChange={event => setProduct(event.target.value)} />
           <ComboBox id="search-country" titleText="目标国家 / 地区" placeholder="搜索国家名称或代码" items={countries} itemToString={item => item ? countryLabel(item) + ' (' + item.cca2 + ')' : ''} selectedItem={country} onChange={({ selectedItem }) => setCountry(selectedItem ?? null)} />
         </div>
-        {country && <p style={{ marginTop: '0.75rem' }}><img src={flag(country.cca2)} alt="" width="24" height="16" />　目标市场：{country.name.common}（{country.cca2}） · 搜索语言：{searchLanguage}</p>}
-        <div style={{ marginTop: '1rem' }}>
+        {country && <p className="tp-search-discovery__market-meta"><img src={flag(country.cca2)} alt="" width="24" height="16" />　目标市场：{country.name.common}（{country.cca2}） · 搜索语言：{searchLanguage}</p>}
+        <div className="tp-search-discovery__subsection">
           <h3>目标企业类型</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(12rem,1fr))', gap: '0.5rem' }}>
+          <div className="tp-search-discovery__options-grid">
             {roles.map(role => <Checkbox key={role.id} id={'role-' + role.id} labelText={role.label} checked={rolesSelected.includes(role.id)} onChange={(_, data) => toggleRole(role.id, data.checked)} />)}
           </div>
         </div>
       </Tile>
 
-      <Tile style={{ marginBottom: '1rem' }}>
+      <Tile className="tp-search-discovery__tile">
         <h2>2. 高级搜索语法</h2>
         <p>系统按产品和企业类型生成查询；也可以自行编辑完整搜索表达式。支持能力以当前搜索供应商实际执行结果为准。</p>
         <TextArea id="search-advanced-query" labelText="高级搜索表达式（留空则自动生成）" rows={4} value={advancedQuery} onChange={event => setAdvancedQuery(event.target.value)} placeholder={generatedQuery || '"wireless earbuds" manufacturer OR supplier -directory'} />
-        <p style={{ marginTop: '0.5rem', overflowWrap: 'anywhere' }}><strong>当前预览：</strong>{activeQuery || '输入产品名称后自动生成'}</p>
+        <p className="tp-search-discovery__query-preview"><strong>当前预览：</strong>{activeQuery || '输入产品名称后自动生成'}</p>
       </Tile>
 
-      <Tile style={{ marginBottom: '1rem' }}>
+      <Tile className="tp-search-discovery__tile">
         <h2>3. 搜索服务与排除规则</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(13rem,1fr))', gap: '0.5rem', margin: '1rem 0' }}>
+        <div className="tp-search-discovery__options-grid tp-search-discovery__engine-grid">
           <Checkbox id="engine-serper" labelText="Serper" checked={engines.includes('serper')} onChange={(_, data) => toggleEngine('serper', data.checked)} />
           <Checkbox id="engine-serpapi" labelText="SerpApi" checked={engines.includes('serpapi')} onChange={(_, data) => toggleEngine('serpapi', data.checked)} />
         </div>
         <NumberInput id="search-limit" label="每个搜索引擎最大候选数" min={10} max={500} step={10} value={limit} onChange={(_, data) => setLimit(Number(data.value) || 100)} />
-        <h3 style={{ marginTop: '1.25rem' }}>网站类别排除</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(12rem,1fr))', gap: '0.5rem', marginTop: '0.5rem' }}>
+        <h3 className="tp-search-discovery__section-label">网站类别排除</h3>
+        <div className="tp-search-discovery__options-grid">
           {categories.map(item => <Checkbox key={item.key} id={'exclude-' + item.key} labelText={item.label || categoryLabels[item.key] || item.key} checked={item.enabled} onChange={(_, data) => toggleCategory(item.key, data.checked)} />)}
         </div>
         <TextArea id="search-exclude-domains" labelText="任务级排除域名（支持批量粘贴 100+，每行一个，也可用逗号分隔）" rows={5} value={excludeDomains} onChange={event => setExcludeDomains(event.target.value)} placeholder={'amazon.com\nalibaba.com\nfacebook.com\nyellowpages.com'} />
       </Tile>
 
-      <Tile style={{ marginBottom: '1.5rem' }}>
+      <Tile className="tp-search-discovery__tile tp-search-discovery__tile--last">
         <h2>4. 创建搜索任务</h2>
         <p>目标国家通过搜索引擎国家参数和语言参数定位；实际企业所在地需要后续根据网站地址、联系方式和公开资料核验。</p>
         <Button renderIcon={semanticIcons.search} disabled={submitting || loading} onClick={() => void submit()}>{submitting ? '正在创建…' : '开始搜索并发现企业'}</Button>
@@ -174,13 +175,13 @@ export function SearchEngineDiscoveryPage() {
       <section>
         <h2>最近搜索任务</h2>
         {loading ? <p>正在读取任务…</p> : runs.length === 0 ? <Tile>暂无搜索引擎发现任务。</Tile> : (
-          <div style={{ display: 'grid', gap: '0.5rem' }}>
+          <div className="tp-search-discovery__run-list">
             {runs.map(run => <Tile key={run.id}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+              <div className="tp-search-discovery__run-row">
                 <div><strong>{run.task_code || run.query || '搜索任务'}</strong><p>{run.query} · {(run.countries ?? []).join(', ')} · {run.message || '—'}</p></div>
                 <div><Tag type={run.status === 'completed' ? 'green' : run.status === 'failed' ? 'red' : 'blue'}>{statusText[run.status || ''] || run.status || '未知'}</Tag>　{run.discovered_count ?? 0} 条发现</div>
               </div>
-              <div style={{ marginTop: '0.5rem' }}><Link href={'/prospect-history/' + run.id}>任务详情与日志</Link></div>
+              <div className="tp-search-discovery__run-link"><Link href={'/prospect-history/' + run.id}>任务详情与日志</Link></div>
             </Tile>)}
           </div>
         )}
