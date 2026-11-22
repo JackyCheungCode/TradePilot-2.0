@@ -25,6 +25,7 @@ export interface DiscoveryRunInput {
   state?: string; city?: string; osmTags?: Array<{ key: string; value: string }>;
   businessTypes?: string[];
   filters?: { minRating?: number; openNow?: boolean; requireWebsite?: boolean; requirePhone?: boolean };
+  googleFieldMask?: string[];
   originalQuery?: string; translatedQuery?: string; targetLanguage?: string;
   channel?: "map_local_businesses" | "search_engine" | "actor_discovery";
   actorExecutions?: Array<{ actorId: string; sourceId: string; sourceName: string; actorTitle?: string; input: Record<string, unknown> }>;
@@ -45,7 +46,7 @@ const BUSINESS_TYPE_FILTERS: Record<string, { googleTypes: string[]; osmTags: Ar
   mobile_communications: { googleTypes: ["cell_phone_store","telecommunications_service_provider"], osmTags: [{key:"shop",value:"mobile_phone"},{key:"shop",value:"telecommunication"}] },
 };
 interface OSMElement { type: string; id: number; lat?: number; lon?: number; center?: { lat: number; lon: number }; tags?: Record<string, string>; }
-interface GooglePlace { id?: string; displayName?: { text?: string }; location?: { latitude?: number; longitude?: number }; formattedAddress?: string; nationalPhoneNumber?: string; internationalPhoneNumber?: string; websiteUri?: string; types?: string[]; rating?: number; userRatingCount?: number; businessStatus?: string; }
+interface GooglePlace { [key: string]: unknown; id?: string; displayName?: { text?: string }; location?: { latitude?: number; longitude?: number }; formattedAddress?: string; nationalPhoneNumber?: string; internationalPhoneNumber?: string; websiteUri?: string; types?: string[]; rating?: number; userRatingCount?: number; businessStatus?: string; }
 type ProviderResult<T> = { ok: true; value: T } | { ok: false; error: unknown };
 
 async function authenticate(request: Request, env: DiscoveryEnv): Promise<string | null> {
@@ -157,7 +158,7 @@ async function searchOSM(code: string, tags: Array<{key:string;value:string}>, l
 }
 async function searchGoogle(
   code: string, query: string, limit: number, env: DiscoveryEnv, state?: string, city?: string,
-  businessTypes: string[] = [], filters: DiscoveryRunInput["filters"] = {},
+  businessTypes: string[] = [], filters: DiscoveryRunInput["filters"] = {}, googleFieldMask: string[] = [],
 ): Promise<GooglePlace[]> {
   const googleMapsApiKey = await readIntegrationSecret(env, "tradepilot_api_google_maps", "GOOGLE_MAPS_API_KEY");
   if (!googleMapsApiKey) throw new Error("GOOGLE_MAPS_API_KEY_NOT_CONFIGURED");
@@ -184,7 +185,7 @@ async function searchGoogle(
         headers: {
           "Content-Type": "application/json",
           "X-Goog-Api-Key": googleMapsApiKey,
-          "X-Goog-FieldMask": "places.id,places.displayName,places.location,places.formattedAddress,places.nationalPhoneNumber,places.internationalPhoneNumber,places.websiteUri,places.types,places.rating,places.userRatingCount,places.businessStatus,nextPageToken",
+          "X-Goog-FieldMask": googleFieldMask.length ? [...new Set([...googleFieldMask, "nextPageToken"])].join(",") : "places.id,places.displayName,places.location,places.formattedAddress,places.nationalPhoneNumber,places.internationalPhoneNumber,places.websiteUri,places.types,places.rating,places.userRatingCount,places.businessStatus,nextPageToken",
         },
         body: JSON.stringify(body),
       });
@@ -284,7 +285,7 @@ export async function processRun(env: DiscoveryEnv, runId: string, ownerId: stri
       ? await searchOSM(code, input.osmTags ?? [], input.limitPerCountry, env, input.state, input.city, input.filters).then(value => ({ok:true as const,value})).catch(error => ({ok:false as const,error}))
       : null;
     const googleResult: ProviderResult<GooglePlace[]> | null = providers.includes("google_maps")
-      ? await searchGoogle(code, input.query, input.limitPerCountry, env, input.state, input.city, input.businessTypes ?? [], input.filters).then(value => ({ok:true as const,value})).catch(error => ({ok:false as const,error}))
+      ? await searchGoogle(code, input.query, input.limitPerCountry, env, input.state, input.city, input.businessTypes ?? [], input.filters, input.googleFieldMask ?? []).then(value => ({ok:true as const,value})).catch(error => ({ok:false as const,error}))
       : null;
     const rawOsm = osmResult?.ok ? osmResult.value : [];
     const rawGoogle = googleResult?.ok ? googleResult.value : [];
@@ -364,7 +365,7 @@ export async function processRun(env: DiscoveryEnv, runId: string, ownerId: stri
         latitude:lat,longitude:lon,
         sourceUrl:"https://www.google.com/maps/search/?api=1&query_place_id="+encodeURIComponent(place.id),
         license:"Google Maps Platform Place ID",attribution:"Google Maps",
-        rawData:{place_id:place.id,formatted_address:address,phone,website,types:place.types??[],rating:place.rating??null,user_rating_count:place.userRatingCount??null,business_status:place.businessStatus??null,guardrail_review_required:googleReviewIds.has(place.id)},dedupeKey,
+        rawData:{...place,place_id:place.id,formatted_address:address,phone,website,types:place.types??[],rating:place.rating??null,user_rating_count:place.userRatingCount??null,business_status:place.businessStatus??null,guardrail_review_required:googleReviewIds.has(place.id)},dedupeKey,
       });
       if (!matched) created++;
     }
@@ -466,7 +467,8 @@ export async function handleDiscovery(request: Request, env: DiscoveryEnv): Prom
       (input.translatedQuery !== undefined && (typeof input.translatedQuery !== "string" || input.translatedQuery.length > 300)) ||
       (input.targetLanguage !== undefined && (typeof input.targetLanguage !== "string" || !/^[A-Z]{2}(?:-[A-Z]{2,5})?$/.test(input.targetLanguage))) ||
       (input.state !== undefined && (typeof input.state !== "string" || !input.state.trim())) ||
-      (input.city !== undefined && (typeof input.city !== "string" || !input.city.trim()))) {
+      (input.city !== undefined && (typeof input.city !== "string" || !input.city.trim())) ||
+      (input.googleFieldMask !== undefined && (!Array.isArray(input.googleFieldMask) || input.googleFieldMask.length > 100 || input.googleFieldMask.some(field => typeof field !== "string" || !/^places\\.[A-Za-z][A-Za-z0-9.]*$/.test(field))))) {
       return errorResponse(request,"VALIDATION_ERROR","请选择一个国家和至少一个数据源；关键词、地区、数量或 OSM 标签映射无效。",400);
     }
     input.providers = providers as DiscoveryProvider[];
@@ -474,13 +476,13 @@ export async function handleDiscovery(request: Request, env: DiscoveryEnv): Prom
     const code=input.countries[0], scope=[input.city,input.state,countryName(code)].filter(Boolean).join(" · ");
     const rows=await db<Array<{id:string;task_code:string}>>(env,"discovery_runs",{
       method:"POST",headers:{Prefer:"return=representation"},
-      body:JSON.stringify({owner_id:userId,query:input.query.trim(),countries:input.countries,limit_per_country:input.limitPerCountry,state:input.state??null,city:input.city??null,providers,search_config:{businessTypes:input.businessTypes??[],filters:input.filters??{},osmTags:input.osmTags??[],originalQuery:input.originalQuery??null,translatedQuery:input.translatedQuery??null,targetLanguage:input.targetLanguage??null,planSnapshot:input.planSnapshot??null,guardrailsSnapshot:input.guardrailsSnapshot??null},channel:"map_local_businesses",status:"queued",progress:0,discovered_count:0,created_lead_count:0,message:"任务已排队 · "+scope,task_code:"MAP-"+code+"-"+new Date().toISOString().slice(0,10).replace(/-/g,"")+"-"+crypto.randomUUID().replace(/-/g,"").slice(0,6).toUpperCase()})
+      body:JSON.stringify({owner_id:userId,query:input.query.trim(),countries:input.countries,limit_per_country:input.limitPerCountry,state:input.state??null,city:input.city??null,providers,search_config:{businessTypes:input.businessTypes??[],filters:input.filters??{},googleFieldMask:input.googleFieldMask??[],osmTags:input.osmTags??[],originalQuery:input.originalQuery??null,translatedQuery:input.translatedQuery??null,targetLanguage:input.targetLanguage??null,planSnapshot:input.planSnapshot??null,guardrailsSnapshot:input.guardrailsSnapshot??null},channel:"map_local_businesses",status:"queued",progress:0,discovered_count:0,created_lead_count:0,message:"任务已排队 · "+scope,task_code:"MAP-"+code+"-"+new Date().toISOString().slice(0,10).replace(/-/g,"")+"-"+crypto.randomUUID().replace(/-/g,"").slice(0,6).toUpperCase()})
     });
     const run=rows?.[0]; if(!run?.id) throw new Error("DISCOVERY_RUN_CREATE_FAILED");
     await log(env,run.id,userId,"info","任务编号："+run.task_code+"；关键词："+input.query+(input.originalQuery?"（原始关键词："+input.originalQuery+"）":"")+"；业务类型："+(input.businessTypes??[]).join("、")+"；数据源："+providers.join("、"));
     try { await env.LEAD_DISCOVERY_WORKFLOW.create({id:run.id,params:{runId:run.id,ownerId:userId,input}}); }
     catch(error){await markRunFailed(env,run.id,userId,error);return errorResponse(request,"WORKFLOW_START_FAILED","任务创建成功，但后台工作流启动失败。",503);}
-    return successResponse(request,{id:run.id,taskCode:run.task_code,channel:"map_local_businesses",query:input.query,countries:input.countries,providers,searchConfig:{businessTypes:input.businessTypes??[],filters:input.filters??{},osmTags:input.osmTags??[],originalQuery:input.originalQuery??null,translatedQuery:input.translatedQuery??null,targetLanguage:input.targetLanguage??null},status:"queued",progress:0,discoveredCount:0,createdLeadCount:0,message:"任务已排队 · "+scope},202);
+    return successResponse(request,{id:run.id,taskCode:run.task_code,channel:"map_local_businesses",query:input.query,countries:input.countries,providers,searchConfig:{businessTypes:input.businessTypes??[],filters:input.filters??{},googleFieldMask:input.googleFieldMask??[],osmTags:input.osmTags??[],originalQuery:input.originalQuery??null,translatedQuery:input.translatedQuery??null,targetLanguage:input.targetLanguage??null},status:"queued",progress:0,discoveredCount:0,createdLeadCount:0,message:"任务已排队 · "+scope},202);
   }
 
   if(request.method==="GET" && url.pathname==="/api/v1/discovery-runs"){
