@@ -5,6 +5,7 @@ import { LoginPage } from '../features/auth/LoginPage';
 import { AgentWorkspacePage } from '../features/agent/AgentWorkspacePage';
 import { AIControlCenterPage } from '../features/ai-control-center/AIControlCenterPage';
 import { ProspectDiscoveryPage } from '../features/prospect-discovery';
+import { GoogleMapsDiscoveryPage } from '../features/prospect-discovery/GoogleMapsDiscoveryPage';
 import { ProspectHistoryPage } from '../features/prospect-discovery/ProspectHistoryPage';
 import { ProspectDataPage } from '../features/prospect-discovery/ProspectDataPage';
 import { IntelligenceMonitoringPage, MonitoringTasksPage, MonitoringResultsPage } from '../features/intelligence-monitoring/IntelligenceMonitoringPage';
@@ -57,6 +58,7 @@ export const router = createBrowserRouter([
           { path: 'agent', element: <AgentWorkspacePage /> },
           { path: 'ai-agents', element: <AIControlCenterPage /> },
           { path: 'prospect-discovery', element: <ProspectDiscoveryPage /> },
+          { path: 'prospect-discovery/google-maps', element: <GoogleMapsDiscoveryPage /> },
           { path: 'prospect-history', element: <ProspectHistoryPage /> },
           { path: 'prospect-history/:runId', element: <ProspectHistoryPage /> },
           { path: 'prospect-data', element: <ProspectDataPage /> },
