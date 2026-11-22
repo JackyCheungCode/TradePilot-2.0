@@ -55,6 +55,8 @@ const quoteLabels: Record<string, string> = {
 const orderLabels: Record<string, string> = {
   draft: '草稿', confirmed: '已确认', completed: '已完成', cancelled: '已取消',
 };
+const paymentLabels: Record<string, string> = { draft: '草稿', pending_confirmation: '待确认', confirmed: '已确认', partially_reconciled: '部分核销', reconciled: '已核销', returned: '已退回', voided: '已作废' };
+const shipmentLabels: Record<string, string> = { draft: '草稿', pending_booking: '待订舱', booked: '已订舱', loaded: '已装柜', customs_cleared: '已报关', departed: '已开船', in_transit: '运输中', arrived: '已到港', import_cleared: '已清关', delivered: '已签收', cancelled: '已取消' };
 const opportunityLabels: Record<string, string> = {
   prospecting: '初步接洽', qualification: '资格确认', needs_analysis: '需求分析',
   proposal: '方案提议', negotiation: '商务谈判', won: '已赢单', lost: '已输单',
@@ -158,8 +160,8 @@ export function SalesProcessPage() {
     const orderIds = new Set(orders.map(row => String(row.id)));
     const allocations = data.allocations.filter(row => orderIds.has(String(row.order_id)));
     const paymentById = new Map(data.payments.map(row => [String(row.id), row]));
-    const payments = data.payments.filter(row => country === 'all' || accounts.some(account => String(account.id) === String(row.account_id)));
-    const shipments = data.shipments.filter(row => orderIds.has(String(row.order_id)));
+    const payments = data.payments.filter(row => (country === 'all' || accounts.some(account => String(account.id) === String(row.account_id))) && (!q || [row.payment_no, row.payer_name].some(value => String(value || '').toLocaleLowerCase().includes(q))));
+    const shipments = data.shipments.filter(row => orderIds.has(String(row.order_id)) || (q && String(row.shipment_no || '').toLocaleLowerCase().includes(q)));
     const contactCountByAccount = new Map<string, number>();
     contacts.forEach(row => contactCountByAccount.set(String(row.account_id), (contactCountByAccount.get(String(row.account_id)) || 0) + 1));
     const orderStats = new Map<string, { paid: number; paymentCount: number; shipmentCount: number; delivered: number; exceptions: number }>();
@@ -226,13 +228,13 @@ export function SalesProcessPage() {
     });
     const paymentCards: BoardCard[] = scoped.payments.map(row => ({
       id: row.id, title: row.payment_no || '收款记录', subtitle: (row.payer_name || '付款方未设置') + ' · ' + (row.payment_type === 'refund' ? '退款' : '收款'),
-      status: String(row.status || '未知'), amount: money(row.net_received ?? row.amount, row.currency || 'USD'), href: '/payments/' + row.id,
+      status: paymentLabels[String(row.status)] || String(row.status || '未知'), amount: money(row.net_received ?? row.amount, row.currency || 'USD'), href: '/payments/' + row.id,
       details: ['未分配金额 ' + money(row.unallocated_amount, row.currency || 'USD'), '到账日期 ' + dateLabel(row.received_date || row.payment_date)],
       warning: Number(row.unallocated_amount || 0) > 0 || row.status === 'pending_confirmation', closed: ['voided', 'returned'].includes(String(row.status)),
     }));
     const shipmentCards: BoardCard[] = scoped.shipments.map(row => ({
       id: row.id, title: row.shipment_no || '发运单', subtitle: '订单 ' + (scoped.orders.find(order => String(order.id) === String(row.order_id))?.order_number || '未关联'),
-      status: String(row.status || '未知'), amount: money(row.shipment_value, row.currency_code || 'USD'), href: '/shipments/' + row.id,
+      status: shipmentLabels[String(row.status)] || String(row.status || '未知'), amount: money(row.shipment_value, row.currency_code || 'USD'), href: '/shipments/' + row.id,
       details: ['计划发运 ' + dateLabel(row.planned_ship_date), '实际发运 ' + dateLabel(row.actual_ship_date)], warning: Boolean(row.exception_flag), closed: row.status === 'cancelled',
     }));
     const executionCards: BoardCard[] = scoped.orders.filter(row => ['confirmed', 'completed'].includes(orderState(row))).map(row => {
