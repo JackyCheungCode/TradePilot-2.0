@@ -155,8 +155,8 @@ export function ProspectDiscoveryPage() {
         {activeStage === 0 && (
           <div className="tp-prospect-discovery__configuration">
             <div className="tp-prospect-discovery__configuration-nav" aria-label="企业发现配置阶段">
-              <Button kind={configSubstep === 0 ? 'primary' : 'tertiary'} onClick={() => setConfigSubstep(0)}>01 选择发现渠道</Button>
-              <Button kind={configSubstep === 1 ? 'primary' : 'tertiary'} onClick={() => setConfigSubstep(1)} disabled={selectedSourceCount === 0}>02 配置采集参数</Button>
+              <Button kind="ghost" className="tp-prospect-discovery__config-step" aria-current={configSubstep === 0 ? 'step' : undefined} onClick={() => setConfigSubstep(0)}>01 选择发现渠道</Button>
+              <Button kind="ghost" className="tp-prospect-discovery__config-step" aria-current={configSubstep === 1 ? 'step' : undefined} onClick={() => setConfigSubstep(1)} disabled={selectedSourceCount === 0}>02 配置采集参数</Button>
             </div>
             {configSubstep === 0
               ? <PlatformSelectionStep onSelectionCountChange={handleSelectionCountChange} selectedIds={selectedSources?.map(item => item.id)} onSelectionChange={handleSelectionChange} />
