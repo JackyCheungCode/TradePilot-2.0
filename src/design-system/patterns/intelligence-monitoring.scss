@@ -248,7 +248,7 @@
 
  
 /* Monitoring task detail: Carbon layer hierarchy, responsive metadata and filters. */
-.tp-intelligence-monitoring__detail {
+.tp-intelligence-monitoring {
   &__detail-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:var(--cds-spacing-03); width:100%; }
   &__detail-summary > div, &__detail-grid .cds--col > div { display:flex; flex-direction:column; gap:var(--cds-spacing-02); min-width:0; padding:var(--cds-spacing-04); background:var(--cds-layer-01); }
   &__detail-summary span, &__detail-grid span, &__config-list span, &__object-row span { color:var(--cds-text-secondary); font-size:var(--cds-label-01-font-size); }
