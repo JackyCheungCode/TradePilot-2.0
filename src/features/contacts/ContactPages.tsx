@@ -68,7 +68,7 @@ function fromRow(row:ContactRow, methods:ContactMethod[]):FormState {
   };
 }
 function MethodRows({title,items,onChange,methodType}:{title:string;items:ContactMethod[];onChange:(v:ContactMethod[])=>void;methodType:string}) {
-  return <div className="tp-contacts__repeat"><div className="tp-contacts__repeat-head"><h3>{title}</h3><Button kind="ghost" size="sm" onClick={()=>onChange([...items,makeMethod(methodType)])}><semanticIcons.add size={16}/>添加</Button></div>
+  return <div className="tp-contacts__repeat"><div className="tp-contacts__repeat-head"><h3>{title}</h3><Button kind="ghost" size="sm" renderIcon={semanticIcons.add} onClick={()=>onChange([...items,makeMethod(methodType)])}>添加</Button></div>
     {items.map((item,index)=><div className="tp-contacts__repeat-row" key={item.id??index}>
       <TextInput id={title+'-'+index} labelText={title} hideLabel value={item.value} placeholder="输入内容" onChange={e=>onChange(items.map((x,i)=>i===index?{...x,value:e.currentTarget.value}:x))}/>
       <Select id={title+'-kind-'+index} labelText="类型" hideLabel value={item.label} onChange={e=>onChange(items.map((x,i)=>i===index?{...x,label:e.currentTarget.value}:x))}>{methodKinds.map(x=><SelectItem key={x.id} value={x.id} text={x.text}/>)}</Select>
@@ -79,7 +79,7 @@ function MethodRows({title,items,onChange,methodType}:{title:string;items:Contac
   </div>;
 }
 function SocialRows({items,onChange,platforms}:{items:ContactMethod[];onChange:(v:ContactMethod[])=>void;platforms:string[]}) {
-  return <div className="tp-contacts__repeat"><div className="tp-contacts__repeat-head"><h3>社交账号</h3><Button kind="ghost" size="sm" onClick={()=>onChange([...items,makeMethod('social',platforms[0]??'其他')])}><semanticIcons.add size={16}/>添加账号</Button></div>
+  return <div className="tp-contacts__repeat"><div className="tp-contacts__repeat-head"><h3>社交账号</h3><Button kind="ghost" size="sm" renderIcon={semanticIcons.add} onClick={()=>onChange([...items,makeMethod('social',platforms[0]??'其他')])}>添加账号</Button></div>
     {items.map((item,index)=><div className="tp-contacts__social-row" key={item.id??index}>
       <Select id={'social-platform-'+index} labelText="平台" hideLabel value={item.platform} onChange={e=>onChange(items.map((x,i)=>i===index?{...x,platform:e.currentTarget.value}:x))}>{platforms.map(x=><SelectItem key={x} value={x} text={x}/>)}</Select>
       <TextInput id={'social-value-'+index} labelText="账号或链接" hideLabel value={item.value} placeholder="账号名称或 URL" onChange={e=>onChange(items.map((x,i)=>i===index?{...x,value:e.currentTarget.value}:x))}/>
@@ -271,7 +271,7 @@ export function ContactConsolePage() {
   const dailyChartOptions={theme:document.documentElement.dataset.carbonTheme==='g100'?'g100':'white',title:'每日新增联系人',axes:{bottom:{title:'日期',mapsTo:'date',scaleType:ScaleTypes.TIME},left:{title:'新增联系人',mapsTo:'value',scaleType:ScaleTypes.LINEAR}},curve:'curveMonotoneX',points:{enabled:true},legend:{enabled:false},toolbar:{enabled:false},height:'280px'} as const;
   const refresh=()=>{void Promise.all([loadAnalytics(),loadRows()]);};
   return <main className="tp-contacts">
-    <PageHeader className="tp-contacts__header"><div><p className="tp-contacts__eyebrow">TRADEPILOT / CRM</p><h1>联系人（Contact）</h1><p>管理客户组织中的联系人及其关系、联系方式与沟通偏好。</p></div><div className="tp-contacts__actions"><Button kind="tertiary" onClick={refresh} disabled={loading||analyticsLoading}><semanticIcons.refresh size={16}/>刷新</Button><Link href="/contacts/new" renderIcon={semanticIcons.add}>创建联系人</Link></div></PageHeader>
+    <PageHeader className="tp-contacts__header"><div><p className="tp-contacts__eyebrow">TRADEPILOT / CRM</p><h1>联系人（Contact）</h1><p>管理客户组织中的联系人及其关系、联系方式与沟通偏好。</p></div><div className="tp-contacts__actions"><Button kind="tertiary" renderIcon={semanticIcons.refresh} onClick={refresh} disabled={loading||analyticsLoading}>刷新</Button><Link href="/contacts/new" renderIcon={semanticIcons.add}>创建联系人</Link></div></PageHeader>
     {error&&<InlineNotification kind="error" title="联系人读取失败" subtitle={error} onCloseButtonClick={()=>setError('')}/>}
     <section className="tp-contacts__stats">
       {[
@@ -363,7 +363,7 @@ export function ContactFormPage() {
     navigate('/contacts/'+contactId,{replace:true});
   }catch(e){setError(e instanceof Error?e.message:'保存联系人失败；请检查必填项及数据库权限。');}finally{setSaving(false);}};
   if(loading)return <main className="tp-contacts"><TPSkeleton variant="profile" rows={5}/></main>;
-  return <main className="tp-contacts tp-contacts--form"><PageHeader className="tp-contacts__header"><div><p className="tp-contacts__eyebrow">TRADEPILOT / CRM / CONTACT</p><h1>{editing?'编辑联系人':'创建联系人'}</h1><p>先维护主数据，扩展资料在下方标签页中维护。</p></div><div className="tp-contacts__actions"><Button kind="ghost" onClick={()=>navigate(-1)}>取消</Button><Button kind="primary" onClick={()=>void save()} disabled={saving}><semanticIcons.save size={16}/>{saving?'保存中…':'保存联系人'}</Button></div></PageHeader>
+  return <main className="tp-contacts tp-contacts--form"><PageHeader className="tp-contacts__header"><div><p className="tp-contacts__eyebrow">TRADEPILOT / CRM / CONTACT</p><h1>{editing?'编辑联系人':'创建联系人'}</h1><p>先维护主数据，扩展资料在下方标签页中维护。</p></div><div className="tp-contacts__actions"><Button kind="ghost" onClick={()=>navigate(-1)}>取消</Button><Button kind="primary" renderIcon={semanticIcons.save} onClick={()=>void save()} disabled={saving}>{saving?'保存中…':'保存联系人'}</Button></div></PageHeader>
     {error&&<InlineNotification kind="error" title="无法保存联系人" subtitle={error} onCloseButtonClick={()=>setError('')}/>}
     {accounts.length===0&&<InlineNotification kind="warning" title="尚无可选客户" subtitle="请先创建 Account，再创建联系人。所属客户为必填项。"/>}
     <section className="tp-contacts__primary"><div className="tp-contacts__section-head"><div><h2 className="tp-contacts__heading"><semanticIcons.avatar size={20} aria-hidden="true"/><span>主数据</span></h2><p>联系人身份、所属客户、组织关系及主要联系方式。</p></div><Tag type="blue">核心资料</Tag></div>
