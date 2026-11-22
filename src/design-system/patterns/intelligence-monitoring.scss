@@ -60,16 +60,41 @@
 /* Monitoring module pages share the same Carbon tokens and table rhythm. */
 .tp-intelligence-monitoring {
   &__navigation {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
     gap: var(--cds-spacing-03);
+    width: min(100%, 48rem);
     padding-block: var(--cds-spacing-02);
     border-bottom: 1px solid var(--cds-border-subtle-01);
   }
 
   &__navigation .cds--btn {
-    min-height: 2.5rem;
+    width: 100%;
+    max-width: none;
+    min-height: 2.75rem;
+    justify-content: flex-start;
+  }
+
+  &__filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: var(--cds-spacing-04);
+    width: 100%;
+    min-width: 0;
+    margin-block: var(--cds-spacing-05);
+    padding: var(--cds-spacing-04);
+    background: var(--cds-layer-01);
+  }
+
+  &__filter-bar .cds--select {
+    width: min(100%, 16rem);
+    min-width: 12rem;
+  }
+
+  &__filter-bar--wide .cds--select {
+    width: min(100%, 18rem);
   }
 
   &__summary {
@@ -119,9 +144,8 @@
 
   @media (max-width: 672px) {
     &__navigation {
-      display: grid;
-      grid-template-columns: 1fr;
-      align-items: stretch;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--cds-spacing-02);
     }
 
     &__navigation .cds--btn,
@@ -132,6 +156,22 @@
 
     &__table-meta .cds--btn {
       margin-inline-start: 0;
+    }
+
+    &__filter-bar {
+      gap: var(--cds-spacing-03);
+      padding: var(--cds-spacing-03);
+    }
+
+    &__filter-bar .cds--select,
+    &__filter-bar--wide .cds--select {
+      width: 100%;
+      min-width: 0;
+    }
+
+    &__navigation .cds--btn {
+      padding-inline: var(--cds-spacing-03);
+      font-size: var(--cds-body-compact-01-font-size);
     }
   }
 }
