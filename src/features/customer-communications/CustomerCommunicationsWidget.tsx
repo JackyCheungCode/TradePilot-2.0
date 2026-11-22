@@ -511,8 +511,8 @@ export function CustomerCommunicationsWidget({
           </div>}
           <div className="tp-communication-header-actions">
             <span className="tp-communication-overview">{customers.length} 位客户 <span>·</span> {unreadTotal} 条未读</span>
-            <Button type="button" kind="ghost" size="sm" onClick={() => void loadInbox()}>刷新</Button>
-            <Button type="button" kind="ghost" size="sm" disabled={customerMessages.length === 0} onClick={exportChatHistory}>导出聊天记录</Button>
+            <Button type="button" kind="ghost" size="sm" renderIcon={semanticIcons.refresh} onClick={() => void loadInbox()}>刷新</Button>
+            <Button type="button" kind="ghost" size="sm" renderIcon={semanticIcons.download} disabled={customerMessages.length === 0} onClick={exportChatHistory}>导出聊天记录</Button>
             <Button type="button" kind="ghost" size="sm" onClick={() => setProfileOpen((value) => !value)}>{profileOpen ? '收起客户 360' : '显示客户 360'}</Button>
             <Button type="button" kind="ghost" size="sm" className="tp-chat-popout-action" renderIcon={semanticIcons.externalLink} onClick={openChatPopup}>弹出聊天窗口</Button>
             {!popupMode && <Button type="button" kind="ghost" size="sm" onClick={onClose}>返回工作台</Button>}
@@ -628,7 +628,7 @@ export function CustomerCommunicationsWidget({
               </div>
               {replyChannel === 'email' && <TextInput id="communication-email-subject" labelText="邮件主题" hideLabel value={emailSubject} onChange={(event) => setEmailSubject(event.currentTarget.value)} placeholder="邮件主题" />}
               <TextArea id="communication-message-draft" labelText="消息内容" hideLabel value={draft} onChange={(event) => { const value = event.currentTarget.value; setDrafts((current) => ({ ...current, [activeCustomerId]: value })); }} placeholder={'发送消息给 ' + activeCustomer.name + '…'} rows={3} />
-              <div className="tp-chat-composer-footer"><span>{channelCanSend ? '发送将调用已连接渠道的真实 API' : '该渠道暂未开放真实发送'}</span><Button type="submit" kind="primary" size="md" disabled={!channelCanSend || !draft.trim() || !replyIdentity?.connected || sending || !activeCustomer.latestConversationId}>{sending ? '发送中…' : '发送消息'}</Button></div>
+              <div className="tp-chat-composer-footer"><span>{channelCanSend ? '发送将调用已连接渠道的真实 API' : '该渠道暂未开放真实发送'}</span><Button type="submit" kind="primary" size="md" renderIcon={semanticIcons.send} disabled={!channelCanSend || !draft.trim() || !replyIdentity?.connected || sending || !activeCustomer.latestConversationId}>{sending ? '发送中…' : '发送消息'}</Button></div>
             </form>
           </main>
 
@@ -665,8 +665,8 @@ export function CustomerCommunicationsWidget({
               <section className="tp-xiaoya-suggestions">
                 <div className="tp-side-heading"><div><h2>小雅建议</h2><p>结合当前会话提供下一步建议</p></div><span className="tp-xiaoya-mark">AI</span></div>
                 <div className="tp-xiaoya-actions">
-                  <Button type="button" kind="primary" size="sm" disabled={aiBusyAction !== null || !activeCustomer.latestConversationId} onClick={() => void runAiAssistant('reply_draft')}>{aiBusyAction === 'reply_draft' ? '生成中…' : '生成回复建议'}</Button>
-                  <Button type="button" kind="tertiary" size="sm" disabled={aiBusyAction !== null || !activeCustomer.latestConversationId} onClick={() => void runAiAssistant('intent')}>{aiBusyAction === 'intent' ? '分析中…' : '分析客户意图'}</Button>
+                  <Button type="button" kind="primary" size="sm" renderIcon={semanticIcons.magicWand} disabled={aiBusyAction !== null || !activeCustomer.latestConversationId} onClick={() => void runAiAssistant('reply_draft')}>{aiBusyAction === 'reply_draft' ? '生成中…' : '生成回复建议'}</Button>
+                  <Button type="button" kind="tertiary" size="sm" renderIcon={semanticIcons.analytics} disabled={aiBusyAction !== null || !activeCustomer.latestConversationId} onClick={() => void runAiAssistant('intent')}>{aiBusyAction === 'intent' ? '分析中…' : '分析客户意图'}</Button>
                   <Button type="button" kind="ghost" size="sm" disabled={aiBusyAction !== null || !activeCustomer.latestConversationId} onClick={() => void generateSummary()}>{aiBusyAction === 'summary' ? '总结中…' : '总结本次会话'}</Button>
                 </div>
                 {activeCustomer.aiSummary && <div className="tp-xiaoya-result"><strong>会话摘要</strong><p>{activeCustomer.aiSummary}</p></div>}
