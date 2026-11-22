@@ -1,8 +1,8 @@
 import { PageHeader } from '@/design-system';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ComposedModal, ModalBody, ModalFooter, ModalHeader } from '@carbon/react';
+
 import { useSearchParams } from 'react-router-dom';
-import { Button, Link, TPSkeleton, InlineNotification, Select, SelectItem, Tag, TextInput } from '@/design-system';
+import { Button, Link, TPSkeleton, InlineNotification, Select, SelectItem, Tag, TextInput, ComposedModal, ModalBody, ModalFooter, ModalHeader } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/documents.scss';
 
