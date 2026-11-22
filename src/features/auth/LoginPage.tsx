@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { startAuthentication } from '@simplewebauthn/browser';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
-  Button, InlineLoading, InlineNotification, TextInput,
+  Button, InlineLoading, InlineNotification, TextInput, semanticIcons,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/login.scss';
@@ -257,7 +257,7 @@ export function LoginPage() {
                 onChange={(event) => setPassword(event.currentTarget.value)}
                 required
               />
-              <Button type="submit" disabled={!client || busy}>
+              <Button kind="primary" type="submit" renderIcon={semanticIcons.login} disabled={!client || busy}>
                 {busy ? '正在验证…' : '登录'}
               </Button>
             </form>
@@ -275,7 +275,7 @@ export function LoginPage() {
               autoComplete="one-time-code"
               required
             />
-            <Button type="submit" disabled={!client || busy || verificationCode.length < (useRecoveryCode ? 12 : 6)}>
+            <Button kind="primary" type="submit" renderIcon={semanticIcons.security} disabled={!client || busy || verificationCode.length < (useRecoveryCode ? 12 : 6)}>
               {busy ? '正在验证…' : '验证并进入系统'}
             </Button>
             <Button kind="ghost" onClick={() => {
