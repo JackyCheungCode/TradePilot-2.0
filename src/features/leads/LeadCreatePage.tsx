@@ -51,7 +51,7 @@ export function LeadCreatePage(){
  const stateItems=(subdivisions[form.country]??[]).map(x=>({id:x,text:x}));
  const urgencyText=({low:'低',medium:'中',high:'高',unknown:'未知'} as Record<string,string>)[form.urgency];
  return <main className="lead-form">
-  <PageHeader className="lead-form__header"><div><div className="lead-form__eyebrow">PROSPECT DISCOVERY / LEAD</div><h1>新建线索（Lead）</h1><p>建立待跟进的客户资料。线索编号由系统自动生成。</p></div><div className="lead-form__actions"><Button kind="ghost" onClick={()=>navigate(-1)}>取消</Button><Button kind="primary" disabled={saving||loadingSource} onClick={()=>void save()}>{saving?'保存中…':'保存线索'}</Button>{saving && <TPInlineLoading status="active" description="正在保存线索…" />}</div></PageHeader>
+  <PageHeader className="lead-form__header"><div><div className="lead-form__eyebrow">PROSPECT DISCOVERY / LEAD</div><h1>新建线索（Lead）</h1><p>建立待跟进的客户资料。线索编号由系统自动生成。</p></div><div className="lead-form__actions"><Button kind="ghost" onClick={()=>navigate(-1)}>取消</Button><Button kind="primary" renderIcon={semanticIcons.save} disabled={saving||loadingSource} onClick={()=>void save()}>{saving?'保存中…':'保存线索'}</Button>{saving && <TPInlineLoading status="active" description="正在保存线索…" />}</div></PageHeader>
   {recordId&&<InlineNotification kind="info" lowContrast title="潜客转化前置要求" subtitle="转为正式线索前，必须先在潜客工作流完成审核与联系人信息采集。" />}
   {error&&<InlineNotification kind="error" title="无法保存线索" subtitle={error} onCloseButtonClick={()=>setError('')}/>}
   {loadingSource&&<div className="lead-form__loading"><TPSkeleton variant="profile" rows={4}/></div>}
