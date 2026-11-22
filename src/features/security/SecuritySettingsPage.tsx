@@ -2,7 +2,7 @@ import { PageHeader } from '@/design-system';
 import { useCallback, useEffect, useState } from 'react';
 import { startRegistration } from '@simplewebauthn/browser';
 import {
-  Button, TPSkeleton, InlineNotification, Tag, TextInput, Toggle,
+  Button, TPSkeleton, InlineNotification, Tag, TextInput, Toggle, semanticIcons,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/security.scss';
@@ -342,7 +342,7 @@ export function SecuritySettingsPage() {
               <Tag type="blue">无密码登录</Tag>
             </div>
             <div className="tp-security__actions">
-              <Button onClick={() => void addPasskey()} disabled={busy}>
+              <Button kind="primary" renderIcon={semanticIcons.security} onClick={() => void addPasskey()} disabled={busy}>
                 添加 Passkey
               </Button>
               <span className="tp-security__muted">建议至少绑定两种可用的 Passkey，避免设备遗失后无法登录。</span>
@@ -397,7 +397,7 @@ export function SecuritySettingsPage() {
                   <div className="tp-security__enrollment">
                     <h3>确认身份</h3><p>此安全操作需要 TOTP 二次验证。</p>
                     <TextInput id="tradepilot-webauthn-stepup" labelText="身份验证器验证码" value={webAuthnStepUpCode} onChange={(event) => setWebAuthnStepUpCode(event.currentTarget.value.replace(/\D/g, "").slice(0, 8))} inputMode="numeric" autoComplete="one-time-code" />
-                    <div className="tp-security__actions"><Button onClick={() => void verifyWebAuthnStepUp()} disabled={busy || webAuthnStepUpCode.length < 6}>验证并继续</Button><Button kind="ghost" onClick={() => setWebAuthnStepUp(null)}>取消</Button></div>
+                    <div className="tp-security__actions"><Button kind="primary" renderIcon={semanticIcons.security} onClick={() => void verifyWebAuthnStepUp()} disabled={busy || webAuthnStepUpCode.length < 6}>验证并继续</Button><Button kind="ghost" onClick={() => setWebAuthnStepUp(null)}>取消</Button></div>
                   </div>
                 )}
               </>
@@ -446,7 +446,7 @@ export function SecuritySettingsPage() {
                   autoComplete="one-time-code"
                 />
                 <div className="tp-security__actions">
-                  <Button onClick={() => void verifyTotpEnrollment()} disabled={busy || enrollmentCode.length < 6}>验证并启用</Button>
+                  <Button kind="primary" renderIcon={semanticIcons.security} onClick={() => void verifyTotpEnrollment()} disabled={busy || enrollmentCode.length < 6}>验证并启用</Button>
                   <Button kind="ghost" onClick={() => { setEnrollment(null); setEnrollmentCode(''); }}>取消</Button>
                 </div>
               </div>
