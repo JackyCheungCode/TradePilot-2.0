@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Button, ClickableTile, InlineNotification, Link, Select, SelectItem, Tag, TextInput, Tile, TPSkeleton, semanticIcons,
+  Button, ClickableTile, InlineNotification, Select, SelectItem, Tag, TextInput, TPSkeleton, semanticIcons,
 } from '@/design-system';
 import { PageHeader } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
@@ -29,6 +29,7 @@ type BoardCard = {
   details: string[];
   amount?: string;
   warning?: boolean;
+  closed?: boolean;
 };
 
 const safeRows = (value: unknown): Row[] => Array.isArray(value) ? value as Row[] : [];
@@ -63,6 +64,7 @@ const opportunityLabels: Record<string, string> = {
 function StageColumn({ title, count, hint, cards, empty }: {
   title: string; count: number; hint: string; cards: BoardCard[]; empty: string;
 }) {
+  const navigate = useNavigate();
   return (
     <section className="tp-sales-process__column" aria-label={title}>
       <header className="tp-sales-process__column-header">
@@ -71,7 +73,7 @@ function StageColumn({ title, count, hint, cards, empty }: {
       </header>
       <div className="tp-sales-process__column-body">
         {cards.length ? cards.map(card => (
-          <ClickableTile key={card.id} className="tp-sales-process__record" onClick={() => { window.location.assign(card.href); }}>
+          <ClickableTile key={card.id} className="tp-sales-process__record" onClick={() => navigate(card.href)}>
             <div className="tp-sales-process__record-top">
               <strong>{card.title || '未命名记录'}</strong>
               <Tag type={card.warning ? 'red' : 'blue'}>{card.status}</Tag>
@@ -143,7 +145,6 @@ export function SalesProcessPage() {
       return countryMatch && searchMatch;
     };
     const accountMap = new Map(data.accounts.map(row => [String(row.id), row]));
-    const contactMap = new Map(data.contacts.map(row => [String(row.id), row]));
     const leads = data.leads.filter(row => matches(row, [row.lead_number, row.name, row.email]));
     const accounts = data.accounts.filter(row => matches(row, [row.account_number, row.account_name, row.email, row.website]));
     const accountIds = new Set(accounts.map(row => String(row.id)));
@@ -158,7 +159,6 @@ export function SalesProcessPage() {
     const orderIds = new Set(orders.map(row => String(row.id)));
     const allocations = data.allocations.filter(row => orderIds.has(String(row.order_id)));
     const paymentById = new Map(data.payments.map(row => [String(row.id), row]));
-    const payments = data.payments.filter(row => (!q || [row.payment_no, row.payer_name].some(value => String(value || '').toLocaleLowerCase().includes(q))) && (country === 'all' || accounts.some(account => String(account.id) === String(row.account_id))));
     const shipments = data.shipments.filter(row => orderIds.has(String(row.order_id)));
     const contactCountByAccount = new Map<string, number>();
     contacts.forEach(row => contactCountByAccount.set(String(row.account_id), (contactCountByAccount.get(String(row.account_id)) || 0) + 1));
@@ -180,7 +180,7 @@ export function SalesProcessPage() {
       if (shipment.status === 'delivered') stat.delivered += 1;
       if (shipment.exception_flag || ['exception', 'delayed', 'failed', 'damaged', 'lost'].includes(String(shipment.status))) stat.exceptions += 1;
     });
-    return { leads, accounts, contacts, opportunities, quotes, orders, payments, shipments, orderStats, contactCountByAccount };
+    return { leads, accounts, contacts, opportunities, quotes, orders, shipments, orderStats, contactCountByAccount };
   }, [data, search, country]);
 
   const columns = useMemo(() => {
@@ -200,7 +200,7 @@ export function SalesProcessPage() {
       status: opportunityLabels[String(row.stage)] || String(row.stage || '未设置'),
       amount: money(row.amount, row.currency_code || 'USD'), href: '/opportunities/' + row.id,
       details: ['预计成交 ' + dateLabel(row.expected_close_date), row.next_step || '下一步行动未设置'],
-      warning: row.stage === 'lost',
+      warning: row.stage === 'lost', closed: ['won', 'lost'].includes(String(row.stage)),
     }));
     const quoteCards: BoardCard[] = scoped.quotes.map(row => {
       const content = row.content || {};
@@ -210,7 +210,7 @@ export function SalesProcessPage() {
         status: quoteLabels[state] || state, amount: money(row.totals?.grand_total, row.currency_code || 'USD'),
         href: '/quotes/' + row.id,
         details: [content.account_snapshot?.account_name || '客户未关联', '有效期 ' + dateLabel(content.quote?.valid_until)],
-        warning: ['rejected', 'expired', 'cancelled'].includes(state),
+        warning: ['rejected', 'expired', 'cancelled'].includes(state), closed: ['rejected', 'expired', 'cancelled'].includes(state),
       };
     });
     const orderCards: BoardCard[] = scoped.orders.map(row => {
@@ -221,7 +221,7 @@ export function SalesProcessPage() {
         status: orderLabels[state] || state, amount: money(row.metadata?.sales_order?.totals?.grand_total, row.currency_code || 'USD'),
         href: '/sales-orders/' + row.id,
         details: ['收款 ' + money(stats?.paid || 0, row.currency_code || 'USD'), '发运 ' + (stats?.shipmentCount || 0) + ' 票 · 签收 ' + (stats?.delivered || 0) + ' 票'],
-        warning: (stats?.exceptions || 0) > 0,
+        warning: (stats?.exceptions || 0) > 0, closed: state === 'cancelled',
       };
     });
     const executionCards: BoardCard[] = scoped.orders.filter(row => ['confirmed', 'completed'].includes(orderState(row))).map(row => {
@@ -264,14 +264,12 @@ export function SalesProcessPage() {
       { label: '待处理报价', value: openQuotes.length, href: '/quotes', icon: semanticIcons.document },
       { label: '销售订单', value: scoped.orders.length, href: '/sales-orders', icon: semanticIcons.shoppingCart },
       { label: '待收款订单', value: unpaidOrders.length, href: '/payments', icon: semanticIcons.money },
+      { label: '发运单', value: scoped.shipments.length, href: '/shipments', icon: semanticIcons.delivery },
       { label: '发运异常', value: scoped.shipments.filter(row => row.exception_flag).length, href: '/shipments', icon: semanticIcons.warning },
     ];
   }, [scoped]);
 
-  const visibleColumns = useMemo(() => {
-    if (view === 'all') return columns;
-    return columns;
-  }, [columns, view]);
+  const visibleColumns = useMemo(() => view === 'all' ? columns : columns.map(column => ({ ...column, cards: column.cards.filter(card => !card.closed) })), [columns, view]);
 
   return (
     <main className="tp-sales-process">
