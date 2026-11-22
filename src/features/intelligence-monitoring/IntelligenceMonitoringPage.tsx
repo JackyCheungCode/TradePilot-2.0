@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import '@/design-system/patterns/intelligence-monitoring.scss';
 import { PageHeader, Button, TextInput, Dropdown, Select, SelectItem, Tile, Tag, InlineNotification, Grid, Column, Checkbox } from '@/design-system';
 
 type Platform = { id: string; text: string; category: string };
@@ -72,17 +73,17 @@ export function IntelligenceMonitoringPage() {
   };
 
   return (
-    <main>
+    <main className="tp-intelligence-monitoring">
       <PageHeader
+        className="tp-intelligence-monitoring__page-header"
         breadcrumb="全球情报 / 公开内容监听"
         title="情报监听"
         description="管理指定公开账号、主页、群组、频道与帖子，持续发现新增内容，并通过 AI 识别采购意向。"
-      >
-        <div>
-          <Tag type="blue">PUBLIC DATA ONLY</Tag>
-          <Tag type="cool-gray">监听任务控制台</Tag>
-        </div>
-      </PageHeader>
+      />
+      <div className="tp-intelligence-monitoring__meta">
+        <Tag type="blue">PUBLIC DATA ONLY</Tag>
+        <Tag type="cool-gray">监听任务控制台</Tag>
+      </div>
 
       <InlineNotification
         kind="info"
@@ -92,8 +93,8 @@ export function IntelligenceMonitoringPage() {
         subtitle="此页面已提供监听配置与 AI 规则交互预览。后端监听任务、Apify / Bright Data 凭证调用、增量游标及数据库持久化尚未接入；下方新增内容仅保存在当前页面状态，不会真实启动采集。"
       />
 
-      <Grid fullWidth narrow>
-        <Column sm={4} md={4} lg={4}>
+      <Grid fullWidth className="tp-intelligence-monitoring__metrics">
+        <Column sm={4} md={4} lg={8}>
           <Tile>
             <p>监听对象草稿</p>
             <h2>{drafts.length}</h2>
@@ -123,7 +124,7 @@ export function IntelligenceMonitoringPage() {
         </Column>
       </Grid>
 
-      <Grid fullWidth narrow>
+      <Grid fullWidth className="tp-intelligence-monitoring__form-grid">
         <Column sm={4} md={8} lg={8}>
           <section>
             <h3>01 · 添加监听对象</h3>
@@ -140,7 +141,7 @@ export function IntelligenceMonitoringPage() {
                   onChange={({ selectedItem }: { selectedItem: Platform | null }) => setPlatform(selectedItem)}
                 />
               </Column>
-              <Column sm={4} md={4} lg={5}>
+              <Column sm={4} md={4} lg={8}>
                 <Select
                   id="intel-source-type"
                   labelText="对象类型"
@@ -157,7 +158,7 @@ export function IntelligenceMonitoringPage() {
                   <SelectItem value="forum" text="论坛主题 / 板块" />
                 </Select>
               </Column>
-              <Column sm={4} md={8} lg={10}>
+              <Column sm={4} md={8} lg={16}>
                 <TextInput
                   id="intel-source-url"
                   labelText="公开链接"
@@ -167,7 +168,7 @@ export function IntelligenceMonitoringPage() {
                   helperText="仅支持公开可访问内容；不采集私人消息、私密群组或需要绕过访问控制的内容。"
                 />
               </Column>
-              <Column sm={4} md={4} lg={5}>
+              <Column sm={4} md={4} lg={8}>
                 <Dropdown
                   id="intel-cadence"
                   titleText="监听频率"
@@ -178,7 +179,7 @@ export function IntelligenceMonitoringPage() {
                   onChange={({ selectedItem }: { selectedItem: { id: string; text: string } | null }) => selectedItem && setCadence(selectedItem)}
                 />
               </Column>
-              <Column sm={4} md={4} lg={5}>
+              <Column sm={4} md={4} lg={8}>
                 <Button kind="primary" onClick={addDraft} disabled={!canAdd}>加入监听对象草稿</Button>
               </Column>
             </Grid>
@@ -193,7 +194,7 @@ export function IntelligenceMonitoringPage() {
                 <p>添加公开主页、账号、群组、频道或帖子链接后，会在这里展示任务配置摘要。</p>
               </Tile>
             ) : drafts.map((item) => (
-              <Tile key={item.id}>
+              <Tile key={item.id} className="tp-intelligence-monitoring__source">
                 <div>
                   <Tag type="blue">{item.platform}</Tag>
                   <Tag type="cool-gray">草稿 · 未启动</Tag>
