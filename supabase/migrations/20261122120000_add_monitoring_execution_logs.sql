@@ -16,5 +16,7 @@ create index if not exists monitoring_run_logs_owner_created_idx on public.monit
 create index if not exists monitoring_run_logs_run_created_idx on public.monitoring_run_logs(run_id,created_at asc);
 alter table public.monitoring_run_logs enable row level security;
 grant select,insert on public.monitoring_run_logs to authenticated,service_role;
+drop policy if exists monitoring_run_logs_owner_select on public.monitoring_run_logs;
 create policy monitoring_run_logs_owner_select on public.monitoring_run_logs for select to authenticated using ((select auth.uid())=owner_id);
+drop policy if exists monitoring_run_logs_owner_insert on public.monitoring_run_logs;
 create policy monitoring_run_logs_owner_insert on public.monitoring_run_logs for insert to authenticated with check ((select auth.uid())=owner_id);
