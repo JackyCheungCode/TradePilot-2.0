@@ -117,7 +117,7 @@ export async function handleProspectCountries(request: Request, env: Env): Promi
       if (countries.length) source = "World Bank country catalog";
     }
     if (!countries.length) {
-      const fallback = await fetch("https://restcountries.com/v3.1/all?fields=cca2,name,region", { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(10000) });
+      const fallback = await fetch("https://restcountries.com/v3.1/all?fields=cca2,cca3,name,region", { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(10000) });
       if (!fallback.ok) throw new Error("RESTCOUNTRIES_" + fallback.status);
       const rows = await fallback.json() as Array<{ cca2?: string; cca3?: string; name?: { common?: string }; region?: string }>;
       countries = normalize(Array.isArray(rows) ? rows : []);
