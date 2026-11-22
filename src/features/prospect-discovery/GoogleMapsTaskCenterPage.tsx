@@ -3,8 +3,8 @@ import { Link, PageHeader, Tag, Tile, TpDataTable, InlineNotification, semanticI
 import { getSupabaseClient } from '@/lib/supabase';
 
 type Run = { id:string; task_code?:string; query?:string; countries?:string[]; state?:string|null; city?:string|null; status?:string; progress?:number; discovered_count?:number; created_lead_count?:number; message?:string; created_at?:string; providers?:string[]; channel?:string; hidden_at?:string|null };
-const statusLabel=(status?:string)=>({queued:'排队中',running:'执行中',paused:'已暂停',completed:'已完成',partial:'部分完成',failed:'失败',cancelled:'已取消'}[status||'']||status||'未知');
-const statusType=(status?:string):'green'|'blue'|'red'|'gray'=>['completed','partial'].includes(status||'')?'green':status==='failed'?'red':['queued','running'].includes(status||'')?'blue':'gray';
+const statusLabel=(status?:string)=>({planned:'待执行',queued:'排队中',running:'执行中',paused:'已暂停',completed:'已完成',partial:'部分完成',failed:'失败',cancelled:'已取消'}[status||'']||status||'未知');
+const statusType=(status?:string):'green'|'blue'|'red'|'gray'=>['completed','partial'].includes(status||'')?'green':status==='failed'?'red':['planned','queued','running'].includes(status||'')?'blue':'gray';
 const formatTime=(value?:string)=>value?new Date(value).toLocaleString('zh-TW',{hour12:false}):'—';
 
 async function api(path:string,init:RequestInit={}){
@@ -40,7 +40,7 @@ export function GoogleMapsTaskCenterPage(){
   const timer=window.setInterval(()=>void load(),5000);
   return()=>{active=false;window.clearInterval(timer);};
  },[reload]);
- const active=runs.filter(run=>['queued','running'].includes(run.status||'')).length;
+ const active=runs.filter(run=>['planned','queued','running'].includes(run.status||'')).length;
  const paused=runs.filter(run=>run.status==='paused').length;
  const completed=runs.filter(run=>['completed','partial'].includes(run.status||'')).length;
  const failed=runs.filter(run=>run.status==='failed').length;
