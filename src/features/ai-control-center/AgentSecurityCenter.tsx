@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Button, ContainedList, ContainedListItem, TPSkeleton, InlineNotification, Tag, TextArea } from '@/design-system';
+import { Button, ContainedList, ContainedListItem, TPSkeleton, InlineNotification, Tag, TextArea, semanticIcons } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 
 type Approval={id:string;run_id:string;action_type:string;status:string;operation_snapshot:unknown;decision_note:string|null;decided_at:string|null;expires_at:string;created_at:string};
@@ -34,7 +34,7 @@ export function AgentSecurityCenter(){
   {notice&&<InlineNotification kind="success" title="审批处理完成" subtitle={notice} onCloseButtonClick={()=>setNotice('')}/>}
   <section className="tp-settings__editor">
    <div><h4>人工审批队列 <Tag type="cool-gray">{pending.length} 待处理</Tag></h4><p>高风险外部工具调用必须经过人工审批。审批时会校验操作快照，连接或工具定义发生变化时将阻止执行。</p></div>
-   <Button kind="tertiary" size="md" onClick={()=>void load()} disabled={loading}>刷新审批</Button>
+   <Button kind="tertiary" size="md" renderIcon={semanticIcons.refresh} onClick={()=>void load()} disabled={loading}>刷新审批</Button>
    {loading?<TPSkeleton variant="table" rows={5}/>:!items.length?<p>暂无审批记录。</p>:<ContainedList kind="on-page" label="Agent 操作审批" size="md">
     {items.map(item=><ContainedListItem key={item.id}>
      <div>
@@ -44,8 +44,8 @@ export function AgentSecurityCenter(){
       <pre>{JSON.stringify(item.operation_snapshot,null,2)}</pre>
       {item.status==='pending'?<>
        <TextArea id={'approval-note-'+item.id} labelText="审批备注（可选）" rows={2} value={notes[item.id]||''} onChange={event=>setNotes(rows=>({...rows,[item.id]:event.currentTarget.value}))}/>
-       <Button kind="primary" size="sm" disabled={busyId===item.id} onClick={()=>void decide(item,'approve')}>{busyId===item.id?'处理中…':'批准并执行'}</Button>
-       <Button kind="tertiary" size="sm" disabled={busyId===item.id} onClick={()=>void decide(item,'reject')}>拒绝</Button>
+       <Button kind="primary" size="sm" renderIcon={semanticIcons.check} disabled={busyId===item.id} onClick={()=>void decide(item,'approve')}>{busyId===item.id?'处理中…':'批准并执行'}</Button>
+       <Button kind="danger--tertiary" size="sm" renderIcon={semanticIcons.close} disabled={busyId===item.id} onClick={()=>void decide(item,'reject')}>拒绝</Button>
       </>:item.decision_note&&<p>处理备注：{item.decision_note}</p>}
      </div>
     </ContainedListItem>)}
