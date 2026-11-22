@@ -126,9 +126,8 @@ export function IntelligenceMonitoringPage() {
 
       <Grid fullWidth className="tp-intelligence-monitoring__form-grid">
         <Column sm={4} md={8} lg={8}>
-          <section>
-            <h3>01 · 添加监听对象</h3>
-            <p>输入你希望持续观察的公开内容链接。每个对象独立设置采集平台和运行频率。</p>
+          <section className="tp-intelligence-monitoring__section">
+            <div className="tp-intelligence-monitoring__section-heading"><span>01</span><div><h2>添加监听对象</h2><p>输入你希望持续观察的公开内容链接。每个对象独立设置采集平台和运行频率。</p></div></div>
             <Grid fullWidth className="tp-intelligence-monitoring__form-grid">
               <Column sm={4} md={4} lg={4}>
                 <Dropdown
@@ -186,8 +185,8 @@ export function IntelligenceMonitoringPage() {
             {notice && <InlineNotification kind="info" lowContrast title="操作反馈" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
           </section>
 
-          <section>
-            <h3>02 · 监听对象</h3>
+          <section className="tp-intelligence-monitoring__section">
+            <div className="tp-intelligence-monitoring__section-heading"><span>02</span><div><h2>监听对象</h2><p>已配置对象及其当前草稿状态</p></div></div>
             {drafts.length === 0 ? (
               <Tile>
                 <h4>尚未添加监听对象</h4>
@@ -208,9 +207,8 @@ export function IntelligenceMonitoringPage() {
         </Column>
 
         <Column sm={4} md={8} lg={6}>
-          <section>
-            <h3>03 · AI 购买意向识别</h3>
-            <p>对新发现的公开帖子、评论和回复进行语义分析，不只依赖关键词。</p>
+          <section className="tp-intelligence-monitoring__section">
+            <div className="tp-intelligence-monitoring__section-heading"><span>03</span><div><h2>AI 购买意向识别</h2><p>对新发现的公开帖子、评论和回复进行语义分析，不只依赖关键词。</p></div></div>
             <Tile>
               <h4>识别目标</h4>
               {intentTypes.map((intent) => (
@@ -247,8 +245,8 @@ export function IntelligenceMonitoringPage() {
             </Tile>
           </section>
 
-          <section>
-            <h3>04 · 采集与数据规则</h3>
+          <section className="tp-intelligence-monitoring__section">
+            <div className="tp-intelligence-monitoring__section-heading"><span>04</span><div><h2>采集与数据规则</h2><p>定义内容范围、增量策略和数据服务路由</p></div></div>
             <Tile>
               <p><strong>默认采集内容</strong></p>
               <ul>
