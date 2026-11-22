@@ -40,7 +40,7 @@
 .tp-communication-heading h1 { margin: 0; color: var(--cds-text-primary, #161616); font-size: 18px; font-weight: 600; line-height: 1.3; }
 .tp-communication-heading p { margin: 3px 0 0; color: var(--cds-text-secondary, #525252); font-size: 12px; }
 .tp-communication-header-actions { display: flex; min-width: 0; align-items: center; justify-content: flex-end; gap: 4px; }
-.tp-communication-header-actions .cds--btn { min-height: 32px; padding-inline: 10px; border-radius: 0; }
+
 .tp-communication-overview { margin-right: 8px; color: var(--cds-text-secondary, #525252); font-size: 12px; white-space: nowrap; }
 .tp-communication-overview span { padding-inline: 4px; }
 .tp-communication-grid {
@@ -164,7 +164,7 @@
 .tp-chat-bubble { min-width: 0; padding: 12px 14px; border: 0; border-radius: 2px; background: var(--cds-layer-01, #fff); color: var(--cds-text-primary, #161616); font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
 .tp-chat-message.is-outbound .tp-chat-bubble { background: var(--cds-layer-accent-01, #d0e2ff); }
 .tp-chat-bubble p { margin: 0; white-space: pre-wrap; }
-.tp-chat-bubble .cds--btn { min-height: 28px; margin-top: 8px; padding-inline: 8px; }
+.tp-chat-bubble .cds--btn { margin-top: 8px; }
 .tp-chat-email-subject { display: block; margin-bottom: 6px; font-size: 12px; }
 .tp-chat-attachment { display: block; margin-top: 8px; color: var(--cds-link-primary, #0f62fe); font-size: 11px; }
 .tp-chat-translation { margin-top: 10px !important; padding-top: 9px; border-top: 1px solid var(--cds-border-subtle-01, #e0e0e0); color: var(--cds-text-secondary, #525252); }
@@ -204,7 +204,7 @@
 .tp-customer-tags span { padding: 4px 7px; background: var(--cds-layer-02, #e8e8e8); color: var(--cds-text-secondary, #525252); font-size: 10px; }
 .tp-customer-tags small { color: var(--cds-text-secondary, #525252); font-size: 10px; }
 .tp-xiaoya-actions { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 14px 12px; }
-.tp-xiaoya-actions .cds--btn { min-height: 30px; padding-inline: 8px; border-radius: 0; font-size: 10px; }
+
 .tp-xiaoya-result { margin: 0 14px 10px; padding: 10px; background: var(--cds-layer-02, #e8e8e8); color: var(--cds-text-primary, #161616); }
 .tp-xiaoya-result strong { font-size: 11px; }
 .tp-xiaoya-result p { margin: 6px 0 0; color: var(--cds-text-secondary, #525252); font-size: 11px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -212,7 +212,7 @@
 .tp-xiaoya-error { margin: 0 14px 10px; color: var(--cds-support-error, #da1e28); font-size: 11px; }
 .tp-xiaoya-empty,.tp-xiaoya-note { margin: 0 14px 10px; color: var(--cds-text-secondary, #525252); font-size: 10px; line-height: 1.45; }
 .tp-communication-notice { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 14px; background: var(--cds-layer-02, #e8e8e8); color: var(--cds-text-primary, #161616); font-size: 11px; }
-.tp-communication-notice .cds--btn { min-height: 28px; }
+
 @media (max-width: 1100px) {
   .tp-communication-grid { grid-template-columns: minmax(210px, 235px) minmax(300px, 1fr) minmax(245px, 275px); }
   .tp-communication-grid--profile-closed { grid-template-columns: minmax(210px, 235px) minmax(0, 1fr); }
@@ -223,7 +223,7 @@
   .tp-communication-grid { grid-template-columns: minmax(190px, 215px) minmax(0, 1fr) minmax(220px, 240px); }
   .tp-communication-grid--profile-closed { grid-template-columns: minmax(190px, 215px) minmax(0, 1fr); }
   .tp-communication-header { padding-inline: 12px; }
-  .tp-communication-header-actions .cds--btn { padding-inline: 6px; font-size: 10px; }
+
 }
 @media (max-width: 680px) {
   .tp-communication-page { height: calc(100dvh - 6.5rem); min-height: 420px; }
@@ -379,7 +379,7 @@ body.tp-chat-popup-window .tp-content__main { min-height: 100dvh; padding: 0 !im
   .tp-chat-heading strong { font-size: 12px; }
   .tp-chat-heading span { font-size: 10px; }
   .tp-chat-context { display: none; }
-  .tp-chat-header > .cds--btn:not(.tp-chat-back) { min-height: 36px; margin-left: auto; padding-inline: 8px; font-size: 11px; }
+  .tp-chat-header > .cds--btn:not(.tp-chat-back) { margin-left: auto; }
   .tp-chat-routing { align-items: flex-start; flex-wrap: wrap; gap: 4px 8px; }
   .tp-chat-channel-picker { width: 100%; max-width: none; }
 }
