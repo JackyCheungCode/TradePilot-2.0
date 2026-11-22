@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   PageHeader, Button, TextInput, Select, SelectItem, Tile, Tag, InlineNotification,
   Grid, Column, Checkbox, TpDataTable,
@@ -270,6 +270,7 @@ export function IntelligenceMonitoringPage() {
 }
 
 export function MonitoringTasksPage() {
+  const navigate = useNavigate();
   const { rows, loading, error, reload } = useMonitoringData('tasks');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -334,7 +335,7 @@ export function MonitoringTasksPage() {
     </div>
     {error && <InlineNotification kind="error" lowContrast title="读取任务失败" subtitle={error}  />}
     <div className="tp-intelligence-monitoring__filter-bar"><Select id="monitoring-task-status-filter" labelText="任务状态" size="sm" value={statusFilter} onChange={event => setStatusFilter(event.currentTarget.value)}><SelectItem value="all" text="全部状态" /><SelectItem value="draft" text="草稿" /><SelectItem value="running" text="已启用" /><SelectItem value="paused" text="已暂停" /><SelectItem value="error" text="异常" /></Select></div>
-    <TpDataTable<TaskRow> ariaLabel="监听任务列表" columns={columns} rows={filtered} rowKey="id" loading={loading} searchValue={search} onSearchChange={setSearch} onRetry={() => void reload()} emptyState="暂无监听任务。创建任务后会显示在这里。" columnSettingsKey="intelligence-monitoring-tasks" pagination={{ page, pageSize: 20, totalItems: filtered.length, onChange: nextPage => setPage(nextPage) }} />
+    <TpDataTable<TaskRow> ariaLabel="监听任务列表" columns={columns} rows={filtered} rowKey="id" loading={loading} searchValue={search} onSearchChange={setSearch} onRetry={() => void reload()} onRowOpen={row => navigate('/intelligence-monitoring/tasks/' + encodeURIComponent(row.id))} emptyState="暂无监听任务。创建任务后会显示在这里。" columnSettingsKey="intelligence-monitoring-tasks" pagination={{ page, pageSize: 20, totalItems: filtered.length, onChange: nextPage => setPage(nextPage) }} />
   </main>;
 }
 
