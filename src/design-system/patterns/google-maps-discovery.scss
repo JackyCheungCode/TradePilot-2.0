@@ -250,3 +250,83 @@
 .tp-gmaps-task-center__header p{@include type-style('body-compact-01');color:var(--cds-text-secondary)}
 @media(max-width:800px){.tp-gmaps-task-center__cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:520px){.tp-gmaps-task-center__cards{grid-template-columns:minmax(0,1fr)}}
+
+
+/* Mobile task-center: keep the operational fields visible without horizontal scrolling. */
+@media (max-width: 520px) {
+  .tp-gmaps-task-center__cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--cds-spacing-03);
+  }
+
+  .tp-gmaps-task-center__card {
+    min-height: 76px;
+    padding: var(--cds-spacing-03);
+    gap: var(--cds-spacing-03);
+  }
+
+  .tp-gmaps-task-center__card-icon {
+    flex-basis: 32px;
+    width: 32px;
+    height: 32px;
+  }
+
+  .tp-gmaps-task-center__card strong {
+    font-size: 1.375rem;
+  }
+
+  .tp-gmaps-task-center__panel {
+    padding: var(--cds-spacing-03);
+  }
+
+  .tp-gmaps-task-center__panel-heading {
+    gap: var(--cds-spacing-03);
+  }
+
+  .tp-gmaps-task-center__panel-heading h2 {
+    font-size: 1.25rem;
+    line-height: 1.35;
+  }
+
+  .tp-gmaps-task-center .cds--data-table-container,
+  .tp-gmaps-task-center .cds--table-container {
+    min-width: 0;
+    overflow-x: hidden;
+  }
+
+  .tp-gmaps-task-center .cds--data-table {
+    width: 100%;
+    min-width: 0;
+    table-layout: fixed;
+  }
+
+  /* Checkbox, task code, keyword, status and row actions remain available.
+     Location, progress, counts and timestamp are secondary on narrow screens. */
+  .tp-gmaps-task-center .cds--data-table thead th:nth-child(4),
+  .tp-gmaps-task-center .cds--data-table tbody td:nth-child(4),
+  .tp-gmaps-task-center .cds--data-table thead th:nth-child(6),
+  .tp-gmaps-task-center .cds--data-table tbody td:nth-child(6),
+  .tp-gmaps-task-center .cds--data-table thead th:nth-child(7),
+  .tp-gmaps-task-center .cds--data-table tbody td:nth-child(7),
+  .tp-gmaps-task-center .cds--data-table thead th:nth-child(8),
+  .tp-gmaps-task-center .cds--data-table tbody td:nth-child(8) {
+    display: none;
+  }
+
+  .tp-gmaps-task-center .cds--data-table thead th:nth-child(2),
+  .tp-gmaps-task-center .cds--data-table tbody td:nth-child(2) {
+    width: 42%;
+    overflow-wrap: anywhere;
+  }
+
+  .tp-gmaps-task-center .cds--data-table thead th:nth-child(3),
+  .tp-gmaps-task-center .cds--data-table tbody td:nth-child(3) {
+    width: 34%;
+    overflow-wrap: anywhere;
+  }
+
+  .tp-gmaps-task-center .cds--data-table tbody td {
+    padding-inline: var(--cds-spacing-02);
+    font-size: 0.75rem;
+  }
+}
