@@ -252,11 +252,11 @@ export function GoogleMapsDiscoveryPage() {
     const timer = window.setTimeout(() => {
       const url = '/api/v1/prospect-profiling/cities?q=' + encodeURIComponent(cityQuery.trim()) + '&country=' + country + '&language=' + language.google;
       void api<{ cityDetails: City[] }>(url)
-        .then(payload => { if (active) setCityOptions(payload.cityDetails ?? []); })
+        .then(payload => { if (active) { const selectedRegionName = regions.find(item => item.id === region)?.name; setCityOptions((payload.cityDetails ?? []).filter(item => !selectedRegionName || item.admin1 === selectedRegionName)); } })
         .catch(() => { if (active) setCityOptions([]); });
     }, 300);
     return () => { active = false; window.clearTimeout(timer); };
-  }, [cityQuery, country, language.google]);
+  }, [cityQuery, country, language.google, region, regions]);
 
   useEffect(() => {
     if (!country || keyword.trim().length < 2) { setSuggestions([]); return; }
@@ -454,7 +454,7 @@ export function GoogleMapsDiscoveryPage() {
           <div className="tp-gmaps-discovery__keyword-input">
             <TextInput id="gmaps-keyword" labelText="企业或产品关键词" value={keyword} onChange={event => { setKeyword(event.currentTarget.value); setTranslated(''); setOriginalKeyword(''); }} placeholder="例如：electronics wholesaler、computer accessories distributor" />
             {suggestions.length > 0 && <div className="tp-gmaps-discovery__suggestion-list tp-gmaps-discovery__keyword-suggestions">
-              {suggestions.map(item => <button type="button" key={item} onClick={() => { setKeyword(item); setSuggestions([]); setTranslated(''); }}><span>{item}</span><span>采用关键词</span></button>)}
+              {suggestions.map(item => <button type="button" key={item} onClick={() => { setKeyword(item); setSuggestions([]); setTranslated(''); setOriginalKeyword(''); }}><span>{item}</span><span>采用关键词</span></button>)}
             </div>}
           </div>
           <Button kind="tertiary" renderIcon={semanticIcons.translate} onClick={() => void translateKeyword()} disabled={!country || !keyword.trim() || translationBusy} loading={translationBusy}>DeepL 翻译</Button>
