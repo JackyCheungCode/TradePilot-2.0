@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-  PageHeader, Button, Tag, Tile, Grid, Column, InlineNotification, TpDataTable, Select, SelectItem, TextInput,
+  PageHeader, Button, Tag, Tile, Grid, Column, InlineNotification, TpDataTable, Select, SelectItem, TextInput, semanticIcons,
 } from '@/design-system';
 import type { TpTableColumn } from '@/design-system';
-import { Task, Activity, Analytics, Play, Pause } from '@/design-system/icons';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/intelligence-monitoring.scss';
 
@@ -156,7 +155,7 @@ export function MonitoringTaskDetailPage() {
     <PageHeader breadcrumb="全球情报 / 公开内容监听 / 监听任务列表" title={task?.name ?? '监听任务详情'} description={task?.task_code ? '任务编号 ' + task.task_code + ' · 查看任务配置、执行记录与全部监听结果。' : '查看该监听任务的配置、执行记录与监听结果。'} />
     <div className="tp-intelligence-monitoring__actions">
       <Button kind="tertiary" size="md" onClick={() => navigate('/intelligence-monitoring/tasks')}>返回任务列表</Button>
-      <Button kind="tertiary" size="md" renderIcon={running ? Pause : Play} onClick={async () => {
+      <Button kind="tertiary" size="md" renderIcon={running ? semanticIcons.pause : semanticIcons.play} onClick={async () => {
         if (!task) return;
         const client = await getSupabaseClient();
         const stamp = new Date().toISOString();
@@ -166,7 +165,7 @@ export function MonitoringTaskDetailPage() {
         if (updateError) { setError(updateError.message); return; }
         await loadTask();
       }}>{task?.status === 'running' ? '暂停监听' : '恢复监听'}</Button>
-      <Button kind="ghost" size="md" renderIcon={Activity} onClick={() => { void loadTask(); void loadResults(); }}>刷新详情</Button>
+      <Button kind="ghost" size="md" renderIcon={semanticIcons.activity} onClick={() => { void loadTask(); void loadResults(); }}>刷新详情</Button>
     </div>
     {error && <InlineNotification kind="error" lowContrast title="任务数据读取异常" subtitle={error} />}
     {loading ? <Tile className="tp-intelligence-monitoring__detail-loading">正在读取任务详情…</Tile> : !task ? <Tile className="tp-intelligence-monitoring__empty"><h4>未找到该监听任务</h4><p>任务可能已删除，或当前账号无权访问。</p></Tile> : <>
@@ -174,7 +173,7 @@ export function MonitoringTaskDetailPage() {
         {summary.map(item => <div key={item.label}><span>{item.label}</span><strong>{item.value}</strong></div>)}
       </div>
       <section className="tp-intelligence-monitoring__section">
-        <div className="tp-intelligence-monitoring__section-heading"><Task size={20} /><div><h2>任务配置</h2><p>监听对象、采集策略和 AI 分析规则。</p></div></div>
+        <div className="tp-intelligence-monitoring__section-heading"><semanticIcons.task size={20} /><div><h2>任务配置</h2><p>监听对象、采集策略和 AI 分析规则。</p></div></div>
         <Grid fullWidth className="tp-intelligence-monitoring__detail-grid">
           <Column sm={4} md={4} lg={8}><div><span>任务名称</span><strong>{task.name}</strong></div></Column>
           <Column sm={4} md={4} lg={8}><div><span>创建时间</span><strong>{formatDate(task.created_at)}</strong></div></Column>
@@ -195,7 +194,7 @@ export function MonitoringTaskDetailPage() {
         </div></div>
       </section>
       <section className="tp-intelligence-monitoring__section">
-        <div className="tp-intelligence-monitoring__section-heading"><Analytics size={20} /><div><h2>执行记录</h2><p>查看最近 30 次运行、当前阶段与采集计数。</p></div></div>
+        <div className="tp-intelligence-monitoring__section-heading"><semanticIcons.analytics size={20} /><div><h2>执行记录</h2><p>查看最近 30 次运行、当前阶段与采集计数。</p></div></div>
         <TpDataTable<RunRow> ariaLabel="监听任务执行记录" columns={[
           {key:'created_at',header:'创建时间',render:row=>formatDate(row.created_at)},
           {key:'status',header:'执行状态',render:row=><Tag type={row.status==='succeeded'?'green':row.status==='failed'?'red':row.status==='running'?'blue':'cool-gray'}>{statusLabel(row.status)}</Tag>},
@@ -209,7 +208,7 @@ export function MonitoringTaskDetailPage() {
         {task.last_error && <InlineNotification kind="error" lowContrast title="最近一次任务异常" subtitle={task.last_error} />}
       </section>
       <section className="tp-intelligence-monitoring__section">
-        <div className="tp-intelligence-monitoring__section-heading"><Activity size={20} /><div><h2>执行日志</h2><p>最近 30 条任务级日志事件。</p></div></div>
+        <div className="tp-intelligence-monitoring__section-heading"><semanticIcons.activity size={20} /><div><h2>执行日志</h2><p>最近 30 条任务级日志事件。</p></div></div>
         <div className="tp-intelligence-monitoring__first-run-events">{logs.length ? logs.map(entry=><div className="tp-intelligence-monitoring__first-run-event" key={entry.id}><span className={'tp-intelligence-monitoring__log-dot tp-intelligence-monitoring__log-dot--'+entry.level}/><div><strong>{entry.message}</strong><small>{formatDate(entry.created_at)} · {entry.event}</small></div></div>) : <div className="tp-intelligence-monitoring__first-run-empty">暂无执行日志。</div>}</div>
       </section>
       <section className="tp-intelligence-monitoring__section">
