@@ -646,7 +646,7 @@ export async function handleDiscovery(request: Request, env: DiscoveryEnv): Prom
 
   const actionMatch=url.pathname.match(/^\/api\/v1\/discovery-records\/([0-9a-f-]+)\/action$/i);
   if(request.method==="POST" && actionMatch){
-    let body:{action?:string;runId?:string};try{body=await request.json() as {action?:string;runId?:string};}catch{return errorResponse(request,"VALIDATION_ERROR","请求内容不是有效 JSON。",400);}
+    let body:{action?:string;runId?:string;patch?:Record<string,unknown>};try{body=await request.json() as {action?:string;runId?:string;patch?:Record<string,unknown>};}catch{return errorResponse(request,"VALIDATION_ERROR","请求内容不是有效 JSON。",400);}
     const rows=await db<Array<Record<string,unknown>>>(env,"discovery_records?id=eq."+actionMatch[1]+"&owner_id=eq."+userId+"&select=*");
     const record=rows?.[0];if(!record)return errorResponse(request,"NOT_FOUND","找不到该搜索结果。",404);
     if(body.action==="review"){
