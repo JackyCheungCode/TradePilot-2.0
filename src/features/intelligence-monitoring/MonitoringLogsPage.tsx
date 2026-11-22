@@ -11,8 +11,8 @@ const levelLabel=(v:string)=>v==='error'?'错误':v==='warning'?'警告':v==='de
 export function MonitoringLogsPage(){
  const [rows,setRows]=useState<LogRow[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState(''),[search,setSearch]=useState(''),[level,setLevel]=useState('all');
  const runIdFilter=new URLSearchParams(window.location.search).get('runId')??'';
- const load=useCallback(async()=>{
-  setLoading(true);setError('');
+ const load=useCallback(async(quiet=false)=>{
+  if(!quiet)setLoading(true);setError('');
   try{
    const client=await getSupabaseClient();
    const {data:auth,error:authError}=await client.auth.getUser();if(authError)throw authError;if(!auth.user)throw new Error('请先登录。');
@@ -26,9 +26,10 @@ export function MonitoringLogsPage(){
    if(tasks.error)throw tasks.error;if(runs.error)throw runs.error;
    const taskMap=new Map((tasks.data??[]).map(x=>[x.id,x.name])),runMap=new Map((runs.data??[]).map(x=>[x.id,x]));
    setRows((logs??[]).map(x=>({...x,task_name:taskMap.get(x.task_id)??'已删除任务',run_status:runMap.get(x.run_id)?.status??'unknown',current_stage:runMap.get(x.run_id)?.current_stage??''})));
-  }catch(e){setError(e instanceof Error?e.message:'读取监听日志失败');setRows([]);}finally{setLoading(false);}
+  }catch(e){setError(e instanceof Error?e.message:'读取监听日志失败');setRows([]);}finally{if(!quiet)setLoading(false);}
  },[]);
  useEffect(()=>{void load();},[load]);
+ useEffect(()=>{const timer=window.setInterval(()=>void load(true),10000);return()=>window.clearInterval(timer);},[load]);
  const filtered=useMemo(()=>rows.filter(x=>(!runIdFilter||x.run_id===runIdFilter)&&(level==='all'||x.level===level)&&[x.task_name,x.event,x.message,x.run_id,x.run_status,x.current_stage].join(' ').toLowerCase().includes(search.toLowerCase())),[rows,level,search,runIdFilter]);
  const columns:TpTableColumn<LogRow>[]=[
   {key:'created_at',header:'发生时间',required:true,minWidth:180,render:r=>date(r.created_at)},
