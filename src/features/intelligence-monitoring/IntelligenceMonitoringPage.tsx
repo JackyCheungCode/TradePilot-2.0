@@ -242,7 +242,7 @@ export function IntelligenceMonitoringPage() {
         <Column sm={4} md={4} lg={4}><div><span>最低等级</span><strong>{minimumGrade} 级</strong></div></Column>
       </Grid>
       <InlineNotification kind="info" lowContrast title="任务启动与执行状态" subtitle="创建后立即启用并进入调度队列。只有 Worker 领取任务、启动采集器并持续回报心跳后，任务详情才会显示真实执行阶段。" hideCloseButton />
-      <div className="tp-intelligence-monitoring__actions"><Button kind="primary" disabled={!canSave || busy} onClick={() => void saveTask()}>{busy ? '正在保存…' : '保存监听任务'}</Button><Button kind="tertiary" href="/intelligence-monitoring/tasks">查看任务列表</Button></div>
+      <div className="tp-intelligence-monitoring__actions"><Button kind="primary" renderIcon={semanticIcons.save} disabled={!canSave || busy} onClick={() => void saveTask()}>{busy ? '正在保存…' : '保存监听任务'}</Button><Button kind="tertiary" href="/intelligence-monitoring/tasks">查看任务列表</Button></div>
     </section>
       </div>
       <aside className="tp-intelligence-monitoring__first-run-panel" aria-live="polite">
@@ -384,8 +384,8 @@ export function MonitoringResultsPage() {
       <section className="tp-intelligence-monitoring__metric-card"><div className="tp-intelligence-monitoring__metric-head"><span>S / A 级潜客</span><semanticIcons.analytics size={20} /></div><strong>{resultMetrics.qualified.toLocaleString('zh-CN')}</strong><small>高优先级采购意向</small></section>
       <section className="tp-intelligence-monitoring__metric-card"><div className="tp-intelligence-monitoring__metric-head"><span>待 AI 分析</span><semanticIcons.activity size={20} /></div><strong>{resultMetrics.pending.toLocaleString('zh-CN')}</strong><small>尚未生成 AI 判定的记录</small></section>
     </div>
-    {error && <><InlineNotification kind="error" lowContrast title="读取结果失败" subtitle={error} /><Button kind="tertiary" size="sm" onClick={() => void reload()}>重试</Button></>}
-    <div className="tp-intelligence-monitoring__table-meta"><Tag type="blue">云端数据</Tag><span>最近 500 条采集记录 · AI 判定尚未完成时显示「待分析」</span><Button kind="tertiary" size="sm" onClick={() => void reload()}>刷新结果</Button></div>
+    {error && <><InlineNotification kind="error" lowContrast title="读取结果失败" subtitle={error} /><Button kind="tertiary" size="sm" renderIcon={semanticIcons.refresh} onClick={() => void reload()}>重试</Button></>}
+    <div className="tp-intelligence-monitoring__table-meta"><Tag type="blue">云端数据</Tag><span>最近 500 条采集记录 · AI 判定尚未完成时显示「待分析」</span><Button kind="tertiary" size="sm" renderIcon={semanticIcons.refresh} onClick={() => void reload()}>刷新结果</Button></div>
     <div className="tp-intelligence-monitoring__filter-bar tp-intelligence-monitoring__filter-bar--wide"><Select id="monitoring-result-platform-filter" labelText="平台" size="sm" value={platformFilter} onChange={event => setPlatformFilter(event.currentTarget.value)}><SelectItem value="all" text="全部平台" />{platformOptions.map(item => <SelectItem key={item.value} value={item.value} text={item.label} />)}</Select><Select id="monitoring-result-grade-filter" labelText="AI 意向" size="sm" value={gradeFilter} onChange={event => setGradeFilter(event.currentTarget.value)}><SelectItem value="all" text="全部等级" /><SelectItem value="S" text="S 级" /><SelectItem value="A" text="A 级" /><SelectItem value="B" text="B 级" /><SelectItem value="C" text="C 级" /><SelectItem value="unclassified" text="待分析" /></Select></div>
     <TpDataTable<ResultRow> ariaLabel="监听结果中心" columns={columns} rows={filtered} rowKey="id" loading={loading} searchValue={search} onSearchChange={setSearch} onRetry={() => void reload()} emptyState="暂无采集结果。结果将在采集器完成首次运行后进入此表格。" detailPanel detailTitle={row => row.task_name + ' · ' + row.channel_name} columnSettingsKey="intelligence-monitoring-results" pagination={{ page, pageSize: 20, totalItems: filtered.length, onChange: nextPage => setPage(nextPage) }} />
   </main>;
