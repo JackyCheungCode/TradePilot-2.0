@@ -212,7 +212,7 @@ export function GoogleMapsDiscoveryPage() {
   const [includePureServiceAreaBusinesses, setIncludePureServiceAreaBusinesses] = useState(false);
   const [rankPreference, setRankPreference] = useState('RELEVANCE');
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
-  const [includeAdvanced, setIncludeAdvanced] = useState(false);
+  const [advancedFieldRows, setAdvancedFieldRows] = useState<Array<{ id: string; field: string; saveMode: 'raw' | 'text' | 'non_empty' }>>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -220,6 +220,9 @@ export function GoogleMapsDiscoveryPage() {
   const [runId, setRunId] = useState('');
   const [runStatus, setRunStatus] = useState('');
   const [runMessage, setRunMessage] = useState('');
+  const [runTaskCode, setRunTaskCode] = useState('');
+  const [runProgress, setRunProgress] = useState(0);
+  const [runLogs, setRunLogs] = useState<Array<{ id: string; level?: string; message?: string; createdAt?: string }>>([]);
   const [results, setResults] = useState<ProspectRow[]>([]);
   const [tableSearch, setTableSearch] = useState('');
 
@@ -233,6 +236,9 @@ export function GoogleMapsDiscoveryPage() {
     ]);
     setRunStatus(String(run.status ?? ''));
     setRunMessage(String(run.message ?? ''));
+    setRunTaskCode(String(run.taskCode ?? ''));
+    setRunProgress(Math.max(0, Math.min(100, Number(run.progress ?? 0))));
+    setRunLogs(Array.isArray(run.logs) ? run.logs : []);
     setResults((rows ?? []).map(row => {
       const occurrence = (row.discovery_record_occurrences ?? []).find(item => item.provider === 'google_maps');
       return { ...row, raw_data: { ...(row.raw_data ?? {}), ...(occurrence?.raw_data ?? {}) } };
@@ -288,7 +294,7 @@ export function GoogleMapsDiscoveryPage() {
     return () => window.clearInterval(timer);
   }, [runId, runStatus, loadResults]);
 
-  const requestedFields = useMemo(() => [...standardFields, ...(includeAdvanced ? advancedFields : [])], [includeAdvanced]);
+  const requestedFields = useMemo(() => [...standardFields, ...advancedFieldRows.map(item => item.field)], [advancedFieldRows]);
   const tableRows = useMemo(() => {
     const query = tableSearch.trim().toLocaleLowerCase();
     return results.filter(row => !query || [row.name, row.address, row.phone, row.website, row.country_code].join(' ').toLocaleLowerCase().includes(query));
@@ -353,12 +359,13 @@ export function GoogleMapsDiscoveryPage() {
         providers: ['google_maps'], businessTypes: selectedTypes,
         filters: { minRating: Number(minRating) || undefined, openNow, requireWebsite, requirePhone },
         googleFieldMask: requestedFields,
+        googleFieldStorageModes: Object.fromEntries(advancedFieldRows.map(item => [item.field, item.saveMode])),
         googleLanguageCode: language.google,
         googleRankPreference: rankPreference,
         googleIncludePureServiceAreaBusinesses: includePureServiceAreaBusinesses,
       };
-      const run = await api<{ id: string; status: string; message?: string }>('/api/v1/discovery-runs', { method: 'POST', body: JSON.stringify(input) });
-      setRunId(run.id); setRunStatus(run.status); setRunMessage(run.message ?? '任务已排队');
+      const run = await api<{ id: string; taskCode?: string; status: string; message?: string; progress?: number }>('/api/v1/discovery-runs', { method: 'POST', body: JSON.stringify(input) });
+      setRunId(run.id); setRunTaskCode(run.taskCode ?? ''); setRunStatus(run.status); setRunProgress(run.progress ?? 0); setRunMessage(run.message ?? '任务已排队');
       setNotice('Google Maps 发现任务已创建。结果会在后台完成后自动更新。');
       await loadResults(run.id);
     } catch (cause) {
@@ -408,8 +415,8 @@ export function GoogleMapsDiscoveryPage() {
           <p>使用 Google Maps Places API 发现目标国家的本地企业、经销商、制造商与渠道商。</p>
         </div>
         <div className="tp-gmaps-discovery__header-actions">
-          <Link href="/prospect-history" renderIcon={semanticIcons.time}>历史任务</Link>
-          <Link href="/prospect-data" renderIcon={semanticIcons.database}>潜客数据</Link>
+          <Link href="/prospect-discovery/google-maps/tasks" renderIcon={semanticIcons.time}>Google Maps 发现任务中心</Link>
+          <Link href="/prospect-discovery/google-maps/customers" renderIcon={semanticIcons.database}>Google Maps 发现客户</Link>
         </div>
       </PageHeader>
 
