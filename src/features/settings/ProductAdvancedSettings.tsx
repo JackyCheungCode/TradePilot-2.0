@@ -124,7 +124,7 @@ export function ProductAdvancedSettings({ section }: { section: string }) {
           if(field.type==='boolean') return <Checkbox key={field.key} id={'advanced-'+section+'-'+field.key} labelText={field.label} checked={Boolean(value)} onChange={e=>setConfig(c=>({...c,[field.key]:e.currentTarget.checked}))}/>;
           return <TextInput key={field.key} id={'advanced-'+section+'-'+field.key} labelText={field.label} type={field.type==='number'?'number':'text'} value={String(value)} placeholder={field.placeholder} onChange={e=>setConfig(c=>({...c,[field.key]:e.currentTarget.value}))}/>;
         })}
-        <Button kind="primary" disabled={saving||!name.trim()} onClick={()=>void save()}>{saving?'保存中…':editing?'保存修改':'新增配置'}<semanticIcons.add size={16}/></Button>
+        <Button kind="primary" renderIcon={editing?semanticIcons.save:semanticIcons.add} disabled={saving||!name.trim()} onClick={()=>void save()}>{saving?'保存中…':editing?'保存修改':'新增配置'}</Button>
       </div>
     </div>
     <div className="tp-settings__table-wrap"><Table><TableHead><TableRow><TableHeader>名称</TableHeader><TableHeader>编码</TableHeader>{fields.slice(0,3).map(f=><TableHeader key={f.key}>{f.label}</TableHeader>)}<TableHeader>状态</TableHeader><TableHeader>操作</TableHeader></TableRow></TableHead>
