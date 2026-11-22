@@ -1,0 +1,16 @@
+{
+  "release": "intelligence-monitoring-ux-and-live-execution-state",
+  "environment": "production",
+  "target_branch": "develop",
+  "authorization": "User explicitly instructed: begin the remediation and deploy the completed work to production.",
+  "changes": [
+    "Carbon icon navigation buttons arranged as two columns.",
+    "Table filters moved into a dedicated filter region outside the table toolbar to prevent header overlap.",
+    "New monitoring tasks activate immediately and enter the scheduler queue.",
+    "Monitoring task list shows scheduler state separately from actual run state, current execution stage, run start time and heartbeat.",
+    "Worker updates monitoring run heartbeat and execution stage while polling the Apify Actor.",
+    "Task list and execution logs refresh automatically every 10 seconds; stale heartbeats are flagged.",
+    "Monitoring run heartbeat and current_stage database columns applied to TradePilot production Supabase."
+  ],
+  "gate": "All production workflow validations must pass before deployment."
+}
