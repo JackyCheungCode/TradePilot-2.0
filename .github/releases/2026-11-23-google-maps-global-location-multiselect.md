@@ -1,5 +1,7 @@
 # Google Maps global location selection
 
+Release approval: production validation and deployment requested.
+
 - Multi-select up to 20 first-level administrative areas.
 - Search and multi-select up to 20 cities, filtered by country and selected administrative areas.
 - Execute each selected city or administrative area as an independent discovery scope within one task.
