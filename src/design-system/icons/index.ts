@@ -15,7 +15,7 @@ export {
   DocumentPdf, DocumentTasks, DocumentView, Download, Edit, Email, Filter,
   Folder, Globe, Information, Link, Location, MachineLearningModel, MagicWand,
   Map, ModelBuilder, Network_4, Notebook, Notification, Package, PaintBrush,
-  Phone, Play, Product, Reset, Renew, Save, Search, SearchLocate, Security,
+  Phone, Pause, Play, Product, Reset, Renew, Save, Search, SearchLocate, Security,
   Send, Settings, SettingsAdjust, Share, ShoppingCart, Star, Subtract, Task,
   TaskComplete, Template, Time, Tools, Translate, TrashCan, Upload, User,
   UserAvatar, UserFollow, UserMultiple, UserSettings, View, ViewOff, Wallet,
