@@ -39,6 +39,7 @@ function ModuleNavigation({ active }: { active: 'create' | 'tasks' | 'results' |
     { key: 'create', label: '创建监听任务', href: '/intelligence-monitoring' },
     { key: 'tasks', label: '监听任务列表', href: '/intelligence-monitoring/tasks' },
     { key: 'results', label: '监听结果中心', href: '/intelligence-monitoring/results' },
+    { key: 'logs', label: '日志控制台', href: '/intelligence-monitoring/logs' },
   ] as const;
   return <nav className="tp-intelligence-monitoring__navigation" aria-label="情报监听模块导航">
     {links.map(link => <Button key={link.key} kind={active === link.key ? 'primary' : 'tertiary'} size="md" href={link.href}>{link.label}</Button>)}
