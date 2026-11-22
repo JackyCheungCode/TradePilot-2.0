@@ -26,6 +26,7 @@ import { handleInboxWebhook } from "./routes/inbox-webhooks";
 import { handleInboxAttachment } from "./routes/inbox-attachments";
 import { processInboxMediaJobs } from "./routes/inbox-media-worker";
 import { AgentOrchestrationWorkflow } from "./workflows/agent-orchestration";
+import { runDueIntelligenceMonitoring } from "./routes/intelligence-monitoring-runner";
 
 export interface WorkerEnv {
  BROWSER: { quickAction(action: 'pdf', input: Record<string, unknown>): Promise<Response> };
@@ -119,6 +120,9 @@ async function enforceWebAuthnSession(request: Request, env: WorkerEnv): Promise
 
 export default {
  async scheduled(_controller: { scheduledTime: number; cron: string }, env: WorkerEnv, ctx: { waitUntil(promise: Promise<unknown>): void }): Promise<void> {
+  ctx.waitUntil(runDueIntelligenceMonitoring(env).catch(error => {
+   console.error("INTELLIGENCE_MONITORING_CRON_FAILED", { code: error instanceof Error ? error.message.slice(0, 180) : "MONITORING_CRON_FAILED" });
+  }));
   ctx.waitUntil(processInboxMediaJobs(env).catch(error => {
    console.error("INBOX_MEDIA_QUEUE_RUN_FAILED", { code: error instanceof Error && /^[A-Z0-9_]+$/.test(error.message) ? error.message : "MEDIA_QUEUE_FAILED" });
   }));
