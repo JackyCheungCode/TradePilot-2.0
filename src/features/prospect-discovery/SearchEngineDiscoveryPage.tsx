@@ -42,7 +42,7 @@ export function SearchEngineDiscoveryPage() {
   const [product, setProduct] = useState('');
   const [rolesSelected, setRolesSelected] = useState<string[]>(['manufacturer','brand','supplier','wholesaler','importer','distributor','oem']);
   const [searchLanguage, setSearchLanguage] = useState('en');
-  const [engines, setEngines] = useState<string[]>(['serper','serpapi']);
+  const [engines, setEngines] = useState<string[]>(['serper']);
   const [limit, setLimit] = useState(100);
   const [advancedQuery, setAdvancedQuery] = useState('');
   const [categories, setCategories] = useState<ExclusionCategory[]>([]);
