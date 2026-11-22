@@ -198,7 +198,7 @@ export function LeadConsolePage() {
     <PageHeader className="tp-leads__header">
       <div><p className="tp-leads__eyebrow">TRADEPILOT / CRM</p><h1>线索（Lead）</h1><p>集中管理已建立的正式线索，分析来源、状态、评级与国家 / 地区分布。</p></div>
       <div className="tp-leads__header-actions">
-        <Button kind="tertiary" onClick={() => { setRefreshing(true); void load(); }} disabled={loading || refreshing}><semanticIcons.refresh size={16} />刷新</Button>
+        <Button kind="tertiary" renderIcon={semanticIcons.refresh} onClick={() => { setRefreshing(true); void load(); }} disabled={loading || refreshing}>刷新</Button>
         <Link href="/leads/new" renderIcon={semanticIcons.add}>新建线索</Link>
       </div>
     </PageHeader>
