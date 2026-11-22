@@ -514,6 +514,9 @@ export function GoogleMapsDiscoveryPage() {
           </AccordionItem>
           <AccordionItem title="请求参数说明">
             <div className="tp-gmaps-discovery__request-params">
+              <span><b>HTTP</b> POST /v1/places:searchText</span>
+              <span><b>Content-Type</b> application/json</span>
+              <span><b>X-Goog-Api-Key</b> Cloudflare Worker 服务端密钥，不暴露在浏览器</span>
               <span><b>textQuery</b> 当前关键词 + 选定地理范围</span>
               <span><b>regionCode</b> {country || '未选择'}</span>
               <span><b>languageCode</b> {language.google}</span>
