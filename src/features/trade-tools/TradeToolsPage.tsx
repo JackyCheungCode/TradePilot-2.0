@@ -274,7 +274,7 @@ export function TradeToolsPage() {
             <Select id="fx-base" labelText="原币种" value={base} onChange={e=>setBase(e.currentTarget.value)}>{currencies.map(c=><SelectItem key={c} value={c} text={c}/>)}</Select>
             <Select id="fx-quote" labelText="目标币种" value={quote} onChange={e=>setQuote(e.currentTarget.value)}>{currencies.map(c=><SelectItem key={c} value={c} text={c}/>)}</Select>
             <TextInput id="fx-amount" labelText="换算金额" type="number" value={amount} onChange={e=>setAmount(e.currentTarget.value)}/>
-            <Button kind="primary" onClick={()=>void loadCurrency()} disabled={busyTools.currency}>查询汇率</Button>
+            <Button kind="primary" renderIcon={semanticIcons.currency} onClick={()=>void loadCurrency()} disabled={busyTools.currency}>查询汇率</Button>
           </div>
           {busyTools.currency?<TPInlineLoading status="active" description="正在读取参考汇率…"/>:rate!==null&&<div className="tp-trade-tools__result">
             <div><span>{amount||'0'} {base}</span><strong>{conversion?.toLocaleString(undefined,{maximumFractionDigits:4})} {quote}</strong><small>1 {base} = {rate.toFixed(6)} {quote} · 汇率日期 {rateDate}</small></div>
@@ -292,7 +292,7 @@ export function TradeToolsPage() {
             <Dropdown id="holiday-country" titleText="国家或地区" label="选择国家或地区" items={countryOptions} selectedItem={countryOptions.find(item=>item.countryCode===holidayCountry)} itemToString={countryLabel} itemToElement={renderCountryOption} renderSelectedItem={renderCountryOption} onChange={({selectedItem})=>{if(selectedItem){setHolidayCountry(selectedItem.countryCode);setHolidayRegion('all');}}}/>
             <Select id="holiday-year" labelText="年份" value={holidayYear} onChange={e=>setHolidayYear(e.currentTarget.value)}>{[2025,2026,2027,2028].map(y=><SelectItem key={y} value={String(y)} text={String(y)}/>)}</Select>
             <Select id="holiday-region" labelText="州／省／地区" value={holidayRegion} onChange={e=>setHolidayRegion(e.currentTarget.value)}><SelectItem value="all" text="全部地区"/>{holidayRegions.map(r=><SelectItem key={r} value={r} text={r}/>)}</Select>
-            <Button kind="primary" onClick={()=>void loadHolidays()} disabled={busyTools.holidays}>查询假期</Button>
+            <Button kind="primary" renderIcon={semanticIcons.calendar} onClick={()=>void loadHolidays()} disabled={busyTools.holidays}>查询假期</Button>
           </div>
           {busyTools.holidays?<TPInlineLoading status="active" description="正在读取公共假期…"/>:<div className="tp-trade-tools__holiday-list">{filteredHolidays.map(h=><div className="tp-trade-tools__holiday-row" key={h.date+h.name}><div className="tp-trade-tools__holiday-date">{h.date}</div><div><strong>{h.localName||h.name}</strong><small>{h.name} · {(h.types||[]).join(' / ')||'公共假期'}</small></div><Tag type={h.global?'green':'cool-gray'}>{h.global?'全国':'地区性'}</Tag></div>)}{!filteredHolidays.length&&<p className="tp-trade-tools__empty">该条件下没有返回假期记录；请确认国家、年份或地区支持情况。</p>}</div>}
         </section>
@@ -303,7 +303,7 @@ export function TradeToolsPage() {
           <div className="tp-trade-tools__form-grid">
             <Select id="carrier" labelText="物流服务商" value={carrier} onChange={e=>setCarrier(e.currentTarget.value)}><SelectItem value="dhl" text="DHL Express / Shipment Tracking"/><SelectItem value="ups" text="UPS"/><SelectItem value="fedex" text="FedEx"/></Select>
             <TextInput id="tracking-number" labelText="运单号" placeholder="输入物流追踪号码" value={trackingNumber} onChange={e=>setTrackingNumber(e.currentTarget.value)}/>
-            <Button kind="primary" disabled={busyTools.shipping||!trackingNumber.trim()} onClick={()=>void trackShipment()}>查询物流</Button>
+            <Button kind="primary" renderIcon={semanticIcons.delivery} disabled={busyTools.shipping||!trackingNumber.trim()} onClick={()=>void trackShipment()}>查询物流</Button>
           </div>
           {busyTools.shipping&&<TPInlineLoading status="active" description="正在请求承运商官方接口…"/>}
           {tracking&&<div className="tp-trade-tools__tracking"><h3>物流查询结果</h3><pre>{JSON.stringify(tracking,null,2)}</pre></div>}
@@ -318,7 +318,7 @@ export function TradeToolsPage() {
             <Select id="translate-target" labelText="目标语言" value={targetLanguage} onChange={e=>setTargetLanguage(e.currentTarget.value)}>{[['ZH','中文'],['ZH-HANT','繁体中文'],['EN-US','英语（美国）'],['EN-GB','英语（英国）'],['DE','德语'],['FR','法语'],['ES','西班牙语'],['JA','日语'],['KO','韩语'],['PT-BR','葡萄牙语（巴西）'],['IT','意大利语']].map(([v,l])=><SelectItem key={v} value={v} text={l}/>)}</Select>
           </div>
           <TextArea id="translate-text" labelText="待翻译内容" rows={5} value={translationText} onChange={e=>setTranslationText(e.currentTarget.value)} placeholder="输入邮件、询盘、产品说明或商务沟通内容…"/>
-          <Button kind="primary" disabled={busyTools.translation||!translationText.trim()} onClick={()=>void translate()}>开始翻译</Button>
+          <Button kind="primary" renderIcon={semanticIcons.translate} disabled={busyTools.translation||!translationText.trim()} onClick={()=>void translate()}>开始翻译</Button>
           {translated&&<div className="tp-trade-tools__translation-result"><h3>翻译结果</h3><p>{translated}</p><Button kind="ghost" size="sm" onClick={()=>void navigator.clipboard?.writeText(translated)}>复制译文</Button></div>}
         </section>
 
@@ -331,7 +331,7 @@ export function TradeToolsPage() {
             <TextInput id="contact-region" labelText="省／州／地区（可选）" value={locationRegion} onChange={e=>setLocationRegion(e.currentTarget.value)} placeholder="例如 California / Bayern"/>
             <TextInput id="contact-city" labelText="城市（可选）" value={locationCity} onChange={e=>setLocationCity(e.currentTarget.value)} placeholder="例如 Los Angeles / Berlin"/>
             <TextInput id="contact-location" labelText="客户地址（可选）" value={locationQuery} onChange={e=>setLocationQuery(e.currentTarget.value)} placeholder="可输入完整地址覆盖上方地区"/>
-            <Button kind="primary" disabled={busyTools['contact-time']||(!locationQuery.trim()&&!locationCity.trim()&&!locationRegion.trim())} onClick={()=>void searchLocation()}>搜索地点</Button>
+            <Button kind="primary" renderIcon={semanticIcons.search} disabled={busyTools['contact-time']||(!locationQuery.trim()&&!locationCity.trim()&&!locationRegion.trim())} onClick={()=>void searchLocation()}>搜索地点</Button>
           </div>
           {locations.length>0&&<div className="tp-trade-tools__location-results">{locations.map((p,i)=><Button key={p.timezone+i} kind="ghost" onClick={()=>void loadContactTime(p)}>{p.name}{p.admin1?', '+p.admin1:''} · {p.country} · {p.timezone}</Button>)}</div>}
           {busyTools['contact-time']&&<TPInlineLoading status="active" description="正在解析时区与天气…"/>}
