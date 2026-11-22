@@ -5,6 +5,7 @@ import {
   Grid, Column, Checkbox, TpDataTable,
 } from '@/design-system';
 import type { TpTableColumn } from '@/design-system';
+import { Add, Task, Analytics, Activity, Play, Pause } from '@/design-system/icons';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/intelligence-monitoring.scss';
 
@@ -13,6 +14,8 @@ type TaskRow = {
   id: string; task_code: string; name: string; status: string; cadence_minutes: number;
   started_at: string | null; last_run_at: string | null; next_run_at: string | null;
   last_run_status: string | null; last_result_count: number; last_error: string | null; created_at: string;
+  latest_run_id?: string | null; latest_run_status?: string | null; latest_run_started_at?: string | null;
+  heartbeat_at?: string | null; current_stage?: string | null;
 } & Record<string, unknown>;
 type ResultRow = {
   id: string; task_id: string; object_id: string; run_id: string; platform: string; external_id: string;
@@ -41,8 +44,9 @@ function ModuleNavigation({ active }: { active: 'create' | 'tasks' | 'results' |
     { key: 'results', label: '监听结果中心', href: '/intelligence-monitoring/results' },
     { key: 'logs', label: '日志控制台', href: '/intelligence-monitoring/logs' },
   ] as const;
+  const icons = { create: Add, tasks: Task, results: Analytics, logs: Activity };
   return <nav className="tp-intelligence-monitoring__navigation" aria-label="情报监听模块导航">
-    {links.map(link => <Button key={link.key} kind={active === link.key ? 'primary' : 'tertiary'} size="md" href={link.href}>{link.label}</Button>)}
+    {links.map(link => <Button key={link.key} kind={active === link.key ? 'primary' : 'tertiary'} size="md" href={link.href} renderIcon={icons[link.key]}>{link.label}</Button>)}
   </nav>;
 }
 
@@ -62,7 +66,20 @@ function useMonitoringData(mode: 'tasks' | 'results') {
           .select('id,task_code,name,status,cadence_minutes,started_at,last_run_at,next_run_at,last_run_status,last_result_count,last_error,created_at')
           .order('created_at', { ascending: false }).limit(500);
         if (queryError) throw queryError;
-        setRows((data ?? []) as TaskRow[]);
+        const taskRows = (data ?? []) as TaskRow[];
+        const ids = taskRows.map(row => row.id);
+        const { data: runs, error: runsError } = ids.length
+          ? await client.from('monitoring_runs').select('id,task_id,status,started_at,heartbeat_at,current_stage,created_at').in('task_id', ids).order('created_at', { ascending: false }).limit(1000)
+          : { data: [], error: null };
+        if (runsError) throw runsError;
+        const latest = new Map<string, Record<string, unknown>>();
+        for (const run of runs ?? []) if (!latest.has(run.task_id)) latest.set(run.task_id, run);
+        setRows(taskRows.map(row => {
+          const run = latest.get(row.id);
+          return { ...row, latest_run_id: String(run?.id ?? '') || null, latest_run_status: String(run?.status ?? '') || null,
+            latest_run_started_at: String(run?.started_at ?? '') || null, heartbeat_at: String(run?.heartbeat_at ?? '') || null,
+            current_stage: String(run?.current_stage ?? '') || null };
+        }));
       } else {
         const { data: items, error: itemError } = await client.from('monitoring_items')
           .select('id,task_id,object_id,run_id,platform,external_id,content_type,author_name,author_profile_url,content_text,source_url,published_at,captured_at')
@@ -132,8 +149,9 @@ export function IntelligenceMonitoringPage() {
       }, { onConflict: 'owner_id,platform,normalized_url' }).select('id').single();
       if (objectError) throw objectError;
       const taskCode = 'MON-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-' + crypto.randomUUID().slice(0, 6).toUpperCase();
+      const activatedAt = new Date().toISOString();
       const { data: task, error: taskError } = await client.from('monitoring_tasks').insert({
-        owner_id: ownerId, task_code: taskCode, name: taskName.trim(), status: 'draft',
+        owner_id: ownerId, task_code: taskCode, name: taskName.trim(), status: 'running', started_at: activatedAt, next_run_at: activatedAt,
         cadence_minutes: Number(cadence), config: { intents, minimumGrade, includeHistory, scope: 'public_only', providerPolicy: 'apify_primary_brightdata_fallback' },
       }).select('id').single();
       if (taskError) throw taskError;
@@ -144,7 +162,7 @@ export function IntelligenceMonitoringPage() {
         await client.from('monitoring_tasks').delete().eq('id', task.id);
         throw linkError;
       }
-      setNotice({ kind: 'success', title: '监听任务已保存', subtitle: '任务编号 ' + taskCode + '。已写入云端数据库，当前为草稿状态；采集调度与平台采集器启用后才能正式启动。' });
+      setNotice({ kind: 'success', title: '监听任务已创建并启用', subtitle: '任务编号 ' + taskCode + '。已进入调度队列；请在「监听任务列表」查看调度领取、采集器执行、AI 分析与最近心跳，队列状态不等于采集已开始。' });
       setUrl('');
       window.setTimeout(() => navigate('/intelligence-monitoring/tasks'), 900);
     } catch (cause) {
@@ -188,7 +206,7 @@ export function IntelligenceMonitoringPage() {
         <Column sm={4} md={4} lg={4}><div><span>AI 意向类别</span><strong>{intents.length} 类</strong></div></Column>
         <Column sm={4} md={4} lg={4}><div><span>最低等级</span><strong>{minimumGrade} 级</strong></div></Column>
       </Grid>
-      <InlineNotification kind="warning" lowContrast title="当前执行状态" subtitle="本阶段已完成云端任务与数据结构接入。采集器适配、调度执行和 AI 结果写入尚未完成，因此任务会先以草稿保存，不会虚报为正在监听。" hideCloseButton />
+      <InlineNotification kind="info" lowContrast title="任务启动与执行状态" subtitle="创建后立即启用并进入调度队列。只有 Worker 领取任务、启动采集器并持续回报心跳后，任务详情才会显示真实执行阶段。" hideCloseButton />
       <div className="tp-intelligence-monitoring__actions"><Button kind="primary" disabled={!canSave || busy} onClick={() => void saveTask()}>{busy ? '正在保存…' : '保存监听任务'}</Button><Button kind="tertiary" href="/intelligence-monitoring/tasks">查看任务列表</Button></div>
     </section>
   </main>;
@@ -204,7 +222,17 @@ export function MonitoringTasksPage() {
   const columns: TpTableColumn<TaskRow>[] = [
     { key: 'task_code', header: '任务编号', primary: true, required: true, minWidth: 180 },
     { key: 'name', header: '监听任务', required: true, minWidth: 180 },
-    { key: 'status', header: '任务状态', type: 'status', required: true, render: row => <Tag type={row.status === 'running' ? 'green' : row.status === 'paused' ? 'cool-gray' : 'blue'}>{row.status === 'draft' ? '草稿' : row.status === 'running' ? '运行中' : row.status === 'paused' ? '已暂停' : row.status}</Tag> },
+    { key: 'status', header: '调度状态', type: 'status', required: true, render: row => <Tag type={row.status === 'running' ? 'green' : row.status === 'paused' ? 'cool-gray' : 'blue'}>{row.status === 'draft' ? '草稿' : row.status === 'running' ? '已启用' : row.status === 'paused' ? '已暂停' : row.status}</Tag> },
+    { key: 'latest_run_status', header: '真实执行状态', required: true, render: row => {
+      const value = row.latest_run_status ?? '尚无执行记录';
+      const labels: Record<string,string> = { queued: '排队等待', running: '正在执行', succeeded: '执行成功', partial: '部分成功', failed: '执行失败', skipped: '已跳过' };
+      const tone = value === 'running' ? 'green' : value === 'failed' ? 'red' : value === 'succeeded' ? 'green' : value === 'partial' ? 'warm-gray' : 'blue';
+      return <Tag type={tone}>{labels[value] ?? value}</Tag>;
+    } },
+    { key: 'current_stage', header: '当前执行阶段', render: row => row.current_stage || (row.latest_run_status === 'queued' ? '等待 Worker 领取' : '—') },
+    { key: 'heartbeat_at', header: '最近心跳', type: 'datetime', render: row => formatDate(row.heartbeat_at ?? null) },
+    { key: 'latest_run_started_at', header: '本次启动时间', type: 'datetime', render: row => formatDate(row.latest_run_started_at ?? null) },
+    { key: 'latest_run_id', header: '执行详情', render: row => row.latest_run_id ? <a href={'/intelligence-monitoring/logs?runId=' + encodeURIComponent(row.latest_run_id)}>查看执行日志</a> : '暂无运行记录' },
     { key: 'cadence_minutes', header: '监听频率', type: 'number', render: row => row.cadence_minutes >= 1440 ? '每天一次' : '每 ' + row.cadence_minutes + ' 分钟' },
     { key: 'last_result_count', header: '最近新增', type: 'number' },
     { key: 'last_run_status', header: '最近运行结果', defaultVisible: true },
@@ -213,7 +241,7 @@ export function MonitoringTasksPage() {
     { key: 'next_run_at', header: '下次执行时间', type: 'datetime', render: row => formatDate(row.next_run_at) },
     { key: 'last_error', header: '最近异常', longText: true, defaultVisible: false },
     { key: 'created_at', header: '创建时间', type: 'datetime', render: row => formatDate(row.created_at) },
-    { key: 'actions', header: '操作', required: true, render: row => <Button kind="ghost" size="sm" onClick={async () => {
+    { key: 'actions', header: '操作', required: true, render: row => <Button kind="ghost" size="sm" renderIcon={row.status === 'running' ? Pause : Play} onClick={async () => {
       const client = await getSupabaseClient();
       const isRunning = row.status === 'running';
       const stamp = new Date().toISOString();
@@ -228,7 +256,8 @@ export function MonitoringTasksPage() {
     <PageHeader breadcrumb="全球情报 / 公开内容监听" title="监听任务列表" description="统一查看任务配置、运行状态、采集频率与最近执行情况。" />
     <ModuleNavigation active="tasks" />
     {error && <InlineNotification kind="error" lowContrast title="读取任务失败" subtitle={error}  />}
-    <TpDataTable<TaskRow> ariaLabel="监听任务列表" columns={columns} rows={filtered} rowKey="id" loading={loading} searchValue={search} onSearchChange={setSearch} onRetry={() => void reload()} emptyState="暂无监听任务。创建任务后会显示在这里。" columnSettingsKey="intelligence-monitoring-tasks" toolbarActions={<Select id="monitoring-task-status-filter" labelText="任务状态" size="sm" value={statusFilter} onChange={event => setStatusFilter(event.currentTarget.value)}><SelectItem value="all" text="全部状态" /><SelectItem value="draft" text="草稿" /><SelectItem value="running" text="运行中" /><SelectItem value="paused" text="已暂停" /><SelectItem value="error" text="异常" /></Select>} pagination={{ page, pageSize: 20, totalItems: filtered.length, onChange: nextPage => setPage(nextPage) }} />
+    <div className="tp-intelligence-monitoring__filter-bar"><Select id="monitoring-task-status-filter" labelText="任务状态" size="sm" value={statusFilter} onChange={event => setStatusFilter(event.currentTarget.value)}><SelectItem value="all" text="全部状态" /><SelectItem value="draft" text="草稿" /><SelectItem value="running" text="已启用" /><SelectItem value="paused" text="已暂停" /><SelectItem value="error" text="异常" /></Select></div>
+    <TpDataTable<TaskRow> ariaLabel="监听任务列表" columns={columns} rows={filtered} rowKey="id" loading={loading} searchValue={search} onSearchChange={setSearch} onRetry={() => void reload()} emptyState="暂无监听任务。创建任务后会显示在这里。" columnSettingsKey="intelligence-monitoring-tasks" pagination={{ page, pageSize: 20, totalItems: filtered.length, onChange: nextPage => setPage(nextPage) }} />
   </main>;
 }
 
@@ -263,7 +292,8 @@ export function MonitoringResultsPage() {
     <ModuleNavigation active="results" />
     {error && <><InlineNotification kind="error" lowContrast title="读取结果失败" subtitle={error} /><Button kind="tertiary" size="sm" onClick={() => void reload()}>重试</Button></>}
     <div className="tp-intelligence-monitoring__table-meta"><Tag type="blue">云端数据</Tag><span>最近 500 条采集记录 · AI 判定尚未完成时显示「待分析」</span><Button kind="tertiary" size="sm" onClick={() => void reload()}>刷新结果</Button></div>
-    <TpDataTable<ResultRow> ariaLabel="监听结果中心" columns={columns} rows={filtered} rowKey="id" loading={loading} searchValue={search} onSearchChange={setSearch} onRetry={() => void reload()} emptyState="暂无采集结果。结果将在平台采集器正式启用并完成首次运行后进入此表格。" detailPanel detailTitle={row => row.task_name + ' · ' + row.channel_name} columnSettingsKey="intelligence-monitoring-results" toolbarActions={<div className="tp-intelligence-monitoring__filters"><Select id="monitoring-result-platform-filter" labelText="平台" size="sm" value={platformFilter} onChange={event => setPlatformFilter(event.currentTarget.value)}><SelectItem value="all" text="全部平台" />{platformOptions.map(item => <SelectItem key={item.value} value={item.value} text={item.label} />)}</Select><Select id="monitoring-result-grade-filter" labelText="AI 意向" size="sm" value={gradeFilter} onChange={event => setGradeFilter(event.currentTarget.value)}><SelectItem value="all" text="全部等级" /><SelectItem value="S" text="S 级" /><SelectItem value="A" text="A 级" /><SelectItem value="B" text="B 级" /><SelectItem value="C" text="C 级" /><SelectItem value="unclassified" text="待分析" /></Select></div>} pagination={{ page, pageSize: 20, totalItems: filtered.length, onChange: nextPage => setPage(nextPage) }} />
+    <div className="tp-intelligence-monitoring__filter-bar tp-intelligence-monitoring__filter-bar--wide"><Select id="monitoring-result-platform-filter" labelText="平台" size="sm" value={platformFilter} onChange={event => setPlatformFilter(event.currentTarget.value)}><SelectItem value="all" text="全部平台" />{platformOptions.map(item => <SelectItem key={item.value} value={item.value} text={item.label} />)}</Select><Select id="monitoring-result-grade-filter" labelText="AI 意向" size="sm" value={gradeFilter} onChange={event => setGradeFilter(event.currentTarget.value)}><SelectItem value="all" text="全部等级" /><SelectItem value="S" text="S 级" /><SelectItem value="A" text="A 级" /><SelectItem value="B" text="B 级" /><SelectItem value="C" text="C 级" /><SelectItem value="unclassified" text="待分析" /></Select></div>
+    <TpDataTable<ResultRow> ariaLabel="监听结果中心" columns={columns} rows={filtered} rowKey="id" loading={loading} searchValue={search} onSearchChange={setSearch} onRetry={() => void reload()} emptyState="暂无采集结果。结果将在采集器完成首次运行后进入此表格。" detailPanel detailTitle={row => row.task_name + ' · ' + row.channel_name} columnSettingsKey="intelligence-monitoring-results" pagination={{ page, pageSize: 20, totalItems: filtered.length, onChange: nextPage => setPage(nextPage) }} />
   </main>;
 }
 
