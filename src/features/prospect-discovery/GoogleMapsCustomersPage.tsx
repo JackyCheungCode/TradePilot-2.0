@@ -7,6 +7,20 @@ const display=(value:unknown)=>value===null||value===undefined||value===''?'—'
 const formatTime=(value?:string)=>value?new Date(value).toLocaleString('zh-TW',{hour12:false}):'—';
 const runOf=(value:Occurrence['run'])=>Array.isArray(value)?value[0]:value;
 
+async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+ const client = await getSupabaseClient();
+ const { data } = await client.auth.getSession();
+ const token = data.session?.access_token;
+ if (!token) throw new Error('登录状态已失效，请重新登录。');
+ const response = await fetch(path, {
+  ...init,
+  headers: { Authorization: 'Bearer ' + token, Accept: 'application/json', ...(init.body ? { 'Content-Type': 'application/json' } : {}), ...init.headers },
+ });
+ const payload = await response.json().catch(() => ({})) as { data?: T; error?: { message?: string } };
+ if (!response.ok) throw new Error(payload.error?.message || '请求失败（HTTP ' + response.status + '）');
+ return (payload.data ?? payload) as T;
+}
+
 export function GoogleMapsCustomersPage(){
  const [items,setItems]=useState<Occurrence[]>([]);
  const [loading,setLoading]=useState(true);

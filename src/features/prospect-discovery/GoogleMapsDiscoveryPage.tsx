@@ -443,7 +443,7 @@ export function GoogleMapsDiscoveryPage() {
                 items={countries}
                 selectedItem={chosenCountry ?? null}
                 itemToString={item => item ? countryLabel(item) : ''}
-                renderItem={item => <span className="tp-gmaps-discovery__country-option"><img src={flagUrl(item.cca2)} alt="" /><span>{countryLabel(item)}</span></span>}
+                itemToElement={item => <span className="tp-gmaps-discovery__country-option"><img src={flagUrl(item.cca2)} alt="" /><span>{countryLabel(item)}</span></span>}
                 renderSelectedItem={item => item ? <span className="tp-gmaps-discovery__country-option"><img src={flagUrl(item.cca2)} alt="" /><span>{countryLabel(item)}</span></span> : null}
                 onChange={({ selectedItem }) => selectCountry(selectedItem?.cca2 ?? '')}
                 disabled={loading}
@@ -524,7 +524,7 @@ export function GoogleMapsDiscoveryPage() {
             <FilterableMultiSelect
               id="gmaps-advanced-fields"
               titleText="选择高级响应字段"
-              label="搜索并选择字段"
+              placeholder="搜索字段名称或 API 字段"
               items={advancedFields.map(field => ({ id: field, label: (fieldLabels[field] || field) + ' · ' + field }))}
               itemToString={item => item?.label ?? ''}
               selectedItems={advancedFieldRows.map(field => ({ id: field, label: (fieldLabels[field] || field) + ' · ' + field }))}
