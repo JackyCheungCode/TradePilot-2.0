@@ -639,7 +639,7 @@ export async function handleDiscovery(request: Request, env: DiscoveryEnv): Prom
       return successResponse(request,{id:run.id,status:"running"});
     }
     if(body.action==="cancel"){
-      if(!["planned","queued","running","paused"].includes(status))return errorResponse(request,"INVALID_TASK_TRANSITION","当前任务状态不能取消。",409);
+      if(!["planned","queued","running","awaiting_approval","paused"].includes(status))return errorResponse(request,"INVALID_TASK_TRANSITION","当前任务状态不能取消。",409);
       if(status!=="planned"){
         try{const instance=await env.LEAD_DISCOVERY_WORKFLOW.get(String(run.id));await instance.terminate();}
         catch(error){return errorResponse(request,"WORKFLOW_TERMINATE_FAILED","后台工作流终止失败："+String(error).slice(0,180),409);}
