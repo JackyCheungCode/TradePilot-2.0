@@ -1,6 +1,5 @@
 import { errorResponse, successResponse } from "./lib/http";
 import { handleHealth } from "./routes/health";
-import { handleWheelFitment } from "./routes/wheel-fitment";
 import { handleWebAuthn } from "./routes/webauthn";
 import { handleDiscovery, type DiscoveryRunInput } from "./routes/discovery";
 import { handleSettings } from "./routes/settings";
@@ -47,7 +46,6 @@ export interface WorkerEnv {
  FEDEX_CLIENT_SECRET?: string;
  SERPER_API_KEY?: string;
  SERPAPI_API_KEY?: string;
- WHEELSIZE_API_KEY?: string;
  CLOUDFLARE_WORKER_NAME?: string;
  AGENT_ENCRYPTION_KEY?: string;
  AI: { run(model:string,input:Record<string,unknown>): Promise<unknown> };
@@ -137,7 +135,6 @@ export default {
     const mfaFailure = await enforceWebAuthnSession(request, env);
     if (mfaFailure) return mfaFailure;
    }
-   if (url.pathname.startsWith("/api/v1/wheel-fitment")) return await handleWheelFitment(request, env);
    if (url.pathname.startsWith("/api/v1/actor-registry")) return await handleActorRegistry(request, env);
    if (url.pathname.startsWith("/api/v1/trade-tools/")) return await handleTradeTools(request, env);
    if (url.pathname.startsWith("/api/v1/agent/skills")) return await handleSkillRegistry(request, env);

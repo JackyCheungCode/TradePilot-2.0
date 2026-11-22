@@ -35,7 +35,6 @@ import { CommunicationPage } from '../features/communications/CommunicationPage'
 import { HelpCenterPage } from '../features/help/HelpCenterPage';
 import { NotFoundPage } from '../features/not-found/NotFoundPage';
 import { ActivityCenterPage } from '../features/activity/ActivityCenterPage';
-import { WheelFitmentPage } from '../features/wheel-fitment/WheelFitmentPage';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -95,7 +94,6 @@ export const router = createBrowserRouter([
           { path: 'products/new', element: <ProductFormPage /> },
           { path: 'products/:id/edit', element: <ProductFormPage /> },
           { path: 'products/:id', element: <ProductDetailPage /> },
-          { path: 'wheel-fitment', element: <WheelFitmentPage /> },
           { path: 'trade-tools', element: <TradeToolsHubPage /> },
           { path: 'trade-tools/legacy', element: <TradeToolsPage /> },
           { path: 'settings', element: <SettingsCenterPage /> },
