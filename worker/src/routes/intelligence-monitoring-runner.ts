@@ -86,7 +86,7 @@ async function execute(env:Env,t:ClaimedTask,token:string){
  for(let i=0;i<rows.length;i++){
   try{
    const normalized=normalize(t.platform,object(rows[i]),i);
-   const saved=await db<Array<{id:string}>>("".length?env:env,"monitoring_items?on_conflict=owner_id,platform,external_id",{method:"POST",headers:{Prefer:"resolution=ignore-duplicates,return=representation"},body:JSON.stringify({...normalized,owner_id:t.owner_id,task_id:t.task_id,object_id:t.object_id,run_id:t.run_id,platform:t.platform})});
+   const saved=await db<Array<{id:string}>>(env,"monitoring_items?on_conflict=owner_id,platform,external_id",{method:"POST",headers:{Prefer:"resolution=ignore-duplicates,return=representation"},body:JSON.stringify({...normalized,owner_id:t.owner_id,task_id:t.task_id,object_id:t.object_id,run_id:t.run_id,platform:t.platform})});
    if(saved?.length){newCount++;const analysis=await analyze(env,t.platform,normalized.content_text,t.config);if(analysis){await db(env,"monitoring_analyses?on_conflict=item_id,owner_id",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({...analysis,owner_id:t.owner_id,item_id:saved[0].id})});analyzedCount++;}}
   }catch(error){failedItems++;await log(env,t,"warning","item.failed","单条结果处理失败："+String(error).slice(0,180),{index:i});}
  }
@@ -95,7 +95,6 @@ async function execute(env:Env,t:ClaimedTask,token:string){
 export async function runDueIntelligenceMonitoring(env:Env,limit=15){
  const token=await readIntegrationSecret(env,"tradepilot_api_apify")||env.APIFY_API_TOKEN||"";
  let claimed:ClaimedTask[]=[];
- try{claimed=await db<ClaimedTask[]>("",{} as never); }catch{}
  const response=await fetch(env.SUPABASE_URL+"/rest/v1/rpc/tradepilot_monitoring_claim_due_tasks",{method:"POST",headers:{apikey:env.SUPABASE_SERVICE_ROLE_KEY,Authorization:"Bearer "+env.SUPABASE_SERVICE_ROLE_KEY,"Content-Type":"application/json"},body:JSON.stringify({p_limit:limit})});
  const raw=await response.text();if(!response.ok)throw new Error("MONITORING_CLAIM_FAILED_"+response.status+": "+raw.slice(0,240));
  claimed=raw?JSON.parse(raw) as ClaimedTask[]:[];
