@@ -443,7 +443,7 @@ export function GoogleMapsDiscoveryPage() {
                 items={countries}
                 selectedItem={chosenCountry ?? null}
                 itemToString={item => item ? countryLabel(item) : ''}
-                itemToElement={item => item ? <span className="tp-gmaps-discovery__country-option"><img src={flagUrl(item.cca2)} alt="" /><span>{countryLabel(item)}</span></span> : null}
+                itemToElement={item => <span className="tp-gmaps-discovery__country-option">{item ? <><img src={flagUrl(item.cca2)} alt="" /><span>{countryLabel(item)}</span></> : null}</span>}
                 renderSelectedItem={item => item ? <span className="tp-gmaps-discovery__country-option"><img src={flagUrl(item.cca2)} alt="" /><span>{countryLabel(item)}</span></span> : null}
                 onChange={({ selectedItem }) => selectCountry(selectedItem?.cca2 ?? '')}
                 disabled={loading}
