@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Button, ClickableTile, Column, Grid, InlineNotification, Select, SelectItem, Tag, TextInput, Tile, TPSkeleton, semanticIcons,
+  Button, ClickableTile, InlineNotification, Select, SelectItem, Tag, TextInput, TPSkeleton, semanticIcons,
 } from '@/design-system';
 import { PageHeader } from '@/design-system';
 import '@/design-system/patterns/sales-process.scss';
@@ -317,20 +317,18 @@ export function SalesProcessPage() {
 
         {loading && !data ? <TPSkeleton variant="table" rows={5}/> : view === 'board' ? (
           <>
-            <div className="tp-sales-process__flow" role="list" aria-label="销售阶段">
+            <div className="tp-sales-process__flow" aria-label="销售阶段">
               {processColumns.map((column, index) => (
-                <button
-                  type="button"
+                <ClickableTile
                   key={column.title}
                   className={'tp-sales-process__step' + (selectedColumn?.title === column.title ? ' is-selected' : '')}
                   onClick={() => setSelectedStage(column.title)}
                   aria-current={selectedColumn?.title === column.title ? 'step' : undefined}
-                  role="listitem"
                 >
                   <span className="tp-sales-process__step-index">{index + 1}</span>
                   <span className="tp-sales-process__step-copy"><strong>{column.title}</strong><small>{column.hint}</small></span>
                   <span className="tp-sales-process__step-count">{column.count}</span>
-                </button>
+                </ClickableTile>
               ))}
             </div>
 
