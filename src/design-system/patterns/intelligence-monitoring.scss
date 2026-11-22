@@ -229,72 +229,19 @@
 }
 
 
-/* Monitoring overview metric cards: Carbon semantic colors with restrained tinted layers. */
 .tp-intelligence-monitoring {
-  &__metric-grid {
-    display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: var(--cds-spacing-04);
-    width: 100%;
-    min-width: 0;
-  }
-
-  &__metric-card {
-    display: flex;
-    align-items: flex-start;
-    gap: var(--cds-spacing-04);
-    min-width: 0;
-    min-height: 7.25rem;
-    padding: var(--cds-spacing-05);
-    background: var(--cds-layer-01);
-  }
-
-  &__metric-icon {
-    display: flex;
-    flex: 0 0 2.75rem;
-    align-items: center;
-    justify-content: center;
-    width: 2.75rem;
-    height: 2.75rem;
-    border-radius: var(--cds-border-radius, 0);
-  }
-
-  &__metric-copy { min-width: 0; }
-  &__metric-copy p {
-    margin: 0 0 var(--cds-spacing-02);
-    color: var(--cds-text-secondary);
-    font-size: var(--cds-label-01-font-size);
-  }
-  &__metric-copy h2 {
-    margin: 0;
-    color: var(--cds-text-primary);
-    font-size: var(--cds-heading-04-font-size);
-    line-height: 1.2;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-  }
-  &__metric-copy span {
-    display: block;
-    margin-top: var(--cds-spacing-02);
-    color: var(--cds-text-secondary);
-    font-size: var(--cds-label-01-font-size);
-  }
-
-  &__metric-card--blue .tp-intelligence-monitoring__metric-icon { color: var(--cds-support-info); background: color-mix(in srgb, var(--cds-support-info) 12%, var(--cds-layer-01)); }
-  &__metric-card--teal .tp-intelligence-monitoring__metric-icon { color: var(--cds-support-success); background: color-mix(in srgb, var(--cds-support-success) 12%, var(--cds-layer-01)); }
-  &__metric-card--green .tp-intelligence-monitoring__metric-icon { color: var(--cds-support-success); background: color-mix(in srgb, var(--cds-support-success) 16%, var(--cds-layer-01)); }
-  &__metric-card--red .tp-intelligence-monitoring__metric-icon { color: var(--cds-support-error); background: color-mix(in srgb, var(--cds-support-error) 12%, var(--cds-layer-01)); }
-  &__metric-card--amber .tp-intelligence-monitoring__metric-icon { color: var(--cds-support-warning); background: color-mix(in srgb, var(--cds-support-warning) 16%, var(--cds-layer-01)); }
-  &__metric-card--purple .tp-intelligence-monitoring__metric-icon { color: var(--cds-support-info); background: color-mix(in srgb, var(--cds-support-info) 18%, var(--cds-layer-01)); }
-
-  @media (max-width: 1056px) {
-    &__metric-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  }
-  @media (max-width: 672px) {
-    &__metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--cds-spacing-03); }
-    &__metric-card { min-height: 6.5rem; padding: var(--cds-spacing-03); gap: var(--cds-spacing-03); }
-    &__metric-icon { flex-basis: 2.25rem; width: 2.25rem; height: 2.25rem; }
-    &__metric-copy h2 { font-size: var(--cds-heading-03-font-size); }
-    &__metric-copy span { font-size: var(--cds-label-01-font-size); }
-  }
+  &__metric-grid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:var(--cds-spacing-04); width:100%; min-width:0; }
+  &__metric-card { position:relative; display:grid; gap:var(--cds-spacing-04); min-width:0; min-height:8.25rem; padding:var(--cds-spacing-05); overflow:hidden; background:var(--cds-layer-01); }
+  &__metric-card::before { content:''; position:absolute; inset:0 0 auto; height:3px; background:var(--tp-monitor-metric-accent,var(--cds-support-info)); }
+  &__metric-card:nth-child(5n+1) { --tp-monitor-metric-accent:var(--cds-support-info); }
+  &__metric-card:nth-child(5n+2) { --tp-monitor-metric-accent:var(--cds-support-success); }
+  &__metric-card:nth-child(5n+3) { --tp-monitor-metric-accent:var(--cds-support-warning); }
+  &__metric-card:nth-child(5n+4) { --tp-monitor-metric-accent:var(--cds-support-error); }
+  &__metric-card:nth-child(5n+5) { --tp-monitor-metric-accent:var(--cds-interactive); }
+  &__metric-head { display:flex; align-items:center; justify-content:space-between; gap:var(--cds-spacing-03); color:var(--cds-text-secondary); font-size:.875rem; }
+  &__metric-head svg { flex:0 0 auto; color:var(--tp-monitor-metric-accent,var(--cds-icon-secondary)); }
+  &__metric-card strong { color:var(--cds-text-primary); font-size:2rem; line-height:1.15; font-weight:400; font-variant-numeric:tabular-nums; }
+  &__metric-card small { color:var(--cds-text-secondary); font-size:.75rem; }
+  @media(max-width:1056px) { &__metric-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+  @media(max-width:672px) { &__metric-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--cds-spacing-03); } &__metric-card { min-height:7.5rem; padding:var(--cds-spacing-04); gap:var(--cds-spacing-03); } &__metric-card strong { font-size:1.5rem; } }
 }
