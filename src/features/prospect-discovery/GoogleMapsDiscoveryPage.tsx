@@ -37,37 +37,45 @@ const languageByCountry: Record<string, { deepl: string; google: string }> = {
 };
 const standardFields = [
   'places.id', 'places.name', 'places.displayName', 'places.formattedAddress', 'places.shortFormattedAddress',
-  'places.addressComponents', 'places.location', 'places.viewport', 'places.types', 'places.primaryType',
-  'places.primaryTypeDisplayName', 'places.googleMapsUri', 'places.googleMapsLinks', 'places.websiteUri',
+  'places.addressComponents', 'places.addressDescriptor', 'places.adrFormatAddress', 'places.postalAddress',
+  'places.location', 'places.viewport', 'places.types', 'places.primaryType',
+  'places.primaryTypeDisplayName', 'places.googleMapsUri', 'places.googleMapsLinks', 'places.googleMapsTypeLabel',
+  'places.searchUri', 'places.iconBackgroundColor', 'places.iconMaskBaseUri', 'places.websiteUri',
   'places.nationalPhoneNumber', 'places.internationalPhoneNumber', 'places.rating', 'places.userRatingCount',
-  'places.businessStatus', 'places.regularOpeningHours', 'places.currentOpeningHours', 'places.priceLevel',
+  'places.businessStatus', 'places.openingDate', 'places.pureServiceAreaBusiness', 'places.photos',
+  'places.containingPlaces', 'places.subDestinations', 'places.regularOpeningHours',
+  'places.currentOpeningHours', 'places.regularSecondaryOpeningHours', 'places.currentSecondaryOpeningHours', 'places.transitStation', 'places.priceLevel',
   'places.priceRange', 'places.plusCode', 'places.timeZone', 'places.utcOffsetMinutes',
+  'places.attributions', 'places.consumerAlert', 'places.movedPlace', 'places.movedPlaceId',
 ];
 const advancedFields = [
   'places.reviews', 'places.reviewSummary', 'places.editorialSummary', 'places.accessibilityOptions',
   'places.parkingOptions', 'places.paymentOptions', 'places.dineIn', 'places.takeout', 'places.delivery',
   'places.reservable', 'places.servesBreakfast', 'places.servesBrunch', 'places.servesLunch',
-  'places.servesDinner', 'places.servesVegetarianFood', 'places.outdoorSeating', 'places.liveMusic',
-  'places.goodForChildren', 'places.goodForGroups', 'places.allowsDogs', 'places.curbsidePickup',
+  'places.servesDinner', 'places.servesVegetarianFood', 'places.servesBeer', 'places.servesCocktails',
+  'places.servesCoffee', 'places.servesDessert', 'places.servesWine', 'places.outdoorSeating', 'places.liveMusic',
+  'places.goodForChildren', 'places.goodForGroups', 'places.goodForWatchingSports', 'places.menuForChildren',
+  'places.neighborhoodSummary', 'places.generativeSummary', 'places.evChargeAmenitySummary',
+  'places.evChargeOptions', 'places.fuelOptions', 'places.restroom', 'places.allowsDogs', 'places.curbsidePickup',
 ];
 const fieldLabels: Record<string, string> = {
   'places.id': 'Place ID', 'places.name': '资源名称', 'places.displayName': '商家名称',
   'places.formattedAddress': '完整地址', 'places.shortFormattedAddress': '简要地址',
-  'places.addressComponents': '地址组成', 'places.location': '经纬度', 'places.viewport': '地图视口',
+  'places.addressComponents': '地址组成', 'places.addressDescriptor': '地址描述', 'places.adrFormatAddress': 'ADR 地址', 'places.postalAddress': '邮政地址', 'places.location': '经纬度', 'places.viewport': '地图视口',
   'places.types': 'Google 类型', 'places.primaryType': '主要类型', 'places.primaryTypeDisplayName': '主要类型名称',
-  'places.googleMapsUri': 'Google Maps 链接', 'places.googleMapsLinks': '地图深层链接',
+  'places.googleMapsUri': 'Google Maps 链接', 'places.googleMapsLinks': '地图深层链接', 'places.googleMapsTypeLabel': '地图类型标签', 'places.searchUri': '搜索链接', 'places.iconBackgroundColor': '图标背景色', 'places.iconMaskBaseUri': '图标资源',
   'places.websiteUri': '官网', 'places.nationalPhoneNumber': '本地电话', 'places.internationalPhoneNumber': '国际电话',
   'places.rating': '评分', 'places.userRatingCount': '评价数量', 'places.businessStatus': '营业状态',
-  'places.regularOpeningHours': '常规营业时间', 'places.currentOpeningHours': '当前营业时间',
+  'places.regularOpeningHours': '常规营业时间', 'places.currentOpeningHours': '当前营业时间', 'places.regularSecondaryOpeningHours': '常规附加营业时间', 'places.currentSecondaryOpeningHours': '当前附加营业时间', 'places.transitStation': '交通站点',
   'places.priceLevel': '价格等级', 'places.priceRange': '价格范围', 'places.plusCode': 'Plus Code',
-  'places.timeZone': '时区', 'places.utcOffsetMinutes': 'UTC 偏移',
+  'places.timeZone': '时区', 'places.utcOffsetMinutes': 'UTC 偏移', 'places.attributions': '数据归属', 'places.consumerAlert': '消费者提示', 'places.movedPlace': '迁移地点', 'places.movedPlaceId': '迁移地点 ID',
   'places.reviews': '评论内容', 'places.reviewSummary': '评论摘要', 'places.editorialSummary': '编辑摘要',
   'places.accessibilityOptions': '无障碍设施', 'places.parkingOptions': '停车设施',
   'places.paymentOptions': '支付方式', 'places.dineIn': '店内用餐', 'places.takeout': '外带',
   'places.delivery': '配送', 'places.reservable': '可预约', 'places.servesBreakfast': '早餐',
-  'places.servesBrunch': '早午餐', 'places.servesLunch': '午餐', 'places.servesDinner': '晚餐',
+  'places.servesBrunch': '早午餐', 'places.servesLunch': '午餐', 'places.servesDinner': '晚餐', 'places.servesBeer': '啤酒', 'places.servesCocktails': '鸡尾酒', 'places.servesCoffee': '咖啡', 'places.servesDessert': '甜点', 'places.servesWine': '葡萄酒',
   'places.servesVegetarianFood': '素食', 'places.outdoorSeating': '户外座位', 'places.liveMusic': '现场音乐',
-  'places.goodForChildren': '适合儿童', 'places.goodForGroups': '适合团体', 'places.allowsDogs': '允许携犬',
+  'places.goodForChildren': '适合儿童', 'places.goodForGroups': '适合团体', 'places.goodForWatchingSports': '适合观看体育', 'places.menuForChildren': '儿童菜单', 'places.neighborhoodSummary': '社区摘要', 'places.generativeSummary': '生成式摘要', 'places.evChargeAmenitySummary': '充电设施摘要', 'places.evChargeOptions': '电动车充电选项', 'places.fuelOptions': '燃油选项', 'places.restroom': '洗手间', 'places.allowsDogs': '允许携犬',
   'places.curbsidePickup': '路边取货',
 };
 const businessTypes = [
@@ -392,7 +400,7 @@ export function GoogleMapsDiscoveryPage() {
       <PageHeader className="tp-gmaps-discovery__header">
         <div>
           <p className="tp-gmaps-discovery__eyebrow">TRADEPILOT / PROSPECT DISCOVERY</p>
-          <h1>潜客发现</h1>
+          <h1>Google Maps 发现</h1>
           <p>使用 Google Maps Places API 发现目标国家的本地企业、经销商、制造商与渠道商。</p>
         </div>
         <div className="tp-gmaps-discovery__header-actions">
@@ -489,7 +497,7 @@ export function GoogleMapsDiscoveryPage() {
         </div>
         <Accordion>
           <AccordionItem title="高级响应字段（可能增加 Google Maps 费用）">
-            <div className="tp-gmaps-discovery__advanced-note">高级字段包含评论、评论摘要、无障碍、停车、支付与服务属性等。Google 按字段组合对应 SKU 计费；启用前请确认 Google Cloud 项目的 Places API 计费设置。</div>
+            <div className="tp-gmaps-discovery__advanced-note">基础字段已包含电话、官网、评分与营业时间等 Enterprise 数据；高级字段进一步包含评论、摘要、无障碍、停车、支付、餐饮与其他 Atmosphere 属性。Google 按字段组合对应 SKU 计费；启用前请确认 Google Cloud 项目的 Places API 计费设置。</div>
             <Checkbox id="gmaps-advanced-fields" labelText="请求高级字段" checked={includeAdvanced} onChange={event => setIncludeAdvanced(event.currentTarget.checked)} />
             <div className="tp-gmaps-discovery__field-list">
               {[...standardFields, ...(includeAdvanced ? advancedFields : [])].map(field => <span key={field}>{fieldLabels[field] || field}</span>)}
