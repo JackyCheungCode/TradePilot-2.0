@@ -4,6 +4,7 @@ import {
   Button, ClickableTile, Column, Grid, InlineNotification, Select, SelectItem, Tag, TextInput, Tile, TPSkeleton, semanticIcons,
 } from '@/design-system';
 import { PageHeader } from '@/design-system';
+import '@/design-system/patterns/sales-process.scss';
 import { getSupabaseClient } from '@/lib/supabase';
 
 type Row = Record<string, any>;
@@ -62,30 +63,18 @@ const opportunityLabels: Record<string, string> = {
   proposal: '方案提议', negotiation: '商务谈判', won: '已赢单', lost: '已输单',
 };
 
-function StageColumn({ title, count, hint, cards, empty }: {
-  title: string; count: number; hint: string; cards: BoardCard[]; empty: string;
-}) {
+function RecordCard({ card }: { card: BoardCard }) {
   const navigate = useNavigate();
   return (
-    <Tile aria-label={title}>
-      <header>
-        <div><h2>{title}</h2><p>{hint}</p></div>
-        <Tag type="cool-gray">{count}</Tag>
-      </header>
-      <div>
-        {cards.length ? cards.map(card => (
-          <ClickableTile key={card.id} onClick={() => navigate(card.href)}>
-            <div>
-              <strong>{card.title || '未命名记录'}</strong>
-              <Tag type={card.warning ? 'red' : 'blue'}>{card.status}</Tag>
-            </div>
-            <p>{card.subtitle}</p>
-            {card.amount && <strong>{card.amount}</strong>}
-            {card.details.length > 0 && <ul>{card.details.map((detail, index) => <li key={index}>{detail}</li>)}</ul>}
-          </ClickableTile>
-        )) : <p>{empty}</p>}
+    <ClickableTile className="tp-sales-process__record" onClick={() => navigate(card.href)}>
+      <div className="tp-sales-process__record-heading">
+        <strong>{card.title || '未命名记录'}</strong>
+        <Tag type={card.warning ? 'red' : 'blue'}>{card.status}</Tag>
       </div>
-    </Tile>
+      <p className="tp-sales-process__record-subtitle">{card.subtitle}</p>
+      {card.amount && <strong className="tp-sales-process__record-amount">{card.amount}</strong>}
+      {card.details.length > 0 && <ul>{card.details.map((detail, index) => <li key={index}>{detail}</li>)}</ul>}
+    </ClickableTile>
   );
 }
 
@@ -98,6 +87,7 @@ export function SalesProcessPage() {
   const [search, setSearch] = useState('');
   const [country, setCountry] = useState('all');
   const [view, setView] = useState('board');
+  const [selectedStage, setSelectedStage] = useState('线索');
 
   const load = useCallback(async () => {
     setError('');
@@ -266,75 +256,123 @@ export function SalesProcessPage() {
 
   const summary = useMemo(() => {
     if (!scoped) return [];
-    const activeOpportunities = scoped.opportunities.filter(row => !['won', 'lost'].includes(String(row.stage)));
-    const openQuotes = scoped.quotes.filter(row => ['draft', 'sent', 'viewed'].includes(quoteState(row)));
-    const activeOrders = scoped.orders.filter(row => ['confirmed', 'completed'].includes(orderState(row)));
-    const unpaidOrders = activeOrders.filter(row => {
-      const stats = scoped.orderStats.get(String(row.id));
-      return Number(stats?.paid || 0) < Number(row.metadata?.sales_order?.totals?.grand_total || 0);
-    });
     return [
-      { label: '线索', value: scoped.leads.length, href: '/leads', icon: semanticIcons.userFollow },
-      { label: '客户', value: scoped.accounts.length, href: '/accounts', icon: semanticIcons.building },
-      { label: '活跃商机', value: activeOpportunities.length, href: '/opportunities', icon: semanticIcons.chart },
-      { label: '待处理报价', value: openQuotes.length, href: '/quotes', icon: semanticIcons.document },
-      { label: '销售订单', value: scoped.orders.length, href: '/sales-orders', icon: semanticIcons.shoppingCart },
-      { label: '待收款订单', value: unpaidOrders.length, href: '/payments', icon: semanticIcons.money },
-      { label: '收款记录', value: scoped.payments.length, href: '/payments', icon: semanticIcons.money },
-      { label: '发运单', value: scoped.shipments.length, href: '/shipments', icon: semanticIcons.delivery },
-      { label: '发运异常', value: scoped.shipments.filter(row => row.exception_flag).length, href: '/shipments', icon: semanticIcons.warning },
+      { label: '线索', value: scoped.leads.length, href: '/leads', icon: semanticIcons.userFollow, detail: '待审核与待转化' },
+      { label: '客户', value: scoped.accounts.length, href: '/accounts', icon: semanticIcons.building, detail: scoped.contacts.length + ' 位联系人' },
+      { label: '活跃商机', value: scoped.opportunities.filter(row => !['won', 'lost'].includes(String(row.stage))).length, href: '/opportunities', icon: semanticIcons.chart, detail: '持续推进中的销售机会' },
+      { label: '销售订单', value: scoped.orders.length, href: '/sales-orders', icon: semanticIcons.shoppingCart, detail: scoped.payments.length + ' 笔收款 · ' + scoped.shipments.length + ' 票发运' },
     ];
   }, [scoped]);
 
   const visibleColumns = useMemo(() => view === 'all' ? columns : columns.map(column => ({ ...column, cards: column.cards.filter(card => !card.closed) })), [columns, view]);
 
+  const processColumns = columns.slice(0, 5).concat(columns[5] ? [columns[5]] : []);
+  const selectedColumn = columns.find(column => column.title === selectedStage) || processColumns[0];
+  const parallelColumns = columns.slice(6, 8);
+
   return (
-    <main>
-      <PageHeader>
+    <main className="tp-sales-process">
+      <PageHeader className="tp-sales-process__header">
         <div>
-          <p className="tp-sales-process__eyebrow">TRADEPILOT / SALES PROCESS</p>
+          <p className="tp-sales-process__eyebrow">TRADEPILOT / SALES OPERATIONS</p>
           <h1>销售流程</h1>
-          <p>从线索转化、客户开发到报价、订单、收款与发运，统一追踪业务进展。</p>
+          <p>沿着业务推进路径，集中查看线索转化、商机推进、报价成交及订单履约。</p>
         </div>
-        <div>
+        <div className="tp-sales-process__actions">
           <Button kind="tertiary" renderIcon={semanticIcons.refresh} disabled={loading || refreshing} onClick={() => { setRefreshing(true); void load(); }}>刷新数据</Button>
           <Button kind="primary" renderIcon={semanticIcons.add} onClick={() => navigate('/leads/new')}>创建线索</Button>
         </div>
       </PageHeader>
 
       {error && <InlineNotification kind="error" title="流程数据读取失败" subtitle={error} lowContrast/>}
-      <section aria-label="销售流程指标">
-        {loading && !data ? <TPSkeleton variant="card" rows={2}/> : <Grid fullWidth narrow>{summary.map(item => {
+
+      <section className="tp-sales-process__metrics" aria-label="销售经营概览">
+        {loading && !data ? <TPSkeleton variant="card" rows={1}/> : summary.map(item => {
           const Icon = item.icon;
-          return <Column key={item.label} sm={4} md={4} lg={4}><ClickableTile onClick={() => navigate(item.href)}>
-            <Icon size={20}/><p>{item.label}</p><strong>{item.value.toLocaleString('zh-CN')}</strong>
-          </ClickableTile></Column>;
-        })}</Grid>}
+          return (
+            <ClickableTile key={item.label} className="tp-sales-process__metric" onClick={() => navigate(item.href)}>
+              <div className="tp-sales-process__metric-top"><span>{item.label}</span><Icon size={20}/></div>
+              <strong>{item.value.toLocaleString('zh-CN')}</strong>
+              <small>{item.detail}</small>
+            </ClickableTile>
+          );
+        })}
       </section>
 
-      <section aria-label="流程筛选">
-        <Grid fullWidth narrow>
-          <Column sm={4} md={4} lg={6}><TextInput id="sales-process-search" labelText="搜索业务记录" placeholder="搜索企业、编号、商机或订单" value={search} onChange={event => setSearch(event.currentTarget.value)}/></Column>
-          <Column sm={4} md={4} lg={4}><Select id="sales-process-country" labelText="目标市场" value={country} onChange={event => setCountry(event.currentTarget.value)}>
+      <section className="tp-sales-process__workspace" aria-label="销售流程看板">
+        <div className="tp-sales-process__section-heading">
+          <div><h2>业务推进路径</h2><p>选择任一阶段，查看当前阶段的业务记录与下一步动作。</p></div>
+          <div className="tp-sales-process__view-actions">
+            <Button kind={view === 'board' ? 'secondary' : 'ghost'} size="md" renderIcon={semanticIcons.dashboard} onClick={() => setView('board')}>流程视图</Button>
+            <Button kind={view === 'all' ? 'secondary' : 'ghost'} size="md" renderIcon={semanticIcons.view} onClick={() => setView('all')}>全部阶段</Button>
+          </div>
+        </div>
+
+        <div className="tp-sales-process__filters">
+          <TextInput id="sales-process-search" labelText="搜索业务记录" placeholder="企业名称、编号、商机或订单" value={search} onChange={event => setSearch(event.currentTarget.value)}/>
+          <Select id="sales-process-country" labelText="目标市场" value={country} onChange={event => setCountry(event.currentTarget.value)}>
             <SelectItem value="all" text="全部市场"/>{countryOptions.map(code => <SelectItem key={code} value={code} text={code}/>)}
-          </Select></Column>
-          <Column sm={4} md={8} lg={6}><div>
-          <Button kind={view === 'board' ? 'secondary' : 'ghost'} size="md" onClick={() => setView('board')} renderIcon={semanticIcons.dashboard}>阶段看板</Button>
-          <Button kind={view === 'all' ? 'secondary' : 'ghost'} size="md" onClick={() => setView('all')} renderIcon={semanticIcons.view}>全部阶段</Button>
-          </div></Column>
-        </Grid>
+          </Select>
+        </div>
+
+        {loading && !data ? <TPSkeleton variant="table" rows={5}/> : view === 'board' ? (
+          <>
+            <div className="tp-sales-process__flow" role="list" aria-label="销售阶段">
+              {processColumns.map((column, index) => (
+                <button
+                  type="button"
+                  key={column.title}
+                  className={'tp-sales-process__step' + (selectedColumn?.title === column.title ? ' is-selected' : '')}
+                  onClick={() => setSelectedStage(column.title)}
+                  aria-current={selectedColumn?.title === column.title ? 'step' : undefined}
+                  role="listitem"
+                >
+                  <span className="tp-sales-process__step-index">{index + 1}</span>
+                  <span className="tp-sales-process__step-copy"><strong>{column.title}</strong><small>{column.hint}</small></span>
+                  <span className="tp-sales-process__step-count">{column.count}</span>
+                </button>
+              ))}
+            </div>
+
+            <section className="tp-sales-process__stage-panel" aria-label={selectedColumn?.title || '当前阶段'}>
+              <div className="tp-sales-process__section-heading">
+                <div><h2>{selectedColumn?.title}</h2><p>{selectedColumn?.hint} · {selectedColumn?.count || 0} 条记录</p></div>
+                <Tag type="blue">{selectedColumn?.count || 0} 条</Tag>
+              </div>
+              {selectedColumn?.cards.length ? (
+                <div className="tp-sales-process__records">
+                  {selectedColumn.cards.map(card => <RecordCard key={card.id} card={card}/>)}
+                </div>
+              ) : <p className="tp-sales-process__empty">{selectedColumn?.empty || '当前阶段暂无记录'}</p>}
+            </section>
+
+            <section className="tp-sales-process__parallel" aria-label="订单并行履约">
+              <div className="tp-sales-process__section-heading">
+                <div><h2>订单并行履约</h2><p>订单确认后，收款与分批发运可以并行推进，不强制要求先后顺序。</p></div>
+              </div>
+              <div className="tp-sales-process__parallel-grid">
+                {parallelColumns.map(column => (
+                  <div className="tp-sales-process__parallel-lane" key={column.title}>
+                    <div className="tp-sales-process__lane-heading"><div><h3>{column.title}</h3><p>{column.hint}</p></div><Tag type="cool-gray">{column.count}</Tag></div>
+                    {column.cards.length ? <div className="tp-sales-process__records">{column.cards.slice(0, 4).map(card => <RecordCard key={card.id} card={card}/>)}</div> : <p className="tp-sales-process__empty">{column.empty}</p>}
+                    {column.cards.length > 4 && <p className="tp-sales-process__more">另有 {column.cards.length - 4} 条记录，请使用全部阶段查看。</p>}
+                  </div>
+                ))}
+              </div>
+            </section>
+          </>
+        ) : (
+          <div className="tp-sales-process__all-stages">
+            {visibleColumns.map(column => (
+              <section className="tp-sales-process__stage-panel" key={column.title}>
+                <div className="tp-sales-process__section-heading"><div><h2>{column.title}</h2><p>{column.hint}</p></div><Tag type="cool-gray">{column.cards.length}</Tag></div>
+                {column.cards.length ? <div className="tp-sales-process__records">{column.cards.map(card => <RecordCard key={card.id} card={card}/>)}</div> : <p className="tp-sales-process__empty">{column.empty}</p>}
+              </section>
+            ))}
+          </div>
+        )}
       </section>
 
-      {loading && !data ? <TPSkeleton variant="table" rows={6}/> : (
-        <section aria-label="销售业务阶段">
-          <Grid fullWidth narrow>{visibleColumns.map(column => <Column key={column.title} sm={4} md={4} lg={8}><StageColumn {...column}/></Column>)}</Grid>
-        </section>
-      )}
-
-      {data && <footer>
-        <span>真实业务数据 · 当前登录账户可访问范围</span>
-        <span>更新于 {new Date(data.updatedAt).toLocaleString('zh-CN')}</span>
-      </footer>}
+      {data && <footer className="tp-sales-process__footer"><span>基于现有业务记录汇总 · 不改变原有业务状态</span><span>更新于 {new Date(data.updatedAt).toLocaleString('zh-CN')}</span></footer>}
     </main>
-  );
-}
+  );}
