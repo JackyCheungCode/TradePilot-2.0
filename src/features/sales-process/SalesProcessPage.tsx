@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Button, ClickableTile, InlineNotification, Select, SelectItem, Tag, TextInput, TPSkeleton, semanticIcons,
+  Button, ClickableTile, Column, Grid, InlineNotification, Select, SelectItem, Tag, TextInput, Tile, TPSkeleton, semanticIcons,
 } from '@/design-system';
 import { PageHeader } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
-import './sales-process.scss';
 
 type Row = Record<string, any>;
 type BoardData = {
@@ -66,25 +65,25 @@ function StageColumn({ title, count, hint, cards, empty }: {
 }) {
   const navigate = useNavigate();
   return (
-    <section className="tp-sales-process__column" aria-label={title}>
-      <header className="tp-sales-process__column-header">
+    <Tile aria-label={title}>
+      <header>
         <div><h2>{title}</h2><p>{hint}</p></div>
         <Tag type="cool-gray">{count}</Tag>
       </header>
-      <div className="tp-sales-process__column-body">
+      <div>
         {cards.length ? cards.map(card => (
-          <ClickableTile key={card.id} className="tp-sales-process__record" onClick={() => navigate(card.href)}>
-            <div className="tp-sales-process__record-top">
+          <ClickableTile key={card.id} onClick={() => navigate(card.href)}>
+            <div>
               <strong>{card.title || '未命名记录'}</strong>
               <Tag type={card.warning ? 'red' : 'blue'}>{card.status}</Tag>
             </div>
-            <p className="tp-sales-process__record-subtitle">{card.subtitle}</p>
-            {card.amount && <strong className="tp-sales-process__record-amount">{card.amount}</strong>}
+            <p>{card.subtitle}</p>
+            {card.amount && <strong>{card.amount}</strong>}
             {card.details.length > 0 && <ul>{card.details.map((detail, index) => <li key={index}>{detail}</li>)}</ul>}
           </ClickableTile>
-        )) : <p className="tp-sales-process__empty">{empty}</p>}
+        )) : <p>{empty}</p>}
       </div>
-    </section>
+    </Tile>
   );
 }
 
@@ -272,47 +271,49 @@ export function SalesProcessPage() {
   const visibleColumns = useMemo(() => view === 'all' ? columns : columns.map(column => ({ ...column, cards: column.cards.filter(card => !card.closed) })), [columns, view]);
 
   return (
-    <main className="tp-sales-process">
-      <PageHeader className="tp-sales-process__header">
+    <main>
+      <PageHeader>
         <div>
           <p className="tp-sales-process__eyebrow">TRADEPILOT / SALES PROCESS</p>
           <h1>销售流程</h1>
           <p>从线索转化、客户开发到报价、订单、收款与发运，统一追踪业务进展。</p>
         </div>
-        <div className="tp-sales-process__header-actions">
+        <div>
           <Button kind="tertiary" renderIcon={semanticIcons.refresh} disabled={loading || refreshing} onClick={() => { setRefreshing(true); void load(); }}>刷新数据</Button>
           <Button kind="primary" renderIcon={semanticIcons.add} onClick={() => navigate('/leads/new')}>创建线索</Button>
         </div>
       </PageHeader>
 
       {error && <InlineNotification kind="error" title="流程数据读取失败" subtitle={error} lowContrast/>}
-      <section className="tp-sales-process__summary" aria-label="销售流程指标">
-        {loading && !data ? <TPSkeleton variant="card" rows={2}/> : summary.map(item => {
+      <section aria-label="销售流程指标">
+        {loading && !data ? <TPSkeleton variant="card" rows={2}/> : <Grid fullWidth narrow>{summary.map(item => {
           const Icon = item.icon;
-          return <ClickableTile key={item.label} className="tp-sales-process__metric" onClick={() => navigate(item.href)}>
-            <Icon size={20}/><span>{item.label}</span><strong>{item.value.toLocaleString('zh-CN')}</strong>
-          </ClickableTile>;
-        })}
+          return <Column key={item.label} sm={4} md={4} lg={4}><ClickableTile onClick={() => navigate(item.href)}>
+            <Icon size={20}/><p>{item.label}</p><strong>{item.value.toLocaleString('zh-CN')}</strong>
+          </ClickableTile></Column>;
+        })}</Grid>}
       </section>
 
-      <section className="tp-sales-process__toolbar" aria-label="流程筛选">
-        <TextInput id="sales-process-search" labelText="搜索业务记录" placeholder="搜索企业、编号、商机或订单" value={search} onChange={event => setSearch(event.currentTarget.value)}/>
-        <Select id="sales-process-country" labelText="目标市场" value={country} onChange={event => setCountry(event.currentTarget.value)}>
-          <SelectItem value="all" text="全部市场"/>{countryOptions.map(code => <SelectItem key={code} value={code} text={code}/>)}
-        </Select>
-        <div className="tp-sales-process__view-actions">
+      <section aria-label="流程筛选">
+        <Grid fullWidth narrow>
+          <Column sm={4} md={4} lg={6}><TextInput id="sales-process-search" labelText="搜索业务记录" placeholder="搜索企业、编号、商机或订单" value={search} onChange={event => setSearch(event.currentTarget.value)}/></Column>
+          <Column sm={4} md={4} lg={4}><Select id="sales-process-country" labelText="目标市场" value={country} onChange={event => setCountry(event.currentTarget.value)}>
+            <SelectItem value="all" text="全部市场"/>{countryOptions.map(code => <SelectItem key={code} value={code} text={code}/>)}
+          </Select></Column>
+          <Column sm={4} md={8} lg={6}><div>
           <Button kind={view === 'board' ? 'secondary' : 'ghost'} size="md" onClick={() => setView('board')} renderIcon={semanticIcons.dashboard}>阶段看板</Button>
           <Button kind={view === 'all' ? 'secondary' : 'ghost'} size="md" onClick={() => setView('all')} renderIcon={semanticIcons.view}>全部阶段</Button>
-        </div>
+          </div></Column>
+        </Grid>
       </section>
 
-      {loading && !data ? <div className="tp-sales-process__loading"><TPSkeleton variant="table" rows={6}/></div> : (
-        <section className="tp-sales-process__board" aria-label="销售业务阶段">
-          {visibleColumns.map(column => <StageColumn key={column.title} {...column}/>)}
+      {loading && !data ? <TPSkeleton variant="table" rows={6}/> : (
+        <section aria-label="销售业务阶段">
+          <Grid fullWidth narrow>{visibleColumns.map(column => <Column key={column.title} sm={4} md={4} lg={8}><StageColumn {...column}/></Column>)}</Grid>
         </section>
       )}
 
-      {data && <footer className="tp-sales-process__footer">
+      {data && <footer>
         <span>真实业务数据 · 当前登录账户可访问范围</span>
         <span>更新于 {new Date(data.updatedAt).toLocaleString('zh-CN')}</span>
       </footer>}
