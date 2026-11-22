@@ -28,7 +28,7 @@ import { AgentOrchestrationWorkflow } from "./workflows/agent-orchestration";
 import { runDueIntelligenceMonitoring } from "./routes/intelligence-monitoring-runner";
 
 export interface WorkerEnv {
- BROWSER: { quickAction(action: 'pdf', input: Record<string, unknown>): Promise<Response> };
+ BROWSER: { quickAction(action: 'pdf' | 'content', input: Record<string, unknown>): Promise<Response> };
  ASSETS: { fetch(request: Request): Promise<Response> };
  SUPABASE_URL: string;
  SUPABASE_ANON_KEY: string;
