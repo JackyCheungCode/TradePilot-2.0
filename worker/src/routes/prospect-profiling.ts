@@ -142,18 +142,38 @@ export async function handleProspectRegions(request: Request, env: Env): Promise
   try {
     const countryResponse = await fetch("https://restcountries.com/v3.1/alpha/" + country + "?fields=cca3", { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(8000) });
     if (!countryResponse.ok) throw new Error("COUNTRY_ISO3_" + countryResponse.status);
-    const countryPayload = await countryResponse.json() as Array<{ cca3?: string }>;
-    const iso3 = countryPayload?.[0]?.cca3;
+    const countryPayload = await countryResponse.json() as { cca3?: string } | Array<{ cca3?: string }>;
+    const iso3 = (Array.isArray(countryPayload) ? countryPayload[0] : countryPayload)?.cca3;
     if (!iso3) throw new Error("COUNTRY_ISO3_MISSING");
-    const metadataResponse = await fetch("https://www.geoboundaries.org/api/current/gbOpen/" + iso3 + "/ADM1/", { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(12000) });
-    if (metadataResponse.status === 404) return successResponse(request, { regions: [], source: "geoBoundaries gbOpen ADM1 · 当前国家无公开一级行政区边界" });
-    if (!metadataResponse.ok) throw new Error("GEOboundaries_METADATA_" + metadataResponse.status);
-    const metadata = await metadataResponse.json() as { gjDownloadURL?: string; simplifiedGeometryGeoJSON?: string };
-    const geoUrl = metadata.simplifiedGeometryGeoJSON || metadata.gjDownloadURL;
-    if (!geoUrl) throw new Error("GEOboundaries_GEOJSON_URL_MISSING");
-    const geoResponse = await fetch(geoUrl, { headers: { Accept: "application/geo+json,application/json" }, signal: AbortSignal.timeout(25000) });
-    if (!geoResponse.ok) throw new Error("GEOboundaries_GEOJSON_" + geoResponse.status);
-    const geo = await geoResponse.json() as { features?: Array<{ id?: string | number; properties?: Record<string, unknown>; geometry?: unknown }> };
+    let metadata: { gjDownloadURL?: string; simplifiedGeometryGeoJSON?: string } | null = null;
+    const metadataHosts = ["https://www.geoboundaries.org", "https://geoboundaries-dev.org"];
+    const metadataFailures: string[] = [];
+    for (const host of metadataHosts) {
+      try {
+        const response = await fetch(host + "/api/current/gbOpen/" + iso3 + "/ADM1/", { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(12000) });
+        if (response.status === 404) { metadataFailures.push(host + ":404"); continue; }
+        if (!response.ok) throw new Error("HTTP_" + response.status);
+        metadata = await response.json() as { gjDownloadURL?: string; simplifiedGeometryGeoJSON?: string };
+        if (metadata?.gjDownloadURL || metadata?.simplifiedGeometryGeoJSON) break;
+      } catch (error) { metadataFailures.push(host + ":" + String(error).slice(0, 100)); }
+    }
+    if (!metadata) {
+      if (metadataFailures.length && metadataFailures.every(item => item.endsWith(":404"))) return successResponse(request, { regions: [], source: "geoBoundaries gbOpen ADM1 · 当前国家无公开一级行政区边界" });
+      throw new Error("GEOboundaries_METADATA_UNAVAILABLE: " + metadataFailures.join(" | "));
+    }
+    const geometryUrls = [...new Set([metadata.simplifiedGeometryGeoJSON, metadata.gjDownloadURL].filter((value): value is string => Boolean(value)))];
+    let geo: { features?: Array<{ id?: string | number; properties?: Record<string, unknown>; geometry?: unknown }> } | null = null;
+    const geometryFailures: string[] = [];
+    for (const geoUrl of geometryUrls) {
+      try {
+        const response = await fetch(geoUrl, { headers: { Accept: "application/geo+json,application/json" }, signal: AbortSignal.timeout(25000) });
+        if (!response.ok) throw new Error("HTTP_" + response.status);
+        const payload = await response.json() as { features?: Array<{ id?: string | number; properties?: Record<string, unknown>; geometry?: unknown }> };
+        if (Array.isArray(payload.features)) { geo = payload; break; }
+        throw new Error("INVALID_GEOJSON");
+      } catch (error) { geometryFailures.push(String(error).slice(0, 120)); }
+    }
+    if (!geo) throw new Error("GEOboundaries_GEOJSON_UNAVAILABLE: " + geometryFailures.join(" | "));
     const regions = (geo.features ?? []).flatMap((feature, index) => {
       const props = feature.properties ?? {};
       const name = String(props.shapeName ?? props.shapeName_en ?? props.NAME_1 ?? props.name ?? "").trim();

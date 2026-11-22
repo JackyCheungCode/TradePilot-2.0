@@ -670,6 +670,23 @@ export async function handleDiscovery(request: Request, env: DiscoveryEnv): Prom
       await db(env,"discovery_records?id=eq."+actionMatch[1]+"&owner_id=eq."+userId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({status:"removed",updated_at:new Date().toISOString()})});
       return successResponse(request,{id:record.id,status:"removed",scope:"channel"});
     }
+    if(body.action==="update"){
+      const patch=body.patch&&typeof body.patch==="object"&&!Array.isArray(body.patch)?body.patch as Record<string,unknown>:{};
+      const allowed=["name","address","phone","website"];
+      const clean:Record<string,unknown>={updated_at:new Date().toISOString()};
+      for(const field of allowed){
+        if(patch[field]===undefined)continue;
+        if(typeof patch[field]!=="string")return errorResponse(request,"INVALID_RECORD_FIELD","企业字段必须为文本。",422);
+        const value=(patch[field] as string).trim();
+        const max=field==="name"?240:field==="address"?500:field==="website"?500:100;
+        if(value.length>max)return errorResponse(request,"INVALID_RECORD_FIELD","字段长度超出限制："+field,422);
+        if(field==="name"&&!value)return errorResponse(request,"INVALID_RECORD_NAME","企业名称不能为空。",422);
+        clean[field]=value||null;
+      }
+      if(Object.keys(clean).length===1)return errorResponse(request,"EMPTY_RECORD_PATCH","请至少填写一个需要修改的字段。",400);
+      await db(env,"discovery_records?id=eq."+actionMatch[1]+"&owner_id=eq."+userId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify(clean)});
+      return successResponse(request,{id:record.id,updated:true,fields:Object.keys(clean).filter(field=>field!=="updated_at")});
+    }
     if(body.action==="discard"){
       await db(env,"discovery_records?id=eq."+actionMatch[1]+"&owner_id=eq."+userId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({status:"discarded",updated_at:new Date().toISOString()})});
       return successResponse(request,{id:record.id,status:"discarded"});

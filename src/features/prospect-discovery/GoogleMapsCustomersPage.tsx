@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, PageHeader, Tag, Tile, TpDataTable, InlineNotification, WorldMapChart, semanticIcons } from '@/design-system';
+import { Link, PageHeader, Tag, Tile, TpDataTable, InlineNotification, WorldMapChart, semanticIcons, Modal, TextInput } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 
 type Occurrence={id:string;run_id:string;keyword?:string;provider?:string;source_url?:string;raw_data?:Record<string,unknown>;captured_at?:string;is_removed?:boolean;run?:{task_code?:string;query?:string;countries?:string[];state?:string;city?:string}|Array<{task_code?:string;query?:string;countries?:string[];state?:string;city?:string}>;record?:Record<string,any>|null};
@@ -13,6 +13,11 @@ export function GoogleMapsCustomersPage(){
  const [error,setError]=useState('');
  const [reload,setReload]=useState(0);
  const [search,setSearch]=useState('');
+ const [pendingEditRows,setPendingEditRows]=useState<Record<string,any>[]>([]);
+ const [editOpen,setEditOpen]=useState(false);
+ const [editBusy,setEditBusy]=useState(false);
+ const [editDraft,setEditDraft]=useState({name:'',address:'',phone:'',website:''});
+ const [notice,setNotice]=useState('');
  useEffect(()=>{
   let active=true;
   (async()=>{
@@ -58,10 +63,10 @@ export function GoogleMapsCustomersPage(){
   <PageHeader className="tp-gmaps-customers__header"><div><p>TRADEPILOT / GOOGLE MAPS</p><h1>Google Maps 发现客户</h1><p>汇总全部 Google Maps 发现结果，保留 Google 返回字段，并追溯来源任务、搜索地址和关键词。</p></div><div className="tp-gmaps-customers__actions"><Link href="/prospect-discovery/google-maps" renderIcon={semanticIcons.search}>Google Maps 发现</Link><Link href="/prospect-discovery/google-maps/tasks" renderIcon={semanticIcons.time}>任务中心</Link></div></PageHeader>
   {error&&<InlineNotification kind="error" lowContrast title="客户数据读取失败" subtitle={error} onCloseButtonClick={()=>setError('')}/>}
   <section className="tp-gmaps-customers__cards">
-   <div className="tp-gmaps-customers__card"><span>发现结果总数</span><strong>{rows.length}</strong></div>
-   <div className="tp-gmaps-customers__card"><span>去重企业数</span><strong>{uniqueCount}</strong></div>
-   <div className="tp-gmaps-customers__card"><span>已转为 CRM 客户</span><strong>{converted}</strong></div>
-   <div className="tp-gmaps-customers__card"><span>覆盖国家 / 地区</span><strong>{countries.length}</strong></div>
+   <div className="tp-gmaps-customers__card"><div className="tp-gmaps-customers__card-icon"><semanticIcons.database size={20}/></div><div><span>发现结果总数</span><strong>{rows.length.toLocaleString()}</strong></div></div>
+   <div className="tp-gmaps-customers__card"><div className="tp-gmaps-customers__card-icon"><semanticIcons.building size={20}/></div><div><span>去重企业数</span><strong>{uniqueCount.toLocaleString()}</strong></div></div>
+   <div className="tp-gmaps-customers__card"><div className="tp-gmaps-customers__card-icon"><semanticIcons.users size={20}/></div><div><span>已转为 CRM 客户</span><strong>{converted.toLocaleString()}</strong></div></div>
+   <div className="tp-gmaps-customers__card"><div className="tp-gmaps-customers__card-icon"><semanticIcons.globe size={20}/></div><div><span>覆盖国家 / 地区</span><strong>{countries.length.toLocaleString()}</strong></div></div>
   </section>
   <section className="tp-gmaps-customers__analytics">
    <div className="tp-gmaps-customers__map"><h2>潜客全球分布</h2><p>按 Google Maps 返回的国家代码统计发现企业数量。</p>{countries.length?<WorldMapChart data={countries} unitLabel="家企业"/>:<p className="tp-gmaps-customers__empty">暂无可定位国家的潜客数据。</p>}</div>
@@ -69,7 +74,35 @@ export function GoogleMapsCustomersPage(){
   </section>
   <Tile className="tp-gmaps-customers__panel">
    <div className="tp-gmaps-customers__panel-heading"><div><h2>全部 Google Maps 发现客户</h2><p>每条记录保留来源任务与原始字段；同一企业在不同任务中的发现记录分别保留。</p></div><Tag type="blue">{filtered.length} 条</Tag></div>
-   <TpDataTable ariaLabel="Google Maps 发现客户结果" rowKey="occurrence_id" rows={filtered as any[]} columns={columns as any} searchValue={search} onSearchChange={setSearch} loading={loading} error={error||null} onRetry={()=>setReload(v=>v+1)} columnSettingsKey="google-maps-discovered-customers" emptyState={<p className="tp-gmaps-customers__empty">暂无 Google Maps 发现客户。完成首次搜索后，所有结果会自动汇总到这里。</p>}/>
+   <TpDataTable
+    ariaLabel="Google Maps 发现客户结果"
+    rowKey="occurrence_id"
+    rows={filtered as any[]}
+    columns={columns as any}
+    selectable
+    batchActions={[
+     {key:'edit-selected',label:'批量编辑',onClick:(selected:any[])=>{setPendingEditRows(selected);setEditDraft({name:'',address:'',phone:'',website:''});setEditOpen(true);}},
+     {key:'delete-selected',label:'删除所选',confirmation:'确定删除选中的发现记录吗？这只会移除所选任务中的 Google Maps 发现记录，不会删除 CRM 客户。',onClick:async(selected:any[])=>{for(const row of selected){await api('/api/v1/discovery-records/'+row.id+'/action',{method:'POST',body:JSON.stringify({action:'remove',runId:row.run_id})});}setNotice('已删除 '+selected.length+' 条所选发现记录。');setReload(v=>v+1);}},
+     {key:'push-selected',label:'推送到客户',onClick:async(selected:any[])=>{let pushed=0,queued=0,failed=0;for(const row of selected){try{if(row.status==='promoted'||row.lead_id)continue;const raw=row.raw_data||{};const stage=String(raw.lifecycle_stage||'discovered');if(stage!=='collected'){if(stage==='discovered')await api('/api/v1/discovery-records/'+row.id+'/action',{method:'POST',body:JSON.stringify({action:'review'})});await api('/api/v1/discovery-contact-enrichments',{method:'POST',body:JSON.stringify({recordIds:[row.id],providers:[row.website?'website':'apollo']})});queued++;continue;}const intel=raw.contact_intelligence&&typeof raw.contact_intelligence==='object'?raw.contact_intelligence:{};const candidates=Array.isArray(intel.candidates)?intel.candidates:[];const candidateKeys=candidates.filter((item:any)=>String(item.full_name||'').trim()).map((item:any)=>String(item.provider||'')+'：'+String(item.provider_person_id||item.email||item.linkedin_url||item.full_name));if(!candidateKeys.length)throw new Error('没有可转换的联系人');await api('/api/v1/discovery-contact-candidates/convert',{method:'POST',body:JSON.stringify({recordId:row.id,candidateKeys})});pushed++;}catch{failed++;}}setNotice('批量推送完成：成功 '+pushed+' 家；已启动联系人补全 '+queued+' 家；失败 '+failed+' 家。补全完成后可再次推送。');setReload(v=>v+1);}}
+    ]}
+    searchValue={search}
+    onSearchChange={setSearch}
+    loading={loading}
+    error={error||null}
+    onRetry={()=>setReload(v=>v+1)}
+    columnSettingsKey="google-maps-discovered-customers"
+    emptyState={<p className="tp-gmaps-customers__empty">暂无 Google Maps 发现客户。完成首次搜索后，所有结果会自动汇总到这里。</p>}
+   />
   </Tile>
+  {notice&&<InlineNotification kind="success" lowContrast title="操作结果" subtitle={notice} onCloseButtonClick={()=>setNotice('')}/>}
+  <Modal open={editOpen} modalHeading={`批量编辑所选的 ${pendingEditRows.length} 条记录`} primaryButtonText={editBusy?'保存中…':'保存修改'} secondaryButtonText="取消" primaryButtonDisabled={editBusy||!Object.values(editDraft).some(value=>value.trim())} onRequestClose={()=>setEditOpen(false)} onRequestSubmit={()=>void (async()=>{setEditBusy(true);try{const patch=Object.fromEntries(Object.entries(editDraft).filter(([,value])=>value.trim()).map(([key,value])=>[key,value.trim()]));for(const row of pendingEditRows)await api('/api/v1/discovery-records/'+row.id+'/action',{method:'POST',body:JSON.stringify({action:'update',patch})});setNotice('已批量更新 '+pendingEditRows.length+' 条发现记录。');setEditOpen(false);setReload(v=>v+1);}catch(cause){setError(cause instanceof Error?cause.message:'批量编辑失败。');}finally{setEditBusy(false);}})()}>
+   <div className="tp-gmaps-customers__edit-fields">
+    <p>留空的字段保持原值不变；输入的内容会应用到所有选中企业。</p>
+    <TextInput id="gmaps-edit-name" labelText="企业名称" value={editDraft.name} onChange={event=>setEditDraft(value=>({...value,name:event.currentTarget.value}))}/>
+    <TextInput id="gmaps-edit-address" labelText="地址" value={editDraft.address} onChange={event=>setEditDraft(value=>({...value,address:event.currentTarget.value}))}/>
+    <TextInput id="gmaps-edit-phone" labelText="电话" value={editDraft.phone} onChange={event=>setEditDraft(value=>({...value,phone:event.currentTarget.value}))}/>
+    <TextInput id="gmaps-edit-website" labelText="官网" value={editDraft.website} onChange={event=>setEditDraft(value=>({...value,website:event.currentTarget.value}))}/>
+   </div>
+  </Modal>
  </main>;
 }

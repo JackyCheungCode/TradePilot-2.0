@@ -1,7 +1,7 @@
 import { PageHeader } from '@/design-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Accordion, AccordionItem, Button, Checkbox, InlineNotification, Link,
+  Accordion, AccordionItem, Button, Checkbox, Dropdown, FilterableMultiSelect, InlineNotification, Link,
   Select, SelectItem, Tag, TextInput, TpDataTable, semanticIcons,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
@@ -212,7 +212,10 @@ export function GoogleMapsDiscoveryPage() {
   const [includePureServiceAreaBusinesses, setIncludePureServiceAreaBusinesses] = useState(false);
   const [rankPreference, setRankPreference] = useState('RELEVANCE');
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
-  const [advancedFieldRows, setAdvancedFieldRows] = useState<Array<{ id: string; field: string; saveMode: 'raw' | 'text' | 'non_empty' }>>([]);
+  const [advancedFieldRows, setAdvancedFieldRows] = useState<string[]>([]);
+  const [regionLoading, setRegionLoading] = useState(false);
+  const [regionError, setRegionError] = useState('');
+  const [regionReload, setRegionReload] = useState(0);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -255,14 +258,15 @@ export function GoogleMapsDiscoveryPage() {
   }, []);
 
   useEffect(() => {
-    if (!country) { setRegions([]); setRegion(''); setCity(null); setCityOptions([]); return; }
+    if (!country) { setRegions([]); setRegion(''); setCity(null); setCityOptions([]); setRegionError(''); setRegionLoading(false); return; }
     let active = true;
-    setRegions([]); setRegion(''); setCity(null); setCityQuery(''); setCityOptions([]);
+    setRegions([]); setRegion(''); setCity(null); setCityQuery(''); setCityOptions([]); setRegionError(''); setRegionLoading(true);
     void api<{ regions: Region[] }>('/api/v1/prospect-profiling/regions?country=' + country)
       .then(payload => { if (active) setRegions(payload.regions ?? []); })
-      .catch(cause => { if (active) setError(cause instanceof Error ? cause.message : '行政区地图加载失败。'); });
+      .catch(cause => { if (active) setRegionError(cause instanceof Error ? cause.message : '行政区地图加载失败。'); })
+      .finally(() => { if (active) setRegionLoading(false); });
     return () => { active = false; };
-  }, [country]);
+  }, [country, regionReload]);
 
   useEffect(() => {
     if (!country || cityQuery.trim().length < 2) { setCityOptions([]); return; }
@@ -294,7 +298,7 @@ export function GoogleMapsDiscoveryPage() {
     return () => window.clearInterval(timer);
   }, [runId, runStatus, loadResults]);
 
-  const requestedFields = useMemo(() => [...standardFields, ...advancedFieldRows.map(item => item.field)], [advancedFieldRows]);
+  const requestedFields = useMemo(() => [...standardFields, ...advancedFieldRows], [advancedFieldRows]);
   const tableRows = useMemo(() => {
     const query = tableSearch.trim().toLocaleLowerCase();
     return results.filter(row => !query || [row.name, row.address, row.phone, row.website, row.country_code].join(' ').toLocaleLowerCase().includes(query));
@@ -359,7 +363,7 @@ export function GoogleMapsDiscoveryPage() {
         providers: ['google_maps'], businessTypes: selectedTypes,
         filters: { minRating: Number(minRating) || undefined, openNow, requireWebsite, requirePhone },
         googleFieldMask: requestedFields,
-        googleFieldStorageModes: Object.fromEntries(advancedFieldRows.map(item => [item.field, item.saveMode])),
+        googleFieldStorageModes: {},
         googleLanguageCode: language.google,
         googleRankPreference: rankPreference,
         googleIncludePureServiceAreaBusinesses: includePureServiceAreaBusinesses,
@@ -432,19 +436,27 @@ export function GoogleMapsDiscoveryPage() {
           <div className="tp-gmaps-discovery__field">
             <label>国家 / 地区</label>
             <div className="tp-gmaps-discovery__country-select">
-              {chosenCountry && <img src={flagUrl(country)} alt="" />}
-              <Select id="gmaps-country" labelText="选择国家或地区" hideLabel value={country} onChange={event => selectCountry(event.currentTarget.value)} disabled={loading}>
-                <SelectItem value="" text="请选择国家 / 地区" />
-                {countries.map(item => <SelectItem key={item.cca2} value={item.cca2} text={countryLabel(item)} />)}
-              </Select>
+              <Dropdown
+                id="gmaps-country"
+                titleText="选择国家或地区"
+                label="请选择国家 / 地区"
+                items={countries}
+                selectedItem={chosenCountry ?? null}
+                itemToString={item => item ? countryLabel(item) : ''}
+                renderItem={item => <span className="tp-gmaps-discovery__country-option"><img src={flagUrl(item.cca2)} alt="" /><span>{countryLabel(item)}</span></span>}
+                renderSelectedItem={item => item ? <span className="tp-gmaps-discovery__country-option"><img src={flagUrl(item.cca2)} alt="" /><span>{countryLabel(item)}</span></span> : null}
+                onChange={({ selectedItem }) => selectCountry(selectedItem?.cca2 ?? '')}
+                disabled={loading}
+              />
             </div>
           </div>
           <div className="tp-gmaps-discovery__field">
             <label>州 / 省</label>
-            <Select id="gmaps-region" labelText="选择州 / 省" hideLabel value={region} onChange={event => { setRegion(event.currentTarget.value); setCity(null); setCityQuery(''); }} disabled={!country || !regions.length}>
-              <SelectItem value="" text={regions.length ? '全部州 / 省' : '请先选择国家'} />
+            <Select id="gmaps-region" labelText="选择州 / 省" hideLabel value={region} onChange={event => { setRegion(event.currentTarget.value); setCity(null); setCityQuery(''); }} disabled={!country || regionLoading || (!regions.length && !regionError)}>
+              <SelectItem value="" text={regionLoading ? '正在加载州 / 省…' : regions.length ? '全部州 / 省' : regionError ? '行政区数据加载失败' : '该国家暂无可用一级行政区'} />
               {regions.map(item => <SelectItem key={item.id} value={item.id} text={item.name} />)}
             </Select>
+            {regionError && <div className="tp-gmaps-discovery__region-error" role="alert"><span>{regionError}</span><Button kind="ghost" size="sm" onClick={() => setRegionReload(value => value + 1)}>重试</Button></div>}
           </div>
           <div className="tp-gmaps-discovery__field tp-gmaps-discovery__city-field">
             <label>城市</label>
@@ -507,40 +519,21 @@ export function GoogleMapsDiscoveryPage() {
           </div>
         </div>
         <Accordion>
-          <AccordionItem title="高级响应字段（可能增加 Google Maps 费用）">
-            <div className="tp-gmaps-discovery__advanced-note">基础字段已包含电话、官网、评分与营业时间等 Enterprise 数据；高级字段进一步包含评论、摘要、无障碍、停车、支付、餐饮与其他 Atmosphere 属性。Google 按字段组合对应 SKU 计费；启用前请确认 Google Cloud 项目的 Places API 计费设置。</div>
-            <div className="tp-gmaps-discovery__advanced-rows">
-              {advancedFieldRows.map((row, index) => (
-                <div className="tp-gmaps-discovery__advanced-row" key={row.id}>
-                  <div className="tp-gmaps-discovery__field">
-                    <label>高级响应字段 {index + 1}</label>
-                    <Select id={'gmaps-advanced-field-' + row.id} labelText="高级响应字段" hideLabel value={row.field} onChange={event => setAdvancedFieldRows(current => current.map(item => item.id === row.id ? { ...item, field: event.currentTarget.value } : item))}>
-                      {advancedFields.map(field => <SelectItem key={field} value={field} text={(fieldLabels[field] || field) + ' · ' + field} disabled={advancedFieldRows.some(item => item.id !== row.id && item.field === field)} />)}
-                    </Select>
-                  </div>
-                  <div className="tp-gmaps-discovery__field">
-                    <label>保存模式</label>
-                    <Select id={'gmaps-save-mode-' + row.id} labelText="保存模式" hideLabel value={row.saveMode} onChange={event => setAdvancedFieldRows(current => current.map(item => item.id === row.id ? { ...item, saveMode: event.currentTarget.value as 'raw' | 'text' | 'non_empty' } : item))}>
-                      <SelectItem value="raw" text="原始值保存" />
-                      <SelectItem value="text" text="文本化保存" />
-                      <SelectItem value="non_empty" text="仅保存非空值" />
-                    </Select>
-                  </div>
-                  <Button kind="ghost" size="sm" renderIcon={semanticIcons.close} hasIconOnly iconDescription="移除此字段" onClick={() => setAdvancedFieldRows(current => current.filter(item => item.id !== row.id))} />
-                </div>
-              ))}
-              <Button kind="tertiary" size="sm" renderIcon={semanticIcons.add} onClick={() => {
-                const nextField = advancedFields.find(field => !advancedFieldRows.some(item => item.field === field));
-                if (nextField) setAdvancedFieldRows(current => [...current, { id: String(Date.now()) + '-' + String(current.length), field: nextField, saveMode: 'raw' }]);
-              }} disabled={advancedFieldRows.length >= advancedFields.length}>添加字段</Button>
-            </div>
-            <div className="tp-gmaps-discovery__field-list">
-              {standardFields.map(field => <span key={field}>{fieldLabels[field] || field}</span>)}
-              {advancedFieldRows.map(row => <span key={row.id}>{fieldLabels[row.field] || row.field} · {row.saveMode === 'raw' ? '原始值' : row.saveMode === 'text' ? '文本化' : '非空值'}</span>)}
-            </div>
+          <AccordionItem title="高级响应字段（可多选）">
+            <div className="tp-gmaps-discovery__advanced-note">在下拉框中搜索并勾选希望 Google Maps 返回的额外数据。未选择的高级字段不会加入本次请求；字段是否有值取决于 Google 的商家资料覆盖情况。</div>
+            <FilterableMultiSelect
+              id="gmaps-advanced-fields"
+              titleText="选择高级响应字段"
+              label="搜索并选择字段"
+              items={advancedFields.map(field => ({ id: field, label: (fieldLabels[field] || field) + ' · ' + field }))}
+              itemToString={item => item?.label ?? ''}
+              selectedItems={advancedFieldRows.map(field => ({ id: field, label: (fieldLabels[field] || field) + ' · ' + field }))}
+              onChange={({ selectedItems }) => setAdvancedFieldRows(selectedItems.map(item => item.id))}
+              selectionFeedback="top"
+            />
             <div className="tp-gmaps-discovery__request-summary">
-              <strong>基础字段 {standardFields.length} 项 · 自选高级字段 {advancedFieldRows.length} 项</strong>
-              <code>{requestedFields.join(',')},nextPageToken</code>
+              <strong>基础字段 {standardFields.length} 项 · 已选高级字段 {advancedFieldRows.length} 项</strong>
+              <span>本次请求会合并基础字段和已选字段；未选择的高级字段不会请求。</span>
             </div>
           </AccordionItem>
         </Accordion>
