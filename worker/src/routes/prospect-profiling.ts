@@ -97,9 +97,9 @@ export async function handleProspectStrategy(request: Request, env: Env): Promis
 export async function handleProspectCountries(request: Request, env: Env): Promise<Response> {
   if (request.method !== "GET") return errorResponse(request, "METHOD_NOT_ALLOWED", "不支持的请求方法。", 405);
   if (!await authenticated(request, env)) return errorResponse(request, "UNAUTHORIZED", "请先登录 TradePilot。", 401);
-  const normalize = (rows: Array<{ cca2?: string; id?: string; name?: { common?: string } | string; region?: string | { value?: string } }>) =>
+  const normalize = (rows: Array<{ cca2?: string; iso2Code?: string; id?: string; name?: { common?: string } | string; region?: string | { value?: string } }>) =>
     rows.flatMap(item => {
-      const code = String(item.cca2 ?? item.id ?? "").trim().toUpperCase();
+      const code = String(item.cca2 ?? item.iso2Code ?? item.id ?? "").trim().toUpperCase();
       const name = typeof item.name === "string" ? item.name : item.name?.common;
       const regionValue = typeof item.region === "string" ? item.region : item.region?.value ?? "";
       if (!/^[A-Z]{2}$/.test(code) || !name || regionValue === "Aggregates") return [];
@@ -111,7 +111,7 @@ export async function handleProspectCountries(request: Request, env: Env): Promi
     let source = "";
     const worldBank = await fetch("https://api.worldbank.org/v2/country?format=json&per_page=400", { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(10000) });
     if (worldBank.ok) {
-      const payload = await worldBank.json() as [unknown, Array<{ id?: string; name?: string; region?: { value?: string } }>];
+      const payload = await worldBank.json() as [unknown, Array<{ id?: string; iso2Code?: string; name?: string; region?: { value?: string } }>];
       countries = normalize(Array.isArray(payload?.[1]) ? payload[1] : []);
       if (countries.length) source = "World Bank country catalog";
     }
