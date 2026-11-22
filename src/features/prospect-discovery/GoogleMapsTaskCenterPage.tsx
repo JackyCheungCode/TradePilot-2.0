@@ -87,8 +87,8 @@ export function GoogleMapsTaskCenterPage(){
    ]} loading={loading||busy} error={error||null} onRetry={()=>setReload(v=>v+1)} columnSettingsKey="google-maps-task-center" rowActions={[
     {key:'pause',label:'暂停任务',onClick:(run:Run)=>void runAction([run],'pause')},
     {key:'resume',label:'恢复任务',onClick:(run:Run)=>void runAction([run],'resume')},
-    {key:'cancel',label:'取消任务',confirmation:'确定取消此任务？已采集结果会保留。',onClick:(run:Run)=>void runAction([run],'cancel')},
-    {key:'remove',label:'从任务中心移除',confirmation:'只隐藏任务，不删除客户数据。确定移除？',onClick:(run:Run)=>void runAction([run],'remove')},
+    {key:'cancel',label:'取消任务',onClick:(run:Run)=>void runAction([run],'cancel')},
+    {key:'remove',label:'从任务中心移除',onClick:(run:Run)=>void runAction([run],'remove')},
     {key:'detail',label:'查看任务详情与日志',onClick:(run:Run)=>{window.location.assign('/prospect-history/'+run.id);}}
    ]} emptyState={<p className="tp-gmaps-task-center__empty">暂无 Google Maps 发现任务。创建任务后会自动出现在这里。</p>}/>
   </Tile>
