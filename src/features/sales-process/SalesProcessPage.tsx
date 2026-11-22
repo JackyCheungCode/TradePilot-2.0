@@ -96,7 +96,7 @@ export function SalesProcessPage() {
       const [leads, accounts, contacts, opportunities, quotes, orders, payments, allocations, shipments] = await Promise.all([
         db.from('leads').select('id,lead_number,name,country_code,status,is_formal,created_at,updated_at').order('updated_at', { ascending: false }).range(0, 1999),
         db.from('crm_accounts').select('id,account_number,account_name,status,country_code,source_lead_id,created_at,updated_at,is_archived').eq('is_archived', false).order('updated_at', { ascending: false }).range(0, 1999),
-        db.from('crm_contacts').select('id,account_id,full_name,first_name,last_name,is_primary,is_active,is_archived').eq('is_archived', false).range(0, 4999),
+        db.from('crm_contacts').select('id,account_id,full_name,first_name,last_name,email,phone,is_primary,is_active,is_archived').eq('is_archived', false).range(0, 4999),
         db.from('crm_opportunities').select('id,opportunity_number,name,stage,status,amount,currency_code,account_id,primary_contact_id,expected_close_date,next_step,updated_at,is_archived').eq('is_archived', false).order('updated_at', { ascending: false }).range(0, 1999),
         db.from('trade_documents').select('id,document_number,title,status,currency_code,totals,content,created_at,updated_at').eq('document_type', 'quotation').order('updated_at', { ascending: false }).range(0, 1999),
         db.from('trade_orders').select('id,order_number,title,status,currency_code,crm_account_id,crm_contact_id,opportunity_id,metadata,confirmed_from_document_id,created_at,updated_at').eq('order_type', 'sales').order('updated_at', { ascending: false }).range(0, 1999),
@@ -173,7 +173,7 @@ export function SalesProcessPage() {
       if (shipment.status === 'delivered') stat.delivered += 1;
       if (shipment.exception_flag || ['exception', 'delayed', 'failed', 'damaged', 'lost'].includes(String(shipment.status))) stat.exceptions += 1;
     });
-    return { leads, accounts, contacts, opportunities, quotes, orders, payments, shipments, orderStats, contactCountByAccount, orderNumberById };
+    return { leads, accounts, contacts, opportunities, quotes, orders, payments, shipments, orderStats, contactCountByAccount, orderNumberById, accountMap };
   }, [data, search, country]);
 
   const columns = useMemo(() => {
@@ -184,7 +184,7 @@ export function SalesProcessPage() {
       href: '/leads', details: ['来源线索 · ' + (row.status || '未知'), '更新于 ' + dateLabel(row.updated_at)], closed: row.status === 'rejected',
     }));
     const contactCards: BoardCard[] = scoped.contacts.map(row => {
-      const account = data?.accounts.find(item => String(item.id) === String(row.account_id));
+      const account = scoped.accountMap.get(String(row.account_id));
       const name = row.full_name || [row.first_name, row.last_name].filter(Boolean).join(' ') || '未命名联系人';
       return {
         id: row.id, title: name, subtitle: account?.account_name || '所属客户未设置',
