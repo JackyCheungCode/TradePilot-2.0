@@ -133,7 +133,7 @@ export async function handleProspectRegions(request: Request, env: Env): Promise
     const metadataResponse = await fetch("https://www.geoboundaries.org/api/current/gbOpen/" + iso3 + "/ADM1/", { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(12000) });
     if (metadataResponse.status === 404) return successResponse(request, { regions: [], source: "geoBoundaries gbOpen ADM1 · 当前国家无公开一级行政区边界" });
     if (!metadataResponse.ok) throw new Error("GEOboundaries_METADATA_" + metadataResponse.status);
-    const metadata = await metadataResponse.json() as { gjDownloadURL?: string };
+    const metadata = await metadataResponse.json() as { gjDownloadURL?: string; simplifiedGeometryGeoJSON?: string };
     const geoUrl = metadata.simplifiedGeometryGeoJSON || metadata.gjDownloadURL;
     if (!geoUrl) throw new Error("GEOboundaries_GEOJSON_URL_MISSING");
     const geoResponse = await fetch(geoUrl, { headers: { Accept: "application/geo+json,application/json" }, signal: AbortSignal.timeout(25000) });
