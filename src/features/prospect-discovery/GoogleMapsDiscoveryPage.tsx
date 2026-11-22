@@ -1,7 +1,7 @@
 import { PageHeader } from '@/design-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Accordion, AccordionItem, Button, Checkbox, Dropdown, FilterableMultiSelect, InlineNotification, Link,
+  Accordion, AccordionItem, Button, Checkbox, ComboBox, FilterableMultiSelect, InlineNotification, Link,
   Select, SelectItem, Tag, TextInput, TpDataTable, semanticIcons,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
@@ -41,7 +41,7 @@ const standardFields = [
   'places.addressComponents', 'places.addressDescriptor', 'places.adrFormatAddress', 'places.postalAddress',
   'places.location', 'places.viewport', 'places.types', 'places.primaryType',
   'places.primaryTypeDisplayName', 'places.googleMapsUri', 'places.googleMapsLinks', 'places.googleMapsTypeLabel',
-  'places.searchUri', 'places.iconBackgroundColor', 'places.iconMaskBaseUri', 'places.websiteUri',
+  'places.iconBackgroundColor', 'places.iconMaskBaseUri', 'places.websiteUri',
   'places.nationalPhoneNumber', 'places.internationalPhoneNumber', 'places.rating', 'places.userRatingCount',
   'places.businessStatus', 'places.openingDate', 'places.pureServiceAreaBusiness', 'places.photos',
   'places.containingPlaces', 'places.subDestinations', 'places.regularOpeningHours',
@@ -64,7 +64,7 @@ const fieldLabels: Record<string, string> = {
   'places.formattedAddress': '完整地址', 'places.shortFormattedAddress': '简要地址',
   'places.addressComponents': '地址组成', 'places.addressDescriptor': '地址描述', 'places.adrFormatAddress': 'ADR 地址', 'places.postalAddress': '邮政地址', 'places.location': '经纬度', 'places.viewport': '地图视口',
   'places.types': 'Google 类型', 'places.primaryType': '主要类型', 'places.primaryTypeDisplayName': '主要类型名称',
-  'places.googleMapsUri': 'Google Maps 链接', 'places.googleMapsLinks': '地图深层链接', 'places.googleMapsTypeLabel': '地图类型标签', 'places.searchUri': '搜索链接', 'places.iconBackgroundColor': '图标背景色', 'places.iconMaskBaseUri': '图标资源',
+  'places.googleMapsUri': 'Google Maps 链接', 'places.googleMapsLinks': '地图深层链接', 'places.googleMapsTypeLabel': '地图类型标签', 'places.iconBackgroundColor': '图标背景色', 'places.iconMaskBaseUri': '图标资源',
   'places.websiteUri': '官网', 'places.nationalPhoneNumber': '本地电话', 'places.internationalPhoneNumber': '国际电话',
   'places.rating': '评分', 'places.userRatingCount': '评价数量', 'places.businessStatus': '营业状态',
   'places.regularOpeningHours': '常规营业时间', 'places.currentOpeningHours': '当前营业时间', 'places.regularSecondaryOpeningHours': '常规附加营业时间', 'places.currentSecondaryOpeningHours': '当前附加营业时间', 'places.transitStation': '交通站点',
@@ -111,6 +111,11 @@ async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
 
 function countryLabel(country: Country) {
   return country.name.common;
+}
+function countrySearchText(country: Country) {
+  const traditional = new Intl.DisplayNames(['zh-TW'], { type: 'region' }).of(country.cca2) ?? '';
+  const simplified = new Intl.DisplayNames(['zh-CN'], { type: 'region' }).of(country.cca2) ?? '';
+  return [country.name.common, traditional, simplified, country.cca2, country.cca3 ?? ''].join(' ');
 }
 function flagUrl(code: string) {
   return 'https://flagcdn.com/w40/' + code.toLowerCase() + '.png';
@@ -446,15 +451,14 @@ export function GoogleMapsDiscoveryPage() {
           <div className="tp-gmaps-discovery__field">
             <label>国家 / 地区</label>
             <div className="tp-gmaps-discovery__country-select">
-              <Dropdown
+              <ComboBox
                 id="gmaps-country"
                 titleText="选择国家或地区"
-                label="请选择国家 / 地区"
+                placeholder="搜索国家名称、中文名称或代码"
                 items={countries}
                 selectedItem={chosenCountry ?? null}
-                itemToString={item => item ? countryLabel(item) : ''}
+                itemToString={item => item ? countrySearchText(item) : ''}
                 itemToElement={item => <span className="tp-gmaps-discovery__country-option">{item ? <><img src={flagUrl(item.cca2)} alt="" /><span>{countryLabel(item)}</span></> : null}</span>}
-                renderSelectedItem={item => item ? <span className="tp-gmaps-discovery__country-option"><img src={flagUrl(item.cca2)} alt="" /><span>{countryLabel(item)}</span></span> : null}
                 onChange={({ selectedItem }) => selectCountry(selectedItem?.cca2 ?? '')}
                 disabled={loading}
               />
