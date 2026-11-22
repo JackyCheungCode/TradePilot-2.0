@@ -94,38 +94,32 @@ export function IntelligenceMonitoringPage() {
       />
 
       <Grid fullWidth className="tp-intelligence-monitoring__metrics">
-        <Column sm={4} md={4} lg={8}>
-          <Tile>
-            <p>监听对象草稿</p>
+        <Column sm={4} md={4} lg={4}><Tile className="tp-intelligence-monitoring__metric"><p>监听对象草稿</p>
             <h2>{drafts.length}</h2>
             <p>当前页面临时添加</p>
           </Tile>
         </Column>
         <Column sm={4} md={4} lg={4}>
-          <Tile>
-            <p>涉及平台</p>
+          <Tile className="tp-intelligence-monitoring__metric"><p>涉及平台</p>
             <h2>{platformCount}</h2>
             <p>仅统计当前草稿</p>
           </Tile>
         </Column>
         <Column sm={4} md={4} lg={4}>
-          <Tile>
-            <p>计划采集频率</p>
+          <Tile className="tp-intelligence-monitoring__metric"><p>计划采集频率</p>
             <h2>60 min</h2>
             <p>可按任务独立设置</p>
           </Tile>
         </Column>
         <Column sm={4} md={4} lg={4}>
-          <Tile>
-            <p>AI 意向过滤</p>
+          <Tile className="tp-intelligence-monitoring__metric"><p>AI 意向过滤</p>
             <h2>{enabledIntents.length}</h2>
             <p>已选择的意向类别</p>
           </Tile>
         </Column>
       </Grid>
 
-      <Grid fullWidth className="tp-intelligence-monitoring__form-grid">
-        <Column sm={4} md={8} lg={8}>
+      <Grid fullWidth className="tp-intelligence-monitoring__workspace"><Column sm={4} md={8} lg={10}>
           <section className="tp-intelligence-monitoring__section">
             <div className="tp-intelligence-monitoring__section-heading"><span>01</span><div><h2>添加监听对象</h2><p>输入你希望持续观察的公开内容链接。每个对象独立设置采集平台和运行频率。</p></div></div>
             <Grid fullWidth className="tp-intelligence-monitoring__form-grid">
@@ -188,8 +182,7 @@ export function IntelligenceMonitoringPage() {
           <section className="tp-intelligence-monitoring__section">
             <div className="tp-intelligence-monitoring__section-heading"><span>02</span><div><h2>监听对象</h2><p>已配置对象及其当前草稿状态</p></div></div>
             {drafts.length === 0 ? (
-              <Tile>
-                <h4>尚未添加监听对象</h4>
+              <Tile className="tp-intelligence-monitoring__empty"><h4>尚未添加监听对象</h4>
                 <p>添加公开主页、账号、群组、频道或帖子链接后，会在这里展示任务配置摘要。</p>
               </Tile>
             ) : drafts.map((item) => (
@@ -209,8 +202,7 @@ export function IntelligenceMonitoringPage() {
         <Column sm={4} md={8} lg={6}>
           <section className="tp-intelligence-monitoring__section">
             <div className="tp-intelligence-monitoring__section-heading"><span>03</span><div><h2>AI 购买意向识别</h2><p>对新发现的公开帖子、评论和回复进行语义分析，不只依赖关键词。</p></div></div>
-            <Tile>
-              <h4>识别目标</h4>
+            <Tile className="tp-intelligence-monitoring__subpanel"><h4>识别目标</h4>
               {intentTypes.map((intent) => (
                 <Checkbox
                   key={intent}
@@ -222,8 +214,7 @@ export function IntelligenceMonitoringPage() {
               ))}
               <p>已启用 {enabledIntents.length} / {intentTypes.length} 类意向</p>
             </Tile>
-            <Tile>
-              <h4>意向分级</h4>
+            <Tile className="tp-intelligence-monitoring__subpanel"><h4>意向分级</h4>
               {gradeRows.map((row) => (
                 <div key={row.grade}>
                   <Tag type={row.color}>{row.grade} 级</Tag>
@@ -247,8 +238,7 @@ export function IntelligenceMonitoringPage() {
 
           <section className="tp-intelligence-monitoring__section">
             <div className="tp-intelligence-monitoring__section-heading"><span>04</span><div><h2>采集与数据规则</h2><p>定义内容范围、增量策略和数据服务路由</p></div></div>
-            <Tile>
-              <p><strong>默认采集内容</strong></p>
+            <Tile className="tp-intelligence-monitoring__subpanel"><p><strong>默认采集内容</strong></p>
               <ul>
                 <li>新增公开帖子、评论及可访问的回复</li>
                 <li>评论人公开名称、主页链接及平台 ID（可获取时）</li>
@@ -258,8 +248,7 @@ export function IntelligenceMonitoringPage() {
               <p><strong>增量机制</strong></p>
               <p>以平台内容 ID、评论 ID、回复 ID 和分页游标去重；保留运行记录、失败重试与断点续跑。</p>
             </Tile>
-            <Tile>
-              <p><strong>采集服务策略</strong></p>
+            <Tile className="tp-intelligence-monitoring__subpanel"><p><strong>采集服务策略</strong></p>
               <Tag type="green">Apify 优先</Tag>
               <Tag type="blue">Bright Data 备用</Tag>
               <p>统一适配器按平台和对象类型路由；具体可采集字段、评论覆盖率与延迟必须通过 Actor 实测后启用。</p>
