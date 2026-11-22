@@ -7,6 +7,7 @@ import { AIControlCenterPage } from '../features/ai-control-center/AIControlCent
 import { ProspectDiscoveryPage } from '../features/prospect-discovery';
 import { ProspectHistoryPage } from '../features/prospect-discovery/ProspectHistoryPage';
 import { ProspectDataPage } from '../features/prospect-discovery/ProspectDataPage';
+import { IntelligenceMonitoringPage } from '../features/intelligence-monitoring/IntelligenceMonitoringPage';
 import { LeadCreatePage } from '../features/leads/LeadCreatePage';
 import { LeadConsolePage } from '../features/leads/LeadConsolePage';
 import { ContactConsolePage, ContactDetailPage, ContactFormPage } from '../features/contacts/ContactPages';
@@ -56,6 +57,7 @@ export const router = createBrowserRouter([
           { path: 'prospect-history', element: <ProspectHistoryPage /> },
           { path: 'prospect-history/:runId', element: <ProspectHistoryPage /> },
           { path: 'prospect-data', element: <ProspectDataPage /> },
+          { path: 'intelligence-monitoring', element: <IntelligenceMonitoringPage /> },
           { path: 'leads', element: <LeadConsolePage /> },
           { path: 'leads/new', element: <LeadCreatePage /> },
           { path: 'opportunities', element: <OpportunityConsolePage /> },
