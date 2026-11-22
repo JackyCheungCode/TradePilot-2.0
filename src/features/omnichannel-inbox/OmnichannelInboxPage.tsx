@@ -55,6 +55,7 @@ export function OmnichannelInboxPage() {
   const [mobileChat, setMobileChat] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
   const [identityOpen, setIdentityOpen] = useState(false);
+  const [pendingIdentityRemoval, setPendingIdentityRemoval] = useState<CustomerIdentity | null>(null);
   const [identityChannel, setIdentityChannel] = useState<ChannelType>('whatsapp');
   const [externalId, setExternalId] = useState('');
   const [expandedEmail, setExpandedEmail] = useState<string[]>([]);
@@ -158,6 +159,11 @@ export function OmnichannelInboxPage() {
     setIdentities((current) => current.filter((item) => item.id !== identity.id).map((item) => item.id === fallback?.id ? { ...item, is_primary: true } : item));
     if (channel === identity.channel_type && fallback) setChannel(fallback.channel_type);
     setActionNotice('渠道身份已从本地演示数据中移除。');
+  };
+  const confirmRemoveIdentity = () => {
+    if (!pendingIdentityRemoval) return;
+    removeIdentity(pendingIdentityRemoval);
+    setPendingIdentityRemoval(null);
   };
   useEffect(() => {
     if (!profileOpen || typeof window === 'undefined' || !window.matchMedia('(max-width: 767px)').matches) return;
@@ -285,7 +291,7 @@ export function OmnichannelInboxPage() {
           </div> : <dl className="oi-details"><dt>联系人</dt><dd>{customer.contact_name} · {customer.role}</dd><dt>邮箱</dt><dd>{customer.email}</dd><dt>电话</dt><dd className="oi-mono">{customer.phone}</dd></dl>}
         </Tile>
         <Tile className="oi-profile-section"><div className="oi-section-heading"><h3>渠道身份绑定</h3><Button kind="ghost" size="sm" renderIcon={semanticIcons.add} onClick={() => setIdentityOpen(true)}>绑定新渠道</Button></div>
-          {customerIdentities.map((identity) => <div className="oi-identity-row" key={identity.id}><ChannelMark channel={identity.channel_type} /><span>{identity.external_user_id}</span>{identity.is_primary && <Tag type="green">主要</Tag>}<IconButton kind="ghost" label={'移除 ' + channelLabels[identity.channel_type] + ' 身份'} disabled={customerIdentities.length <= 1} onClick={() => removeIdentity(identity)}><semanticIcons.delete /></IconButton></div>)}
+          {customerIdentities.map((identity) => <div className="oi-identity-row" key={identity.id}><ChannelMark channel={identity.channel_type} /><span>{identity.external_user_id}</span>{identity.is_primary && <Tag type="green">主要</Tag>}<IconButton kind="ghost" label={'移除 ' + channelLabels[identity.channel_type] + ' 身份'} disabled={customerIdentities.length <= 1} onClick={() => setPendingIdentityRemoval(identity)}><semanticIcons.delete /></IconButton></div>)}
         </Tile>
         <Tile className="oi-profile-section"><h3>客户标签</h3><div className="oi-tags">{customer.tags.map((tag) => <Tag key={tag} type="cool-gray">{tag}</Tag>)}</div></Tile>
       </div>
@@ -294,5 +300,6 @@ export function OmnichannelInboxPage() {
     </div>
     <Modal open={templateOpen} onRequestClose={() => setTemplateOpen(false)} modalHeading="选择 WhatsApp 官方模板" primaryButtonText="使用模板" secondaryButtonText="取消" onRequestSubmit={() => { appendMessage('您好，关于您咨询的产品目录，我们已为您准备最新版本。请问是否方便接收？', 'template'); setTemplateOpen(false); }}><ModalBody><p className="oi-modal-copy">选择已通过 WhatsApp 审核的模板，模板内容会作为新消息加入时间线。</p><div className="oi-template-option"><strong>product_catalog_followup</strong><span>产品目录跟进 · zh_CN</span></div><div className="oi-template-option"><strong>quotation_reminder</strong><span>报价单提醒 · zh_CN</span></div></ModalBody></Modal>
     <Modal open={identityOpen} onRequestClose={() => setIdentityOpen(false)} modalHeading="绑定新渠道身份" primaryButtonText="确认绑定" secondaryButtonText="取消" onRequestSubmit={bindIdentity}><ModalBody><Dropdown id="oi-new-channel" titleText="渠道类型" label="选择渠道" items={channelOptions} itemToString={(item: { id: string; text: string } | null) => item?.text ?? ''} selectedItem={channelOptions.find((item) => item.id === identityChannel)} onChange={({ selectedItem }: { selectedItem: { id: string; text: string } | null }) => selectedItem && setIdentityChannel(selectedItem.id as ChannelType)} /><TextInput id="oi-external-id" labelText="平台账号 ID / 邮箱 / 电话" value={externalId} onChange={(event: React.ChangeEvent<HTMLInputElement>) => setExternalId(event.currentTarget.value)} /></ModalBody></Modal>
+    <Modal open={Boolean(pendingIdentityRemoval)} onRequestClose={() => setPendingIdentityRemoval(null)} modalHeading="移除渠道身份？" primaryButtonText="确认移除" secondaryButtonText="保留身份" danger onRequestSubmit={confirmRemoveIdentity}><ModalBody><p>确定从当前客户档案中移除 {pendingIdentityRemoval ? channelLabels[pendingIdentityRemoval.channel_type] : ''} 身份 <strong>{pendingIdentityRemoval?.external_user_id ?? ''}</strong>？此操作会切换到其他已绑定身份作为主要渠道，且无法自动恢复。</p></ModalBody></Modal>
   </main>;
 }
