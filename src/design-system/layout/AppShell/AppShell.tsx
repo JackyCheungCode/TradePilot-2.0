@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, Outlet } from 'react-router-dom';
 import {
   Header, HeaderName, HeaderMenuButton, HeaderGlobalBar, HeaderGlobalAction, SkipToContent,
-  SideNav, SideNavItems, SideNavLink, Content, semanticIcons, InlineNotification, OverflowMenu, OverflowMenuItem, useThemePreference,
+  SideNav, SideNavItems, SideNavLink, SideNavMenu, SideNavMenuItem, Content, semanticIcons, InlineNotification, OverflowMenu, OverflowMenuItem, useThemePreference,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import { XiaoyaAvatar } from '@/features/agent/XiaoyaAvatar';
@@ -173,6 +173,10 @@ export function AppShell() {
         <div className="tp-sidenav__group">
           <div className="tp-sidenav__group-label">情报与商机</div>
           <SideNavItems>
+            <SideNavMenu title="潜客发现" isActive={location.pathname.startsWith('/prospect-discovery')} renderIcon={semanticIcons.search}>
+              <SideNavMenuItem href="/prospect-discovery/google-maps" isActive={location.pathname === '/prospect-discovery/google-maps'}>Google Maps 发现</SideNavMenuItem>
+              <SideNavMenuItem href="/prospect-discovery" isActive={location.pathname === '/prospect-discovery'}>多渠道发现工作流</SideNavMenuItem>
+            </SideNavMenu>
             <SideNavLink href="/prospect-data" isActive={location.pathname.startsWith('/prospect-data') || location.pathname.startsWith('/prospect-history')} title="线索数据" renderIcon={semanticIcons.database}>线索数据</SideNavLink>
             <SideNavLink href="/intelligence-monitoring" isActive={location.pathname.startsWith('/intelligence-monitoring')} title="情报监听" renderIcon={semanticIcons.activity}>情报监听</SideNavLink>
             <SideNavLink href="/leads" isActive={location.pathname.startsWith('/leads')} title="商机" renderIcon={semanticIcons.userFollow}>商机</SideNavLink>
