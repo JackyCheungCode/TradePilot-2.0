@@ -97,17 +97,18 @@ export async function handleProspectStrategy(request: Request, env: Env): Promis
 export async function handleProspectCountries(request: Request, env: Env): Promise<Response> {
   if (request.method !== "GET") return errorResponse(request, "METHOD_NOT_ALLOWED", "不支持的请求方法。", 405);
   if (!await authenticated(request, env)) return errorResponse(request, "UNAUTHORIZED", "请先登录 TradePilot。", 401);
-  const normalize = (rows: Array<{ cca2?: string; iso2Code?: string; id?: string; name?: { common?: string } | string; region?: string | { value?: string } }>) =>
+  const normalize = (rows: Array<{ cca2?: string; cca3?: string; iso2Code?: string; id?: string; name?: { common?: string } | string; region?: string | { value?: string } }>) =>
     rows.flatMap(item => {
       const code = String(item.cca2 ?? item.iso2Code ?? item.id ?? "").trim().toUpperCase();
       const name = typeof item.name === "string" ? item.name : item.name?.common;
       const regionValue = typeof item.region === "string" ? item.region : item.region?.value ?? "";
       if (!/^[A-Z]{2}$/.test(code) || !name || regionValue === "Aggregates") return [];
       const continent = /America/i.test(regionValue) ? "Americas" : /Europe/i.test(regionValue) ? "Europe" : /Africa|Middle East/i.test(regionValue) ? "Africa" : /Asia/i.test(regionValue) ? "Asia" : /Oceania/i.test(regionValue) ? "Oceania" : "Other";
-      return [{ name: { common: name }, cca2: code, region: continent }];
+      const alpha3 = String(item.cca3 ?? (item.iso2Code ? item.id : "")).trim().toUpperCase();
+      return [{ name: { common: name }, cca2: code, cca3: /^[A-Z]{3}$/.test(alpha3) ? alpha3 : "", region: continent }];
     }).sort((x,y) => x.name.common.localeCompare(y.name.common));
   try {
-    let countries: Array<{ name: { common: string }; cca2: string; region: string }> = [];
+    let countries: Array<{ name: { common: string }; cca2: string; cca3: string; region: string }> = [];
     let source = "";
     const worldBank = await fetch("https://api.worldbank.org/v2/country?format=json&per_page=400", { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(10000) });
     if (worldBank.ok) {
@@ -118,7 +119,7 @@ export async function handleProspectCountries(request: Request, env: Env): Promi
     if (!countries.length) {
       const fallback = await fetch("https://restcountries.com/v3.1/all?fields=cca2,name,region", { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(10000) });
       if (!fallback.ok) throw new Error("RESTCOUNTRIES_" + fallback.status);
-      const rows = await fallback.json() as Array<{ cca2?: string; name?: { common?: string }; region?: string }>;
+      const rows = await fallback.json() as Array<{ cca2?: string; cca3?: string; name?: { common?: string }; region?: string }>;
       countries = normalize(Array.isArray(rows) ? rows : []);
       source = "REST Countries fallback";
     }
@@ -135,18 +136,15 @@ let prospectRegionCache = new Map<string, Array<{ id: string; name: string; geom
 export async function handleProspectRegions(request: Request, env: Env): Promise<Response> {
   if (request.method !== "GET") return errorResponse(request, "METHOD_NOT_ALLOWED", "不支持的请求方法。", 405);
   if (!await authenticated(request, env)) return errorResponse(request, "UNAUTHORIZED", "请先登录 TradePilot。", 401);
-  const country = (new URL(request.url).searchParams.get("country") ?? "").trim().toUpperCase();
-  if (!/^[A-Z]{2}$/.test(country)) return errorResponse(request, "INVALID_COUNTRY", "请选择有效国家或地区。", 400);
+  const params = new URL(request.url).searchParams;
+  const country = (params.get("country") ?? "").trim().toUpperCase();
+  const iso3 = (params.get("iso3") ?? "").trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(country) || !/^[A-Z]{3}$/.test(iso3)) return errorResponse(request, "INVALID_COUNTRY", "国家 / 地区代码不完整，请重新选择。", 400);
   const cached = prospectRegionCache.get(country);
   if (cached) return successResponse(request, { regions: cached, source: "geoBoundaries gbOpen ADM1" });
   try {
-    const countryResponse = await fetch("https://restcountries.com/v3.1/alpha/" + country + "?fields=cca3", { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(8000) });
-    if (!countryResponse.ok) throw new Error("COUNTRY_ISO3_" + countryResponse.status);
-    const countryPayload = await countryResponse.json() as { cca3?: string } | Array<{ cca3?: string }>;
-    const iso3 = (Array.isArray(countryPayload) ? countryPayload[0] : countryPayload)?.cca3;
-    if (!iso3) throw new Error("COUNTRY_ISO3_MISSING");
     let metadata: { gjDownloadURL?: string; simplifiedGeometryGeoJSON?: string } | null = null;
-    const metadataHosts = ["https://www.geoboundaries.org", "https://geoboundaries-dev.org"];
+    const metadataHosts = ["https://geoboundaries-dev.org", "https://www.geoboundaries.org"];
     const metadataFailures: string[] = [];
     for (const host of metadataHosts) {
       try {

@@ -6,7 +6,7 @@ import {
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 
-type Country = { cca2: string; name: { common: string }; region?: string };
+type Country = { cca2: string; cca3?: string; name: { common: string }; region?: string };
 type Region = { id: string; name: string; geometry: unknown };
 type City = { id: number | null; name: string; admin1: string; admin2: string; latitude: number | null; longitude: number | null };
 type ProspectRow = {
@@ -261,7 +261,9 @@ export function GoogleMapsDiscoveryPage() {
     if (!country) { setRegions([]); setRegion(''); setCity(null); setCityOptions([]); setRegionError(''); setRegionLoading(false); return; }
     let active = true;
     setRegions([]); setRegion(''); setCity(null); setCityQuery(''); setCityOptions([]); setRegionError(''); setRegionLoading(true);
-    void api<{ regions: Region[] }>('/api/v1/prospect-profiling/regions?country=' + country)
+    const iso3 = countries.find(item => item.cca2 === country)?.cca3;
+    if (!iso3) { setRegionError('该国家 / 地区缺少 ISO-3 代码，请刷新国家列表后重试。'); setRegionLoading(false); return; }
+    void api<{ regions: Region[] }>('/api/v1/prospect-profiling/regions?country=' + country + '&iso3=' + iso3)
       .then(payload => { if (active) setRegions(payload.regions ?? []); })
       .catch(cause => { if (active) setRegionError(cause instanceof Error ? cause.message : '行政区地图加载失败。'); })
       .finally(() => { if (active) setRegionLoading(false); });
