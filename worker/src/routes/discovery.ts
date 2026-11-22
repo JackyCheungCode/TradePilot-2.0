@@ -15,7 +15,7 @@ export interface DiscoveryEnv {
   SERPAPI_API_KEY?: string;
   ACTOR_GATEWAY_API_TOKEN?: string;
   APIFY_API_TOKEN?: string;
-  LEAD_DISCOVERY_WORKFLOW: { create(options: { id: string; params: { runId: string; ownerId: string; input: DiscoveryRunInput } }): Promise<{ id: string }> };
+  LEAD_DISCOVERY_WORKFLOW: { create(options: { id: string; params: { runId: string; ownerId: string; input: DiscoveryRunInput } }): Promise<{ id: string }>; get(id: string): Promise<{ id: string; pause(): Promise<void>; resume(): Promise<void>; terminate(): Promise<void>; status(): Promise<{ status: string }> }> };
   CONTACT_ENRICHMENT_WORKFLOW?: { create(options:{id:string;params:{jobId:string;ownerId:string;recordIds:string[];providers?:Array<"website"|"apollo"|"zoominfo">}}):Promise<{id:string}> };
   OVERPASS_API_URL?: string;
 }
@@ -606,8 +606,46 @@ export async function handleDiscovery(request: Request, env: DiscoveryEnv): Prom
   }
 
   if(request.method==="GET" && url.pathname==="/api/v1/discovery-runs"){
-    const rows=await db<Array<Record<string,unknown>>>(env,"discovery_runs?owner_id=eq."+userId+"&select=*&order=created_at.desc&limit=200");
+    const rows=await db<Array<Record<string,unknown>>>(env,"discovery_runs?owner_id=eq."+userId+"&hidden_at=is.null&select=*&order=created_at.desc&limit=200");
     return successResponse(request,(rows??[]).map(row=>({id:row.id,taskCode:row.task_code,channel:row.channel,query:row.query,countries:row.countries,state:row.state,city:row.city,providers:row.providers,status:row.status,progress:row.progress,discoveredCount:row.discovered_count,createdLeadCount:row.created_lead_count,message:row.message,searchConfig:row.search_config??{},createdAt:row.created_at})));
+  }
+
+  const runActionMatch=url.pathname.match(/^\/api\/v1\/discovery-runs\/([0-9a-f-]+)\/action$/i);
+  if(request.method==="POST" && runActionMatch){
+    let body:{action?:string};
+    try{body=await request.json() as {action?:string};}catch{return errorResponse(request,"VALIDATION_ERROR","请求内容不是有效 JSON。",400);}
+    const rows=await db<Array<Record<string,unknown>>>(env,"discovery_runs?id=eq."+runActionMatch[1]+"&owner_id=eq."+userId+"&select=id,status,hidden_at");
+    const run=rows?.[0];
+    if(!run)return errorResponse(request,"NOT_FOUND","找不到该发现任务。",404);
+    const status=String(run.status??"");
+    const now=new Date().toISOString();
+    if(body.action==="remove"){
+      if(run.hidden_at)return successResponse(request,{id:run.id,hidden:true});
+      await db(env,"discovery_runs?id=eq."+run.id+"&owner_id=eq."+userId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({hidden_at:now,updated_at:now})});
+      return successResponse(request,{id:run.id,hidden:true});
+    }
+    if(body.action==="pause"){
+      if(status!=="running")return errorResponse(request,"INVALID_TASK_TRANSITION","只有正在执行的任务可以暂停。",409);
+      try{const instance=await env.LEAD_DISCOVERY_WORKFLOW.get(String(run.id));await instance.pause();}
+      catch(error){return errorResponse(request,"WORKFLOW_PAUSE_FAILED","后台工作流暂停失败："+String(error).slice(0,180),409);}
+      await db(env,"discovery_runs?id=eq."+run.id+"&owner_id=eq."+userId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({status:"paused",message:"任务已暂停",updated_at:now})});
+      return successResponse(request,{id:run.id,status:"paused"});
+    }
+    if(body.action==="resume"){
+      if(status!=="paused")return errorResponse(request,"INVALID_TASK_TRANSITION","只有已暂停的任务可以恢复。",409);
+      try{const instance=await env.LEAD_DISCOVERY_WORKFLOW.get(String(run.id));await instance.resume();}
+      catch(error){return errorResponse(request,"WORKFLOW_RESUME_FAILED","后台工作流恢复失败："+String(error).slice(0,180),409);}
+      await db(env,"discovery_runs?id=eq."+run.id+"&owner_id=eq."+userId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({status:"running",message:"任务已恢复执行",updated_at:now})});
+      return successResponse(request,{id:run.id,status:"running"});
+    }
+    if(body.action==="cancel"){
+      if(!["queued","running","paused"].includes(status))return errorResponse(request,"INVALID_TASK_TRANSITION","当前任务状态不能取消。",409);
+      try{const instance=await env.LEAD_DISCOVERY_WORKFLOW.get(String(run.id));await instance.terminate();}
+      catch(error){return errorResponse(request,"WORKFLOW_TERMINATE_FAILED","后台工作流终止失败："+String(error).slice(0,180),409);}
+      await db(env,"discovery_runs?id=eq."+run.id+"&owner_id=eq."+userId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({status:"cancelled",message:"任务已取消，已采集结果保留",updated_at:now})});
+      return successResponse(request,{id:run.id,status:"cancelled"});
+    }
+    return errorResponse(request,"VALIDATION_ERROR","不支持的任务操作。",400);
   }
 
   const runMatch=url.pathname.match(/^\/api\/v1\/discovery-runs\/([0-9a-f-]+)$/i);
