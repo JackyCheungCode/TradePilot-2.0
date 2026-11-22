@@ -196,7 +196,10 @@ export function IntelligenceMonitoringPage() {
 export function MonitoringTasksPage() {
   const { rows, loading, error, reload } = useMonitoringData('tasks');
   const [search, setSearch] = useState('');
-  const filtered = useMemo(() => (rows as TaskRow[]).filter(row => [row.name,row.task_code,row.status].join(' ').toLowerCase().includes(search.toLowerCase())), [rows,search]);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const filtered = useMemo(() => (rows as TaskRow[]).filter(row => (statusFilter === 'all' || row.status === statusFilter) && [row.name,row.task_code,row.status].join(' ').toLowerCase().includes(search.toLowerCase())), [rows,search,statusFilter]);
+  useEffect(() => setPage(1), [search,statusFilter]);
   const columns: TpTableColumn<TaskRow>[] = [
     { key: 'task_code', header: '任务编号', primary: true, required: true, minWidth: 180 },
     { key: 'name', header: '监听任务', required: true, minWidth: 180 },
@@ -214,14 +217,18 @@ export function MonitoringTasksPage() {
     <PageHeader breadcrumb="全球情报 / 公开内容监听" title="监听任务列表" description="统一查看任务配置、运行状态、采集频率与最近执行情况。" />
     <ModuleNavigation active="tasks" />
     {error && <InlineNotification kind="error" lowContrast title="读取任务失败" subtitle={error}  />}
-    <TpDataTable<TaskRow> ariaLabel="监听任务列表" columns={columns} rows={filtered} rowKey="id" loading={loading} searchValue={search} onSearchChange={setSearch} onRetry={() => void reload()} emptyState="暂无监听任务。创建任务后会显示在这里。" columnSettingsKey="intelligence-monitoring-tasks" />
+    <TpDataTable<TaskRow> ariaLabel="监听任务列表" columns={columns} rows={filtered} rowKey="id" loading={loading} searchValue={search} onSearchChange={setSearch} onRetry={() => void reload()} emptyState="暂无监听任务。创建任务后会显示在这里。" columnSettingsKey="intelligence-monitoring-tasks" toolbarActions={<Select id="monitoring-task-status-filter" labelText="任务状态" size="sm" value={statusFilter} onChange={event => setStatusFilter(event.currentTarget.value)}><SelectItem value="all" text="全部状态" /><SelectItem value="draft" text="草稿" /><SelectItem value="running" text="运行中" /><SelectItem value="paused" text="已暂停" /><SelectItem value="error" text="异常" /></Select>} pagination={{ page, pageSize: 20, totalItems: filtered.length, onChange: nextPage => setPage(nextPage) }} />
   </main>;
 }
 
 export function MonitoringResultsPage() {
   const { rows, loading, error, reload } = useMonitoringData('results');
   const [search, setSearch] = useState('');
-  const filtered = useMemo(() => (rows as ResultRow[]).filter(row => [row.task_name,row.channel_name,row.author_name,row.content_text,row.intent_type,row.grade,platformLabel(row.platform)].join(' ').toLowerCase().includes(search.toLowerCase())), [rows,search]);
+  const [platformFilter, setPlatformFilter] = useState('all');
+  const [gradeFilter, setGradeFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const filtered = useMemo(() => (rows as ResultRow[]).filter(row => (platformFilter === 'all' || row.platform === platformFilter) && (gradeFilter === 'all' || row.grade === gradeFilter) && [row.task_name,row.channel_name,row.author_name,row.content_text,row.intent_type,row.grade,platformLabel(row.platform)].join(' ').toLowerCase().includes(search.toLowerCase())), [rows,search,platformFilter,gradeFilter]);
+  useEffect(() => setPage(1), [search,platformFilter,gradeFilter]);
   const columns: TpTableColumn<ResultRow>[] = [
     { key: 'platform', header: '监听平台', primary: true, required: true, minWidth: 120, render: row => platformLabel(row.platform) },
     { key: 'channel_name', header: '渠道 / 监听对象', required: true, minWidth: 180 },
@@ -243,7 +250,7 @@ export function MonitoringResultsPage() {
     <ModuleNavigation active="results" />
     {error && <InlineNotification kind="error" lowContrast title="读取结果失败" subtitle={error} actions={<Button kind="tertiary" size="sm" onClick={() => void reload()}>重试</Button>} />}
     <div className="tp-intelligence-monitoring__table-meta"><Tag type="blue">云端数据</Tag><span>最近 500 条采集记录 · AI 判定尚未完成时显示「待分析」</span><Button kind="tertiary" size="sm" onClick={() => void reload()}>刷新结果</Button></div>
-    <TpDataTable<ResultRow> ariaLabel="监听结果中心" columns={columns} rows={filtered} rowKey="id" loading={loading} searchValue={search} onSearchChange={setSearch} onRetry={() => void reload()} emptyState="暂无采集结果。结果将在平台采集器正式启用并完成首次运行后进入此表格。" detailPanel detailTitle={row => row.task_name + ' · ' + row.channel_name} columnSettingsKey="intelligence-monitoring-results" />
+    <TpDataTable<ResultRow> ariaLabel="监听结果中心" columns={columns} rows={filtered} rowKey="id" loading={loading} searchValue={search} onSearchChange={setSearch} onRetry={() => void reload()} emptyState="暂无采集结果。结果将在平台采集器正式启用并完成首次运行后进入此表格。" detailPanel detailTitle={row => row.task_name + ' · ' + row.channel_name} columnSettingsKey="intelligence-monitoring-results" toolbarActions={<div className="tp-intelligence-monitoring__filters"><Select id="monitoring-result-platform-filter" labelText="平台" size="sm" value={platformFilter} onChange={event => setPlatformFilter(event.currentTarget.value)}><SelectItem value="all" text="全部平台" />{platformOptions.map(item => <SelectItem key={item.value} value={item.value} text={item.label} />)}</Select><Select id="monitoring-result-grade-filter" labelText="AI 意向" size="sm" value={gradeFilter} onChange={event => setGradeFilter(event.currentTarget.value)}><SelectItem value="all" text="全部等级" /><SelectItem value="S" text="S 级" /><SelectItem value="A" text="A 级" /><SelectItem value="B" text="B 级" /><SelectItem value="C" text="C 级" /><SelectItem value="unclassified" text="待分析" /></Select></div>} pagination={{ page, pageSize: 20, totalItems: filtered.length, onChange: nextPage => setPage(nextPage) }} />
   </main>;
 }
 
