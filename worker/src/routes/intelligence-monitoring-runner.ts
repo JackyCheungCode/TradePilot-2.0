@@ -92,23 +92,24 @@ async function launchActor(env:Env,t:ClaimedTask,token:string):Promise<ActorProg
 async function processDatasetBatch(env:Env,t:ClaimedTask,p:ActorProgress,token:string):Promise<ActorProgress>{
  const datasetId=str(p.datasetId);if(!datasetId)throw new Error("ACTOR_DATASET_MISSING");
  const offset=Number(p.datasetOffset??0);
- const rows=await apify<unknown>(token,"datasets/"+encodeURIComponent(datasetId)+"/items?clean=true&format=json&limit=50&offset="+offset);
+ const rows=await apify<unknown>(token,"datasets/"+encodeURIComponent(datasetId)+"/items?clean=true&format=json&limit=10&offset="+offset);
  if(!Array.isArray(rows))throw new Error("ACTOR_DATASET_INVALID");
  let newCount=Number(p.newCount??0),analyzedCount=Number(p.analyzedCount??0),failedItems=Number(p.failedItems??0);
  for(let i=0;i<rows.length;i++){
+  if(i>0&&i%5===0)await patchRun(env,t,{heartbeat_at:now(),current_stage:"分批处理采集结果"});
   try{
    const normalized=normalize(t.platform,object(rows[i]),offset+i);
    const saved=await db<Array<{id:string}>>(env,"monitoring_items?on_conflict=owner_id,platform,external_id",{method:"POST",headers:{Prefer:"resolution=ignore-duplicates,return=representation"},body:JSON.stringify({...normalized,owner_id:t.owner_id,task_id:t.task_id,object_id:t.object_id,run_id:t.run_id,platform:t.platform})});
    if(saved?.length){newCount++;const analysis=await analyze(env,t.platform,normalized.content_text,t.config);if(analysis){await db(env,"monitoring_analyses?on_conflict=item_id,owner_id",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({...analysis,owner_id:t.owner_id,item_id:saved[0].id})});analyzedCount++;}}
   }catch(error){failedItems++;await log(env,t,"warning","item.failed","单条结果处理失败："+String(error).slice(0,180),{index:offset+i});}
  }
- const discoveredCount=Number(p.discoveredCount??0)+rows.length,completed=rows.length<50;
+ const discoveredCount=Number(p.discoveredCount??0)+rows.length,completed=rows.length<10;
  await log(env,t,"info","dataset.batch_processed",completed?"本对象数据集处理完成。":"本批数据已处理，下一调度周期继续读取。",{actorRunId:p.actorRunId,offset,processed:rows.length,discoveredCount,newCount,analyzedCount,failedItems,completed});
  return {...p,datasetOffset:offset+rows.length,discoveredCount,newCount,analyzedCount,failedItems,completed,actorStatus:"SUCCEEDED"};
 }
 async function resumeActiveRuns(env:Env,token:string){
  const active=await db<ActiveRun[]>(env,"monitoring_runs?status=eq.running&select=id,owner_id,task_id,status,started_at,created_at,metadata&order=created_at.asc&limit=30");
- for(const run of active??[]){
+ for(const run of (active??[]).slice(0,10)){
   let ctx:ClaimedTask|undefined;
   try{
    const [tasks,links]=await Promise.all([
@@ -137,6 +138,7 @@ async function resumeActiveRuns(env:Env,token:string){
     let p=progress[i];if(p.completed)continue;
     const o=objects.find(x=>x.id===p.objectId);if(!o){progress[i]={...p,completed:true,failedItems:Number(p.failedItems??0)+1,error:"MONITORING_OBJECT_NOT_FOUND"};continue;}
     const t=taskContext(run,task,o);
+    await patchRun(env,t,{heartbeat_at:now(),current_stage:p.datasetId?"分批处理采集结果":"采集器执行中"});
     if(!p.datasetId){
      const polled=await apify<{data?:Record<string,unknown>}>(token,"actor-runs/"+encodeURIComponent(p.actorRunId));
      const actor=object(polled.data),status=str(actor.status).toUpperCase();p={...p,actorStatus:status};
