@@ -1,5 +1,6 @@
 import { PageHeader } from '@/design-system';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ComposedModal, ModalBody, ModalFooter, ModalHeader } from '@carbon/react';
 import { useSearchParams } from 'react-router-dom';
 import { Button, Link, TPSkeleton, InlineNotification, Select, SelectItem, Tag, TextInput } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
@@ -117,6 +118,7 @@ export function DocumentStudioPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   const selected = elements.find(item => item.id === selectedId) ?? elements[0];
   const selectedType = DOC_TYPES.find(item => item.value === documentType)!;
@@ -192,7 +194,8 @@ export function DocumentStudioPage() {
     const item: StudioElement = { id, type, name: type === 'field' ? '数据字段' : type === 'table' ? '产品明细表' : type === 'image' ? '图片' : type === 'shape' ? '形状' : '文本', x: 32, y: 220, width: type === 'table' ? 170 : 70, height: type === 'table' ? 50 : 12, text: type === 'text' ? '双击属性修改文字' : undefined, binding: type === 'field' ? 'buyer_name' : undefined, fontSize: 9, color: '#161616', background: type === 'shape' ? '#e8f1ff' : 'transparent', align: 'left' };
     setElements(items => [...items, item]); setSelectedId(id);
   };
-  const removeSelected = () => { if (!selected || selected.locked) return; setElements(items => items.filter(item => item.id !== selected.id)); setSelectedId(elements.find(item => item.id !== selected.id)?.id ?? ''); };
+  const removeSelected = () => { if (!selected || selected.locked) return; setDeleteConfirmOpen(true); };
+   const confirmRemoveSelected = () => { if (!selected || selected.locked) return; setElements(items => items.filter(item => item.id !== selected.id)); setSelectedId(elements.find(item => item.id !== selected.id)?.id ?? ''); setDeleteConfirmOpen(false); };
 
   const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current; const canvas = canvasRef.current;
@@ -316,6 +319,14 @@ export function DocumentStudioPage() {
         <div className="tp-doc-studio__save"><Button kind="primary" onClick={() => void saveDocumentLayout()} disabled={saving}>{saving ? '保存中…' : createdDoc ? '保存模板与单据版本' : '保存模板设计'}</Button></div>
       </aside>
     </section>
+    <ComposedModal open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)} size="sm">
+      <ModalHeader title="删除模板元素？" />
+      <ModalBody><p>确定从当前模板设计中删除 <strong>{selected?.label || selected?.type || '所选元素'}</strong>？保存模板后，此修改才会写入模板版本。</p></ModalBody>
+      <ModalFooter>
+        <Button kind="secondary" onClick={() => setDeleteConfirmOpen(false)}>取消</Button>
+        <Button kind="danger" onClick={confirmRemoveSelected}>确认删除元素</Button>
+      </ModalFooter>
+    </ComposedModal>
     <footer className="tp-doc-studio__footer"><span>模板元素使用毫米坐标保存；正式 PDF 使用相同模板快照渲染。</span>{createdDoc && <Link href={'/documents/' + createdDoc.id}>打开正式单据预览</Link>}</footer>
   </main>;
 }
