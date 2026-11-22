@@ -35,7 +35,7 @@ export interface DiscoveryRunInput {
   actorExecutions?: Array<{ actorId: string; sourceId: string; sourceName: string; actorTitle?: string; input: Record<string, unknown> }>;
   searchEngines?: Array<"serper" | "serpapi">;
   searchTypes?: Array<"web" | "shopping" | "images" | "news" | "videos" | "scholar" | "patents">;
-  searchLanguage?: string; advancedQuery?: string; excludeCategories?: string[];
+  searchLanguage?: string; advancedQuery?: string; excludeCategories?: string[]; excludeDomains?: string[];
   planSnapshot?: Record<string, unknown>; guardrailsSnapshot?: Record<string, unknown>;
 }
 const BUSINESS_TYPE_FILTERS: Record<string, { googleTypes: string[]; osmTags: Array<{key:string;value:string}> }> = {
