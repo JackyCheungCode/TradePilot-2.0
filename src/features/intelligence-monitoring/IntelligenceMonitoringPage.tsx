@@ -1,259 +1,255 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import {
+  PageHeader, Button, TextInput, Select, SelectItem, Tile, Tag, InlineNotification,
+  Grid, Column, Checkbox, TpDataTable,
+} from '@/design-system';
+import type { TpTableColumn } from '@/design-system';
+import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/intelligence-monitoring.scss';
-import { PageHeader, Button, TextInput, Dropdown, Select, SelectItem, Tile, Tag, InlineNotification, Grid, Column, Checkbox } from '@/design-system';
 
-type Platform = { id: string; text: string; category: string };
-type DraftSource = { id: string; platform: string; url: string; interval: string; createdAt: string };
+type Platform = 'facebook' | 'instagram' | 'x' | 'tiktok' | 'youtube' | 'reddit' | 'google_maps' | 'telegram' | 'linkedin' | 'forum' | 'pinterest';
+type TaskRow = {
+  id: string; task_code: string; name: string; status: string; cadence_minutes: number;
+  started_at: string | null; last_run_at: string | null; next_run_at: string | null;
+  last_run_status: string | null; last_result_count: number; last_error: string | null; created_at: string;
+} & Record<string, unknown>;
+type ResultRow = {
+  id: string; task_id: string; object_id: string; run_id: string; platform: string; external_id: string;
+  content_type: string; author_name: string | null; author_profile_url?: string | null; content_text: string;
+  source_url: string | null; published_at: string | null; captured_at: string;
+  task_name: string; channel_name: string; grade: string; score: number; intent_type: string; rationale: string;
+} & Record<string, unknown>;
 
-const platforms: Platform[] = [
-  { id: 'facebook', text: 'Facebook', category: '社交网络' },
-  { id: 'instagram', text: 'Instagram', category: '社交网络' },
-  { id: 'x', text: 'X', category: '社交网络' },
-  { id: 'tiktok', text: 'TikTok', category: '社交网络' },
-  { id: 'youtube', text: 'YouTube', category: '视频平台' },
-  { id: 'reddit', text: 'Reddit', category: '社区' },
-  { id: 'google-maps', text: 'Google Maps', category: '本地商业' },
-  { id: 'telegram', text: 'Telegram', category: '公开频道' },
-  { id: 'linkedin', text: 'LinkedIn', category: '专业网络' },
-  { id: 'pinterest', text: 'Pinterest', category: '视觉社区' },
-  { id: 'forum', text: '行业论坛', category: '垂直社区' },
+const platformOptions: Array<{ value: Platform; label: string }> = [
+  { value: 'facebook', label: 'Facebook' }, { value: 'instagram', label: 'Instagram' },
+  { value: 'x', label: 'X' }, { value: 'tiktok', label: 'TikTok' }, { value: 'youtube', label: 'YouTube' },
+  { value: 'reddit', label: 'Reddit' }, { value: 'google_maps', label: 'Google Maps' },
+  { value: 'telegram', label: 'Telegram' }, { value: 'linkedin', label: 'LinkedIn' },
+  { value: 'forum', label: '行业论坛' }, { value: 'pinterest', label: 'Pinterest' },
 ];
+const intentOptions = ['明确采购', '寻找供应商', '询价与报价', '寻找经销商 / 代理', '产品规格咨询', 'OEM / ODM 合作'];
+const cadenceOptions = [{ value: '60', label: '每 1 小时' }, { value: '180', label: '每 3 小时' }, { value: '360', label: '每 6 小时' }, { value: '720', label: '每 12 小时' }, { value: '1440', label: '每天一次' }];
+const platformLabel = (value: string) => platformOptions.find(item => item.value === value)?.label ?? value;
+const formatDate = (value: string | null) => value ? new Date(value).toLocaleString('zh-TW', { hour12: false }) : '—';
+const gradeTag = (grade: string) => <Tag type={grade === 'S' ? 'green' : grade === 'A' ? 'blue' : grade === 'B' ? 'purple' : 'cool-gray'}>{grade === 'unclassified' ? '待分析' : grade + ' 级'}</Tag>;
 
-const cadenceOptions = [
-  { id: '60', text: '每 1 小时' },
-  { id: '180', text: '每 3 小时' },
-  { id: '360', text: '每 6 小时' },
-  { id: '720', text: '每 12 小时' },
-  { id: '1440', text: '每天一次' },
-];
+function ModuleNavigation({ active }: { active: 'create' | 'tasks' | 'results' }) {
+  const links = [
+    { key: 'create', label: '创建监听任务', href: '/intelligence-monitoring' },
+    { key: 'tasks', label: '监听任务列表', href: '/intelligence-monitoring/tasks' },
+    { key: 'results', label: '监听结果中心', href: '/intelligence-monitoring/results' },
+  ] as const;
+  return <nav className="tp-intelligence-monitoring__navigation" aria-label="情报监听模块导航">
+    {links.map(link => <Button key={link.key} kind={active === link.key ? 'primary' : 'tertiary'} size="md" href={link.href}>{link.label}</Button>)}
+  </nav>;
+}
 
-const intentTypes = ['明确采购', '寻找供应商', '询价与报价', '寻找经销商 / 代理', '产品规格咨询', 'OEM / ODM 合作'];
-const gradeRows = [
-  { grade: 'S', title: '明确采购', detail: '明确购买、数量、规格或采购时间', color: 'green' as const },
-  { grade: 'A', title: '高购买意向', detail: '寻找供应商、询价、寻找批发渠道', color: 'blue' as const },
-  { grade: 'B', title: '潜在需求', detail: '产品咨询、推荐请求、合作探索', color: 'purple' as const },
-  { grade: 'C', title: '持续观察', detail: '相关讨论，尚无清晰采购信号', color: 'gray' as const },
-];
+function useMonitoringData(mode: 'tasks' | 'results') {
+  const [rows, setRows] = useState<Array<TaskRow | ResultRow>>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const load = useCallback(async () => {
+    setLoading(true); setError('');
+    try {
+      const client = await getSupabaseClient();
+      const { data: userData, error: authError } = await client.auth.getUser();
+      if (authError) throw authError;
+      if (!userData.user) throw new Error('请先登录后查看监听数据。');
+      if (mode === 'tasks') {
+        const { data, error: queryError } = await client.from('monitoring_tasks')
+          .select('id,task_code,name,status,cadence_minutes,started_at,last_run_at,next_run_at,last_run_status,last_result_count,last_error,created_at')
+          .order('created_at', { ascending: false }).limit(500);
+        if (queryError) throw queryError;
+        setRows((data ?? []) as TaskRow[]);
+      } else {
+        const { data: items, error: itemError } = await client.from('monitoring_items')
+          .select('id,task_id,object_id,run_id,platform,external_id,content_type,author_name,author_profile_url,content_text,source_url,published_at,captured_at')
+          .order('captured_at', { ascending: false }).limit(500);
+        if (itemError) throw itemError;
+        const itemRows = items ?? [];
+        const taskIds = [...new Set(itemRows.map(item => item.task_id))];
+        const objectIds = [...new Set(itemRows.map(item => item.object_id))];
+        const itemIds = itemRows.map(item => item.id);
+        const [tasksResult, objectsResult, analysesResult] = await Promise.all([
+          taskIds.length ? client.from('monitoring_tasks').select('id,name').in('id', taskIds) : Promise.resolve({ data: [], error: null }),
+          objectIds.length ? client.from('monitoring_objects').select('id,label').in('id', objectIds) : Promise.resolve({ data: [], error: null }),
+          itemIds.length ? client.from('monitoring_analyses').select('item_id,grade,score,intent_type,rationale').in('item_id', itemIds) : Promise.resolve({ data: [], error: null }),
+        ]);
+        if (tasksResult.error) throw tasksResult.error;
+        if (objectsResult.error) throw objectsResult.error;
+        if (analysesResult.error) throw analysesResult.error;
+        const taskMap = new Map((tasksResult.data ?? []).map(row => [row.id, row.name]));
+        const objectMap = new Map((objectsResult.data ?? []).map(row => [row.id, row.label]));
+        const analysisMap = new Map((analysesResult.data ?? []).map(row => [row.item_id, row]));
+        setRows(itemRows.map(item => {
+          const analysis = analysisMap.get(item.id);
+          return {
+            ...item, task_name: taskMap.get(item.task_id) ?? '—', channel_name: objectMap.get(item.object_id) ?? '—',
+            grade: analysis?.grade ?? 'unclassified', score: analysis?.score ?? 0,
+            intent_type: analysis?.intent_type ?? '待分析', rationale: analysis?.rationale ?? '尚未生成 AI 判定',
+          };
+        }) as ResultRow[]);
+      }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '读取监听数据失败。');
+      setRows([]);
+    } finally { setLoading(false); }
+  }, [mode]);
+  useEffect(() => { void load(); }, [load]);
+  return { rows, loading, error, reload: load };
+}
 
 export function IntelligenceMonitoringPage() {
-  const [platform, setPlatform] = useState<Platform | null>(platforms[0]);
+  const [platform, setPlatform] = useState<Platform>('facebook');
+  const [objectType, setObjectType] = useState('auto');
   const [url, setUrl] = useState('');
-  const [cadence, setCadence] = useState(cadenceOptions[0]);
-  const [sourceType, setSourceType] = useState('auto');
-  const [drafts, setDrafts] = useState<DraftSource[]>([]);
-  const [enabledIntents, setEnabledIntents] = useState<string[]>(intentTypes.slice(0, 5));
+  const [taskName, setTaskName] = useState('公开内容监听');
+  const [cadence, setCadence] = useState('60');
+  const [intents, setIntents] = useState<string[]>(intentOptions);
   const [minimumGrade, setMinimumGrade] = useState('A');
-  const [notice, setNotice] = useState('');
-
-  const canAdd = Boolean(url.trim() && /^https?:\/\//i.test(url.trim()) && platform);
-  const platformCount = useMemo(() => new Set(drafts.map((item) => item.platform)).size, [drafts]);
-
-  const addDraft = () => {
-    if (!canAdd || !platform) return;
-    const duplicate = drafts.some((item) => item.url.toLowerCase() === url.trim().toLowerCase());
-    if (duplicate) {
-      setNotice('这个链接已经存在于当前页面的草稿列表中。');
-      return;
-    }
-    setDrafts((current) => [{
-      id: 'draft-' + Date.now(),
-      platform: platform.text,
-      url: url.trim(),
-      interval: cadence.text,
-      createdAt: new Date().toLocaleString('zh-TW', { hour12: false }),
-    }, ...current]);
-    setUrl('');
-    setNotice('已加入本地预览草稿。当前尚未创建后端监听任务，也不会启动采集。');
+  const [includeHistory, setIncludeHistory] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<{ kind: 'success' | 'error' | 'info'; title: string; subtitle: string } | null>(null);
+  const navigate = useNavigate();
+  const canSave = /^https?:\/\//i.test(url.trim()) && taskName.trim().length > 0 && intents.length > 0;
+  const saveTask = async () => {
+    if (!canSave || busy) return;
+    setBusy(true); setNotice(null);
+    try {
+      const client = await getSupabaseClient();
+      const { data: authData, error: authError } = await client.auth.getUser();
+      if (authError) throw authError;
+      const ownerId = authData.user?.id;
+      if (!ownerId) throw new Error('登录状态已失效，请重新登录。');
+      const parsed = new URL(url.trim());
+      if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('只允许 HTTP 或 HTTPS 公开链接。');
+      const normalizedUrl = parsed.toString().replace(/\/$/, '');
+      const { data: object, error: objectError } = await client.from('monitoring_objects').upsert({
+        owner_id: ownerId, platform, object_type: objectType, label: taskName.trim(),
+        source_url: url.trim(), normalized_url: normalizedUrl, is_active: true,
+      }, { onConflict: 'owner_id,platform,normalized_url' }).select('id').single();
+      if (objectError) throw objectError;
+      const taskCode = 'MON-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-' + crypto.randomUUID().slice(0, 6).toUpperCase();
+      const { data: task, error: taskError } = await client.from('monitoring_tasks').insert({
+        owner_id: ownerId, task_code: taskCode, name: taskName.trim(), status: 'draft',
+        cadence_minutes: Number(cadence), config: { intents, minimumGrade, includeHistory, scope: 'public_only', providerPolicy: 'apify_primary_brightdata_fallback' },
+      }).select('id').single();
+      if (taskError) throw taskError;
+      const { error: linkError } = await client.from('monitoring_task_objects').insert({
+        owner_id: ownerId, task_id: task.id, object_id: object.id,
+      });
+      if (linkError) {
+        await client.from('monitoring_tasks').delete().eq('id', task.id);
+        throw linkError;
+      }
+      setNotice({ kind: 'success', title: '监听任务已保存', subtitle: '任务编号 ' + taskCode + '。已写入云端数据库，当前为草稿状态；采集调度与平台采集器启用后才能正式启动。' });
+      setUrl('');
+      window.setTimeout(() => navigate('/intelligence-monitoring/tasks'), 900);
+    } catch (cause) {
+      setNotice({ kind: 'error', title: '保存失败', subtitle: cause instanceof Error ? cause.message : '监听任务保存失败。' });
+    } finally { setBusy(false); }
   };
-
-  const toggleIntent = (intent: string) => {
-    setEnabledIntents((current) => current.includes(intent)
-      ? current.filter((item) => item !== intent)
-      : [...current, intent]);
-  };
-
-  return (
-    <main className="tp-intelligence-monitoring">
-      <PageHeader
-        className="tp-intelligence-monitoring__page-header"
-        breadcrumb="全球情报 / 公开内容监听"
-        title="情报监听"
-        description="管理指定公开账号、主页、群组、频道与帖子，持续发现新增内容，并通过 AI 识别采购意向。"
-      />
-      <div className="tp-intelligence-monitoring__meta">
-        <Tag type="blue">PUBLIC DATA ONLY</Tag>
-        <Tag type="cool-gray">监听任务控制台</Tag>
-      </div>
-
-      <InlineNotification
-        kind="info"
-        lowContrast
-        hideCloseButton
-        title="当前版本：页面与交互预览"
-        subtitle="此页面已提供监听配置与 AI 规则交互预览。后端监听任务、Apify / Bright Data 凭证调用、增量游标及数据库持久化尚未接入；下方新增内容仅保存在当前页面状态，不会真实启动采集。"
-      />
-
-      <Grid fullWidth className="tp-intelligence-monitoring__metrics">
-        <Column sm={4} md={4} lg={4}><Tile className="tp-intelligence-monitoring__metric"><p>监听对象草稿</p>
-            <h2>{drafts.length}</h2>
-            <p>当前页面临时添加</p>
-          </Tile>
-        </Column>
-        <Column sm={4} md={4} lg={4}>
-          <Tile className="tp-intelligence-monitoring__metric"><p>涉及平台</p>
-            <h2>{platformCount}</h2>
-            <p>仅统计当前草稿</p>
-          </Tile>
-        </Column>
-        <Column sm={4} md={4} lg={4}>
-          <Tile className="tp-intelligence-monitoring__metric"><p>计划采集频率</p>
-            <h2>60 min</h2>
-            <p>可按任务独立设置</p>
-          </Tile>
-        </Column>
-        <Column sm={4} md={4} lg={4}>
-          <Tile className="tp-intelligence-monitoring__metric"><p>AI 意向过滤</p>
-            <h2>{enabledIntents.length}</h2>
-            <p>已选择的意向类别</p>
-          </Tile>
-        </Column>
+  return <main className="tp-intelligence-monitoring">
+    <PageHeader breadcrumb="全球情报 / 公开内容监听" title="创建监听任务" description="指定公开主页、账号、群组或频道，配置监听频率与 AI 购买意向识别规则。" />
+    <ModuleNavigation active="create" />
+    <div className="tp-intelligence-monitoring__meta"><Tag type="blue">PUBLIC DATA ONLY</Tag><Tag type="cool-gray">云端持久化</Tag></div>
+    {notice && <InlineNotification kind={notice.kind} lowContrast title={notice.title} subtitle={notice.subtitle} onCloseButtonClick={() => setNotice(null)} />}
+    <section className="tp-intelligence-monitoring__section">
+      <div className="tp-intelligence-monitoring__section-heading"><span>01</span><div><h2>添加监听对象</h2><p>只接受公开可访问的来源，不访问私人消息、私密群组或受限内容。</p></div></div>
+      <Grid fullWidth className="tp-intelligence-monitoring__form-grid">
+        <Column sm={4} md={4} lg={8}><TextInput id="monitoring-task-name" labelText="任务名称" value={taskName} onChange={event => setTaskName(event.currentTarget.value)} /></Column>
+        <Column sm={4} md={4} lg={8}><Select id="monitoring-platform" labelText="监听平台" value={platform} onChange={event => setPlatform(event.currentTarget.value as Platform)}>{platformOptions.map(item => <SelectItem key={item.value} value={item.value} text={item.label} />)}</Select></Column>
+        <Column sm={4} md={4} lg={8}><Select id="monitoring-object-type" labelText="对象类型" value={objectType} onChange={event => setObjectType(event.currentTarget.value)}><SelectItem value="auto" text="自动识别" /><SelectItem value="page" text="企业主页 / 账号" /><SelectItem value="person" text="个人公开主页" /><SelectItem value="group" text="公开群组 / 社区" /><SelectItem value="channel" text="公开频道" /><SelectItem value="post" text="指定帖子 / 视频" /><SelectItem value="place" text="商家 / 地点页面" /><SelectItem value="forum" text="论坛主题 / 板块" /></Select></Column>
+        <Column sm={4} md={8} lg={16}><TextInput id="monitoring-source-url" labelText="公开链接" placeholder="https://www.facebook.com/..." value={url} onChange={event => setUrl(event.currentTarget.value)} helperText="输入主页、账号、公开群组、频道、帖子或商家页面 URL。" /></Column>
       </Grid>
-
-      <Grid fullWidth className="tp-intelligence-monitoring__workspace"><Column sm={4} md={8} lg={10}>
-          <section className="tp-intelligence-monitoring__section">
-            <div className="tp-intelligence-monitoring__section-heading"><span>01</span><div><h2>添加监听对象</h2><p>输入你希望持续观察的公开内容链接。每个对象独立设置采集平台和运行频率。</p></div></div>
-            <Grid fullWidth className="tp-intelligence-monitoring__form-grid">
-              <Column sm={4} md={4} lg={8}><Dropdown id="intel-platform"
-                  titleText="监听平台"
-                  label="选择平台"
-                  items={platforms}
-                  itemToString={(item: Platform | null) => item?.text ?? ''}
-                  selectedItem={platform}
-                  onChange={({ selectedItem }: { selectedItem: Platform | null }) => setPlatform(selectedItem)}
-                />
-              </Column>
-              <Column sm={4} md={4} lg={8}>
-                <Select
-                  id="intel-source-type"
-                  labelText="对象类型"
-                  value={sourceType}
-                  onChange={(event) => setSourceType(event.currentTarget.value)}
-                >
-                  <SelectItem value="auto" text="自动识别" />
-                  <SelectItem value="page" text="企业主页 / 账号" />
-                  <SelectItem value="person" text="个人公开主页" />
-                  <SelectItem value="group" text="公开群组 / 社区" />
-                  <SelectItem value="channel" text="公开频道" />
-                  <SelectItem value="post" text="指定帖子 / 视频" />
-                  <SelectItem value="place" text="商家 / 地点页面" />
-                  <SelectItem value="forum" text="论坛主题 / 板块" />
-                </Select>
-              </Column>
-              <Column sm={4} md={8} lg={16}>
-                <TextInput
-                  id="intel-source-url"
-                  labelText="公开链接"
-                  placeholder="https://www.facebook.com/..."
-                  value={url}
-                  onChange={(event) => setUrl(event.currentTarget.value)}
-                  helperText="仅支持公开可访问内容；不采集私人消息、私密群组或需要绕过访问控制的内容。"
-                />
-              </Column>
-              <Column sm={4} md={4} lg={8}>
-                <Dropdown
-                  id="intel-cadence"
-                  titleText="监听频率"
-                  label="选择采集间隔"
-                  items={cadenceOptions}
-                  itemToString={(item: { id: string; text: string } | null) => item?.text ?? ''}
-                  selectedItem={cadence}
-                  onChange={({ selectedItem }: { selectedItem: { id: string; text: string } | null }) => selectedItem && setCadence(selectedItem)}
-                />
-              </Column>
-              <Column sm={4} md={4} lg={8}>
-                <Button kind="primary" onClick={addDraft} disabled={!canAdd}>加入监听对象草稿</Button>
-              </Column>
-            </Grid>
-            {notice && <InlineNotification kind="info" lowContrast title="操作反馈" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
-          </section>
-
-          <section className="tp-intelligence-monitoring__section">
-            <div className="tp-intelligence-monitoring__section-heading"><span>02</span><div><h2>监听对象</h2><p>已配置对象及其当前草稿状态</p></div></div>
-            {drafts.length === 0 ? (
-              <Tile className="tp-intelligence-monitoring__empty"><h4>尚未添加监听对象</h4>
-                <p>添加公开主页、账号、群组、频道或帖子链接后，会在这里展示任务配置摘要。</p>
-              </Tile>
-            ) : drafts.map((item) => (
-              <Tile key={item.id} className="tp-intelligence-monitoring__source">
-                <div>
-                  <Tag type="blue">{item.platform}</Tag>
-                  <Tag type="cool-gray">草稿 · 未启动</Tag>
-                </div>
-                <p>{item.url}</p>
-                <p>{item.interval} · {item.createdAt}</p>
-                <Button kind="ghost" size="sm" onClick={() => setDrafts((current) => current.filter((row) => row.id !== item.id))}>移除草稿</Button>
-              </Tile>
-            ))}
-          </section>
-        </Column>
-
-        <Column sm={4} md={8} lg={6}>
-          <section className="tp-intelligence-monitoring__section">
-            <div className="tp-intelligence-monitoring__section-heading"><span>03</span><div><h2>AI 购买意向识别</h2><p>对新发现的公开帖子、评论和回复进行语义分析，不只依赖关键词。</p></div></div>
-            <Tile className="tp-intelligence-monitoring__subpanel"><h4>识别目标</h4>
-              {intentTypes.map((intent) => (
-                <Checkbox
-                  key={intent}
-                  id={'intel-intent-' + intent}
-                  labelText={intent}
-                  checked={enabledIntents.includes(intent)}
-                  onChange={() => toggleIntent(intent)}
-                />
-              ))}
-              <p>已启用 {enabledIntents.length} / {intentTypes.length} 类意向</p>
-            </Tile>
-            <Tile className="tp-intelligence-monitoring__subpanel"><h4>意向分级</h4>
-              {gradeRows.map((row) => (
-                <div key={row.grade}>
-                  <Tag type={row.color}>{row.grade} 级</Tag>
-                  <strong>{row.title}</strong>
-                  <p>{row.detail}</p>
-                </div>
-              ))}
-              <Select
-                id="intel-minimum-grade"
-                labelText="进入潜客候选池的最低等级"
-                value={minimumGrade}
-                onChange={(event) => setMinimumGrade(event.currentTarget.value)}
-              >
-                <SelectItem value="S" text="仅 S 级" />
-                <SelectItem value="A" text="S / A 级" />
-                <SelectItem value="B" text="S / A / B 级" />
-                <SelectItem value="C" text="全部等级" />
-              </Select>
-            </Tile>
-          </section>
-
-          <section className="tp-intelligence-monitoring__section">
-            <div className="tp-intelligence-monitoring__section-heading"><span>04</span><div><h2>采集与数据规则</h2><p>定义内容范围、增量策略和数据服务路由</p></div></div>
-            <Tile className="tp-intelligence-monitoring__subpanel"><p><strong>默认采集内容</strong></p>
-              <ul>
-                <li>新增公开帖子、评论及可访问的回复</li>
-                <li>评论人公开名称、主页链接及平台 ID（可获取时）</li>
-                <li>原始发布时间、采集时间及原帖链接</li>
-                <li>评论 ID、回复关系与原始数据</li>
-              </ul>
-              <p><strong>增量机制</strong></p>
-              <p>以平台内容 ID、评论 ID、回复 ID 和分页游标去重；保留运行记录、失败重试与断点续跑。</p>
-            </Tile>
-            <Tile className="tp-intelligence-monitoring__subpanel"><p><strong>采集服务策略</strong></p>
-              <Tag type="green">Apify 优先</Tag>
-              <Tag type="blue">Bright Data 备用</Tag>
-              <p>统一适配器按平台和对象类型路由；具体可采集字段、评论覆盖率与延迟必须通过 Actor 实测后启用。</p>
-            </Tile>
-          </section>
-        </Column>
+    </section>
+    <section className="tp-intelligence-monitoring__section">
+      <div className="tp-intelligence-monitoring__section-heading"><span>02</span><div><h2>设置监听规则</h2><p>确定增量采集频率与历史公开内容策略。</p></div></div>
+      <Grid fullWidth className="tp-intelligence-monitoring__form-grid">
+        <Column sm={4} md={4} lg={8}><Select id="monitoring-cadence" labelText="监听频率" value={cadence} onChange={event => setCadence(event.currentTarget.value)}>{cadenceOptions.map(item => <SelectItem key={item.value} value={item.value} text={item.label} />)}</Select></Column>
+        <Column sm={4} md={4} lg={8}><Checkbox id="monitoring-history" checked={includeHistory} onChange={(_, data) => setIncludeHistory(data.checked)} labelText="首次运行时补采可访问的历史公开内容" /></Column>
       </Grid>
-    </main>
-  );
+      <Tile className="tp-intelligence-monitoring__subpanel"><strong>默认采集类型</strong><p>新增帖子、评论、回复、公开评价；作者公开名称、内容链接、发布时间与采集时间（以平台和数据服务实际可返回字段为准）。</p></Tile>
+    </section>
+    <section className="tp-intelligence-monitoring__section">
+      <div className="tp-intelligence-monitoring__section-heading"><span>03</span><div><h2>AI 分析与结果设置</h2><p>对新内容进行语义判断，提取真实采购信号和产品需求。</p></div></div>
+      <Grid fullWidth className="tp-intelligence-monitoring__form-grid">
+        <Column sm={4} md={8} lg={10}><Tile className="tp-intelligence-monitoring__subpanel"><strong>识别意向类型</strong>{intentOptions.map(item => <Checkbox key={item} id={'monitor-intent-' + item} labelText={item} checked={intents.includes(item)} onChange={(_, data) => setIntents(current => data.checked ? [...current, item] : current.filter(value => value !== item))} />)}</Tile></Column>
+        <Column sm={4} md={8} lg={6}><Tile className="tp-intelligence-monitoring__subpanel"><strong>潜客候选最低等级</strong><Select id="monitoring-minimum-grade" labelText="最低 AI 意向等级" value={minimumGrade} onChange={event => setMinimumGrade(event.currentTarget.value)}><SelectItem value="S" text="仅 S 级" /><SelectItem value="A" text="S / A 级" /><SelectItem value="B" text="S / A / B 级" /><SelectItem value="C" text="全部等级" /></Select><p>S：明确采购；A：高购买意向；B：潜在需求；C：持续观察。</p></Tile></Column>
+      </Grid>
+    </section>
+    <section className="tp-intelligence-monitoring__section">
+      <div className="tp-intelligence-monitoring__section-heading"><span>04</span><div><h2>确认任务配置</h2><p>保存后任务、对象与规则将持久化到 TradePilot 云端数据库。</p></div></div>
+      <Grid fullWidth className="tp-intelligence-monitoring__summary">
+        <Column sm={4} md={4} lg={4}><div><span>平台</span><strong>{platformLabel(platform)}</strong></div></Column>
+        <Column sm={4} md={4} lg={4}><div><span>监听频率</span><strong>{cadenceOptions.find(item => item.value === cadence)?.label}</strong></div></Column>
+        <Column sm={4} md={4} lg={4}><div><span>AI 意向类别</span><strong>{intents.length} 类</strong></div></Column>
+        <Column sm={4} md={4} lg={4}><div><span>最低等级</span><strong>{minimumGrade} 级</strong></div></Column>
+      </Grid>
+      <InlineNotification kind="warning" lowContrast title="当前执行状态" subtitle="本阶段已完成云端任务与数据结构接入。采集器适配、调度执行和 AI 结果写入尚未完成，因此任务会先以草稿保存，不会虚报为正在监听。" hideCloseButton />
+      <div className="tp-intelligence-monitoring__actions"><Button kind="primary" disabled={!canSave || busy} onClick={() => void saveTask()}>{busy ? '正在保存…' : '保存监听任务'}</Button><Button kind="tertiary" href="/intelligence-monitoring/tasks">查看任务列表</Button></div>
+    </section>
+  </main>;
+}
+
+export function MonitoringTasksPage() {
+  const { rows, loading, error, reload } = useMonitoringData('tasks');
+  const [search, setSearch] = useState('');
+  const filtered = useMemo(() => (rows as TaskRow[]).filter(row => [row.name,row.task_code,row.status].join(' ').toLowerCase().includes(search.toLowerCase())), [rows,search]);
+  const columns: TpTableColumn<TaskRow>[] = [
+    { key: 'task_code', header: '任务编号', primary: true, required: true, minWidth: 180 },
+    { key: 'name', header: '监听任务', required: true, minWidth: 180 },
+    { key: 'status', header: '任务状态', type: 'status', required: true, render: row => <Tag type={row.status === 'running' ? 'green' : row.status === 'paused' ? 'cool-gray' : 'blue'}>{row.status === 'draft' ? '草稿' : row.status === 'running' ? '运行中' : row.status === 'paused' ? '已暂停' : row.status}</Tag> },
+    { key: 'cadence_minutes', header: '监听频率', type: 'number', render: row => row.cadence_minutes >= 1440 ? '每天一次' : '每 ' + row.cadence_minutes + ' 分钟' },
+    { key: 'last_result_count', header: '最近新增', type: 'number' },
+    { key: 'last_run_status', header: '最近运行结果', defaultVisible: true },
+    { key: 'started_at', header: '监听开始时间', type: 'datetime', render: row => formatDate(row.started_at) },
+    { key: 'last_run_at', header: '最近采集时间', type: 'datetime', render: row => formatDate(row.last_run_at) },
+    { key: 'next_run_at', header: '下次执行时间', type: 'datetime', render: row => formatDate(row.next_run_at) },
+    { key: 'last_error', header: '最近异常', longText: true, defaultVisible: false },
+    { key: 'created_at', header: '创建时间', type: 'datetime', render: row => formatDate(row.created_at) },
+  ];
+  return <main className="tp-intelligence-monitoring">
+    <PageHeader breadcrumb="全球情报 / 公开内容监听" title="监听任务列表" description="统一查看任务配置、运行状态、采集频率与最近执行情况。" />
+    <ModuleNavigation active="tasks" />
+    {error && <InlineNotification kind="error" lowContrast title="读取任务失败" subtitle={error} actions={<Button kind="tertiary" size="sm" onClick={() => void reload()}>重试</Button>} />}
+    <TpDataTable<TaskRow> ariaLabel="监听任务列表" columns={columns} rows={filtered} rowKey="id" loading={loading} searchValue={search} onSearchChange={setSearch} onRetry={() => void reload()} emptyState="暂无监听任务。创建任务后会显示在这里。" columnSettingsKey="intelligence-monitoring-tasks" />
+  </main>;
+}
+
+export function MonitoringResultsPage() {
+  const { rows, loading, error, reload } = useMonitoringData('results');
+  const [search, setSearch] = useState('');
+  const filtered = useMemo(() => (rows as ResultRow[]).filter(row => [row.task_name,row.channel_name,row.author_name,row.content_text,row.intent_type,row.grade,platformLabel(row.platform)].join(' ').toLowerCase().includes(search.toLowerCase())), [rows,search]);
+  const columns: TpTableColumn<ResultRow>[] = [
+    { key: 'platform', header: '监听平台', primary: true, required: true, minWidth: 120, render: row => platformLabel(row.platform) },
+    { key: 'channel_name', header: '渠道 / 监听对象', required: true, minWidth: 180 },
+    { key: 'task_name', header: '监听任务', minWidth: 160 },
+    { key: 'content_type', header: '内容类型', minWidth: 100 },
+    { key: 'content_text', header: '采集结果', longText: true, minWidth: 280, render: row => row.content_text || '—', exportValue: row => row.content_text },
+    { key: 'author_name', header: '发布者', minWidth: 140 },
+    { key: 'grade', header: 'AI 判定', required: true, render: row => gradeTag(row.grade) },
+    { key: 'score', header: '意向评分', type: 'number', required: true, render: row => row.grade === 'unclassified' ? '待分析' : row.score + ' / 100' },
+    { key: 'intent_type', header: '意向类型', minWidth: 150 },
+    { key: 'rationale', header: 'AI 判定理由', longText: true, defaultVisible: false },
+    { key: 'published_at', header: '原始发布时间', type: 'datetime', render: row => formatDate(row.published_at) },
+    { key: 'captured_at', header: '发现时间', type: 'datetime', required: true, render: row => formatDate(row.captured_at) },
+    { key: 'source_url', header: '原文链接', longText: true, defaultVisible: false, render: row => row.source_url ? <a href={row.source_url} target="_blank" rel="noreferrer">打开原文</a> : '—', exportValue: row => row.source_url },
+    { key: 'external_id', header: '平台内容 ID', longText: true, defaultVisible: false },
+  ];
+  return <main className="tp-intelligence-monitoring">
+    <PageHeader breadcrumb="全球情报 / 公开内容监听" title="监听结果中心" description="按平台、渠道、任务与 AI 意向统一查看采集内容；支持搜索、列配置和 CSV 导出。" />
+    <ModuleNavigation active="results" />
+    {error && <InlineNotification kind="error" lowContrast title="读取结果失败" subtitle={error} actions={<Button kind="tertiary" size="sm" onClick={() => void reload()}>重试</Button>} />}
+    <div className="tp-intelligence-monitoring__table-meta"><Tag type="blue">云端数据</Tag><span>最近 500 条采集记录 · AI 判定尚未完成时显示「待分析」</span><Button kind="tertiary" size="sm" onClick={() => void reload()}>刷新结果</Button></div>
+    <TpDataTable<ResultRow> ariaLabel="监听结果中心" columns={columns} rows={filtered} rowKey="id" loading={loading} searchValue={search} onSearchChange={setSearch} onRetry={() => void reload()} emptyState="暂无采集结果。结果将在平台采集器正式启用并完成首次运行后进入此表格。" detailPanel detailTitle={row => row.task_name + ' · ' + row.channel_name} columnSettingsKey="intelligence-monitoring-results" />
+  </main>;
+}
+
+export function IntelligenceMonitoringRoute() {
+  const location = useLocation();
+  if (location.pathname.endsWith('/results')) return <MonitoringResultsPage />;
+  if (location.pathname.endsWith('/tasks')) return <MonitoringTasksPage />;
+  return <IntelligenceMonitoringPage />;
 }
