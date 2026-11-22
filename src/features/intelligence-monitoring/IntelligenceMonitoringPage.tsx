@@ -145,7 +145,7 @@ export function IntelligenceMonitoringPage() {
                   id="intel-source-type"
                   labelText="对象类型"
                   value={sourceType}
-                  onChange={(event) => setSourceType(event.target.value)}
+                  onChange={(event) => setSourceType(event.currentTarget.value)}
                 >
                   <SelectItem value="auto" text="自动识别" />
                   <SelectItem value="page" text="企业主页 / 账号" />
@@ -163,7 +163,7 @@ export function IntelligenceMonitoringPage() {
                   labelText="公开链接"
                   placeholder="https://www.facebook.com/..."
                   value={url}
-                  onChange={(event) => setUrl(event.target.value)}
+                  onChange={(event) => setUrl(event.currentTarget.value)}
                   helperText="仅支持公开可访问内容；不采集私人消息、私密群组或需要绕过访问控制的内容。"
                 />
               </Column>
@@ -236,7 +236,7 @@ export function IntelligenceMonitoringPage() {
                 id="intel-minimum-grade"
                 labelText="进入潜客候选池的最低等级"
                 value={minimumGrade}
-                onChange={(event) => setMinimumGrade(event.target.value)}
+                onChange={(event) => setMinimumGrade(event.currentTarget.value)}
               >
                 <SelectItem value="S" text="仅 S 级" />
                 <SelectItem value="A" text="S / A 级" />
