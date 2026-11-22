@@ -24,6 +24,7 @@ concurrency:
 
 jobs:
   deploy-preview:
+    if: false # Preview environments are disabled by the TradePilot production-only deployment policy.
     runs-on: ubuntu-latest
     steps:
       - name: Checkout exact develop commit
