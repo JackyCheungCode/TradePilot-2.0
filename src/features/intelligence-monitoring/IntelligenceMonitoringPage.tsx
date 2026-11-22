@@ -18,7 +18,7 @@ type ResultRow = {
   id: string; task_id: string; object_id: string; run_id: string; platform: string; external_id: string;
   content_type: string; author_name: string | null; author_profile_url?: string | null; content_text: string;
   source_url: string | null; published_at: string | null; captured_at: string;
-  task_name: string; channel_name: string; grade: string; score: number; intent_type: string; rationale: string;
+  task_name: string; task_started_at: string | null; cadence_minutes: number; channel_name: string; grade: string; score: number; intent_type: string; rationale: string;
 } & Record<string, unknown>;
 
 const platformOptions: Array<{ value: Platform; label: string }> = [
@@ -72,20 +72,20 @@ function useMonitoringData(mode: 'tasks' | 'results') {
         const objectIds = [...new Set(itemRows.map(item => item.object_id))];
         const itemIds = itemRows.map(item => item.id);
         const [tasksResult, objectsResult, analysesResult] = await Promise.all([
-          taskIds.length ? client.from('monitoring_tasks').select('id,name').in('id', taskIds) : Promise.resolve({ data: [], error: null }),
+          taskIds.length ? client.from('monitoring_tasks').select('id,name,started_at,cadence_minutes').in('id', taskIds) : Promise.resolve({ data: [], error: null }),
           objectIds.length ? client.from('monitoring_objects').select('id,label').in('id', objectIds) : Promise.resolve({ data: [], error: null }),
           itemIds.length ? client.from('monitoring_analyses').select('item_id,grade,score,intent_type,rationale').in('item_id', itemIds) : Promise.resolve({ data: [], error: null }),
         ]);
         if (tasksResult.error) throw tasksResult.error;
         if (objectsResult.error) throw objectsResult.error;
         if (analysesResult.error) throw analysesResult.error;
-        const taskMap = new Map((tasksResult.data ?? []).map(row => [row.id, row.name]));
+        const taskMap = new Map((tasksResult.data ?? []).map(row => [row.id, row]));
         const objectMap = new Map((objectsResult.data ?? []).map(row => [row.id, row.label]));
         const analysisMap = new Map((analysesResult.data ?? []).map(row => [row.item_id, row]));
         setRows(itemRows.map(item => {
           const analysis = analysisMap.get(item.id);
           return {
-            ...item, task_name: taskMap.get(item.task_id) ?? '—', channel_name: objectMap.get(item.object_id) ?? '—',
+            ...item, task_name: taskMap.get(item.task_id)?.name ?? '—', task_started_at: taskMap.get(item.task_id)?.started_at ?? null, cadence_minutes: taskMap.get(item.task_id)?.cadence_minutes ?? 0, channel_name: objectMap.get(item.object_id) ?? '—',
             grade: analysis?.grade ?? 'unclassified', score: analysis?.score ?? 0,
             intent_type: analysis?.intent_type ?? '待分析', rationale: analysis?.rationale ?? '尚未生成 AI 判定',
           };
@@ -233,6 +233,8 @@ export function MonitoringResultsPage() {
     { key: 'platform', header: '监听平台', primary: true, required: true, minWidth: 120, render: row => platformLabel(row.platform) },
     { key: 'channel_name', header: '渠道 / 监听对象', required: true, minWidth: 180 },
     { key: 'task_name', header: '监听任务', minWidth: 160 },
+    { key: 'task_started_at', header: '监听开始时间', type: 'datetime', render: row => formatDate(row.task_started_at) },
+    { key: 'cadence_minutes', header: '监听频率', render: row => row.cadence_minutes ? (row.cadence_minutes >= 1440 ? '每天一次' : '每 ' + row.cadence_minutes + ' 分钟') : '尚未启动' },
     { key: 'content_type', header: '内容类型', minWidth: 100 },
     { key: 'content_text', header: '采集结果', longText: true, minWidth: 280, render: row => row.content_text || '—', exportValue: row => row.content_text },
     { key: 'author_name', header: '发布者', minWidth: 140 },
