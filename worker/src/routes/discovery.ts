@@ -22,7 +22,7 @@ export interface DiscoveryEnv {
 export type DiscoveryProvider = "google_maps" | "openstreetmap";
 export interface DiscoveryRunInput {
   countries: string[]; query: string; limitPerCountry: number; providers: DiscoveryProvider[];
-  state?: string; city?: string; osmTags?: Array<{ key: string; value: string }>;
+  state?: string; city?: string; locations?: Array<{ state?: string; city?: string }>; osmTags?: Array<{ key: string; value: string }>;
   businessTypes?: string[];
   filters?: { minRating?: number; openNow?: boolean; requireWebsite?: boolean; requirePhone?: boolean };
   googleFieldMask?: string[];
@@ -293,18 +293,20 @@ export async function processRun(env: DiscoveryEnv, runId: string, ownerId: stri
   if (input.channel === "search_engine") { const { processSearchRun } = await import("./search-discovery-process"); return processSearchRun(env, runId, ownerId, input); }
   if (input.channel === "actor_discovery") { const { processActorDiscoveryRun } = await import("./actor-execution"); return processActorDiscoveryRun(env, runId, ownerId, input); }
   const providers = input.providers?.length ? input.providers : ["google_maps", "openstreetmap"];
-  const totalUnits = input.countries.length * providers.length;
+  const areas = input.locations?.length ? input.locations : [{ state: input.state, city: input.city }];
+  const totalUnits = input.countries.length * areas.length * providers.length;
   let doneUnits = 0, discovered = 0, created = 0, googleCount = 0, osmCount = 0, failures = 0;
   await updateRun(env, runId, ownerId, { status: "running", message: "正在执行所选数据源：" + providers.join("、") });
   await log(env, runId, ownerId, "info", "任务开始；关键词：" + input.query + "；业务类型：" + (input.businessTypes ?? []).join("、") + "；筛选条件：" + JSON.stringify(input.filters ?? {}) + "；数据源：" + providers.join("、"));
   if (providers.includes("openstreetmap")) await log(env, runId, ownerId, "info", "OSM 标签映射：" + (input.osmTags ?? []).map(tag => tag.key + "=" + tag.value).join("、") + "；地区范围：" + [input.city, input.state, countryName(input.countries[0])].filter(Boolean).join(" · "));
   for (const code of input.countries) {
-    const scope = [input.city, input.state, countryName(code)].filter(Boolean).join(" · ");
+   for (const area of areas) {
+    const scope = [area.city, area.state, countryName(code)].filter(Boolean).join(" · ");
     const osmResult: ProviderResult<OSMElement[]> | null = providers.includes("openstreetmap")
-      ? await searchOSM(code, input.osmTags ?? [], input.limitPerCountry, env, input.state, input.city, input.filters).then(value => ({ok:true as const,value})).catch(error => ({ok:false as const,error}))
+      ? await searchOSM(code, input.osmTags ?? [], input.limitPerCountry, env, area.state, area.city, input.filters).then(value => ({ok:true as const,value})).catch(error => ({ok:false as const,error}))
       : null;
     const googleResult: ProviderResult<GooglePlace[]> | null = providers.includes("google_maps")
-      ? await searchGoogle(code, input.query, input.limitPerCountry, env, input.state, input.city, input.businessTypes ?? [], input.filters, input.googleFieldMask ?? [], input.googleLanguageCode ?? "en", input.googleRankPreference ?? "RELEVANCE", input.googleIncludePureServiceAreaBusinesses ?? false).then(value => ({ok:true as const,value})).catch(error => ({ok:false as const,error}))
+      ? await searchGoogle(code, input.query, input.limitPerCountry, env, area.state, area.city, input.businessTypes ?? [], input.filters, input.googleFieldMask ?? [], input.googleLanguageCode ?? "en", input.googleRankPreference ?? "RELEVANCE", input.googleIncludePureServiceAreaBusinesses ?? false).then(value => ({ok:true as const,value})).catch(error => ({ok:false as const,error}))
       : null;
     const rawOsm = osmResult?.ok ? osmResult.value : [];
     const rawGoogle = googleResult?.ok ? googleResult.value : [];
@@ -390,6 +392,7 @@ export async function processRun(env: DiscoveryEnv, runId: string, ownerId: stri
     }
     discovered = osmCount + googleCount;
     await updateRun(env,runId,ownerId,{progress:Math.round(doneUnits/totalUnits*100),discovered_count:discovered,created_lead_count:created,message:"已处理 "+scope+" · 发现记录已保存"});
+   }
   }
   const status = failures===0 ? "completed" : failures<totalUnits ? "partial" : "failed";
   await updateRun(env,runId,ownerId,{status,progress:100,discovered_count:discovered,created_lead_count:created,message:"任务结束：OSM "+osmCount+" 条，Google "+googleCount+" 条；发现记录已归档"});
