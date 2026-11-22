@@ -213,7 +213,7 @@ export function MonitoringTasksPage() {
   return <main className="tp-intelligence-monitoring">
     <PageHeader breadcrumb="全球情报 / 公开内容监听" title="监听任务列表" description="统一查看任务配置、运行状态、采集频率与最近执行情况。" />
     <ModuleNavigation active="tasks" />
-    {error && <InlineNotification kind="error" lowContrast title="读取任务失败" subtitle={error} actions={<Button kind="tertiary" size="sm" onClick={() => void reload()}>重试</Button>} />}
+    {error && <InlineNotification kind="error" lowContrast title="读取任务失败" subtitle={error}  />}
     <TpDataTable<TaskRow> ariaLabel="监听任务列表" columns={columns} rows={filtered} rowKey="id" loading={loading} searchValue={search} onSearchChange={setSearch} onRetry={() => void reload()} emptyState="暂无监听任务。创建任务后会显示在这里。" columnSettingsKey="intelligence-monitoring-tasks" />
   </main>;
 }
