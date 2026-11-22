@@ -97,21 +97,37 @@ export async function runDueIntelligenceMonitoring(env:Env,limit=15){
  const response=await fetch(env.SUPABASE_URL+"/rest/v1/rpc/tradepilot_monitoring_claim_due_tasks",{method:"POST",headers:{apikey:env.SUPABASE_SERVICE_ROLE_KEY,Authorization:"Bearer "+env.SUPABASE_SERVICE_ROLE_KEY,"Content-Type":"application/json"},body:JSON.stringify({p_limit:limit})});
  const raw=await response.text();if(!response.ok)throw new Error("MONITORING_CLAIM_FAILED_"+response.status+": "+raw.slice(0,240));
  claimed=raw?JSON.parse(raw) as ClaimedTask[]:[];
- for(const t of claimed){
+ const grouped=new Map<string,ClaimedTask[]>();
+ for(const task of claimed){const group=grouped.get(task.run_id)??[];group.push(task);grouped.set(task.run_id,group);}
+ for(const [runId,objects] of grouped){
+  const task=objects[0];
   try{
-   await patchRun(env,t,{status:"running",started_at:now()});
-   await log(env,t,"info","run.started","定时监听开始执行。",{scheduled:true});
+   await patchRun(env,task,{status:"running",started_at:now()});
+   await log(env,task,"info","run.started","定时监听开始执行。",{scheduled:true,objectCount:objects.length});
    if(!token)throw new Error("APIFY_NOT_CONFIGURED: 尚未配置 Apify API 凭证。");
-   const result=await execute(env,t,token);
-   const status=result.failedItems>0?(result.newCount>0?"partial":"failed"):"succeeded";
-   await patchRun(env,t,{status,finished_at:now(),discovered_count:result.discoveredCount,new_count:result.newCount,analyzed_count:result.analyzedCount,error_code:status==="failed"?"ITEMS_FAILED":null,error_message:result.failedItems?result.failedItems+" 条内容处理失败":null,metadata:{actorId:result.actorId,failedItems:result.failedItems}});
-   await patchTask(env,t,{last_run_status:status,last_result_count:result.newCount,last_error:result.failedItems?result.failedItems+" 条内容处理失败":null});
-   await log(env,t,status==="succeeded"?"info":status==="partial"?"warning":"error","run.finished", "本次监听"+(status==="succeeded"?"成功":status==="partial"?"部分成功":"失败")+"：发现 "+result.discoveredCount+" 条，新增 "+result.newCount+" 条，AI 分析 "+result.analyzedCount+" 条，失败 "+result.failedItems+" 条。",result);
+   let discoveredCount=0,newCount=0,analyzedCount=0,failedItems=0;
+   const actorIds:string[]=[];
+   for(const objectTask of objects){
+    try{
+     const result=await execute(env,objectTask,token);
+     discoveredCount+=result.discoveredCount;newCount+=result.newCount;analyzedCount+=result.analyzedCount;failedItems+=result.failedItems;
+     actorIds.push(result.actorId);
+     await log(env,objectTask,"info","object.finished","监听对象处理完成。",result);
+    }catch(error){
+     failedItems++;
+     const message=String(error instanceof Error?error.message:error).slice(0,500);
+     await log(env,objectTask,"error","object.failed","监听对象处理失败："+message,{sourceUrl:objectTask.source_url});
+    }
+   }
+   const status=failedItems>0?(newCount>0?"partial":"failed"):"succeeded";
+   await patchRun(env,task,{status,finished_at:now(),discovered_count:discoveredCount,new_count:newCount,analyzed_count:analyzedCount,error_code:status==="failed"?"OBJECTS_FAILED":null,error_message:failedItems?failedItems+" 个内容或监听对象处理失败":null,metadata:{actorIds,objectCount:objects.length,failedItems}});
+   await patchTask(env,task,{last_run_status:status,last_result_count:newCount,last_error:failedItems?failedItems+" 个内容或监听对象处理失败":null});
+   await log(env,task,status==="succeeded"?"info":status==="partial"?"warning":"error","run.finished","本次监听"+(status==="succeeded"?"成功":status==="partial"?"部分成功":"失败")+"：处理对象 "+objects.length+" 个，发现 "+discoveredCount+" 条，新增 "+newCount+" 条，AI 分析 "+analyzedCount+" 条，失败 "+failedItems+" 项。",{discoveredCount,newCount,analyzedCount,failedItems,actorIds});
   }catch(error){
    const message=String(error instanceof Error?error.message:error).slice(0,1000);
-   await patchRun(env,t,{status:"failed",finished_at:now(),error_code:message.split(":")[0].slice(0,80),error_message:message});
-   await patchTask(env,t,{last_run_status:"failed",last_error:message});
-   await log(env,t,"error","run.failed","本次监听失败："+message);
+   await patchRun(env,task,{status:"failed",finished_at:now(),error_code:message.split(":")[0].slice(0,80),error_message:message});
+   await patchTask(env,task,{last_run_status:"failed",last_error:message});
+   await log(env,task,"error","run.failed","本次监听失败："+message);
   }
  }
  return {claimed:claimed.length};
