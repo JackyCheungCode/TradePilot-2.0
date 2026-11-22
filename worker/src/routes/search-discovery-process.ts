@@ -46,7 +46,7 @@ export async function processSearchRun(env:DiscoveryEnv,run:string,owner:string,
  const cats=await db<Array<{category_key:string;domains:string[];enabled:boolean}>>(env,"search_exclusion_rules?owner_id=eq."+owner+"&select=category_key,domains,enabled");
  const effective=DEFAULT_SEARCH_EXCLUSIONS.map(item=>{const saved=cats.find(row=>row.category_key===item.key);return{category_key:item.key,domains:saved?saved.domains:item.domains,enabled:saved?saved.enabled:true};});
  const selected=new Set(input.excludeCategories??effective.filter(x=>x.enabled).map(x=>x.category_key));
- const rules=[...new Set(effective.filter(x=>x.enabled&&selected.has(x.category_key)).flatMap(x=>x.domains??[]))];
+ const rules=[...new Set([...effective.filter(x=>x.enabled&&selected.has(x.category_key)).flatMap(x=>x.domains??[]),...(input.excludeDomains??[])])];
  const q=input.advancedQuery?.trim()||input.query;
  const jobs=engines.flatMap(engine=>types.map(type=>({engine,type})));let done=0,failed=0,raw=0;const all:Array<{engine:Engine;type:Vertical;item:Result}>=[];
  await update(env,run,owner,{status:"running",progress:1,message:"正在连接搜索引擎并执行查询"});
