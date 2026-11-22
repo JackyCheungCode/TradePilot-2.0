@@ -131,6 +131,7 @@ export async function handleProspectRegions(request: Request, env: Env): Promise
     const iso3 = countryPayload?.[0]?.cca3;
     if (!iso3) throw new Error("COUNTRY_ISO3_MISSING");
     const metadataResponse = await fetch("https://www.geoboundaries.org/api/current/gbOpen/" + iso3 + "/ADM1/", { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(12000) });
+    if (metadataResponse.status === 404) return successResponse(request, { regions: [], source: "geoBoundaries gbOpen ADM1 · 当前国家无公开一级行政区边界" });
     if (!metadataResponse.ok) throw new Error("GEOboundaries_METADATA_" + metadataResponse.status);
     const metadata = await metadataResponse.json() as { gjDownloadURL?: string };
     const geoUrl = metadata.simplifiedGeometryGeoJSON || metadata.gjDownloadURL;
