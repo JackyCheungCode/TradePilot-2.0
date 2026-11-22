@@ -457,7 +457,8 @@ export function GoogleMapsDiscoveryPage() {
                 placeholder="搜索国家名称、中文名称或代码"
                 items={countries}
                 selectedItem={chosenCountry ?? null}
-                itemToString={item => item ? countrySearchText(item) : ''}
+                itemToString={item => item ? countryLabel(item) : ''}
+                shouldFilterItem={({ item, inputValue }) => countrySearchText(item).toLocaleLowerCase().includes((inputValue ?? '').toLocaleLowerCase())}
                 itemToElement={item => <span className="tp-gmaps-discovery__country-option">{item ? <><img src={flagUrl(item.cca2)} alt="" /><span>{countryLabel(item)}</span></> : null}</span>}
                 onChange={({ selectedItem }) => selectCountry(selectedItem?.cca2 ?? '')}
                 disabled={loading}
