@@ -639,9 +639,11 @@ export async function handleDiscovery(request: Request, env: DiscoveryEnv): Prom
       return successResponse(request,{id:run.id,status:"running"});
     }
     if(body.action==="cancel"){
-      if(!["queued","running","paused"].includes(status))return errorResponse(request,"INVALID_TASK_TRANSITION","当前任务状态不能取消。",409);
-      try{const instance=await env.LEAD_DISCOVERY_WORKFLOW.get(String(run.id));await instance.terminate();}
-      catch(error){return errorResponse(request,"WORKFLOW_TERMINATE_FAILED","后台工作流终止失败："+String(error).slice(0,180),409);}
+      if(!["planned","queued","running","paused"].includes(status))return errorResponse(request,"INVALID_TASK_TRANSITION","当前任务状态不能取消。",409);
+      if(status!=="planned"){
+        try{const instance=await env.LEAD_DISCOVERY_WORKFLOW.get(String(run.id));await instance.terminate();}
+        catch(error){return errorResponse(request,"WORKFLOW_TERMINATE_FAILED","后台工作流终止失败："+String(error).slice(0,180),409);}
+      }
       await db(env,"discovery_runs?id=eq."+run.id+"&owner_id=eq."+userId,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({status:"cancelled",message:"任务已取消，已采集结果保留",updated_at:now})});
       return successResponse(request,{id:run.id,status:"cancelled"});
     }
