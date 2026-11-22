@@ -474,7 +474,10 @@ export async function handleDiscovery(request: Request, env: DiscoveryEnv): Prom
       (input.targetLanguage !== undefined && (typeof input.targetLanguage !== "string" || !/^[A-Z]{2}(?:-[A-Z]{2,5})?$/.test(input.targetLanguage))) ||
       (input.state !== undefined && (typeof input.state !== "string" || !input.state.trim())) ||
       (input.city !== undefined && (typeof input.city !== "string" || !input.city.trim())) ||
-      (input.googleFieldMask !== undefined && (!Array.isArray(input.googleFieldMask) || input.googleFieldMask.length > 100 || input.googleFieldMask.some(field => typeof field !== "string" || !/^places\\.[A-Za-z][A-Za-z0-9.]*$/.test(field))))) {
+      (input.googleFieldMask !== undefined && (!Array.isArray(input.googleFieldMask) || input.googleFieldMask.length > 100 || input.googleFieldMask.some(field => typeof field !== "string" || !/^places\.[A-Za-z][A-Za-z0-9.]*$/.test(field)))) ||
+      (input.googleLanguageCode !== undefined && (typeof input.googleLanguageCode !== "string" || input.googleLanguageCode.length > 12)) ||
+      (input.googleRankPreference !== undefined && !["RELEVANCE","DISTANCE"].includes(input.googleRankPreference)) ||
+      (input.googleIncludePureServiceAreaBusinesses !== undefined && typeof input.googleIncludePureServiceAreaBusinesses !== "boolean")) {
       return errorResponse(request,"VALIDATION_ERROR","请选择一个国家和至少一个数据源；关键词、地区、数量或 OSM 标签映射无效。",400);
     }
     input.providers = providers as DiscoveryProvider[];
@@ -488,7 +491,7 @@ export async function handleDiscovery(request: Request, env: DiscoveryEnv): Prom
     await log(env,run.id,userId,"info","任务编号："+run.task_code+"；关键词："+input.query+(input.originalQuery?"（原始关键词："+input.originalQuery+"）":"")+"；业务类型："+(input.businessTypes??[]).join("、")+"；数据源："+providers.join("、"));
     try { await env.LEAD_DISCOVERY_WORKFLOW.create({id:run.id,params:{runId:run.id,ownerId:userId,input}}); }
     catch(error){await markRunFailed(env,run.id,userId,error);return errorResponse(request,"WORKFLOW_START_FAILED","任务创建成功，但后台工作流启动失败。",503);}
-    return successResponse(request,{id:run.id,taskCode:run.task_code,channel:"map_local_businesses",query:input.query,countries:input.countries,providers,searchConfig:{businessTypes:input.businessTypes??[],filters:input.filters??{},googleFieldMask:input.googleFieldMask??[],osmTags:input.osmTags??[],originalQuery:input.originalQuery??null,translatedQuery:input.translatedQuery??null,targetLanguage:input.targetLanguage??null},status:"queued",progress:0,discoveredCount:0,createdLeadCount:0,message:"任务已排队 · "+scope},202);
+    return successResponse(request,{id:run.id,taskCode:run.task_code,channel:"map_local_businesses",query:input.query,countries:input.countries,providers,searchConfig:{businessTypes:input.businessTypes??[],filters:input.filters??{},googleFieldMask:input.googleFieldMask??[],googleLanguageCode:input.googleLanguageCode??"en",googleRankPreference:input.googleRankPreference??"RELEVANCE",googleIncludePureServiceAreaBusinesses:input.googleIncludePureServiceAreaBusinesses??false,osmTags:input.osmTags??[],originalQuery:input.originalQuery??null,translatedQuery:input.translatedQuery??null,targetLanguage:input.targetLanguage??null},status:"queued",progress:0,discoveredCount:0,createdLeadCount:0,message:"任务已排队 · "+scope},202);
   }
 
   if(request.method==="GET" && url.pathname==="/api/v1/discovery-runs"){
