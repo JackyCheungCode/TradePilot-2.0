@@ -4,7 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   Button, Link, ContentSwitcher, Switch, FileUploaderButton, TPSkeleton, TPInlineLoading, InlineNotification, MultiSelect, Select, SelectItem, Tag, TextInput, TextArea,
   Tabs, TabList, Tab, TabPanels, TabPanel,
-  Tile, LineChart, SimpleBarChart, ScaleTypes, semanticIcons, BusinessLifecycle, WorldMapChart, TpDataTable,
+  Tile, LineChart, SimpleBarChart, ScaleTypes, semanticIcons, BusinessLifecycle, WorldMapChart, TpDataTable, Modal,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@carbon/charts/styles.css';
@@ -119,7 +119,7 @@ export function PaymentConsolePage() {
   const chartOpts={theme:document.documentElement.dataset.carbonTheme==='g100'?'g100':'white',height:'240px',color:{pairing:{numberOfVariants:14,option:1}},legend:{enabled:false},toolbar:{enabled:false},axes:{bottom:{mapsTo:'group',scaleType:ScaleTypes.LABELS},left:{mapsTo:'value',scaleType:ScaleTypes.LINEAR}}};
 
   return <main className="tp-payments">
-    <PageHeader className="tp-payments__header"><div><p className="tp-payments__eyebrow">TRADEPILOT / FINANCE / ACCOUNTS RECEIVABLE</p><h1>收款（Payment）</h1><p>管理到账、预收款、订单核销、银行对账与应收催款。</p></div><div className="tp-payments__actions"><Button kind="tertiary" onClick={()=>void load()} disabled={loading}><semanticIcons.refresh size={16}/>刷新</Button><Link href="/payments/new" renderIcon={semanticIcons.add}>创建收款</Link></div></PageHeader>
+    <PageHeader className="tp-payments__header"><div><p className="tp-payments__eyebrow">TRADEPILOT / FINANCE / ACCOUNTS RECEIVABLE</p><h1>收款（Payment）</h1><p>管理到账、预收款、订单核销、银行对账与应收催款。</p></div><div className="tp-payments__actions"><Button kind="tertiary" renderIcon={semanticIcons.refresh} onClick={()=>void load()} disabled={loading}>刷新</Button><Link href="/payments/new" renderIcon={semanticIcons.add}>创建收款</Link></div></PageHeader>
     {error&&<InlineNotification kind="error" title="收款数据读取失败" subtitle={error}/>}
     <section className="tp-payments__metrics">
       <Metric label="累计到账" value={money(totalReceived,currency)} detail={currency+' · 已确认收款'} icon={semanticIcons.currency}/>
@@ -198,7 +198,7 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
   const [shippedRefundOrders,setShippedRefundOrders]=useState<string[]>([]);
   const [payment,setPayment]=useState<AnyRow>({payment_type:'receipt',status:'draft',payment_date:dateToday(),received_date:dateToday(),owner_name:'',account_id:'',contact_id:'',payer_name:'',is_third_party:false,currency:'USD',amount:'',bank_fee:'0',intermediary_fee:'0',net_received:'',fee_bearer:'SHA',payment_method:'T/T',bank_account_id:'',bank_reference:'',uetr:'',remittance_info:'',exchange_rate:'',rate_date:'',payer_relation:'',payer_country:'',payer_bank:'',payer_swift:'',tags:[],lc_no:'',lc_issuing_bank:'',lc_advising_bank:'',lc_amount:'',lc_type:'即期',usance_days:'',presentation_date:'',acceptance_date:'',maturity_date:'',discrepancy:'',discrepancy_status:'无',diff_amount:'0',diff_type:'无',diff_reason:'',diff_handling:'',diff_note:'',original_payment_id:'',refund_reason:'',refund_amount:'',refund_date:'',refund_bank_ref:'',refund_shipped_confirmed:false,bank_reconciled:false,statement_date:'',statement_ref:'',void_reason:'',remarks_internal:'',bank_slip:'',receipt_sent:false,tags_text:'',source:'manual'});
   const [allocations,setAllocations]=useState<AnyRow[]>([]);
-  const [activeTab,setActiveTab]=useState(0);const [loading,setLoading]=useState(true);const [saving,setSaving]=useState(false);const [error,setError]=useState('');const [paymentNo,setPaymentNo]=useState('新建收款');
+  const [activeTab,setActiveTab]=useState(0);const [loading,setLoading]=useState(true);const [saving,setSaving]=useState(false);const [error,setError]=useState('');const [paymentNo,setPaymentNo]=useState('新建收款');const [showVoidConfirm,setShowVoidConfirm]=useState(false);
   const locked=readOnly||['confirmed','partially_reconciled','reconciled','returned','voided'].includes(payment.status);
   const set=(key:string,value:any)=>setPayment((p:AnyRow)=>({...p,[key]:value}));
   const accountOrders=orders.filter(o=>o.crm_account_id===payment.account_id&&isAllocatableOrder(o));
@@ -359,7 +359,7 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
         <Link href="/payments" renderIcon={semanticIcons.back}>返回收款列表</Link>
         {readOnly&&payment.status==='draft'&&<Link href={'/payments/'+id+'/edit'} renderIcon={semanticIcons.edit}>编辑草稿</Link>}
         {readOnly&&['confirmed','partially_reconciled','reconciled'].includes(payment.status)&&!payment.bank_reconciled&&<Link href={'/payments/'+id+'/edit'} renderIcon={semanticIcons.edit}>登记银行对账</Link>}
-        {editing&&!readOnly&&payment.status==='draft'&&<Button kind="danger--tertiary" disabled={saving} onClick={()=>void voidPayment()}>作废</Button>}
+        {editing&&!readOnly&&payment.status==='draft'&&<Button kind="danger--tertiary" disabled={saving} onClick={()=>setShowVoidConfirm(true)}>作废</Button>}
       </div>
     </div></PageHeader>
     {error&&<InlineNotification kind="error" title="收款操作未完成" subtitle={error}/>}
@@ -426,7 +426,7 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
           </div></>}
         </div></TabPanel>
         <TabPanel><div className="tp-payments__tab-content">
-          <div className="tp-payments__panel-head"><div><h2>来源与分配</h2><p>一笔到账可分配给同一客户的多个已确认订单收款节点；未分配余额保留为预收款。</p></div><Button kind="tertiary" onClick={addAllocation} disabled={locked}><semanticIcons.add/>添加分配</Button></div>
+          <div className="tp-payments__panel-head"><div><h2>来源与分配</h2><p>一笔到账可分配给同一客户的多个已确认订单收款节点；未分配余额保留为预收款。</p></div><Button kind="tertiary" renderIcon={semanticIcons.add} onClick={addAllocation} disabled={locked}>添加分配</Button></div>
           {allocations.map((a,i)=><div className="tp-payments__allocation" key={i}>
             <div className="tp-payments__allocation-head"><strong>分配 {i+1}</strong><Button kind="ghost" size="sm" disabled={locked} onClick={()=>removeAllocation(i)}>移除</Button></div>
             <div className="tp-payments__form-grid">
@@ -477,6 +477,7 @@ export function PaymentFormPage({readOnly=false}:{readOnly?:boolean}) {
       </TabPanels></Tabs>
       <div className="tp-payments__footer"><span>草稿可修改；确认后金额、币种、账户与日期锁定。已对账记录不可直接作废。</span><div><Button kind="ghost" onClick={()=>setActiveTab(Math.max(0,activeTab-1))} disabled={activeTab===0}>上一步</Button><Button kind="tertiary" onClick={()=>setActiveTab(Math.min(3,activeTab+1))} disabled={activeTab===3}>下一步</Button>{!readOnly&&!locked&&<Button kind="primary" onClick={()=>void save()} disabled={saving}>{saving?'保存中…':'保存草稿'}</Button>}{saving && <TPInlineLoading status="active" description="正在保存收款记录…" />}</div></div>
     </section>
+    <Modal open={showVoidConfirm} modalHeading="确认作废收款记录" primaryButtonText={saving ? "正在作废…" : "确认作废"} secondaryButtonText="返回修改" primaryButtonDisabled={saving || !String(payment.void_reason || "").trim()} onRequestClose={() => setShowVoidConfirm(false)} onRequestSubmit={() => void voidPayment()}><p>此操作会将收款记录标记为已作废，后续不能按正常收款继续核销。请确认作废原因准确无误。</p><p><strong>作废原因：</strong>{String(payment.void_reason || "尚未填写")}</p></Modal>
   </main>;
 }
 
