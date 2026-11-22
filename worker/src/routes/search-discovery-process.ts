@@ -28,7 +28,7 @@ function excluded(url:string,rules:string[]){try{const u=new URL(url),host=u.hos
 function safePublicWebsiteUrl(value:string):URL|null{
  try{const url=new URL(value);if(url.protocol!=="https:"&&url.protocol!=="http:")return null;const host=url.hostname.toLowerCase();if(!host||host==="localhost"||host.endsWith(".localhost")||host.endsWith(".local")||host.endsWith(".internal")||host==="metadata.google.internal"||/^\d{1,3}(?:\.\d{1,3}){3}$/.test(host)||host.includes(":"))return null;return url;}catch{return null;}
 }
-async function inspectWebsite(item:Result,product:string):Promise<Result>{
+async function inspectWebsite(item:Result,product:string,allowBrowserFallback:boolean):Promise<Result>{
  const initial=safePublicWebsiteUrl(item.url);if(!initial)return{...item,websiteVerification:{status:"blocked",score:0,reason:"非公开网站地址或不安全协议"}};
  try{
   let target=initial,response:Response|undefined;
@@ -45,8 +45,8 @@ async function inspectWebsite(item:Result,product:string):Promise<Result>{
   let browserRunMs:number|null=null;
   let browserFallbackError:string|null=null;
   const initialText=html.replace(/<script[\\s\\S]*?<\\/script>/gi," ").replace(/<style[\\s\\S]*?<\\/style>/gi," ").replace(/<[^>]+>/g," ").replace(/&nbsp;|&#160;/g," ").replace(/\\s+/g," ").trim();
-  const needsRenderedPage=initialText.length<900||(!/<title[^>]*>[^<]{3,}/i.test(html)&&/<div[^>]+id=["'](?:root|app|__next)["']/i.test(html));
-  if(needsRenderedPage&&env.BROWSER){
+  const needsRenderedPage=initialText.length<500&&/<script|__NEXT_DATA__|webpack|id=root|id=app|id=__next/i.test(html);
+  if(allowBrowserFallback&&needsRenderedPage&&env.BROWSER){
    try{
     const rendered=await env.BROWSER.quickAction("content",{url:target.toString(),gotoOptions:{waitUntil:"networkidle2",timeout:20000}});
     browserRunMs=Number(rendered.headers.get("X-Browser-Ms-Used"))||null;
@@ -113,9 +113,9 @@ export async function processSearchRun(env:DiscoveryEnv,run:string,owner:string,
  });
  const chosen=allowed.slice(0,input.limitPerCountry);
  const verified:Array<{engine:Engine;type:Vertical;item:Result}>=[];
- for(let offset=0;offset<chosen.length;offset+=8){const batch=chosen.slice(offset,offset+8);const inspected=await Promise.all(batch.map(async row=>({...row,item:await inspectWebsite(row.item,input.query)})));verified.push(...inspected);await update(env,run,owner,{progress:85+Math.round(Math.min(1,(offset+batch.length)/Math.max(1,chosen.length))*14),message:"官网核验中 · "+Math.min(offset+batch.length,chosen.length)+"/"+chosen.length});}
+ for(let offset=0;offset<chosen.length;offset+=8){const batch=chosen.slice(offset,offset+8);const inspected=await Promise.all(batch.map(async (row,index)=>({...row,item:await inspectWebsite(row.item,input.query,offset+index<10)})));verified.push(...inspected);await update(env,run,owner,{progress:85+Math.round(Math.min(1,(offset+batch.length)/Math.max(1,chosen.length))*14),message:"官网核验中 · "+Math.min(offset+batch.length,chosen.length)+"/"+chosen.length});}
  for(const row of verified)await persist(env,owner,run,input,row.engine,row.type,row.item);
  if(guardrailBlocked)await log(env,run,owner,"info","护盾已拦截 "+guardrailBlocked+" 条搜索候选记录。");
- const status=failed===0?"completed":failed<jobs.length?"partial":"failed";await update(env,run,owner,{status,progress:100,discovered_count:verified.length,created_lead_count:0,message:"搜索与官网初步核验完成 · "+verified.length+" 个网站 · 护盾拦截 "+guardrailBlocked+" 条 · "+raw+" 条原始结果"});
- await log(env,run,owner,status==="completed"?"success":"warning","任务结束；原始结果 "+raw+" 条，排除、护盾及去重后保存 "+verified.length+" 个网站。");return{status,discovered:verified.length,rawCount:raw,guardrailBlocked,failed,websiteChecks:verified.length};
+ const browserRendered=verified.filter(row=>row.item.websiteVerification?.verificationMethod==="browser_run").length;const status=failed===0?"completed":failed<jobs.length?"partial":"failed";await update(env,run,owner,{status,progress:100,discovered_count:verified.length,created_lead_count:0,message:"搜索与官网初步核验完成 · "+verified.length+" 个网站 · 浏览器渲染 "+browserRendered+" 个 · 护盾拦截 "+guardrailBlocked+" 条 · "+raw+" 条原始结果"});
+ await log(env,run,owner,status==="completed"?"success":"warning","任务结束；原始结果 "+raw+" 条，排除、护盾及去重后保存 "+verified.length+" 个网站。");return{status,discovered:verified.length,rawCount:raw,guardrailBlocked,failed,websiteChecks:verified.length,browserRendered};
 }
