@@ -54,8 +54,8 @@ function useMonitoringData(mode: 'tasks' | 'results') {
   const [rows, setRows] = useState<Array<TaskRow | ResultRow>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const load = useCallback(async () => {
-    setLoading(true); setError('');
+  const load = useCallback(async (quiet = false) => {
+    if (!quiet) setLoading(true); setError('');
     try {
       const client = await getSupabaseClient();
       const { data: userData, error: authError } = await client.auth.getUser();
@@ -112,7 +112,7 @@ function useMonitoringData(mode: 'tasks' | 'results') {
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : '读取监听数据失败。');
       setRows([]);
-    } finally { setLoading(false); }
+    } finally { if (!quiet) setLoading(false); }
   }, [mode]);
   useEffect(() => { void load(); }, [load]);
   return { rows, loading, error, reload: load };
@@ -219,15 +219,18 @@ export function MonitoringTasksPage() {
   const [page, setPage] = useState(1);
   const filtered = useMemo(() => (rows as TaskRow[]).filter(row => (statusFilter === 'all' || row.status === statusFilter) && [row.name,row.task_code,row.status].join(' ').toLowerCase().includes(search.toLowerCase())), [rows,search,statusFilter]);
   useEffect(() => setPage(1), [search,statusFilter]);
+  useEffect(() => { const timer = window.setInterval(() => void reload(true), 10000); return () => window.clearInterval(timer); }, [reload]);
   const columns: TpTableColumn<TaskRow>[] = [
     { key: 'task_code', header: '任务编号', primary: true, required: true, minWidth: 180 },
     { key: 'name', header: '监听任务', required: true, minWidth: 180 },
     { key: 'status', header: '调度状态', type: 'status', required: true, render: row => <Tag type={row.status === 'running' ? 'green' : row.status === 'paused' ? 'cool-gray' : 'blue'}>{row.status === 'draft' ? '草稿' : row.status === 'running' ? '已启用' : row.status === 'paused' ? '已暂停' : row.status}</Tag> },
     { key: 'latest_run_status', header: '真实执行状态', required: true, render: row => {
       const value = row.latest_run_status ?? '尚无执行记录';
+      const heartbeatAge = row.heartbeat_at ? Date.now() - new Date(row.heartbeat_at).getTime() : Number.POSITIVE_INFINITY;
+      const stale = value === 'running' && heartbeatAge > 90000;
       const labels: Record<string,string> = { queued: '排队等待', running: '正在执行', succeeded: '执行成功', partial: '部分成功', failed: '执行失败', skipped: '已跳过' };
-      const tone = value === 'running' ? 'green' : value === 'failed' ? 'red' : value === 'succeeded' ? 'green' : value === 'partial' ? 'warm-gray' : 'blue';
-      return <Tag type={tone}>{labels[value] ?? value}</Tag>;
+      const tone = stale || value === 'failed' ? 'red' : value === 'running' || value === 'succeeded' ? 'green' : value === 'partial' ? 'warm-gray' : 'blue';
+      return <Tag type={tone}>{stale ? '心跳超时' : labels[value] ?? value}</Tag>;
     } },
     { key: 'current_stage', header: '当前执行阶段', render: row => row.current_stage || (row.latest_run_status === 'queued' ? '等待 Worker 领取' : '—') },
     { key: 'heartbeat_at', header: '最近心跳', type: 'datetime', render: row => formatDate(row.heartbeat_at ?? null) },
