@@ -26,6 +26,9 @@ export interface DiscoveryRunInput {
   businessTypes?: string[];
   filters?: { minRating?: number; openNow?: boolean; requireWebsite?: boolean; requirePhone?: boolean };
   googleFieldMask?: string[];
+  googleLanguageCode?: string;
+  googleRankPreference?: "RELEVANCE" | "DISTANCE";
+  googleIncludePureServiceAreaBusinesses?: boolean;
   originalQuery?: string; translatedQuery?: string; targetLanguage?: string;
   channel?: "map_local_businesses" | "search_engine" | "actor_discovery";
   actorExecutions?: Array<{ actorId: string; sourceId: string; sourceName: string; actorTitle?: string; input: Record<string, unknown> }>;
@@ -158,7 +161,7 @@ async function searchOSM(code: string, tags: Array<{key:string;value:string}>, l
 }
 async function searchGoogle(
   code: string, query: string, limit: number, env: DiscoveryEnv, state?: string, city?: string,
-  businessTypes: string[] = [], filters: DiscoveryRunInput["filters"] = {}, googleFieldMask: string[] = [],
+  businessTypes: string[] = [], filters: DiscoveryRunInput["filters"] = {}, googleFieldMask: string[] = [], languageCode = "en", rankPreference: "RELEVANCE" | "DISTANCE" = "RELEVANCE", includePureServiceAreaBusinesses = false,
 ): Promise<GooglePlace[]> {
   const googleMapsApiKey = await readIntegrationSecret(env, "tradepilot_api_google_maps", "GOOGLE_MAPS_API_KEY");
   if (!googleMapsApiKey) throw new Error("GOOGLE_MAPS_API_KEY_NOT_CONFIGURED");
@@ -174,6 +177,9 @@ async function searchGoogle(
       const body: Record<string, unknown> = {
         textQuery: query + " in " + location,
         regionCode: code,
+        languageCode,
+        rankPreference,
+        includePureServiceAreaBusinesses,
         pageSize,
       };
       if (includedType) { body.includedType = includedType; body.strictTypeFiltering = true; }
@@ -285,7 +291,7 @@ export async function processRun(env: DiscoveryEnv, runId: string, ownerId: stri
       ? await searchOSM(code, input.osmTags ?? [], input.limitPerCountry, env, input.state, input.city, input.filters).then(value => ({ok:true as const,value})).catch(error => ({ok:false as const,error}))
       : null;
     const googleResult: ProviderResult<GooglePlace[]> | null = providers.includes("google_maps")
-      ? await searchGoogle(code, input.query, input.limitPerCountry, env, input.state, input.city, input.businessTypes ?? [], input.filters, input.googleFieldMask ?? []).then(value => ({ok:true as const,value})).catch(error => ({ok:false as const,error}))
+      ? await searchGoogle(code, input.query, input.limitPerCountry, env, input.state, input.city, input.businessTypes ?? [], input.filters, input.googleFieldMask ?? [], input.googleLanguageCode ?? "en", input.googleRankPreference ?? "RELEVANCE", input.googleIncludePureServiceAreaBusinesses ?? false).then(value => ({ok:true as const,value})).catch(error => ({ok:false as const,error}))
       : null;
     const rawOsm = osmResult?.ok ? osmResult.value : [];
     const rawGoogle = googleResult?.ok ? googleResult.value : [];
@@ -476,7 +482,7 @@ export async function handleDiscovery(request: Request, env: DiscoveryEnv): Prom
     const code=input.countries[0], scope=[input.city,input.state,countryName(code)].filter(Boolean).join(" · ");
     const rows=await db<Array<{id:string;task_code:string}>>(env,"discovery_runs",{
       method:"POST",headers:{Prefer:"return=representation"},
-      body:JSON.stringify({owner_id:userId,query:input.query.trim(),countries:input.countries,limit_per_country:input.limitPerCountry,state:input.state??null,city:input.city??null,providers,search_config:{businessTypes:input.businessTypes??[],filters:input.filters??{},googleFieldMask:input.googleFieldMask??[],osmTags:input.osmTags??[],originalQuery:input.originalQuery??null,translatedQuery:input.translatedQuery??null,targetLanguage:input.targetLanguage??null,planSnapshot:input.planSnapshot??null,guardrailsSnapshot:input.guardrailsSnapshot??null},channel:"map_local_businesses",status:"queued",progress:0,discovered_count:0,created_lead_count:0,message:"任务已排队 · "+scope,task_code:"MAP-"+code+"-"+new Date().toISOString().slice(0,10).replace(/-/g,"")+"-"+crypto.randomUUID().replace(/-/g,"").slice(0,6).toUpperCase()})
+      body:JSON.stringify({owner_id:userId,query:input.query.trim(),countries:input.countries,limit_per_country:input.limitPerCountry,state:input.state??null,city:input.city??null,providers,search_config:{businessTypes:input.businessTypes??[],filters:input.filters??{},googleFieldMask:input.googleFieldMask??[],googleLanguageCode:input.googleLanguageCode??"en",googleRankPreference:input.googleRankPreference??"RELEVANCE",googleIncludePureServiceAreaBusinesses:input.googleIncludePureServiceAreaBusinesses??false,osmTags:input.osmTags??[],originalQuery:input.originalQuery??null,translatedQuery:input.translatedQuery??null,targetLanguage:input.targetLanguage??null,planSnapshot:input.planSnapshot??null,guardrailsSnapshot:input.guardrailsSnapshot??null},channel:"map_local_businesses",status:"queued",progress:0,discovered_count:0,created_lead_count:0,message:"任务已排队 · "+scope,task_code:"MAP-"+code+"-"+new Date().toISOString().slice(0,10).replace(/-/g,"")+"-"+crypto.randomUUID().replace(/-/g,"").slice(0,6).toUpperCase()})
     });
     const run=rows?.[0]; if(!run?.id) throw new Error("DISCOVERY_RUN_CREATE_FAILED");
     await log(env,run.id,userId,"info","任务编号："+run.task_code+"；关键词："+input.query+(input.originalQuery?"（原始关键词："+input.originalQuery+"）":"")+"；业务类型："+(input.businessTypes??[]).join("、")+"；数据源："+providers.join("、"));
