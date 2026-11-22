@@ -183,6 +183,16 @@ export function SalesProcessPage() {
       status: row.is_formal ? '正式线索' : row.status === 'qualified' ? '待转化' : row.status === 'review' ? '待审核' : row.status === 'rejected' ? '已拒绝' : '草稿',
       href: '/leads', details: ['来源线索 · ' + (row.status || '未知'), '更新于 ' + dateLabel(row.updated_at)], closed: row.status === 'rejected',
     }));
+    const contactCards: BoardCard[] = scoped.contacts.map(row => {
+      const account = data?.accounts.find(item => String(item.id) === String(row.account_id));
+      const name = row.full_name || [row.first_name, row.last_name].filter(Boolean).join(' ') || '未命名联系人';
+      return {
+        id: row.id, title: name, subtitle: account?.account_name || '所属客户未设置',
+        status: row.is_primary ? '主要联系人' : row.is_active ? '有效联系人' : '未激活',
+        href: row.account_id ? '/accounts/' + row.account_id : '/accounts',
+        details: [row.email || '邮箱未设置', row.phone || '电话未设置'],
+      };
+    });
     const accountCards: BoardCard[] = scoped.accounts.map(row => ({
       id: row.id, title: row.account_name, subtitle: row.account_number || row.country_code || '客户档案',
       status: row.status || '未设置', href: '/accounts/' + row.id,
@@ -244,7 +254,8 @@ export function SalesProcessPage() {
     });
     return [
       { title: '线索', hint: '审核与转化', cards: leadCards, empty: '暂无线索记录' },
-      { title: '客户与联系人', hint: '客户主体与关键联系人', cards: accountCards, empty: '暂无客户档案' },
+      { title: '联系人', hint: '关键联系人与联系方式', cards: contactCards, empty: '暂无联系人记录' },
+      { title: '客户', hint: '客户主体与商业关系', cards: accountCards, empty: '暂无客户档案' },
       { title: '销售商机', hint: '商机阶段与预计金额', cards: opportunityCards, empty: '暂无销售商机' },
       { title: '报价单', hint: '报价状态与有效期', cards: quoteCards, empty: '暂无报价单' },
       { title: '销售订单', hint: '确认、取消与订单金额', cards: orderCards, empty: '暂无销售订单' },
@@ -266,9 +277,9 @@ export function SalesProcessPage() {
 
   const visibleColumns = useMemo(() => view === 'all' ? columns : columns.map(column => ({ ...column, cards: column.cards.filter(card => !card.closed) })), [columns, view]);
 
-  const processColumns = columns.slice(0, 5).concat(columns[5] ? [columns[5]] : []);
+  const processColumns = columns.slice(0, 7);
   const selectedColumn = columns.find(column => column.title === selectedStage) || processColumns[0];
-  const parallelColumns = columns.slice(6, 8);
+  const parallelColumns = columns.slice(7, 9);
 
   return (
     <main className="tp-sales-process">
