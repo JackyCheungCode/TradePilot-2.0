@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Button, Checkbox, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextArea, TextInput } from '@/design-system';
+import { Button, Checkbox, InlineLoading, InlineNotification, Select, SelectItem, Tag, TextArea, TextInput, semanticIcons } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import { AgentHistoryManagement } from './AgentHistoryManagement';
 
@@ -115,7 +115,7 @@ export function AgentSettings({ section }: { section: string }) {
         <Select id="agent-model-choice" labelText="模型选择" value={selectedModel} onChange={event => setSelectedModel(event.currentTarget.value)}>
           {providers.map(item => <SelectItem key={item.id} value={providerValue(item)} text={item.name + ' · ' + item.model} />)}
         </Select>
-        <Button kind="primary" disabled={saving || !selectedModel} onClick={() => void saveModel()}>保存模型配置</Button>
+        <Button kind="primary" renderIcon={semanticIcons.save} disabled={saving || !selectedModel} onClick={() => void saveModel()}>保存模型配置</Button>
       </div>
       {!providers.length && <Tag type="red">尚无已配置的模型，请先在 集成与 API中配置供应商和 API Key。</Tag>}
     </section>}
@@ -126,7 +126,7 @@ export function AgentSettings({ section }: { section: string }) {
         <Select id="agent-profile-select" labelText="选择 Agent" value={activeAgent} onChange={event => setActiveAgent(event.currentTarget.value)}>
           {Object.entries(agentLabels).map(([key,label]) => <SelectItem key={key} value={key} text={label} />)}
         </Select>
-        <Button kind="primary" disabled={saving || !activeProfile} onClick={() => activeProfile && void saveProfile(activeProfile)}>保存 Agent 设置</Button>
+        <Button kind="primary" renderIcon={semanticIcons.save} disabled={saving || !activeProfile} onClick={() => activeProfile && void saveProfile(activeProfile)}>保存 Agent 设置</Button>
       </div>
       {activeProfile ? <>
         <Select id="agent-profile-enabled" labelText="启用状态" hideLabel value={activeProfile.enabled ? 'enabled' : 'disabled'} onChange={event => setProfiles(rows => rows.map(item => item.agent_key === activeAgent ? {...item,enabled:event.currentTarget.value === 'enabled'} : item))}>
@@ -169,7 +169,7 @@ export function AgentSettings({ section }: { section: string }) {
         <Select id="agent-avatar-eye-scale" labelText="眼睛比例" value={String(appearance.eyeScale)} onChange={event => setAppearance(item => ({...item,eyeScale:Number(event.currentTarget.value)}))}>
           {['0.8','0.9','1','1.1','1.2','1.3','1.4'].map(value => <SelectItem key={value} value={value} text={value} />)}
         </Select>
-        <Button kind="primary" disabled={saving} onClick={() => void saveAppearance()}>保存头像设置</Button>
+        <Button kind="primary" renderIcon={semanticIcons.save} disabled={saving} onClick={() => void saveAppearance()}>保存头像设置</Button>
       </div>
     </section>}
   </div>;
