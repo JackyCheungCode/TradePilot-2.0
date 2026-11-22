@@ -578,7 +578,7 @@ export function CustomerCommunicationsWidget({
               <div className="tp-chat-heading"><strong>{activeCustomer.name}</strong><span>{activeCustomer.company} · {activeCustomer.country}</span></div>
               <div className="tp-chat-context"><span className="tp-chat-live-dot" /> 全渠道会话</div>
               <Button type="button" kind={activeCustomer.status === 'resolved' ? 'tertiary' : 'ghost'} size="sm" disabled={statusBusy} onClick={() => void updateCustomerConversationStatus()}>{statusBusy ? '更新中…' : activeCustomer.status === 'resolved' ? '重新打开' : '标记已解决'}</Button>
-              {popupMode ? <Button type="button" kind="ghost" size="sm" className="tp-chat-popup-close" onClick={() => window.close()}><span>关闭窗口</span><semanticIcons.close size={16} /></Button> : null}
+              {popupMode ? <Button type="button" kind="ghost" size="sm" className="tp-chat-popup-close" renderIcon={semanticIcons.close} onClick={() => window.close()}>关闭窗口</Button> : null}
             </header>
             <div className="tp-chat-timeline">
               <div className="tp-chat-timeline-label">消息时间线</div>
