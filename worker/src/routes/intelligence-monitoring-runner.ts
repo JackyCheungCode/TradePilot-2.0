@@ -106,7 +106,7 @@ export async function runDueIntelligenceMonitoring(env:Env,limit=15){
  claimed=raw?JSON.parse(raw) as ClaimedTask[]:[];
  const grouped=new Map<string,ClaimedTask[]>();
  for(const task of claimed){const group=grouped.get(task.run_id)??[];group.push(task);grouped.set(task.run_id,group);}
- for(const [runId,objects] of grouped){
+ for(const objects of grouped.values()){
   const task=objects[0];
   try{
    await patchRun(env,task,{status:"running",started_at:now()});
