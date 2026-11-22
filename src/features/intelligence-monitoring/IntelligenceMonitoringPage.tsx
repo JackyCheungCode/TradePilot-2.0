@@ -124,12 +124,12 @@ export function IntelligenceMonitoringPage() {
       </Grid>
 
       <Grid fullWidth narrow>
-        <Column sm={4} md={8} lg={10}>
+        <Column sm={4} md={8} lg={8}>
           <section>
             <h3>01 · 添加监听对象</h3>
             <p>输入你希望持续观察的公开内容链接。每个对象独立设置采集平台和运行频率。</p>
             <Grid fullWidth narrow>
-              <Column sm={4} md={4} lg={5}>
+              <Column sm={4} md={4} lg={4}>
                 <Dropdown
                   id="intel-platform"
                   titleText="监听平台"
