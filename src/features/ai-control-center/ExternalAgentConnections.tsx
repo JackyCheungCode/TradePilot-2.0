@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ComposedModal, ModalBody, ModalFooter, ModalHeader } from '@carbon/react';
-import { Button, ContainedList, ContainedListItem, InlineNotification, TPSkeleton, Select, SelectItem, Tag, TextInput } from '@/design-system';
+import { Button, ContainedList, ContainedListItem, InlineNotification, TPSkeleton, Select, SelectItem, Tag, TextInput, ComposedModal, ModalBody, ModalFooter, ModalHeader } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 
 type ExternalTool = { name: string; description?: string; risk?: string; riskPolicySource?: string; protocol?: string };
