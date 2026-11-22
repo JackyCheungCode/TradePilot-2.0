@@ -345,7 +345,7 @@ export function GoogleMapsDiscoveryPage() {
   };
   const chooseCity = (item: City) => {
     const key = String(item.id ?? item.name + item.admin1);
-    setSelectedCities(current => current.some(city => String(city.id ?? city.name + city.admin1) === key) ? current.filter(city => String(city.id ?? city.name + city.admin1) !== key) : [...current, item]);
+    setSelectedCities(current => { const exists = current.some(city => String(city.id ?? city.name + city.admin1) === key); if (!exists && current.length >= 20) { setError('一次最多选择 20 个城市或州 / 省，请分批执行。'); return current; } setError(''); return exists ? current.filter(city => String(city.id ?? city.name + city.admin1) !== key) : [...current, item]; });
   };
 
   const translateKeyword = async () => {
@@ -461,12 +461,12 @@ export function GoogleMapsDiscoveryPage() {
             </div>
           </div>
           <div className="tp-gmaps-discovery__field">
-            <label>州 / 省（可多选）</label>
-            <FilterableMultiSelect id="gmaps-region" titleText="选择州 / 省" placeholder={regionLoading ? '正在加载行政区…' : '搜索并选择州 / 省'} items={regions.map(item => ({ id: item.id, label: item.name }))} itemToString={item => item?.label ?? ''} selectedItems={regions.filter(item => selectedRegionIds.includes(item.id)).map(item => ({ id: item.id, label: item.name }))} onChange={({ selectedItems }) => { setSelectedRegionIds(selectedItems.map(item => item.id)); setSelectedCities([]); setCityQuery(''); }} disabled={!country || regionLoading || !regions.length} selectionFeedback="top" />
+            <label>州 / 省（可多选，最多 20 个）</label>
+            <FilterableMultiSelect id="gmaps-region" titleText="选择州 / 省" placeholder={regionLoading ? '正在加载行政区…' : '搜索并选择州 / 省'} items={regions.map(item => ({ id: item.id, label: item.name }))} itemToString={item => item?.label ?? ''} selectedItems={regions.filter(item => selectedRegionIds.includes(item.id)).map(item => ({ id: item.id, label: item.name }))} onChange={({ selectedItems }) => { setSelectedRegionIds(selectedItems.slice(0, 20).map(item => item.id)); setSelectedCities([]); setCityQuery(''); }} disabled={!country || regionLoading || !regions.length} selectionFeedback="top" />
             {regionError && <div className="tp-gmaps-discovery__region-error" role="alert"><span>{regionError}</span><Button kind="ghost" size="sm" onClick={() => setRegionReload(value => value + 1)}>重试</Button></div>}
           </div>
           <div className="tp-gmaps-discovery__field tp-gmaps-discovery__city-field">
-            <label>城市（可搜索、多选）</label>
+            <label>城市（可搜索、多选，最多 20 个）</label>
             <TextInput id="gmaps-city" labelText="输入城市名称" hideLabel value={cityQuery} placeholder="输入城市名称以搜索" onChange={event => setCityQuery(event.currentTarget.value)} disabled={!country} />
             {cityOptions.length > 0 && <div className="tp-gmaps-discovery__suggestion-list">
               {cityOptions.map(item => { const chosen = selectedCities.some(city => String(city.id ?? city.name + city.admin1) === String(item.id ?? item.name + item.admin1)); return <button key={String(item.id) + item.name + item.admin1} type="button" aria-pressed={chosen} onClick={() => chooseCity(item)}>
@@ -480,7 +480,7 @@ export function GoogleMapsDiscoveryPage() {
           <div><strong>行政区地图</strong><span>{selectedCities.length ? '已标记所选城市' : selectedRegionIds.length ? '已高亮所选州 / 省' : '点击地图也可选择州 / 省'}</span></div>
           {selectedRegionIds.length > 0 && <Button kind="ghost" size="sm" onClick={() => { setSelectedRegionIds([]); setSelectedCities([]); }}>清除州 / 省</Button>}
         </div>
-        <RegionMap regions={regions} selectedRegionIds={selectedRegionIds} cities={selectedCities} onRegionSelect={(id) => { setSelectedRegionIds(current => current.includes(id) ? current.filter(value => value !== id) : [...current, id]); setSelectedCities([]); setCityQuery(''); }} />
+        <RegionMap regions={regions} selectedRegionIds={selectedRegionIds} cities={selectedCities} onRegionSelect={(id) => { setSelectedRegionIds(current => current.includes(id) ? current.filter(value => value !== id) : current.length < 20 ? [...current, id] : current); setSelectedCities([]); setCityQuery(''); }} />
         <p className="tp-gmaps-discovery__source-note">行政区边界：geoBoundaries gbOpen（CC BY 4.0）；城市搜索：Open-Meteo Geocoding API。</p>
       </section>
 
