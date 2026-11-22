@@ -8,7 +8,7 @@ type CarbonActionIcon = typeof semanticIcons.add;
 export type PageHeaderAction = {
   id: string;
   label: string;
-  kind?: 'primary' | 'tertiary' | 'ghost';
+  kind?: 'primary' | 'secondary' | 'tertiary' | 'ghost';
   icon?: ReactNode;
   href?: string;
   onClick?: () => void;
@@ -100,7 +100,7 @@ function normalizeLegacyActions(node: ReactNode, primaryAssigned: { current: boo
     const primaryClass = /(?:^|[-_])primary(?:$|[-_])/.test(String(props.className || ''));
     const primary = !primaryAssigned.current && (props.kind === 'primary' || primaryClass || inferredPrimary);
     if (primary) primaryAssigned.current = true;
-    const kind = primary ? 'primary' : 'tertiary';
+    const kind = primary ? 'primary' : props.kind === 'secondary' ? 'secondary' : props.kind === 'ghost' ? 'ghost' : 'tertiary';
     const className = [String(props.className || ''), 'tp-page-header__action'].filter(Boolean).join(' ');
     const icon = resolveActionIcon(props.renderIcon, extracted.icon);
     const content = actionContent(extracted.children);
@@ -158,14 +158,12 @@ export function PageHeader({ breadcrumb, title, description, actions, className 
     return <header className={classes}>{markActionContainers(normalized)}</header>;
   }
 
-  const primaryCount = (actions || []).filter((action) => action.kind === 'primary').length;
-  if (primaryCount > 1) console.warn('PageHeader accepts at most one primary action.');
   const explicitPrimary = (actions || []).findIndex((action) => action.kind === 'primary');
   const inferredPrimary = (actions || []).findIndex((action) => /^(新建|创建|新增|添加|导入|保存|生成|开始|create|add|import)/i.test(action.label.trim()));
   const primaryIndex = explicitPrimary >= 0 ? explicitPrimary : inferredPrimary;
   const normalizedActions = (actions || []).map((action, index) => ({
     ...action,
-    kind: index === primaryIndex ? 'primary' as const : 'tertiary' as const,
+    kind: index === primaryIndex ? 'primary' as const : action.kind === 'secondary' ? 'secondary' as const : action.kind === 'ghost' ? 'ghost' as const : 'tertiary' as const,
   }));
 
   return (
