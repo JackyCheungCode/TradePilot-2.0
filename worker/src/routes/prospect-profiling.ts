@@ -115,6 +115,42 @@ export async function handleProspectCountries(request: Request, env: Env): Promi
   }
 }
 
+let prospectRegionCache = new Map<string, Array<{ id: string; name: string; geometry: unknown }>>();
+
+export async function handleProspectRegions(request: Request, env: Env): Promise<Response> {
+  if (request.method !== "GET") return errorResponse(request, "METHOD_NOT_ALLOWED", "不支持的请求方法。", 405);
+  if (!await authenticated(request, env)) return errorResponse(request, "UNAUTHORIZED", "请先登录 TradePilot。", 401);
+  const country = (new URL(request.url).searchParams.get("country") ?? "").trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(country)) return errorResponse(request, "INVALID_COUNTRY", "请选择有效国家或地区。", 400);
+  const cached = prospectRegionCache.get(country);
+  if (cached) return successResponse(request, { regions: cached, source: "geoBoundaries gbOpen ADM1" });
+  try {
+    const countryResponse = await fetch("https://restcountries.com/v3.1/alpha/" + country + "?fields=cca3", { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(8000) });
+    if (!countryResponse.ok) throw new Error("COUNTRY_ISO3_" + countryResponse.status);
+    const countryPayload = await countryResponse.json() as Array<{ cca3?: string }>;
+    const iso3 = countryPayload?.[0]?.cca3;
+    if (!iso3) throw new Error("COUNTRY_ISO3_MISSING");
+    const metadataResponse = await fetch("https://www.geoboundaries.org/api/current/gbOpen/" + iso3 + "/ADM1/", { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(12000) });
+    if (!metadataResponse.ok) throw new Error("GEOboundaries_METADATA_" + metadataResponse.status);
+    const metadata = await metadataResponse.json() as { gjDownloadURL?: string };
+    if (!metadata.gjDownloadURL) throw new Error("GEOboundaries_GEOJSON_URL_MISSING");
+    const geoResponse = await fetch(metadata.gjDownloadURL, { headers: { Accept: "application/geo+json,application/json" }, signal: AbortSignal.timeout(25000) });
+    if (!geoResponse.ok) throw new Error("GEOboundaries_GEOJSON_" + geoResponse.status);
+    const geo = await geoResponse.json() as { features?: Array<{ id?: string | number; properties?: Record<string, unknown>; geometry?: unknown }> };
+    const regions = (geo.features ?? []).flatMap((feature, index) => {
+      const props = feature.properties ?? {};
+      const name = String(props.shapeName ?? props.shapeName_en ?? props.NAME_1 ?? props.name ?? "").trim();
+      if (!name || !feature.geometry) return [];
+      return [{ id: String(props.shapeID ?? feature.id ?? index), name, geometry: feature.geometry }];
+    }).sort((a, b) => a.name.localeCompare(b.name));
+    prospectRegionCache.set(country, regions);
+    return successResponse(request, { regions, source: "geoBoundaries gbOpen ADM1 · CC BY 4.0" });
+  } catch (error) {
+    console.error("PROSPECT_REGION_LOOKUP_FAILED", String(error).slice(0, 240));
+    return errorResponse(request, "REGION_LOOKUP_UNAVAILABLE", "州 / 省行政区数据暂时不可用，请稍后重试。", 502);
+  }
+}
+
 export async function handleProspectCities(request: Request, env: Env): Promise<Response> {
   if (request.method !== "GET") return errorResponse(request, "METHOD_NOT_ALLOWED", "不支持的请求方法。", 405);
   if (!await authenticated(request, env)) return errorResponse(request, "UNAUTHORIZED", "请先登录 TradePilot。", 401);
@@ -132,11 +168,12 @@ export async function handleProspectCities(request: Request, env: Env): Promise<
     endpoint.searchParams.set("countryCode", country);
     const response = await fetch(endpoint, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(8000) });
     if (!response.ok) throw new Error("CITY_LOOKUP_" + response.status);
-    const payload = await response.json() as { results?: Array<{ name?: string; admin1?: string; country_code?: string }> };
-    const cities = [...new Set((payload.results ?? [])
-      .filter(item => typeof item.name === "string" && item.country_code?.toUpperCase() === country)
-      .map(item => item.admin1 && item.admin1 !== item.name ? item.name + ", " + item.admin1 : item.name as string))].slice(0, 20);
-    return successResponse(request, { cities, source: "open-meteo" });
+    const payload = await response.json() as { results?: Array<{ id?: number; name?: string; admin1?: string; admin2?: string; country_code?: string; latitude?: number; longitude?: number }> };
+    const cityDetails = (payload.results ?? []).filter(item => typeof item.name === "string" && item.country_code?.toUpperCase() === country)
+      .map(item => ({ id: item.id ?? null, name: item.name as string, admin1: item.admin1 ?? "", admin2: item.admin2 ?? "", latitude: item.latitude ?? null, longitude: item.longitude ?? null }))
+      .filter((item, index, all) => all.findIndex(candidate => candidate.name === item.name && candidate.admin1 === item.admin1) === index).slice(0, 20);
+    const cities = cityDetails.map(item => item.admin1 && item.admin1 !== item.name ? item.name + ", " + item.admin1 : item.name);
+    return successResponse(request, { cities, cityDetails, source: "open-meteo" });
   } catch (error) {
     console.error("PROSPECT_CITY_LOOKUP_FAILED", String(error).slice(0, 240));
     return errorResponse(request, "CITY_LOOKUP_UNAVAILABLE", "城市列表暂时不可用，请稍后重试。", 502);
