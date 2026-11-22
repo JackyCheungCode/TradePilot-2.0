@@ -21,6 +21,7 @@ type Geometry = { type: 'Polygon' | 'MultiPolygon'; coordinates: unknown };
 
 const languageByCountry: Record<string, { deepl: string; google: string }> = {
   JP: { deepl: 'JA', google: 'ja' }, KR: { deepl: 'KO', google: 'ko' },
+  US: { deepl: 'EN-US', google: 'en' }, GB: { deepl: 'EN-GB', google: 'en' }, CA: { deepl: 'EN-US', google: 'en' }, AU: { deepl: 'EN-GB', google: 'en' }, NZ: { deepl: 'EN-GB', google: 'en' },
   CN: { deepl: 'ZH-HANS', google: 'zh-CN' }, TW: { deepl: 'ZH-HANT', google: 'zh-TW' },
   HK: { deepl: 'ZH-HANT', google: 'zh-TW' }, MO: { deepl: 'ZH-HANT', google: 'zh-TW' },
   DE: { deepl: 'DE', google: 'de' }, AT: { deepl: 'DE', google: 'de' }, CH: { deepl: 'DE', google: 'de' },
@@ -143,7 +144,7 @@ function RegionMap({ regions, selectedRegion, city, onRegionSelect }: {
     return valid.map(item => ({
       ...item,
       path: item.polygons.map(polygon => polygonPath(polygon, project)).join(' '),
-    })).concat(city?.longitude != null && city.latitude != null ? [] : []);
+    }));
   }, [regions, city]);
   const cityPoint = useMemo(() => {
     if (!city || city.latitude == null || city.longitude == null || !shapes.length) return null;
@@ -192,6 +193,7 @@ export function GoogleMapsDiscoveryPage() {
   const [keyword, setKeyword] = useState('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [translated, setTranslated] = useState('');
+  const [originalKeyword, setOriginalKeyword] = useState('');
   const [translationBusy, setTranslationBusy] = useState(false);
   const [limit, setLimit] = useState('20');
   const [minRating, setMinRating] = useState('0');
@@ -212,7 +214,7 @@ export function GoogleMapsDiscoveryPage() {
   const [results, setResults] = useState<ProspectRow[]>([]);
   const [tableSearch, setTableSearch] = useState('');
 
-  const language = languageByCountry[country] ?? { deepl: 'EN', google: 'en' };
+  const language = languageByCountry[country] ?? { deepl: 'EN-US', google: 'en' };
   const chosenCountry = countries.find(item => item.cca2 === country);
 
   const loadResults = useCallback(async (id: string) => {
@@ -307,7 +309,7 @@ export function GoogleMapsDiscoveryPage() {
   }, [results]);
 
   const selectCountry = (code: string) => {
-    setCountry(code); setRegion(''); setCity(null); setCityQuery(''); setTranslated(''); setSuggestions([]);
+    setCountry(code); setRegion(''); setCity(null); setCityQuery(''); setTranslated(''); setOriginalKeyword(''); setSuggestions([]);
   };
   const chooseCity = (item: City) => {
     setCity(item); setCityQuery(item.name); setCityOptions([]);
@@ -331,10 +333,10 @@ export function GoogleMapsDiscoveryPage() {
     setBusy(true); setError(''); setNotice(''); setResults([]);
     try {
       const input = {
-        countries: [country], query: keyword.trim(), originalQuery: translated && keyword.trim() !== translated ? keyword.trim() : undefined,
-        translatedQuery: translated || undefined, targetLanguage: translated ? language.deepl : undefined,
+        countries: [country], query: keyword.trim(), originalQuery: originalKeyword || undefined,
+        translatedQuery: originalKeyword ? keyword.trim() : undefined, targetLanguage: originalKeyword ? language.deepl : undefined,
         state: region ? regions.find(item => item.id === region)?.name : undefined,
-        city: city?.name,
+        city: city ? (city.admin1 && !region ? city.name + ', ' + city.admin1 : city.name) : undefined,
         limitPerCountry: Math.min(60, Math.max(1, Number(limit) || 20)),
         providers: ['google_maps'], businessTypes: selectedTypes,
         filters: { minRating: Number(minRating) || undefined, openNow, requireWebsite, requirePhone },
@@ -353,6 +355,7 @@ export function GoogleMapsDiscoveryPage() {
   };
 
   const convertCustomer = async (row: ProspectRow) => {
+    if (row.status === 'promoted' || row.lead_id) throw new Error('该潜客已经转换为 CRM 客户。');
     const raw = row.raw_data ?? {};
     const stage = String(raw.lifecycle_stage ?? 'discovered');
     const intel = raw.contact_intelligence && typeof raw.contact_intelligence === 'object' ? raw.contact_intelligence as Record<string, unknown> : {};
@@ -449,7 +452,7 @@ export function GoogleMapsDiscoveryPage() {
         </div>
         <div className="tp-gmaps-discovery__keyword-row">
           <div className="tp-gmaps-discovery__keyword-input">
-            <TextInput id="gmaps-keyword" labelText="企业或产品关键词" value={keyword} onChange={event => { setKeyword(event.currentTarget.value); setTranslated(''); }} placeholder="例如：electronics wholesaler、computer accessories distributor" />
+            <TextInput id="gmaps-keyword" labelText="企业或产品关键词" value={keyword} onChange={event => { setKeyword(event.currentTarget.value); setTranslated(''); setOriginalKeyword(''); }} placeholder="例如：electronics wholesaler、computer accessories distributor" />
             {suggestions.length > 0 && <div className="tp-gmaps-discovery__suggestion-list tp-gmaps-discovery__keyword-suggestions">
               {suggestions.map(item => <button type="button" key={item} onClick={() => { setKeyword(item); setSuggestions([]); setTranslated(''); }}><span>{item}</span><span>采用关键词</span></button>)}
             </div>}
@@ -458,7 +461,7 @@ export function GoogleMapsDiscoveryPage() {
         </div>
         {translated && <div className="tp-gmaps-discovery__translation">
           <div><span>翻译建议 · {language.deepl}</span><strong>{translated}</strong></div>
-          <div><Button kind="primary" size="sm" onClick={() => { setKeyword(translated); setTranslated(''); setSuggestions([]); }}>确认替换关键词</Button><Button kind="ghost" size="sm" onClick={() => setTranslated('')}>保留原词</Button></div>
+          <div><Button kind="primary" size="sm" onClick={() => { setOriginalKeyword(keyword.trim()); setKeyword(translated); setTranslated(''); setSuggestions([]); }}>确认替换关键词</Button><Button kind="ghost" size="sm" onClick={() => setTranslated('')}>保留原词</Button></div>
         </div>}
       </section>
 
