@@ -133,8 +133,9 @@ export async function handleProspectRegions(request: Request, env: Env): Promise
     const metadataResponse = await fetch("https://www.geoboundaries.org/api/current/gbOpen/" + iso3 + "/ADM1/", { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(12000) });
     if (!metadataResponse.ok) throw new Error("GEOboundaries_METADATA_" + metadataResponse.status);
     const metadata = await metadataResponse.json() as { gjDownloadURL?: string };
-    if (!metadata.gjDownloadURL) throw new Error("GEOboundaries_GEOJSON_URL_MISSING");
-    const geoResponse = await fetch(metadata.gjDownloadURL, { headers: { Accept: "application/geo+json,application/json" }, signal: AbortSignal.timeout(25000) });
+    const geoUrl = metadata.simplifiedGeometryGeoJSON || metadata.gjDownloadURL;
+    if (!geoUrl) throw new Error("GEOboundaries_GEOJSON_URL_MISSING");
+    const geoResponse = await fetch(geoUrl, { headers: { Accept: "application/geo+json,application/json" }, signal: AbortSignal.timeout(25000) });
     if (!geoResponse.ok) throw new Error("GEOboundaries_GEOJSON_" + geoResponse.status);
     const geo = await geoResponse.json() as { features?: Array<{ id?: string | number; properties?: Record<string, unknown>; geometry?: unknown }> };
     const regions = (geo.features ?? []).flatMap((feature, index) => {
