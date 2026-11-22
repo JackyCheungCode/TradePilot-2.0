@@ -129,7 +129,7 @@ export function IntelligenceMonitoringPage() {
           <section>
             <h3>01 · 添加监听对象</h3>
             <p>输入你希望持续观察的公开内容链接。每个对象独立设置采集平台和运行频率。</p>
-            <Grid fullWidth narrow>
+            <Grid fullWidth className="tp-intelligence-monitoring__form-grid">
               <Column sm={4} md={4} lg={4}>
                 <Dropdown
                   id="intel-platform"
