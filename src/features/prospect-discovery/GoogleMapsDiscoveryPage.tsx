@@ -529,6 +529,7 @@ export function GoogleMapsDiscoveryPage() {
           rows={tableRows}
           rowKey="id"
           selectable
+          batchActions={[{ key: 'convert-selected-customers', label: '转为客户', onClick: async (rows: ProspectRow[]) => { for (const row of rows) await convertCustomer(row); } }]}
           rowActions={rowActions}
           searchValue={tableSearch}
           onSearchChange={setTableSearch}
