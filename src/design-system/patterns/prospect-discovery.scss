@@ -1081,3 +1081,6 @@
     min-width: 680px;
   }
 }
+
+
+.tp-prospect-discovery__configuration-nav .tp-prospect-discovery__config-step[aria-current="step"] { color: var(--cds-text-primary); font-weight: 600; box-shadow: inset 0 -2px var(--cds-interactive); }
