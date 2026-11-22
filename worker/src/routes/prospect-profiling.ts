@@ -193,22 +193,23 @@ export async function handleProspectCities(request: Request, env: Env): Promise<
   const query = (url.searchParams.get("q") ?? "").trim().slice(0, 80);
   const country = (url.searchParams.get("country") ?? "").trim().slice(0, 2).toUpperCase();
   const language = (url.searchParams.get("language") ?? "en").trim().slice(0, 8);
+  const admin1 = (url.searchParams.get("admin1") ?? "").trim().slice(0, 100);
   if (!/^[A-Z]{2}$/.test(country)) return successResponse(request, { cities: [] });
   try {
     if (query.length < 2) return successResponse(request, { cities: [] });
     const endpoint = new URL("https://geocoding-api.open-meteo.com/v1/search");
-    endpoint.searchParams.set("name", query);
-    endpoint.searchParams.set("count", "20");
+    endpoint.searchParams.set("name", admin1 ? query + ", " + admin1 : query);
+    endpoint.searchParams.set("count", "100");
     endpoint.searchParams.set("language", language);
     endpoint.searchParams.set("countryCode", country);
     const response = await fetch(endpoint, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(8000) });
     if (!response.ok) throw new Error("CITY_LOOKUP_" + response.status);
-    const payload = await response.json() as { results?: Array<{ id?: number; name?: string; admin1?: string; admin2?: string; country_code?: string; latitude?: number; longitude?: number }> };
-    const cityDetails = (payload.results ?? []).filter(item => typeof item.name === "string" && item.country_code?.toUpperCase() === country)
-      .map(item => ({ id: item.id ?? null, name: item.name as string, admin1: item.admin1 ?? "", admin2: item.admin2 ?? "", latitude: item.latitude ?? null, longitude: item.longitude ?? null }))
+    const payload = await response.json() as { results?: Array<{ id?: number; name?: string; admin1?: string; admin2?: string; country_code?: string; latitude?: number; longitude?: number; population?: number; feature_code?: string }> };
+    const cityDetails = (payload.results ?? []).filter(item => typeof item.name === "string" && item.country_code?.toUpperCase() === country && (!item.feature_code || item.feature_code.startsWith("PPL")) && (!admin1 || item.admin1?.toLocaleLowerCase() === admin1.toLocaleLowerCase()))
+      .map(item => ({ id: item.id ?? null, name: item.name as string, admin1: item.admin1 ?? "", admin2: item.admin2 ?? "", latitude: item.latitude ?? null, longitude: item.longitude ?? null, population: item.population ?? 0 }))
       .filter((item, index, all) => all.findIndex(candidate => candidate.name === item.name && candidate.admin1 === item.admin1) === index).slice(0, 20);
     const cities = cityDetails.map(item => item.admin1 && item.admin1 !== item.name ? item.name + ", " + item.admin1 : item.name);
-    return successResponse(request, { cities, cityDetails, source: "open-meteo" });
+    return successResponse(request, { cities, cityDetails, source: "Open-Meteo Geocoding · GeoNames" });
   } catch (error) {
     console.error("PROSPECT_CITY_LOOKUP_FAILED", String(error).slice(0, 240));
     return errorResponse(request, "CITY_LOOKUP_UNAVAILABLE", "城市列表暂时不可用，请稍后重试。", 502);
