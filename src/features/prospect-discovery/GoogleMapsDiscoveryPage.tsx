@@ -8,7 +8,7 @@ import { getSupabaseClient } from '@/lib/supabase';
 
 type Country = { cca2: string; cca3?: string; name: { common: string }; region?: string };
 type Region = { id: string; name: string; geometry: unknown };
-type City = { id: number | null; name: string; admin1: string; admin2: string; latitude: number | null; longitude: number | null };
+type City = { id: number | null; name: string; admin1: string; admin2: string; latitude: number | null; longitude: number | null; population?: number };
 type ProspectRow = {
   id: string; name?: string; country_code?: string; address?: string; phone?: string; email?: string;
   website?: string; latitude?: number | null; longitude?: number | null; status?: string;
@@ -126,8 +126,8 @@ function polygonPath(rings: Array<Array<[number, number]>>, project: (point: [nu
     return (index ? 'L' : 'M') + x.toFixed(1) + ',' + y.toFixed(1);
   }).join(' ') + ' Z').join(' ');
 }
-function RegionMap({ regions, selectedRegion, city, onRegionSelect }: {
-  regions: Region[]; selectedRegion: string; city: City | null; onRegionSelect: (id: string, name: string) => void;
+function RegionMap({ regions, selectedRegionIds, cities, onRegionSelect }: {
+  regions: Region[]; selectedRegionIds: string[]; cities: City[]; onRegionSelect: (id: string, name: string) => void;
 }) {
   const shapes = useMemo(() => {
     const valid = regions.flatMap(region => {
@@ -154,9 +154,9 @@ function RegionMap({ regions, selectedRegion, city, onRegionSelect }: {
       ...item,
       path: item.polygons.map(polygon => polygonPath(polygon, project)).join(' '),
     }));
-  }, [regions, city]);
-  const cityPoint = useMemo(() => {
-    if (!city || city.latitude == null || city.longitude == null || !shapes.length) return null;
+  }, [regions]);
+  const cityPoints = useMemo(() => {
+    if (!cities.length || !shapes.length) return [];
     const points = shapes.flatMap(shape => shape.points);
     const minLon = Math.min(...points.map(point => point[0]));
     const maxLon = Math.max(...points.map(point => point[0]));
@@ -167,25 +167,25 @@ function RegionMap({ regions, selectedRegion, city, onRegionSelect }: {
     const scale = Math.min(580 / width, 320 / height);
     const offsetX = (640 - width * scale) / 2;
     const offsetY = (360 - height * scale) / 2;
-    return [offsetX + (city.longitude - minLon) * scale, offsetY + (maxLat - city.latitude) * scale] as [number, number];
-  }, [city, shapes]);
+    return cities.filter(city => city.latitude != null && city.longitude != null).map(city => ({ city, point: [offsetX + (city.longitude! - minLon) * scale, offsetY + (maxLat - city.latitude!) * scale] as [number, number] }));
+  }, [cities, shapes]);
   if (!regions.length) return <div className="tp-gmaps-discovery__map-empty">选择国家后加载行政区地图</div>;
   return (
     <div className="tp-gmaps-discovery__map">
       <svg viewBox="0 0 640 360" role="img" aria-label="州省行政区选择地图">
         {shapes.map(shape => (
           <path key={shape.id} d={shape.path} className="tp-gmaps-discovery__region"
-            data-selected={!city && selectedRegion === shape.id ? 'true' : 'false'}
+            data-selected={selectedRegionIds.includes(shape.id) ? 'true' : 'false'}
             role="button" tabIndex={0} aria-label={shape.name}
             onClick={() => onRegionSelect(shape.id, shape.name)}
             onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onRegionSelect(shape.id, shape.name); } }}>
             <title>{shape.name}</title>
           </path>
         ))}
-        {cityPoint && <g className="tp-gmaps-discovery__city-pin" transform={'translate(' + cityPoint[0] + ' ' + cityPoint[1] + ')'}><circle r="10" /><circle r="3.5" /></g>}
+        {cityPoints.map(({ city, point }) => <g key={String(city.id) + city.name} className="tp-gmaps-discovery__city-pin" transform={'translate(' + point[0] + ' ' + point[1] + ')'}><circle r="10" /><circle r="3.5" /></g>)}
       </svg>
       <div className="tp-gmaps-discovery__map-caption">
-        {city ? '地图标记：' + city.name + '（城市级）' : selectedRegion ? '地图标记：' + (regions.find(region => region.id === selectedRegion)?.name || '已选州 / 省') : '点击地图选择州 / 省'}
+        {cities.length ? '已标记 ' + cities.length + ' 个城市' : selectedRegionIds.length ? '已选择 ' + selectedRegionIds.length + ' 个州 / 省' : '点击地图选择州 / 省'}
       </div>
     </div>
   );
@@ -195,10 +195,10 @@ export function GoogleMapsDiscoveryPage() {
   const [countries, setCountries] = useState<Country[]>([]);
   const [country, setCountry] = useState('');
   const [regions, setRegions] = useState<Region[]>([]);
-  const [region, setRegion] = useState('');
+  const [selectedRegionIds, setSelectedRegionIds] = useState<string[]>([]);
   const [cityQuery, setCityQuery] = useState('');
   const [cityOptions, setCityOptions] = useState<City[]>([]);
-  const [city, setCity] = useState<City | null>(null);
+  const [selectedCities, setSelectedCities] = useState<City[]>([]);
   const [keyword, setKeyword] = useState('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [translated, setTranslated] = useState('');
@@ -258,9 +258,9 @@ export function GoogleMapsDiscoveryPage() {
   }, []);
 
   useEffect(() => {
-    if (!country) { setRegions([]); setRegion(''); setCity(null); setCityOptions([]); setRegionError(''); setRegionLoading(false); return; }
+    if (!country) { setRegions([]); setSelectedRegionIds([]); setSelectedCities([]); setCityOptions([]); setRegionError(''); setRegionLoading(false); return; }
     let active = true;
-    setRegions([]); setRegion(''); setCity(null); setCityQuery(''); setCityOptions([]); setRegionError(''); setRegionLoading(true);
+    setRegions([]); setSelectedRegionIds([]); setSelectedCities([]); setCityQuery(''); setCityOptions([]); setRegionError(''); setRegionLoading(true);
     const iso3 = countries.find(item => item.cca2 === country)?.cca3;
     if (!iso3) { setRegionError('该国家 / 地区缺少 ISO-3 代码，请刷新国家列表后重试。'); setRegionLoading(false); return; }
     void api<{ regions: Region[] }>('/api/v1/prospect-profiling/regions?country=' + country + '&iso3=' + iso3)
@@ -274,13 +274,21 @@ export function GoogleMapsDiscoveryPage() {
     if (!country || cityQuery.trim().length < 2) { setCityOptions([]); return; }
     let active = true;
     const timer = window.setTimeout(() => {
-      const url = '/api/v1/prospect-profiling/cities?q=' + encodeURIComponent(cityQuery.trim()) + '&country=' + country + '&language=en';
-      void api<{ cityDetails: City[] }>(url)
-        .then(payload => { if (active) { const selectedRegionName = regions.find(item => item.id === region)?.name.toLocaleLowerCase(); setCityOptions((payload.cityDetails ?? []).filter(item => !selectedRegionName || item.admin1.toLocaleLowerCase() === selectedRegionName || item.admin1.toLocaleLowerCase().includes(selectedRegionName) || selectedRegionName.includes(item.admin1.toLocaleLowerCase()))); } })
-        .catch(() => { if (active) setCityOptions([]); });
+      const selectedRegionNames = selectedRegionIds.map(id => regions.find(item => item.id === id)?.name).filter((name): name is string => Boolean(name));
+      const scopes = selectedRegionNames.length ? selectedRegionNames : [''];
+      void Promise.all(scopes.map(admin1 => {
+        const params = new URLSearchParams({ q: cityQuery.trim(), country, language: 'en' });
+        if (admin1) params.set('admin1', admin1);
+        return api<{ cityDetails: City[] }>('/api/v1/prospect-profiling/cities?' + params.toString());
+      })).then(payloads => {
+        if (!active) return;
+        const unique = new Map<string, City>();
+        for (const payload of payloads) for (const item of payload.cityDetails ?? []) unique.set(String(item.id ?? item.name + item.admin1), item);
+        setCityOptions([...unique.values()].sort((a, b) => (b.population ?? 0) - (a.population ?? 0)).slice(0, 100));
+      }).catch(() => { if (active) setCityOptions([]); });
     }, 300);
     return () => { active = false; window.clearTimeout(timer); };
-  }, [cityQuery, country, region, regions]);
+  }, [cityQuery, country, selectedRegionIds, regions]);
 
   useEffect(() => {
     if (!country || keyword.trim().length < 2) { setSuggestions([]); return; }
@@ -333,10 +341,11 @@ export function GoogleMapsDiscoveryPage() {
   }, [results]);
 
   const selectCountry = (code: string) => {
-    setCountry(code); setRegion(''); setCity(null); setCityQuery(''); setTranslated(''); setOriginalKeyword(''); setSuggestions([]);
+    setCountry(code); setSelectedRegionIds([]); setSelectedCities([]); setCityQuery(''); setTranslated(''); setOriginalKeyword(''); setSuggestions([]);
   };
   const chooseCity = (item: City) => {
-    setCity(item); setCityQuery(item.name); setCityOptions([]);
+    const key = String(item.id ?? item.name + item.admin1);
+    setSelectedCities(current => current.some(city => String(city.id ?? city.name + city.admin1) === key) ? current.filter(city => String(city.id ?? city.name + city.admin1) !== key) : [...current, item]);
   };
 
   const translateKeyword = async () => {
@@ -359,8 +368,7 @@ export function GoogleMapsDiscoveryPage() {
       const input = {
         countries: [country], query: keyword.trim(), originalQuery: originalKeyword || undefined,
         translatedQuery: originalKeyword ? keyword.trim() : undefined, targetLanguage: originalKeyword ? language.deepl : undefined,
-        state: region ? regions.find(item => item.id === region)?.name : undefined,
-        city: city ? (city.admin1 && !region ? city.name + ', ' + city.admin1 : city.name) : undefined,
+        locations: selectedCities.length ? selectedCities.map(item => ({ city: item.name, state: item.admin1 || undefined })) : selectedRegionIds.length ? selectedRegionIds.map(id => ({ state: regions.find(item => item.id === id)?.name })).filter(item => item.state) : [{}],
         limitPerCountry: Math.min(60, Math.max(1, Number(limit) || 20)),
         providers: ['google_maps'], businessTypes: selectedTypes,
         filters: { minRating: Number(minRating) || undefined, openNow, requireWebsite, requirePhone },
@@ -453,28 +461,26 @@ export function GoogleMapsDiscoveryPage() {
             </div>
           </div>
           <div className="tp-gmaps-discovery__field">
-            <label>州 / 省</label>
-            <Select id="gmaps-region" labelText="选择州 / 省" hideLabel value={region} onChange={event => { setRegion(event.currentTarget.value); setCity(null); setCityQuery(''); }} disabled={!country || regionLoading || (!regions.length && !regionError)}>
-              <SelectItem value="" text={regionLoading ? '正在加载州 / 省…' : regions.length ? '全部州 / 省' : regionError ? '行政区数据加载失败' : '该国家暂无可用一级行政区'} />
-              {regions.map(item => <SelectItem key={item.id} value={item.id} text={item.name} />)}
-            </Select>
+            <label>州 / 省（可多选）</label>
+            <FilterableMultiSelect id="gmaps-region" titleText="选择州 / 省" placeholder={regionLoading ? '正在加载行政区…' : '搜索并选择州 / 省'} items={regions.map(item => ({ id: item.id, label: item.name }))} itemToString={item => item?.label ?? ''} selectedItems={regions.filter(item => selectedRegionIds.includes(item.id)).map(item => ({ id: item.id, label: item.name }))} onChange={({ selectedItems }) => { setSelectedRegionIds(selectedItems.map(item => item.id)); setSelectedCities([]); setCityQuery(''); }} disabled={!country || regionLoading || !regions.length} selectionFeedback="top" />
             {regionError && <div className="tp-gmaps-discovery__region-error" role="alert"><span>{regionError}</span><Button kind="ghost" size="sm" onClick={() => setRegionReload(value => value + 1)}>重试</Button></div>}
           </div>
           <div className="tp-gmaps-discovery__field tp-gmaps-discovery__city-field">
-            <label>城市</label>
-            <TextInput id="gmaps-city" labelText="输入城市名称" hideLabel value={cityQuery} placeholder="输入城市名称以搜索" onChange={event => { setCityQuery(event.currentTarget.value); setCity(null); }} disabled={!country} />
+            <label>城市（可搜索、多选）</label>
+            <TextInput id="gmaps-city" labelText="输入城市名称" hideLabel value={cityQuery} placeholder="输入城市名称以搜索" onChange={event => setCityQuery(event.currentTarget.value)} disabled={!country} />
             {cityOptions.length > 0 && <div className="tp-gmaps-discovery__suggestion-list">
-              {cityOptions.map(item => <button key={String(item.id) + item.name + item.admin1} type="button" onClick={() => chooseCity(item)}>
-                <strong>{item.name}</strong><span>{[item.admin1, item.admin2].filter(Boolean).join(' · ')}</span>
-              </button>)}
+              {cityOptions.map(item => { const chosen = selectedCities.some(city => String(city.id ?? city.name + city.admin1) === String(item.id ?? item.name + item.admin1)); return <button key={String(item.id) + item.name + item.admin1} type="button" aria-pressed={chosen} onClick={() => chooseCity(item)}>
+                <strong>{item.name}</strong><span>{[item.admin1, item.admin2].filter(Boolean).join(' · ')}{chosen ? ' · 已选择' : ' · 点击添加'}</span>
+              </button>; })}
             </div>}
+            {selectedCities.length > 0 && <div className="tp-gmaps-discovery__selected-cities">{selectedCities.map(item => <button type="button" key={String(item.id) + item.name} onClick={() => chooseCity(item)}>{item.name}{item.admin1 ? ' · ' + item.admin1 : ''} <span aria-hidden="true">×</span></button>)}</div>}
           </div>
         </div>
         <div className="tp-gmaps-discovery__map-heading">
-          <div><strong>行政区地图</strong><span>{city ? '城市级定位优先，不高亮所属州 / 省' : region ? '已高亮所选州 / 省' : '点击地图也可选择州 / 省'}</span></div>
-          {region && <Button kind="ghost" size="sm" onClick={() => setRegion('')}>清除州 / 省</Button>}
+          <div><strong>行政区地图</strong><span>{selectedCities.length ? '已标记所选城市' : selectedRegionIds.length ? '已高亮所选州 / 省' : '点击地图也可选择州 / 省'}</span></div>
+          {selectedRegionIds.length > 0 && <Button kind="ghost" size="sm" onClick={() => { setSelectedRegionIds([]); setSelectedCities([]); }}>清除州 / 省</Button>}
         </div>
-        <RegionMap regions={regions} selectedRegion={region} city={city} onRegionSelect={(id) => { setRegion(id); setCity(null); setCityQuery(''); }} />
+        <RegionMap regions={regions} selectedRegionIds={selectedRegionIds} cities={selectedCities} onRegionSelect={(id) => { setSelectedRegionIds(current => current.includes(id) ? current.filter(value => value !== id) : [...current, id]); setSelectedCities([]); setCityQuery(''); }} />
         <p className="tp-gmaps-discovery__source-note">行政区边界：geoBoundaries gbOpen（CC BY 4.0）；城市搜索：Open-Meteo Geocoding API。</p>
       </section>
 
