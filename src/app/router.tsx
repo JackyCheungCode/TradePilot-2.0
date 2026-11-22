@@ -8,6 +8,7 @@ import { ProspectDiscoveryPage } from '../features/prospect-discovery';
 import { ProspectHistoryPage } from '../features/prospect-discovery/ProspectHistoryPage';
 import { ProspectDataPage } from '../features/prospect-discovery/ProspectDataPage';
 import { IntelligenceMonitoringPage, MonitoringTasksPage, MonitoringResultsPage } from '../features/intelligence-monitoring/IntelligenceMonitoringPage';
+import { MonitoringLogsPage } from '../features/intelligence-monitoring/MonitoringLogsPage';
 import { LeadCreatePage } from '../features/leads/LeadCreatePage';
 import { LeadConsolePage } from '../features/leads/LeadConsolePage';
 import { ContactConsolePage, ContactDetailPage, ContactFormPage } from '../features/contacts/ContactPages';
@@ -60,6 +61,7 @@ export const router = createBrowserRouter([
           { path: 'intelligence-monitoring', element: <IntelligenceMonitoringPage /> },
           { path: 'intelligence-monitoring/tasks', element: <MonitoringTasksPage /> },
           { path: 'intelligence-monitoring/results', element: <MonitoringResultsPage /> },
+          { path: 'intelligence-monitoring/logs', element: <MonitoringLogsPage /> },
           { path: 'leads', element: <LeadConsolePage /> },
           { path: 'leads/new', element: <LeadCreatePage /> },
           { path: 'opportunities', element: <OpportunityConsolePage /> },
