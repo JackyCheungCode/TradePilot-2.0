@@ -300,7 +300,7 @@ export function SettingsCenterPage() {
                         <SelectItem value="" text="无上级分类（一级）" />
                         {parentOptions.map((item) => <SelectItem key={item.id} value={item.id} text={item.name} />)}
                       </Select>
-                      <Button kind="primary" disabled={saving || !categoryName.trim()} onClick={() => void addCategory()}>{editingCategoryId ? '保存修改' : '新增分类'}</Button>{editingCategoryId && <Button kind="ghost" onClick={() => { setEditingCategoryId(null); setCategoryName(''); setCategoryCode(''); setCategoryParent(''); }}>取消</Button>}
+                      <Button kind="primary" renderIcon={editingCategoryId ? semanticIcons.save : semanticIcons.add} disabled={saving || !categoryName.trim()} onClick={() => void addCategory()}>{editingCategoryId ? '保存修改' : '新增分类'}</Button>{editingCategoryId && <Button kind="ghost" onClick={() => { setEditingCategoryId(null); setCategoryName(''); setCategoryCode(''); setCategoryParent(''); }}>取消</Button>}
                     </div>
                   </div>
                   <div className="tp-settings__table-wrap">
@@ -337,7 +337,7 @@ export function SettingsCenterPage() {
                       <Select id="setting-attribute-variant" labelText="变体生成方式" value={variantMode} onChange={(event) => setVariantMode(event.currentTarget.value)}>
                         {variantModes.map((item) => <SelectItem key={item.value} value={item.value} text={item.label} />)}
                       </Select>
-                      <Button kind="primary" disabled={saving || !attributeName.trim()} onClick={() => void addAttribute()}>{editingAttributeId ? '保存修改' : '新增属性'}</Button>{editingAttributeId && <Button kind="ghost" onClick={() => { setEditingAttributeId(null); setAttributeName(''); setDisplayType('select'); setVariantMode('never'); }}>取消</Button>}
+                      <Button kind="primary" renderIcon={editingAttributeId ? semanticIcons.save : semanticIcons.add} disabled={saving || !attributeName.trim()} onClick={() => void addAttribute()}>{editingAttributeId ? '保存修改' : '新增属性'}</Button>{editingAttributeId && <Button kind="ghost" onClick={() => { setEditingAttributeId(null); setAttributeName(''); setDisplayType('select'); setVariantMode('never'); }}>取消</Button>}
                     </div>
                   </div>
                   <div className="tp-settings__table-wrap">
@@ -368,7 +368,7 @@ export function SettingsCenterPage() {
                       </Select>
                       <TextInput id="setting-attribute-value-name" labelText="属性值" value={attributeValueName} onChange={(event) => setAttributeValueName(event.currentTarget.value)} />
                       <TextInput id="setting-attribute-value-color" labelText="颜色值（可选，如 #FF0000）" value={attributeValueColor} onChange={(event) => setAttributeValueColor(event.currentTarget.value)} />
-                      <Button kind="primary" disabled={saving || !attributeValueName.trim() || !attributeValueAttribute} onClick={() => void addAttributeValue()}>新增属性值</Button>
+                      <Button kind="primary" renderIcon={semanticIcons.add} disabled={saving || !attributeValueName.trim() || !attributeValueAttribute} onClick={() => void addAttributeValue()}>新增属性值</Button>
                     </div>
                   </div>
                   <div className="tp-settings__table-wrap">
