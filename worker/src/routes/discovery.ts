@@ -26,6 +26,7 @@ export interface DiscoveryRunInput {
   businessTypes?: string[];
   filters?: { minRating?: number; openNow?: boolean; requireWebsite?: boolean; requirePhone?: boolean };
   googleFieldMask?: string[];
+  googleFieldStorageModes?: Record<string, 'raw' | 'text' | 'non_empty'>;
   googleLanguageCode?: string;
   googleRankPreference?: "RELEVANCE" | "DISTANCE";
   googleIncludePureServiceAreaBusinesses?: boolean;
@@ -207,6 +208,18 @@ async function searchGoogle(
   if (filters.requirePhone) places = places.filter((place) => Boolean(place.internationalPhoneNumber || place.nationalPhoneNumber));
   return places.slice(0, limit);
 }
+function applyGoogleFieldStorageModes(place: GooglePlace, modes: DiscoveryRunInput['googleFieldStorageModes'] = {}): Record<string, unknown> {
+  const output: Record<string, unknown> = { ...place };
+  for (const [path, mode] of Object.entries(modes ?? {})) {
+    const key = path.replace(/^places\./, '');
+    if (!key || !Object.prototype.hasOwnProperty.call(output, key)) continue;
+    const value = output[key];
+    if (mode === 'non_empty' && (value === null || value === undefined || value === '' || (Array.isArray(value) && value.length === 0))) delete output[key];
+    else if (mode === 'text' && value !== null && value !== undefined) output[key] = typeof value === 'string' ? value : JSON.stringify(value);
+  }
+  return output;
+}
+
 function calculateConfidence(input:{provider:DiscoveryProvider;address?:string|null;phone?:string|null;website?:string|null;email?:string|null;latitude?:number|null;longitude?:number|null;businessType?:string|null}):number {
   let score=input.provider==="google_maps"?55:45;
   if(input.address)score+=10;if(input.phone)score+=10;if(input.website)score+=8;
@@ -371,7 +384,7 @@ export async function processRun(env: DiscoveryEnv, runId: string, ownerId: stri
         latitude:lat,longitude:lon,
         sourceUrl:"https://www.google.com/maps/search/?api=1&query_place_id="+encodeURIComponent(place.id),
         license:"Google Maps Platform Place ID",attribution:"Google Maps",
-        rawData:{...place,place_id:place.id,formatted_address:address,phone,website,types:place.types??[],rating:place.rating??null,user_rating_count:place.userRatingCount??null,business_status:place.businessStatus??null,guardrail_review_required:googleReviewIds.has(place.id)},dedupeKey,
+        rawData:{...applyGoogleFieldStorageModes(place, input.googleFieldStorageModes),place_id:place.id,formatted_address:address,phone,website,types:place.types??[],rating:place.rating??null,user_rating_count:place.userRatingCount??null,business_status:place.businessStatus??null,guardrail_review_required:googleReviewIds.has(place.id)},dedupeKey,
       });
       if (!matched) created++;
     }
@@ -475,6 +488,7 @@ export async function handleDiscovery(request: Request, env: DiscoveryEnv): Prom
       (input.state !== undefined && (typeof input.state !== "string" || !input.state.trim())) ||
       (input.city !== undefined && (typeof input.city !== "string" || !input.city.trim())) ||
       (input.googleFieldMask !== undefined && (!Array.isArray(input.googleFieldMask) || input.googleFieldMask.length > 100 || input.googleFieldMask.some(field => typeof field !== "string" || !/^places\.[A-Za-z][A-Za-z0-9.]*$/.test(field)))) ||
+      (input.googleFieldStorageModes !== undefined && (!input.googleFieldStorageModes || typeof input.googleFieldStorageModes !== "object" || Object.entries(input.googleFieldStorageModes).length > 40 || Object.entries(input.googleFieldStorageModes).some(([field, mode]) => !/^places\.[A-Za-z][A-Za-z0-9.]*$/.test(field) || !["raw","text","non_empty"].includes(String(mode))))) ||
       (input.googleLanguageCode !== undefined && (typeof input.googleLanguageCode !== "string" || input.googleLanguageCode.length > 12)) ||
       (input.googleRankPreference !== undefined && !["RELEVANCE","DISTANCE"].includes(input.googleRankPreference)) ||
       (input.googleIncludePureServiceAreaBusinesses !== undefined && typeof input.googleIncludePureServiceAreaBusinesses !== "boolean")) {
@@ -485,7 +499,7 @@ export async function handleDiscovery(request: Request, env: DiscoveryEnv): Prom
     const code=input.countries[0], scope=[input.city,input.state,countryName(code)].filter(Boolean).join(" · ");
     const rows=await db<Array<{id:string;task_code:string}>>(env,"discovery_runs",{
       method:"POST",headers:{Prefer:"return=representation"},
-      body:JSON.stringify({owner_id:userId,query:input.query.trim(),countries:input.countries,limit_per_country:input.limitPerCountry,state:input.state??null,city:input.city??null,providers,search_config:{businessTypes:input.businessTypes??[],filters:input.filters??{},googleFieldMask:input.googleFieldMask??[],googleLanguageCode:input.googleLanguageCode??"en",googleRankPreference:input.googleRankPreference??"RELEVANCE",googleIncludePureServiceAreaBusinesses:input.googleIncludePureServiceAreaBusinesses??false,osmTags:input.osmTags??[],originalQuery:input.originalQuery??null,translatedQuery:input.translatedQuery??null,targetLanguage:input.targetLanguage??null,planSnapshot:input.planSnapshot??null,guardrailsSnapshot:input.guardrailsSnapshot??null},channel:"map_local_businesses",status:"queued",progress:0,discovered_count:0,created_lead_count:0,message:"任务已排队 · "+scope,task_code:"MAP-"+code+"-"+new Date().toISOString().slice(0,10).replace(/-/g,"")+"-"+crypto.randomUUID().replace(/-/g,"").slice(0,6).toUpperCase()})
+      body:JSON.stringify({owner_id:userId,query:input.query.trim(),countries:input.countries,limit_per_country:input.limitPerCountry,state:input.state??null,city:input.city??null,providers,search_config:{businessTypes:input.businessTypes??[],filters:input.filters??{},googleFieldMask:input.googleFieldMask??[],googleFieldStorageModes:input.googleFieldStorageModes??{},googleLanguageCode:input.googleLanguageCode??"en",googleRankPreference:input.googleRankPreference??"RELEVANCE",googleIncludePureServiceAreaBusinesses:input.googleIncludePureServiceAreaBusinesses??false,osmTags:input.osmTags??[],originalQuery:input.originalQuery??null,translatedQuery:input.translatedQuery??null,targetLanguage:input.targetLanguage??null,planSnapshot:input.planSnapshot??null,guardrailsSnapshot:input.guardrailsSnapshot??null},channel:"map_local_businesses",status:"queued",progress:0,discovered_count:0,created_lead_count:0,message:"任务已排队 · "+scope,task_code:"MAP-"+code+"-"+new Date().toISOString().slice(0,10).replace(/-/g,"")+"-"+crypto.randomUUID().replace(/-/g,"").slice(0,6).toUpperCase()})
     });
     const run=rows?.[0]; if(!run?.id) throw new Error("DISCOVERY_RUN_CREATE_FAILED");
     await log(env,run.id,userId,"info","任务编号："+run.task_code+"；关键词："+input.query+(input.originalQuery?"（原始关键词："+input.originalQuery+"）":"")+"；业务类型："+(input.businessTypes??[]).join("、")+"；数据源："+providers.join("、"));

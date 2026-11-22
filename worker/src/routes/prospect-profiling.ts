@@ -97,18 +97,33 @@ export async function handleProspectStrategy(request: Request, env: Env): Promis
 export async function handleProspectCountries(request: Request, env: Env): Promise<Response> {
   if (request.method !== "GET") return errorResponse(request, "METHOD_NOT_ALLOWED", "不支持的请求方法。", 405);
   if (!await authenticated(request, env)) return errorResponse(request, "UNAUTHORIZED", "请先登录 TradePilot。", 401);
+  const normalize = (rows: Array<{ cca2?: string; id?: string; name?: { common?: string } | string; region?: string | { value?: string } }>) =>
+    rows.flatMap(item => {
+      const code = String(item.cca2 ?? item.id ?? "").trim().toUpperCase();
+      const name = typeof item.name === "string" ? item.name : item.name?.common;
+      const regionValue = typeof item.region === "string" ? item.region : item.region?.value ?? "";
+      if (!/^[A-Z]{2}$/.test(code) || !name || regionValue === "Aggregates") return [];
+      const continent = /America/i.test(regionValue) ? "Americas" : /Europe/i.test(regionValue) ? "Europe" : /Africa|Middle East/i.test(regionValue) ? "Africa" : /Asia/i.test(regionValue) ? "Asia" : /Oceania/i.test(regionValue) ? "Oceania" : "Other";
+      return [{ name: { common: name }, cca2: code, region: continent }];
+    }).sort((x,y) => x.name.common.localeCompare(y.name.common));
   try {
-    const response = await fetch("https://api.worldbank.org/v2/country?format=json", { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(10000) });
-    if (!response.ok) throw new Error("WORLD_BANK_COUNTRIES_" + response.status);
-    const payload = await response.json() as [unknown, Array<{ id?: string; name?: string; region?: { value?: string } }>];
-    const rows = Array.isArray(payload?.[1]) ? payload[1] : [];
-    const countries = rows.filter(item => /^[A-Z]{2}$/.test(item.id ?? "") && item.name && item.region?.value && item.region.value !== "Aggregates")
-      .map(item => {
-        const region = item.region?.value ?? "";
-        const continent = region.includes("America") ? "Americas" : region.includes("Europe") ? "Europe" : region.includes("Africa") || region.includes("Middle East") ? "Africa" : region.includes("East Asia") || region.includes("South Asia") || region.includes("Central Asia") ? "Asia" : "Oceania";
-        return { name: { common: item.name as string }, cca2: item.id as string, region: continent };
-      }).sort((a,b) => a.name.common.localeCompare(b.name.common));
-    return successResponse(request, { countries, source: "World Bank country catalog" });
+    let countries: Array<{ name: { common: string }; cca2: string; region: string }> = [];
+    let source = "";
+    const worldBank = await fetch("https://api.worldbank.org/v2/country?format=json&per_page=400", { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(10000) });
+    if (worldBank.ok) {
+      const payload = await worldBank.json() as [unknown, Array<{ id?: string; name?: string; region?: { value?: string } }>];
+      countries = normalize(Array.isArray(payload?.[1]) ? payload[1] : []);
+      if (countries.length) source = "World Bank country catalog";
+    }
+    if (!countries.length) {
+      const fallback = await fetch("https://restcountries.com/v3.1/all?fields=cca2,name,region", { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(10000) });
+      if (!fallback.ok) throw new Error("RESTCOUNTRIES_" + fallback.status);
+      const rows = await fallback.json() as Array<{ cca2?: string; name?: { common?: string }; region?: string }>;
+      countries = normalize(Array.isArray(rows) ? rows : []);
+      source = "REST Countries fallback";
+    }
+    if (!countries.length) throw new Error("COUNTRY_CATALOG_EMPTY");
+    return successResponse(request, { countries, source });
   } catch (error) {
     console.error("PROSPECT_COUNTRY_LOOKUP_FAILED", String(error).slice(0, 240));
     return errorResponse(request, "COUNTRY_LOOKUP_UNAVAILABLE", "国家列表暂时不可用，请稍后重试。", 502);
