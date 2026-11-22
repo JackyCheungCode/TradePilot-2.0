@@ -6,6 +6,8 @@ import { AgentWorkspacePage } from '../features/agent/AgentWorkspacePage';
 import { AIControlCenterPage } from '../features/ai-control-center/AIControlCenterPage';
 import { ProspectDiscoveryPage } from '../features/prospect-discovery';
 import { GoogleMapsDiscoveryPage } from '../features/prospect-discovery/GoogleMapsDiscoveryPage';
+import { GoogleMapsTaskCenterPage } from '../features/prospect-discovery/GoogleMapsTaskCenterPage';
+import { GoogleMapsCustomersPage } from '../features/prospect-discovery/GoogleMapsCustomersPage';
 import { ProspectHistoryPage } from '../features/prospect-discovery/ProspectHistoryPage';
 import { ProspectDataPage } from '../features/prospect-discovery/ProspectDataPage';
 import { IntelligenceMonitoringPage, MonitoringTasksPage, MonitoringResultsPage } from '../features/intelligence-monitoring/IntelligenceMonitoringPage';
@@ -59,6 +61,8 @@ export const router = createBrowserRouter([
           { path: 'ai-agents', element: <AIControlCenterPage /> },
           { path: 'prospect-discovery', element: <ProspectDiscoveryPage /> },
           { path: 'prospect-discovery/google-maps', element: <GoogleMapsDiscoveryPage /> },
+          { path: 'prospect-discovery/google-maps/tasks', element: <GoogleMapsTaskCenterPage /> },
+          { path: 'prospect-discovery/google-maps/customers', element: <GoogleMapsCustomersPage /> },
           { path: 'prospect-history', element: <ProspectHistoryPage /> },
           { path: 'prospect-history/:runId', element: <ProspectHistoryPage /> },
           { path: 'prospect-data', element: <ProspectDataPage /> },

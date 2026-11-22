@@ -175,6 +175,8 @@ export function AppShell() {
           <SideNavItems>
             <SideNavMenu title="潜客发现" isActive={location.pathname.startsWith('/prospect-discovery')} renderIcon={semanticIcons.search}>
               <SideNavMenuItem href="/prospect-discovery/google-maps" isActive={location.pathname === '/prospect-discovery/google-maps'}>Google Maps 发现</SideNavMenuItem>
+              <SideNavMenuItem href="/prospect-discovery/google-maps/tasks" isActive={location.pathname === '/prospect-discovery/google-maps/tasks'}>Google Maps 发现任务中心</SideNavMenuItem>
+              <SideNavMenuItem href="/prospect-discovery/google-maps/customers" isActive={location.pathname === '/prospect-discovery/google-maps/customers'}>Google Maps 发现客户</SideNavMenuItem>
               <SideNavMenuItem href="/prospect-discovery" isActive={location.pathname === '/prospect-discovery'}>多渠道发现工作流</SideNavMenuItem>
             </SideNavMenu>
             <SideNavLink href="/prospect-data" isActive={location.pathname.startsWith('/prospect-data') || location.pathname.startsWith('/prospect-history')} title="线索数据" renderIcon={semanticIcons.database}>线索数据</SideNavLink>
