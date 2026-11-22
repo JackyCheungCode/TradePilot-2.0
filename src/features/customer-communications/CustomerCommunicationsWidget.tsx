@@ -514,7 +514,7 @@ export function CustomerCommunicationsWidget({
             <Button type="button" kind="ghost" size="sm" onClick={() => void loadInbox()}>刷新</Button>
             <Button type="button" kind="ghost" size="sm" disabled={customerMessages.length === 0} onClick={exportChatHistory}>导出聊天记录</Button>
             <Button type="button" kind="ghost" size="sm" onClick={() => setProfileOpen((value) => !value)}>{profileOpen ? '收起客户 360' : '显示客户 360'}</Button>
-            <Button type="button" kind="ghost" size="sm" className="tp-chat-popout-action" onClick={openChatPopup}><span>弹出聊天窗口</span><semanticIcons.externalLink size={16} /></Button>
+            <Button type="button" kind="ghost" size="sm" className="tp-chat-popout-action" renderIcon={semanticIcons.externalLink} onClick={openChatPopup}>弹出聊天窗口</Button>
             {!popupMode && <Button type="button" kind="ghost" size="sm" onClick={onClose}>返回工作台</Button>}
           </div>
         </header>
