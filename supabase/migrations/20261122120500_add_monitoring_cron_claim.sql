@@ -11,6 +11,11 @@ begin
   select t.id,t.owner_id,t.name,t.cadence_minutes,t.config
   from public.monitoring_tasks t
   where t.status='running' and t.next_run_at is not null and t.next_run_at<=now()
+   and exists (
+    select 1 from public.monitoring_task_objects mto
+    join public.monitoring_objects o on o.id=mto.object_id and o.owner_id=mto.owner_id
+    where mto.task_id=t.id and mto.owner_id=t.owner_id and o.is_active=true
+   )
   order by t.next_run_at
   for update skip locked
   limit greatest(1,least(coalesce(p_limit,20),100))
