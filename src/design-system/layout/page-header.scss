@@ -63,8 +63,6 @@
   justify-content:center;
   width:100%;
   min-width:0;
-  min-height:3rem;
-  height:auto;
   max-width:100%;
   box-sizing:border-box;
   white-space:nowrap;
@@ -85,7 +83,7 @@
   flex:0 0 auto;
   align-items:center;
   justify-content:center;
-  gap:var(--cds-spacing-03);
+  gap:var(--cds-spacing-02);
   min-width:max-content;
   max-width:none;
   white-space:nowrap;
