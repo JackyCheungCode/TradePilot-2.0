@@ -3,7 +3,7 @@ import { Link, PageHeader, Tag, Tile, TpDataTable, InlineNotification, semanticI
 import { getSupabaseClient } from '@/lib/supabase';
 
 type Run = { id:string; task_code?:string; query?:string; countries?:string[]; state?:string|null; city?:string|null; status?:string; progress?:number; discovered_count?:number; created_lead_count?:number; message?:string; created_at?:string; providers?:string[]; channel?:string; hidden_at?:string|null };
-const statusLabel=(status?:string)=>({planned:'待执行',queued:'排队中',running:'执行中',paused:'已暂停',completed:'已完成',partial:'部分完成',failed:'失败',cancelled:'已取消'}[status||'']||status||'未知');
+const statusLabel=(status?:string)=>({planned:'待执行',queued:'排队中',running:'执行中',awaiting_approval:'等待审批',paused:'已暂停',completed:'已完成',partial:'部分完成',failed:'失败',cancelled:'已取消'}[status||'']||status||'未知');
 const statusType=(status?:string):'green'|'blue'|'red'|'gray'=>['completed','partial'].includes(status||'')?'green':status==='failed'?'red':['planned','queued','running'].includes(status||'')?'blue':'gray';
 const formatTime=(value?:string)=>value?new Date(value).toLocaleString('zh-TW',{hour12:false}):'—';
 
