@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ComposedModal, ModalBody, ModalFooter, ModalHeader } from '@carbon/react';
 import { Button, ContainedList, ContainedListItem, InlineNotification, TPSkeleton, Select, SelectItem, Tag, TextInput } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 
@@ -39,6 +40,7 @@ export function ExternalAgentConnections() {
   const [busyId,setBusyId] = useState('');
   const [error,setError] = useState('');
   const [notice,setNotice] = useState('');
+  const [removeConfirm,setRemoveConfirm] = useState<Connection|null>(null);
 
   const load = async () => {
     setLoading(true); setError('');
@@ -79,7 +81,12 @@ export function ExternalAgentConnections() {
     finally { setBusyId(''); }
   };
 
-  const remove = async (connection: Connection) => {
+  const remove = (connection: Connection) => setRemoveConfirm(connection);
+
+  const confirmRemove = async () => {
+    const connection = removeConfirm;
+    if (!connection) return;
+    setRemoveConfirm(null);
     setBusyId(connection.id); setError(''); setNotice('');
     try {
       await connectionRequest('/api/v1/agent/connections/' + connection.id, { method: 'DELETE' });
@@ -143,5 +150,15 @@ export function ExternalAgentConnections() {
         </ContainedList>
       )}
     </section>
+    <ComposedModal open={Boolean(removeConfirm)} onClose={() => setRemoveConfirm(null)} size="sm">
+      <ModalHeader title="移除外部 Agent 连接？" />
+      <ModalBody>
+        <p>即将从当前账户移除连接 <strong>{removeConfirm?.name}</strong>。此操作会解除该连接的登记，之后需要重新登记才能使用。</p>
+      </ModalBody>
+      <ModalFooter>
+        <Button kind="secondary" onClick={() => setRemoveConfirm(null)}>取消</Button>
+        <Button kind="danger" disabled={busyId === removeConfirm?.id} onClick={() => void confirmRemove()}>确认移除</Button>
+      </ModalFooter>
+    </ComposedModal>
   </div>;
 }
