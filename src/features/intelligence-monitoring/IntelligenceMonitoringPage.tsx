@@ -2,10 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   PageHeader, Button, TextInput, Select, SelectItem, Tile, Tag, InlineNotification,
-  Grid, Column, Checkbox, TpDataTable,
+  Grid, Column, Checkbox, TpDataTable, semanticIcons,
 } from '@/design-system';
 import type { TpTableColumn } from '@/design-system';
-import { Add, Task, Analytics, Activity, Play, Pause } from '@/design-system/icons';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/intelligence-monitoring.scss';
 
@@ -44,7 +43,7 @@ function ModuleNavigation({ active }: { active: 'create' | 'tasks' | 'results' |
     { key: 'results', label: '监听结果中心', href: '/intelligence-monitoring/results' },
     { key: 'logs', label: '日志控制台', href: '/intelligence-monitoring/logs' },
   ] as const;
-  const icons = { create: Add, tasks: Task, results: Analytics, logs: Activity };
+  const icons = { create: semanticIcons.add, tasks: semanticIcons.task, results: semanticIcons.analytics, logs: semanticIcons.activity };
   return <nav className="tp-intelligence-monitoring__navigation" aria-label="情报监听模块导航">
     {links.map(link => <Button key={link.key} kind={active === link.key ? 'primary' : 'tertiary'} size="md" href={link.href} renderIcon={icons[link.key]}>{link.label}</Button>)}
   </nav>;
@@ -312,7 +311,7 @@ export function MonitoringTasksPage() {
     { key: 'next_run_at', header: '下次执行时间', type: 'datetime', render: row => formatDate(row.next_run_at) },
     { key: 'last_error', header: '最近异常', longText: true, defaultVisible: false },
     { key: 'created_at', header: '创建时间', type: 'datetime', render: row => formatDate(row.created_at) },
-    { key: 'actions', header: '操作', required: true, render: row => <Button kind="ghost" size="sm" renderIcon={row.status === 'running' ? Pause : Play} onClick={async () => {
+    { key: 'actions', header: '操作', required: true, render: row => <Button kind="ghost" size="sm" renderIcon={row.status === 'running' ? semanticIcons.pause : semanticIcons.play} onClick={async () => {
       const client = await getSupabaseClient();
       const isRunning = row.status === 'running';
       const stamp = new Date().toISOString();
@@ -327,11 +326,11 @@ export function MonitoringTasksPage() {
     <PageHeader breadcrumb="全球情报 / 公开内容监听" title="监听任务列表" description="统一查看任务配置、运行状态、采集频率与最近执行情况。" />
     <ModuleNavigation active="tasks" />
     <div className="tp-intelligence-monitoring__metric-grid" aria-label="监听任务关键指标">
-      <section className="tp-intelligence-monitoring__metric-card"><div className="tp-intelligence-monitoring__metric-head"><span>监听任务总数</span><Task size={20} /></div><strong>{taskMetrics.total.toLocaleString('zh-CN')}</strong><small>全部已创建任务</small></section>
-      <section className="tp-intelligence-monitoring__metric-card"><div className="tp-intelligence-monitoring__metric-head"><span>正在执行</span><Activity size={20} /></div><strong>{taskMetrics.running.toLocaleString('zh-CN')}</strong><small>运行中或排队中的执行</small></section>
-      <section className="tp-intelligence-monitoring__metric-card"><div className="tp-intelligence-monitoring__metric-head"><span>执行成功</span><Analytics size={20} /></div><strong>{taskMetrics.succeeded.toLocaleString('zh-CN')}</strong><small>最近一次运行成功</small></section>
-      <section className="tp-intelligence-monitoring__metric-card"><div className="tp-intelligence-monitoring__metric-head"><span>执行失败</span><Activity size={20} /></div><strong>{taskMetrics.failed.toLocaleString('zh-CN')}</strong><small>最近一次运行失败</small></section>
-      <section className="tp-intelligence-monitoring__metric-card"><div className="tp-intelligence-monitoring__metric-head"><span>已暂停</span><Pause size={20} /></div><strong>{taskMetrics.paused.toLocaleString('zh-CN')}</strong><small>当前暂停的监听任务</small></section>
+      <section className="tp-intelligence-monitoring__metric-card"><div className="tp-intelligence-monitoring__metric-head"><span>监听任务总数</span><semanticIcons.task size={20} /></div><strong>{taskMetrics.total.toLocaleString('zh-CN')}</strong><small>全部已创建任务</small></section>
+      <section className="tp-intelligence-monitoring__metric-card"><div className="tp-intelligence-monitoring__metric-head"><span>正在执行</span><semanticIcons.activity size={20} /></div><strong>{taskMetrics.running.toLocaleString('zh-CN')}</strong><small>运行中或排队中的执行</small></section>
+      <section className="tp-intelligence-monitoring__metric-card"><div className="tp-intelligence-monitoring__metric-head"><span>执行成功</span><semanticIcons.analytics size={20} /></div><strong>{taskMetrics.succeeded.toLocaleString('zh-CN')}</strong><small>最近一次运行成功</small></section>
+      <section className="tp-intelligence-monitoring__metric-card"><div className="tp-intelligence-monitoring__metric-head"><span>执行失败</span><semanticIcons.activity size={20} /></div><strong>{taskMetrics.failed.toLocaleString('zh-CN')}</strong><small>最近一次运行失败</small></section>
+      <section className="tp-intelligence-monitoring__metric-card"><div className="tp-intelligence-monitoring__metric-head"><span>已暂停</span><semanticIcons.pause size={20} /></div><strong>{taskMetrics.paused.toLocaleString('zh-CN')}</strong><small>当前暂停的监听任务</small></section>
     </div>
     {error && <InlineNotification kind="error" lowContrast title="读取任务失败" subtitle={error}  />}
     <div className="tp-intelligence-monitoring__filter-bar"><Select id="monitoring-task-status-filter" labelText="任务状态" size="sm" value={statusFilter} onChange={event => setStatusFilter(event.currentTarget.value)}><SelectItem value="all" text="全部状态" /><SelectItem value="draft" text="草稿" /><SelectItem value="running" text="已启用" /><SelectItem value="paused" text="已暂停" /><SelectItem value="error" text="异常" /></Select></div>
@@ -379,11 +378,11 @@ export function MonitoringResultsPage() {
     <PageHeader breadcrumb="全球情报 / 公开内容监听" title="监听结果中心" description="按平台、渠道、任务与 AI 意向统一查看采集内容；支持搜索、列配置和 CSV 导出。" />
     <ModuleNavigation active="results" />
     <div className="tp-intelligence-monitoring__metric-grid" aria-label="监听结果关键指标">
-      <section className="tp-intelligence-monitoring__metric-card"><div className="tp-intelligence-monitoring__metric-head"><span>采集结果总量</span><Analytics size={20} /></div><strong>{resultMetrics.total.toLocaleString('zh-CN')}</strong><small>已写入结果中心的记录</small></section>
-      <section className="tp-intelligence-monitoring__metric-card"><div className="tp-intelligence-monitoring__metric-head"><span>帖子</span><Task size={20} /></div><strong>{resultMetrics.posts.toLocaleString('zh-CN')}</strong><small>已采集的公开帖子</small></section>
-      <section className="tp-intelligence-monitoring__metric-card"><div className="tp-intelligence-monitoring__metric-head"><span>评论与回复</span><Activity size={20} /></div><strong>{resultMetrics.conversations.toLocaleString('zh-CN')}</strong><small>帖子下的互动内容</small></section>
-      <section className="tp-intelligence-monitoring__metric-card"><div className="tp-intelligence-monitoring__metric-head"><span>S / A 级潜客</span><Analytics size={20} /></div><strong>{resultMetrics.qualified.toLocaleString('zh-CN')}</strong><small>高优先级采购意向</small></section>
-      <section className="tp-intelligence-monitoring__metric-card"><div className="tp-intelligence-monitoring__metric-head"><span>待 AI 分析</span><Activity size={20} /></div><strong>{resultMetrics.pending.toLocaleString('zh-CN')}</strong><small>尚未生成 AI 判定的记录</small></section>
+      <section className="tp-intelligence-monitoring__metric-card"><div className="tp-intelligence-monitoring__metric-head"><span>采集结果总量</span><semanticIcons.analytics size={20} /></div><strong>{resultMetrics.total.toLocaleString('zh-CN')}</strong><small>已写入结果中心的记录</small></section>
+      <section className="tp-intelligence-monitoring__metric-card"><div className="tp-intelligence-monitoring__metric-head"><span>帖子</span><semanticIcons.task size={20} /></div><strong>{resultMetrics.posts.toLocaleString('zh-CN')}</strong><small>已采集的公开帖子</small></section>
+      <section className="tp-intelligence-monitoring__metric-card"><div className="tp-intelligence-monitoring__metric-head"><span>评论与回复</span><semanticIcons.activity size={20} /></div><strong>{resultMetrics.conversations.toLocaleString('zh-CN')}</strong><small>帖子下的互动内容</small></section>
+      <section className="tp-intelligence-monitoring__metric-card"><div className="tp-intelligence-monitoring__metric-head"><span>S / A 级潜客</span><semanticIcons.analytics size={20} /></div><strong>{resultMetrics.qualified.toLocaleString('zh-CN')}</strong><small>高优先级采购意向</small></section>
+      <section className="tp-intelligence-monitoring__metric-card"><div className="tp-intelligence-monitoring__metric-head"><span>待 AI 分析</span><semanticIcons.activity size={20} /></div><strong>{resultMetrics.pending.toLocaleString('zh-CN')}</strong><small>尚未生成 AI 判定的记录</small></section>
     </div>
     {error && <><InlineNotification kind="error" lowContrast title="读取结果失败" subtitle={error} /><Button kind="tertiary" size="sm" onClick={() => void reload()}>重试</Button></>}
     <div className="tp-intelligence-monitoring__table-meta"><Tag type="blue">云端数据</Tag><span>最近 500 条采集记录 · AI 判定尚未完成时显示「待分析」</span><Button kind="tertiary" size="sm" onClick={() => void reload()}>刷新结果</Button></div>
