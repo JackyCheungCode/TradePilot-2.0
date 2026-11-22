@@ -543,7 +543,6 @@ export function GoogleMapsDiscoveryPage() {
               <code>{requestedFields.join(',')},nextPageToken</code>
             </div>
           </AccordionItem>
-dionItem>
         </Accordion>
         <div className="tp-gmaps-discovery__actions">
           <Button kind="primary" renderIcon={semanticIcons.search} onClick={() => void startDiscovery()} disabled={busy || !country || !keyword.trim()}>{busy ? '正在创建任务…' : '开始 Google Maps 发现'}</Button>
