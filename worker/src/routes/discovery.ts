@@ -192,11 +192,23 @@ async function searchGoogle(
         headers: {
           "Content-Type": "application/json",
           "X-Goog-Api-Key": googleMapsApiKey,
-          "X-Goog-FieldMask": googleFieldMask.length ? [...new Set([...googleFieldMask, "nextPageToken"])].join(",") : "places.id,places.displayName,places.location,places.formattedAddress,places.nationalPhoneNumber,places.internationalPhoneNumber,places.websiteUri,places.types,places.rating,places.userRatingCount,places.businessStatus,nextPageToken",
+          // searchUri is a top-level SearchTextResponse field, not a Place field.
+          // Only request Place resource paths here; keep the pagination token at response root.
+          "X-Goog-FieldMask": googleFieldMask.length
+            ? [...new Set(googleFieldMask.filter((field) => /^places\\.[A-Za-z][A-Za-z0-9]*$/.test(field) && field !== "places.searchUri")), "nextPageToken"].join(",")
+            : "places.id,places.displayName,places.location,places.formattedAddress,places.nationalPhoneNumber,places.internationalPhoneNumber,places.websiteUri,places.types,places.rating,places.userRatingCount,places.businessStatus,nextPageToken",
         },
         body: JSON.stringify(body),
       });
-      if (!response.ok) throw new Error("GOOGLE_PLACES_" + response.status + (includedType ? " (" + includedType + ")" : ""));
+      if (!response.ok) {
+        const responseBody = await response.text();
+        let googleError = responseBody;
+        try {
+          const parsed = JSON.parse(responseBody) as { error?: { status?: string; message?: string } };
+          googleError = [parsed.error?.status, parsed.error?.message].filter(Boolean).join(": ") || responseBody;
+        } catch { /* Preserve the bounded raw response for non-JSON gateway errors. */ }
+        throw new Error("GOOGLE_PLACES_" + response.status + (includedType ? " (" + includedType + ")" : "") + ": " + googleError.slice(0, 600));
+      }
       const result = await response.json() as { places?: GooglePlace[]; nextPageToken?: string };
       for (const place of result.places ?? []) if (place.id) placesById.set(place.id, place);
       pageToken = result.nextPageToken;
