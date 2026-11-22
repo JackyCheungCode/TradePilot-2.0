@@ -457,7 +457,7 @@ export function GoogleMapsDiscoveryPage() {
               {suggestions.map(item => <button type="button" key={item} onClick={() => { setKeyword(item); setSuggestions([]); setTranslated(''); setOriginalKeyword(''); }}><span>{item}</span><span>采用关键词</span></button>)}
             </div>}
           </div>
-          <Button kind="tertiary" renderIcon={semanticIcons.translate} onClick={() => void translateKeyword()} disabled={!country || !keyword.trim() || translationBusy} loading={translationBusy}>DeepL 翻译</Button>
+          <Button kind="tertiary" renderIcon={semanticIcons.translate} onClick={() => void translateKeyword()} disabled={!country || !keyword.trim() || translationBusy}>{translationBusy ? '翻译中…' : 'DeepL 翻译'}</Button>
         </div>
         {translated && <div className="tp-gmaps-discovery__translation">
           <div><span>翻译建议 · {language.deepl}</span><strong>{translated}</strong></div>
@@ -514,7 +514,7 @@ export function GoogleMapsDiscoveryPage() {
           </AccordionItem>
         </Accordion>
         <div className="tp-gmaps-discovery__actions">
-          <Button kind="primary" renderIcon={semanticIcons.search} onClick={() => void startDiscovery()} disabled={busy || !country || !keyword.trim()} loading={busy}>开始 Google Maps 发现</Button>
+          <Button kind="primary" renderIcon={semanticIcons.search} onClick={() => void startDiscovery()} disabled={busy || !country || !keyword.trim()}>{busy ? '正在创建任务…' : '开始 Google Maps 发现'}</Button>
         </div>
       </section>
 
