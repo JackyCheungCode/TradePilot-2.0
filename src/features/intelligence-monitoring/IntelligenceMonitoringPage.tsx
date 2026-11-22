@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { PageHeader, Button, TextInput, Dropdown, Select, SelectItem, Tile, Tag, InlineNotification, Grid, Column } from '@/design-system';
+import { PageHeader, Button, TextInput, Dropdown, Select, SelectItem, Tile, Tag, InlineNotification, Grid, Column, Checkbox } from '@/design-system';
 
 type Platform = { id: string; text: string; category: string };
 type DraftSource = { id: string; platform: string; url: string; interval: string; createdAt: string };
@@ -44,7 +44,6 @@ export function IntelligenceMonitoringPage() {
   const [minimumGrade, setMinimumGrade] = useState('A');
   const [notice, setNotice] = useState('');
 
-  const selectedPlatform = platform ?? platforms[0];
   const canAdd = Boolean(url.trim() && /^https?:\/\//i.test(url.trim()) && platform);
   const platformCount = useMemo(() => new Set(drafts.map((item) => item.platform)).size, [drafts]);
 
@@ -146,7 +145,7 @@ export function IntelligenceMonitoringPage() {
                   id="intel-source-type"
                   labelText="对象类型"
                   value={sourceType}
-                  onChange={(event: React.ChangeEvent<HTMLSelectElement>) => setSourceType(event.target.value)}
+                  onChange={(event) => setSourceType(event.target.value)}
                 >
                   <SelectItem value="auto" text="自动识别" />
                   <SelectItem value="page" text="企业主页 / 账号" />
@@ -164,7 +163,7 @@ export function IntelligenceMonitoringPage() {
                   labelText="公开链接"
                   placeholder="https://www.facebook.com/..."
                   value={url}
-                  onChange={(event: React.ChangeEvent<HTMLInputElement>) => setUrl(event.target.value)}
+                  onChange={(event) => setUrl(event.target.value)}
                   helperText="仅支持公开可访问内容；不采集私人消息、私密群组或需要绕过访问控制的内容。"
                 />
               </Column>
@@ -214,14 +213,13 @@ export function IntelligenceMonitoringPage() {
             <Tile>
               <h4>识别目标</h4>
               {intentTypes.map((intent) => (
-                <label key={intent}>
-                  <input
-                    type="checkbox"
-                    checked={enabledIntents.includes(intent)}
-                    onChange={() => toggleIntent(intent)}
-                  />
-                  {' '}{intent}
-                </label>
+                <Checkbox
+                  key={intent}
+                  id={'intel-intent-' + intent}
+                  labelText={intent}
+                  checked={enabledIntents.includes(intent)}
+                  onChange={() => toggleIntent(intent)}
+                />
               ))}
               <p>已启用 {enabledIntents.length} / {intentTypes.length} 类意向</p>
             </Tile>
@@ -238,7 +236,7 @@ export function IntelligenceMonitoringPage() {
                 id="intel-minimum-grade"
                 labelText="进入潜客候选池的最低等级"
                 value={minimumGrade}
-                onChange={(event: React.ChangeEvent<HTMLSelectElement>) => setMinimumGrade(event.target.value)}
+                onChange={(event) => setMinimumGrade(event.target.value)}
               >
                 <SelectItem value="S" text="仅 S 级" />
                 <SelectItem value="A" text="S / A 级" />
