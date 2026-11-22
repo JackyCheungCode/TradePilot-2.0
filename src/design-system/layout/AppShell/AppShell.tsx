@@ -168,6 +168,7 @@ export function AppShell() {
           <div className="tp-sidenav__group-label">情报与商机</div>
           <SideNavItems>
             <SideNavLink href="/prospect-data" isActive={location.pathname.startsWith('/prospect-data') || location.pathname.startsWith('/prospect-history')} title="线索数据" renderIcon={semanticIcons.database}>线索数据</SideNavLink>
+            <SideNavLink href="/intelligence-monitoring" isActive={location.pathname.startsWith('/intelligence-monitoring')} title="情报监听" renderIcon={semanticIcons.activity}>情报监听</SideNavLink>
             <SideNavLink href="/leads" isActive={location.pathname.startsWith('/leads')} title="商机" renderIcon={semanticIcons.userFollow}>商机</SideNavLink>
           </SideNavItems>
         </div>
