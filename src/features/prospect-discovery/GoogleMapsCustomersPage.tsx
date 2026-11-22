@@ -55,7 +55,7 @@ export function GoogleMapsCustomersPage(){
   {key:'captured_at',header:'发现时间',minWidth:160,render:(row:any)=>formatTime(row.captured_at)}
  ];
  return <main className="tp-gmaps-customers">
-  <PageHeader className="tp-gmaps-customers__header"><div><p>TRADEPILOT / GOOGLE MAPS</p><h1>Google Maps 发现客户</h1><p>汇总全部 Google Maps 发现结果，保留 Google 返回字段，并追溯来源任务、搜索地址和关键词。</p></div><div><Link href="/prospect-discovery/google-maps" renderIcon={semanticIcons.search}>Google Maps 发现</Link>　<Link href="/prospect-discovery/google-maps/tasks" renderIcon={semanticIcons.time}>任务中心</Link></div></PageHeader>
+  <PageHeader className="tp-gmaps-customers__header"><div><p>TRADEPILOT / GOOGLE MAPS</p><h1>Google Maps 发现客户</h1><p>汇总全部 Google Maps 发现结果，保留 Google 返回字段，并追溯来源任务、搜索地址和关键词。</p></div><div className="tp-gmaps-customers__actions"><Link href="/prospect-discovery/google-maps" renderIcon={semanticIcons.search}>Google Maps 发现</Link><Link href="/prospect-discovery/google-maps/tasks" renderIcon={semanticIcons.time}>任务中心</Link></div></PageHeader>
   {error&&<InlineNotification kind="error" lowContrast title="客户数据读取失败" subtitle={error} onCloseButtonClick={()=>setError('')}/>}
   <section className="tp-gmaps-customers__cards">
    <div className="tp-gmaps-customers__card"><span>发现结果总数</span><strong>{rows.length}</strong></div>
@@ -65,10 +65,10 @@ export function GoogleMapsCustomersPage(){
   </section>
   <section className="tp-gmaps-customers__analytics">
    <div className="tp-gmaps-customers__map"><h2>潜客全球分布</h2><p>按 Google Maps 返回的国家代码统计发现企业数量。</p>{countries.length?<WorldMapChart data={countries} unitLabel="家企业"/>:<p className="tp-gmaps-customers__empty">暂无可定位国家的潜客数据。</p>}</div>
-   <div className="tp-gmaps-customers__map"><h2>国家分布统计</h2>{countries.slice(0,12).map(item=><div key={item.code} style={{display:'flex',justifyContent:'space-between',padding:'.5rem 0',borderBottom:'1px solid var(--cds-border-subtle-01)'}}><span>{item.label}</span><strong>{item.value}</strong></div>)}</div>
+   <div className="tp-gmaps-customers__map"><h2>国家分布统计</h2>{countries.slice(0,12).map(item=><div className="tp-gmaps-customers__country-row" key={item.code}><span>{item.label}</span><strong>{item.value}</strong></div>)}</div>
   </section>
   <Tile className="tp-gmaps-customers__panel">
-   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:'1rem',marginBottom:'1rem'}}><div><h2>全部 Google Maps 发现客户</h2><p>每条记录保留来源任务与原始字段；同一企业在不同任务中的发现记录分别保留。</p></div><Tag type="blue">{filtered.length} 条</Tag></div>
+   <div className="tp-gmaps-customers__panel-heading"><div><h2>全部 Google Maps 发现客户</h2><p>每条记录保留来源任务与原始字段；同一企业在不同任务中的发现记录分别保留。</p></div><Tag type="blue">{filtered.length} 条</Tag></div>
    <TpDataTable ariaLabel="Google Maps 发现客户结果" rowKey="occurrence_id" rows={filtered as any[]} columns={columns as any} searchValue={search} onSearchChange={setSearch} loading={loading} error={error||null} onRetry={()=>setReload(v=>v+1)} columnSettingsKey="google-maps-discovered-customers" emptyState={<p className="tp-gmaps-customers__empty">暂无 Google Maps 发现客户。完成首次搜索后，所有结果会自动汇总到这里。</p>}/>
   </Tile>
  </main>;

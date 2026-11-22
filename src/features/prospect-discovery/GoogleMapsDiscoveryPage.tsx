@@ -559,7 +559,7 @@ dionItem>
           <div className="tp-gmaps-discovery__run-summary"><strong>任务编号：{runTaskCode || runId}</strong><span>任务 ID：{runId}</span><Tag type={runStatus === 'completed' ? 'green' : runStatus === 'failed' ? 'red' : 'blue'}>{runStatus || '任务处理中'}</Tag><span>已读取 {results.length} 条记录</span></div>
           <div className="tp-gmaps-discovery__progress">
             <div><strong>任务进度</strong><span>{runProgress}%</span></div>
-            <div className="tp-gmaps-discovery__progress-track" role="progressbar" aria-label="Google Maps 发现任务进度" aria-valuemin={0} aria-valuemax={100} aria-valuenow={runProgress}><span style={{ width: runProgress + '%' }} /></div>
+            <progress className="tp-gmaps-discovery__progress-meter" aria-label="Google Maps 发现任务进度" max={100} value={runProgress} />
             <p>{runMessage}</p>
           </div>
           <div className="tp-gmaps-discovery__logs">

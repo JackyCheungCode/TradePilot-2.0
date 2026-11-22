@@ -35,12 +35,12 @@ export function GoogleMapsTaskCenterPage(){
   {key:'query',header:'搜索关键词',minWidth:180,render:(r:Run)=>r.query||'—'},
   {key:'market',header:'搜索地址',minWidth:200,render:(r:Run)=>[r.city,r.state,(r.countries||[]).join(', ')].filter(Boolean).join(' · ')||'—'},
   {key:'status',header:'任务状态',minWidth:110,render:(r:Run)=><Tag type={statusType(r.status)}>{statusLabel(r.status)}</Tag>},
-  {key:'progress',header:'进度',minWidth:140,render:(r:Run)=><div className="tp-gmaps-task-center__progress"><b>{r.progress??0}%</b><span><i style={{width:Math.max(0,Math.min(100,r.progress??0))+'%'}}/></span></div>},
+  {key:'progress',header:'进度',minWidth:140,render:(r:Run)=><div className="tp-gmaps-task-center__progress"><b>{r.progress??0}%</b><progress max={100} value={Math.max(0,Math.min(100,r.progress??0))} /></div>},
   {key:'discovered_count',header:'发现数量',minWidth:100,render:(r:Run)=>(r.discovered_count??0).toLocaleString()},
   {key:'created_at',header:'创建时间',minWidth:160,render:(r:Run)=>formatTime(r.created_at)}
  ],[]);
  return <main className="tp-gmaps-task-center">
-  <PageHeader className="tp-gmaps-task-center__header"><div><p>TRADEPILOT / GOOGLE MAPS</p><h1>Google Maps 发现任务中心</h1><p>集中管理 Google Maps 搜索任务、执行进度与采集结果。</p></div><div><Link href="/prospect-discovery/google-maps" renderIcon={semanticIcons.add}>创建发现任务</Link>　<Link href="/prospect-discovery/google-maps/customers" renderIcon={semanticIcons.database}>发现客户</Link></div></PageHeader>
+  <PageHeader className="tp-gmaps-task-center__header"><div><p>TRADEPILOT / GOOGLE MAPS</p><h1>Google Maps 发现任务中心</h1><p>集中管理 Google Maps 搜索任务、执行进度与采集结果。</p></div><div className="tp-gmaps-task-center__actions"><Link href="/prospect-discovery/google-maps" renderIcon={semanticIcons.add}>创建发现任务</Link><Link href="/prospect-discovery/google-maps/customers" renderIcon={semanticIcons.database}>发现客户</Link></div></PageHeader>
   {error&&<InlineNotification kind="error" lowContrast title="任务读取失败" subtitle={error} onCloseButtonClick={()=>setError('')}/>}
   <section className="tp-gmaps-task-center__cards">
    <div className="tp-gmaps-task-center__card"><span>Google Maps 任务总数</span><strong>{runs.length}</strong></div>
@@ -49,7 +49,7 @@ export function GoogleMapsTaskCenterPage(){
    <div className="tp-gmaps-task-center__card"><span>失败</span><strong>{failed}</strong></div>
   </section>
   <Tile className="tp-gmaps-task-center__panel">
-   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:'1rem',marginBottom:'1rem'}}><div><h2>Google Maps 发现任务</h2><p>按创建时间倒序；点击任务进入详情和执行日志。</p></div><Tag type="blue">{runs.length} 条</Tag></div>
+   <div className="tp-gmaps-task-center__panel-heading"><div><h2>Google Maps 发现任务</h2><p>按创建时间倒序；点击任务进入详情和执行日志。</p></div><Tag type="blue">{runs.length} 条</Tag></div>
    <TpDataTable ariaLabel="Google Maps 发现任务列表" rowKey="id" rows={runs as (Run & Record<string,unknown>)[]} columns={columns as any} loading={loading} error={error||null} onRetry={()=>setReload(v=>v+1)} columnSettingsKey="google-maps-task-center" rowActions={[{key:'detail',label:'查看任务详情与日志',onClick:(run:Run)=>{window.location.assign('/prospect-history/'+run.id);}}]} emptyState={<p className="tp-gmaps-task-center__empty">暂无 Google Maps 发现任务。创建任务后会自动出现在这里。</p>}/>
   </Tile>
  </main>;
