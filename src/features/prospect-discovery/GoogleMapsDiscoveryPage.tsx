@@ -5,7 +5,6 @@ import {
   Select, SelectItem, Tag, TextInput, TpDataTable, semanticIcons,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
-import '@/design-system/patterns/google-maps-discovery.scss';
 
 type Country = { cca2: string; name: { common: string }; region?: string };
 type Region = { id: string; name: string; geometry: unknown };
