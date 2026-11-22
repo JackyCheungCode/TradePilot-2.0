@@ -69,25 +69,30 @@ async function analyze(env:Env,platform:string,content:string,config:Record<stri
 }
 async function execute(env:Env,t:ClaimedTask,token:string){
  const actorId=ACTORS[t.platform];if(!actorId)throw new Error("PLATFORM_ACTOR_NOT_CONFIGURED: "+t.platform+" 尚未通过可靠性验证并配置专用 Actor。");
+ await patchRun(env,t,{current_stage:"读取采集器配置",heartbeat_at:now()});
  await log(env,t,"info","actor.start","开始执行公开对象采集。",{actorId,sourceUrl:t.source_url});
  const build=await apify<{data?:{actorDefinition?:{input?:Record<string,unknown>};inputSchema?:string}}>(token,"acts/"+encodeURIComponent(actorId)+"/builds/default");
  const buildData=object(build.data);const definition=object(buildData.actorDefinition);let schema=object(definition.input);
  if(!Object.keys(object(schema.properties)).length&&typeof buildData.inputSchema==="string"){try{schema=object(JSON.parse(buildData.inputSchema));}catch{}}
  if(!Object.keys(object(schema.properties)).length)throw new Error("ACTOR_SCHEMA_UNAVAILABLE: 无法读取 Actor 输入 Schema。");
  const input=makeActorInput(schema,t.source_url);
- let started=await apify<{data?:{id?:string;status?:string;defaultDatasetId?:string}}>(token,"acts/"+encodeURIComponent(actorId)+"/runs?waitForFinish=60",{method:"POST",body:JSON.stringify(input)});
+ await patchRun(env,t,{current_stage:"启动平台采集器",heartbeat_at:now()});
+ let started=await apify<{data?:{id?:string;status?:string;defaultDatasetId?:string}}>(token,"acts/"+encodeURIComponent(actorId)+"/runs?waitForFinish=0",{method:"POST",body:JSON.stringify(input)});
  let run=object(started.data);if(!run.id)throw new Error("ACTOR_RUN_ID_MISSING");
  let status=str(run.status).toUpperCase();
  for(let attempt=0;status==="READY"||status==="RUNNING";attempt++){
   if(attempt>=18)throw new Error("ACTOR_RUN_TIMEOUT: Actor 超过 3 分钟仍未完成，运行编号 "+str(run.id));
+  await patchRun(env,t,{current_stage:"采集器执行中",heartbeat_at:now(),metadata:{actorId,actorRunId:str(run.id),actorStatus:status}});
   await new Promise(resolve=>setTimeout(resolve,10000));
   const polled=await apify<{data?:Record<string,unknown>}>(token,"actor-runs/"+encodeURIComponent(str(run.id)));
   run=object(polled.data);status=str(run.status).toUpperCase();
  }
  if(status!=="SUCCEEDED")throw new Error("ACTOR_RUN_"+(status||"UNKNOWN")+": "+str(run.statusMessage,run.status));
+ await patchRun(env,t,{current_stage:"读取采集结果",heartbeat_at:now(),metadata:{actorId,actorRunId:str(run.id),actorStatus:status}});
  const datasetId=str(run.defaultDatasetId);if(!datasetId)throw new Error("ACTOR_DATASET_MISSING");
  const rows=await apify<unknown>(token,"datasets/"+encodeURIComponent(datasetId)+"/items?clean=true&format=json&limit=500");
  if(!Array.isArray(rows))throw new Error("ACTOR_DATASET_INVALID");
+ await patchRun(env,t,{current_stage:"数据入库与 AI 意向分析",heartbeat_at:now(),metadata:{actorId,actorRunId:str(run.id),datasetId,discoveredCount:rows.length}});
  let newCount=0,analyzedCount=0,failedItems=0;
  for(let i=0;i<rows.length;i++){
   try{
@@ -109,7 +114,7 @@ export async function runDueIntelligenceMonitoring(env:Env,limit=15){
  for(const objects of grouped.values()){
   const task=objects[0];
   try{
-   await patchRun(env,task,{status:"running",started_at:now()});
+   await patchRun(env,task,{status:"running",started_at:now(),heartbeat_at:now(),current_stage:"准备执行监听对象"});
    await log(env,task,"info","run.started","定时监听开始执行。",{scheduled:true,objectCount:objects.length});
    if(!token)throw new Error("APIFY_NOT_CONFIGURED: 尚未配置 Apify API 凭证。");
    let discoveredCount=0,newCount=0,analyzedCount=0,failedItems=0;
@@ -127,12 +132,12 @@ export async function runDueIntelligenceMonitoring(env:Env,limit=15){
     }
    }
    const status=failedItems>0?(newCount>0?"partial":"failed"):"succeeded";
-   await patchRun(env,task,{status,finished_at:now(),discovered_count:discoveredCount,new_count:newCount,analyzed_count:analyzedCount,error_code:status==="failed"?"OBJECTS_FAILED":null,error_message:failedItems?failedItems+" 个内容或监听对象处理失败":null,metadata:{actorIds,objectCount:objects.length,failedItems}});
+   await patchRun(env,task,{status,finished_at:now(),heartbeat_at:now(),current_stage:"执行完成",discovered_count:discoveredCount,new_count:newCount,analyzed_count:analyzedCount,error_code:status==="failed"?"OBJECTS_FAILED":null,error_message:failedItems?failedItems+" 个内容或监听对象处理失败":null,metadata:{actorIds,objectCount:objects.length,failedItems}});
    await patchTask(env,task,{last_run_status:status,last_result_count:newCount,last_error:failedItems?failedItems+" 个内容或监听对象处理失败":null});
    await log(env,task,status==="succeeded"?"info":status==="partial"?"warning":"error","run.finished","本次监听"+(status==="succeeded"?"成功":status==="partial"?"部分成功":"失败")+"：处理对象 "+objects.length+" 个，发现 "+discoveredCount+" 条，新增 "+newCount+" 条，AI 分析 "+analyzedCount+" 条，失败 "+failedItems+" 项。",{discoveredCount,newCount,analyzedCount,failedItems,actorIds});
   }catch(error){
    const message=String(error instanceof Error?error.message:error).slice(0,1000);
-   await patchRun(env,task,{status:"failed",finished_at:now(),error_code:message.split(":")[0].slice(0,80),error_message:message});
+   await patchRun(env,task,{status:"failed",finished_at:now(),heartbeat_at:now(),current_stage:"执行失败",error_code:message.split(":")[0].slice(0,80),error_message:message});
    await patchTask(env,task,{last_run_status:"failed",last_error:message});
    await log(env,task,"error","run.failed","本次监听失败："+message);
   }
