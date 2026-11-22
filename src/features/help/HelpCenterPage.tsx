@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { PageHeader, Tile, Tag, TextInput, Link, semanticIcons } from '@/design-system';
+import { PageHeader, Button, Tile, Tag, TextInput, Link, semanticIcons } from '@/design-system';
 import '@/design-system/patterns/help-center.scss';
 
 type HelpSection = { id: string; title: string; summary: string; route: string; steps: string[] };
@@ -222,11 +222,11 @@ export function HelpCenterPage() {
       <section className="tp-help__sections" aria-label="帮助文档目录">
         {filtered.map((section, index) => (
           <Tile className={'tp-help__section ' + (expanded === section.id ? 'is-expanded' : '')} key={section.id}>
-            <button className="tp-help__section-toggle" type="button" aria-expanded={expanded === section.id} onClick={() => setExpanded(expanded === section.id ? '' : section.id)}>
+            <Button className="tp-help__section-toggle" kind="ghost" type="button" aria-expanded={expanded === section.id} onClick={() => setExpanded(expanded === section.id ? '' : section.id)}>
               <span className="tp-help__section-number">{String(index + 1).padStart(2, '0')}</span>
               <span className="tp-help__section-title"><strong>{section.title}</strong><small>{section.summary}</small></span>
               <semanticIcons.chevronDown size={20} />
-            </button>
+            </Button>
             {expanded === section.id && (
               <div className="tp-help__section-body">
                 <ol>{section.steps.map(step => <li key={step}>{step}</li>)}</ol>
