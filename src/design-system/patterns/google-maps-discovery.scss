@@ -54,7 +54,8 @@
   &__field > label { @include type-style('label-01'); color: var(--cds-text-secondary); }
   &__country-select { display: flex; align-items: center; gap: $spacing-03; min-width: 0; }
   &__country-select img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; flex: 0 0 28px; box-shadow: 0 0 0 1px var(--cds-border-subtle-01); }
-  &__country-select .cds--dropdown { flex: 1; min-width: 0; }
+  &__country-select .cds--combo-box { flex: 1; min-width: 0; width: 100%; }
+  &__country-select .cds--list-box { width: 100%; }
 
   &__map-heading {
     display: flex; justify-content: space-between; align-items: center; gap: $spacing-04;
