@@ -1,0 +1,8 @@
+{
+  "release": "intelligence-monitoring",
+  "target": "production",
+  "branch": "develop",
+  "requested_at": "2026-11-22T16:13:00+08:00",
+  "authorization": "user-requested production deployment",
+  "note": "This marker triggers the repository's gated release workflow. Deployment proceeds only if its migration, scanner, guardrail, frontend build, and Worker validation steps pass."
+}
