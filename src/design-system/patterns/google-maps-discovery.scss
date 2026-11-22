@@ -1,0 +1,169 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/type' as *;
+
+.tp-gmaps-discovery {
+  width: 100%;
+  min-width: 0;
+  padding-bottom: $spacing-09;
+  color: var(--cds-text-primary);
+
+  &__header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: $spacing-06;
+    padding: $spacing-06 0 $spacing-07;
+    margin-bottom: $spacing-06;
+    border-bottom: 1px solid var(--cds-border-subtle-01);
+
+    h1 { @include type-style('productive-heading-05'); margin: 0 0 $spacing-03; }
+    p { @include type-style('body-compact-01'); color: var(--cds-text-secondary); margin: 0; }
+  }
+
+  &__eyebrow { @include type-style('label-01'); letter-spacing: .08em; color: var(--cds-text-helper) !important; margin-bottom: $spacing-03 !important; }
+  &__header-actions { display: grid; grid-template-columns: repeat(2, minmax(112px, 1fr)); gap: $spacing-03; align-items: center; }
+
+  &__section {
+    background: var(--cds-layer-01);
+    padding: $spacing-06;
+    margin-bottom: $spacing-05;
+    min-width: 0;
+  }
+
+  &__section-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $spacing-04;
+    margin-bottom: $spacing-06;
+
+    > div { display: flex; align-items: flex-start; gap: $spacing-04; min-width: 0; }
+    > div > span { @include type-style('heading-compact-02'); color: var(--cds-text-helper); font-variant-numeric: tabular-nums; }
+    h2 { @include type-style('heading-compact-02'); margin: 0 0 $spacing-02; }
+    p { @include type-style('body-compact-01'); color: var(--cds-text-secondary); margin: 0; }
+  }
+
+  &__location-grid, &__parameter-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: $spacing-05;
+    align-items: start;
+  }
+
+  &__field { position: relative; min-width: 0; display: flex; flex-direction: column; gap: $spacing-03; }
+  &__field > label { @include type-style('label-01'); color: var(--cds-text-secondary); }
+  &__country-select { display: flex; align-items: center; gap: $spacing-03; min-width: 0; }
+  &__country-select img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; flex: 0 0 28px; box-shadow: 0 0 0 1px var(--cds-border-subtle-01); }
+  &__country-select .cds--dropdown { flex: 1; min-width: 0; }
+
+  &__map-heading {
+    display: flex; justify-content: space-between; align-items: center; gap: $spacing-04;
+    margin: $spacing-06 0 $spacing-03;
+    > div { display: flex; flex-direction: column; gap: $spacing-02; }
+    strong { @include type-style('heading-compact-01'); }
+    span { @include type-style('label-01'); color: var(--cds-text-secondary); }
+  }
+
+  &__map {
+    background: var(--cds-layer-02);
+    padding: $spacing-04;
+    min-height: 240px;
+    svg { display: block; width: 100%; height: auto; max-height: 440px; }
+  }
+  &__region {
+    fill: var(--cds-layer-03);
+    stroke: var(--cds-border-subtle-strong);
+    stroke-width: .65;
+    vector-effect: non-scaling-stroke;
+    cursor: pointer;
+    transition: fill 120ms ease;
+    &:hover { fill: var(--cds-layer-hover-03); }
+    &[data-selected='true'] { fill: var(--cds-interactive); stroke: var(--cds-focus); stroke-width: 1.8; }
+    &:focus-visible { outline: none; stroke: var(--cds-focus); stroke-width: 2.5; }
+  }
+  &__city-pin {
+    circle:first-child { fill: var(--cds-support-error); stroke: var(--cds-background); stroke-width: 2; }
+    circle:last-child { fill: var(--cds-background); }
+  }
+  &__map-caption { @include type-style('label-01'); color: var(--cds-text-secondary); padding: $spacing-03 $spacing-02 0; }
+  &__map-empty { @include type-style('body-compact-01'); color: var(--cds-text-secondary); background: var(--cds-layer-02); min-height: 160px; display: grid; place-items: center; }
+  &__source-note { @include type-style('helper-text-01'); color: var(--cds-text-helper); margin: $spacing-03 0 0; }
+
+  &__suggestion-list {
+    position: absolute;
+    z-index: 20;
+    top: calc(100% + 2px);
+    left: 0;
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--cds-layer-02);
+    box-shadow: 0 4px 12px rgb(0 0 0 / 18%);
+    max-height: 260px;
+    overflow: auto;
+
+    button {
+      border: 0;
+      border-bottom: 1px solid var(--cds-border-subtle-01);
+      background: transparent;
+      color: var(--cds-text-primary);
+      min-height: 44px;
+      padding: $spacing-03 $spacing-04;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: $spacing-03;
+      text-align: left;
+      cursor: pointer;
+      &:hover { background: var(--cds-layer-hover-02); }
+      strong { @include type-style('body-compact-01'); }
+      span { @include type-style('label-01'); color: var(--cds-text-secondary); }
+    }
+  }
+
+  &__keyword-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: $spacing-03; align-items: end; }
+  &__keyword-input { position: relative; min-width: 0; }
+  &__keyword-suggestions { top: calc(100% + 2px); }
+  &__translation {
+    display: flex; justify-content: space-between; align-items: center; gap: $spacing-05;
+    margin-top: $spacing-04; padding: $spacing-04; background: var(--cds-layer-02);
+    > div:first-child { display: flex; flex-direction: column; gap: $spacing-02; min-width: 0; }
+    span { @include type-style('label-01'); color: var(--cds-text-secondary); }
+    strong { @include type-style('body-compact-01'); overflow-wrap: anywhere; }
+    > div:last-child { display: flex; gap: $spacing-03; flex-shrink: 0; }
+  }
+
+  &__checks { display: flex; flex-wrap: wrap; gap: $spacing-03 $spacing-06; margin: $spacing-05 0; }
+  &__advanced-note { @include type-style('body-compact-01'); color: var(--cds-text-secondary); padding: $spacing-03 0 $spacing-05; }
+  &__field-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: $spacing-02 $spacing-04; margin-top: $spacing-04; }
+  &__field-list span { @include type-style('label-01'); padding: $spacing-02 $spacing-03; background: var(--cds-layer-02); overflow-wrap: anywhere; }
+  &__request-summary { display: flex; flex-direction: column; gap: $spacing-03; margin-top: $spacing-05; }
+  &__request-summary strong { @include type-style('label-01'); }
+  &__request-summary code { @include type-style('helper-text-01'); display: block; padding: $spacing-03; background: var(--cds-layer-02); overflow-wrap: anywhere; white-space: normal; }
+  &__request-params { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: $spacing-03; padding: $spacing-03 0; }
+  &__request-params span { @include type-style('body-compact-01'); padding: $spacing-03; background: var(--cds-layer-02); }
+  &__request-params b { color: var(--cds-text-primary); margin-right: $spacing-02; }
+  &__actions { display: flex; justify-content: flex-end; margin-top: $spacing-06; }
+
+  &__run-summary { display: flex; flex-wrap: wrap; align-items: center; gap: $spacing-04; margin-bottom: $spacing-04; @include type-style('label-01'); color: var(--cds-text-secondary); }
+  &__run-summary strong { color: var(--cds-text-primary); }
+  &__results .cds--data-table-container { min-width: 0; }
+  &__empty { @include type-style('body-compact-01'); color: var(--cds-text-secondary); padding: $spacing-06; }
+
+  @media (max-width: 900px) {
+    &__location-grid, &__parameter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    &__field-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 672px) {
+    &__header { align-items: flex-start; flex-direction: column; }
+    &__location-grid, &__parameter-grid, &__field-list, &__request-params { grid-template-columns: minmax(0, 1fr); }
+    &__keyword-row { grid-template-columns: minmax(0, 1fr); }
+    &__translation { align-items: flex-start; flex-direction: column; }
+    &__translation > div:last-child { flex-wrap: wrap; }
+    &__section { padding: $spacing-04; }
+    &__section-heading { align-items: flex-start; }
+    &__checks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    &__actions { justify-content: stretch; }
+    &__actions .cds--btn { width: 100%; }
+  }
+}
