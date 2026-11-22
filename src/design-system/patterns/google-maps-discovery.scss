@@ -238,3 +238,15 @@
 .tp-gmaps-discovery__selected-cities button{display:inline-flex;align-items:center;gap:var(--cds-spacing-02);min-height:32px;padding:0 var(--cds-spacing-03);border:0;background:var(--cds-layer-02);color:var(--cds-text-primary);font:inherit;font-size:.75rem;cursor:pointer}
 .tp-gmaps-discovery__selected-cities button:hover{background:var(--cds-layer-hover-02)}
 .tp-gmaps-discovery__selected-cities button span{font-size:1rem;color:var(--cds-text-secondary)}
+
+/* Google Maps task center KPI cards aligned with the shared Carbon metric-card pattern. */
+.tp-gmaps-task-center__cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--cds-spacing-04);margin-bottom:var(--cds-spacing-05);background:transparent}
+.tp-gmaps-task-center__card{display:flex;align-items:center;gap:var(--cds-spacing-04);min-height:104px;padding:var(--cds-spacing-05);background:var(--cds-layer-01)}
+.tp-gmaps-task-center__card-icon{display:grid;place-items:center;flex:0 0 40px;width:40px;height:40px;color:var(--cds-icon-primary);background:var(--cds-layer-02)}
+.tp-gmaps-task-center__card>div:last-child{display:grid;gap:var(--cds-spacing-02);min-width:0}
+.tp-gmaps-task-center__card span{@include type-style('label-01');color:var(--cds-text-secondary)}
+.tp-gmaps-task-center__card strong{@include type-style('productive-heading-04');font-variant-numeric:tabular-nums}
+.tp-gmaps-task-center__header h1{@include type-style('productive-heading-05')}
+.tp-gmaps-task-center__header p{@include type-style('body-compact-01');color:var(--cds-text-secondary)}
+@media(max-width:800px){.tp-gmaps-task-center__cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.tp-gmaps-task-center__cards{grid-template-columns:minmax(0,1fr)}}
