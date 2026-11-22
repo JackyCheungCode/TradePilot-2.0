@@ -15,7 +15,7 @@ import {
   Settings, SettingsAdjust, Share, ShoppingCart, Star, Task, TaskComplete,
   Template, Time, Tools, Translate, TrashCan, Upload, User, UserAvatar,
   UserFollow, UserMultiple, UserSettings, View, ViewOff, Wallet, WarningAlt,
-  Workspace, Sun, Moon, Cloudy, PartlyCloudy, Fog, Rain, Snow, Thunderstorm,
+  Workspace, Pause, Sun, Moon, Cloudy, PartlyCloudy, Fog, Rain, Snow, Thunderstorm,
   Temperature, OverflowMenuVertical, ErrorFilled,
 } from '@carbon/icons-react';
 
@@ -34,7 +34,7 @@ export const semanticIcons = {
   location: Location, model: MachineLearningModel, magicWand: MagicWand,
   map: Map, modelBuilder: ModelBuilder, network: Network_4, notebook: Notebook,
   notification: Notification, package: Package, appearance: PaintBrush,
-  phone: Phone, play: Play, product: Product, refresh: Renew, save: Save,
+  phone: Phone, pause: Pause, play: Play, product: Product, refresh: Renew, save: Save,
   search: Search, locateSearch: SearchLocate, reset: Reset, security: Security, send: Send,
   settings: Settings, adjust: SettingsAdjust, share: Share,
   shoppingCart: ShoppingCart, star: Star, task: Task, taskComplete: TaskComplete,
