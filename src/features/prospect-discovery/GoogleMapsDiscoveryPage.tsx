@@ -250,13 +250,13 @@ export function GoogleMapsDiscoveryPage() {
     if (!country || cityQuery.trim().length < 2) { setCityOptions([]); return; }
     let active = true;
     const timer = window.setTimeout(() => {
-      const url = '/api/v1/prospect-profiling/cities?q=' + encodeURIComponent(cityQuery.trim()) + '&country=' + country + '&language=' + language.google;
+      const url = '/api/v1/prospect-profiling/cities?q=' + encodeURIComponent(cityQuery.trim()) + '&country=' + country + '&language=en';
       void api<{ cityDetails: City[] }>(url)
-        .then(payload => { if (active) { const selectedRegionName = regions.find(item => item.id === region)?.name; setCityOptions((payload.cityDetails ?? []).filter(item => !selectedRegionName || item.admin1 === selectedRegionName)); } })
+        .then(payload => { if (active) { const selectedRegionName = regions.find(item => item.id === region)?.name.toLocaleLowerCase(); setCityOptions((payload.cityDetails ?? []).filter(item => !selectedRegionName || item.admin1.toLocaleLowerCase() === selectedRegionName || item.admin1.toLocaleLowerCase().includes(selectedRegionName) || selectedRegionName.includes(item.admin1.toLocaleLowerCase()))); } })
         .catch(() => { if (active) setCityOptions([]); });
     }, 300);
     return () => { active = false; window.clearTimeout(timer); };
-  }, [cityQuery, country, language.google, region, regions]);
+  }, [cityQuery, country, region, regions]);
 
   useEffect(() => {
     if (!country || keyword.trim().length < 2) { setSuggestions([]); return; }
