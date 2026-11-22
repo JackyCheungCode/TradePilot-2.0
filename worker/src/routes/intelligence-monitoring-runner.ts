@@ -75,9 +75,16 @@ async function execute(env:Env,t:ClaimedTask,token:string){
  if(!Object.keys(object(schema.properties)).length&&typeof buildData.inputSchema==="string"){try{schema=object(JSON.parse(buildData.inputSchema));}catch{}}
  if(!Object.keys(object(schema.properties)).length)throw new Error("ACTOR_SCHEMA_UNAVAILABLE: 无法读取 Actor 输入 Schema。");
  const input=makeActorInput(schema,t.source_url);
- const started=await apify<{data?:{id?:string;status?:string;defaultDatasetId?:string}}>(token,"acts/"+encodeURIComponent(actorId)+"/runs?waitForFinish=60",{method:"POST",body:JSON.stringify(input)});
- const run=object(started.data);if(!run.id)throw new Error("ACTOR_RUN_ID_MISSING");
- const status=str(run.status).toUpperCase();if(status!=="SUCCEEDED")throw new Error("ACTOR_RUN_"+(status||"UNKNOWN"));
+ let started=await apify<{data?:{id?:string;status?:string;defaultDatasetId?:string}}>(token,"acts/"+encodeURIComponent(actorId)+"/runs?waitForFinish=60",{method:"POST",body:JSON.stringify(input)});
+ let run=object(started.data);if(!run.id)throw new Error("ACTOR_RUN_ID_MISSING");
+ let status=str(run.status).toUpperCase();
+ for(let attempt=0;status==="READY"||status==="RUNNING";attempt++){
+  if(attempt>=18)throw new Error("ACTOR_RUN_TIMEOUT: Actor 超过 3 分钟仍未完成，运行编号 "+str(run.id));
+  await new Promise(resolve=>setTimeout(resolve,10000));
+  const polled=await apify<{data?:Record<string,unknown>}>(token,"actor-runs/"+encodeURIComponent(str(run.id)));
+  run=object(polled.data);status=str(run.status).toUpperCase();
+ }
+ if(status!=="SUCCEEDED")throw new Error("ACTOR_RUN_"+(status||"UNKNOWN")+": "+str(run.statusMessage,run.status));
  const datasetId=str(run.defaultDatasetId);if(!datasetId)throw new Error("ACTOR_DATASET_MISSING");
  const rows=await apify<unknown>(token,"datasets/"+encodeURIComponent(datasetId)+"/items?clean=true&format=json&limit=500");
  if(!Array.isArray(rows))throw new Error("ACTOR_DATASET_INVALID");
