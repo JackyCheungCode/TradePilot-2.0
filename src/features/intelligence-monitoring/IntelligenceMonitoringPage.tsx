@@ -277,6 +277,16 @@ export function MonitoringTasksPage() {
   const filtered = useMemo(() => (rows as TaskRow[]).filter(row => (statusFilter === 'all' || row.status === statusFilter) && [row.name,row.task_code,row.status].join(' ').toLowerCase().includes(search.toLowerCase())), [rows,search,statusFilter]);
   useEffect(() => setPage(1), [search,statusFilter]);
   useEffect(() => { const timer = window.setInterval(() => void reload(true), 10000); return () => window.clearInterval(timer); }, [reload]);
+  const taskMetrics = useMemo(() => {
+    const all = rows as TaskRow[];
+    return {
+      total: all.length,
+      running: all.filter(row => row.latest_run_status === 'running' || row.latest_run_status === 'queued').length,
+      succeeded: all.filter(row => row.latest_run_status === 'succeeded').length,
+      failed: all.filter(row => row.latest_run_status === 'failed').length,
+      paused: all.filter(row => row.status === 'paused').length,
+    };
+  }, [rows]);
   const columns: TpTableColumn<TaskRow>[] = [
     { key: 'task_code', header: '任务编号', primary: true, required: true, minWidth: 180 },
     { key: 'name', header: '监听任务', required: true, minWidth: 180 },
@@ -315,6 +325,13 @@ export function MonitoringTasksPage() {
   return <main className="tp-intelligence-monitoring">
     <PageHeader breadcrumb="全球情报 / 公开内容监听" title="监听任务列表" description="统一查看任务配置、运行状态、采集频率与最近执行情况。" />
     <ModuleNavigation active="tasks" />
+    <div className="tp-intelligence-monitoring__metric-grid" aria-label="监听任务关键指标">
+      <Tile className="tp-intelligence-monitoring__metric-card tp-intelligence-monitoring__metric-card--blue"><div className="tp-intelligence-monitoring__metric-icon"><Task size={24} /></div><div className="tp-intelligence-monitoring__metric-copy"><p>监听任务总数</p><h2>{taskMetrics.total.toLocaleString('zh-CN')}</h2><span>全部已创建任务</span></div></Tile>
+      <Tile className="tp-intelligence-monitoring__metric-card tp-intelligence-monitoring__metric-card--teal"><div className="tp-intelligence-monitoring__metric-icon"><Activity size={24} /></div><div className="tp-intelligence-monitoring__metric-copy"><p>正在执行</p><h2>{taskMetrics.running.toLocaleString('zh-CN')}</h2><span>运行中或排队中的执行</span></div></Tile>
+      <Tile className="tp-intelligence-monitoring__metric-card tp-intelligence-monitoring__metric-card--green"><div className="tp-intelligence-monitoring__metric-icon"><Analytics size={24} /></div><div className="tp-intelligence-monitoring__metric-copy"><p>执行成功</p><h2>{taskMetrics.succeeded.toLocaleString('zh-CN')}</h2><span>最近一次运行成功</span></div></Tile>
+      <Tile className="tp-intelligence-monitoring__metric-card tp-intelligence-monitoring__metric-card--red"><div className="tp-intelligence-monitoring__metric-icon"><Activity size={24} /></div><div className="tp-intelligence-monitoring__metric-copy"><p>执行失败</p><h2>{taskMetrics.failed.toLocaleString('zh-CN')}</h2><span>最近一次运行失败</span></div></Tile>
+      <Tile className="tp-intelligence-monitoring__metric-card tp-intelligence-monitoring__metric-card--amber"><div className="tp-intelligence-monitoring__metric-icon"><Pause size={24} /></div><div className="tp-intelligence-monitoring__metric-copy"><p>已暂停</p><h2>{taskMetrics.paused.toLocaleString('zh-CN')}</h2><span>当前暂停的监听任务</span></div></Tile>
+    </div>
     {error && <InlineNotification kind="error" lowContrast title="读取任务失败" subtitle={error}  />}
     <div className="tp-intelligence-monitoring__filter-bar"><Select id="monitoring-task-status-filter" labelText="任务状态" size="sm" value={statusFilter} onChange={event => setStatusFilter(event.currentTarget.value)}><SelectItem value="all" text="全部状态" /><SelectItem value="draft" text="草稿" /><SelectItem value="running" text="已启用" /><SelectItem value="paused" text="已暂停" /><SelectItem value="error" text="异常" /></Select></div>
     <TpDataTable<TaskRow> ariaLabel="监听任务列表" columns={columns} rows={filtered} rowKey="id" loading={loading} searchValue={search} onSearchChange={setSearch} onRetry={() => void reload()} emptyState="暂无监听任务。创建任务后会显示在这里。" columnSettingsKey="intelligence-monitoring-tasks" pagination={{ page, pageSize: 20, totalItems: filtered.length, onChange: nextPage => setPage(nextPage) }} />
@@ -329,6 +346,16 @@ export function MonitoringResultsPage() {
   const [page, setPage] = useState(1);
   const filtered = useMemo(() => (rows as ResultRow[]).filter(row => (platformFilter === 'all' || row.platform === platformFilter) && (gradeFilter === 'all' || row.grade === gradeFilter) && [row.task_name,row.channel_name,row.author_name,row.content_text,row.intent_type,row.grade,platformLabel(row.platform)].join(' ').toLowerCase().includes(search.toLowerCase())), [rows,search,platformFilter,gradeFilter]);
   useEffect(() => setPage(1), [search,platformFilter,gradeFilter]);
+  const resultMetrics = useMemo(() => {
+    const all = rows as ResultRow[];
+    return {
+      total: all.length,
+      posts: all.filter(row => String(row.content_type).toLowerCase().includes('post')).length,
+      conversations: all.filter(row => /comment|reply|回复|评论/i.test(String(row.content_type))).length,
+      qualified: all.filter(row => row.grade === 'S' || row.grade === 'A').length,
+      pending: all.filter(row => row.grade === 'unclassified').length,
+    };
+  }, [rows]);
   const columns: TpTableColumn<ResultRow>[] = [
     { key: 'platform', header: '监听平台', primary: true, required: true, minWidth: 120, render: row => platformLabel(row.platform) },
     { key: 'channel_name', header: '渠道 / 监听对象', required: true, minWidth: 180 },
@@ -350,6 +377,13 @@ export function MonitoringResultsPage() {
   return <main className="tp-intelligence-monitoring">
     <PageHeader breadcrumb="全球情报 / 公开内容监听" title="监听结果中心" description="按平台、渠道、任务与 AI 意向统一查看采集内容；支持搜索、列配置和 CSV 导出。" />
     <ModuleNavigation active="results" />
+    <div className="tp-intelligence-monitoring__metric-grid" aria-label="监听结果关键指标">
+      <Tile className="tp-intelligence-monitoring__metric-card tp-intelligence-monitoring__metric-card--blue"><div className="tp-intelligence-monitoring__metric-icon"><Analytics size={24} /></div><div className="tp-intelligence-monitoring__metric-copy"><p>采集结果总量</p><h2>{resultMetrics.total.toLocaleString('zh-CN')}</h2><span>已写入结果中心的记录</span></div></Tile>
+      <Tile className="tp-intelligence-monitoring__metric-card tp-intelligence-monitoring__metric-card--purple"><div className="tp-intelligence-monitoring__metric-icon"><Task size={24} /></div><div className="tp-intelligence-monitoring__metric-copy"><p>帖子</p><h2>{resultMetrics.posts.toLocaleString('zh-CN')}</h2><span>已采集的公开帖子</span></div></Tile>
+      <Tile className="tp-intelligence-monitoring__metric-card tp-intelligence-monitoring__metric-card--teal"><div className="tp-intelligence-monitoring__metric-icon"><Activity size={24} /></div><div className="tp-intelligence-monitoring__metric-copy"><p>评论与回复</p><h2>{resultMetrics.conversations.toLocaleString('zh-CN')}</h2><span>帖子下的互动内容</span></div></Tile>
+      <Tile className="tp-intelligence-monitoring__metric-card tp-intelligence-monitoring__metric-card--green"><div className="tp-intelligence-monitoring__metric-icon"><Analytics size={24} /></div><div className="tp-intelligence-monitoring__metric-copy"><p>S / A 级潜客</p><h2>{resultMetrics.qualified.toLocaleString('zh-CN')}</h2><span>高优先级采购意向</span></div></Tile>
+      <Tile className="tp-intelligence-monitoring__metric-card tp-intelligence-monitoring__metric-card--amber"><div className="tp-intelligence-monitoring__metric-icon"><Activity size={24} /></div><div className="tp-intelligence-monitoring__metric-copy"><p>待 AI 分析</p><h2>{resultMetrics.pending.toLocaleString('zh-CN')}</h2><span>尚未生成 AI 判定的记录</span></div></Tile>
+    </div>
     {error && <><InlineNotification kind="error" lowContrast title="读取结果失败" subtitle={error} /><Button kind="tertiary" size="sm" onClick={() => void reload()}>重试</Button></>}
     <div className="tp-intelligence-monitoring__table-meta"><Tag type="blue">云端数据</Tag><span>最近 500 条采集记录 · AI 判定尚未完成时显示「待分析」</span><Button kind="tertiary" size="sm" onClick={() => void reload()}>刷新结果</Button></div>
     <div className="tp-intelligence-monitoring__filter-bar tp-intelligence-monitoring__filter-bar--wide"><Select id="monitoring-result-platform-filter" labelText="平台" size="sm" value={platformFilter} onChange={event => setPlatformFilter(event.currentTarget.value)}><SelectItem value="all" text="全部平台" />{platformOptions.map(item => <SelectItem key={item.value} value={item.value} text={item.label} />)}</Select><Select id="monitoring-result-grade-filter" labelText="AI 意向" size="sm" value={gradeFilter} onChange={event => setGradeFilter(event.currentTarget.value)}><SelectItem value="all" text="全部等级" /><SelectItem value="S" text="S 级" /><SelectItem value="A" text="A 级" /><SelectItem value="B" text="B 级" /><SelectItem value="C" text="C 级" /><SelectItem value="unclassified" text="待分析" /></Select></div>
