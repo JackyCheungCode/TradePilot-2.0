@@ -263,7 +263,7 @@ export function PersonalSettingsPage() {
                 <semanticIcons.document size={32} />
                 <h3>个人数据与账户控制</h3>
                 <p>可以导出当前个人资料摘要和偏好设置。此导出不包含业务记录、客户数据或集成密钥。</p>
-                <Button kind="tertiary" onClick={exportSettings}>导出个人设置 <semanticIcons.download size={16} /></Button>
+                <Button kind="tertiary" renderIcon={semanticIcons.download} onClick={exportSettings}>导出个人设置</Button>
                 <div className="tp-personal-settings__privacy-note"><strong>账户注销</strong><p>账户注销涉及业务数据归属与不可逆删除，目前不开放自助操作。请通过管理员支持渠道提出申请。</p></div>
               </div>
             )}
