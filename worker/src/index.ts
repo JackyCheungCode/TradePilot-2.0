@@ -50,7 +50,7 @@ export interface WorkerEnv {
  AGENT_ENCRYPTION_KEY?: string;
  AI: { run(model:string,input:Record<string,unknown>): Promise<unknown> };
  OVERPASS_API_URL?: string;
- LEAD_DISCOVERY_WORKFLOW: { create(options: { id: string; params: { runId: string; ownerId: string; input: DiscoveryRunInput } }): Promise<{ id: string }> };
+ LEAD_DISCOVERY_WORKFLOW: { create(options: { id: string; params: { runId: string; ownerId: string; input: DiscoveryRunInput } }): Promise<{ id: string }>; get(id: string): Promise<{ id: string; pause(): Promise<void>; resume(): Promise<void>; terminate(): Promise<void>; status(): Promise<{ status: string }> }> };
  CONTACT_ENRICHMENT_WORKFLOW: { create(options:{id:string;params:{jobId:string;ownerId:string;recordIds:string[];providers?:Array<"website"|"apollo"|"zoominfo">}}):Promise<{id:string}> };
  FACEBOOK_DISCOVERY_WORKFLOW: { create(options:{id:string;params:{runId:string;ownerId:string;input:import("./routes/facebook-discovery").FacebookInput}}):Promise<{id:string}> };
  INSTAGRAM_DISCOVERY_WORKFLOW: { create(options:{id:string;params:{runId:string;ownerId:string;input:import("./routes/instagram-discovery").InstagramInput}}):Promise<{id:string}> };
