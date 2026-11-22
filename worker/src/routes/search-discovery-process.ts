@@ -40,7 +40,24 @@ async function inspectWebsite(item:Result,product:string):Promise<Result>{
   if(!response)throw new Error("网站无响应");
   if(!response.ok)return{...item,websiteVerification:{status:"unavailable",httpStatus:response.status,score:0,reason:"首页返回 HTTP "+response.status,finalUrl:target.toString()}};
   const type=response.headers.get("content-type")??"";if(!type.includes("text/html")&&!type.includes("application/xhtml"))return{...item,websiteVerification:{status:"non_html",httpStatus:response.status,score:5,reason:"目标地址不是 HTML 网站",finalUrl:target.toString()}};
-  const html=(await response.text()).slice(0,500000);
+  let html=(await response.text()).slice(0,500000);
+  let verificationMethod:"http"|"browser_run"="http";
+  let browserRunMs:number|null=null;
+  let browserFallbackError:string|null=null;
+  const initialText=html.replace(/<script[\\s\\S]*?<\\/script>/gi," ").replace(/<style[\\s\\S]*?<\\/style>/gi," ").replace(/<[^>]+>/g," ").replace(/&nbsp;|&#160;/g," ").replace(/\\s+/g," ").trim();
+  const needsRenderedPage=initialText.length<900||(!/<title[^>]*>[^<]{3,}/i.test(html)&&/<div[^>]+id=["'](?:root|app|__next)["']/i.test(html));
+  if(needsRenderedPage&&env.BROWSER){
+   try{
+    const rendered=await env.BROWSER.quickAction("content",{url:target.toString(),gotoOptions:{waitUntil:"networkidle2",timeout:20000}});
+    browserRunMs=Number(rendered.headers.get("X-Browser-Ms-Used"))||null;
+    if(!rendered.ok)throw new Error("Browser Run HTTP "+rendered.status);
+    const payload=await rendered.json() as {success?:boolean;result?:unknown};
+    if(!payload.success||typeof payload.result!=="string")throw new Error("Browser Run 未返回有效 HTML");
+    const renderedHtml=payload.result.slice(0,500000);
+    const renderedText=renderedHtml.replace(/<script[\\s\\S]*?<\\/script>/gi," ").replace(/<style[\\s\\S]*?<\\/style>/gi," ").replace(/<[^>]+>/g," ").replace(/&nbsp;|&#160;/g," ").replace(/\\s+/g," ").trim();
+    if(renderedText.length>initialText.length){html=renderedHtml;verificationMethod="browser_run";}
+   }catch(error){browserFallbackError=error instanceof Error?error.message.slice(0,180):"Browser Run 核验失败";}
+  }
   const title=(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]??"").replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim().slice(0,240);
   const description=(html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']*)/i)?.[1]??"").slice(0,400);
   const text=html.replace(/<script[\s\S]*?<\/script>/gi," ").replace(/<style[\s\S]*?<\/style>/gi," ").replace(/<[^>]+>/g," ").replace(/&nbsp;|&#160;/g," ").replace(/\s+/g," ").slice(0,30000);
@@ -53,7 +70,7 @@ async function inspectWebsite(item:Result,product:string):Promise<Result>{
   const hasProductCatalog=/products|product catalog|our products|产品中心|产品目录/i.test(lower);
   const score=Math.min(100,20+(productMatches.length?Math.min(25,productMatches.length*8):0)+(hasCompanyTerms?15:0)+(hasContact?10:0)+(hasOrganization?15:0)+(hasProductCatalog?15:0));
   const status=score>=65?"candidate_official":score>=40?"needs_review":"weak_match";
-  return{...item,websiteVerification:{status,score,httpStatus:response.status,finalUrl:target.toString(),pageTitle:title,description,productMatches,signals:{companyInformation:hasCompanyTerms,contactInformation:hasContact,organizationSchema:hasOrganization,productCatalog:hasProductCatalog},checkedAt:new Date().toISOString()}};
+  return{...item,websiteVerification:{status,score,httpStatus:response.status,finalUrl:target.toString(),pageTitle:title,description,productMatches,signals:{companyInformation:hasCompanyTerms,contactInformation:hasContact,organizationSchema:hasOrganization,productCatalog:hasProductCatalog},verificationMethod,browserRunMs,browserFallbackError,checkedAt:new Date().toISOString()}};
  }catch(error){return{...item,websiteVerification:{status:"check_failed",score:0,reason:error instanceof Error?error.message:"网站核验失败"}};}
 }
 async function persist(env:DiscoveryEnv,owner:string,run:string,input:DiscoveryRunInput,engine:Engine,type:Vertical,item:Result){
