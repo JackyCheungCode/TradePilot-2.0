@@ -188,7 +188,7 @@ export function PersonalSettingsPage() {
                   <TextInput id="tp-profile-email" labelText="登录邮箱" value={email} readOnly />
                 </div>
                 <div className="tp-personal-settings__meta"><span>账户 ID</span><code>{userId}</code><span>注册时间</span><strong>{createdAt ? new Intl.DateTimeFormat('zh-TW', { dateStyle: 'medium' }).format(new Date(createdAt)) : '—'}</strong></div>
-                <div className="tp-personal-settings__actions"><Button onClick={() => void saveProfile()} disabled={saving || uploading}>{saving ? '正在保存…' : '保存个人资料'}</Button></div>
+                <div className="tp-personal-settings__actions"><Button kind="primary" renderIcon={semanticIcons.save} onClick={() => void saveProfile()} disabled={saving || uploading}>{saving ? '正在保存…' : '保存个人资料'}</Button></div>
               </div>
             )}
 
@@ -238,7 +238,7 @@ export function PersonalSettingsPage() {
                     <Toggle id={`tp-notify-${key}`} labelText={label} labelA="关闭" labelB="开启" toggled={preferences.notifications[key]} onToggle={(checked) => setPreferences((current) => ({ ...current, notifications: { ...current.notifications, [key]: checked } }))} />
                   </div>
                 ))}
-                <div className="tp-personal-settings__actions"><Button onClick={() => void savePreferences()} disabled={saving}>{saving ? '正在保存…' : '保存通知偏好'}</Button></div>
+                <div className="tp-personal-settings__actions"><Button kind="primary" renderIcon={semanticIcons.save} onClick={() => void savePreferences()} disabled={saving}>{saving ? '正在保存…' : '保存通知偏好'}</Button></div>
               </div>
             )}
 
