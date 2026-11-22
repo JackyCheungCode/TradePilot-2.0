@@ -35,7 +35,7 @@ type BoardCard = {
 const safeRows = (value: unknown): Row[] => Array.isArray(value) ? value as Row[] : [];
 const money = (amount: unknown, currency = 'USD') => {
   const value = Number(amount);
-  if (!Number.isFinite(value)) return '金额待核实';
+  if (amount === null || amount === undefined || amount === '' || !Number.isFinite(value)) return '金额待核实';
   try {
     return new Intl.NumberFormat('zh-CN', { style: 'currency', currency, maximumFractionDigits: 0 }).format(value);
   } catch {
@@ -193,7 +193,7 @@ export function SalesProcessPage() {
     const accountCards: BoardCard[] = scoped.accounts.map(row => ({
       id: row.id, title: row.account_name, subtitle: row.account_number || row.country_code || '客户档案',
       status: row.status || '未设置', href: '/accounts/' + row.id,
-      details: [(scoped.contactCountByAccount.get(String(row.id)) || 0) + ' 位联系人', row.source_lead_id ? '由线索转化' : '直接建立'],
+      details: [((scoped.contactCountByAccount.get(String(row.id)) || 0) + ' 位联系人'), (scoped.contacts.filter(contact => String(contact.account_id) === String(row.id)).slice(0, 2).map(contact => contact.full_name || [contact.first_name, contact.last_name].filter(Boolean).join(' ')).filter(Boolean).join('、') || '联系人待补充'), row.source_lead_id ? '由线索转化' : '直接建立'],
     }));
     const opportunityCards: BoardCard[] = scoped.opportunities.map(row => ({
       id: row.id, title: row.name, subtitle: row.opportunity_number || '销售商机',
@@ -302,7 +302,7 @@ export function SalesProcessPage() {
         </Select>
         <div className="tp-sales-process__view-actions">
           <Button kind={view === 'board' ? 'secondary' : 'ghost'} size="md" onClick={() => setView('board')} renderIcon={semanticIcons.dashboard}>阶段看板</Button>
-          <Button kind={view === 'all' ? 'secondary' : 'ghost'} size="md" onClick={() => setView('all')} renderIcon={semanticIcons.list}>全部阶段</Button>
+          <Button kind={view === 'all' ? 'secondary' : 'ghost'} size="md" onClick={() => setView('all')} renderIcon={semanticIcons.view}>全部阶段</Button>
         </div>
       </section>
 
