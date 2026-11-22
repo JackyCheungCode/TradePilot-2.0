@@ -266,8 +266,8 @@ export function AgentWorkspacePage() {
             </Select>
           </div>
           <div className="tp-agent__history-actions">
-            <Button kind="tertiary" size="md" onClick={() => void createConversation()}>
-              <semanticIcons.add size={16} /> 新建对话
+            <Button kind="tertiary" size="md" renderIcon={semanticIcons.add} onClick={() => void createConversation()}>
+              新建对话
             </Button>
             <Link href="/recent-tasks" renderIcon={semanticIcons.task}>任务执行中心</Link>
           </div>
@@ -322,6 +322,7 @@ export function AgentWorkspacePage() {
                           <Button
                             kind="tertiary"
                             size="md"
+                            renderIcon={semanticIcons.play}
                             disabled={Boolean(startingTask)}
                             onClick={() => void startTask(item.id, item.metadata!.task!)}
                           >
@@ -359,7 +360,7 @@ export function AgentWorkspacePage() {
             />
             <div className="tp-agent__composer-footer">
               <span>Enter 发送 · Shift + Enter 换行</span>
-              <Button kind="primary" disabled={!draft.trim() || sending || !conversationId} onClick={() => void sendMessage()}>
+              <Button kind="primary" renderIcon={semanticIcons.send} disabled={!draft.trim() || sending || !conversationId} onClick={() => void sendMessage()}>
                 <semanticIcons.send size={16} /> 发送
               </Button>
             </div>
