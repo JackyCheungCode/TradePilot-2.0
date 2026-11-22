@@ -1,5 +1,5 @@
 import { useEffect, useState, type SyntheticEvent } from 'react';
-import { Button, FileUploader, TPSkeleton, InlineNotification, Tag, TextArea, TextInput } from '@/design-system';
+import { Button, FileUploader, TPSkeleton, InlineNotification, Tag, TextArea, TextInput, Modal, ModalBody, semanticIcons } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 
 type Finding = { severity:'high'|'medium'|'low'; code:string; message:string; file?:string };
@@ -126,7 +126,6 @@ export function SkillsRegistry(){
   finally{setBusy("");}
  };
  const remove=async(id:string)=>{
-  if(removeConfirm!==id){setRemoveConfirm(id);return;}
   setBusy(id);setError('');setNotice('');
   try{
    await skillRequest('/api/v1/agent/skills/'+id,{method:'DELETE'});
@@ -157,21 +156,21 @@ export function SkillsRegistry(){
     <TextInput id="new-skill-branch" labelText="分支（可选）" value={newSource.branch} onChange={event=>setNewSource(current=>({...current,branch:event.currentTarget.value}))}/>
     <TextInput id="new-skill-path" labelText="Skill 目录（可选）" placeholder="skills/my-skill" value={newSource.skillPath} onChange={event=>setNewSource(current=>({...current,skillPath:event.currentTarget.value}))}/>
    </div>
-   <Button kind="primary" disabled={busy!==''||!newSource.repositoryUrl.trim()} onClick={()=>void add()}>{busy==='__new__'?'正在导入并检查…':'新增并导入完整包'}</Button>
+   <Button kind="primary" renderIcon={semanticIcons.add} disabled={busy!==''||!newSource.repositoryUrl.trim()} onClick={()=>void add()}>{busy==='__new__'?'正在导入并检查…':'新增并导入完整包'}</Button>
   </div>
   <div className="tp-settings__editor">
    <h3>上传 ZIP Skill 包</h3>
    <p>上传包含一个 SKILL.md 的 ZIP 压缩包。系统会检查目录、文件数量、文件大小、敏感文件和执行契约，不会运行压缩包中的代码。</p>
    <FileUploader accept={['.zip']} buttonLabel="选择 ZIP 文件" filenameStatus="complete" labelTitle="Skill ZIP 包" labelDescription="最大 900 KB；解压后最多 60 个文件、总计 768 KB。" multiple={false} onChange={chooseZip}/>
    {zipFileName&&<p>已选择：{zipFileName}</p>}
-   <Button kind="primary" disabled={busy!==''||!zipBase64} onClick={()=>void addZip()}>{busy==='__zip__'?'正在解压、检查并注册…':'上传并注册 ZIP Skill'}</Button>
+   <Button kind="primary" renderIcon={semanticIcons.cloudUpload} disabled={busy!==''||!zipBase64} onClick={()=>void addZip()}>{busy==='__zip__'?'正在解压、检查并注册…':'上传并注册 ZIP Skill'}</Button>
   </div>
   <div className="tp-settings__editor">
    <h3>手动创建 Skill</h3>
    <p>粘贴 Skill 的说明文件；可选附加 skill.json 执行契约。名称和描述从 SKILL.md frontmatter 自动读取。手动创建的内容同样会进行结构与静态检查，并默认停用。</p>
    <TextArea id="manual-skill-markdown" labelText="SKILL.md 内容" rows={10} value={manualSkillMd} onChange={event=>setManualSkillMd(event.currentTarget.value)} placeholder={'---\nname: my-skill\ndescription: Describe what this Skill does\n---\n\n# Instructions\n...'} />
    <TextArea id="manual-skill-contract" labelText="skill.json（可选）" rows={8} value={manualSkillJson} onChange={event=>setManualSkillJson(event.currentTarget.value)} placeholder='{"schemaVersion":1,...}' />
-   <Button kind="primary" disabled={busy!==''||!manualSkillMd.trim()} onClick={()=>void addManual()}>{busy==='__manual__'?'正在注册并检查…':'注册手动 Skill'}</Button>
+   <Button kind="primary" renderIcon={semanticIcons.add} disabled={busy!==''||!manualSkillMd.trim()} onClick={()=>void addManual()}>{busy==='__manual__'?'正在注册并检查…':'注册手动 Skill'}</Button>
   </div>
   <div className="tp-settings__editor">
    <h3>Skills 注册表 <Tag type="cool-gray">{skills.length} 项</Tag></h3>
@@ -191,10 +190,10 @@ export function SkillsRegistry(){
        <TextInput id={'skill-path-'+skill.id} labelText="Skill 目录（可选）" placeholder="skills/name" value={draft.skillPath} onChange={event=>change(skill.id,'skillPath',event.currentTarget.value)}/>
       </div>
       <div className="tp-ai-control__skill-actions">
-       <Button kind="tertiary" size="sm" disabled={busy!==''||!draft.repositoryUrl.trim()} onClick={()=>void save(skill.id)}>保存来源</Button>
-       <Button kind="primary" size="sm" disabled={busy!==''||!draft.repositoryUrl.trim()} onClick={()=>void sync(skill.id)}>{busy===skill.id?'正在导入完整包…':'重新导入完整包并检查'}</Button>
-       <Button kind={skill.enabled?"tertiary":"primary"} size="sm" disabled={busy!==''||skill.state!=='synced'} onClick={()=>void toggleInstructionUse(skill)}>{busy===skill.id?"正在更新…":skill.enabled?"停止供小雅使用":"允许小雅使用方法"}</Button>
-       <Button kind="tertiary" size="sm" disabled={busy!==''} onClick={()=>void remove(skill.id)}>{removeConfirm===skill.id?'再次点击确认移除':'移除 Skill'}</Button>
+       <Button kind="tertiary" size="sm" renderIcon={semanticIcons.save} disabled={busy!==''||!draft.repositoryUrl.trim()} onClick={()=>void save(skill.id)}>保存来源</Button>
+       <Button kind="primary" size="sm" renderIcon={semanticIcons.refresh} disabled={busy!==''||!draft.repositoryUrl.trim()} onClick={()=>void sync(skill.id)}>{busy===skill.id?'正在导入完整包…':'重新导入完整包并检查'}</Button>
+       <Button kind={skill.enabled?"tertiary":"primary"} size="sm" renderIcon={skill.enabled?semanticIcons.pause:semanticIcons.play} disabled={busy!==''||skill.state!=='synced'} onClick={()=>void toggleInstructionUse(skill)}>{busy===skill.id?"正在更新…":skill.enabled?"停止供小雅使用":"允许小雅使用方法"}</Button>
+       <Button kind="danger--tertiary" size="sm" renderIcon={semanticIcons.delete} disabled={busy!==''} onClick={()=>setRemoveConfirm(skill.id)}>移除 Skill</Button>
       </div>
       {bundle.fileCount>0&&<div className="tp-settings__section-item"><span>已导入文件</span><strong>{bundle.fileCount} 个 · {formatBytes(bundle.totalBytes)}</strong></div>}
       {bundle.fileCount>0&&<div className="tp-settings__section-item"><span>执行契约</span><span>{contractTag(contractStatus)}</span></div>}
@@ -227,5 +226,8 @@ export function SkillsRegistry(){
     })}
    </div>}
   </div>
+  <Modal open={Boolean(removeConfirm)} onRequestClose={()=>setRemoveConfirm('')} modalHeading="移除 Skill？" primaryButtonText="确认移除" secondaryButtonText="取消" danger onRequestSubmit={()=>{const id=removeConfirm;setRemoveConfirm('');if(id)void remove(id);}}>
+   <ModalBody><p>确定从当前账户注册表中移除 <strong>{skills.find(skill=>skill.id===removeConfirm)?.label??removeConfirm}</strong>？共享内容寻址存储不会被直接删除，但该账户将无法继续使用此 Skill。</p></ModalBody>
+  </Modal>
  </div>;
 }
