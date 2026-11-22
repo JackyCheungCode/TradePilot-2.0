@@ -146,6 +146,7 @@ export function SalesProcessPage() {
       return countryMatch && searchMatch;
     };
     const accountMap = new Map(data.accounts.map(row => [String(row.id), row]));
+    const orderNumberById = new Map(data.orders.map(row => [String(row.id), row.order_number]));
     const leads = data.leads.filter(row => matches(row, [row.lead_number, row.name, row.email]));
     const accounts = data.accounts.filter(row => matches(row, [row.account_number, row.account_name, row.email, row.website]));
     const accountIds = new Set(accounts.map(row => String(row.id)));
@@ -160,7 +161,7 @@ export function SalesProcessPage() {
     const orderIds = new Set(orders.map(row => String(row.id)));
     const allocations = data.allocations.filter(row => orderIds.has(String(row.order_id)));
     const paymentById = new Map(data.payments.map(row => [String(row.id), row]));
-    const payments = data.payments.filter(row => (country === 'all' || accounts.some(account => String(account.id) === String(row.account_id))) && (!q || [row.payment_no, row.payer_name].some(value => String(value || '').toLocaleLowerCase().includes(q))));
+    const payments = data.payments.filter(row => (country === 'all' || data.accounts.some(account => String(account.id) === String(row.account_id) && String(account.country_code || '').toUpperCase() === country)) && (!q || [row.payment_no, row.payer_name].some(value => String(value || '').toLocaleLowerCase().includes(q))));
     const shipments = data.shipments.filter(row => orderIds.has(String(row.order_id)) || (q && String(row.shipment_no || '').toLocaleLowerCase().includes(q)));
     const contactCountByAccount = new Map<string, number>();
     contacts.forEach(row => contactCountByAccount.set(String(row.account_id), (contactCountByAccount.get(String(row.account_id)) || 0) + 1));
@@ -182,7 +183,7 @@ export function SalesProcessPage() {
       if (shipment.status === 'delivered') stat.delivered += 1;
       if (shipment.exception_flag || ['exception', 'delayed', 'failed', 'damaged', 'lost'].includes(String(shipment.status))) stat.exceptions += 1;
     });
-    return { leads, accounts, contacts, opportunities, quotes, orders, payments, shipments, orderStats, contactCountByAccount };
+    return { leads, accounts, contacts, opportunities, quotes, orders, payments, shipments, orderStats, contactCountByAccount, orderNumberById };
   }, [data, search, country]);
 
   const columns = useMemo(() => {
@@ -233,7 +234,7 @@ export function SalesProcessPage() {
       warning: Number(row.unallocated_amount || 0) > 0 || row.status === 'pending_confirmation', closed: ['voided', 'returned'].includes(String(row.status)),
     }));
     const shipmentCards: BoardCard[] = scoped.shipments.map(row => ({
-      id: row.id, title: row.shipment_no || '发运单', subtitle: '订单 ' + (scoped.orders.find(order => String(order.id) === String(row.order_id))?.order_number || '未关联'),
+      id: row.id, title: row.shipment_no || '发运单', subtitle: '订单 ' + (scoped.orderNumberById.get(String(row.order_id)) || '未关联'),
       status: shipmentLabels[String(row.status)] || String(row.status || '未知'), amount: money(row.shipment_value, row.currency_code || 'USD'), href: '/shipments/' + row.id,
       details: ['计划发运 ' + dateLabel(row.planned_ship_date), '实际发运 ' + dateLabel(row.actual_ship_date)], warning: Boolean(row.exception_flag), closed: row.status === 'cancelled',
     }));
