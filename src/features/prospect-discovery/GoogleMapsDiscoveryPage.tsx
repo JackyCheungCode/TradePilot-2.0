@@ -441,7 +441,7 @@ export function GoogleMapsDiscoveryPage() {
           <div><strong>行政区地图</strong><span>{city ? '城市级定位优先，不高亮所属州 / 省' : region ? '已高亮所选州 / 省' : '点击地图也可选择州 / 省'}</span></div>
           {region && <Button kind="ghost" size="sm" onClick={() => setRegion('')}>清除州 / 省</Button>}
         </div>
-        <RegionMap regions={regions} selectedRegion={region} city={city} onRegionSelect={(id, name) => { setRegion(id); setCity(null); setCityQuery(''); }} />
+        <RegionMap regions={regions} selectedRegion={region} city={city} onRegionSelect={(id) => { setRegion(id); setCity(null); setCityQuery(''); }} />
         <p className="tp-gmaps-discovery__source-note">行政区边界：geoBoundaries gbOpen（CC BY 4.0）；城市搜索：Open-Meteo Geocoding API。</p>
       </section>
 
