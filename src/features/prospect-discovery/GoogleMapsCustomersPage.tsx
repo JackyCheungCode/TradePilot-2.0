@@ -27,7 +27,7 @@ export function GoogleMapsCustomersPage(){
   })();
   return()=>{active=false;};
  },[reload]);
- const rows=useMemo(()=>items.filter(item=>item.record&&item.record.status!=='removed'&&item.record.status!=='discarded').map(item=>{
+ const rows=useMemo<Record<string, any>[]>(()=>items.filter(item=>item.record&&item.record.status!=='removed'&&item.record.status!=='discarded').map(item=>{
   const run=runOf(item.run);const record=item.record||{};
   const raw={...(record.raw_data||{}),...(item.raw_data||{})};
   return {...record,occurrence_id:item.id,run_id:item.run_id,task_code:run?.task_code||item.run_id,search_keyword:item.keyword||run?.query||'—',search_address:[run?.city,run?.state,(run?.countries||[]).join(', ')].filter(Boolean).join(' · '),captured_at:item.captured_at,raw_data:raw};
