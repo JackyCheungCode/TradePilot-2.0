@@ -1,7 +1,6 @@
 import { useCallback,useEffect,useMemo,useState } from 'react';
-import { PageHeader,Button,Tag,InlineNotification,TpDataTable,Select,SelectItem } from '@/design-system';
+import { PageHeader,Button,Tag,InlineNotification,TpDataTable,Select,SelectItem,semanticIcons } from '@/design-system';
 import type { TpTableColumn } from '@/design-system';
-import { Add, Task, Analytics, Activity } from '@/design-system/icons';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/intelligence-monitoring.scss';
 
@@ -44,10 +43,10 @@ export function MonitoringLogsPage(){
  return <main className="tp-intelligence-monitoring">
   <PageHeader breadcrumb="全球情报 / 公开内容监听" title="监听日志控制台" description="实时追踪定时触发、Actor 执行、数据入库、AI 分析及每次运行的成功、部分成功或失败结果。"/>
   <nav className="tp-intelligence-monitoring__navigation" aria-label="情报监听导航">
-   <Button kind="tertiary" href="/intelligence-monitoring" renderIcon={Add}>创建任务</Button><Button kind="tertiary" href="/intelligence-monitoring/tasks" renderIcon={Task}>任务列表</Button><Button kind="tertiary" href="/intelligence-monitoring/results" renderIcon={Analytics}>结果中心</Button><Button kind="primary" href="/intelligence-monitoring/logs" renderIcon={Activity}>日志控制台</Button>
+   <Button kind="tertiary" href="/intelligence-monitoring" renderIcon={semanticIcons.add}>创建任务</Button><Button kind="tertiary" href="/intelligence-monitoring/tasks" renderIcon={semanticIcons.task}>任务列表</Button><Button kind="tertiary" href="/intelligence-monitoring/results" renderIcon={semanticIcons.analytics}>结果中心</Button><Button kind="primary" href="/intelligence-monitoring/logs" renderIcon={semanticIcons.activity}>日志控制台</Button>
   </nav>
-  {error&&<><InlineNotification kind="error" lowContrast title="日志读取失败" subtitle={error}/><Button kind="tertiary" size="sm" onClick={()=>void load()}>重试</Button></>}
-  <div className="tp-intelligence-monitoring__table-meta"><Tag type="blue">持久化执行日志</Tag><span>最近 500 条 · 自动记录每次定时运行结果</span><Button kind="tertiary" size="sm" onClick={()=>void load()}>刷新日志</Button></div>
+  {error&&<><InlineNotification kind="error" lowContrast title="日志读取失败" subtitle={error}/><Button kind="tertiary" size="sm" renderIcon={semanticIcons.refresh} onClick={()=>void load()}>重试</Button></>}
+  <div className="tp-intelligence-monitoring__table-meta"><Tag type="blue">持久化执行日志</Tag><span>最近 500 条 · 自动记录每次定时运行结果</span><Button kind="ghost" size="sm" renderIcon={semanticIcons.refresh} onClick={()=>void load()}>刷新日志</Button></div>
   {runIdFilter&&<InlineNotification kind="info" lowContrast title="当前执行记录" subtitle={'正在查看运行编号：'+runIdFilter} hideCloseButton />}
   <div className="tp-intelligence-monitoring__filter-bar"><Select id="monitoring-log-level" labelText="日志级别" size="sm" value={level} onChange={e=>setLevel(e.currentTarget.value)}><SelectItem value="all" text="全部级别"/><SelectItem value="info" text="信息"/><SelectItem value="warning" text="警告"/><SelectItem value="error" text="错误"/><SelectItem value="debug" text="调试"/></Select></div>
   <TpDataTable<LogRow> ariaLabel="监听日志控制台" columns={columns} rows={filtered} rowKey="id" loading={loading} searchValue={search} onSearchChange={setSearch} onRetry={()=>void load()} emptyState="暂无执行日志。任务进入运行状态后，Cron 将按计划记录每次执行结果。" columnSettingsKey="intelligence-monitoring-logs"/>
