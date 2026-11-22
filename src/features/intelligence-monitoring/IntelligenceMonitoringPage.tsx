@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import {
   PageHeader, Button, TextInput, Select, SelectItem, Tile, Tag, InlineNotification,
   Grid, Column, Checkbox, TpDataTable,
@@ -126,10 +126,14 @@ export function IntelligenceMonitoringPage() {
   const [cadence, setCadence] = useState('60');
   const [intents, setIntents] = useState<string[]>(intentOptions);
   const [minimumGrade, setMinimumGrade] = useState('A');
-  const [includeHistory, setIncludeHistory] = useState(false);
+  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  const [activeTaskCode, setActiveTaskCode] = useState('');
+  const [firstRunLogs, setFirstRunLogs] = useState<Array<{id:string;level:string;event:string;message:string;created_at:string}>>([]);
+  const [firstRun, setFirstRun] = useState<{id:string;status:string;current_stage:string;heartbeat_at:string|null;discovered_count:number;new_count:number;analyzed_count:number;error_message:string|null}|null>(null);
+  const [logLoading, setLogLoading] = useState(false);
+  const [logError, setLogError] = useState('');
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ kind: 'success' | 'error' | 'info'; title: string; subtitle: string } | null>(null);
-  const navigate = useNavigate();
   const canSave = /^https?:\/\//i.test(url.trim()) && taskName.trim().length > 0 && intents.length > 0;
   const saveTask = async () => {
     if (!canSave || busy) return;
@@ -152,7 +156,7 @@ export function IntelligenceMonitoringPage() {
       const activatedAt = new Date().toISOString();
       const { data: task, error: taskError } = await client.from('monitoring_tasks').insert({
         owner_id: ownerId, task_code: taskCode, name: taskName.trim(), status: 'running', started_at: activatedAt, next_run_at: activatedAt,
-        cadence_minutes: Number(cadence), config: { intents, minimumGrade, includeHistory, scope: 'public_only', providerPolicy: 'apify_primary_brightdata_fallback' },
+        cadence_minutes: Number(cadence), config: { intents, minimumGrade, initialMode: 'last_24_hours', initialWindowHours: 24, collectPosts: true, collectComments: true, collectReplies: true, perPostCommentReplyLimit: 50, scope: 'public_only', providerPolicy: 'apify_primary_brightdata_fallback' },
       }).select('id').single();
       if (taskError) throw taskError;
       const { error: linkError } = await client.from('monitoring_task_objects').insert({
@@ -162,18 +166,50 @@ export function IntelligenceMonitoringPage() {
         await client.from('monitoring_tasks').delete().eq('id', task.id);
         throw linkError;
       }
-      setNotice({ kind: 'success', title: '监听任务已创建并启用', subtitle: '任务编号 ' + taskCode + '。已进入调度队列；请在「监听任务列表」查看调度领取、采集器执行、AI 分析与最近心跳，队列状态不等于采集已开始。' });
+      setActiveTaskId(task.id);
+      setActiveTaskCode(taskCode);
+      setFirstRun(null);
+      setFirstRunLogs([]);
+      setLogError('');
+      setNotice({ kind: 'success', title: '监听任务已创建并启用', subtitle: '任务编号 ' + taskCode + '。首次初始化已进入调度队列；右侧日志面板将持续显示真实执行状态。' });
       setUrl('');
-      window.setTimeout(() => navigate('/intelligence-monitoring/tasks'), 900);
     } catch (cause) {
       setNotice({ kind: 'error', title: '保存失败', subtitle: cause instanceof Error ? cause.message : '监听任务保存失败。' });
     } finally { setBusy(false); }
   };
+  useEffect(() => {
+    if (!activeTaskId) return;
+    let cancelled = false;
+    const loadFirstRun = async () => {
+      try {
+        const client = await getSupabaseClient();
+        const [runsResult, logsResult] = await Promise.all([
+          client.from('monitoring_runs').select('id,status,current_stage,heartbeat_at,discovered_count,new_count,analyzed_count,error_message,created_at').eq('task_id', activeTaskId).order('created_at', { ascending: false }).limit(1),
+          client.from('monitoring_run_logs').select('id,level,event,message,created_at').eq('task_id', activeTaskId).order('created_at', { ascending: false }).limit(40),
+        ]);
+        if (runsResult.error) throw runsResult.error;
+        if (logsResult.error) throw logsResult.error;
+        if (cancelled) return;
+        const run = runsResult.data?.[0];
+        setFirstRun(run ? { id:run.id, status:run.status, current_stage:run.current_stage ?? '', heartbeat_at:run.heartbeat_at ?? null, discovered_count:run.discovered_count ?? 0, new_count:run.new_count ?? 0, analyzed_count:run.analyzed_count ?? 0, error_message:run.error_message ?? null } : null);
+        setFirstRunLogs((logsResult.data ?? []).reverse());
+        setLogError('');
+      } catch (error) {
+        if (!cancelled) setLogError(error instanceof Error ? error.message : '首次执行日志读取失败');
+      } finally { if (!cancelled) setLogLoading(false); }
+    };
+    setLogLoading(true);
+    void loadFirstRun();
+    const timer = window.setInterval(() => void loadFirstRun(), 3000);
+    return () => { cancelled = true; window.clearInterval(timer); };
+  }, [activeTaskId]);
   return <main className="tp-intelligence-monitoring">
     <PageHeader breadcrumb="全球情报 / 公开内容监听" title="创建监听任务" description="指定公开主页、账号、群组或频道，配置监听频率与 AI 购买意向识别规则。" />
     <ModuleNavigation active="create" />
     <div className="tp-intelligence-monitoring__meta"><Tag type="blue">PUBLIC DATA ONLY</Tag><Tag type="cool-gray">云端持久化</Tag></div>
     {notice && <InlineNotification kind={notice.kind} lowContrast title={notice.title} subtitle={notice.subtitle} onCloseButtonClick={() => setNotice(null)} />}
+    <div className="tp-intelligence-monitoring__create-layout">
+      <div className="tp-intelligence-monitoring__create-form">
     <section className="tp-intelligence-monitoring__section">
       <div className="tp-intelligence-monitoring__section-heading"><span>01</span><div><h2>添加监听对象</h2><p>只接受公开可访问的来源，不访问私人消息、私密群组或受限内容。</p></div></div>
       <Grid fullWidth className="tp-intelligence-monitoring__form-grid">
@@ -187,7 +223,7 @@ export function IntelligenceMonitoringPage() {
       <div className="tp-intelligence-monitoring__section-heading"><span>02</span><div><h2>设置监听规则</h2><p>确定增量采集频率与历史公开内容策略。</p></div></div>
       <Grid fullWidth className="tp-intelligence-monitoring__form-grid">
         <Column sm={4} md={4} lg={8}><Select id="monitoring-cadence" labelText="监听频率" value={cadence} onChange={event => setCadence(event.currentTarget.value)}>{cadenceOptions.map(item => <SelectItem key={item.value} value={item.value} text={item.label} />)}</Select></Column>
-        <Column sm={4} md={4} lg={8}><Checkbox id="monitoring-history" checked={includeHistory} onChange={(_, data) => setIncludeHistory(data.checked)} labelText="首次运行时补采可访问的历史公开内容" /></Column>
+        <Column sm={4} md={4} lg={8}><Tile className="tp-intelligence-monitoring__subpanel"><strong>首次初始化范围</strong><p>最近 24 小时；采集帖子、评论和回复。每条帖子评论及回复合计最多 50 条。</p></Tile></Column>
       </Grid>
       <Tile className="tp-intelligence-monitoring__subpanel"><strong>默认采集类型</strong><p>新增帖子、评论、回复、公开评价；作者公开名称、内容链接、发布时间与采集时间（以平台和数据服务实际可返回字段为准）。</p></Tile>
     </section>
@@ -209,6 +245,27 @@ export function IntelligenceMonitoringPage() {
       <InlineNotification kind="info" lowContrast title="任务启动与执行状态" subtitle="创建后立即启用并进入调度队列。只有 Worker 领取任务、启动采集器并持续回报心跳后，任务详情才会显示真实执行阶段。" hideCloseButton />
       <div className="tp-intelligence-monitoring__actions"><Button kind="primary" disabled={!canSave || busy} onClick={() => void saveTask()}>{busy ? '正在保存…' : '保存监听任务'}</Button><Button kind="tertiary" href="/intelligence-monitoring/tasks">查看任务列表</Button></div>
     </section>
+      </div>
+      <aside className="tp-intelligence-monitoring__first-run-panel" aria-live="polite">
+        <div className="tp-intelligence-monitoring__first-run-heading"><div><h2>首次初始化执行日志</h2><p>任务创建后自动追踪真实 Worker / Actor 执行过程</p></div><Tag type={firstRun?.status === 'succeeded' ? 'green' : firstRun?.status === 'failed' ? 'red' : firstRun?.status === 'running' ? 'blue' : 'cool-gray'}>{firstRun?.status === 'succeeded' ? '已完成' : firstRun?.status === 'failed' ? '执行失败' : firstRun?.status === 'partial' ? '部分成功' : firstRun?.status === 'running' ? '执行中' : activeTaskId ? '等待调度' : '尚未创建'}</Tag></div>
+        {activeTaskId ? <>
+          <div className="tp-intelligence-monitoring__first-run-task"><span>任务编号</span><strong>{activeTaskCode}</strong></div>
+          <div className="tp-intelligence-monitoring__first-run-stage"><span>当前阶段</span><strong>{firstRun?.current_stage || (firstRun ? '等待执行阶段回报' : '等待 Worker 领取任务')}</strong></div>
+          <Grid fullWidth className="tp-intelligence-monitoring__first-run-metrics">
+            <Column sm={4} md={4} lg={8}><div><strong>{firstRun?.discovered_count ?? 0}</strong><span>发现内容</span></div></Column>
+            <Column sm={4} md={4} lg={8}><div><strong>{firstRun?.new_count ?? 0}</strong><span>新增入库</span></div></Column>
+            <Column sm={4} md={4} lg={8}><div><strong>{firstRun?.analyzed_count ?? 0}</strong><span>AI 分析</span></div></Column>
+          </Grid>
+          {firstRun?.heartbeat_at && <p className="tp-intelligence-monitoring__first-run-heartbeat">最近心跳：{formatDate(firstRun.heartbeat_at)}</p>}
+          {firstRun?.error_message && <InlineNotification kind="error" lowContrast title="首次执行异常" subtitle={firstRun.error_message} hideCloseButton />}
+          {logError && <InlineNotification kind="error" lowContrast title="日志读取失败" subtitle={logError} />}
+          <div className="tp-intelligence-monitoring__first-run-events">
+            {firstRunLogs.length ? firstRunLogs.map(entry => <div className="tp-intelligence-monitoring__first-run-event" key={entry.id}><span className={"tp-intelligence-monitoring__log-dot tp-intelligence-monitoring__log-dot--"+entry.level}/><div><strong>{entry.message}</strong><small>{new Date(entry.created_at).toLocaleString('zh-TW',{hour12:false})} · {entry.event}</small></div></div>) : <div className="tp-intelligence-monitoring__first-run-empty">{logLoading ? '正在读取首次执行日志…' : '任务进入调度队列后，执行事件将显示在这里。'}</div>}
+          </div>
+          <div className="tp-intelligence-monitoring__first-run-footer"><span>每 3 秒自动刷新</span><Button kind="ghost" size="sm" href={firstRun?.id ? '/intelligence-monitoring/logs?runId='+firstRun.id : '/intelligence-monitoring/logs'}>打开完整日志</Button></div>
+        </> : <div className="tp-intelligence-monitoring__first-run-empty">保存监听任务后，这里会显示首次初始化的实时日志、执行阶段和采集数量。</div>}
+      </aside>
+    </div>
   </main>;
 }
 
