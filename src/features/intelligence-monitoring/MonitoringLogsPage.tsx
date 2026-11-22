@@ -1,5 +1,5 @@
 import { useCallback,useEffect,useMemo,useState } from 'react';
-import { PageHeader,Button,Tag,InlineNotification,TpDataTable } from '@/design-system';
+import { PageHeader,Button,Tag,InlineNotification,TpDataTable,Select,SelectItem } from '@/design-system';
 import type { TpTableColumn } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/intelligence-monitoring.scss';
@@ -44,6 +44,6 @@ export function MonitoringLogsPage(){
   </nav>
   {error&&<InlineNotification kind="error" lowContrast title="日志读取失败" subtitle={error} actions={<Button kind="tertiary" size="sm" onClick={()=>void load()}>重试</Button>}/>}
   <div className="tp-intelligence-monitoring__table-meta"><Tag type="blue">持久化执行日志</Tag><span>最近 500 条 · 自动记录每次定时运行结果</span><Button kind="tertiary" size="sm" onClick={()=>void load()}>刷新日志</Button></div>
-  <TpDataTable<LogRow> ariaLabel="监听日志控制台" columns={columns} rows={filtered} rowKey="id" loading={loading} searchValue={search} onSearchChange={setSearch} onRetry={()=>void load()} emptyState="暂无执行日志。任务进入运行状态后，Cron 将按计划记录每次执行结果。" columnSettingsKey="intelligence-monitoring-logs" toolbarActions={<div className="tp-intelligence-monitoring__filters"><label>日志级别<select value={level} onChange={e=>setLevel(e.target.value)}><option value="all">全部级别</option><option value="info">信息</option><option value="warning">警告</option><option value="error">错误</option><option value="debug">调试</option></select></label></div>}/>
+  <TpDataTable<LogRow> ariaLabel="监听日志控制台" columns={columns} rows={filtered} rowKey="id" loading={loading} searchValue={search} onSearchChange={setSearch} onRetry={()=>void load()} emptyState="暂无执行日志。任务进入运行状态后，Cron 将按计划记录每次执行结果。" columnSettingsKey="intelligence-monitoring-logs" toolbarActions={<div className="tp-intelligence-monitoring__filters"><Select id="monitoring-log-level" labelText="日志级别" size="sm" value={level} onChange={e=>setLevel(e.currentTarget.value)}><SelectItem value="all" text="全部级别"/><SelectItem value="info" text="信息"/><SelectItem value="warning" text="警告"/><SelectItem value="error" text="错误"/><SelectItem value="debug" text="调试"/></Select></div>}/>
  </main>;
 }
