@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   Button, InlineLoading, InlineNotification, TextInput, TextArea, Tag,
-  Table, TableHead, TableRow, TableHeader, TableBody, TableCell,
+  Table, TableHead, TableRow, TableHeader, TableBody, TableCell, semanticIcons,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 
@@ -225,7 +225,7 @@ export function EnterpriseProfileSettings() {
           ))}
           <div className="tp-enterprise-profile__actions">
             <p className="tp-settings__hint">企业资料修改不会追溯覆盖已签发的单据。单据创建时应保存卖方资料快照，避免后续修改企业资料影响历史凭证。</p>
-            <Button kind="primary" disabled={saving} onClick={() => void saveProfile()}>{saving ? '正在保存…' : '保存企业档案'}</Button>
+            <Button kind="primary" renderIcon={semanticIcons.save} disabled={saving} onClick={() => void saveProfile()}>{saving ? '正在保存…' : '保存企业档案'}</Button>
           </div>
 
           <section className="tp-enterprise-profile__group">
@@ -250,7 +250,7 @@ export function EnterpriseProfileSettings() {
               <TextInput id="enterprise-bank-iban" labelText="IBAN" value={bankForm.iban} onChange={event => setBankForm(current => ({ ...current, iban: event.currentTarget.value }))} />
               <TextInput id="enterprise-bank-currency" labelText="账户币种" value={bankForm.currency_code} onChange={event => setBankForm(current => ({ ...current, currency_code: event.currentTarget.value }))} />
               <TextInput id="enterprise-bank-country" labelText="开户国家 / 地区代码" value={bankForm.country_code} onChange={event => setBankForm(current => ({ ...current, country_code: event.currentTarget.value }))} />
-              <Button kind="primary" disabled={savingBank || !profileId} onClick={() => void addBank()}>{savingBank ? '正在添加…' : '添加银行账户'}</Button>
+              <Button kind="primary" renderIcon={semanticIcons.add} disabled={savingBank || !profileId} onClick={() => void addBank()}>{savingBank ? '正在添加…' : '添加银行账户'}</Button>
             </div>
           </section>
         </>
