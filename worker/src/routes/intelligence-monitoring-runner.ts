@@ -70,28 +70,35 @@ async function analyze(env:Env,platform:string,content:string,config:Record<stri
 async function execute(env:Env,t:ClaimedTask,token:string){
  const actorId=ACTORS[t.platform];if(!actorId)throw new Error("PLATFORM_ACTOR_NOT_CONFIGURED: "+t.platform+" 尚未通过可靠性验证并配置专用 Actor。");
  await patchRun(env,t,{current_stage:"读取采集器配置",heartbeat_at:now()});
+ await log(env,t,"info","collector.config","正在读取采集器配置与输入 Schema。",{actorId,sourceUrl:t.source_url,initialMode:t.config.initialMode??"incremental"});
  await log(env,t,"info","actor.start","开始执行公开对象采集。",{actorId,sourceUrl:t.source_url});
  const build=await apify<{data?:{actorDefinition?:{input?:Record<string,unknown>};inputSchema?:string}}>(token,"acts/"+encodeURIComponent(actorId)+"/builds/default");
  const buildData=object(build.data);const definition=object(buildData.actorDefinition);let schema=object(definition.input);
  if(!Object.keys(object(schema.properties)).length&&typeof buildData.inputSchema==="string"){try{schema=object(JSON.parse(buildData.inputSchema));}catch{}}
  if(!Object.keys(object(schema.properties)).length)throw new Error("ACTOR_SCHEMA_UNAVAILABLE: 无法读取 Actor 输入 Schema。");
  const input=makeActorInput(schema,t.source_url);
+ await log(env,t,"info","collector.schema_ready","采集器 Schema 已读取，正在准备公开对象输入。",{actorId,inputKeys:Object.keys(input)});
  await patchRun(env,t,{current_stage:"启动平台采集器",heartbeat_at:now()});
  let started=await apify<{data?:{id?:string;status?:string;defaultDatasetId?:string}}>(token,"acts/"+encodeURIComponent(actorId)+"/runs?waitForFinish=0",{method:"POST",body:JSON.stringify(input)});
  let run=object(started.data);if(!run.id)throw new Error("ACTOR_RUN_ID_MISSING");
  let status=str(run.status).toUpperCase();
+ await patchRun(env,t,{current_stage:"采集器执行中",heartbeat_at:now(),metadata:{actorId,actorRunId:str(run.id),actorStatus:status,initialMode:t.config.initialMode??"incremental"}});
+ await log(env,t,"info","actor.launched","平台采集器已启动，已保存 Actor Run ID。",{actorId,actorRunId:str(run.id),actorStatus:status});
  for(let attempt=0;status==="READY"||status==="RUNNING";attempt++){
   if(attempt>=18)throw new Error("ACTOR_RUN_TIMEOUT: Actor 超过 3 分钟仍未完成，运行编号 "+str(run.id));
-  await patchRun(env,t,{current_stage:"采集器执行中",heartbeat_at:now(),metadata:{actorId,actorRunId:str(run.id),actorStatus:status}});
+  await patchRun(env,t,{current_stage:"采集器执行中",heartbeat_at:now(),metadata:{actorId,actorRunId:str(run.id),actorStatus:status,initialMode:t.config.initialMode??"incremental"}});
+  if(attempt===0||attempt%3===0)await log(env,t,"info","actor.poll","采集器仍在执行，系统继续等待并轮询状态。",{actorRunId:str(run.id),actorStatus:status,elapsedSeconds:(attempt+1)*10});
   await new Promise(resolve=>setTimeout(resolve,10000));
   const polled=await apify<{data?:Record<string,unknown>}>(token,"actor-runs/"+encodeURIComponent(str(run.id)));
   run=object(polled.data);status=str(run.status).toUpperCase();
  }
  if(status!=="SUCCEEDED")throw new Error("ACTOR_RUN_"+(status||"UNKNOWN")+": "+str(run.statusMessage,run.status));
+ await log(env,t,"info","actor.succeeded","采集器执行成功，开始读取数据集。",{actorId,actorRunId:str(run.id),actorStatus:status});
  await patchRun(env,t,{current_stage:"读取采集结果",heartbeat_at:now(),metadata:{actorId,actorRunId:str(run.id),actorStatus:status}});
  const datasetId=str(run.defaultDatasetId);if(!datasetId)throw new Error("ACTOR_DATASET_MISSING");
  const rows=await apify<unknown>(token,"datasets/"+encodeURIComponent(datasetId)+"/items?clean=true&format=json&limit=500");
  if(!Array.isArray(rows))throw new Error("ACTOR_DATASET_INVALID");
+ await log(env,t,"info","dataset.loaded","采集结果已读取，开始去重入库与 AI 分析。",{actorRunId:str(run.id),datasetId,discoveredCount:rows.length});
  await patchRun(env,t,{current_stage:"数据入库与 AI 意向分析",heartbeat_at:now(),metadata:{actorId,actorRunId:str(run.id),datasetId,discoveredCount:rows.length}});
  let newCount=0,analyzedCount=0,failedItems=0;
  for(let i=0;i<rows.length;i++){
@@ -101,6 +108,7 @@ async function execute(env:Env,t:ClaimedTask,token:string){
    if(saved?.length){newCount++;const analysis=await analyze(env,t.platform,normalized.content_text,t.config);if(analysis){await db(env,"monitoring_analyses?on_conflict=item_id,owner_id",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({...analysis,owner_id:t.owner_id,item_id:saved[0].id})});analyzedCount++;}}
   }catch(error){failedItems++;await log(env,t,"warning","item.failed","单条结果处理失败："+String(error).slice(0,180),{index:i});}
  }
+ await log(env,t,failedItems?"warning":"info","items.processed","本批采集数据处理完成。",{discoveredCount:rows.length,newCount,analyzedCount,failedItems});
  return {discoveredCount:rows.length,newCount,analyzedCount,failedItems,actorId};
 }
 export async function runDueIntelligenceMonitoring(env:Env,limit=15){
