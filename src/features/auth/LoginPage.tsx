@@ -257,7 +257,7 @@ export function LoginPage() {
                 onChange={(event) => setPassword(event.currentTarget.value)}
                 required
               />
-              <Button kind="primary" type="submit" renderIcon={semanticIcons.login} disabled={!client || busy}>
+              <Button kind="primary" type="submit" renderIcon={semanticIcons.next} disabled={!client || busy}>
                 {busy ? '正在验证…' : '登录'}
               </Button>
             </form>
