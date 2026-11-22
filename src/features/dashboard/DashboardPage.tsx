@@ -340,6 +340,7 @@ export function DashboardPage() {
       </div>
       <div className="tp-workbench__actions">
         <span className="tp-workbench__updated">{data ? '更新于 ' + new Date(data.updatedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '等待数据'}</span>
+        <Button kind="secondary" size="md" renderIcon={semanticIcons.chart} onClick={() => navigate('/sales-process')}>销售流程</Button>
         <Button kind="tertiary" size="md" renderIcon={semanticIcons.refresh} disabled={loading || refreshing} onClick={() => { setRefreshing(true); void load(); }}>刷新数据</Button>
       </div>
     </PageHeader>
