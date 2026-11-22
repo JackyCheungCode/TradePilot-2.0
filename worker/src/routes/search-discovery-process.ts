@@ -26,7 +26,7 @@ async function search(engine:Engine,type:Vertical,q:string,country:string,hl:str
 }
 function excluded(url:string,rules:string[]){try{const u=new URL(url),host=u.hostname.toLowerCase(),path=u.pathname.toLowerCase();return rules.some(rule=>{const [domain,...rest]=rule.toLowerCase().split("/");const prefix=rest.length?"/"+rest.join("/"):"";return(host===domain||host.endsWith("."+domain))&&(!prefix||path.startsWith(prefix));});}catch{return true;}}
 function safePublicWebsiteUrl(value:string):URL|null{
- try{const url=new URL(value);if(url.protocol!=="https:"&&url.protocol!=="http:")return null;const host=url.hostname.toLowerCase();if(!host||host==="localhost"||host.endsWith(".localhost")||host.endsWith(".local")||host.endsWith(".internal")||host==="metadata.google.internal"||/^\\d{1,3}(?:\\.\\d{1,3}){3}$/.test(host)||host.includes(":"))return null;return url;}catch{return null;}
+ try{const url=new URL(value);if(url.protocol!=="https:"&&url.protocol!=="http:")return null;const host=url.hostname.toLowerCase();if(!host||host==="localhost"||host.endsWith(".localhost")||host.endsWith(".local")||host.endsWith(".internal")||host==="metadata.google.internal"||/^\d{1,3}(?:\.\d{1,3}){3}$/.test(host)||host.includes(":"))return null;return url;}catch{return null;}
 }
 async function inspectWebsite(item:Result,product:string):Promise<Result>{
  const initial=safePublicWebsiteUrl(item.url);if(!initial)return{...item,websiteVerification:{status:"blocked",score:0,reason:"非公开网站地址或不安全协议"}};
@@ -41,15 +41,15 @@ async function inspectWebsite(item:Result,product:string):Promise<Result>{
   if(!response.ok)return{...item,websiteVerification:{status:"unavailable",httpStatus:response.status,score:0,reason:"首页返回 HTTP "+response.status,finalUrl:target.toString()}};
   const type=response.headers.get("content-type")??"";if(!type.includes("text/html")&&!type.includes("application/xhtml"))return{...item,websiteVerification:{status:"non_html",httpStatus:response.status,score:5,reason:"目标地址不是 HTML 网站",finalUrl:target.toString()}};
   const html=(await response.text()).slice(0,500000);
-  const title=(html.match(/<title[^>]*>([\\s\\S]*?)<\\/title>/i)?.[1]??"").replace(/<[^>]+>/g," ").replace(/\\s+/g," ").trim().slice(0,240);
+  const title=(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]??"").replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim().slice(0,240);
   const description=(html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']*)/i)?.[1]??"").slice(0,400);
-  const text=html.replace(/<script[\\s\\S]*?<\\/script>/gi," ").replace(/<style[\\s\\S]*?<\\/style>/gi," ").replace(/<[^>]+>/g," ").replace(/&nbsp;|&#160;/g," ").replace(/\\s+/g," ").slice(0,30000);
+  const text=html.replace(/<script[\s\S]*?<\/script>/gi," ").replace(/<style[\s\S]*?<\/style>/gi," ").replace(/<[^>]+>/g," ").replace(/&nbsp;|&#160;/g," ").replace(/\s+/g," ").slice(0,30000);
   const lower=(title+" "+description+" "+text).toLowerCase();
-  const terms=product.toLowerCase().split(/[^a-z0-9\\u4e00-\\u9fff]+/).filter(word=>word.length>2).slice(0,8);
+  const terms=product.toLowerCase().split(/[^a-z0-9\u4e00-\u9fff]+/).filter(word=>word.length>2).slice(0,8);
   const productMatches=terms.filter(term=>lower.includes(term));
-  const hasCompanyTerms=/about us|about\\s+the\\s+company|our company|company profile|contact us|联系我们|关于我们|公司简介/i.test(lower);
+  const hasCompanyTerms=/about us|about\s+the\s+company|our company|company profile|contact us|联系我们|关于我们|公司简介/i.test(lower);
   const hasContact=/mailto:|tel:|contact us|联系我们/i.test(html+" "+text);
-  const hasOrganization=/schema.org\\/(Organization|Corporation|LocalBusiness|Brand)/i.test(html);
+  const hasOrganization=/schema.org\/(Organization|Corporation|LocalBusiness|Brand)/i.test(html);
   const hasProductCatalog=/products|product catalog|our products|产品中心|产品目录/i.test(lower);
   const score=Math.min(100,20+(productMatches.length?Math.min(25,productMatches.length*8):0)+(hasCompanyTerms?15:0)+(hasContact?10:0)+(hasOrganization?15:0)+(hasProductCatalog?15:0));
   const status=score>=65?"candidate_official":score>=40?"needs_review":"weak_match";
