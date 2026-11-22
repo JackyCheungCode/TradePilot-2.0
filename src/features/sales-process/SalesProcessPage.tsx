@@ -108,7 +108,7 @@ export function SalesProcessPage() {
         db.from('crm_opportunities').select('id,opportunity_number,name,stage,status,amount,currency_code,account_id,primary_contact_id,expected_close_date,next_step,updated_at,is_archived').eq('is_archived', false).order('updated_at', { ascending: false }).range(0, 1999),
         db.from('trade_documents').select('id,document_number,title,status,currency_code,totals,content,created_at,updated_at').eq('document_type', 'quotation').order('updated_at', { ascending: false }).range(0, 1999),
         db.from('trade_orders').select('id,order_number,title,status,currency_code,crm_account_id,crm_contact_id,opportunity_id,metadata,confirmed_from_document_id,created_at,updated_at').eq('order_type', 'sales').order('updated_at', { ascending: false }).range(0, 1999),
-        db.from('trade_payments').select('id,payment_no,payment_type,status,account_id,amount,currency,net_received,created_at').order('created_at', { ascending: false }).range(0, 4999),
+        db.from('trade_payments').select('id,payment_no,payment_type,status,account_id,payer_name,amount,currency,net_received,unallocated_amount,created_at').order('created_at', { ascending: false }).range(0, 4999),
         db.from('trade_payment_allocations').select('id,payment_id,order_id,allocated_amount').range(0, 9999),
         db.from('trade_shipments').select('id,shipment_no,status,order_id,planned_ship_date,actual_ship_date,shipment_value,currency_code,exception_flag,created_at').order('created_at', { ascending: false }).range(0, 4999),
       ]);
@@ -158,6 +158,7 @@ export function SalesProcessPage() {
     const orderIds = new Set(orders.map(row => String(row.id)));
     const allocations = data.allocations.filter(row => orderIds.has(String(row.order_id)));
     const paymentById = new Map(data.payments.map(row => [String(row.id), row]));
+    const payments = data.payments.filter(row => country === 'all' || accounts.some(account => String(account.id) === String(row.account_id)));
     const shipments = data.shipments.filter(row => orderIds.has(String(row.order_id)));
     const contactCountByAccount = new Map<string, number>();
     contacts.forEach(row => contactCountByAccount.set(String(row.account_id), (contactCountByAccount.get(String(row.account_id)) || 0) + 1));
@@ -179,7 +180,7 @@ export function SalesProcessPage() {
       if (shipment.status === 'delivered') stat.delivered += 1;
       if (shipment.exception_flag || ['exception', 'delayed', 'failed', 'damaged', 'lost'].includes(String(shipment.status))) stat.exceptions += 1;
     });
-    return { leads, accounts, contacts, opportunities, quotes, orders, shipments, orderStats, contactCountByAccount };
+    return { leads, accounts, contacts, opportunities, quotes, orders, payments, shipments, orderStats, contactCountByAccount };
   }, [data, search, country]);
 
   const columns = useMemo(() => {
@@ -187,7 +188,7 @@ export function SalesProcessPage() {
     const leadCards: BoardCard[] = scoped.leads.map(row => ({
       id: row.id, title: row.name, subtitle: row.lead_number + ' · ' + (row.country_code || '地区未设置'),
       status: row.is_formal ? '正式线索' : row.status === 'qualified' ? '待转化' : row.status === 'review' ? '待审核' : row.status === 'rejected' ? '已拒绝' : '草稿',
-      href: '/leads', details: ['来源线索 · ' + (row.status || '未知'), '更新于 ' + dateLabel(row.updated_at)],
+      href: '/leads', details: ['来源线索 · ' + (row.status || '未知'), '更新于 ' + dateLabel(row.updated_at)], closed: row.status === 'rejected',
     }));
     const accountCards: BoardCard[] = scoped.accounts.map(row => ({
       id: row.id, title: row.account_name, subtitle: row.account_number || row.country_code || '客户档案',
@@ -223,6 +224,17 @@ export function SalesProcessPage() {
         warning: (stats?.exceptions || 0) > 0, closed: state === 'cancelled',
       };
     });
+    const paymentCards: BoardCard[] = scoped.payments.map(row => ({
+      id: row.id, title: row.payment_no || '收款记录', subtitle: (row.payer_name || '付款方未设置') + ' · ' + (row.payment_type === 'refund' ? '退款' : '收款'),
+      status: String(row.status || '未知'), amount: money(row.net_received ?? row.amount, row.currency || 'USD'), href: '/payments/' + row.id,
+      details: ['未分配金额 ' + money(row.unallocated_amount, row.currency || 'USD'), '到账日期 ' + dateLabel(row.received_date || row.payment_date)],
+      warning: Number(row.unallocated_amount || 0) > 0 || row.status === 'pending_confirmation', closed: ['voided', 'returned'].includes(String(row.status)),
+    }));
+    const shipmentCards: BoardCard[] = scoped.shipments.map(row => ({
+      id: row.id, title: row.shipment_no || '发运单', subtitle: '订单 ' + (scoped.orders.find(order => String(order.id) === String(row.order_id))?.order_number || '未关联'),
+      status: String(row.status || '未知'), amount: money(row.shipment_value, row.currency_code || 'USD'), href: '/shipments/' + row.id,
+      details: ['计划发运 ' + dateLabel(row.planned_ship_date), '实际发运 ' + dateLabel(row.actual_ship_date)], warning: Boolean(row.exception_flag), closed: row.status === 'cancelled',
+    }));
     const executionCards: BoardCard[] = scoped.orders.filter(row => ['confirmed', 'completed'].includes(orderState(row))).map(row => {
       const stats = scoped.orderStats.get(String(row.id));
       return {
@@ -244,6 +256,8 @@ export function SalesProcessPage() {
       { title: '报价单', hint: '报价状态与有效期', cards: quoteCards, empty: '暂无报价单' },
       { title: '销售订单', hint: '确认、取消与订单金额', cards: orderCards, empty: '暂无销售订单' },
       { title: '订单履约', hint: '收款与发运并行推进', cards: executionCards, empty: '暂无待履约订单' },
+      { title: '收款记录', hint: '到账、核销与退款', cards: paymentCards, empty: '暂无收款记录' },
+      { title: '发运记录', hint: '分批发运与签收状态', cards: shipmentCards, empty: '暂无发运记录' },
     ].map(column => ({ ...column, count: column.cards.length }));
   }, [scoped]);
 
@@ -263,6 +277,7 @@ export function SalesProcessPage() {
       { label: '待处理报价', value: openQuotes.length, href: '/quotes', icon: semanticIcons.document },
       { label: '销售订单', value: scoped.orders.length, href: '/sales-orders', icon: semanticIcons.shoppingCart },
       { label: '待收款订单', value: unpaidOrders.length, href: '/payments', icon: semanticIcons.money },
+      { label: '收款记录', value: scoped.payments.length, href: '/payments', icon: semanticIcons.money },
       { label: '发运单', value: scoped.shipments.length, href: '/shipments', icon: semanticIcons.delivery },
       { label: '发运异常', value: scoped.shipments.filter(row => row.exception_flag).length, href: '/shipments', icon: semanticIcons.warning },
     ];
