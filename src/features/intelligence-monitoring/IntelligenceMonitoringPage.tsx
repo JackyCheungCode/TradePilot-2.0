@@ -34,7 +34,7 @@ const platformLabel = (value: string) => platformOptions.find(item => item.value
 const formatDate = (value: string | null) => value ? new Date(value).toLocaleString('zh-TW', { hour12: false }) : '—';
 const gradeTag = (grade: string) => <Tag type={grade === 'S' ? 'green' : grade === 'A' ? 'blue' : grade === 'B' ? 'purple' : 'cool-gray'}>{grade === 'unclassified' ? '待分析' : grade + ' 级'}</Tag>;
 
-function ModuleNavigation({ active }: { active: 'create' | 'tasks' | 'results' }) {
+function ModuleNavigation({ active }: { active: 'create' | 'tasks' | 'results' | 'logs' }) {
   const links = [
     { key: 'create', label: '创建监听任务', href: '/intelligence-monitoring' },
     { key: 'tasks', label: '监听任务列表', href: '/intelligence-monitoring/tasks' },
@@ -212,6 +212,16 @@ export function MonitoringTasksPage() {
     { key: 'next_run_at', header: '下次执行时间', type: 'datetime', render: row => formatDate(row.next_run_at) },
     { key: 'last_error', header: '最近异常', longText: true, defaultVisible: false },
     { key: 'created_at', header: '创建时间', type: 'datetime', render: row => formatDate(row.created_at) },
+    { key: 'actions', header: '操作', required: true, render: row => <Button kind="ghost" size="sm" onClick={async () => {
+      const client = await getSupabaseClient();
+      const isRunning = row.status === 'running';
+      const stamp = new Date().toISOString();
+      const { error: updateError } = await client.from('monitoring_tasks').update(
+        isRunning ? { status: 'paused', next_run_at: null } : { status: 'running', started_at: row.started_at ?? stamp, next_run_at: stamp, last_error: null }
+      ).eq('id', row.id);
+      if (updateError) { window.alert('任务状态更新失败：' + updateError.message); return; }
+      await reload();
+    }}>{row.status === 'running' ? '暂停' : row.status === 'paused' ? '恢复' : '启动'}</Button> },
   ];
   return <main className="tp-intelligence-monitoring">
     <PageHeader breadcrumb="全球情报 / 公开内容监听" title="监听任务列表" description="统一查看任务配置、运行状态、采集频率与最近执行情况。" />
