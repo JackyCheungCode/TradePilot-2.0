@@ -1,6 +1,6 @@
-import { errorResponse, successResponse } from "../lib/http";
-import type { DiscoveryEnv, DiscoveryRunInput } from "./discovery";
-import { callAgentChatModel, type Env as AgentEnv } from "./agent-center";
+import { errorResponse, successResponse } from "../lib/http.ts";
+import type { DiscoveryEnv, DiscoveryRunInput } from "./discovery.ts";
+
 
 type RecordRow = {
   id: string;
@@ -134,6 +134,8 @@ async function renderWebsite(env: DiscoveryEnv, url: string): Promise<{ html: st
   if (!response.ok) throw new Error("Browser Run 请求失败（HTTP " + response.status + "）。");
   const body = await response.json() as { success?: boolean; result?: string; url?: string; finalUrl?: string };
   if (!body.success || typeof body.result !== "string") throw new Error("Browser Run 未返回可分析的网页内容。");
+  const reportedUrl = body.finalUrl ?? body.url;
+  if (reportedUrl) { const final = parsePublicUrl(reportedUrl); await assertPublicDns(final.hostname.replace(/^\\[|\\]$/g, "")); }
   const html = body.result.slice(0, MAX_HTML);
   const text = stripHtml(html);
   if (text.length < 120) throw new Error("网页正文过少，无法可靠识别企业信息。");
@@ -186,14 +188,14 @@ async function analyzeRecord(env: DiscoveryEnv, runId: string, ownerId: string, 
       "页面 URL：" + page.finalUrl,
       "网页正文：\n" + page.text.slice(0, 30000),
     ].join("\n\n");
-    const model = await callAgentChatModel(env as AgentEnv, [{ role: "user", content: prompt }], "你是企业官网情报分析专家。你只提取有网页证据支持的事实，不推断缺失信息。输出必须符合指定 JSON 字段。", "company_analysis", true, 2400);
+    const { callAgentChatModel } = await import("./agent-center.ts");
+    const model = await callAgentChatModel(env as Parameters<typeof callAgentChatModel>[0], [{ role: "user", content: prompt }], "你是企业官网情报分析专家。你只提取有网页证据支持的事实，不推断缺失信息。输出必须符合指定 JSON 字段。", "company_analysis", true, 2400);
     const result = parseModelResult(model.text, page.finalUrl);
     const now = new Date().toISOString();
     const websiteAnalysis = { status: "completed", analyzed_at: now, source_url: sourceUrl, final_url: page.finalUrl, page_title: page.title, model: model.model, ...result, evidence: result.evidence, review_required: true };
     const raw = { ...(record.raw_data ?? {}), website_analysis: websiteAnalysis };
     const patch: Record<string, unknown> = { raw_data: raw, updated_at: now, confidence_score: result.website_confidence };
     if (result.company_name) patch.name = result.company_name;
-    if (result.official_website && /^https?:\/\//i.test(result.official_website)) patch.website = result.official_website;
     if (result.address) patch.address = result.address;
     if (result.phone) patch.phone = result.phone;
     if (result.email) patch.email = result.email;
