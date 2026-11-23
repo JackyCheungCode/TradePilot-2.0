@@ -853,11 +853,9 @@ export async function handleDiscovery(request: Request, env: DiscoveryEnv): Prom
         const now=new Date().toISOString();
         const sourceUrl=text(analysis.final_url)||text(analysis.source_url)||text(record.website);
         const contactEnrichment={
-          status:"completed",source:"website_ai_analysis",collected_at:now,
-          emails:email?[{value:email,source_url:sourceUrl,provider:"website_ai_analysis"}]:[],
-          phones:phone?[{value:phone,source_url:sourceUrl,provider:"website_ai_analysis"}]:[],
-          addresses:address?[{value:address,source_url:sourceUrl,provider:"website_ai_analysis"}]:[],
-          social:{}
+          captured_at:now,pages_visited:1,
+          emails:email?[email]:[],phones:phone?[phone]:[],addresses:address?[address]:[],
+          social:{},source_pages:sourceUrl?[sourceUrl]:[],method:"ai_website_analysis"
         };
         const collectedRaw={...rawData,lifecycle_stage:"collected",lifecycle_updated_at:now,contact_enrichment:contactEnrichment};
         await db(env,"rpc/record_prospect_contact_enrichment",{
