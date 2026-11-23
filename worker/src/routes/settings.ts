@@ -455,7 +455,7 @@ export async function handleSettings(request: Request, env: SettingsEnv): Promis
       const r=await fetch(p,{signal:AbortSignal.timeout(20000)});
       const data=await r.json().catch(()=>({})) as {plan_monthly_price?:number;plan_searches_left?:number;plan_name?:string};
       const safe=r.ok&&data.plan_monthly_price===0&&typeof data.plan_searches_left==="number";
-      return successResponse(request,{ok:safe&&data.plan_searches_left>0,message:!safe?"SerpApi 当前账户不是免费套餐，已阻止用于免费额度模式": "免费套餐可用 · 剩余 "+data.plan_searches_left+" 次搜索"});
+      return successResponse(request,{ok:safe&&data.plan_searches_left>0,message:!safe?"SerpApi 当前账户不是免费套餐，已阻止用于免费额度模式": "免费套餐可用 · 剩余 "+Number(data.plan_searches_left ?? 0)+" 次搜索"});
     }
     if(service==="actorGateway"){
       const key=secret("actorGateway");if(!key)return successResponse(request,{ok:false,message:"尚未配置访问令牌"});
