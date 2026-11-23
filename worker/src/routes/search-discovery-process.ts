@@ -44,7 +44,7 @@ async function inspectWebsite(item:Result,product:string,allowBrowserFallback:bo
   let verificationMethod:"http"|"browser_run"="http";
   let browserRunMs:number|null=null;
   let browserFallbackError:string|null=null;
-  const initialText=html.replace(/<script[\\s\\S]*?<\\/script>/gi," ").replace(/<style[\\s\\S]*?<\\/style>/gi," ").replace(/<[^>]+>/g," ").replace(/&nbsp;|&#160;/g," ").replace(/\\s+/g," ").trim();
+  const initialText=html.replace(/<script[\s\S]*?<\/script>/gi," ").replace(/<style[\s\S]*?<\/style>/gi," ").replace(/<[^>]+>/g," ").replace(/&nbsp;|&#160;/g," ").replace(/\s+/g," ").trim();
   const needsRenderedPage=initialText.length<500&&/<script|__NEXT_DATA__|webpack|id=root|id=app|id=__next/i.test(html);
   if(allowBrowserFallback&&needsRenderedPage&&env.BROWSER){
    try{
@@ -54,7 +54,7 @@ async function inspectWebsite(item:Result,product:string,allowBrowserFallback:bo
     const payload=await rendered.json() as {success?:boolean;result?:unknown};
     if(!payload.success||typeof payload.result!=="string")throw new Error("Browser Run 未返回有效 HTML");
     const renderedHtml=payload.result.slice(0,500000);
-    const renderedText=renderedHtml.replace(/<script[\\s\\S]*?<\\/script>/gi," ").replace(/<style[\\s\\S]*?<\\/style>/gi," ").replace(/<[^>]+>/g," ").replace(/&nbsp;|&#160;/g," ").replace(/\\s+/g," ").trim();
+    const renderedText=renderedHtml.replace(/<script[\s\S]*?<\/script>/gi," ").replace(/<style[\s\S]*?<\/style>/gi," ").replace(/<[^>]+>/g," ").replace(/&nbsp;|&#160;/g," ").replace(/\s+/g," ").trim();
     if(renderedText.length>initialText.length){html=renderedHtml;verificationMethod="browser_run";}
    }catch(error){browserFallbackError=error instanceof Error?error.message.slice(0,180):"Browser Run 核验失败";}
   }
