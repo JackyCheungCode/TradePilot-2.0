@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { isPublicWebsiteUrl, parseModelResult } from "./search-discovery-analysis.ts";
+import { countryMatchesTarget, isPublicWebsiteUrl, parseModelResult } from "./search-discovery-analysis.ts";
 
 test("allows public HTTP and HTTPS websites only", () => {
   assert.equal(isPublicWebsiteUrl("https://example.com/about"), true);
@@ -30,4 +30,17 @@ test("normalizes structured AI output and anchors evidence to the fetched page",
 
 test("rejects malformed AI JSON instead of persisting invented data", () => {
   assert.throws(() => parseModelResult("not-json", "https://example.com"));
+});
+
+test("matches target countries using ISO aliases and localized country names", () => {
+  assert.equal(countryMatchesTarget("BR", "Brazil"), true);
+  assert.equal(countryMatchesTarget("BR", "Brasil"), true);
+  assert.equal(countryMatchesTarget("TW", "Taiwan"), true);
+  assert.equal(countryMatchesTarget("DE", "Germany"), true);
+});
+test("rejects other-country results and keeps unknown countries unverified", () => {
+  assert.equal(countryMatchesTarget("BR", "India"), false);
+  assert.equal(countryMatchesTarget("BR", "China"), false);
+  assert.equal(countryMatchesTarget("BR", null), null);
+  assert.equal(countryMatchesTarget(null, "Brazil"), null);
 });
