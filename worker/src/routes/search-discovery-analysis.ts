@@ -151,6 +151,7 @@ async function renderWebsite(env: DiscoveryEnv, url: string): Promise<{ html: st
   if (text.length < 120) throw new Error("网页正文过少，无法可靠识别企业信息。");
   return { html, text, title: pageTitle(html), finalUrl: typeof body.finalUrl === "string" ? body.finalUrl : safeUrl };
 }
+export function isThirdPartyDirectoryHost(host: string): boolean { return /(^|\.)(indiamart|b2brazil|alibaba|made-in-china|globalsources|tradeindia|kompass|europages)\./.test(host.toLowerCase()); }
 export function countryMatchesTarget(targetCode: string | null, detectedCountry: string | null): boolean | null {
   if (!targetCode || !detectedCountry) return null;
   const aliases: Record<string, string[]> = {
@@ -227,7 +228,7 @@ async function analyzeRecord(env: DiscoveryEnv, runId: string, ownerId: string, 
     const targetCountry = (record.country_code ?? String(record.raw_data?.search_target_country ?? "")).toUpperCase() || null;
     const countryMatch = countryMatchesTarget(targetCountry, result.country);
     const host = new URL(page.finalUrl).hostname.toLowerCase();
-    const isThirdPartyDirectory = /(^|\.)(indiamart|b2brazil|alibaba|made-in-china|globalsources|tradeindia|kompass|europages)\./.test(host);
+    const isThirdPartyDirectory = isThirdPartyDirectoryHost(host);
     if (countryMatch === false) {
       result.website_confidence = 0;
       result.official_website = null;
