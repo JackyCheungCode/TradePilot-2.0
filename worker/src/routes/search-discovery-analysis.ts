@@ -152,7 +152,7 @@ async function renderWebsite(env: DiscoveryEnv, url: string): Promise<{ html: st
   return { html, text, title: pageTitle(html), finalUrl: typeof body.finalUrl === "string" ? body.finalUrl : safeUrl };
 }
 export function isThirdPartyDirectoryHost(host: string): boolean {
-  return /(^|\\.)(all\\.biz|indiamart\\.com|b2brazil\\.com|alibaba\\.com|made-in-china\\.com|globalsources\\.com|tradeindia\\.com|ec21\\.com|tradekey\\.com|go4worldbusiness\\.com|exporthub\\.com|kompass\\.com|europages\\.com|thomasnet\\.com)$/.test(host.toLowerCase());
+  return /(^|\.)(all\.biz|indiamart\.com|b2brazil\.com|alibaba\.com|made-in-china\.com|globalsources\.com|tradeindia\.com|ec21\.com|tradekey\.com|go4worldbusiness\.com|exporthub\.com|kompass\.com|europages\.com|thomasnet\.com)$/.test(host.toLowerCase());
 }
 export function countryMatchesTarget(targetCode: string | null, detectedCountry: string | null): boolean | null {
   if (!targetCode || !detectedCountry) return null;
