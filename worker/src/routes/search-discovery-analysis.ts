@@ -31,7 +31,7 @@ type AnalysisResult = {
   official_website_reason: string;
   evidence: Array<{ field: string; value: string; source_url: string; excerpt: string }>;
 };
-const MAX_SELECTED = 1000;
+const MAX_SELECTED = 500;
 const MAX_BATCH = 20;
 const MAX_HTML = 140000;
 
