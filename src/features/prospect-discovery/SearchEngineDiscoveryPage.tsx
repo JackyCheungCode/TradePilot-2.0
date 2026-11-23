@@ -68,7 +68,7 @@ export function SearchEngineDiscoveryPage() {
       api<{ countries: Country[] }>('/api/v1/prospect-profiling/countries'),
       api<ExclusionCategory[]>('/api/v1/settings/search-exclusions'),
       getSupabaseClient().then(client => client.from('discovery_runs').select('id,task_code,query,countries,status,progress,discovered_count,message,created_at,search_config').eq('channel','search_engine').order('created_at',{ascending:false}).limit(8)),
-      getSupabaseClient().then(client => client.from('discovery_records').select('id,name,website,country_code,status,raw_data,updated_at').eq('channel','search_engine').eq('status','new').order('updated_at',{ascending:false}).limit(1000)),
+      getSupabaseClient().then(client => client.from('discovery_records').select('id,name,website,country_code,status,raw_data,updated_at').eq('channel','search_engine').in('status',['new','removed']).order('updated_at',{ascending:false}).limit(1000)),
     ]).then(([countryData, exclusionData, runResult, recordResult]) => {
       if (!active) return;
       setCountries(countryData.countries ?? []);
@@ -96,7 +96,7 @@ export function SearchEngineDiscoveryPage() {
   const searchRuns = useMemo(() => runs.filter(run => run.search_config?.taskType !== 'website_analysis'), [runs]);
   const analysisRuns = useMemo(() => runs.filter(run => run.search_config?.taskType === 'website_analysis'), [runs]);
   const latestAnalysisRun = analysisRuns[0];
-  const visibleCandidates = useMemo(() => verifiedRecords.filter(record => (record.name || '').toLowerCase().includes(candidateFilter.toLowerCase()) || (record.website || '').toLowerCase().includes(candidateFilter.toLowerCase())), [verifiedRecords, candidateFilter]);
+  const visibleCandidates = useMemo(() => verifiedRecords.filter(record => record.status === 'new' && ((record.name || '').toLowerCase().includes(candidateFilter.toLowerCase()) || (record.website || '').toLowerCase().includes(candidateFilter.toLowerCase()))), [verifiedRecords, candidateFilter]);
   const analysisResults = useMemo(() => verifiedRecords.filter(record => websiteAnalysis(record)?.status === 'completed'), [verifiedRecords]);
 
   const toggleRole = (id: string, checked: boolean) => setRolesSelected(current => checked ? [...current, id] : current.filter(item => item !== id));
@@ -122,7 +122,7 @@ export function SearchEngineDiscoveryPage() {
   }, [runs]);
 
   const startAnalysis = async (forceReanalysis = false) => {
-    const eligibleRecordIds = selectedRecordIds.filter(id => verifiedRecords.some(record => record.id === id && !!record.website));
+    const eligibleRecordIds = selectedRecordIds.filter(id => verifiedRecords.some(record => record.id === id && record.status === 'new' && !!record.website));
     if (!eligibleRecordIds.length) { setError('所选候选中没有可分析的官网地址，请选择带有官网 URL 的记录。'); return; }
     if (eligibleRecordIds.length > 500) { setError('单次最多分析 500 个候选网站，请分批选择。'); return; }
     setError(''); setNotice(''); setAnalyzeSubmitting(true);
@@ -237,7 +237,7 @@ export function SearchEngineDiscoveryPage() {
         setActiveStep(step);
         const target = ['search-target', 'candidate-pool', 'analysis-workbench', 'analysis-results'][step];
         window.requestAnimationFrame(() => document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
-      }} candidateCount={verifiedRecords.length} taskCount={searchRuns.length} searchCompleted={searchRuns.some(run => run.status === 'completed' || run.status === 'partial')} analysisCount={latestAnalysisRun?.discovered_count ?? 0} resultCount={analysisResults.length} />
+      }} candidateCount={visibleCandidates.length} taskCount={searchRuns.length} searchCompleted={searchRuns.some(run => run.status === 'completed' || run.status === 'partial')} analysisCount={latestAnalysisRun?.discovered_count ?? 0} resultCount={analysisResults.length} />
 
       {error && <InlineNotification kind="error" title="操作未完成" subtitle={error} onCloseButtonClick={() => setError('')} />}
       {notice && <InlineNotification kind="success" title="任务已提交" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
