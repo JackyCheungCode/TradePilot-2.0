@@ -163,8 +163,10 @@ function countryMatchesTarget(targetCode: string | null, detectedCountry: string
   };
   const value = detectedCountry.toLowerCase().trim();
   const candidates = aliases[targetCode.toUpperCase()] ?? [];
-  if (!candidates.length) return null;
-  return candidates.some(alias => value === alias || value.includes(alias));
+  const canonical = new Intl.DisplayNames(["en"], { type: "region" }).of(targetCode.toUpperCase())?.toLowerCase();
+  if (candidates.some(alias => value === alias || value.includes(alias))) return true;
+  if (canonical && canonical !== targetCode.toLowerCase() && (value === canonical || value.includes(canonical))) return true;
+  return candidates.length || canonical ? false : null;
 }
 export function parseModelResult(raw: string, sourceUrl: string): AnalysisResult {
   const cleaned = raw.trim().replace(/^\`\`\`(?:json)?\s*/i, "").replace(/\s*\`\`\`$/, "");
