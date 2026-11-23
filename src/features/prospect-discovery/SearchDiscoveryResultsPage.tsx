@@ -20,11 +20,16 @@ export function SearchDiscoveryResultsPage(){
  const [keywordFilter,setKeywordFilter]=useState('all');
  const [error,setError]=useState('');
  const [loading,setLoading]=useState(true);
- useEffect(()=>{let live=true;void (async()=>{const client=await getSupabaseClient();const [recordResult,occurrenceResult,runResult]=await Promise.all([
-  client.from('discovery_records').select('id,name,website,country_code,status,raw_data,updated_at').eq('channel','search_engine').order('updated_at',{ascending:false}).limit(2000),
-  client.from('discovery_record_occurrences').select('record_id,run_id,keyword,source_url').order('created_at',{ascending:false}).limit(10000),
-  client.from('discovery_runs').select('id,task_code,query,countries').eq('channel','search_engine').order('created_at',{ascending:false}).limit(1000),
- ]);if(recordResult.error)throw recordResult.error;if(occurrenceResult.error)throw occurrenceResult.error;if(runResult.error)throw runResult.error;if(!live)return;setRows((recordResult.data??[]) as RecordRow[]);setOccurrences((occurrenceResult.data??[]) as Occurrence[]);setRuns((runResult.data??[]) as Run[]);})().catch(e=>live&&setError(e instanceof Error?e.message:'结果读取失败')).finally(()=>live&&setLoading(false));return()=>{live=false}},[]);
+ useEffect(()=>{let live=true;void (async()=>{
+  const client=await getSupabaseClient();
+  const allRecords:RecordRow[]=[];
+  for(let offset=0;;offset+=1000){const{data,error}=await client.from('discovery_records').select('id,name,website,country_code,status,raw_data,updated_at').eq('channel','search_engine').order('updated_at',{ascending:false}).range(offset,offset+999);if(error)throw error;allRecords.push(...(data??[]) as RecordRow[]);if(!data||data.length<1000)break;}
+  const allOccurrences:Occurrence[]=[];
+  for(let offset=0;;offset+=1000){const{data,error}=await client.from('discovery_record_occurrences').select('record_id,run_id,keyword,source_url').order('created_at',{ascending:false}).range(offset,offset+999);if(error)throw error;allOccurrences.push(...(data??[]) as Occurrence[]);if(!data||data.length<1000)break;}
+  const allRuns:Run[]=[];
+  for(let offset=0;;offset+=1000){const{data,error}=await client.from('discovery_runs').select('id,task_code,query,countries').eq('channel','search_engine').order('created_at',{ascending:false}).range(offset,offset+999);if(error)throw error;allRuns.push(...(data??[]) as Run[]);if(!data||data.length<1000)break;}
+  if(!live)return;setRows(allRecords);setOccurrences(allOccurrences);setRuns(allRuns);
+ })().catch(e=>live&&setError(e instanceof Error?e.message:'结果读取失败')).finally(()=>live&&setLoading(false));return()=>{live=false}},[]);
  const runById=useMemo(()=>new Map(runs.map(run=>[run.id,run])),[runs]);
  const tasks=useMemo(()=>[...new Map(runs.map(run=>[run.id,{value:run.id,label:(run.task_code||run.id.slice(0,8))+' · '+(run.query||'未命名关键词')}])).values()],[runs]);
  const keywords=useMemo(()=>[...new Set([...occurrences.map(item=>item.keyword),...runs.map(run=>run.query)].filter((value):value is string=>!!value))].sort(),[occurrences,runs]);

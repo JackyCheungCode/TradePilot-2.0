@@ -49,6 +49,7 @@ export function SearchEngineDiscoveryPage() {
   const [categories, setCategories] = useState<ExclusionCategory[]>([]);
   const [excludeDomains, setExcludeDomains] = useState('');
   const [verifiedRecords, setVerifiedRecords] = useState<SearchRecord[]>([]);
+  const [activeSearchRunId, setActiveSearchRunId] = useState<string | null>(null);
   const [activeStep, setActiveStep] = useState(0);
   const [selectedRecordIds, setSelectedRecordIds] = useState<string[]>([]);
   const [candidateFilter, setCandidateFilter] = useState('');
@@ -94,6 +95,30 @@ export function SearchEngineDiscoveryPage() {
     if (recordError) throw recordError;
     setVerifiedRecords((data ?? []) as SearchRecord[]);
   };
+  useEffect(() => {
+    if (activeStep !== 1 || !activeSearchRunId) return;
+    let live = true;
+    const poll = async () => {
+      try {
+        const client = await getSupabaseClient();
+        const [runResult, recordResult] = await Promise.all([
+          client.from('discovery_runs').select('status').eq('id', activeSearchRunId).maybeSingle(),
+          client.from('discovery_records').select('id,name,website,country_code,status,raw_data,updated_at').eq('channel','search_engine').in('status',['new','removed']).order('updated_at',{ascending:false}).limit(1000),
+        ]);
+        if (runResult.error) throw runResult.error;
+        if (recordResult.error) throw recordResult.error;
+        if (!live) return;
+        setVerifiedRecords((recordResult.data ?? []) as SearchRecord[]);
+        if (['completed','partial','failed','cancelled'].includes(String(runResult.data?.status || ''))) setActiveSearchRunId(null);
+      } catch (cause) {
+        if (live) setError(cause instanceof Error ? cause.message : '候选网站刷新失败');
+      }
+    };
+    void poll();
+    const timer = window.setInterval(() => void poll(), 4000);
+    return () => { live = false; window.clearInterval(timer); };
+  }, [activeStep, activeSearchRunId]);
+
 
   const startAnalysis = async (forceReanalysis = false) => {
     const eligibleRecordIds = selectedRecordIds.filter(id => verifiedRecords.some(record => record.id === id && record.status === 'new' && !!record.website));
@@ -121,7 +146,7 @@ export function SearchEngineDiscoveryPage() {
     if (domains.some(value => !/^[a-z0-9.-]+(?:\/[^\s]*)?$/.test(value) || !value.includes('.'))) { setError('排除清单包含无效域名，请检查后重试。'); return; }
     setSubmitting(true);
     try {
-      const payload = await api<{ taskCode?: string; message?: string }>('/api/v1/search-discovery-runs', {
+      const payload = await api<{ id?: string; taskCode?: string; message?: string }>('/api/v1/search-discovery-runs', {
         method: 'POST',
         body: JSON.stringify({
           country: country.cca2, query: product.trim(), advancedQuery: activeQuery,
@@ -130,6 +155,7 @@ export function SearchEngineDiscoveryPage() {
           excludeDomains: domains, businessTypes: rolesSelected,
         }),
       });
+      setActiveSearchRunId(payload.id ?? null);
       setNotice('搜索任务已创建：' + (payload.taskCode ?? '已进入队列') + '。任务日志已开始记录；搜索结果完成后将自动进入候选网站池。');
       setActiveStep(1);
       const client = await getSupabaseClient();
