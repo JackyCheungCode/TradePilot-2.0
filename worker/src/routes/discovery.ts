@@ -833,6 +833,37 @@ export async function handleDiscovery(request: Request, env: DiscoveryEnv): Prom
     }
     if(body.action==="promote"){
       try{
+        if(record.status==="promoted"&&typeof record.lead_id==="string")return successResponse(request,{id:record.id,status:"promoted",leadId:record.lead_id,alreadyExists:true});
+        if(record.status!=="new")return errorResponse(request,"PROSPECT_NOT_ELIGIBLE","只有尚未转化的潜客可以加入线索。",409);
+        const rawData=record.raw_data&&typeof record.raw_data==="object"&&!Array.isArray(record.raw_data)?record.raw_data as Record<string,unknown>:{};
+        const analysis=rawData.website_analysis&&typeof rawData.website_analysis==="object"?rawData.website_analysis as Record<string,unknown>:{};
+        if(analysis.status!=="completed")return errorResponse(request,"ANALYSIS_REQUIRED","请先完成 AI 网站分析，再加入线索。",409);
+        const text=(value:unknown)=>typeof value==="string"?value.trim():"";
+        const email=text(analysis.email)||text(record.email);
+        const phone=text(analysis.phone)||text(record.phone);
+        const address=text(analysis.address)||text(record.address);
+        if(!email&&!phone&&!address)return errorResponse(request,"CONTACT_DETAILS_REQUIRED","本次分析尚未发现电话、邮箱或公司地址。请先补充联系方式，再加入线索。",409);
+        const reviewEvents=await db<Array<{id:string}>>(env,"business_transition_events?owner_id=eq."+userId+"&record_type=eq.prospect&record_id=eq."+record.id+"&event_type=eq.prospect_reviewed&select=id&limit=1");
+        if(!reviewEvents.length){
+          await db(env,"rpc/confirm_prospect_review",{
+            method:"POST",headers:{Prefer:"return=representation"},
+            body:JSON.stringify({p_owner_id:userId,p_record_id:record.id})
+          });
+        }
+        const now=new Date().toISOString();
+        const sourceUrl=text(analysis.final_url)||text(analysis.source_url)||text(record.website);
+        const contactEnrichment={
+          status:"completed",source:"website_ai_analysis",collected_at:now,
+          emails:email?[{value:email,source_url:sourceUrl,provider:"website_ai_analysis"}]:[],
+          phones:phone?[{value:phone,source_url:sourceUrl,provider:"website_ai_analysis"}]:[],
+          addresses:address?[{value:address,source_url:sourceUrl,provider:"website_ai_analysis"}]:[],
+          social:{}
+        };
+        const collectedRaw={...rawData,lifecycle_stage:"collected",lifecycle_updated_at:now,contact_enrichment:contactEnrichment};
+        await db(env,"rpc/record_prospect_contact_enrichment",{
+          method:"POST",headers:{Prefer:"return=representation"},
+          body:JSON.stringify({p_owner_id:userId,p_record_id:record.id,p_raw_data:collectedRaw,p_email:email||null,p_phone:phone||null,p_address:address||null,p_has_collected:true,p_event_payload:{source:"website_ai_analysis",source_url:sourceUrl,has_email:Boolean(email),has_phone:Boolean(phone),has_address:Boolean(address)}})
+        });
         const result=await db<{id:string;status:string;lifecycleStage:string;leadId:string}>(env,"rpc/promote_prospect_to_lead",{
           method:"POST",headers:{Prefer:"return=representation"},
           body:JSON.stringify({p_owner_id:userId,p_record_id:record.id})
