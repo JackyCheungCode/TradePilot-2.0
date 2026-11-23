@@ -151,7 +151,7 @@ async function renderWebsite(env: DiscoveryEnv, url: string): Promise<{ html: st
   if (text.length < 120) throw new Error("网页正文过少，无法可靠识别企业信息。");
   return { html, text, title: pageTitle(html), finalUrl: typeof body.finalUrl === "string" ? body.finalUrl : safeUrl };
 }
-function countryMatchesTarget(targetCode: string | null, detectedCountry: string | null): boolean | null {
+export function countryMatchesTarget(targetCode: string | null, detectedCountry: string | null): boolean | null {
   if (!targetCode || !detectedCountry) return null;
   const aliases: Record<string, string[]> = {
     BR: ["brazil", "brasil", "巴西"], IN: ["india", "印度"], US: ["united states", "usa", "america", "美国"],
