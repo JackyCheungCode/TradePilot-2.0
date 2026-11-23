@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { PageHeader, Button, InlineNotification, Link, Tag, TextInput, Select, SelectItem, TpDataTable } from '@/design-system';
+import { Checkmark, Download, Globe, Renew, Search } from '@/design-system/icons';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/search-engine-discovery.scss';
 
