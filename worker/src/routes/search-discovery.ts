@@ -1,6 +1,6 @@
 import { errorResponse, successResponse } from "../lib/http.ts";
 import type { DiscoveryEnv, DiscoveryRunInput } from "./discovery";
-import { discoveryRunQuery } from "../lib/owner-scoped-query";
+import { discoveryRunQuery } from "../lib/owner-scoped-query.ts";
 import { readIntegrationSecret } from "../lib/integrations.ts";
 type Body={planSnapshot?:Record<string,unknown>;guardrailsSnapshot?:Record<string,unknown>;country?:string;state?:string;city?:string;query?:string;advancedQuery?:string;limitPerCountry?:number;searchEngines?:Array<"brightdata"|"serpkite"|"serpapi">;searchTypes?:Array<"web"|"shopping"|"images"|"news"|"videos"|"scholar"|"patents">;searchLanguage?:string;excludeCategories?:string[];excludeDomains?:string[];businessTypes?:string[];originalQuery?:string;translatedQuery?:string;targetLanguage?:string};
 async function auth(request:Request,env:DiscoveryEnv){const token=request.headers.get("Authorization")?.replace(/^Bearer\s+/i,"");if(!token)return null;const r=await fetch(env.SUPABASE_URL+"/auth/v1/user",{headers:{apikey:env.SUPABASE_ANON_KEY,Authorization:"Bearer "+token}});if(!r.ok)return null;return (await r.json() as {id?:string}).id??null;}
