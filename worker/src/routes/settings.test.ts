@@ -221,7 +221,7 @@ test("SerpKite integration test reads the free account and monthly key budget wi
     assert.equal(response.status, 200);
     const payload = await response.json() as { data: { ok: boolean; message: string } };
     assert.equal(payload.data.ok, true);
-    assert.match(payload.data.message, /750 credits/);
+    assert.match(payload.data.message, /500 credits/);
     assert.equal(calls.some(url => url.includes("/v1/search")), false);
   } finally { restore(); }
 });
