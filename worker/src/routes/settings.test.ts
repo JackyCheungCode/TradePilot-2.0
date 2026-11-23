@@ -225,3 +225,29 @@ test("SerpKite integration test reads the free account and monthly key budget wi
     assert.equal(calls.some(url => url.includes("/v1/search")), false);
   } finally { restore(); }
 });
+
+test("SerpKite integration accepts a free account without a custom per-key credit cap", async () => {
+  const restore = withFetch(async (input, init) => {
+    const url = String(input);
+    if (url.endsWith("/auth/v1/user")) return Response.json({ id: ownerId });
+    if (url.endsWith("/rest/v1/rpc/tradepilot_secret_get")) {
+      const args = JSON.parse(String(init?.body)) as { p_names: string[] };
+      return Response.json(args.p_names.map(name => ({ name, secret: "serpkite-test-key" })));
+    }
+    if (url.endsWith("/v1/account")) return Response.json({
+      plan: "free", balance: 850, key: { credits_used_month: 150 },
+    });
+    throw new Error("Unexpected request: " + url);
+  });
+  try {
+    const response = await handleSettings(new Request("https://worker.test/api/v1/settings/integrations/test", {
+      method: "POST",
+      headers: { Authorization: "Bearer user-access-token", "Content-Type": "application/json" },
+      body: JSON.stringify({ service: "serpkite" }),
+    }), { ...env, SUPABASE_SERVICE_ROLE_KEY: "service-test-key" });
+    assert.equal(response.status, 200);
+    const payload = await response.json() as { data: { ok: boolean; message: string } };
+    assert.equal(payload.data.ok, true);
+    assert.match(payload.data.message, /850/);
+  } finally { restore(); }
+});
