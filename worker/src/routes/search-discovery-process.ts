@@ -12,7 +12,6 @@ async function db<T>(env:DiscoveryEnv,path:string,init:RequestInit={}):Promise<T
 async function log(env:DiscoveryEnv,id:string,owner:string,level:string,message:string){await db(env,"discovery_run_logs",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({run_id:id,owner_id:owner,level,message})});}
 async function update(env:DiscoveryEnv,id:string,owner:string,patch:Record<string,unknown>){await db(env,discoveryRunQuery(id,owner),{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({...patch,updated_at:new Date().toISOString()})});}
 function pick(row:Record<string,unknown>):Result|null{const url=String(row.link??row.product_link??row.url??"");const title=String(row.title??row.name??row.product_title??"");if(!url||!title)return null;try{const u=new URL(url);if(u.protocol!=="http:"&&u.protocol!=="https:")return null;return{title,url:u.toString(),snippet:String(row.snippet??row.description??""),raw:row};}catch{return null;}}
-const monthlyWindow=()=>{const now=new Date();return new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),1)).toISOString();};
 async function assertFreeQuota(engine:Engine,env:DiscoveryEnv,requestedResults=10):Promise<void>{
  if(engine==="serper")throw new Error("SERPER_ONE_TIME_CREDITS_NOT_ALLOWED_IN_MONTHLY_FREE_MODE");
  if(engine==="serpapi"){
