@@ -19,8 +19,8 @@ async function assertFreeQuota(engine:Engine,env:DiscoveryEnv,requestedResults=1
   if(!key)throw new Error("BRIGHTDATA_API_KEY_NOT_CONFIGURED");
   const response=await fetch("https://api.brightdata.com/customer/balance",{headers:{Authorization:"Bearer "+key,Accept:"application/json"},signal:AbortSignal.timeout(15000)});
   const body=await response.json().catch(()=>({})) as {balance?:number;pending_balance?:number};
-  if(!response.ok||typeof body.balance!=="number"||typeof body.pending_balance!=="number")throw new Error("BRIGHTDATA_FREE_BALANCE_UNVERIFIED");
-  if(body.balance>0.000001||body.pending_balance>0.000001)throw new Error("BRIGHTDATA_PAID_BALANCE_PRESENT_FREE_ONLY_MODE_BLOCKED");
+  if(!response.ok||typeof body.balance!=="number")throw new Error("BRIGHTDATA_FREE_BALANCE_UNVERIFIED");
+  if(body.balance>0.000001||(typeof body.pending_balance==="number"&&body.pending_balance>0.000001))throw new Error("BRIGHTDATA_PAID_BALANCE_PRESENT_FREE_ONLY_MODE_BLOCKED");
  }
  if(engine==="serpapi"){
   const key=await readIntegrationSecret(env,"tradepilot_api_serpapi");
