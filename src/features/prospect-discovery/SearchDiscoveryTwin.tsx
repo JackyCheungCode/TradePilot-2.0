@@ -1,5 +1,3 @@
-import type { CSSProperties } from 'react';
-
 type Props = {
   activeStep: number;
   onStepChange: (step: number) => void;
