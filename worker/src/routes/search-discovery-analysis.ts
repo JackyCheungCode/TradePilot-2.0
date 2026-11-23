@@ -151,6 +151,21 @@ async function renderWebsite(env: DiscoveryEnv, url: string): Promise<{ html: st
   if (text.length < 120) throw new Error("网页正文过少，无法可靠识别企业信息。");
   return { html, text, title: pageTitle(html), finalUrl: typeof body.finalUrl === "string" ? body.finalUrl : safeUrl };
 }
+function countryMatchesTarget(targetCode: string | null, detectedCountry: string | null): boolean | null {
+  if (!targetCode || !detectedCountry) return null;
+  const aliases: Record<string, string[]> = {
+    BR: ["brazil", "brasil", "巴西"], IN: ["india", "印度"], US: ["united states", "usa", "america", "美国"],
+    GB: ["united kingdom", "uk", "britain", "england", "英国"], CN: ["china", "中国"], TW: ["taiwan", "台湾"],
+    DE: ["germany", "德国"], FR: ["france", "法国"], IT: ["italy", "意大利"], ES: ["spain", "西班牙"],
+    JP: ["japan", "日本"], KR: ["south korea", "korea", "韩国"], CA: ["canada", "加拿大"],
+    AU: ["australia", "澳大利亚"], MX: ["mexico", "墨西哥"], TR: ["turkey", "türkiye", "土耳其"],
+    AE: ["united arab emirates", "uae", "阿联酋"], SA: ["saudi arabia", "沙特阿拉伯"],
+  };
+  const value = detectedCountry.toLowerCase().trim();
+  const candidates = aliases[targetCode.toUpperCase()] ?? [];
+  if (!candidates.length) return null;
+  return candidates.some(alias => value === alias || value.includes(alias));
+}
 export function parseModelResult(raw: string, sourceUrl: string): AnalysisResult {
   const cleaned = raw.trim().replace(/^\`\`\`(?:json)?\s*/i, "").replace(/\s*\`\`\`$/, "");
   const value = JSON.parse(cleaned) as Record<string, unknown>;
@@ -207,8 +222,23 @@ async function analyzeRecord(env: DiscoveryEnv, runId: string, ownerId: string, 
     const { callAgentChatModel } = await import("./agent-center.ts");
     const model = await callAgentChatModel(env as Parameters<typeof callAgentChatModel>[0], [{ role: "user", content: prompt }], "你是企业官网情报分析专家。你只提取有网页证据支持的事实，不推断缺失信息。输出必须符合指定 JSON 字段。", "company_analysis", true, 2400);
     const result = parseModelResult(model.text, page.finalUrl);
+    const targetCountry = record.country_code?.toUpperCase() ?? null;
+    const countryMatch = countryMatchesTarget(targetCountry, result.country);
+    const host = new URL(page.finalUrl).hostname.toLowerCase();
+    const isThirdPartyDirectory = /(^|\\.)(indiamart|b2brazil|alibaba|made-in-china|globalsources|tradeindia|kompass|europages)\\./.test(host);
+    if (countryMatch === false) {
+      result.website_confidence = 0;
+      result.official_website = null;
+      result.official_website_reason = "企业实际国家与本次目标国家不匹配，不能作为目标国家线索。实际识别国家：" + (result.country ?? "未知");
+    }
+    if (isThirdPartyDirectory) {
+      result.official_website = null;
+      result.website_confidence = Math.min(result.website_confidence, 35);
+      result.business_type = "third_party_directory_listing";
+      result.official_website_reason = "当前页面属于第三方 B2B 平台/企业目录，不是企业自有官方网站；可作为企业资料来源，需进一步寻找企业官网。";
+    }
     const now = new Date().toISOString();
-    const websiteAnalysis = { status: "completed", analyzed_at: now, source_url: sourceUrl, final_url: page.finalUrl, page_title: page.title, model: model.model, ...result, evidence: result.evidence, review_required: true };
+    const websiteAnalysis = { status: "completed", analyzed_at: now, source_url: sourceUrl, final_url: page.finalUrl, page_title: page.title, model: model.model, ...result, country_match: countryMatch, third_party_directory: isThirdPartyDirectory, evidence: result.evidence, review_required: true };
     const raw = { ...(record.raw_data ?? {}), website_analysis: websiteAnalysis };
     const patch: Record<string, unknown> = { raw_data: raw, updated_at: now, confidence_score: result.website_confidence };
     if (result.company_name) patch.name = result.company_name;
