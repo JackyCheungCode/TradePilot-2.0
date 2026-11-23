@@ -227,10 +227,10 @@ export function SearchEngineDiscoveryPage() {
       <section id="candidate-pool" className="tp-search-discovery__section">
         <div className="tp-search-discovery__section-heading">
           <div><h2>候选网站池</h2><p>这里只展示搜索 API 返回并已保存的候选，不访问网站、不运行 Browser Run。</p></div>
-          <Tag type="blue">{verifiedRecords.length} 个候选 · 已选 {selectedRecordIds.length}</Tag>
+          <Tag type="blue">{visibleCandidates.length} 个候选 · 已选 {selectedRecordIds.length}</Tag>
         </div>
 
-        <div className="tp-search-discovery__candidate-toolbar"><Tag type="blue">{verifiedRecords.length} 个候选 · 已选用于分析 {selectedRecordIds.length}</Tag></div>
+        <div className="tp-search-discovery__candidate-toolbar"><Tag type="blue">{visibleCandidates.length} 个候选 · 已选用于分析 {selectedRecordIds.length}</Tag></div>
         <TpDataTable
           ariaLabel="搜索候选网站"
           rows={visibleCandidates}
