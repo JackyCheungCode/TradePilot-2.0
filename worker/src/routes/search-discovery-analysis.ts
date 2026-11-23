@@ -302,7 +302,7 @@ export async function handleSearchAnalysisRetry(request: Request, env: Discovery
   if (!ownerId) return errorResponse(request, "UNAUTHORIZED", "请先登录。", 401);
   const runs = await db<Array<{ search_config: Record<string, unknown>; query: string; countries: string[] }>>(env, "discovery_runs?id=eq." + encodeURIComponent(analysisRunId) + "&owner_id=eq." + encodeURIComponent(ownerId) + "&channel=eq.search_engine&select=search_config,query,countries&limit=1");
   const config = runs[0]?.search_config ?? {};
-  if (config.taskType !== "website_analysis" || typeof config.sourceSearchRunId !== "string" || !Array.isArray(config.selectedRecordIds)) return errorResponse(request, "ANALYSIS_RUN_NOT_FOUND", "分析任务不存在。", 404);
+  if (config.taskType !== "website_analysis" || (config.sourceSearchRunId !== null && typeof config.sourceSearchRunId !== "string") || !Array.isArray(config.selectedRecordIds)) return errorResponse(request, "ANALYSIS_RUN_NOT_FOUND", "分析任务不存在。", 404);
   const ids = config.selectedRecordIds.filter((id): id is string => typeof id === "string");
   const records = await db<RecordRow[]>(env, "discovery_records?owner_id=eq." + encodeURIComponent(ownerId) + "&channel=eq.search_engine&id=in.(" + ids.map(encodeURIComponent).join(",") + ")&select=id,owner_id,name,website,country_code,status,raw_data");
   const failed = records.filter(row => (row.raw_data?.website_analysis as Record<string, unknown> | undefined)?.status === "failed" && row.status === "new");

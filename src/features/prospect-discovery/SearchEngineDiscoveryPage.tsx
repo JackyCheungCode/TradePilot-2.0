@@ -68,7 +68,7 @@ export function SearchEngineDiscoveryPage() {
       api<{ countries: Country[] }>('/api/v1/prospect-profiling/countries'),
       api<ExclusionCategory[]>('/api/v1/settings/search-exclusions'),
       getSupabaseClient().then(client => client.from('discovery_runs').select('id,task_code,query,countries,status,progress,discovered_count,message,created_at,search_config').eq('channel','search_engine').order('created_at',{ascending:false}).limit(8)),
-      getSupabaseClient().then(client => client.from('discovery_records').select('id,name,website,country_code,status,raw_data,updated_at').eq('channel','search_engine').eq('status','new').order('updated_at',{ascending:false}).limit(100)),
+      getSupabaseClient().then(client => client.from('discovery_records').select('id,name,website,country_code,status,raw_data,updated_at').eq('channel','search_engine').eq('status','new').order('updated_at',{ascending:false}).limit(1000)),
     ]).then(([countryData, exclusionData, runResult, recordResult]) => {
       if (!active) return;
       setCountries(countryData.countries ?? []);
@@ -162,6 +162,30 @@ export function SearchEngineDiscoveryPage() {
     await refreshDiscoveryData();
   };
 
+  const exportAnalysisResults = () => {
+    const columns = ['公司名称','官网','国家','地址','电话','邮箱','联系人','产品','企业简介','企业类型','官网可信度','官网判断理由','来源网页','证据'];
+    const rows = analysisResults.map(record => {
+      const result = websiteAnalysis(record) ?? {};
+      const evidence = Array.isArray(result.evidence) ? result.evidence as Array<Record<string, unknown>> : [];
+      return [
+        result.company_name || record.name || '', result.official_website || record.website || '',
+        result.country || record.country_code || '', result.address || '', result.phone || '',
+        result.email || '', result.contact_person || '',
+        Array.isArray(result.products) ? (result.products as string[]).join('；') : '',
+        result.company_description || '', result.business_type || '', result.website_confidence ?? '',
+        result.official_website_reason || '', result.source_url || record.website || '',
+        evidence.map(item => [item.field, item.value, item.excerpt].map(value => String(value ?? '')).join(': ')).join(' | '),
+      ];
+    });
+    const quote = (value: unknown) => '"' + String(value ?? '').replace(/"/g, '""') + '"';
+    const csv = [columns, ...rows].map(row => row.map(quote).join(',')).join('\r\n');
+    const url = URL.createObjectURL(new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' }));
+    const link = document.createElement('a');
+    link.href = url; link.download = 'tradepilot-company-intelligence.csv'; link.click();
+    URL.revokeObjectURL(url);
+  };
+
+
 
   const submit = async () => {
     setError(''); setNotice('');
@@ -210,7 +234,7 @@ export function SearchEngineDiscoveryPage() {
         setActiveStep(step);
         const target = ['search-target', 'candidate-pool', 'analysis-workbench', 'analysis-results'][step];
         window.requestAnimationFrame(() => document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
-      }} candidateCount={verifiedRecords.length} taskCount={runs.length} searchCompleted={runs.some(run => run.status === 'completed' || run.status === 'partial')} />
+      }} candidateCount={verifiedRecords.length} taskCount={runs.length} searchCompleted={runs.some(run => run.search_config?.taskType !== 'website_analysis' && (run.status === 'completed' || run.status === 'partial'))} analysisCount={analysisRuns.reduce((sum, run) => sum + (run.discovered_count ?? 0), 0)} resultCount={analysisResults.length} />
 
       {error && <InlineNotification kind="error" title="操作未完成" subtitle={error} onCloseButtonClick={() => setError('')} />}
       {notice && <InlineNotification kind="success" title="任务已提交" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
@@ -329,6 +353,7 @@ export function SearchEngineDiscoveryPage() {
         <p className="tp-search-discovery__eyebrow">WORKSTATION 04 / COMPANY INTELLIGENCE</p>
         <h2>企业情报结果</h2>
         <p>结果保留原始网页 URL、字段证据和 AI 判断依据；所有记录均需人工复核，不会自动创建正式客户。</p>
+        <div><Button kind="secondary" size="sm" onClick={exportAnalysisResults} disabled={!analysisResults.length}>导出企业情报 CSV</Button></div>
         {analysisResults.length === 0 ? <Tile>暂无已完成的企业情报分析结果。</Tile> : (
           <div className="tp-search-discovery__run-list">
             {analysisResults.map(record => {
