@@ -106,7 +106,7 @@ export function SearchEngineDiscoveryPage() {
     const client = await getSupabaseClient();
     const [{ data: runData, error: runError }, { data: recordData, error: recordError }] = await Promise.all([
       client.from('discovery_runs').select('id,task_code,query,countries,status,progress,discovered_count,message,created_at,search_config').eq('channel','search_engine').order('created_at',{ascending:false}).limit(20),
-      client.from('discovery_records').select('id,name,website,country_code,status,raw_data,updated_at').eq('channel','search_engine').eq('status','new').order('updated_at',{ascending:false}).limit(100),
+      client.from('discovery_records').select('id,name,website,country_code,status,raw_data,updated_at').eq('channel','search_engine').in('status',['new','removed']).order('updated_at',{ascending:false}).limit(1000),
     ]);
     if (runError) throw runError;
     if (recordError) throw recordError;
