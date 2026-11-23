@@ -121,12 +121,13 @@ export function SearchEngineDiscoveryPage() {
   }, [runs]);
 
   const startAnalysis = async (forceReanalysis = false) => {
-    if (!selectedRecordIds.length) { setError('请先在候选网站池中选择要分析的网站。'); return; }
-    if (selectedRecordIds.length > 500) { setError('单次最多分析 500 个候选网站，请分批选择。'); return; }
+    const eligibleRecordIds = selectedRecordIds.filter(id => verifiedRecords.some(record => record.id === id && !!record.website));
+    if (!eligibleRecordIds.length) { setError('所选候选中没有可分析的官网地址，请选择带有官网 URL 的记录。'); return; }
+    if (eligibleRecordIds.length > 500) { setError('单次最多分析 500 个候选网站，请分批选择。'); return; }
     setError(''); setNotice(''); setAnalyzeSubmitting(true);
     try {
       const result = await api<{ id: string; taskCode: string; selectedCount: number; batchSize: number }>('/api/v1/search-discovery-runs/analyze', {
-        method: 'POST', body: JSON.stringify({ recordIds: selectedRecordIds, batchSize, forceReanalysis, country: country?.cca2 }),
+        method: 'POST', body: JSON.stringify({ recordIds: eligibleRecordIds, batchSize, forceReanalysis, country: country?.cca2 }),
       });
       setNotice('AI 分析任务已创建：' + result.taskCode + ' · ' + result.selectedCount + ' 个网站 · 每批 ' + result.batchSize + ' 个');
       setActiveStep(2);
@@ -307,13 +308,13 @@ export function SearchEngineDiscoveryPage() {
               const failed = analysis?.status === 'failed';
               return <Tile key={record.id}>
                 <div className="tp-search-discovery__candidate-row">
-                  <Checkbox id={'candidate-' + record.id} labelText="" checked={selectedRecordIds.includes(record.id)} disabled={!record.website} onChange={(_, data) => setSelectedRecordIds(current => data.checked ? [...new Set([...current, record.id])] : current.filter(id => id !== record.id))} />
+                  <Checkbox id={'candidate-' + record.id} labelText="" checked={selectedRecordIds.includes(record.id)} onChange={(_, data) => setSelectedRecordIds(current => data.checked ? [...new Set([...current, record.id])] : current.filter(id => id !== record.id))} />
                   <div className="tp-search-discovery__candidate-copy">
                     <strong>{record.name || '未命名候选网站'}</strong>
                     <p>{record.website || '搜索结果尚未提供官网地址'} · {record.country_code || '国家待核实'}</p>
                     {record.website && <Link href={record.website}>打开候选网站</Link>}
                   </div>
-                  <Tag type={analyzed ? 'green' : failed ? 'red' : 'cool-gray'}>{analyzed ? '已分析' : failed ? '分析失败' : '待分析'}</Tag>
+                  <Tag type={!record.website ? 'warm-gray' : analyzed ? 'green' : failed ? 'red' : 'cool-gray'}>{!record.website ? '缺少官网' : analyzed ? '已分析' : failed ? '分析失败' : '待分析'}</Tag>
                 </div>
               </Tile>;
             })}
