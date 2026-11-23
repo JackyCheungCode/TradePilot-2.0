@@ -7,7 +7,10 @@ const env = {
   SUPABASE_URL: "https://project.supabase.co",
   SUPABASE_ANON_KEY: "anon-test-key",
   SUPABASE_SERVICE_ROLE_KEY: "service-test-key",
-  LEAD_DISCOVERY_WORKFLOW: { create: async () => ({ id: "workflow-1" }) },
+  LEAD_DISCOVERY_WORKFLOW: {
+    create: async () => ({ id: "workflow-1" }),
+    get: async (id: string) => ({ id, pause: async () => {}, resume: async () => {}, terminate: async () => {}, status: async () => ({ status: "running" }) }),
+  },
 };
 
 function withFetch(handler: (input: string | URL | Request, init?: RequestInit) => Promise<Response>) {
