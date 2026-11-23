@@ -95,7 +95,6 @@ export function SearchEngineDiscoveryPage() {
   const analysisRuns = useMemo(() => runs.filter(run => run.search_config?.taskType === 'website_analysis'), [runs]);
   const latestAnalysisRun = analysisRuns[0];
   const visibleCandidates = useMemo(() => verifiedRecords.filter(record => record.status === 'new' && ((record.name || '').toLowerCase().includes(candidateFilter.toLowerCase()) || (record.website || '').toLowerCase().includes(candidateFilter.toLowerCase()))), [verifiedRecords, candidateFilter]);
-  const analysisResults = useMemo(() => verifiedRecords.filter(record => websiteAnalysis(record)?.status === 'completed'), [verifiedRecords]);
   const mapCountries = useMemo(() => countries.map(item => ({ code: item.cca2, label: countryLabel(item), value: 1 })), [countries]);
 
   const toggleRole = (id: string, checked: boolean) => setRolesSelected(current => checked ? [...current, id] : current.filter(item => item !== id));
