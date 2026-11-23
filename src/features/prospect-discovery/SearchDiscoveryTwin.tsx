@@ -3,6 +3,7 @@ type Props = {
   onStepChange: (step: number) => void;
   candidateCount: number;
   taskCount: number;
+  searchCompleted: boolean;
 };
 
 const steps = [
@@ -12,7 +13,7 @@ const steps = [
   { code: '04', name: '企业情报', english: 'COMPANY INTELLIGENCE', detail: '证据 · 档案 · 导出', metric: 'VERIFIED DATA', icon: '▤' },
 ];
 
-export function SearchDiscoveryTwin({ activeStep, onStepChange, candidateCount, taskCount }: Props) {
+export function SearchDiscoveryTwin({ activeStep, onStepChange, candidateCount, taskCount, searchCompleted }: Props) {
   return (
     <section className="tp-search-twin" aria-label="搜索引擎发现数字孪生工作流">
       <div className="tp-search-twin__heading">
@@ -34,7 +35,7 @@ export function SearchDiscoveryTwin({ activeStep, onStepChange, candidateCount, 
         <div className="tp-search-twin__stations">
           {steps.map((step, index) => {
             const active = index === activeStep;
-            const complete = index < activeStep;
+            const complete = index === 0 ? searchCompleted : index === 1 ? candidateCount > 0 : false;
             const metric = index === 0 ? taskCount + ' TASKS' : index === 1 ? candidateCount + ' SITES' : step.metric;
             return (
               <div className="tp-search-twin__station-wrap" key={step.code}>
