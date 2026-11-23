@@ -424,10 +424,15 @@ export async function handleSettings(request: Request, env: SettingsEnv): Promis
     if(service==="brightdata"){
       const key=secret("brightdata"),zone=secret("brightdataZone");
       if(!key||!zone)return successResponse(request,{ok:false,message:"请配置 Bright Data API Token 与 SERP Zone 名称"});
-      const target=new URL("https://www.google.com/search");target.searchParams.set("q","TradePilot integration test");target.searchParams.set("gl","us");target.searchParams.set("hl","en");target.searchParams.set("num","1");target.searchParams.set("brd_json","1");
-      const r=await fetch("https://api.brightdata.com/request",{method:"POST",headers:{Authorization:"Bearer "+key,"Content-Type":"application/json"},body:JSON.stringify({zone,url:target.toString(),format:"raw"}),signal:AbortSignal.timeout(45000)});
-      const data=await r.json().catch(()=>({})) as {organic?:unknown[];error?:string};
-      return successResponse(request,{ok:r.ok&&Array.isArray(data.organic),message:r.ok&&Array.isArray(data.organic)?"Bright Data SERP API 已连接":"Bright Data API 返回 HTTP "+r.status+(data.error?": "+data.error.slice(0,180):"")});
+      const [balanceResponse,zoneResponse]=await Promise.all([
+        fetch("https://api.brightdata.com/customer/balance",{headers:{Authorization:"Bearer "+key,Accept:"application/json"},signal:AbortSignal.timeout(20000)}),
+        fetch("https://api.brightdata.com/zone?zone="+encodeURIComponent(zone),{headers:{Authorization:"Bearer "+key,Accept:"application/json"},signal:AbortSignal.timeout(20000)}),
+      ]);
+      const balance=await balanceResponse.json().catch(()=>({})) as {balance?:number;pending_balance?:number};
+      if(!balanceResponse.ok||typeof balance.balance!=="number")return successResponse(request,{ok:false,message:"Bright Data 账户余额状态无法核实（HTTP "+balanceResponse.status+"）；为避免付费请求，已停止测试。"});
+      if(!zoneResponse.ok)return successResponse(request,{ok:false,message:"Bright Data API Token 可用，但 SERP Zone 验证失败（HTTP "+zoneResponse.status+"）。"});
+      const paidBalance=balance.balance>0.000001||(typeof balance.pending_balance==="number"&&balance.pending_balance>0.000001);
+      return successResponse(request,{ok:!paidBalance,message:paidBalance?"Bright Data 凭证与 Zone 可访问，但账户存在余额或待扣款；免费模式已阻止搜索，避免消耗付费余额。":"Bright Data API Token、SERP Zone 已通过无计费验证；账户未发现已存入余额。搜索额度将在每次请求前再次核验。"});
     }
     if(service==="quanticdata"){
       const key=secret("quanticdata");if(!key)return successResponse(request,{ok:false,message:"尚未配置 QuanticData API Key"});
