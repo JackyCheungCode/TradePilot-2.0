@@ -12,7 +12,28 @@ async function db<T>(env:DiscoveryEnv,path:string,init:RequestInit={}):Promise<T
 async function log(env:DiscoveryEnv,id:string,owner:string,level:string,message:string){await db(env,"discovery_run_logs",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({run_id:id,owner_id:owner,level,message})});}
 async function update(env:DiscoveryEnv,id:string,owner:string,patch:Record<string,unknown>){await db(env,discoveryRunQuery(id,owner),{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({...patch,updated_at:new Date().toISOString()})});}
 function pick(row:Record<string,unknown>):Result|null{const url=String(row.link??row.product_link??row.url??"");const title=String(row.title??row.name??row.product_title??"");if(!url||!title)return null;try{const u=new URL(url);if(u.protocol!=="http:"&&u.protocol!=="https:")return null;return{title,url:u.toString(),snippet:String(row.snippet??row.description??""),raw:row};}catch{return null;}}
+const monthlyWindow=()=>{const now=new Date();return new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),1)).toISOString();};
+async function assertFreeQuota(engine:Engine,env:DiscoveryEnv):Promise<void>{
+ if(engine==="quanticdata"){
+  const key=await readIntegrationSecret(env,"tradepilot_api_quanticdata");
+  if(!key)throw new Error("QUANTICDATA_API_KEY_NOT_CONFIGURED");
+  const response=await fetch("https://api.quanticdata.io/v1/scraper/billing",{headers:{Authorization:"Bearer "+key},signal:AbortSignal.timeout(15000)});
+  const body=await response.json().catch(()=>({})) as {type?:string;payload?:{free_remaining_usd?:number;free_monthly_usd?:number}};
+  if(!response.ok||body.type!=="response"||typeof body.payload?.free_remaining_usd!=="number")throw new Error("QUANTICDATA_FREE_QUOTA_UNVERIFIED");
+  if(body.payload.free_remaining_usd<0.0009)throw new Error("QUANTICDATA_MONTHLY_FREE_QUOTA_EXHAUSTED");
+ }
+ if(engine==="serpkite"){
+  const key=await readIntegrationSecret(env,"tradepilot_api_serpkite");
+  if(!key)throw new Error("SERPKITE_API_KEY_NOT_CONFIGURED");
+  const response=await fetch("https://api.serpkite.com/v1/account",{headers:{Authorization:"Bearer "+key},signal:AbortSignal.timeout(15000)});
+  const body=await response.json().catch(()=>({})) as {key?:{credit_limit?:number;credits_used_month?:number};balance?:number};
+  const cap=body.key?.credit_limit,used=body.key?.credits_used_month;
+  if(!response.ok||typeof cap!=="number"||typeof used!=="number"||cap>1000)throw new Error("SERPKITE_FREE_MONTHLY_KEY_LIMIT_REQUIRED");
+  if(cap-used<1||typeof body.balance==="number"&&body.balance<1)throw new Error("SERPKITE_MONTHLY_FREE_CREDITS_EXHAUSTED");
+ }
+}
 async function search(engine:Engine,type:Vertical,q:string,country:string,hl:string,limit:number,location:string,env:DiscoveryEnv):Promise<Result[]>{
+ await assertFreeQuota(engine,env);
  const out:Result[]=[];let start=0;
  const secretNames:Record<Engine,string>={serper:"tradepilot_api_serper",serpapi:"tradepilot_api_serpapi",brightdata:"tradepilot_api_brightdata",quanticdata:"tradepilot_api_quanticdata",serpkite:"tradepilot_api_serpkite"};
  const engineKey=await readIntegrationSecret(env,secretNames[engine]);
@@ -30,24 +51,26 @@ async function search(engine:Engine,type:Vertical,q:string,country:string,hl:str
   }else if(engine==="brightdata"){
    const zone=await readIntegrationSecret(env,"tradepilot_api_brightdata_zone");
    if(!zone)throw new Error("BRIGHTDATA_SERP_ZONE_NOT_CONFIGURED");
-   const target=new URL("https://www.google.com/search");target.searchParams.set("q",q);target.searchParams.set("gl",country.toLowerCase());target.searchParams.set("hl",languageCode);target.searchParams.set("start",String(start));target.searchParams.set("brd_json","1");
+   const target=new URL("https://www.google.com/search");target.searchParams.set("q",q);target.searchParams.set("gl",country.toLowerCase());target.searchParams.set("hl",languageCode);target.searchParams.set("start",String(start));target.searchParams.set("num",String(num));if(type==="shopping")target.searchParams.set("tbm","shop");else if(type==="images")target.searchParams.set("tbm","isch");else if(type==="news")target.searchParams.set("tbm","nws");else if(type==="videos")target.searchParams.set("tbm","vid");target.searchParams.set("brd_json","1");
    response=await fetch("https://api.brightdata.com/request",{method:"POST",headers:{Authorization:"Bearer "+engineKey,"Content-Type":"application/json"},body:JSON.stringify({zone,url:target.toString(),format:"raw"}),signal:AbortSignal.timeout(60000)});
-   resultKey=["organic"];
+   resultKey=["organic","shopping","images","news","videos"];
   }else if(engine==="quanticdata"){
-   if(type!=="web")throw new Error("QUANTICDATA_VERTICAL_NOT_SUPPORTED");
-   response=await fetch("https://api.quanticdata.io/v1/scraper/serp",{method:"POST",headers:{Authorization:"Bearer "+engineKey,"Content-Type":"application/json"},body:JSON.stringify({query:q,engine:"google",country:country.toLowerCase(),lang:languageCode,num,page:Math.floor(start/num)+1}),signal:AbortSignal.timeout(60000)});
-   resultKey=["payload.organic","payload.organic_results"];
+   const searchType:Record<Vertical,string>={web:"search",shopping:"shopping",images:"images",news:"news",videos:"videos",scholar:"scholar",patents:"patents"};
+   const body:Record<string,unknown>={query:q,engine:"google",search_type:searchType[type],country:country.toLowerCase(),lang:languageCode,num,page:Math.floor(start/num)+1,render:false};if(location)body.location=location;
+   response=await fetch("https://api.quanticdata.io/v1/scraper/serp",{method:"POST",headers:{Authorization:"Bearer "+engineKey,"Content-Type":"application/json"},body:JSON.stringify(body),signal:AbortSignal.timeout(60000)});
+   resultKey=["payload.organic","payload.organic_results","payload.shopping","payload.images","payload.news","payload.videos"];
   }else{
    const vertical:Record<Vertical,string>={web:"search",shopping:"shopping",images:"images",news:"news",videos:"videos",scholar:"scholar",patents:"patents"};
-   response=await fetch("https://api.serpkite.com/v1/"+vertical[type],{method:"POST",headers:{Authorization:"Bearer "+engineKey,"Content-Type":"application/json"},body:JSON.stringify({q,country:country.toLowerCase(),language:languageCode,num,page:Math.floor(start/num)+1,...(location?{location}:{})}),signal:AbortSignal.timeout(60000)});
+   const body:Record<string,unknown>={q,country:country.toLowerCase(),language:hl,num,page:Math.floor(start/num)+1,format:"json"};if(location)body.location=location;
+   response=await fetch("https://api.serpkite.com/v1/"+vertical[type],{method:"POST",headers:{Authorization:"Bearer "+engineKey,"Content-Type":"application/json"},body:JSON.stringify(body),signal:AbortSignal.timeout(60000)});
    resultKey=["results"];
   }
   const responseText=await response.text();
   if(!response.ok)throw new Error(engine.toUpperCase()+"_HTTP_"+response.status+": "+responseText.slice(0,400));
   const body=JSON.parse(responseText) as Record<string,unknown>;
-  if(body.error||body.type==="error")throw new Error(engine.toUpperCase()+"_API_ERROR: "+String(body.error??body.message).slice(0,300));
+  if(body.error||body.type==="error")throw new Error(engine.toUpperCase()+"_API_ERROR: "+String((body.error as Record<string,unknown>|undefined)?.message??body.message).slice(0,300));
   let rows:Record<string,unknown>[]=[];
-  for(const key of resultKey){const value=key.startsWith("payload.")?(body.payload as Record<string,unknown>|undefined)?.[key.slice(8)]:body[key];if(Array.isArray(value)){rows=value as Record<string,unknown>[];break;}}
+  for(const key of resultKey){const parts=key.split(".");let value:unknown=body;for(const part of parts)value=(value as Record<string,unknown>|undefined)?.[part];if(Array.isArray(value)){rows=value as Record<string,unknown>[];break;}}
   out.push(...rows.map(pick).filter((x):x is Result=>!!x));
   if(rows.length<num)break;start+=num;
  }
