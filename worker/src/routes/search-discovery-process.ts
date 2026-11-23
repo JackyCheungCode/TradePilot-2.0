@@ -14,6 +14,14 @@ async function update(env:DiscoveryEnv,id:string,owner:string,patch:Record<strin
 function pick(row:Record<string,unknown>):Result|null{const url=String(row.link??row.product_link??row.url??"");const title=String(row.title??row.name??row.product_title??"");if(!url||!title)return null;try{const u=new URL(url);if(u.protocol!=="http:"&&u.protocol!=="https:")return null;return{title,url:u.toString(),snippet:String(row.snippet??row.description??""),raw:row};}catch{return null;}}
 async function assertFreeQuota(engine:Engine,env:DiscoveryEnv,requestedResults=10):Promise<void>{
  if(engine==="serper")throw new Error("SERPER_ONE_TIME_CREDITS_NOT_ALLOWED_IN_MONTHLY_FREE_MODE");
+ if(engine==="brightdata"){
+  const key=await readIntegrationSecret(env,"tradepilot_api_brightdata");
+  if(!key)throw new Error("BRIGHTDATA_API_KEY_NOT_CONFIGURED");
+  const response=await fetch("https://api.brightdata.com/customer/balance",{headers:{Authorization:"Bearer "+key,Accept:"application/json"},signal:AbortSignal.timeout(15000)});
+  const body=await response.json().catch(()=>({})) as {balance?:number;pending_balance?:number};
+  if(!response.ok||typeof body.balance!=="number"||typeof body.pending_balance!=="number")throw new Error("BRIGHTDATA_FREE_BALANCE_UNVERIFIED");
+  if(body.balance>0.000001||body.pending_balance>0.000001)throw new Error("BRIGHTDATA_PAID_BALANCE_PRESENT_FREE_ONLY_MODE_BLOCKED");
+ }
  if(engine==="serpapi"){
   const key=await readIntegrationSecret(env,"tradepilot_api_serpapi");
   if(!key)throw new Error("SERPAPI_API_KEY_NOT_CONFIGURED");
@@ -38,9 +46,9 @@ async function assertFreeQuota(engine:Engine,env:DiscoveryEnv,requestedResults=1
   const response=await fetch("https://api.serpkite.com/v1/account",{headers:{Authorization:"Bearer "+key},signal:AbortSignal.timeout(15000)});
   const body=await response.json().catch(()=>({})) as {plan?:string;key?:{credit_limit?:number;credits_used_month?:number};balance?:number};
   const cap=body.key?.credit_limit,used=body.key?.credits_used_month;
-  if(!response.ok||body.plan?.toLowerCase()!=="free"||typeof cap!=="number"||typeof used!=="number"||cap>1000)throw new Error("SERPKITE_FREE_MONTHLY_KEY_LIMIT_REQUIRED");
-  const requiredCredits=requestedResults>10?7:1;
-  if(cap-used<requiredCredits||typeof body.balance==="number"&&body.balance<requiredCredits)throw new Error("SERPKITE_MONTHLY_FREE_CREDITS_EXHAUSTED");
+  if(!response.ok||body.plan?.toLowerCase()!=="free"||typeof cap!=="number"||typeof used!=="number"||typeof body.balance!=="number"||cap<=0||cap>1000)throw new Error("SERPKITE_FREE_MONTHLY_KEY_LIMIT_REQUIRED");
+  const requiredCredits=requestedResults>=100?7:Math.max(1,Math.ceil(requestedResults/10));
+  if(cap-used<requiredCredits||body.balance<requiredCredits)throw new Error("SERPKITE_MONTHLY_FREE_CREDITS_EXHAUSTED");
  }
 }
 async function search(engine:Engine,type:Vertical,q:string,country:string,hl:string,limit:number,location:string,env:DiscoveryEnv):Promise<Result[]>{
