@@ -240,7 +240,7 @@ export function SearchEngineDiscoveryPage() {
       {error && <InlineNotification kind="error" title="操作未完成" subtitle={error} onCloseButtonClick={() => setError('')} />}
       {notice && <InlineNotification kind="success" title="任务已提交" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
 
-      <Tile className="tp-search-discovery__tile">
+      <Tile id="search-target" className="tp-search-discovery__tile">
         <h2>1. 搜索目标</h2>
         <p>输入产品名称，选择希望发现客户的国家或地区。国家参数用于定位搜索市场，网站域名不会被当作企业所在地证明。</p>
         <div className="tp-search-discovery__target-grid">
