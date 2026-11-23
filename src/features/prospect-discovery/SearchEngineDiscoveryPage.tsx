@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { PageHeader, Button, Checkbox, ComboBox, InlineNotification, Link, NumberInput, ProgressBar, Tag, TextArea, TextInput, Tile, semanticIcons } from '@/design-system';
+import { PageHeader, Button, Checkbox, ComboBox, InlineNotification, Link, NumberInput, ProgressBar, ProgressIndicator, ProgressStep, WorldMapChart, Tag, TextArea, TextInput, Tile, semanticIcons } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
-import { SearchDiscoveryTwin } from './SearchDiscoveryTwin';
 import '@/design-system/patterns/search-engine-discovery.scss';
 
 type Country = { cca2: string; cca3?: string; name: { common: string } };
@@ -33,8 +32,8 @@ async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   return (payload.data ?? payload) as T;
 }
 function countryLabel(country: Country) {
-  const local = new Intl.DisplayNames(['zh-TW'], { type: 'region' }).of(country.cca2);
-  return local && local !== country.cca2 ? local + ' · ' + country.name.common : country.name.common;
+  const local = new Intl.DisplayNames(['zh-CN'], { type: 'region' }).of(country.cca2);
+  return local && local !== country.cca2 ? local + ' / ' + country.name.common : country.name.common;
 }
 function flag(code: string) { return 'https://flagcdn.com/w40/' + code.toLowerCase() + '.png'; }
 function websiteAnalysis(record: SearchRecord): Record<string, unknown> | null { const value = record.raw_data?.website_analysis; return value && typeof value === 'object' ? value as Record<string, unknown> : null; }
@@ -98,6 +97,7 @@ export function SearchEngineDiscoveryPage() {
   const latestAnalysisRun = analysisRuns[0];
   const visibleCandidates = useMemo(() => verifiedRecords.filter(record => record.status === 'new' && ((record.name || '').toLowerCase().includes(candidateFilter.toLowerCase()) || (record.website || '').toLowerCase().includes(candidateFilter.toLowerCase()))), [verifiedRecords, candidateFilter]);
   const analysisResults = useMemo(() => verifiedRecords.filter(record => websiteAnalysis(record)?.status === 'completed'), [verifiedRecords]);
+  const mapCountries = useMemo(() => countries.map(item => ({ code: item.cca2, label: countryLabel(item), value: 1 })), [countries]);
 
   const toggleRole = (id: string, checked: boolean) => setRolesSelected(current => checked ? [...current, id] : current.filter(item => item !== id));
   const toggleEngine = (id: string, checked: boolean) => setEngines(current => checked ? [...current, id] : current.filter(item => item !== id));
@@ -116,8 +116,9 @@ export function SearchEngineDiscoveryPage() {
 
   useEffect(() => {
     const hasActiveAnalysis = runs.some(run => run.search_config?.taskType === 'website_analysis' && ['queued','running','paused'].includes(run.status || ''));
-    if (!hasActiveAnalysis) return;
-    const timer = window.setInterval(() => { void refreshDiscoveryData().catch(cause => setError(cause instanceof Error ? cause.message : '刷新分析进度失败')); }, 5000);
+    const hasActiveSearch = runs.some(run => run.search_config?.taskType !== 'website_analysis' && ['queued','running'].includes(run.status || ''));
+    if (!hasActiveAnalysis && !hasActiveSearch) return;
+    const timer = window.setInterval(() => { void refreshDiscoveryData().catch(cause => setError(cause instanceof Error ? cause.message : '刷新任务进度失败')); }, 4000);
     return () => window.clearInterval(timer);
   }, [runs]);
 
@@ -210,7 +211,8 @@ export function SearchEngineDiscoveryPage() {
           excludeDomains: domains, businessTypes: rolesSelected,
         }),
       });
-      setNotice('搜索任务已创建：' + (payload.taskCode ?? '已进入队列'));
+      setNotice('搜索任务已创建：' + (payload.taskCode ?? '已进入队列') + '。任务日志已开始记录；搜索结果完成后将自动进入候选网站池。');
+      setActiveStep(1);
       const client = await getSupabaseClient();
       const [{ data }, { data: recordData }] = await Promise.all([
         client.from('discovery_runs').select('id,task_code,query,countries,status,progress,discovered_count,message,created_at,search_config').eq('channel','search_engine').order('created_at',{ascending:false}).limit(8),
@@ -233,11 +235,8 @@ export function SearchEngineDiscoveryPage() {
         </div>
         <div><Tag type="blue">产品驱动发现</Tag></div>
       </PageHeader>
-      <SearchDiscoveryTwin activeStep={activeStep} onStepChange={step => {
-        setActiveStep(step);
-        const target = ['search-target', 'candidate-pool', 'analysis-workbench', 'analysis-results'][step];
-        window.requestAnimationFrame(() => document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
-      }} candidateCount={visibleCandidates.length} taskCount={searchRuns.length} searchCompleted={searchRuns.some(run => run.status === 'completed' || run.status === 'partial')} analysisCount={latestAnalysisRun?.discovered_count ?? 0} resultCount={analysisResults.length} />
+      <section className="tp-search-discovery__steps" aria-label="潜客发现步骤"><ProgressIndicator currentIndex={activeStep} spaceEqually><ProgressStep label="搜索条件" description="配置市场与排除规则" /><ProgressStep label="候选网站" description="API 搜索结果候选池" /><ProgressStep label="批量分析" description="分析已选官网" /><ProgressStep label="分析结果" description="复核企业情报" /></ProgressIndicator></section>
+      <div className="tp-search-discovery__page-actions"><Link href="/prospect-discovery/search-engine/tasks">实时任务 / 执行日志</Link><Link href="/prospect-discovery/search-engine/results">全部结果</Link></div>
 
       {error && <InlineNotification kind="error" title="操作未完成" subtitle={error} onCloseButtonClick={() => setError('')} />}
       {notice && <InlineNotification kind="success" title="任务已提交" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
@@ -249,7 +248,8 @@ export function SearchEngineDiscoveryPage() {
           <TextInput id="search-product" labelText="产品名称" placeholder="例如：Wireless Earbuds" value={product} onChange={event => setProduct(event.target.value)} />
           <ComboBox id="search-country" titleText="目标国家 / 地区" placeholder="搜索国家名称或代码" items={countries} itemToString={item => item ? countryLabel(item) + ' (' + item.cca2 + ')' : ''} selectedItem={country} onChange={({ selectedItem }) => setCountry(selectedItem ?? null)} />
         </div>
-        {country && <p className="tp-search-discovery__market-meta"><img src={flag(country.cca2)} alt="" width="24" height="16" />　目标市场：{country.name.common}（{country.cca2}） · 搜索语言：{searchLanguage}</p>}
+        {country && <p className="tp-search-discovery__market-meta"><img src={flag(country.cca2)} alt="" width="24" height="16" />　目标市场：{countryLabel(country)}（{country.cca2}） · 搜索语言：{searchLanguage}</p>}
+        <div className="tp-search-discovery__map"><h3>Carbon 全球市场地图</h3><p>点击地图上的国家 / 地区即可单选；也可使用上方国家搜索框。</p><WorldMapChart data={mapCountries} selectedCode={country?.cca2} onCountrySelect={code => setCountry(countries.find(item => item.cca2 === code) ?? null)} showRanking={false} unitLabel="个目标市场" /></div>
         <div className="tp-search-discovery__subsection">
           <h3>目标企业类型</h3>
           <div className="tp-search-discovery__options-grid">
@@ -266,7 +266,7 @@ export function SearchEngineDiscoveryPage() {
       </Tile>
 
       <Tile className="tp-search-discovery__tile">
-        <h2>3. 搜索服务与排除规则</h2>
+        <h2>3. 搜索服务与排除规则</h2><p>内置排除库覆盖常见电商、社交媒体、企业目录、新闻、论坛、地图点评、招聘、政府教育、软件目录、托管建站等非目标来源。可按类别启用或关闭，也可添加自定义域名。</p>
         <div className="tp-search-discovery__options-grid tp-search-discovery__engine-grid">
           <Checkbox id="engine-serper" labelText="Serper" checked={engines.includes('serper')} onChange={(_, data) => toggleEngine('serper', data.checked)} />
           <Checkbox id="engine-serpapi" labelText="SerpApi" checked={engines.includes('serpapi')} onChange={(_, data) => toggleEngine('serpapi', data.checked)} />
@@ -276,7 +276,7 @@ export function SearchEngineDiscoveryPage() {
         <div className="tp-search-discovery__options-grid">
           {categories.map(item => <Checkbox key={item.key} id={'exclude-' + item.key} labelText={item.label || categoryLabels[item.key] || item.key} checked={item.enabled} onChange={(_, data) => toggleCategory(item.key, data.checked)} />)}
         </div>
-        <TextArea id="search-exclude-domains" labelText="任务级排除域名（支持批量粘贴 100+，每行一个，也可用逗号分隔）" rows={5} value={excludeDomains} onChange={event => setExcludeDomains(event.target.value)} placeholder={'amazon.com\nalibaba.com\nfacebook.com\nyellowpages.com'} />
+        <TextArea id="search-exclude-domains" labelText="自定义排除域名（支持批量粘贴，每行一个，也可用逗号分隔）" rows={5} value={excludeDomains} onChange={event => setExcludeDomains(event.target.value)} placeholder={'amazon.com\nalibaba.com\nfacebook.com\nyellowpages.com'} />
       </Tile>
 
       <Tile id="search-submit" className="tp-search-discovery__tile tp-search-discovery__tile--last">
@@ -351,54 +351,10 @@ export function SearchEngineDiscoveryPage() {
         ) : <Tile>尚未启动网站分析任务。先在第二步选择候选网站，再启动分析。</Tile>}
       </section>
 
-      <section id="analysis-results" className="tp-search-discovery__phase-panel">
-        <p className="tp-search-discovery__eyebrow">WORKSTATION 04 / COMPANY INTELLIGENCE</p>
-        <h2>企业情报结果</h2>
-        <p>结果保留原始网页 URL、字段证据和 AI 判断依据；所有记录均需人工复核，不会自动创建正式客户。</p>
-        <div><Button kind="secondary" size="sm" onClick={exportAnalysisResults} disabled={!analysisResults.length}>导出企业情报 CSV</Button></div>
-        {analysisResults.length === 0 ? <Tile>暂无已完成的企业情报分析结果。</Tile> : (
-          <div className="tp-search-discovery__run-list">
-            {analysisResults.map(record => {
-              const result = websiteAnalysis(record) ?? {};
-              const evidence = Array.isArray(result.evidence) ? result.evidence as Array<Record<string, unknown>> : [];
-              const products = Array.isArray(result.products) ? result.products as string[] : [];
-              return <Tile key={record.id}>
-                <div className="tp-search-discovery__result-header">
-                  <div><strong>{String(result.company_name || record.name || '未命名企业')}</strong><p>{String(result.official_website || record.website || '')}</p></div>
-                  <Tag type="green">官网可信度 {Number(result.website_confidence ?? 0)} / 100</Tag>
-                </div>
-                <div className="tp-search-discovery__result-grid">
-                  <div><span>国家 / 地区</span><strong>{String(result.country || record.country_code || '待核实')}</strong></div>
-                  <div><span>地址</span><strong>{String(result.address || '—')}</strong></div>
-                  <div><span>电话</span><strong>{String(result.phone || '—')}</strong></div>
-                  <div><span>邮箱</span><strong>{String(result.email || '—')}</strong></div>
-                  <div><span>联系人</span><strong>{String(result.contact_person || '—')}</strong></div>
-                  <div><span>企业类型</span><strong>{String(result.business_type || '—')}</strong></div>
-                </div>
-                <p>{String(result.company_description || '暂无企业简介')}</p>
-                {products.length > 0 && <p>产品：{products.join('、')}</p>}
-                <p className="tp-search-discovery__evidence-note">判断依据：{String(result.official_website_reason || '—')} · 来源：{String(result.source_url || record.website || '')}</p>
-                {evidence.length > 0 && <details><summary>查看 {evidence.length} 条网页证据</summary>{evidence.map((item, index) => <blockquote key={index}><strong>{String(item.field)}</strong>：{String(item.value)}<p>{String(item.excerpt)}</p></blockquote>)}</details>}
-              </Tile>;
-            })}
-          </div>
-        )}
-      </section>
 
-      <section>
-        <h2>最近搜索任务</h2>
-        {loading ? <p>正在读取任务…</p> : searchRuns.length === 0 ? <Tile>暂无搜索引擎发现任务。</Tile> : (
-          <div className="tp-search-discovery__run-list">
-            {searchRuns.map(run => <Tile key={run.id}>
-              <div className="tp-search-discovery__run-row">
-                <div><strong>{run.task_code || run.query || '搜索任务'}</strong><p>{run.query} · {(run.countries ?? []).join(', ')} · {run.message || '—'}</p></div>
-                <div><Tag type={run.status === 'completed' ? 'green' : run.status === 'failed' ? 'red' : 'blue'}>{statusText[run.status || ''] || run.status || '未知'}</Tag>　{run.discovered_count ?? 0} 条发现</div>
-              </div>
-              <div className="tp-search-discovery__run-link"><Link href={'/prospect-history/' + run.id}>任务详情与日志</Link></div>
-            </Tile>)}
-          </div>
-        )}
-      </section>
+      <section className="tp-search-discovery__result-shortcut"><h2>分析结果已独立管理</h2><p>所有搜索候选与完成分析的企业情报统一在「全部结果」页面筛选、复核和导出。</p><Link href="/prospect-discovery/search-engine/results">打开全部结果</Link></section>
+
+      <section className="tp-search-discovery__result-shortcut"><h2>任务状态与执行日志</h2><p>实时任务、历史任务和逐条搜索日志已独立到任务中心。</p><Link href="/prospect-discovery/search-engine/tasks">打开实时任务中心</Link></section>
     </main>
   );
 }

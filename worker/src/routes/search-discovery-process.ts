@@ -24,7 +24,7 @@ async function search(engine:Engine,type:Vertical,q:string,country:string,hl:str
  let rows:Record<string,unknown>[]=[];for(const key of keys[type])if(Array.isArray(body[key])){rows=body[key] as Record<string,unknown>[];break;}out.push(...rows.map(pick).filter((x):x is Result=>!!x));if(rows.length<num)break;start+=num;
  }return out.slice(0,limit);
 }
-function excluded(url:string,rules:string[]){try{const u=new URL(url),host=u.hostname.toLowerCase(),path=u.pathname.toLowerCase();return rules.some(rule=>{const [domain,...rest]=rule.toLowerCase().split("/");const prefix=rest.length?"/"+rest.join("/"):"";return(host===domain||host.endsWith("."+domain))&&(!prefix||path.startsWith(prefix));});}catch{return true;}}
+function excluded(url:string,rules:string[]){try{const u=new URL(url),host=u.hostname.toLowerCase(),path=u.pathname.toLowerCase();return rules.some(rule=>{const [domain,...rest]=rule.toLowerCase().split("/");const prefix=rest.length?"/"+rest.join("/"):"";return(domain.startsWith(".")?host.endsWith(domain):(host===domain||host.endsWith("."+domain)))&&(!prefix||path.startsWith(prefix));});}catch{return true;}}
 async function persist(env:DiscoveryEnv,owner:string,run:string,input:DiscoveryRunInput,engine:Engine,type:Vertical,item:Result){
  const parsed=new URL(item.url),shopping=type==="shopping",googleShoppingLink=parsed.hostname.toLowerCase().endsWith("google.com"),source=String(item.raw.source??item.raw.merchant??item.raw.seller??"").trim();
  const sourceDomain=normalizeMerchantDomain(source);

@@ -9,6 +9,8 @@ import { GoogleMapsDiscoveryPage } from '../features/prospect-discovery/GoogleMa
 import { GoogleMapsTaskCenterPage } from '../features/prospect-discovery/GoogleMapsTaskCenterPage';
 import { GoogleMapsCustomersPage } from '../features/prospect-discovery/GoogleMapsCustomersPage';
 import { SearchEngineDiscoveryPage } from '../features/prospect-discovery/SearchEngineDiscoveryPage';
+import { SearchDiscoveryTasksPage } from '../features/prospect-discovery/SearchDiscoveryTasksPage';
+import { SearchDiscoveryResultsPage } from '../features/prospect-discovery/SearchDiscoveryResultsPage';
 import { ProspectHistoryPage } from '../features/prospect-discovery/ProspectHistoryPage';
 import { ProspectDataPage } from '../features/prospect-discovery/ProspectDataPage';
 import { IntelligenceMonitoringPage, MonitoringTasksPage, MonitoringResultsPage } from '../features/intelligence-monitoring/IntelligenceMonitoringPage';
@@ -63,6 +65,8 @@ export const router = createBrowserRouter([
           { path: 'prospect-discovery', element: <ProspectDiscoveryPage /> },
           { path: 'prospect-discovery/google-maps', element: <GoogleMapsDiscoveryPage /> },
           { path: 'prospect-discovery/search-engine', element: <SearchEngineDiscoveryPage /> },
+          { path: 'prospect-discovery/search-engine/tasks', element: <SearchDiscoveryTasksPage /> },
+          { path: 'prospect-discovery/search-engine/results', element: <SearchDiscoveryResultsPage /> },
           { path: 'prospect-discovery/google-maps/tasks', element: <GoogleMapsTaskCenterPage /> },
           { path: 'prospect-discovery/google-maps/customers', element: <GoogleMapsCustomersPage /> },
           { path: 'prospect-history', element: <ProspectHistoryPage /> },

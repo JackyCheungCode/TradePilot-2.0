@@ -1,3 +1,4 @@
+@use '@carbon/react/scss/type' as *;
 /** Carbon typography aliases with IBM Plex Sans SC for Chinese UI content. */
 :root {
   --tp-font-family-sans: 'IBM Plex Sans SC', 'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif;
@@ -10,6 +11,10 @@
   --tp-type-label-font-size: var(--cds-label-01-font-size, 0.75rem);
   --tp-type-label-line-height: var(--cds-label-01-line-height, 1rem);
 }
+
+/* Carbon body typography is the application baseline; semantic headings retain Carbon type styles. */
+html { font-size: 100%; }
+body { @include type-style('body-01'); }
 
 /* Carbon components declare their own font-family; apply the SC family consistently. */
 body, body * {
