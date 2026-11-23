@@ -424,21 +424,25 @@ export async function handleSettings(request: Request, env: SettingsEnv): Promis
     if(service==="brightdata"){
       const key=secret("brightdata"),zone=secret("brightdataZone");
       if(!key||!zone)return successResponse(request,{ok:false,message:"请配置 Bright Data API Token 与 SERP Zone 名称"});
-      const target=new URL("https://www.google.com/search");target.searchParams.set("q","TradePilot integration test");target.searchParams.set("gl","us");target.searchParams.set("hl","en");target.searchParams.set("brd_json","1");
+      const target=new URL("https://www.google.com/search");target.searchParams.set("q","TradePilot integration test");target.searchParams.set("gl","us");target.searchParams.set("hl","en");target.searchParams.set("num","1");target.searchParams.set("brd_json","1");
       const r=await fetch("https://api.brightdata.com/request",{method:"POST",headers:{Authorization:"Bearer "+key,"Content-Type":"application/json"},body:JSON.stringify({zone,url:target.toString(),format:"raw"}),signal:AbortSignal.timeout(45000)});
-      return successResponse(request,{ok:r.ok,message:r.ok?"Bright Data SERP API 连接成功":"Bright Data API 返回 HTTP "+r.status});
+      const data=await r.json().catch(()=>({})) as {organic?:unknown[];error?:string};
+      return successResponse(request,{ok:r.ok&&Array.isArray(data.organic),message:r.ok&&Array.isArray(data.organic)?"Bright Data SERP API 已连接":"Bright Data API 返回 HTTP "+r.status+(data.error?": "+data.error.slice(0,180):"")});
     }
     if(service==="quanticdata"){
       const key=secret("quanticdata");if(!key)return successResponse(request,{ok:false,message:"尚未配置 QuanticData API Key"});
-      const r=await fetch("https://api.quanticdata.io/v1/scraper/serp",{method:"POST",headers:{Authorization:"Bearer "+key,"Content-Type":"application/json"},body:JSON.stringify({query:"TradePilot integration test",engine:"google",country:"us",lang:"en",num:1}),signal:AbortSignal.timeout(45000)});
-      const data=await r.json().catch(()=>({})) as {type?:string;message?:string};
-      return successResponse(request,{ok:r.ok&&data.type==="response",message:r.ok&&data.type==="response"?"QuanticData SERP API 连接成功":"QuanticData API 返回 HTTP "+r.status+(data.message?": "+data.message.slice(0,200):"")});
+      const r=await fetch("https://api.quanticdata.io/v1/scraper/billing",{headers:{Authorization:"Bearer "+key},signal:AbortSignal.timeout(20000)});
+      const data=await r.json().catch(()=>({})) as {type?:string;payload?:{free_monthly_usd?:number;free_remaining_usd?:number}};
+      const valid=r.ok&&data.type==="response"&&typeof data.payload?.free_remaining_usd==="number";
+      return successResponse(request,{ok:valid&&Number(data.payload?.free_remaining_usd)>=0.0009,message:!valid?"QuanticData 额度查询失败（HTTP "+r.status+"）": "每月免费额度剩余 USD "+Number(data.payload?.free_remaining_usd).toFixed(4)});
     }
     if(service==="serpkite"){
       const key=secret("serpkite");if(!key)return successResponse(request,{ok:false,message:"尚未配置 SerpKite API Key"});
-      const r=await fetch("https://api.serpkite.com/v1/search",{method:"POST",headers:{Authorization:"Bearer "+key,"Content-Type":"application/json"},body:JSON.stringify({q:"TradePilot integration test",country:"us",language:"en",num:1}),signal:AbortSignal.timeout(45000)});
-      const data=await r.json().catch(()=>({})) as {results?:unknown[];error?:unknown};
-      return successResponse(request,{ok:r.ok&&Array.isArray(data.results),message:r.ok&&Array.isArray(data.results)?"SerpKite API 连接成功":"SerpKite API 返回 HTTP "+r.status});
+      const r=await fetch("https://api.serpkite.com/v1/account",{headers:{Authorization:"Bearer "+key},signal:AbortSignal.timeout(20000)});
+      const data=await r.json().catch(()=>({})) as {plan?:string;balance?:number;key?:{credit_limit?:number;credits_used_month?:number}};
+      const safe=r.ok&&data.plan==="free"&&typeof data.key?.credit_limit==="number"&&data.key.credit_limit<=1000&&typeof data.key.credits_used_month==="number"&&typeof data.balance==="number";
+      const remaining=safe?Math.max(0,Math.min(data.key!.credit_limit!-data.key!.credits_used_month!,data.balance!)):0;
+      return successResponse(request,{ok:safe&&remaining>=1,message:!safe?"请在 SerpKite 使用 Free 账户，并将此 API Key 的月度上限设为不超过 1,000 credits": "每月免费额度可用 · 剩余 "+remaining+" credits"});
     }
     if(service==="serper"){
       const key=secret("serper");if(!key)return successResponse(request,{ok:false,message:"尚未配置"});
@@ -447,9 +451,11 @@ export async function handleSettings(request: Request, env: SettingsEnv): Promis
     }
     if(service==="serpapi"){
       const key=secret("serpapi");if(!key)return successResponse(request,{ok:false,message:"尚未配置"});
-      const p=new URLSearchParams({engine:"google",q:"TradePilot integration test",gl:"us",hl:"en",num:"1",api_key:key});
-      const r=await fetch("https://serpapi.com/search.json?"+p.toString());
-      return successResponse(request,{ok:r.ok,message:r.ok?"SerpApi 连接成功":"SerpApi 返回 HTTP "+r.status});
+      const p=new URL("https://serpapi.com/account.json");p.searchParams.set("api_key",key);
+      const r=await fetch(p,{signal:AbortSignal.timeout(20000)});
+      const data=await r.json().catch(()=>({})) as {plan_monthly_price?:number;plan_searches_left?:number;plan_name?:string};
+      const safe=r.ok&&data.plan_monthly_price===0&&typeof data.plan_searches_left==="number";
+      return successResponse(request,{ok:safe&&data.plan_searches_left>0,message:!safe?"SerpApi 当前账户不是免费套餐，已阻止用于免费额度模式": "免费套餐可用 · 剩余 "+data.plan_searches_left+" 次搜索"});
     }
     if(service==="actorGateway"){
       const key=secret("actorGateway");if(!key)return successResponse(request,{ok:false,message:"尚未配置访问令牌"});
