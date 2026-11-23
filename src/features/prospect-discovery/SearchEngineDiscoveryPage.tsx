@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { PageHeader, Button, Checkbox, ComboBox, InlineNotification, Link, NumberInput, Tag, TextArea, TextInput, Tile, semanticIcons } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
+import { SearchDiscoveryTwin } from './SearchDiscoveryTwin';
 import '@/design-system/patterns/search-engine-discovery.scss';
 
 type Country = { cca2: string; cca3?: string; name: { common: string } };
@@ -8,14 +9,6 @@ type ExclusionCategory = { key: string; label: string; domains: string[]; enable
 type Run = { id: string; task_code?: string; query?: string; countries?: string[]; status?: string; progress?: number; discovered_count?: number; message?: string; created_at?: string; search_config?: Record<string, unknown> };
 type ApiEnvelope<T> = { data?: T; error?: { message?: string } };
 type SearchRecord = { id: string; name?: string | null; website?: string | null; country_code?: string | null; raw_data?: Record<string, unknown> | null; updated_at?: string };
-type WebsiteVerification = { status?: string; score?: number; verificationMethod?: string; pageTitle?: string; finalUrl?: string; productMatches?: string[]; signals?: Record<string, boolean>; browserFallbackError?: string | null };
-function getWebsiteVerification(record: SearchRecord): WebsiteVerification | null {
-  const last = record.raw_data?.last_search_result;
-  if (!last || typeof last !== 'object') return null;
-  const value = (last as Record<string, unknown>).website_verification;
-  return value && typeof value === 'object' ? value as WebsiteVerification : null;
-}
-const verificationLabels: Record<string, string> = { candidate_official: '官网候选', needs_review: '需要复核', weak_match: '匹配较弱', blocked: '已拦截', unavailable: '无法访问', non_html: '非网页内容', check_failed: '核验失败' };
 const roles = [
   { id: 'manufacturer', label: '制造商 / 工厂', terms: 'manufacturer OR factory' },
   { id: 'brand', label: '品牌商', terms: 'brand OR brand owner' },
@@ -58,6 +51,8 @@ export function SearchEngineDiscoveryPage() {
   const [excludeDomains, setExcludeDomains] = useState('');
   const [runs, setRuns] = useState<Run[]>([]);
   const [verifiedRecords, setVerifiedRecords] = useState<SearchRecord[]>([]);
+  const [activeStep, setActiveStep] = useState(0);
+  const [selectedRecordIds, setSelectedRecordIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -69,7 +64,7 @@ export function SearchEngineDiscoveryPage() {
       api<{ countries: Country[] }>('/api/v1/prospect-profiling/countries'),
       api<ExclusionCategory[]>('/api/v1/settings/search-exclusions'),
       getSupabaseClient().then(client => client.from('discovery_runs').select('id,task_code,query,countries,status,progress,discovered_count,message,created_at,search_config').eq('channel','search_engine').order('created_at',{ascending:false}).limit(8)),
-      getSupabaseClient().then(client => client.from('discovery_records').select('id,name,website,country_code,raw_data,updated_at').eq('channel','search_engine').order('updated_at',{ascending:false}).limit(10)),
+      getSupabaseClient().then(client => client.from('discovery_records').select('id,name,website,country_code,raw_data,updated_at').eq('channel','search_engine').order('updated_at',{ascending:false}).limit(100)),
     ]).then(([countryData, exclusionData, runResult, recordResult]) => {
       if (!active) return;
       setCountries(countryData.countries ?? []);
@@ -137,10 +132,15 @@ export function SearchEngineDiscoveryPage() {
         <div>
           <p className="tp-search-discovery__eyebrow">GLOBAL PROSPECT DISCOVERY / SEARCH ENGINE</p>
           <h1>搜索引擎发现</h1>
-          <p>从产品名称出发，发现目标国家的制造商、品牌商、供应商、进口商与分销商，并核验企业官网。</p>
+          <p>从产品名称发现目标市场企业，先建立候选网站池，再按需启动 AI 深度分析。</p>
         </div>
         <div><Tag type="blue">产品驱动发现</Tag></div>
       </PageHeader>
+      <SearchDiscoveryTwin activeStep={activeStep} onStepChange={step => {
+        setActiveStep(step);
+        const target = ['search-target', 'candidate-pool', 'analysis-workbench', 'analysis-results'][step];
+        window.requestAnimationFrame(() => document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+      }} candidateCount={verifiedRecords.length} taskCount={runs.length} />
 
       {error && <InlineNotification kind="error" title="操作未完成" subtitle={error} onCloseButtonClick={() => setError('')} />}
       {notice && <InlineNotification kind="success" title="任务已提交" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
@@ -182,49 +182,58 @@ export function SearchEngineDiscoveryPage() {
         <TextArea id="search-exclude-domains" labelText="任务级排除域名（支持批量粘贴 100+，每行一个，也可用逗号分隔）" rows={5} value={excludeDomains} onChange={event => setExcludeDomains(event.target.value)} placeholder={'amazon.com\nalibaba.com\nfacebook.com\nyellowpages.com'} />
       </Tile>
 
-      <Tile className="tp-search-discovery__tile tp-search-discovery__tile--last">
+      <Tile id="search-submit" className="tp-search-discovery__tile tp-search-discovery__tile--last">
         <h2>4. 创建搜索任务</h2>
         <p>目标国家通过搜索引擎国家参数和语言参数定位；实际企业所在地需要后续根据网站地址、联系方式和公开资料核验。</p>
         <Button renderIcon={semanticIcons.search} disabled={submitting || loading} onClick={() => void submit()}>{submitting ? '正在创建…' : '开始搜索并发现企业'}</Button>
         <Link href="/prospect-history">查看全部发现任务</Link>
       </Tile>
 
-      <section>
-        <h2>最近核验的网站</h2>
-        <p>展示搜索发现后经过首页检查的企业网站。自动评分用于排序和筛选，不代表已完成法律或人工官网认证。</p>
-        {verifiedRecords.length === 0 ? <Tile>暂无已核验的网站记录。</Tile> : (
+      <section id="candidate-pool" className="tp-search-discovery__section">
+        <div className="tp-search-discovery__section-heading">
+          <div><h2>候选网站池</h2><p>这里只展示搜索 API 返回并已保存的候选，不访问网站、不运行 Browser Run。</p></div>
+          <Tag type="blue">{verifiedRecords.length} 个候选 · 已选 {selectedRecordIds.length}</Tag>
+        </div>
+        <div className="tp-search-discovery__selection-actions">
+          <Button kind="ghost" size="sm" onClick={() => setSelectedRecordIds(verifiedRecords.map(record => record.id))} disabled={!verifiedRecords.length}>全选当前候选</Button>
+          <Button kind="ghost" size="sm" onClick={() => setSelectedRecordIds([])} disabled={!selectedRecordIds.length}>清空选择</Button>
+        </div>
+        {verifiedRecords.length === 0 ? <Tile>暂无候选网站。完成第一步搜索后，候选网站会保存在这里。</Tile> : (
           <div className="tp-search-discovery__run-list">
-            {verifiedRecords.map(record => {
-              const verification = getWebsiteVerification(record);
-              const status = verification?.status || 'check_failed';
-              const signalLabels = [
-                ['companyInformation', '企业介绍'],
-                ['contactInformation', '联系方式'],
-                ['organizationSchema', '企业结构化数据'],
-                ['productCatalog', '产品目录'],
-              ] as const;
-              return <Tile key={record.id}>
-                <div className="tp-search-discovery__run-row">
-                  <div>
-                    <strong>{record.name || verification?.pageTitle || '未命名网站'}</strong>
-                    <p>{verification?.pageTitle || record.website || '未获取页面标题'} · {record.country_code || '国家待核实'}</p>
-                    {record.website && <Link href={record.website}>打开网站</Link>}
+            {verifiedRecords.map(record => (
+              <Tile key={record.id}>
+                <div className="tp-search-discovery__candidate-row">
+                  <Checkbox id={'candidate-' + record.id} labelText="" checked={selectedRecordIds.includes(record.id)} onChange={(_, data) => setSelectedRecordIds(current => data.checked ? [...new Set([...current, record.id])] : current.filter(id => id !== record.id))} />
+                  <div className="tp-search-discovery__candidate-copy">
+                    <strong>{record.name || '未命名候选网站'}</strong>
+                    <p>{record.website || '搜索结果尚未提供官网地址'} · {record.country_code || '国家待核实'}</p>
+                    {record.website && <Link href={record.website}>打开候选网站</Link>}
                   </div>
-                  <div>
-                    <Tag type={status === 'candidate_official' ? 'green' : status === 'needs_review' ? 'blue' : 'gray'}>{verificationLabels[status] || status}</Tag>
-                    <strong>　{typeof verification?.score === 'number' ? verification.score : 0}/100</strong>
-                    <p>{verification?.verificationMethod === 'browser_run' ? 'Browser Run 渲染核验' : 'HTTP 首页核验'}</p>
-                  </div>
+                  <Tag type="cool-gray">待分析</Tag>
                 </div>
-                <div className="tp-search-discovery__run-link">
-                  {signalLabels.filter(([key]) => verification?.signals?.[key]).map(([, label]) => <Tag key={label} type="teal">{label}</Tag>)}
-                  {(verification?.productMatches ?? []).length > 0 && <span>产品匹配：{verification?.productMatches?.join('、')}</span>}
-                  {verification?.browserFallbackError && <span>浏览器补充核验未成功：{verification.browserFallbackError}</span>}
-                </div>
-              </Tile>;
-            })}
+              </Tile>
+            ))}
           </div>
         )}
+      </section>
+
+      <section id="analysis-workbench" className="tp-search-discovery__phase-panel">
+        <p className="tp-search-discovery__eyebrow">WORKSTATION 03 / AI INTELLIGENCE</p>
+        <h2>AI 深度分析工作站</h2>
+        <p>此阶段只处理第二步勾选的网站。Browser Run 与 AI 抽取将在独立批量分析任务中执行，不会在搜索过程中自动启动。</p>
+        <div className="tp-search-discovery__phase-summary">
+          <div><strong>{selectedRecordIds.length}</strong><span>已选择待分析网站</span></div>
+          <div><strong>10</strong><span>默认每批处理数量</span></div>
+          <div><strong>0</strong><span>本次已执行分析</span></div>
+        </div>
+        <InlineNotification kind="info" lowContrast title="分析执行接口正在实施" subtitle="当前已完成搜索与候选池隔离；下一阶段将接入可暂停、续跑、重试的 Browser Run + AI 批量分析任务。" />
+      </section>
+
+      <section id="analysis-results" className="tp-search-discovery__phase-panel">
+        <p className="tp-search-discovery__eyebrow">WORKSTATION 04 / COMPANY INTELLIGENCE</p>
+        <h2>企业情报结果</h2>
+        <p>分析结果将保留企业字段、原始网页 URL、字段来源和证据片段，并先进入候选企业资料，不自动创建正式客户。</p>
+        <Tile>暂无本次 AI 分析结果。完成第三步后，结构化企业情报将在此汇总。</Tile>
       </section>
 
       <section>
