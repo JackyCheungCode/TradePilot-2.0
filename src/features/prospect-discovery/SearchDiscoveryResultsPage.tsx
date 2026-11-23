@@ -26,7 +26,7 @@ export function SearchDiscoveryResultsPage(){
   client.from('discovery_runs').select('id,task_code,query,countries').eq('channel','search_engine').order('created_at',{ascending:false}).limit(1000),
  ]);if(recordResult.error)throw recordResult.error;if(occurrenceResult.error)throw occurrenceResult.error;if(runResult.error)throw runResult.error;if(!live)return;setRows((recordResult.data??[]) as RecordRow[]);setOccurrences((occurrenceResult.data??[]) as Occurrence[]);setRuns((runResult.data??[]) as Run[]);})().catch(e=>live&&setError(e instanceof Error?e.message:'结果读取失败')).finally(()=>live&&setLoading(false));return()=>{live=false}},[]);
  const runById=useMemo(()=>new Map(runs.map(run=>[run.id,run])),[runs]);
- const tasks=useMemo(()=>[...new Map(runs.map(run=>[run.id,{value:run.id,label:(run.task_code||run.id.slice(0,8))+' · '+(run.query||'未命名关键词')}])).values(),[runs]);
+ const tasks=useMemo(()=>[...new Map(runs.map(run=>[run.id,{value:run.id,label:(run.task_code||run.id.slice(0,8))+' · '+(run.query||'未命名关键词')}])).values()],[runs]);
  const keywords=useMemo(()=>[...new Set([...occurrences.map(item=>item.keyword),...runs.map(run=>run.query)].filter((value):value is string=>!!value))].sort(),[occurrences,runs]);
  const enriched=useMemo(()=>rows.flatMap(row=>{
   const matches=occurrences.filter(item=>item.record_id===row.id);
