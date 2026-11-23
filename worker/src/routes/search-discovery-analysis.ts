@@ -131,8 +131,17 @@ function pageTitle(html: string): string {
 async function renderWebsite(env: DiscoveryEnv, url: string): Promise<{ html: string; text: string; title: string; finalUrl: string }> {
   if (!env.BROWSER) throw new Error("Browser Run 尚未绑定，无法执行网站深度分析。");
   const safeUrl = await preflightRedirects(url);
-  const response = await env.BROWSER.quickAction("content", { url: safeUrl, gotoOptions: { waitUntil: "networkidle2", timeout: 25000 } });
-  if (!response.ok) throw new Error("Browser Run 请求失败（HTTP " + response.status + "）。");
+  let response: Response | null = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    response = await env.BROWSER.quickAction("content", { url: safeUrl, gotoOptions: { waitUntil: "networkidle2", timeout: 25000 } });
+    if (response.ok || response.status !== 429) break;
+    if (attempt < 2) await new Promise(resolve => setTimeout(resolve, 1500 * (attempt + 1)));
+  }
+  if (!response) throw new Error("Browser Run 未返回响应。");
+  if (!response.ok) {
+    const detail = (await response.text().catch(() => "")).slice(0, 300);
+    throw new Error("Browser Run 请求失败（HTTP " + response.status + "）" + (detail ? "：" + detail : "") + (response.status === 429 ? "；已执行 2 次退避重试，仍被限流" : ""));
+  }
   const body = await response.json() as { success?: boolean; result?: string; url?: string; finalUrl?: string };
   if (!body.success || typeof body.result !== "string") throw new Error("Browser Run 未返回可分析的网页内容。");
   const reportedUrl = body.finalUrl ?? body.url;
@@ -188,6 +197,7 @@ async function analyzeRecord(env: DiscoveryEnv, runId: string, ownerId: string, 
       "不允许猜测。没有明确证据的字段必须返回 null 或空数组。官网可信度 0-100，说明判断依据。",
       "evidence 必须列出重要字段对应的原文短摘录（每条不超过 300 字），source_url 使用当前页面 URL。",
       "返回严格 JSON，不要 Markdown，字段：company_name, official_website, country, address, phone, email, contact_person, products, company_description, business_type, website_confidence, official_website_reason, evidence。",
+      "目标国家必须作为硬性核验条件：候选企业实际总部/注册国家若与目标国家明显不符，必须如实返回实际国家，不得把搜索地区当作企业所在地；若页面是 B2B 平台/黄页/目录中的企业详情页，应标记为第三方平台资料页，不得认定该平台域名为企业官方网站。",
       "当前候选名称：" + record.name,
       "搜索目标国家代码：" + (record.country_code ?? "未知"),
       "页面标题：" + page.title,
