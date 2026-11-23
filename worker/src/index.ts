@@ -158,6 +158,13 @@ export default {
    if (url.pathname === "/api/v1/facebook-discovery-runs" && request.method === "POST") return await handleFacebookDiscovery(request, env);
    if (url.pathname === "/api/v1/instagram-discovery-runs" && request.method === "POST") return await handleInstagramDiscovery(request, env);
    if (url.pathname === "/api/v1/search-discovery-runs" && request.method === "POST") { const { handleSearchDiscovery } = await import("./routes/search-discovery"); return await handleSearchDiscovery(request, env); }
+   if (url.pathname === "/api/v1/search-discovery-runs/analyze" && request.method === "POST") { const { handleSearchAnalysis } = await import("./routes/search-discovery-analysis"); return await handleSearchAnalysis(request, env); }
+   const searchAnalysisMatch = url.pathname.match(/^\/api\/v1\/search-discovery-runs\/([^/]+)\/(control|retry)$/);
+   if (searchAnalysisMatch && request.method === "POST") {
+    const { handleSearchAnalysisControl, handleSearchAnalysisRetry } = await import("./routes/search-discovery-analysis");
+    const analysisRunId = decodeURIComponent(searchAnalysisMatch[1]);
+    return searchAnalysisMatch[2] === "control" ? await handleSearchAnalysisControl(request, env, analysisRunId) : await handleSearchAnalysisRetry(request, env, analysisRunId);
+   }
    if (url.pathname.startsWith("/api/v1/discovery-runs") || url.pathname.startsWith("/api/v1/discovery-records") || url.pathname.startsWith("/api/v1/discovery-contact-enrichments") || url.pathname === "/api/v1/leads") return await handleDiscovery(request, env);
    if (url.pathname.startsWith("/api/")) return errorResponse(request,"NOT_FOUND","The requested API endpoint does not exist.",404);
    return env.ASSETS.fetch(request);

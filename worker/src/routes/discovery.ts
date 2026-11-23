@@ -14,6 +14,7 @@ export interface DiscoveryEnv {
   SERPER_API_KEY?: string;
   SERPAPI_API_KEY?: string;
   BROWSER?: { quickAction(action: "content", input: Record<string, unknown>): Promise<Response> };
+  AI?: { run(model: string, input: Record<string, unknown>): Promise<unknown> };
   ACTOR_GATEWAY_API_TOKEN?: string;
   APIFY_API_TOKEN?: string;
   LEAD_DISCOVERY_WORKFLOW: { create(options: { id: string; params: { runId: string; ownerId: string; input: DiscoveryRunInput } }): Promise<{ id: string }>; get(id: string): Promise<{ id: string; pause(): Promise<void>; resume(): Promise<void>; terminate(): Promise<void>; status(): Promise<{ status: string }> }> };
@@ -37,6 +38,7 @@ export interface DiscoveryRunInput {
   searchEngines?: Array<"serper" | "serpapi">;
   searchTypes?: Array<"web" | "shopping" | "images" | "news" | "videos" | "scholar" | "patents">;
   searchLanguage?: string; advancedQuery?: string; excludeCategories?: string[]; excludeDomains?: string[];
+  searchAnalysisRecordIds?: string[]; searchAnalysisBatchSize?: number; forceReanalysis?: boolean;
   planSnapshot?: Record<string, unknown>; guardrailsSnapshot?: Record<string, unknown>;
 }
 const BUSINESS_TYPE_FILTERS: Record<string, { googleTypes: string[]; osmTags: Array<{key:string;value:string}> }> = {

@@ -19,6 +19,20 @@ async function syncAgentRun(env:DiscoveryEnv,runId:string,ownerId:string,patch:R
 export class LeadDiscoveryWorkflow extends WorkflowEntrypoint<DiscoveryEnv, Params> {
   async run(event: WorkflowEvent<Params>, step: WorkflowStep) {
     try {
+      const analysisIds = event.payload.input.searchAnalysisRecordIds;
+      if (analysisIds?.length) {
+        const { processSearchAnalysisBatch } = await import("../routes/search-discovery-analysis");
+        const batchSize = Math.max(1, Math.min(20, Number(event.payload.input.searchAnalysisBatchSize) || 10));
+        const results = [];
+        for (let offset = 0, batch = 0; offset < analysisIds.length; offset += batchSize, batch++) {
+          results.push(await step.do(
+            "analyze-selected-websites-batch-" + String(batch + 1).padStart(3, "0"),
+            { retries: { limit: 1, delay: "15 seconds", backoff: "exponential" }, timeout: "30 minutes" },
+            async () => processSearchAnalysisBatch(this.env, event.payload.runId, event.payload.ownerId, event.payload.input, offset),
+          ));
+        }
+        return { status: results.some(result => result.failed > 0) ? "partial" : "completed", batches: results.length, ...results.reduce((sum, item) => ({ completed: sum.completed + item.completed, failed: sum.failed + item.failed, skipped: sum.skipped + item.skipped }), { completed: 0, failed: 0, skipped: 0 }) };
+      }
       return await step.do(
         "execute-parallel-provider-discovery",
         {
