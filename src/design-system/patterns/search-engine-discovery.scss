@@ -7,6 +7,27 @@
   letter-spacing: 0.08em;
 }
 
+.tp-search-discovery__intro {
+  margin: 0 0 $spacing-05;
+  padding: $spacing-04 $spacing-05;
+  background: var(--cds-layer-01);
+  color: var(--cds-text-secondary);
+  max-width: 76rem;
+}
+.tp-search-discovery__intro p,
+.tp-search-discovery__section-description {
+  @include type-style('body-compact-01');
+  margin: 0;
+}
+.tp-search-discovery__intro p + p {
+  margin-top: $spacing-03;
+}
+.tp-search-discovery__section-description {
+  color: var(--cds-text-secondary);
+  margin: $spacing-03 0 $spacing-05;
+  max-width: 72rem;
+}
+
 .tp-search-discovery__tile {
   margin-bottom: $spacing-05;
 }
