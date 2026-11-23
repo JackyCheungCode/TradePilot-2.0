@@ -6,7 +6,6 @@ import '@/design-system/patterns/search-engine-discovery.scss';
 
 type Country = { cca2: string; cca3?: string; name: { common: string } };
 type ExclusionCategory = { key: string; label: string; domains: string[]; enabled: boolean };
-type Run = { id: string; task_code?: string; query?: string; countries?: string[]; status?: string; progress?: number; discovered_count?: number; message?: string; created_at?: string; search_config?: Record<string, unknown> };
 type ApiEnvelope<T> = { data?: T; error?: { message?: string } };
 type SearchRecord = { id: string; name?: string | null; website?: string | null; country_code?: string | null; status?: string; raw_data?: Record<string, unknown> | null; updated_at?: string };
 const roles = [
@@ -66,7 +65,7 @@ export function SearchEngineDiscoveryPage() {
       api<{ countries: Country[] }>('/api/v1/prospect-profiling/countries'),
       api<ExclusionCategory[]>('/api/v1/settings/search-exclusions'),
       getSupabaseClient().then(client => client.from('discovery_records').select('id,name,website,country_code,status,raw_data,updated_at').eq('channel','search_engine').in('status',['new','removed']).order('updated_at',{ascending:false}).limit(1000)),
-    ]).then(([countryData, exclusionData, runResult, recordResult]) => {
+    ]).then(([countryData, exclusionData, recordResult]) => {
       if (!active) return;
       setCountries(countryData.countries ?? []);
       setCategories(exclusionData ?? []);
