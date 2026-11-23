@@ -13,7 +13,7 @@ async function log(env:DiscoveryEnv,id:string,owner:string,level:string,message:
 async function update(env:DiscoveryEnv,id:string,owner:string,patch:Record<string,unknown>){await db(env,discoveryRunQuery(id,owner),{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({...patch,updated_at:new Date().toISOString()})});}
 function pick(row:Record<string,unknown>):Result|null{const url=String(row.link??row.product_link??row.url??"");const title=String(row.title??row.name??row.product_title??"");if(!url||!title)return null;try{const u=new URL(url);if(u.protocol!=="http:"&&u.protocol!=="https:")return null;return{title,url:u.toString(),snippet:String(row.snippet??row.description??""),raw:row};}catch{return null;}}
 const monthlyWindow=()=>{const now=new Date();return new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),1)).toISOString();};
-async function assertFreeQuota(engine:Engine,env:DiscoveryEnv):Promise<void>{
+async function assertFreeQuota(engine:Engine,env:DiscoveryEnv,requestedResults=10):Promise<void>{
  if(engine==="serper")throw new Error("SERPER_ONE_TIME_CREDITS_NOT_ALLOWED_IN_MONTHLY_FREE_MODE");
  if(engine==="serpapi"){
   const key=await readIntegrationSecret(env,"tradepilot_api_serpapi");
@@ -31,7 +31,7 @@ async function assertFreeQuota(engine:Engine,env:DiscoveryEnv):Promise<void>{
   const response=await fetch("https://api.quanticdata.io/v1/scraper/billing",{headers:{Authorization:"Bearer "+key},signal:AbortSignal.timeout(15000)});
   const body=await response.json().catch(()=>({})) as {type?:string;payload?:{free_remaining_usd?:number;free_monthly_usd?:number}};
   if(!response.ok||body.type!=="response"||typeof body.payload?.free_remaining_usd!=="number")throw new Error("QUANTICDATA_FREE_QUOTA_UNVERIFIED");
-  if(body.payload.free_remaining_usd<0.0009)throw new Error("QUANTICDATA_MONTHLY_FREE_QUOTA_EXHAUSTED");
+  if(body.payload.free_remaining_usd<0.002)throw new Error("QUANTICDATA_MONTHLY_FREE_QUOTA_EXHAUSTED");
  }
  if(engine==="serpkite"){
   const key=await readIntegrationSecret(env,"tradepilot_api_serpkite");
@@ -40,18 +40,18 @@ async function assertFreeQuota(engine:Engine,env:DiscoveryEnv):Promise<void>{
   const body=await response.json().catch(()=>({})) as {key?:{credit_limit?:number;credits_used_month?:number};balance?:number};
   const cap=body.key?.credit_limit,used=body.key?.credits_used_month;
   if(!response.ok||typeof cap!=="number"||typeof used!=="number"||cap>1000)throw new Error("SERPKITE_FREE_MONTHLY_KEY_LIMIT_REQUIRED");
-  if(cap-used<1||typeof body.balance==="number"&&body.balance<1)throw new Error("SERPKITE_MONTHLY_FREE_CREDITS_EXHAUSTED");
+  const requiredCredits=requestedResults>10?7:1;
+  if(cap-used<requiredCredits||typeof body.balance==="number"&&body.balance<requiredCredits)throw new Error("SERPKITE_MONTHLY_FREE_CREDITS_EXHAUSTED");
  }
 }
 async function search(engine:Engine,type:Vertical,q:string,country:string,hl:string,limit:number,location:string,env:DiscoveryEnv):Promise<Result[]>{
- await assertFreeQuota(engine,env);
  const out:Result[]=[];let start=0;
  const secretNames:Record<Engine,string>={serper:"tradepilot_api_serper",serpapi:"tradepilot_api_serpapi",brightdata:"tradepilot_api_brightdata",quanticdata:"tradepilot_api_quanticdata",serpkite:"tradepilot_api_serpkite"};
  const engineKey=await readIntegrationSecret(env,secretNames[engine]);
  if(!engineKey)throw new Error(engine.toUpperCase()+"_API_KEY_NOT_CONFIGURED");
  const languageCode=hl.toLowerCase().split("-")[0];
  while(start<limit){
-  const num=Math.min(100,limit-start);let response:Response;let resultKey:string[];
+  const num=Math.min(100,limit-start);await assertFreeQuota(engine,env,num);let response:Response;let resultKey:string[];
   if(engine==="serper"){
    response=await fetch("https://google.serper.dev/"+serper[type],{method:"POST",headers:{"X-API-KEY":engineKey,"Content-Type":"application/json"},body:JSON.stringify({q,gl:country.toLowerCase(),hl:languageCode,num,page:Math.floor(start/num)+1,...(location?{location}:{})}),signal:AbortSignal.timeout(45000)});
    resultKey=[type==="web"||type==="scholar"||type==="patents"?"organic":serper[type]];
