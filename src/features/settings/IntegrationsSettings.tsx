@@ -30,7 +30,7 @@ const catalog:Catalog[]=[
 ];
 const apiCards=[
 {id:'actorGateway',name:'通用数据采集平台',logo:'',initial:'AG',description:'连接采集平台，管理 Actor 目录、输入参数与执行能力。',fields:[{key:'actorGateway',label:'访问令牌'}],test:'actorGateway'},
-{id:'serper',name:'Serper',logo:'',initial:'S',description:'Google 搜索引擎数据 API。',fields:[{key:'serper',label:'API Key'}],test:'serper'},
+{id:'serper',name:'Serper',logo:'',initial:'S',description:'Google SERP API；免费额度为一次性赠送，不参与月度免费自动搜索。',fields:[{key:'serper',label:'API Key'}],test:'serper'},
 {id:'serpapi',name:'SerpApi',logo:'',initial:'S',description:'每月 250 次免费搜索；调用前检查免费套餐和剩余额度。',fields:[{key:'serpapi',label:'API Key'}],test:'serpapi'},
 {id:'brightdata',name:'Bright Data SERP API',logo:'',initial:'BD',description:'每月 5,000 次免费 SERP 请求；免费层无需信用卡。',fields:[{key:'brightdata',label:'API Token'},{key:'brightdataZone',label:'SERP Zone 名称',type:'text'}],test:'brightdata'},
 {id:'quanticdata',name:'QuanticData SERP API',logo:'',initial:'QD',description:'每月 USD 2 免费用量；搜索前自动核验剩余额度。',fields:[{key:'quanticdata',label:'API Key'}],test:'quanticdata'},
