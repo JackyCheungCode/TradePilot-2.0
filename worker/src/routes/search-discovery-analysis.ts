@@ -151,7 +151,9 @@ async function renderWebsite(env: DiscoveryEnv, url: string): Promise<{ html: st
   if (text.length < 120) throw new Error("网页正文过少，无法可靠识别企业信息。");
   return { html, text, title: pageTitle(html), finalUrl: typeof body.finalUrl === "string" ? body.finalUrl : safeUrl };
 }
-export function isThirdPartyDirectoryHost(host: string): boolean { return /(^|\.)(indiamart|b2brazil|alibaba|made-in-china|globalsources|tradeindia|kompass|europages)\./.test(host.toLowerCase()); }
+export function isThirdPartyDirectoryHost(host: string): boolean {
+  return /(^|\\.)(all\\.biz|indiamart\\.com|b2brazil\\.com|alibaba\\.com|made-in-china\\.com|globalsources\\.com|tradeindia\\.com|ec21\\.com|tradekey\\.com|go4worldbusiness\\.com|exporthub\\.com|kompass\\.com|europages\\.com|thomasnet\\.com)$/.test(host.toLowerCase());
+}
 export function countryMatchesTarget(targetCode: string | null, detectedCountry: string | null): boolean | null {
   if (!targetCode || !detectedCountry) return null;
   const aliases: Record<string, string[]> = {
