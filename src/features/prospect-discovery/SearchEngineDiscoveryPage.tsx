@@ -45,7 +45,8 @@ export function SearchEngineDiscoveryPage() {
   const [rolesSelected, setRolesSelected] = useState<string[]>(['manufacturer','brand','supplier','wholesaler','importer','distributor','oem']);
   const [searchLanguage, setSearchLanguage] = useState('en');
   const navigate = useNavigate();
-  const [engines, setEngines] = useState<string[]>(['serper']);
+  const [engines, setEngines] = useState<string[]>([]);
+  const [configuredEngines, setConfiguredEngines] = useState<Record<string, boolean>>({});
   const [limit, setLimit] = useState(100);
   const [advancedQuery, setAdvancedQuery] = useState('');
   const [categories, setCategories] = useState<ExclusionCategory[]>([]);
@@ -75,10 +76,14 @@ export function SearchEngineDiscoveryPage() {
     Promise.all([
       api<{ countries: Country[] }>('/api/v1/prospect-profiling/countries'),
       api<ExclusionCategory[]>('/api/v1/settings/search-exclusions'),
-    ]).then(([countryData, exclusionData]) => {
+      api<Record<string, boolean>>('/api/v1/settings/integrations'),
+    ]).then(([countryData, exclusionData, integrations]) => {
       if (!active) return;
       setCountries(countryData.countries ?? []);
       setCategories(exclusionData ?? []);
+      const available = { brightdata: Boolean(integrations.brightdata && integrations.brightdataZone), quanticdata: Boolean(integrations.quanticdata), serpkite: Boolean(integrations.serpkite), serpapi: Boolean(integrations.serpapi) };
+      setConfiguredEngines(available);
+      setEngines(Object.keys(available).filter(key => available[key]));
     }).catch(cause => { if (active) setError(cause instanceof Error ? cause.message : '页面数据读取失败'); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
@@ -313,13 +318,14 @@ export function SearchEngineDiscoveryPage() {
       </Tile>
 
       <Tile className="tp-search-discovery__tile">
-        <h2>3. 搜索来源与排除规则</h2><p>选择已在设置中配置的搜索服务。</p>
+        <h2>3. 搜索来源与排除规则</h2><p>仅显示已在设置中配置的免费月度服务。</p>
         <div className="tp-search-discovery__options-grid tp-search-discovery__engine-grid">
-          <Checkbox id="engine-serper" labelText="Serper" checked={engines.includes('serper')} onChange={(_, data) => toggleEngine('serper', data.checked)} />
-          <Checkbox id="engine-serpapi" labelText="SerpApi" checked={engines.includes('serpapi')} onChange={(_, data) => toggleEngine('serpapi', data.checked)} />
-          <Checkbox id="engine-brightdata" labelText="Bright Data" checked={engines.includes('brightdata')} onChange={(_, data) => toggleEngine('brightdata', data.checked)} />
-          <Checkbox id="engine-quanticdata" labelText="QuanticData" checked={engines.includes('quanticdata')} onChange={(_, data) => toggleEngine('quanticdata', data.checked)} />
-          <Checkbox id="engine-serpkite" labelText="SerpKite" checked={engines.includes('serpkite')} onChange={(_, data) => toggleEngine('serpkite', data.checked)} />
+          {(['brightdata','quanticdata','serpkite','serpapi'] as const).filter(engine => configuredEngines[engine]).map(engine => <Checkbox key={engine} id={'engine-' + engine} labelText={{brightdata:'Bright Data',quanticdata:'QuanticData',serpkite:'SerpKite',serpapi:'SerpApi'}[engine]} checked={engines.includes(engine)} onChange={(_, data) => toggleEngine(engine, data.checked)} />)}
+          {!Object.values(configuredEngines).some(Boolean) && <InlineNotification kind="warning" title="尚未配置搜索服务" subtitle="请前往设置 → API 集成配置免费月度搜索服务。" />}
+          {configuredEngines.brightdata && <span className="tp-search-discovery__helper">Bright Data · 5,000 次/月</span>}
+          {configuredEngines.quanticdata && <span className="tp-search-discovery__helper">QuanticData · USD 2/月</span>}
+          {configuredEngines.serpkite && <span className="tp-search-discovery__helper">SerpKite · 1,000 credits/月</span>}
+          {configuredEngines.serpapi && <span className="tp-search-discovery__helper">SerpApi · 250 次/月</span>}
         </div>
         <NumberInput id="search-limit" label="每个搜索引擎最大候选数" min={10} max={500} step={10} value={limit} onChange={(_, data) => setLimit(Number(data.value) || 100)} />
         <h3 className="tp-search-discovery__section-label">网站类别排除</h3>
