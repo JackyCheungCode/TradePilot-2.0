@@ -35,7 +35,7 @@ export interface DiscoveryRunInput {
   originalQuery?: string; translatedQuery?: string; targetLanguage?: string;
   channel?: "map_local_businesses" | "search_engine" | "actor_discovery";
   actorExecutions?: Array<{ actorId: string; sourceId: string; sourceName: string; actorTitle?: string; input: Record<string, unknown> }>;
-  searchEngines?: Array<"serper" | "serpapi">;
+  searchEngines?: Array<"serper" | "serpapi" | "brightdata" | "quanticdata" | "serpkite">;
   searchTypes?: Array<"web" | "shopping" | "images" | "news" | "videos" | "scholar" | "patents">;
   searchLanguage?: string; advancedQuery?: string; excludeCategories?: string[]; excludeDomains?: string[];
   searchAnalysisRecordIds?: string[]; searchAnalysisBatchSize?: number; forceReanalysis?: boolean;
