@@ -317,6 +317,9 @@ export function SearchEngineDiscoveryPage() {
         <div className="tp-search-discovery__options-grid tp-search-discovery__engine-grid">
           <Checkbox id="engine-serper" labelText="Serper" checked={engines.includes('serper')} onChange={(_, data) => toggleEngine('serper', data.checked)} />
           <Checkbox id="engine-serpapi" labelText="SerpApi" checked={engines.includes('serpapi')} onChange={(_, data) => toggleEngine('serpapi', data.checked)} />
+          <Checkbox id="engine-brightdata" labelText="Bright Data" checked={engines.includes('brightdata')} onChange={(_, data) => toggleEngine('brightdata', data.checked)} />
+          <Checkbox id="engine-quanticdata" labelText="QuanticData" checked={engines.includes('quanticdata')} onChange={(_, data) => toggleEngine('quanticdata', data.checked)} />
+          <Checkbox id="engine-serpkite" labelText="SerpKite" checked={engines.includes('serpkite')} onChange={(_, data) => toggleEngine('serpkite', data.checked)} />
         </div>
         <NumberInput id="search-limit" label="每个搜索引擎最大候选数" min={10} max={500} step={10} value={limit} onChange={(_, data) => setLimit(Number(data.value) || 100)} />
         <h3 className="tp-search-discovery__section-label">网站类别排除</h3>
