@@ -155,10 +155,10 @@ export function isThirdPartyDirectoryHost(host: string): boolean { return /(^|\.
 export function countryMatchesTarget(targetCode: string | null, detectedCountry: string | null): boolean | null {
   if (!targetCode || !detectedCountry) return null;
   const aliases: Record<string, string[]> = {
-    BR: ["brazil", "brasil", "巴西"], IN: ["india", "印度"], US: ["united states", "usa", "america", "美国"],
+    BR: ["brazil", "brasil", "巴西"], IN: ["india", "印度"], US: ["united states", "united states of america", "usa", "美国"],
     GB: ["united kingdom", "uk", "britain", "england", "英国"], CN: ["china", "中国"], TW: ["taiwan", "台湾"],
     DE: ["germany", "德国"], FR: ["france", "法国"], IT: ["italy", "意大利"], ES: ["spain", "西班牙"],
-    JP: ["japan", "日本"], KR: ["south korea", "korea", "韩国"], CA: ["canada", "加拿大"],
+    JP: ["japan", "日本"], KR: ["south korea", "republic of korea", "대한민국", "韩国"], CA: ["canada", "加拿大"],
     AU: ["australia", "澳大利亚"], MX: ["mexico", "墨西哥"], TR: ["turkey", "türkiye", "土耳其"],
     AE: ["united arab emirates", "uae", "阿联酋"], SA: ["saudi arabia", "沙特阿拉伯"],
   };
