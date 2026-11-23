@@ -46,9 +46,10 @@ async function assertFreeQuota(engine:Engine,env:DiscoveryEnv,requestedResults=1
   const response=await fetch("https://api.serpkite.com/v1/account",{headers:{Authorization:"Bearer "+key},signal:AbortSignal.timeout(15000)});
   const body=await response.json().catch(()=>({})) as {plan?:string;key?:{credit_limit?:number;credits_used_month?:number};balance?:number};
   const cap=body.key?.credit_limit,used=body.key?.credits_used_month;
-  if(!response.ok||body.plan?.toLowerCase()!=="free"||typeof cap!=="number"||typeof used!=="number"||typeof body.balance!=="number"||cap<=0||cap>1000)throw new Error("SERPKITE_FREE_MONTHLY_KEY_LIMIT_REQUIRED");
+  if(!response.ok||body.plan?.toLowerCase()!=="free"||typeof used!=="number"||typeof body.balance!=="number"||body.balance<0||(cap!==undefined&&cap!==null&&(typeof cap!=="number"||cap<=0)))throw new Error("SERPKITE_FREE_ACCOUNT_BALANCE_UNVERIFIED");
   const requiredCredits=requestedResults>=100?7:Math.max(1,Math.ceil(requestedResults/10));
-  if(cap-used<requiredCredits||body.balance<requiredCredits)throw new Error("SERPKITE_MONTHLY_FREE_CREDITS_EXHAUSTED");
+  const keyRemaining=typeof cap==="number"?Math.max(0,cap-used):Number.POSITIVE_INFINITY;
+  if(Math.min(keyRemaining,body.balance)<requiredCredits)throw new Error("SERPKITE_MONTHLY_FREE_CREDITS_EXHAUSTED");
  }
 }
 async function search(engine:Engine,type:Vertical,q:string,country:string,hl:string,limit:number,location:string,env:DiscoveryEnv):Promise<Result[]>{
@@ -58,7 +59,7 @@ async function search(engine:Engine,type:Vertical,q:string,country:string,hl:str
  if(!engineKey)throw new Error(engine.toUpperCase()+"_API_KEY_NOT_CONFIGURED");
  const languageCode=hl.toLowerCase().split("-")[0];
  while(start<limit){
-  const num=Math.min(100,limit-start);await assertFreeQuota(engine,env,num);let response:Response;let resultKey:string[];
+  const num=engine==="brightdata"?Math.min(10,limit-start):Math.min(100,limit-start);await assertFreeQuota(engine,env,num);let response:Response;let resultKey:string[];
   if(engine==="serper"){
    response=await fetch("https://google.serper.dev/"+serper[type],{method:"POST",headers:{"X-API-KEY":engineKey,"Content-Type":"application/json"},body:JSON.stringify({q,gl:country.toLowerCase(),hl:languageCode,num,page:Math.floor(start/num)+1,...(location?{location}:{})}),signal:AbortSignal.timeout(45000)});
    resultKey=[type==="web"||type==="scholar"||type==="patents"?"organic":serper[type]];
@@ -69,7 +70,7 @@ async function search(engine:Engine,type:Vertical,q:string,country:string,hl:str
   }else if(engine==="brightdata"){
    const zone=await readIntegrationSecret(env,"tradepilot_api_brightdata_zone");
    if(!zone)throw new Error("BRIGHTDATA_SERP_ZONE_NOT_CONFIGURED");
-   const target=new URL("https://www.google.com/search");target.searchParams.set("q",q);target.searchParams.set("gl",country.toLowerCase());target.searchParams.set("hl",languageCode);target.searchParams.set("start",String(start));target.searchParams.set("num",String(num));if(type==="shopping")target.searchParams.set("tbm","shop");else if(type==="images")target.searchParams.set("tbm","isch");else if(type==="news")target.searchParams.set("tbm","nws");else if(type==="videos")target.searchParams.set("tbm","vid");target.searchParams.set("brd_json","1");
+   const target=new URL("https://www.google.com/search");target.searchParams.set("q",q);target.searchParams.set("gl",country.toLowerCase());target.searchParams.set("hl",languageCode);target.searchParams.set("start",String(start));if(type==="shopping")target.searchParams.set("tbm","shop");else if(type==="images")target.searchParams.set("tbm","isch");else if(type==="news")target.searchParams.set("tbm","nws");else if(type==="videos")target.searchParams.set("tbm","vid");target.searchParams.set("brd_json","1");
    response=await fetch("https://api.brightdata.com/request",{method:"POST",headers:{Authorization:"Bearer "+engineKey,"Content-Type":"application/json"},body:JSON.stringify({zone,url:target.toString(),format:"raw"}),signal:AbortSignal.timeout(60000)});
    resultKey=["organic","shopping","images","news","videos"];
   }else if(engine==="quanticdata"){
@@ -122,7 +123,14 @@ export async function processSearchRun(env:DiscoveryEnv,run:string,owner:string,
  await update(env,run,owner,{status:"running",progress:1,message:"正在连接搜索引擎并执行查询"});
  await log(env,run,owner,"info","关键词："+input.query+"；实际搜索语法："+q+"；国家："+country+"；搜索类型："+types.join("、")+"；搜索引擎："+engines.join("、"));
  for(const job of jobs){try{const found=await search(job.engine,job.type,q,country,hl,input.limitPerCountry,location,env);raw+=found.length;all.push(...found.map(item=>({...job,item})));await log(env,run,owner,found.length?"success":"warning",job.engine+" · "+job.type+" 返回 "+found.length+" 条");}catch(e){failed++;await log(env,run,owner,"warning",job.engine+" · "+job.type+" 失败："+String(e).slice(0,180));}done++;await update(env,run,owner,{progress:Math.max(1,Math.round(done/jobs.length*85)),discovered_count:0,message:"搜索中 · "+done+"/"+jobs.length+" 个引擎/类型组合 · 已返回 "+raw+" 条原始结果"});}
- const unique=new Map<string,{engine:Engine;type:Vertical;item:Result}>();for(const row of all){if(excluded(searchResultExclusionTarget({url:row.item.url,type:row.type,raw:row.item.raw}),rules))continue;const identity=searchResultIdentity({url:row.item.url,type:row.type,title:row.item.title,raw:row.item.raw});if(!unique.has(identity))unique.set(identity,row);}
+ let excludedCount=0,duplicateCount=0;
+ const unique=new Map<string,{engine:Engine;type:Vertical;item:Result}>();
+ for(const row of all){
+   if(excluded(searchResultExclusionTarget({url:row.item.url,type:row.type,raw:row.item.raw}),rules)){excludedCount++;continue;}
+   const identity=searchResultIdentity({url:row.item.url,type:row.type,title:row.item.title,raw:row.item.raw});
+   if(unique.has(identity)){duplicateCount++;continue;}
+   unique.set(identity,row);
+ }
  const uniqueRows=[...unique.values()];
  let guardrailBlocked=0;
  const allowed=uniqueRows.flatMap(row=>{
@@ -141,6 +149,7 @@ export async function processSearchRun(env:DiscoveryEnv,run:string,owner:string,
    if(saved===chosen.length||saved%5===0)await update(env,run,owner,{progress:85+Math.round(saved/Math.max(1,chosen.length)*14),discovered_count:saved,message:"正在整理候选网站 · "+saved+"/"+chosen.length+" · 搜索引擎共返回 "+raw+" 条原始结果"});
  }
  if(guardrailBlocked)await log(env,run,owner,"info","护盾已拦截 "+guardrailBlocked+" 条搜索候选记录。");
+ await log(env,run,owner,"info","结果过滤统计：原始结果 "+raw+" 条；类别/域名排除 "+excludedCount+" 条；重复合并 "+duplicateCount+" 条；质量护盾拦截 "+guardrailBlocked+" 条；符合条件 "+allowed.length+" 条；本次保存 "+chosen.length+" 条。");
  const status=failed===0?"completed":failed<jobs.length?"partial":"failed";const finalProgress=status==="failed"?Math.min(99,Math.max(1,Math.round(done/Math.max(1,jobs.length)*85))):100;await update(env,run,owner,{status,progress:finalProgress,discovered_count:chosen.length,created_lead_count:0,message:status==="failed"?"搜索失败 · 所有搜索引擎请求均未成功 · "+failed+"/"+jobs.length+" 个请求失败 · "+raw+" 条原始结果":status==="partial"?"搜索部分完成 · "+chosen.length+" 个候选网站 · "+failed+"/"+jobs.length+" 个请求失败 · "+raw+" 条原始结果":"搜索候选收集完成 · "+chosen.length+" 个候选网站 · 尚未访问网站或调用 Browser Run · 护盾拦截 "+guardrailBlocked+" 条 · "+raw+" 条原始结果"});
  await log(env,run,owner,status==="completed"?"success":"warning","任务结束；原始结果 "+raw+" 条，排除、护盾及去重后保存 "+chosen.length+" 个候选网站。未执行网站抓取或 Browser Run。");return{status,discovered:chosen.length,rawCount:raw,guardrailBlocked,failed,websiteChecks:0,browserRendered:0};
 }
