@@ -12,6 +12,12 @@ async function db<T>(env:DiscoveryEnv,path:string,init:RequestInit={}):Promise<T
 async function log(env:DiscoveryEnv,id:string,owner:string,level:string,message:string){await db(env,"discovery_run_logs",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({run_id:id,owner_id:owner,level,message})});}
 async function update(env:DiscoveryEnv,id:string,owner:string,patch:Record<string,unknown>){await db(env,discoveryRunQuery(id,owner),{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({...patch,updated_at:new Date().toISOString()})});}
 function pick(row:Record<string,unknown>):Result|null{const url=String(row.link??row.product_link??row.url??"");const title=String(row.title??row.name??row.product_title??"");if(!url||!title)return null;try{const u=new URL(url);if(u.protocol!=="http:"&&u.protocol!=="https:")return null;return{title,url:u.toString(),snippet:String(row.snippet??row.description??""),raw:row};}catch{return null;}}
+export function getSerpKiteAvailableCredits(account:{plan?:unknown;balance?:unknown;key?:{credit_limit?:unknown;credits_used_month?:unknown}}):number|null{
+ const cap=account.key?.credit_limit,used=account.key?.credits_used_month,balance=account.balance;
+ if(String(account.plan??"").toLowerCase()!=="free"||typeof used!=="number"||typeof balance!=="number"||balance<0||(cap!==undefined&&cap!==null&&(typeof cap!=="number"||cap<=0)))return null;
+ const keyRemaining=typeof cap==="number"?Math.max(0,cap-used):Number.POSITIVE_INFINITY;
+ return Math.max(0,Math.min(keyRemaining,balance));
+}
 async function assertFreeQuota(engine:Engine,env:DiscoveryEnv,requestedResults=10):Promise<void>{
  if(engine==="serper")throw new Error("SERPER_ONE_TIME_CREDITS_NOT_ALLOWED_IN_MONTHLY_FREE_MODE");
  if(engine==="brightdata"){
@@ -45,11 +51,10 @@ async function assertFreeQuota(engine:Engine,env:DiscoveryEnv,requestedResults=1
   if(!key)throw new Error("SERPKITE_API_KEY_NOT_CONFIGURED");
   const response=await fetch("https://api.serpkite.com/v1/account",{headers:{Authorization:"Bearer "+key},signal:AbortSignal.timeout(15000)});
   const body=await response.json().catch(()=>({})) as {plan?:string;key?:{credit_limit?:number;credits_used_month?:number};balance?:number};
-  const cap=body.key?.credit_limit,used=body.key?.credits_used_month;
-  if(!response.ok||body.plan?.toLowerCase()!=="free"||typeof used!=="number"||typeof body.balance!=="number"||body.balance<0||(cap!==undefined&&cap!==null&&(typeof cap!=="number"||cap<=0)))throw new Error("SERPKITE_FREE_ACCOUNT_BALANCE_UNVERIFIED");
+  const available=getSerpKiteAvailableCredits(body);
+  if(!response.ok||available===null)throw new Error("SERPKITE_FREE_ACCOUNT_BALANCE_UNVERIFIED");
   const requiredCredits=requestedResults>=100?7:Math.max(1,Math.ceil(requestedResults/10));
-  const keyRemaining=typeof cap==="number"?Math.max(0,cap-used):Number.POSITIVE_INFINITY;
-  if(Math.min(keyRemaining,body.balance)<requiredCredits)throw new Error("SERPKITE_MONTHLY_FREE_CREDITS_EXHAUSTED");
+  if(available<requiredCredits)throw new Error("SERPKITE_MONTHLY_FREE_CREDITS_EXHAUSTED");
  }
 }
 async function search(engine:Engine,type:Vertical,q:string,country:string,hl:string,limit:number,location:string,env:DiscoveryEnv):Promise<Result[]>{
