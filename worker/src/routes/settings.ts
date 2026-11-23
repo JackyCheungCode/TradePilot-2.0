@@ -421,6 +421,25 @@ export async function handleSettings(request: Request, env: SettingsEnv): Promis
       const message=detail&&typeof detail==="object"?((detail as Record<string,unknown>).message??(detail as Record<string,unknown>).error??(detail as Record<string,unknown>).detail??detail):detail;
       return successResponse(request,{ok:r.ok,message:r.ok?"Omnibox API 连接成功":"Omnibox API 返回 HTTP "+r.status+"："+(typeof message==="string"?message:JSON.stringify(message)).slice(0,800)});
     }
+    if(service==="brightdata"){
+      const key=secret("brightdata"),zone=secret("brightdataZone");
+      if(!key||!zone)return successResponse(request,{ok:false,message:"请配置 Bright Data API Token 与 SERP Zone 名称"});
+      const target=new URL("https://www.google.com/search");target.searchParams.set("q","TradePilot integration test");target.searchParams.set("gl","us");target.searchParams.set("hl","en");target.searchParams.set("brd_json","1");
+      const r=await fetch("https://api.brightdata.com/request",{method:"POST",headers:{Authorization:"Bearer "+key,"Content-Type":"application/json"},body:JSON.stringify({zone,url:target.toString(),format:"raw"}),signal:AbortSignal.timeout(45000)});
+      return successResponse(request,{ok:r.ok,message:r.ok?"Bright Data SERP API 连接成功":"Bright Data API 返回 HTTP "+r.status});
+    }
+    if(service==="quanticdata"){
+      const key=secret("quanticdata");if(!key)return successResponse(request,{ok:false,message:"尚未配置 QuanticData API Key"});
+      const r=await fetch("https://api.quanticdata.io/v1/scraper/serp",{method:"POST",headers:{Authorization:"Bearer "+key,"Content-Type":"application/json"},body:JSON.stringify({query:"TradePilot integration test",engine:"google",country:"us",lang:"en",num:1}),signal:AbortSignal.timeout(45000)});
+      const data=await r.json().catch(()=>({})) as {type?:string;message?:string};
+      return successResponse(request,{ok:r.ok&&data.type==="response",message:r.ok&&data.type==="response"?"QuanticData SERP API 连接成功":"QuanticData API 返回 HTTP "+r.status+(data.message?": "+data.message.slice(0,200):"")});
+    }
+    if(service==="serpkite"){
+      const key=secret("serpkite");if(!key)return successResponse(request,{ok:false,message:"尚未配置 SerpKite API Key"});
+      const r=await fetch("https://api.serpkite.com/v1/search",{method:"POST",headers:{Authorization:"Bearer "+key,"Content-Type":"application/json"},body:JSON.stringify({q:"TradePilot integration test",country:"us",language:"en",num:1}),signal:AbortSignal.timeout(45000)});
+      const data=await r.json().catch(()=>({})) as {results?:unknown[];error?:unknown};
+      return successResponse(request,{ok:r.ok&&Array.isArray(data.results),message:r.ok&&Array.isArray(data.results)?"SerpKite API 连接成功":"SerpKite API 返回 HTTP "+r.status});
+    }
     if(service==="serper"){
       const key=secret("serper");if(!key)return successResponse(request,{ok:false,message:"尚未配置"});
       const r=await fetch("https://google.serper.dev/search",{method:"POST",headers:{"X-API-KEY":key,"Content-Type":"application/json"},body:JSON.stringify({q:"TradePilot integration test",gl:"us",hl:"en",num:1})});
