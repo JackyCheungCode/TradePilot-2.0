@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { PageHeader, Button, Checkbox, ComboBox, InlineNotification, Link, NumberInput, Tag, TextArea, TextInput, Tile, semanticIcons } from '@/design-system';
+import { PageHeader, Button, Checkbox, ComboBox, InlineNotification, Link, NumberInput, ProgressBar, Tag, TextArea, TextInput, Tile, semanticIcons } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
 import { SearchDiscoveryTwin } from './SearchDiscoveryTwin';
 import '@/design-system/patterns/search-engine-discovery.scss';
@@ -122,6 +122,7 @@ export function SearchEngineDiscoveryPage() {
 
   const startAnalysis = async (forceReanalysis = false) => {
     if (!selectedRecordIds.length) { setError('请先在候选网站池中选择要分析的网站。'); return; }
+    if (selectedRecordIds.length > 500) { setError('单次最多分析 500 个候选网站，请分批选择。'); return; }
     setError(''); setNotice(''); setAnalyzeSubmitting(true);
     try {
       const result = await api<{ id: string; taskCode: string; selectedCount: number; batchSize: number }>('/api/v1/search-discovery-runs/analyze', {
@@ -337,8 +338,7 @@ export function SearchEngineDiscoveryPage() {
               <div><strong>{latestAnalysisRun.task_code || 'AI 网站分析任务'}</strong><p>{latestAnalysisRun.message || '—'}</p></div>
               <Tag type={latestAnalysisRun.status === 'completed' ? 'green' : latestAnalysisRun.status === 'failed' ? 'red' : latestAnalysisRun.status === 'paused' ? 'warm-gray' : 'blue'}>{statusText[latestAnalysisRun.status || ''] || latestAnalysisRun.status}</Tag>
             </div>
-            <div className="tp-search-discovery__progress-track"><div style={{ width: (latestAnalysisRun.progress ?? 0) + "%" }} /></div>
-            <p>{latestAnalysisRun.progress ?? 0}% · 已处理 {latestAnalysisRun.discovered_count ?? 0} 个候选</p>
+            <ProgressBar value={latestAnalysisRun.progress ?? 0} max={100} label="分析进度" helperText={(latestAnalysisRun.progress ?? 0) + "% · 已处理 " + (latestAnalysisRun.discovered_count ?? 0) + " 个候选"} />
             <div className="tp-search-discovery__analysis-controls">
               {latestAnalysisRun.status === 'running' || latestAnalysisRun.status === 'queued' ? <Button kind="ghost" size="sm" onClick={() => void controlAnalysis(latestAnalysisRun.id, 'pause')}>暂停</Button> : null}
               {latestAnalysisRun.status === 'paused' ? <Button kind="ghost" size="sm" onClick={() => void controlAnalysis(latestAnalysisRun.id, 'resume')}>继续</Button> : null}
