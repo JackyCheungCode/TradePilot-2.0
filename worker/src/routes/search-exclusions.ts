@@ -1,4 +1,4 @@
-import { errorResponse, successResponse } from "../lib/http";
+import { errorResponse, successResponse } from "../lib/http.ts";
 interface Env { SUPABASE_URL:string; SUPABASE_ANON_KEY:string; SUPABASE_SERVICE_ROLE_KEY:string; }
 export const DEFAULT_SEARCH_EXCLUSIONS = [
  {key:"ecommerce",label:"电商与购物平台 / E-commerce",domains:["amazon.com","amazon.co.uk","amazon.de","amazon.fr","amazon.co.jp","ebay.com","walmart.com","etsy.com","aliexpress.com","alibaba.com","1688.com","temu.com","shopee.com","lazada.com","taobao.com","tmall.com","jd.com","rakuten.co.jp","mercadolivre.com.br","mercadolibre.com","flipkart.com","otto.de","zalando.com","wayfair.com","bestbuy.com","target.com","newegg.com","shein.com","wish.com","coupang.com"]},
