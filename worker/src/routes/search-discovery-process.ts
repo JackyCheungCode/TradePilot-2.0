@@ -5,7 +5,7 @@ import { readIntegrationSecret } from "../lib/integrations";
 import { evaluateGuardrails, getDuplicatePolicy } from "../lib/guardrails";
 import { normalizeMerchantDomain, searchResultIdentity, searchResultExclusionTarget } from "./search-result-normalization.ts";
 type Engine="serper"|"serpapi"; type Vertical="web"|"shopping"|"images"|"news"|"videos"|"scholar"|"patents";
-type Result={title:string;url:string;snippet:string;raw:Record<string,unknown>;websiteVerification?:Record<string,unknown>};
+type Result={title:string;url:string;snippet:string;raw:Record<string,unknown>};
 const serper:Record<Vertical,string>={web:"search",shopping:"shopping",images:"images",news:"news",videos:"videos",scholar:"scholar",patents:"patents"};
 const serp:Record<Vertical,string>={web:"google",shopping:"google_shopping",images:"google_images",news:"google_news",videos:"google_videos",scholar:"google_scholar",patents:"google_patents"};
 async function db<T>(env:DiscoveryEnv,path:string,init:RequestInit={}):Promise<T>{const r=await fetch(env.SUPABASE_URL+"/rest/v1/"+path,{...init,headers:{apikey:env.SUPABASE_SERVICE_ROLE_KEY,Authorization:"Bearer "+env.SUPABASE_SERVICE_ROLE_KEY,"Content-Type":"application/json",...init.headers}});const s=await r.text();if(!r.ok)throw new Error("DATABASE_"+r.status+": "+s.slice(0,300));return s?JSON.parse(s) as T:undefined as T;}
@@ -25,54 +25,6 @@ async function search(engine:Engine,type:Vertical,q:string,country:string,hl:str
  }return out.slice(0,limit);
 }
 function excluded(url:string,rules:string[]){try{const u=new URL(url),host=u.hostname.toLowerCase(),path=u.pathname.toLowerCase();return rules.some(rule=>{const [domain,...rest]=rule.toLowerCase().split("/");const prefix=rest.length?"/"+rest.join("/"):"";return(host===domain||host.endsWith("."+domain))&&(!prefix||path.startsWith(prefix));});}catch{return true;}}
-function safePublicWebsiteUrl(value:string):URL|null{
- try{const url=new URL(value);if(url.protocol!=="https:"&&url.protocol!=="http:")return null;const host=url.hostname.toLowerCase();if(!host||host==="localhost"||host.endsWith(".localhost")||host.endsWith(".local")||host.endsWith(".internal")||host==="metadata.google.internal"||/^\d{1,3}(?:\.\d{1,3}){3}$/.test(host)||host.includes(":"))return null;return url;}catch{return null;}
-}
-async function inspectWebsite(item:Result,product:string,allowBrowserFallback:boolean):Promise<Result>{
- const initial=safePublicWebsiteUrl(item.url);if(!initial)return{...item,websiteVerification:{status:"blocked",score:0,reason:"非公开网站地址或不安全协议"}};
- try{
-  let target=initial,response:Response|undefined;
-  for(let hop=0;hop<3;hop++){
-   response=await fetch(target.toString(),{method:"GET",redirect:"manual",headers:{"User-Agent":"TradePilot-WebsiteVerifier/1.0 (+public business website discovery)","Accept":"text/html,application/xhtml+xml"},signal:AbortSignal.timeout(9000)});
-   if(response.status>=300&&response.status<400){const location=response.headers.get("location");if(!location)break;const next=safePublicWebsiteUrl(new URL(location,target).toString());if(!next)throw new Error("不安全的重定向目标");target=next;continue;}
-   break;
-  }
-  if(!response)throw new Error("网站无响应");
-  if(!response.ok)return{...item,websiteVerification:{status:"unavailable",httpStatus:response.status,score:0,reason:"首页返回 HTTP "+response.status,finalUrl:target.toString()}};
-  const type=response.headers.get("content-type")??"";if(!type.includes("text/html")&&!type.includes("application/xhtml"))return{...item,websiteVerification:{status:"non_html",httpStatus:response.status,score:5,reason:"目标地址不是 HTML 网站",finalUrl:target.toString()}};
-  let html=(await response.text()).slice(0,500000);
-  let verificationMethod:"http"|"browser_run"="http";
-  let browserRunMs:number|null=null;
-  let browserFallbackError:string|null=null;
-  const initialText=html.replace(/<script[\s\S]*?<\/script>/gi," ").replace(/<style[\s\S]*?<\/style>/gi," ").replace(/<[^>]+>/g," ").replace(/&nbsp;|&#160;/g," ").replace(/\s+/g," ").trim();
-  const needsRenderedPage=initialText.length<500&&/<script|__NEXT_DATA__|webpack|id=root|id=app|id=__next/i.test(html);
-  if(allowBrowserFallback&&needsRenderedPage&&env.BROWSER){
-   try{
-    const rendered=await env.BROWSER.quickAction("content",{url:target.toString(),gotoOptions:{waitUntil:"networkidle2",timeout:20000}});
-    browserRunMs=Number(rendered.headers.get("X-Browser-Ms-Used"))||null;
-    if(!rendered.ok)throw new Error("Browser Run HTTP "+rendered.status);
-    const payload=await rendered.json() as {success?:boolean;result?:unknown};
-    if(!payload.success||typeof payload.result!=="string")throw new Error("Browser Run 未返回有效 HTML");
-    const renderedHtml=payload.result.slice(0,500000);
-    const renderedText=renderedHtml.replace(/<script[\s\S]*?<\/script>/gi," ").replace(/<style[\s\S]*?<\/style>/gi," ").replace(/<[^>]+>/g," ").replace(/&nbsp;|&#160;/g," ").replace(/\s+/g," ").trim();
-    if(renderedText.length>initialText.length){html=renderedHtml;verificationMethod="browser_run";}
-   }catch(error){browserFallbackError=error instanceof Error?error.message.slice(0,180):"Browser Run 核验失败";}
-  }
-  const title=(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]??"").replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim().slice(0,240);
-  const description=(html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']*)/i)?.[1]??"").slice(0,400);
-  const text=html.replace(/<script[\s\S]*?<\/script>/gi," ").replace(/<style[\s\S]*?<\/style>/gi," ").replace(/<[^>]+>/g," ").replace(/&nbsp;|&#160;/g," ").replace(/\s+/g," ").slice(0,30000);
-  const lower=(title+" "+description+" "+text).toLowerCase();
-  const terms=product.toLowerCase().split(/[^a-z0-9\u4e00-\u9fff]+/).filter(word=>word.length>2).slice(0,8);
-  const productMatches=terms.filter(term=>lower.includes(term));
-  const hasCompanyTerms=/about us|about\s+the\s+company|our company|company profile|contact us|联系我们|关于我们|公司简介/i.test(lower);
-  const hasContact=/mailto:|tel:|contact us|联系我们/i.test(html+" "+text);
-  const hasOrganization=/schema.org\/(Organization|Corporation|LocalBusiness|Brand)/i.test(html);
-  const hasProductCatalog=/products|product catalog|our products|产品中心|产品目录/i.test(lower);
-  const score=Math.min(100,20+(productMatches.length?Math.min(25,productMatches.length*8):0)+(hasCompanyTerms?15:0)+(hasContact?10:0)+(hasOrganization?15:0)+(hasProductCatalog?15:0));
-  const status=score>=65?"candidate_official":score>=40?"needs_review":"weak_match";
-  return{...item,websiteVerification:{status,score,httpStatus:response.status,finalUrl:target.toString(),pageTitle:title,description,productMatches,signals:{companyInformation:hasCompanyTerms,contactInformation:hasContact,organizationSchema:hasOrganization,productCatalog:hasProductCatalog},verificationMethod,browserRunMs,browserFallbackError,checkedAt:new Date().toISOString()}};
- }catch(error){return{...item,websiteVerification:{status:"check_failed",score:0,reason:error instanceof Error?error.message:"网站核验失败"}};}
-}
 async function persist(env:DiscoveryEnv,owner:string,run:string,input:DiscoveryRunInput,engine:Engine,type:Vertical,item:Result){
  const parsed=new URL(item.url),shopping=type==="shopping",googleShoppingLink=parsed.hostname.toLowerCase().endsWith("google.com"),source=String(item.raw.source??item.raw.merchant??item.raw.seller??"").trim();
  const sourceDomain=normalizeMerchantDomain(source);
@@ -84,7 +36,7 @@ async function persist(env:DiscoveryEnv,owner:string,run:string,input:DiscoveryR
  let entity=entities?.[0]?.id;if(!entity)entity=(await db<Array<{id:string}>>(env,"discovery_entities?owner_id=eq."+owner+"&dedupe_key=eq."+encodeURIComponent(key)+"&select=id"))[0]?.id;if(!entity)throw new Error("SEARCH_ENTITY_UPSERT_FAILED");
  const old=(await db<Array<Record<string,unknown>>>(env,"discovery_records?owner_id=eq."+owner+"&channel=eq.search_engine&dedupe_key=eq."+encodeURIComponent(key)+"&select=id,raw_data,name,business_type"))[0]??{};
  const duplicate=typeof old.id==="string",duplicatePolicy=getDuplicatePolicy(input.guardrailsSnapshot);
- const raw={...(old.raw_data&&typeof old.raw_data==="object"?old.raw_data as Record<string,unknown>:{}),guardrail_review_required:item.raw.guardrail_review_required===true,...(duplicate&&duplicatePolicy==="review"?{duplicate_review_required:true}:{}),last_search_result:{title:item.title,snippet:item.snippet,search_type:type,engine,url:item.url,merchant:source||null,product_id:item.raw.product_id??null,price:item.raw.price??null,website_verification:item.websiteVerification??null,raw:item.raw}};
+ const raw={...(old.raw_data&&typeof old.raw_data==="object"?old.raw_data as Record<string,unknown>:{}),guardrail_review_required:item.raw.guardrail_review_required===true,...(duplicate&&duplicatePolicy==="review"?{duplicate_review_required:true}:{}),last_search_result:{title:item.title,snippet:item.snippet,search_type:type,engine,url:item.url,merchant:source||null,product_id:item.raw.product_id??null,price:item.raw.price??null,raw:item.raw}};
  const rec=duplicate&&duplicatePolicy==="skip"?[]:await db<Array<{id:string}>>(env,"discovery_records?on_conflict=owner_id,channel,dedupe_key",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=representation"},body:JSON.stringify({owner_id:owner,channel:"search_engine",record_type:shopping&&!domain?"shopping_product":"website",entity_id:entity,name:old.name??name,country_code:input.countries[0],website,business_type:input.businessTypes?.length?input.businessTypes.join(", "):old.business_type??null,dedupe_key:key,raw_data:raw})});
  let record=duplicate&&duplicatePolicy==="skip"?String(old.id):rec?.[0]?.id;if(!record)record=(await db<Array<{id:string}>>(env,"discovery_records?owner_id=eq."+owner+"&channel=eq.search_engine&dedupe_key=eq."+encodeURIComponent(key)+"&select=id"))[0]?.id;if(!record)throw new Error("SEARCH_RECORD_UPSERT_FAILED");
  await db(env,"discovery_record_occurrences?on_conflict=owner_id,run_id,provider,external_id",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({owner_id:owner,record_id:record,run_id:run,provider:engine,keyword:input.query,external_id:type+":"+item.url,source_url:item.url,raw_data:{...item.raw,guardrail_review_required:item.raw.guardrail_review_required===true,duplicate_review_required:duplicate&&duplicatePolicy==="review",title:item.title,snippet:item.snippet,search_type:type,engine,advanced_query:input.advancedQuery}})});
@@ -112,10 +64,8 @@ export async function processSearchRun(env:DiscoveryEnv,run:string,owner:string,
    return [{...row,item:{...row.item,raw:{...row.item.raw,guardrail_review_required:decision.review}}}];
  });
  const chosen=allowed.slice(0,input.limitPerCountry);
- const verified:Array<{engine:Engine;type:Vertical;item:Result}>=[];
- for(let offset=0;offset<chosen.length;offset+=8){const batch=chosen.slice(offset,offset+8);const inspected=await Promise.all(batch.map(async (row,index)=>({...row,item:await inspectWebsite(row.item,input.query,offset+index<10)})));verified.push(...inspected);await update(env,run,owner,{progress:85+Math.round(Math.min(1,(offset+batch.length)/Math.max(1,chosen.length))*14),message:"官网核验中 · "+Math.min(offset+batch.length,chosen.length)+"/"+chosen.length});}
- for(const row of verified)await persist(env,owner,run,input,row.engine,row.type,row.item);
+ for(const row of chosen)await persist(env,owner,run,input,row.engine,row.type,row.item);
  if(guardrailBlocked)await log(env,run,owner,"info","护盾已拦截 "+guardrailBlocked+" 条搜索候选记录。");
- const browserRendered=verified.filter(row=>row.item.websiteVerification?.verificationMethod==="browser_run").length;const status=failed===0?"completed":failed<jobs.length?"partial":"failed";await update(env,run,owner,{status,progress:100,discovered_count:verified.length,created_lead_count:0,message:"搜索与官网初步核验完成 · "+verified.length+" 个网站 · 浏览器渲染 "+browserRendered+" 个 · 护盾拦截 "+guardrailBlocked+" 条 · "+raw+" 条原始结果"});
- await log(env,run,owner,status==="completed"?"success":"warning","任务结束；原始结果 "+raw+" 条，排除、护盾及去重后保存 "+verified.length+" 个网站。");return{status,discovered:verified.length,rawCount:raw,guardrailBlocked,failed,websiteChecks:verified.length,browserRendered};
+ const status=failed===0?"completed":failed<jobs.length?"partial":"failed";await update(env,run,owner,{status,progress:100,discovered_count:chosen.length,created_lead_count:0,message:"搜索候选收集完成 · "+chosen.length+" 个候选网站 · 尚未访问网站或调用 Browser Run · 护盾拦截 "+guardrailBlocked+" 条 · "+raw+" 条原始结果"});
+ await log(env,run,owner,status==="completed"?"success":"warning","任务结束；原始结果 "+raw+" 条，排除、护盾及去重后保存 "+chosen.length+" 个候选网站。未执行网站抓取或 Browser Run。");return{status,discovered:chosen.length,rawCount:raw,guardrailBlocked,failed,websiteChecks:0,browserRendered:0};
 }
