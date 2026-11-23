@@ -1,8 +1,8 @@
 name: Deploy TradePilot Worker
 
 on:
-  # Production release requires manual approval or an explicitly marked develop commit.
-  # Ordinary develop pushes do not publish to production.
+  # Production release requires manual approval or an explicit [production-release] commit.
+  # Ordinary develop pushes only validate and never publish to production.
   workflow_dispatch:
     inputs:
       release_confirmation:
@@ -26,7 +26,7 @@ concurrency:
 
 jobs:
   validate-and-deploy:
-    if: github.ref == 'refs/heads/develop'
+    if: github.ref == 'refs/heads/develop' && (inputs.release_confirmation == 'approved' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[production-release]')))
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -80,7 +80,7 @@ jobs:
         run: npm run build && npm run worker:validate
 
       - name: Deploy production Worker only after explicit approval
-        if: github.event_name == 'workflow_dispatch' && inputs.release_confirmation == 'approved'
+        if: inputs.release_confirmation == 'approved' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[production-release]'))
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ea4e98dce9c478d7dd5c07f10e5c722d
@@ -92,5 +92,5 @@ jobs:
           npm run worker:deploy
 
       - name: Confirm production deployment intentionally held
-        if: github.event_name != 'workflow_dispatch' || inputs.release_confirmation != 'approved'
+        if: inputs.release_confirmation != 'approved' && !(github.event_name == 'push' && contains(github.event.head_commit.message, '[production-release]'))
         run: echo "Validation completed. Production deployment was intentionally held.";
