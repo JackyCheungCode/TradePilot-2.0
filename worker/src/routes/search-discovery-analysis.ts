@@ -176,6 +176,11 @@ async function analyzeRecord(env: DiscoveryEnv, runId: string, ownerId: string, 
   const sourceUrl = record.website;
   if (!sourceUrl) throw new Error("候选记录没有官网地址。");
   try {
+    const startedAt = new Date().toISOString();
+    await db(env, "discovery_records?id=eq." + encodeURIComponent(record.id) + "&owner_id=eq." + encodeURIComponent(ownerId) + "&channel=eq.search_engine", {
+      method: "PATCH", headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ raw_data: { ...(record.raw_data ?? {}), website_analysis: { status: "analyzing", started_at: startedAt, source_url: sourceUrl, review_required: true } }, updated_at: startedAt }),
+    });
     const page = await renderWebsite(env, sourceUrl);
     const prompt = [
       "请分析以下网站是否为目标企业的官方网站，并仅根据页面可见内容抽取企业信息。",
@@ -219,13 +224,22 @@ export async function processSearchAnalysisBatch(env: DiscoveryEnv, runId: strin
   const rows = await db<RecordRow[]>(env, "discovery_records?owner_id=eq." + encodeURIComponent(ownerId) + "&channel=eq.search_engine&id=in.(" + batch.map(encodeURIComponent).join(",") + ")&select=id,owner_id,name,website,country_code,status,raw_data");
   const byId = new Map(rows.map(row => [row.id, row]));
   let completed = 0, failed = 0, skipped = 0;
-  for (const id of batch) {
+  for (let index = 0; index < batch.length; index++) {
+    const id = batch[index];
     const record = byId.get(id);
-    if (!record || record.status !== "new") { failed++; await log(env, runId, ownerId, "warning", "候选记录不存在、已移除或不可分析：" + id, { recordId: id }); continue; }
-    const outcome = await analyzeRecord(env, runId, ownerId, record, input.forceReanalysis === true);
-    if (outcome === "completed") completed++;
-    else if (outcome === "failed") failed++;
-    else skipped++;
+    if (!record || record.status !== "new") { failed++; await log(env, runId, ownerId, "warning", "候选记录不存在、已移除或不可分析：" + id, { recordId: id }); }
+    else {
+      const outcome = await analyzeRecord(env, runId, ownerId, record, input.forceReanalysis === true);
+      if (outcome === "completed") completed++;
+      else if (outcome === "failed") failed++;
+      else skipped++;
+    }
+    const itemProgress = Math.min(ids.length, offset + index + 1);
+    await updateRun(env, runId, ownerId, {
+      status: "running", progress: ids.length ? Math.round(itemProgress / ids.length * 100) : 100,
+      discovered_count: itemProgress,
+      message: "AI 网站分析中 · " + itemProgress + "/" + ids.length + " · 本批成功 " + completed + " · 失败 " + failed + " · 跳过 " + skipped,
+    });
   }
   const processed = Math.min(ids.length, offset + batch.length);
   const isLast = processed >= ids.length;

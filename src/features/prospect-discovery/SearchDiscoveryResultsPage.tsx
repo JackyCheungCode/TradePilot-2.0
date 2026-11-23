@@ -61,7 +61,7 @@ export function SearchDiscoveryResultsPage(){
   {key:'keyword',header:'搜索词',minWidth:180},
  ];
  return <main className="tp-search-customers">
-  <PageHeader><div><p className="tp-search-discovery__eyebrow">SEARCH ENGINE DISCOVERY / CUSTOMER DIRECTORY</p><h1>搜索客户</h1><p>所有搜索发现的候选企业与已分析客户集中管理；按任务或搜索词分组。</p></div><div className="tp-search-discovery__page-actions"><Button kind="secondary" onClick={()=>setRefreshKey(value=>value+1)}>刷新</Button><Button kind="secondary" onClick={exportCsv} disabled={!filtered.length}>导出 CSV</Button></div></PageHeader>
+  <PageHeader breadcrumb="SEARCH ENGINE DISCOVERY / CUSTOMER DIRECTORY" title="搜索客户" description="所有搜索发现的候选企业与已分析客户集中管理；按任务或搜索词分组。" actions={[{id:'refresh-customers',label:'刷新',kind:'secondary',icon:<Renew size={20}/>,onClick:()=>setRefreshKey(value=>value+1)},{id:'export-customers',label:'导出 CSV',kind:'secondary',icon:<Download size={20}/>,onClick:exportCsv,disabled:!filtered.length}]}/>
   {error&&<InlineNotification kind="error" title="读取失败" subtitle={error}/>}
   <div className="tp-search-discovery__page-actions"><Link href="/prospect-discovery/search-engine">返回搜索客户流程</Link><Link href="/prospect-discovery/search-engine/tasks">历史任务</Link></div>
   <div className="tp-search-discovery__result-filters">
@@ -70,7 +70,7 @@ export function SearchDiscoveryResultsPage(){
    <Select id="search-customer-task-filter" labelText="筛选任务" value={taskFilter} onChange={event=>setTaskFilter(event.currentTarget.value)}><SelectItem value="all" text="全部任务"/>{tasks.map(task=><SelectItem key={task.value} value={task.value} text={task.label}/>)}</Select>
    <Select id="search-customer-keyword-filter" labelText="筛选搜索词" value={keywordFilter} onChange={event=>setKeywordFilter(event.currentTarget.value)}><SelectItem value="all" text="全部搜索词"/>{keywords.map(keyword=><SelectItem key={keyword} value={keyword} text={keyword}/>)}</Select>
   </div>
-  <div className="tp-search-discovery__result-filters"><div><Button kind={scope==='all'?'primary':'tertiary'} size="sm" onClick={()=>setScope('all')}>全部（{rows.length}）</Button><Button kind={scope==='candidate'?'primary':'tertiary'} size="sm" onClick={()=>setScope('candidate')}>候选网站</Button><Button kind={scope==='analyzed'?'primary':'tertiary'} size="sm" onClick={()=>setScope('analyzed')}>已分析客户</Button></div><Tag type="blue">{filtered.length} 条记录 · {groups.length} 个分组</Tag></div>
+  <div className="tp-search-discovery__result-filters"><div><Button kind={scope==='all'?'primary':'tertiary'} size="sm" renderIcon={Search} onClick={()=>setScope('all')}>全部（{rows.length}）</Button><Button kind={scope==='candidate'?'primary':'tertiary'} size="sm" renderIcon={Globe} onClick={()=>setScope('candidate')}>候选网站</Button><Button kind={scope==='analyzed'?'primary':'tertiary'} size="sm" renderIcon={Checkmark} onClick={()=>setScope('analyzed')}>已分析客户</Button></div><Tag type="blue">{filtered.length} 条记录 · {groups.length} 个分组</Tag></div>
   {loading?<p>正在读取搜索客户…</p>:!groups.length?<p>没有符合条件的搜索客户。</p>:groups.map(([group,groupRows])=><section className="tp-search-discovery__customer-group" key={group}><div className="tp-search-discovery__section-heading"><div><h2>{group}</h2><p>{groupRows.length} 条记录</p></div></div><TpDataTable<DisplayRow> ariaLabel={'搜索客户：'+group} rows={groupRows} rowKey="table_id" columns={columns} loading={false} columnSettingsKey={'search-customers-'+groupBy}/></section>)}
  </main>;
 }

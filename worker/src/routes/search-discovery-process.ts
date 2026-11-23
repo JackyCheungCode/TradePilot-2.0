@@ -53,7 +53,7 @@ export async function processSearchRun(env:DiscoveryEnv,run:string,owner:string,
  const jobs=engines.flatMap(engine=>types.map(type=>({engine,type})));let done=0,failed=0,raw=0;const all:Array<{engine:Engine;type:Vertical;item:Result}>=[];
  await update(env,run,owner,{status:"running",progress:1,message:"正在连接搜索引擎并执行查询"});
  await log(env,run,owner,"info","关键词："+input.query+"；实际搜索语法："+q+"；国家："+country+"；搜索类型："+types.join("、")+"；搜索引擎："+engines.join("、"));
- for(const job of jobs){try{const found=await search(job.engine,job.type,q,country,hl,input.limitPerCountry,location,env);raw+=found.length;all.push(...found.map(item=>({...job,item})));await log(env,run,owner,found.length?"success":"warning",job.engine+" · "+job.type+" 返回 "+found.length+" 条");}catch(e){failed++;await log(env,run,owner,"warning",job.engine+" · "+job.type+" 失败："+String(e).slice(0,180));}done++;await update(env,run,owner,{progress:Math.max(1,Math.round(done/jobs.length*85)),message:"搜索中 · "+done+"/"+jobs.length+" 个引擎/类型组合"});}
+ for(const job of jobs){try{const found=await search(job.engine,job.type,q,country,hl,input.limitPerCountry,location,env);raw+=found.length;all.push(...found.map(item=>({...job,item})));await log(env,run,owner,found.length?"success":"warning",job.engine+" · "+job.type+" 返回 "+found.length+" 条");}catch(e){failed++;await log(env,run,owner,"warning",job.engine+" · "+job.type+" 失败："+String(e).slice(0,180));}done++;await update(env,run,owner,{progress:Math.max(1,Math.round(done/jobs.length*85)),discovered_count:0,message:"搜索中 · "+done+"/"+jobs.length+" 个引擎/类型组合 · 已返回 "+raw+" 条原始结果"});}
  const unique=new Map<string,{engine:Engine;type:Vertical;item:Result}>();for(const row of all){if(excluded(searchResultExclusionTarget({url:row.item.url,type:row.type,raw:row.item.raw}),rules))continue;const identity=searchResultIdentity({url:row.item.url,type:row.type,title:row.item.title,raw:row.item.raw});if(!unique.has(identity))unique.set(identity,row);}
  const uniqueRows=[...unique.values()];
  let guardrailBlocked=0;
@@ -66,7 +66,12 @@ export async function processSearchRun(env:DiscoveryEnv,run:string,owner:string,
    return [{...row,item:{...row.item,raw:{...row.item.raw,guardrail_review_required:decision.review}}}];
  });
  const chosen=allowed.slice(0,input.limitPerCountry);
- for(const row of chosen)await persist(env,owner,run,input,row.engine,row.type,row.item);
+ let saved=0;
+ for(const row of chosen){
+   await persist(env,owner,run,input,row.engine,row.type,row.item);
+   saved++;
+   if(saved===chosen.length||saved%5===0)await update(env,run,owner,{progress:85+Math.round(saved/Math.max(1,chosen.length)*14),discovered_count:saved,message:"正在整理候选网站 · "+saved+"/"+chosen.length+" · 搜索引擎共返回 "+raw+" 条原始结果"});
+ }
  if(guardrailBlocked)await log(env,run,owner,"info","护盾已拦截 "+guardrailBlocked+" 条搜索候选记录。");
  const status=failed===0?"completed":failed<jobs.length?"partial":"failed";await update(env,run,owner,{status,progress:100,discovered_count:chosen.length,created_lead_count:0,message:"搜索候选收集完成 · "+chosen.length+" 个候选网站 · 尚未访问网站或调用 Browser Run · 护盾拦截 "+guardrailBlocked+" 条 · "+raw+" 条原始结果"});
  await log(env,run,owner,status==="completed"?"success":"warning","任务结束；原始结果 "+raw+" 条，排除、护盾及去重后保存 "+chosen.length+" 个候选网站。未执行网站抓取或 Browser Run。");return{status,discovered:chosen.length,rawCount:raw,guardrailBlocked,failed,websiteChecks:0,browserRendered:0};
