@@ -163,3 +163,35 @@ test("theme preference PUT rejects unsupported values before writing", async () 
     assert.equal(storageCalled, false);
   } finally { restore(); }
 });
+
+test("Bright Data integration test validates credentials and zone without spending a SERP request", async () => {
+  const calls: string[] = [];
+  const integrationEnv = { ...env, SUPABASE_SERVICE_ROLE_KEY: "service-test-key" };
+  const restore = withFetch(async (input, init) => {
+    const url = String(input);
+    calls.push(url);
+    if (url.endsWith("/auth/v1/user")) return Response.json({ id: ownerId });
+    if (url.endsWith("/rest/v1/rpc/tradepilot_secret_get")) {
+      const args = JSON.parse(String(init?.body)) as { p_names: string[] };
+      return Response.json(args.p_names.map(name => ({
+        name,
+        secret: name === "tradepilot_api_brightdata_zone" ? "serp-zone-test" : "api-token-test",
+      })));
+    }
+    if (url.endsWith("/customer/balance")) return Response.json({ balance: 0, pending_balance: 0 });
+    if (url.includes("/zone?zone=serp-zone-test")) return Response.json({ plan: { product: "serp" } });
+    throw new Error("Unexpected request: " + url);
+  });
+  try {
+    const response = await handleSettings(new Request("https://worker.test/api/v1/settings/integrations/test", {
+      method: "POST",
+      headers: { Authorization: "Bearer user-access-token", "Content-Type": "application/json" },
+      body: JSON.stringify({ service: "brightdata" }),
+    }), integrationEnv);
+    assert.equal(response.status, 200);
+    const payload = await response.json() as { data: { ok: boolean; message: string } };
+    assert.equal(payload.data.ok, true);
+    assert.match(payload.data.message, /无计费验证/);
+    assert.equal(calls.some(url => url.endsWith("/request")), false);
+  } finally { restore(); }
+});
