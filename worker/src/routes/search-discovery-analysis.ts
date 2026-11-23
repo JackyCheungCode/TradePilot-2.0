@@ -281,7 +281,7 @@ async function createAnalysisRun(env: DiscoveryEnv, ownerId: string, sourceRunId
 export async function handleSearchAnalysis(request: Request, env: DiscoveryEnv, sourceRunId: string | null = null): Promise<Response> {
   const ownerId = await ownerFromRequest(request, env);
   if (!ownerId) return errorResponse(request, "UNAUTHORIZED", "请先登录。", 401);
-  let body: { recordIds?: string[]; batchSize?: number; forceReanalysis?: boolean };
+  let body: { recordIds?: string[]; batchSize?: number; forceReanalysis?: boolean; countries?: string[]; country?: string };
   try { body = await request.json() as typeof body; } catch { return errorResponse(request, "INVALID_JSON", "请求内容不是有效 JSON。", 400); }
   const ids = [...new Set((body.recordIds ?? []).filter((id): id is string => typeof id === "string" && /^[0-9a-f-]{36}$/i.test(id)))];
   if (!ids.length || ids.length > MAX_SELECTED || ids.length !== (body.recordIds ?? []).length) return errorResponse(request, "INVALID_RECORD_SELECTION", "请选择 1 到 " + MAX_SELECTED + " 个有效候选网站。", 400);
@@ -293,7 +293,9 @@ export async function handleSearchAnalysis(request: Request, env: DiscoveryEnv, 
     if (records.some(row => !row.website)) return errorResponse(request, "WEBSITE_REQUIRED", "所选候选中存在没有官网 URL 的记录，请先移除这些记录。", 400);
     const pending = records.filter(row => body.forceReanalysis === true || (row.raw_data?.website_analysis as Record<string, unknown> | undefined)?.status !== "completed");
     if (!pending.length) return errorResponse(request, "ALREADY_ANALYZED", "所选候选均已完成分析；如需重新分析，请明确启用重新分析。", 409);
-    const created = await createAnalysisRun(env, ownerId, sourceRunId, pending, batchSize, body.forceReanalysis === true, productQuery(records), [...new Set(records.map(row => row.country_code).filter((value): value is string => !!value))]);
+    const fallbackCountries = [...new Set([...(body.countries ?? []), ...(body.country ? [body.country] : []), ...records.map(row => row.country_code ?? "")].map(value => value.trim().toUpperCase()).filter(value => /^[A-Z]{2}$/.test(value)))];
+    if (!sourceRunId && !fallbackCountries.length) return errorResponse(request, "COUNTRY_REQUIRED", "所选候选没有国家信息，请先选择目标国家或地区。", 400);
+    const created = await createAnalysisRun(env, ownerId, sourceRunId, pending, batchSize, body.forceReanalysis === true, productQuery(records), fallbackCountries);
     return successResponse(request, { ...created, selectedCount: pending.length, batchSize, status: "queued" }, 202);
   } catch (error) {
     return errorResponse(request, "ANALYSIS_START_FAILED", error instanceof Error ? error.message : "无法启动分析任务。", 400);

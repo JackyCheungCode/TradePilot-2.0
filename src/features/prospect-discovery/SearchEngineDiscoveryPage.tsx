@@ -125,7 +125,7 @@ export function SearchEngineDiscoveryPage() {
     setError(''); setNotice(''); setAnalyzeSubmitting(true);
     try {
       const result = await api<{ id: string; taskCode: string; selectedCount: number; batchSize: number }>('/api/v1/search-discovery-runs/analyze', {
-        method: 'POST', body: JSON.stringify({ recordIds: selectedRecordIds, batchSize, forceReanalysis }),
+        method: 'POST', body: JSON.stringify({ recordIds: selectedRecordIds, batchSize, forceReanalysis, country: country?.cca2 }),
       });
       setNotice('AI 分析任务已创建：' + result.taskCode + ' · ' + result.selectedCount + ' 个网站 · 每批 ' + result.batchSize + ' 个');
       setActiveStep(2);
