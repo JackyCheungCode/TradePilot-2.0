@@ -37,9 +37,9 @@ async function assertFreeQuota(engine:Engine,env:DiscoveryEnv,requestedResults=1
   const key=await readIntegrationSecret(env,"tradepilot_api_serpkite");
   if(!key)throw new Error("SERPKITE_API_KEY_NOT_CONFIGURED");
   const response=await fetch("https://api.serpkite.com/v1/account",{headers:{Authorization:"Bearer "+key},signal:AbortSignal.timeout(15000)});
-  const body=await response.json().catch(()=>({})) as {key?:{credit_limit?:number;credits_used_month?:number};balance?:number};
+  const body=await response.json().catch(()=>({})) as {plan?:string;key?:{credit_limit?:number;credits_used_month?:number};balance?:number};
   const cap=body.key?.credit_limit,used=body.key?.credits_used_month;
-  if(!response.ok||typeof cap!=="number"||typeof used!=="number"||cap>1000)throw new Error("SERPKITE_FREE_MONTHLY_KEY_LIMIT_REQUIRED");
+  if(!response.ok||body.plan?.toLowerCase()!=="free"||typeof cap!=="number"||typeof used!=="number"||cap>1000)throw new Error("SERPKITE_FREE_MONTHLY_KEY_LIMIT_REQUIRED");
   const requiredCredits=requestedResults>10?7:1;
   if(cap-used<requiredCredits||typeof body.balance==="number"&&body.balance<requiredCredits)throw new Error("SERPKITE_MONTHLY_FREE_CREDITS_EXHAUSTED");
  }
