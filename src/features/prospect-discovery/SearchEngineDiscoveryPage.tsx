@@ -118,10 +118,11 @@ export function SearchEngineDiscoveryPage() {
       const client = await getSupabaseClient();
       const [{ data }, { data: recordData }] = await Promise.all([
         client.from('discovery_runs').select('id,task_code,query,countries,status,progress,discovered_count,message,created_at,search_config').eq('channel','search_engine').order('created_at',{ascending:false}).limit(8),
-        client.from('discovery_records').select('id,name,website,country_code,raw_data,updated_at').eq('channel','search_engine').order('updated_at',{ascending:false}).limit(10),
+        client.from('discovery_records').select('id,name,website,country_code,raw_data,updated_at').eq('channel','search_engine').order('updated_at',{ascending:false}).limit(100),
       ]);
       setRuns((data ?? []) as Run[]);
       setVerifiedRecords((recordData ?? []) as SearchRecord[]);
+      setSelectedRecordIds([]);
     } catch (cause) { setError(cause instanceof Error ? cause.message : '创建搜索任务失败'); }
     finally { setSubmitting(false); }
   };
@@ -140,7 +141,7 @@ export function SearchEngineDiscoveryPage() {
         setActiveStep(step);
         const target = ['search-target', 'candidate-pool', 'analysis-workbench', 'analysis-results'][step];
         window.requestAnimationFrame(() => document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
-      }} candidateCount={verifiedRecords.length} taskCount={runs.length} />
+      }} candidateCount={verifiedRecords.length} taskCount={runs.length} searchCompleted={runs.some(run => run.status === 'completed' || run.status === 'partial')} />
 
       {error && <InlineNotification kind="error" title="操作未完成" subtitle={error} onCloseButtonClick={() => setError('')} />}
       {notice && <InlineNotification kind="success" title="任务已提交" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
