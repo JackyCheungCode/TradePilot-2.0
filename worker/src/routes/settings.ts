@@ -444,10 +444,11 @@ export async function handleSettings(request: Request, env: SettingsEnv): Promis
     if(service==="serpkite"){
       const key=secret("serpkite");if(!key)return successResponse(request,{ok:false,message:"尚未配置 SerpKite API Key"});
       const r=await fetch("https://api.serpkite.com/v1/account",{headers:{Authorization:"Bearer "+key},signal:AbortSignal.timeout(20000)});
-      const data=await r.json().catch(()=>({})) as {plan?:string;balance?:number;key?:{credit_limit?:number;credits_used_month?:number}};
-      const safe=r.ok&&data.plan==="free"&&typeof data.key?.credit_limit==="number"&&data.key.credit_limit<=1000&&typeof data.key.credits_used_month==="number"&&typeof data.balance==="number";
-      const remaining=safe?Math.max(0,Math.min(data.key!.credit_limit!-data.key!.credits_used_month!,data.balance!)):0;
-      return successResponse(request,{ok:safe&&remaining>=1,message:!safe?"请在 SerpKite 使用 Free 账户，并将此 API Key 的月度上限设为不超过 1,000 credits": "每月免费额度可用 · 剩余 "+remaining+" credits"});
+      const data=await r.json().catch(()=>({})) as {plan?:string;balance?:number;key?:{credit_limit?:number|null;credits_used_month?:number}};
+      const cap=data.key?.credit_limit,used=data.key?.credits_used_month;
+      const safe=r.ok&&data.plan?.toLowerCase()==="free"&&typeof used==="number"&&typeof data.balance==="number"&&data.balance>=0&&(cap===undefined||cap===null||(typeof cap==="number"&&cap>0));
+      const remaining=safe?Math.max(0,Math.min(typeof cap==="number"?cap-used!:Number.POSITIVE_INFINITY,data.balance!)):0;
+      return successResponse(request,{ok:safe&&remaining>=1,message:!safe?"无法确认 SerpKite Free 账户的可用 credits；请检查 API Key 与账户状态": "SerpKite Free 账户已连接 · 可用 credits "+remaining});
     }
     if(service==="serper"){
       const key=secret("serper");if(!key)return successResponse(request,{ok:false,message:"尚未配置"});
