@@ -32,7 +32,7 @@ const apiCards=[
 {id:'actorGateway',name:'通用数据采集平台',logo:'',initial:'AG',description:'连接采集平台，管理 Actor 目录、输入参数与执行能力。',fields:[{key:'actorGateway',label:'访问令牌'}],test:'actorGateway'},
 {id:'serper',name:'Serper',logo:'',initial:'S',description:'Google 搜索引擎数据 API。',fields:[{key:'serper',label:'API Key'}],test:'serper'},
 {id:'serpapi',name:'SerpApi',logo:'',initial:'S',description:'多类型搜索结果 API。',fields:[{key:'serpapi',label:'API Key'}],test:'serpapi'},
-{id:'brightdata',name:'Bright Data SERP API',logo:'',initial:'BD',description:'SERP 搜索数据服务。',fields:[{key:'brightdata',label:'API Token'}],test:'brightdata'},
+{id:'brightdata',name:'Bright Data SERP API',logo:'',initial:'BD',description:'SERP 搜索数据服务。',fields:[{key:'brightdata',label:'API Token'},{key:'brightdataZone',label:'SERP Zone 名称',type:'text'}],test:'brightdata'},
 {id:'quanticdata',name:'QuanticData SERP API',logo:'',initial:'QD',description:'多搜索引擎 SERP 数据服务。',fields:[{key:'quanticdata',label:'API Key'}],test:'quanticdata'},
 {id:'serpkite',name:'SerpKite',logo:'',initial:'SK',description:'Google SERP 数据服务。',fields:[{key:'serpkite',label:'API Key'}],test:'serpkite'},
 {id:'deepl',name:'DeepL',logo:'deepl',initial:'D',description:'外贸工具在线翻译。',fields:[{key:'deepl',label:'API Key'}],test:'deepl'},
@@ -56,7 +56,7 @@ const apiCards=[
 {id:'emailChannel',name:'Email 邮件通道',logo:'',initial:'@',description:'邮件通道连接参数。先保存 IMAP/SMTP 配置；邮件传输适配器完成后再启用连通性测试与收发。',fields:[{key:'emailImapHost',label:'IMAP Host',type:'text'},{key:'emailImapPort',label:'IMAP Port',type:'number'},{key:'emailSmtpHost',label:'SMTP Host',type:'text'},{key:'emailSmtpPort',label:'SMTP Port',type:'number'},{key:'emailUsername',label:'邮箱账号',type:'text'},{key:'emailPassword',label:'邮箱密码 / App Password'},{key:'emailFromAddress',label:'发件邮箱地址',type:'email'}],test:'emailChannel'}
 ] as const;
 function integrationFieldType(key:string):'password'|'text'|'number'|'email'{
- if(['whatsappPhoneNumberId','whatsappBusinessAccountId','messengerPageId','wecomCorpId','wecomAgentId','emailImapHost','emailSmtpHost','emailUsername'].includes(key))return 'text';
+ if(['brightdataZone','whatsappPhoneNumberId','whatsappBusinessAccountId','messengerPageId','wecomCorpId','wecomAgentId','emailImapHost','emailSmtpHost','emailUsername'].includes(key))return 'text';
  if(['emailImapPort','emailSmtpPort'].includes(key))return 'number';
  if(key==='emailFromAddress')return 'email';
  return 'password';
