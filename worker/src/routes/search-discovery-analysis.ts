@@ -46,7 +46,8 @@ async function db<T>(env: DiscoveryEnv, path: string, init: RequestInit = {}): P
   return raw ? JSON.parse(raw) as T : undefined as T;
 }
 async function log(env: DiscoveryEnv, runId: string, ownerId: string, level: "info" | "success" | "warning" | "error", message: string, payload: Record<string, unknown> = {}) {
-  await db(env, "discovery_run_logs", { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ run_id: runId, owner_id: ownerId, level, message, payload }) });
+  try { await db(env, "discovery_run_logs", { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ run_id: runId, owner_id: ownerId, level, message, payload }) }); }
+  catch (error) { console.warn("SEARCH_ANALYSIS_LOG_FAILED", String(error).slice(0, 240)); }
 }
 async function updateRun(env: DiscoveryEnv, runId: string, ownerId: string, patch: Record<string, unknown>) {
   await db(env, "discovery_runs?id=eq." + encodeURIComponent(runId) + "&owner_id=eq." + encodeURIComponent(ownerId), { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ ...patch, updated_at: new Date().toISOString() }) });
@@ -232,8 +233,9 @@ export async function processSearchAnalysisBatch(env: DiscoveryEnv, runId: strin
   if (isLast) {
     const allRows = await db<RecordRow[]>(env, "discovery_records?owner_id=eq." + encodeURIComponent(ownerId) + "&channel=eq.search_engine&id=in.(" + ids.map(encodeURIComponent).join(",") + ")&select=id,owner_id,name,website,country_code,status,raw_data");
     totalCompleted = allRows.filter(row => (row.raw_data?.website_analysis as Record<string, unknown> | undefined)?.status === "completed").length;
-    totalFailed = allRows.filter(row => (row.raw_data?.website_analysis as Record<string, unknown> | undefined)?.status === "failed").length;
-    totalSkipped = Math.max(0, ids.length - totalCompleted - totalFailed);
+    const failedRows = allRows.filter(row => (row.raw_data?.website_analysis as Record<string, unknown> | undefined)?.status === "failed").length;
+    totalFailed = failedRows + Math.max(0, ids.length - allRows.length);
+    totalSkipped = Math.max(0, allRows.length - totalCompleted - failedRows);
   }
   const status = isLast ? (totalFailed > 0 && totalCompleted + totalSkipped > 0 ? "partial" : totalFailed > 0 ? "failed" : "completed") : "running";
   await updateRun(env, runId, ownerId, {
@@ -283,8 +285,9 @@ export async function handleSearchAnalysis(request: Request, env: DiscoveryEnv, 
   if (!ownerId) return errorResponse(request, "UNAUTHORIZED", "请先登录。", 401);
   let body: { recordIds?: string[]; batchSize?: number; forceReanalysis?: boolean; countries?: string[]; country?: string };
   try { body = await request.json() as typeof body; } catch { return errorResponse(request, "INVALID_JSON", "请求内容不是有效 JSON。", 400); }
-  const ids = [...new Set((body.recordIds ?? []).filter((id): id is string => typeof id === "string" && /^[0-9a-f-]{36}$/i.test(id)))];
-  if (!ids.length || ids.length > MAX_SELECTED || ids.length !== (body.recordIds ?? []).length) return errorResponse(request, "INVALID_RECORD_SELECTION", "请选择 1 到 " + MAX_SELECTED + " 个有效候选网站。", 400);
+  const submittedIds = Array.isArray(body.recordIds) ? body.recordIds : [];
+  const ids = [...new Set(submittedIds.filter((id): id is string => typeof id === "string" && /^[0-9a-f-]{36}$/i.test(id)))];
+  if (!ids.length || ids.length > MAX_SELECTED || ids.length !== submittedIds.length) return errorResponse(request, "INVALID_RECORD_SELECTION", "请选择 1 到 " + MAX_SELECTED + " 个有效候选网站。", 400);
   const batchSize = Number(body.batchSize ?? 10);
   if (!Number.isInteger(batchSize) || batchSize < 1 || batchSize > MAX_BATCH) return errorResponse(request, "INVALID_BATCH_SIZE", "每批数量必须为 1 到 " + MAX_BATCH + "。", 400);
   try {
@@ -293,7 +296,9 @@ export async function handleSearchAnalysis(request: Request, env: DiscoveryEnv, 
     if (records.some(row => !row.website)) return errorResponse(request, "WEBSITE_REQUIRED", "所选候选中存在没有官网 URL 的记录，请先移除这些记录。", 400);
     const pending = records.filter(row => body.forceReanalysis === true || (row.raw_data?.website_analysis as Record<string, unknown> | undefined)?.status !== "completed");
     if (!pending.length) return errorResponse(request, "ALREADY_ANALYZED", "所选候选均已完成分析；如需重新分析，请明确启用重新分析。", 409);
-    const fallbackCountries = [...new Set([...(body.countries ?? []), ...(body.country ? [body.country] : []), ...records.map(row => row.country_code ?? "")].map(value => value.trim().toUpperCase()).filter(value => /^[A-Z]{2}$/.test(value)))];
+    const submittedCountries = Array.isArray(body.countries) ? body.countries.filter((value): value is string => typeof value === "string") : [];
+    const selectedCountry = typeof body.country === "string" ? [body.country] : [];
+    const fallbackCountries = [...new Set([...submittedCountries, ...selectedCountry, ...records.map(row => row.country_code ?? "")].map(value => value.trim().toUpperCase()).filter(value => /^[A-Z]{2}$/.test(value)))];
     if (!sourceRunId && !fallbackCountries.length) return errorResponse(request, "COUNTRY_REQUIRED", "所选候选没有国家信息，请先选择目标国家或地区。", 400);
     const created = await createAnalysisRun(env, ownerId, sourceRunId, pending, batchSize, body.forceReanalysis === true, productQuery(records), fallbackCountries);
     return successResponse(request, { ...created, selectedCount: pending.length, batchSize, status: "queued" }, 202);
