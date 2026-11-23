@@ -263,14 +263,13 @@ export function SearchEngineDiscoveryPage() {
       <PageHeader
         breadcrumb="GLOBAL PROSPECT DISCOVERY / SEARCH ENGINE"
         title="搜索引擎发现"
-        description="从产品名称发现目标市场企业，先建立候选网站池，再按需启动 AI 深度分析。"
         actions={[
           { id: 'search-history', label: '历史任务', kind: 'secondary', icon: <Time size={20} />, onClick: () => navigate('/prospect-discovery/search-engine/tasks') },
           { id: 'search-customers', label: '搜索客户', kind: 'primary', icon: <Search size={20} />, onClick: () => navigate('/prospect-discovery/search-engine/results') },
         ]}
       />
       <section className="tp-search-discovery__steps-viewport" aria-label="搜索客户流程">
-        <div className="tp-search-discovery__steps-track"><ProgressIndicator currentIndex={activeStep} spaceEqually><ProgressStep label="搜索条件" description="Search criteria" /><ProgressStep label="候选网站" description="Candidate websites" /><ProgressStep label="批量分析" description="Batch analysis" /><ProgressStep label="分析结果" description="Company results" /></ProgressIndicator></div>
+        <div className="tp-search-discovery__steps-track"><ProgressIndicator currentIndex={activeStep} spaceEqually><ProgressStep label="搜索条件" /><ProgressStep label="候选网站" /><ProgressStep label="批量分析" /><ProgressStep label="分析结果" /></ProgressIndicator></div>
       </section>
 
       {error && <InlineNotification kind="error" title="操作未完成" subtitle={error} onCloseButtonClick={() => setError('')} />}
@@ -279,7 +278,6 @@ export function SearchEngineDiscoveryPage() {
       {activeStep === 0 && <>
       <Tile id="search-target" className="tp-search-discovery__tile">
         <h2>1. 搜索目标</h2>
-        <p>输入产品并选择唯一目标国家。</p>
         <div className="tp-search-discovery__target-grid">
           <TextInput id="search-product" labelText="产品名称" placeholder="例如：Wireless Earbuds" value={product} onChange={event => setProduct(event.target.value)} />
           <ComboBox id="search-country" titleText="目标国家 / 地区" placeholder="搜索国家名称或代码" items={countries} itemToString={item => item ? countryLabel(item) + ' (' + item.cca2 + ')' : ''} selectedItem={country} onChange={({ selectedItem }) => setCountry(selectedItem ?? null)} />
@@ -299,9 +297,8 @@ export function SearchEngineDiscoveryPage() {
             <SelectItem value="zh-cn" text="简体中文 / 简体中文" />
             <SelectItem value="zh-tw" text="繁体中文 / 繁體中文" />
           </Select>
-          <p>选择搜索语言。</p>
         </div>
-        <div className="tp-search-discovery__map"><h3>Carbon 全球市场地图</h3><p>选择目标国家。</p><WorldMapChart data={mapCountries} selectedCode={country?.cca2} onCountrySelect={code => setCountry(countries.find(item => item.cca2 === code) ?? null)} showRanking={false} unitLabel="个目标市场" /></div>
+        <div className="tp-search-discovery__map"><h3>目标市场地图</h3><WorldMapChart data={mapCountries} selectedCode={country?.cca2} onCountrySelect={code => setCountry(countries.find(item => item.cca2 === code) ?? null)} showRanking={false} unitLabel="个目标市场" /></div>
         <div className="tp-search-discovery__subsection">
           <h3>目标企业类型</h3>
           <div className="tp-search-discovery__options-grid">
@@ -312,13 +309,12 @@ export function SearchEngineDiscoveryPage() {
 
       <Tile className="tp-search-discovery__tile">
         <h2>2. 高级搜索语法</h2>
-        <p>使用自动生成的查询，或编辑高级搜索语法。</p>
         <TextArea id="search-advanced-query" labelText="高级搜索表达式（留空则自动生成）" rows={4} value={advancedQuery} onChange={event => setAdvancedQuery(event.target.value)} placeholder={generatedQuery || '"wireless earbuds" manufacturer OR supplier -directory'} />
         <p className="tp-search-discovery__query-preview"><strong>当前预览：</strong>{activeQuery || '输入产品名称后自动生成'}</p>
       </Tile>
 
       <Tile className="tp-search-discovery__tile">
-        <h2>3. 搜索来源与排除规则</h2><p>仅显示已在设置中配置的免费月度服务。</p>
+        <h2>3. 搜索来源与排除规则</h2>
         <div className="tp-search-discovery__options-grid tp-search-discovery__engine-grid">
           {(['brightdata','quanticdata','serpkite','serpapi'] as const).filter(engine => configuredEngines[engine]).map(engine => <Checkbox key={engine} id={'engine-' + engine} labelText={{brightdata:'Bright Data',quanticdata:'QuanticData',serpkite:'SerpKite',serpapi:'SerpApi'}[engine]} checked={engines.includes(engine)} onChange={(_, data) => toggleEngine(engine, data.checked)} />)}
           {!Object.values(configuredEngines).some(Boolean) && <InlineNotification kind="warning" title="尚未配置搜索服务" subtitle="请前往设置 → API 集成配置免费月度搜索服务。" />}
@@ -337,14 +333,13 @@ export function SearchEngineDiscoveryPage() {
 
       <Tile id="search-submit" className="tp-search-discovery__tile tp-search-discovery__tile--last">
         <h2>搜索配置已就绪</h2>
-        <p>确认后创建搜索任务。</p>
       </Tile>
       </>}
 
       {activeStep === 1 && <>
       <section id="candidate-pool" className="tp-search-discovery__section">
         <div className="tp-search-discovery__section-heading">
-          <div><h2>候选网站</h2><p>仅显示当前任务的候选。</p></div>
+          <div><h2>候选网站</h2></div>
           <Tag type="blue">{visibleCandidates.length} 个候选 · 已选 {selectedRecordIds.length}</Tag>
         </div>
         {searchRun && <section className="tp-search-discovery__run-progress" aria-live="polite">
@@ -388,9 +383,7 @@ export function SearchEngineDiscoveryPage() {
 
       {activeStep === 2 && <>
       <section id="analysis-workbench" className="tp-search-discovery__phase-panel">
-        <p className="tp-search-discovery__eyebrow">WORKSTATION 03 / AI INTELLIGENCE</p>
         <h2>AI 深度分析工作站</h2>
-        <p>分析所选网站，核验企业信息后加入线索。</p>
         <div className="tp-search-discovery__analysis-launch">
           <NumberInput id="analysis-batch-size" label="每批网站数量" min={1} max={20} step={1} value={batchSize} onChange={(_, data) => setBatchSize(Math.max(1, Math.min(20, Number(data.value) || 10)))} />
           <div className="tp-search-discovery__analysis-launch-actions">
@@ -405,7 +398,7 @@ export function SearchEngineDiscoveryPage() {
           </div>
           <ProgressBar value={Math.max(0, Math.min(100, Number(analysisRun?.progress) || 0))} max={100} label="AI 网站分析进度" helperText={(analysisRun?.progress ?? 0) + '% · 已完成 ' + analysisRecords.filter(record => websiteAnalysis(record)?.status === 'completed').length + ' · 失败 ' + analysisRecords.filter(record => websiteAnalysis(record)?.status === 'failed').length + ' · 总计 ' + selectedRecordIds.length} />
         </section>
-        <div className="tp-search-discovery__section-heading"><div><h3>本次选中的网站与 AI 分析结果</h3><p>当前任务的分析结果。</p></div><Tag type="blue">{analysisRecords.length} 条</Tag></div>
+        <div className="tp-search-discovery__section-heading"><div><h3>本次分析结果</h3></div><Tag type="blue">{analysisRecords.length} 条</Tag></div>
         <TpDataTable<SearchRecord>
           ariaLabel="本次选择的网站及 AI 分析结果"
           rows={analysisRecords}
@@ -433,7 +426,7 @@ export function SearchEngineDiscoveryPage() {
       {activeStep === 3 && <>
         <section className="tp-search-discovery__result-shortcut">
           <h2>本次任务分析结果</h2>
-          <p>本次任务已选择 {selectedRecordIds.length} 个网站，AI 已完成 {analysisRecords.filter(record => websiteAnalysis(record)?.status === 'completed').length} 个。确认后可逐条加入线索；全部任务的汇总结果可从 Header 的「搜索客户」查看。</p>
+          <p>已选择 {selectedRecordIds.length} 个网站，完成 {analysisRecords.filter(record => websiteAnalysis(record)?.status === 'completed').length} 个分析。</p>
           {analysisRun && <ProgressBar value={Math.max(0, Math.min(100, Number(analysisRun.progress) || 0))} max={100} label="本次任务分析进度" helperText={analysisRun.message || '分析进行中'} />}
           <TpDataTable<SearchRecord> ariaLabel="本次任务分析结果" rows={analysisRecords} rowKey="id" loading={false} columns={[
             { key: 'name', header: '公司名称', primary: true, minWidth: 200 },
