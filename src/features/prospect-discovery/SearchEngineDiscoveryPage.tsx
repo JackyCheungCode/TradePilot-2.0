@@ -256,7 +256,7 @@ export function SearchEngineDiscoveryPage() {
           <Tag type="blue">{visibleCandidates.length} 个候选 · 已选 {selectedRecordIds.length}</Tag>
         </div>
 
-        <div className="tp-search-discovery__candidate-toolbar"><Tag type="blue">{visibleCandidates.length} 个候选 · 已选用于分析 {selectedRecordIds.length}</Tag></div>
+        <div className="tp-search-discovery__candidate-toolbar"><Tag type="blue">{visibleCandidates.length} 个候选 · 已选用于分析 {selectedRecordIds.length}</Tag><Button kind="ghost" size="sm" onClick={() => void refreshDiscoveryData()}>刷新候选</Button></div>
         <TpDataTable<SearchRecord>
           ariaLabel="搜索候选网站"
           rows={visibleCandidates}

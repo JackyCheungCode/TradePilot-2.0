@@ -20,6 +20,7 @@ export function SearchDiscoveryResultsPage(){
  const [keywordFilter,setKeywordFilter]=useState('all');
  const [error,setError]=useState('');
  const [loading,setLoading]=useState(true);
+ const [refreshKey,setRefreshKey]=useState(0);
  useEffect(()=>{let live=true;void (async()=>{
   const client=await getSupabaseClient();
   const allRecords:RecordRow[]=[];
@@ -29,7 +30,7 @@ export function SearchDiscoveryResultsPage(){
   const allRuns:Run[]=[];
   for(let offset=0;;offset+=1000){const{data,error}=await client.from('discovery_runs').select('id,task_code,query,countries').eq('channel','search_engine').order('created_at',{ascending:false}).range(offset,offset+999);if(error)throw error;allRuns.push(...(data??[]) as Run[]);if(!data||data.length<1000)break;}
   if(!live)return;setRows(allRecords);setOccurrences(allOccurrences);setRuns(allRuns);
- })().catch(e=>live&&setError(e instanceof Error?e.message:'结果读取失败')).finally(()=>live&&setLoading(false));return()=>{live=false}},[]);
+ })().catch(e=>live&&setError(e instanceof Error?e.message:'结果读取失败')).finally(()=>live&&setLoading(false));return()=>{live=false}},[refreshKey]);
  const runById=useMemo(()=>new Map(runs.map(run=>[run.id,run])),[runs]);
  const tasks=useMemo(()=>[...new Map(runs.map(run=>[run.id,{value:run.id,label:(run.task_code||run.id.slice(0,8))+' · '+(run.query||'未命名关键词')}])).values()],[runs]);
  const keywords=useMemo(()=>[...new Set([...occurrences.map(item=>item.keyword),...runs.map(run=>run.query)].filter((value):value is string=>!!value))].sort(),[occurrences,runs]);
@@ -59,7 +60,7 @@ export function SearchDiscoveryResultsPage(){
   {key:'keyword',header:'搜索词',minWidth:180},
  ];
  return <main className="tp-search-customers">
-  <PageHeader><div><p className="tp-search-discovery__eyebrow">SEARCH ENGINE DISCOVERY / CUSTOMER DIRECTORY</p><h1>搜索客户</h1><p>所有搜索发现的候选企业与已分析客户集中管理；按任务或搜索词分组。</p></div><Button kind="secondary" onClick={exportCsv} disabled={!filtered.length}>导出 CSV</Button></PageHeader>
+  <PageHeader><div><p className="tp-search-discovery__eyebrow">SEARCH ENGINE DISCOVERY / CUSTOMER DIRECTORY</p><h1>搜索客户</h1><p>所有搜索发现的候选企业与已分析客户集中管理；按任务或搜索词分组。</p></div><div className="tp-search-discovery__page-actions"><Button kind="secondary" onClick={()=>setRefreshKey(value=>value+1)}>刷新</Button><Button kind="secondary" onClick={exportCsv} disabled={!filtered.length}>导出 CSV</Button></div></PageHeader>
   {error&&<InlineNotification kind="error" title="读取失败" subtitle={error}/>}
   <div className="tp-search-discovery__page-actions"><Link href="/prospect-discovery/search-engine">返回搜索客户流程</Link><Link href="/prospect-discovery/search-engine/tasks">历史任务</Link></div>
   <div className="tp-search-discovery__result-filters">
