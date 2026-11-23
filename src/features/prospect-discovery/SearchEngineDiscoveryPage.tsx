@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { PageHeader, Button, Checkbox, ComboBox, InlineNotification, Link, NumberInput, ProgressBar, ProgressIndicator, ProgressStep, WorldMapChart, Tag, TextArea, TextInput, Tile, semanticIcons } from '@/design-system';
+import { PageHeader, Button, Checkbox, ComboBox, InlineNotification, Link, NumberInput, ProgressIndicator, ProgressStep, WorldMapChart, Tag, TextArea, TextInput, Tile, Select, SelectItem, TpDataTable } from '@/design-system';
+import { useNavigate } from 'react-router-dom';
 import { getSupabaseClient } from '@/lib/supabase';
 import '@/design-system/patterns/search-engine-discovery.scss';
 
@@ -18,8 +19,6 @@ const roles = [
   { id: 'oem', label: 'OEM / ODM', terms: 'OEM OR ODM' },
 ];
 const categoryLabels: Record<string, string> = { ecommerce:'电商平台',social:'社交媒体',video:'视频平台',directories:'企业目录',news:'新闻媒体',forums:'论坛社区',search_engines:'搜索引擎',job_boards:'招聘网站',maps_reviews:'地图点评',government:'政府机构',education:'教育学术',software:'软件目录',hosting:'托管建站',classifieds:'分类信息',finance:'金融投资',travel:'旅游票务',aggregators:'价格聚合',nonprofit:'非营利组织',adult_gambling:'成人博彩' };
-const languageByCountry: Record<string, string> = { DE:'de', AT:'de', CH:'de', FR:'fr', ES:'es', MX:'es', IT:'it', JP:'ja', KR:'ko', CN:'zh-cn', TW:'zh-tw', HK:'zh-tw', NL:'nl', BR:'pt-br', PT:'pt', RU:'ru', TH:'th', VN:'vi', ID:'id', TR:'tr', SA:'ar', AE:'ar' };
-const statusText: Record<string, string> = { queued:'排队中', running:'执行中', completed:'已完成', partial:'部分完成', failed:'失败', paused:'已暂停', cancelled:'已取消' };
 
 async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const client = await getSupabaseClient();
@@ -44,12 +43,12 @@ export function SearchEngineDiscoveryPage() {
   const [product, setProduct] = useState('');
   const [rolesSelected, setRolesSelected] = useState<string[]>(['manufacturer','brand','supplier','wholesaler','importer','distributor','oem']);
   const [searchLanguage, setSearchLanguage] = useState('en');
+  const navigate = useNavigate();
   const [engines, setEngines] = useState<string[]>(['serper']);
   const [limit, setLimit] = useState(100);
   const [advancedQuery, setAdvancedQuery] = useState('');
   const [categories, setCategories] = useState<ExclusionCategory[]>([]);
   const [excludeDomains, setExcludeDomains] = useState('');
-  const [runs, setRuns] = useState<Run[]>([]);
   const [verifiedRecords, setVerifiedRecords] = useState<SearchRecord[]>([]);
   const [activeStep, setActiveStep] = useState(0);
   const [selectedRecordIds, setSelectedRecordIds] = useState<string[]>([]);
@@ -66,14 +65,11 @@ export function SearchEngineDiscoveryPage() {
     Promise.all([
       api<{ countries: Country[] }>('/api/v1/prospect-profiling/countries'),
       api<ExclusionCategory[]>('/api/v1/settings/search-exclusions'),
-      getSupabaseClient().then(client => client.from('discovery_runs').select('id,task_code,query,countries,status,progress,discovered_count,message,created_at,search_config').eq('channel','search_engine').order('created_at',{ascending:false}).limit(8)),
       getSupabaseClient().then(client => client.from('discovery_records').select('id,name,website,country_code,status,raw_data,updated_at').eq('channel','search_engine').in('status',['new','removed']).order('updated_at',{ascending:false}).limit(1000)),
     ]).then(([countryData, exclusionData, runResult, recordResult]) => {
       if (!active) return;
       setCountries(countryData.countries ?? []);
       setCategories(exclusionData ?? []);
-      if (runResult.error) throw runResult.error;
-      setRuns((runResult.data ?? []) as Run[]);
       if (recordResult.error) throw recordResult.error;
       setVerifiedRecords((recordResult.data ?? []) as SearchRecord[]);
     }).catch(cause => { if (active) setError(cause instanceof Error ? cause.message : '页面数据读取失败'); })
@@ -81,19 +77,12 @@ export function SearchEngineDiscoveryPage() {
     return () => { active = false; };
   }, []);
 
-  useEffect(() => {
-    if (!country) return;
-    setSearchLanguage(languageByCountry[country.cca2] ?? 'en');
-  }, [country]);
-
   const generatedQuery = useMemo(() => {
     const terms = roles.filter(role => rolesSelected.includes(role.id)).map(role => '(' + role.terms + ')');
     const base = '"' + product.trim().replace(/"/g, '') + '"';
     return [base, terms.length ? '(' + terms.join(' OR ') + ')' : '', country ? '(' + country.name.common + ' OR ' + country.cca2 + ')' : ''].filter(Boolean).join(' ');
   }, [product, rolesSelected, country]);
   const activeQuery = advancedQuery.trim() || generatedQuery;
-  const analysisRuns = useMemo(() => runs.filter(run => run.search_config?.taskType === 'website_analysis'), [runs]);
-  const latestAnalysisRun = analysisRuns[0];
   const visibleCandidates = useMemo(() => verifiedRecords.filter(record => record.status === 'new' && ((record.name || '').toLowerCase().includes(candidateFilter.toLowerCase()) || (record.website || '').toLowerCase().includes(candidateFilter.toLowerCase()))), [verifiedRecords, candidateFilter]);
   const mapCountries = useMemo(() => countries.map(item => ({ code: item.cca2, label: countryLabel(item), value: 1 })), [countries]);
 
@@ -102,23 +91,10 @@ export function SearchEngineDiscoveryPage() {
   const toggleCategory = (key: string, checked: boolean) => setCategories(current => current.map(item => item.key === key ? { ...item, enabled: checked } : item));
   const refreshDiscoveryData = async () => {
     const client = await getSupabaseClient();
-    const [{ data: runData, error: runError }, { data: recordData, error: recordError }] = await Promise.all([
-      client.from('discovery_runs').select('id,task_code,query,countries,status,progress,discovered_count,message,created_at,search_config').eq('channel','search_engine').order('created_at',{ascending:false}).limit(20),
-      client.from('discovery_records').select('id,name,website,country_code,status,raw_data,updated_at').eq('channel','search_engine').in('status',['new','removed']).order('updated_at',{ascending:false}).limit(1000),
-    ]);
-    if (runError) throw runError;
+    const { data, error: recordError } = await client.from('discovery_records').select('id,name,website,country_code,status,raw_data,updated_at').eq('channel','search_engine').in('status',['new','removed']).order('updated_at',{ascending:false}).limit(1000);
     if (recordError) throw recordError;
-    setRuns((runData ?? []) as Run[]);
-    setVerifiedRecords((recordData ?? []) as SearchRecord[]);
+    setVerifiedRecords((data ?? []) as SearchRecord[]);
   };
-
-  useEffect(() => {
-    const hasActiveAnalysis = runs.some(run => run.search_config?.taskType === 'website_analysis' && ['queued','running','paused'].includes(run.status || ''));
-    const hasActiveSearch = runs.some(run => run.search_config?.taskType !== 'website_analysis' && ['queued','running'].includes(run.status || ''));
-    if (!hasActiveAnalysis && !hasActiveSearch) return;
-    const timer = window.setInterval(() => { void refreshDiscoveryData().catch(cause => setError(cause instanceof Error ? cause.message : '刷新任务进度失败')); }, 4000);
-    return () => window.clearInterval(timer);
-  }, [runs]);
 
   const startAnalysis = async (forceReanalysis = false) => {
     const eligibleRecordIds = selectedRecordIds.filter(id => verifiedRecords.some(record => record.id === id && record.status === 'new' && !!record.website));
@@ -130,38 +106,9 @@ export function SearchEngineDiscoveryPage() {
         method: 'POST', body: JSON.stringify({ recordIds: eligibleRecordIds, batchSize, forceReanalysis, country: country?.cca2 }),
       });
       setNotice('AI 分析任务已创建：' + result.taskCode + ' · ' + result.selectedCount + ' 个网站 · 每批 ' + result.batchSize + ' 个');
-      setActiveStep(2);
       await refreshDiscoveryData();
     } catch (cause) { setError(cause instanceof Error ? cause.message : '启动网站分析失败'); }
     finally { setAnalyzeSubmitting(false); }
-  };
-
-  const controlAnalysis = async (runId: string, action: 'pause' | 'resume' | 'cancel') => {
-    setError('');
-    try {
-      await api('/api/v1/search-discovery-runs/' + runId + '/control', { method: 'POST', body: JSON.stringify({ action }) });
-      setNotice(action === 'pause' ? '分析任务已暂停。' : action === 'resume' ? '分析任务已继续。' : '分析任务已取消。');
-      await refreshDiscoveryData();
-    } catch (cause) { setError(cause instanceof Error ? cause.message : '任务控制失败'); }
-  };
-
-  const retryAnalysis = async (runId: string) => {
-    setError('');
-    try {
-      const result = await api<{ taskCode: string; selectedCount: number }>('/api/v1/search-discovery-runs/' + runId + '/retry', { method: 'POST', body: JSON.stringify({}) });
-      setNotice('失败网站已重新排队：' + result.taskCode + ' · ' + result.selectedCount + ' 个');
-      await refreshDiscoveryData();
-    } catch (cause) { setError(cause instanceof Error ? cause.message : '重试失败'); }
-  };
-
-  const removeSelectedCandidates = async () => {
-    if (!selectedRecordIds.length) return;
-    const client = await getSupabaseClient();
-    const { error: updateError } = await client.from('discovery_records').update({ status: 'removed' }).eq('channel', 'search_engine').in('id', selectedRecordIds);
-    if (updateError) { setError(updateError.message); return; }
-    setSelectedRecordIds([]);
-    setNotice('已从候选池移除所选网站；原始搜索来源记录仍保留。');
-    await refreshDiscoveryData();
   };
 
   const submit = async () => {
@@ -187,11 +134,8 @@ export function SearchEngineDiscoveryPage() {
       setNotice('搜索任务已创建：' + (payload.taskCode ?? '已进入队列') + '。任务日志已开始记录；搜索结果完成后将自动进入候选网站池。');
       setActiveStep(1);
       const client = await getSupabaseClient();
-      const [{ data }, { data: recordData }] = await Promise.all([
-        client.from('discovery_runs').select('id,task_code,query,countries,status,progress,discovered_count,message,created_at,search_config').eq('channel','search_engine').order('created_at',{ascending:false}).limit(8),
-        client.from('discovery_records').select('id,name,website,country_code,raw_data,updated_at').eq('channel','search_engine').order('updated_at',{ascending:false}).limit(100),
-      ]);
-      setRuns((data ?? []) as Run[]);
+      const { data: recordData, error: recordError } = await client.from('discovery_records').select('id,name,website,country_code,status,raw_data,updated_at').eq('channel','search_engine').order('updated_at',{ascending:false}).limit(1000);
+      if (recordError) throw recordError;
       setVerifiedRecords((recordData ?? []) as SearchRecord[]);
       setSelectedRecordIds([]);
     } catch (cause) { setError(cause instanceof Error ? cause.message : '创建搜索任务失败'); }
@@ -208,12 +152,18 @@ export function SearchEngineDiscoveryPage() {
         </div>
         <div><Tag type="blue">产品驱动发现</Tag></div>
       </PageHeader>
-      <section className="tp-search-discovery__steps" aria-label="潜客发现步骤"><ProgressIndicator currentIndex={activeStep} spaceEqually><ProgressStep label="搜索条件" description="配置市场与排除规则" /><ProgressStep label="候选网站" description="API 搜索结果候选池" /><ProgressStep label="批量分析" description="分析已选官网" /><ProgressStep label="分析结果" description="复核企业情报" /></ProgressIndicator></section>
-      <div className="tp-search-discovery__page-actions"><Link href="/prospect-discovery/search-engine/tasks">实时任务 / 执行日志</Link><Link href="/prospect-discovery/search-engine/results">全部结果</Link></div>
+      <section className="tp-search-discovery__steps-viewport" aria-label="搜索客户流程">
+        <div className="tp-search-discovery__steps-track"><ProgressIndicator currentIndex={activeStep} spaceEqually><ProgressStep label="搜索条件" description="Search criteria" /><ProgressStep label="候选网站" description="Candidate websites" /><ProgressStep label="批量分析" description="Batch analysis" /><ProgressStep label="分析结果" description="Company results" /></ProgressIndicator></div>
+      </section>
+      <div className="tp-search-discovery__page-actions">
+        <Button kind="secondary" onClick={() => navigate('/prospect-discovery/search-engine/tasks')}>历史任务</Button>
+        <Button kind="primary" onClick={() => navigate('/prospect-discovery/search-engine/results')}>搜索客户</Button>
+      </div>
 
       {error && <InlineNotification kind="error" title="操作未完成" subtitle={error} onCloseButtonClick={() => setError('')} />}
       {notice && <InlineNotification kind="success" title="任务已提交" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
 
+      {activeStep === 0 && <>
       <Tile id="search-target" className="tp-search-discovery__tile">
         <h2>1. 搜索目标</h2>
         <p>输入产品名称，选择希望发现客户的国家或地区。国家参数用于定位搜索市场，网站域名不会被当作企业所在地证明。</p>
@@ -222,6 +172,22 @@ export function SearchEngineDiscoveryPage() {
           <ComboBox id="search-country" titleText="目标国家 / 地区" placeholder="搜索国家名称或代码" items={countries} itemToString={item => item ? countryLabel(item) + ' (' + item.cca2 + ')' : ''} selectedItem={country} onChange={({ selectedItem }) => setCountry(selectedItem ?? null)} />
         </div>
         {country && <p className="tp-search-discovery__market-meta"><img src={flag(country.cca2)} alt="" width="24" height="16" />　目标市场：{countryLabel(country)}（{country.cca2}） · 搜索语言：{searchLanguage}</p>}
+        <div className="tp-search-discovery__language-select">
+          <Select id="search-language" labelText="搜索结果语言 / Result language" value={searchLanguage} onChange={event => setSearchLanguage(event.currentTarget.value)}>
+            <SelectItem value="en" text="英语 / English（推荐）" />
+            <SelectItem value="de" text="德语 / Deutsch" />
+            <SelectItem value="fr" text="法语 / Français" />
+            <SelectItem value="es" text="西班牙语 / Español" />
+            <SelectItem value="it" text="意大利语 / Italiano" />
+            <SelectItem value="ja" text="日语 / 日本語" />
+            <SelectItem value="ko" text="韩语 / 한국어" />
+            <SelectItem value="pt" text="葡萄牙语 / Português" />
+            <SelectItem value="nl" text="荷兰语 / Nederlands" />
+            <SelectItem value="zh-cn" text="简体中文 / 简体中文" />
+            <SelectItem value="zh-tw" text="繁体中文 / 繁體中文" />
+          </Select>
+          <p>国家 / 地区决定搜索市场；此选项限制网页结果语言，不会自动跟随国家切换。</p>
+        </div>
         <div className="tp-search-discovery__map"><h3>Carbon 全球市场地图</h3><p>点击地图上的国家 / 地区即可单选；也可使用上方国家搜索框。</p><WorldMapChart data={mapCountries} selectedCode={country?.cca2} onCountrySelect={code => setCountry(countries.find(item => item.cca2 === code) ?? null)} showRanking={false} unitLabel="个目标市场" /></div>
         <div className="tp-search-discovery__subsection">
           <h3>目标企业类型</h3>
@@ -253,49 +219,44 @@ export function SearchEngineDiscoveryPage() {
       </Tile>
 
       <Tile id="search-submit" className="tp-search-discovery__tile tp-search-discovery__tile--last">
-        <h2>4. 创建搜索任务</h2>
-        <p>目标国家通过搜索引擎国家参数和语言参数定位；实际企业所在地需要后续根据网站地址、联系方式和公开资料核验。</p>
-        <Button renderIcon={semanticIcons.search} disabled={submitting || loading} onClick={() => void submit()}>{submitting ? '正在创建…' : '开始搜索并发现企业'}</Button>
-        <Link href="/prospect-history">查看全部发现任务</Link>
+        <h2>搜索配置已就绪</h2>
+        <p>下一步将创建搜索任务。系统仅调用搜索 API，不会在此阶段抓取候选网站。</p>
       </Tile>
+      </>}
 
+      {activeStep === 1 && <>
       <section id="candidate-pool" className="tp-search-discovery__section">
         <div className="tp-search-discovery__section-heading">
           <div><h2>候选网站池</h2><p>这里只展示搜索 API 返回并已保存的候选，不访问网站、不运行 Browser Run。</p></div>
           <Tag type="blue">{verifiedRecords.length} 个候选 · 已选 {selectedRecordIds.length}</Tag>
         </div>
 
-        <div className="tp-search-discovery__candidate-toolbar">
-          <TextInput id="candidate-filter" labelText="筛选候选网站" placeholder="输入公司名称或域名" value={candidateFilter} onChange={event => setCandidateFilter(event.currentTarget.value)} />
-          <div className="tp-search-discovery__selection-actions">
-            <Button kind="ghost" size="sm" onClick={() => setSelectedRecordIds(current => [...new Set([...current, ...visibleCandidates.map(record => record.id)])])} disabled={!visibleCandidates.length}>全选筛选结果</Button>
-            <Button kind="ghost" size="sm" onClick={() => setSelectedRecordIds(current => [...new Set([...current.filter(id => !visibleCandidates.some(record => record.id === id)), ...visibleCandidates.filter(record => !current.includes(record.id)).map(record => record.id)])])} disabled={!visibleCandidates.length}>反选筛选结果</Button>
-            <Button kind="ghost" size="sm" onClick={() => setSelectedRecordIds([])} disabled={!selectedRecordIds.length}>清空选择</Button>
-            <Button kind="danger--tertiary" size="sm" onClick={() => void removeSelectedCandidates()} disabled={!selectedRecordIds.length}>移除所选</Button>
-          </div>
-        </div>
-        {visibleCandidates.length === 0 ? <Tile>暂无符合条件的候选网站。完成第一步搜索后，候选网站会保存在这里。</Tile> : (
-          <div className="tp-search-discovery__run-list">
-            {visibleCandidates.map(record => {
-              const analysis = websiteAnalysis(record);
-              const analyzed = analysis?.status === 'completed';
-              const failed = analysis?.status === 'failed';
-              return <Tile key={record.id}>
-                <div className="tp-search-discovery__candidate-row">
-                  <Checkbox id={'candidate-' + record.id} labelText="" checked={selectedRecordIds.includes(record.id)} onChange={(_, data) => setSelectedRecordIds(current => data.checked ? [...new Set([...current, record.id])] : current.filter(id => id !== record.id))} />
-                  <div className="tp-search-discovery__candidate-copy">
-                    <strong>{record.name || '未命名候选网站'}</strong>
-                    <p>{record.website || '搜索结果尚未提供官网地址'} · {record.country_code || '国家待核实'}</p>
-                    {record.website && <Link href={record.website}>打开候选网站</Link>}
-                  </div>
-                  <Tag type={!record.website ? 'warm-gray' : analyzed ? 'green' : failed ? 'red' : 'cool-gray'}>{!record.website ? '缺少官网' : analyzed ? '已分析' : failed ? '分析失败' : '待分析'}</Tag>
-                </div>
-              </Tile>;
-            })}
-          </div>
-        )}
+        <div className="tp-search-discovery__candidate-toolbar"><Tag type="blue">{verifiedRecords.length} 个候选 · 已选用于分析 {selectedRecordIds.length}</Tag></div>
+        <TpDataTable
+          ariaLabel="搜索候选网站"
+          rows={visibleCandidates}
+          rowKey="id"
+          selectable
+          loading={loading}
+          searchValue={candidateFilter}
+          onSearchChange={setCandidateFilter}
+          columns={[
+            { key: 'name', header: '候选企业 / 网站', primary: true, minWidth: 260, render: record => <div><strong>{record.name || '未命名候选网站'}</strong><p>{record.website || '未提供官网地址'}</p></div> },
+            { key: 'country_code', header: '国家 / 地区', minWidth: 120 },
+            { key: 'analysis_status', header: '分析状态', minWidth: 120, render: record => { const status = websiteAnalysis(record)?.status; return <Tag type={status === 'completed' ? 'green' : status === 'failed' ? 'red' : 'cool-gray'}>{status === 'completed' ? '已分析' : status === 'failed' ? '分析失败' : '待分析'}</Tag>; } },
+            { key: 'website', header: '官网', minWidth: 220, render: record => record.website ? <Link href={record.website}>打开官网</Link> : '—' },
+          ]}
+          batchActions={[
+            { key: 'select-analysis', label: '加入分析选择', onClick: records => setSelectedRecordIds(records.filter(record => record.website && record.status === 'new').map(record => record.id)) },
+            { key: 'remove-candidates', label: '从候选池移除', onClick: async records => { const client = await getSupabaseClient(); const { error: updateError } = await client.from('discovery_records').update({ status: 'removed' }).eq('channel', 'search_engine').in('id', records.map(record => record.id)); if (updateError) throw updateError; setSelectedRecordIds(current => current.filter(id => !records.some(record => record.id === id))); await refreshDiscoveryData(); } },
+          ]}
+          emptyState={<p>暂无符合条件的候选网站。搜索任务完成后，结果会自动进入这里。</p>}
+          columnSettingsKey="search-discovery-candidates"
+        />
       </section>
+      </>}
 
+      {activeStep === 2 && <>
       <section id="analysis-workbench" className="tp-search-discovery__phase-panel">
         <p className="tp-search-discovery__eyebrow">WORKSTATION 03 / AI INTELLIGENCE</p>
         <h2>AI 深度分析工作站</h2>
@@ -307,27 +268,29 @@ export function SearchEngineDiscoveryPage() {
             <Button kind="secondary" onClick={() => void startAnalysis(true)} disabled={!selectedRecordIds.length || analyzeSubmitting}>{analyzeSubmitting ? '正在启动…' : '重新分析所选'}</Button>
           </div>
         </div>
-        {latestAnalysisRun ? (
-          <Tile>
-            <div className="tp-search-discovery__run-row">
-              <div><strong>{latestAnalysisRun.task_code || 'AI 网站分析任务'}</strong><p>{latestAnalysisRun.message || '—'}</p></div>
-              <Tag type={latestAnalysisRun.status === 'completed' ? 'green' : latestAnalysisRun.status === 'failed' ? 'red' : latestAnalysisRun.status === 'paused' ? 'warm-gray' : 'blue'}>{statusText[latestAnalysisRun.status || ''] || latestAnalysisRun.status}</Tag>
-            </div>
-            <ProgressBar value={latestAnalysisRun.progress ?? 0} max={100} label="分析进度" helperText={(latestAnalysisRun.progress ?? 0) + "% · 已处理 " + (latestAnalysisRun.discovered_count ?? 0) + " 个候选"} />
-            <div className="tp-search-discovery__analysis-controls">
-              {latestAnalysisRun.status === 'running' || latestAnalysisRun.status === 'queued' ? <Button kind="ghost" size="sm" onClick={() => void controlAnalysis(latestAnalysisRun.id, 'pause')}>暂停</Button> : null}
-              {latestAnalysisRun.status === 'paused' ? <Button kind="ghost" size="sm" onClick={() => void controlAnalysis(latestAnalysisRun.id, 'resume')}>继续</Button> : null}
-              {['running','queued','paused'].includes(latestAnalysisRun.status || '') ? <Button kind="danger--tertiary" size="sm" onClick={() => void controlAnalysis(latestAnalysisRun.id, 'cancel')}>取消</Button> : null}
-              {['failed','partial'].includes(latestAnalysisRun.status || '') ? <Button kind="secondary" size="sm" onClick={() => void retryAnalysis(latestAnalysisRun.id)}>重试失败网站</Button> : null}
-            </div>
-          </Tile>
-        ) : <Tile>尚未启动网站分析任务。先在第二步选择候选网站，再启动分析。</Tile>}
+        <div className="tp-search-discovery__history-hint">
+          <p>分析任务创建后，进度、暂停 / 继续、取消、重试及执行日志统一在「历史任务」页面管理，不在流程页显示实时任务面板。</p>
+          <Button kind="secondary" onClick={() => navigate('/prospect-discovery/search-engine/tasks')}>打开历史任务</Button>
+        </div>
       </section>
 
 
-      <section className="tp-search-discovery__result-shortcut"><h2>分析结果已独立管理</h2><p>所有搜索候选与完成分析的企业情报统一在「全部结果」页面筛选、复核和导出。</p><Link href="/prospect-discovery/search-engine/results">打开全部结果</Link></section>
+      </>}
+      {activeStep === 3 && <>
+        <section className="tp-search-discovery__result-shortcut">
+          <h2>搜索客户结果</h2>
+          <p>全部候选企业和完成分析的客户集中在搜索客户页面，支持按搜索任务、搜索词分组，以 Carbon 数据表格查看和导出。</p>
+          <Button kind="primary" onClick={() => navigate('/prospect-discovery/search-engine/results')}>打开搜索客户</Button>
+        </section>
+      </>}
 
-      <section className="tp-search-discovery__result-shortcut"><h2>任务状态与执行日志</h2><p>实时任务、历史任务和逐条搜索日志已独立到任务中心。</p><Link href="/prospect-discovery/search-engine/tasks">打开实时任务中心</Link></section>
+      <nav className="tp-search-discovery__wizard-nav" aria-label="流程导航">
+        <Button kind="secondary" disabled={activeStep === 0} onClick={() => setActiveStep(step => Math.max(0, step - 1))}>上一步</Button>
+        <span>步骤 {activeStep + 1} / 4</span>
+        <Button kind="primary" disabled={activeStep === 3 || (activeStep === 0 && !product.trim())} loading={submitting} onClick={() => activeStep === 0 ? void submit() : setActiveStep(step => Math.min(3, step + 1))}>
+          {activeStep === 0 ? (submitting ? '创建中…' : '创建搜索任务并下一步') : '下一步'}
+        </Button>
+      </nav>
     </main>
   );
 }

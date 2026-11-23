@@ -164,11 +164,29 @@ export function WorldMapChart({
   const ranked = useMemo(() => [...data].filter(item => item.value > 0).sort((a, b) => b.value - a.value).slice(0, 8), [data]);
   const max = positiveValues[positiveValues.length - 1] || 0;
   const min = positiveValues[0] || 0;
+  const focusedViewBox = useMemo(() => {
+    if (!selectedCode) return `0 0 ${WIDTH} ${HEIGHT}`;
+    const selected = data.find(item => item.code.toUpperCase() === selectedCode.toUpperCase());
+    if (!selected) return `0 0 ${WIDTH} ${HEIGHT}`;
+    const english = normalize(countryName(selected.code));
+    const shape = WORLD_SHAPES.find(item => normalize(item.name) === english
+      || normalize(NAME_ALIASES[english] || '') === normalize(item.name));
+    if (!shape) return `0 0 ${WIDTH} ${HEIGHT}`;
+    const pairs = [...shape.path.matchAll(/(-?\\d+(?:\\.\\d+)?),(-?\\d+(?:\\.\\d+)?)/g)];
+    if (!pairs.length) return `0 0 ${WIDTH} ${HEIGHT}`;
+    const xs = pairs.map(pair => Number(pair[1]));
+    const ys = pairs.map(pair => Number(pair[2]));
+    const minX = Math.min(...xs), maxX = Math.max(...xs);
+    const minY = Math.min(...ys), maxY = Math.max(...ys);
+    const padX = Math.max(12, (maxX - minX) * 0.24);
+    const padY = Math.max(12, (maxY - minY) * 0.24);
+    return `${Math.max(0, minX - padX)} ${Math.max(0, minY - padY)} ${Math.min(WIDTH, maxX + padX) - Math.max(0, minX - padX)} ${Math.min(HEIGHT, maxY + padY) - Math.max(0, minY - padY)}`;
+  }, [data, selectedCode]);
 
   return (
     <div className="tp-world-map">
       <div className="tp-world-map__canvas">
-        <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="img" aria-label={`全球分布地图，共 ${data.filter(item => item.value > 0).length} 个有数据的国家或地区`}>
+        <svg viewBox={focusedViewBox} role="img" aria-label={`全球分布地图，共 ${data.filter(item => item.value > 0).length} 个有数据的国家或地区`}>
           <g className="tp-world-map__countries">
             {WORLD_SHAPES.map(shape => {
               const key = normalize(shape.name);
