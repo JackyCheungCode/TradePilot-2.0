@@ -4,7 +4,7 @@ import { discoveryRunQuery } from "../lib/owner-scoped-query";
 import { readIntegrationSecret } from "../lib/integrations";
 import { evaluateGuardrails, getDuplicatePolicy } from "../lib/guardrails";
 import { normalizeMerchantDomain, searchResultIdentity, searchResultExclusionTarget } from "./search-result-normalization.ts";
-type Engine="serper"|"serpapi"; type Vertical="web"|"shopping"|"images"|"news"|"videos"|"scholar"|"patents";
+type Engine="serper"|"serpapi"|"brightdata"|"quanticdata"|"serpkite"; type Vertical="web"|"shopping"|"images"|"news"|"videos"|"scholar"|"patents";
 type Result={title:string;url:string;snippet:string;raw:Record<string,unknown>};
 const serper:Record<Vertical,string>={web:"search",shopping:"shopping",images:"images",news:"news",videos:"videos",scholar:"scholar",patents:"patents"};
 const serp:Record<Vertical,string>={web:"google",shopping:"google_shopping",images:"google_images",news:"google_news",videos:"google_videos",scholar:"google_scholar",patents:"google_patents"};
@@ -14,18 +14,44 @@ async function update(env:DiscoveryEnv,id:string,owner:string,patch:Record<strin
 function pick(row:Record<string,unknown>):Result|null{const url=String(row.link??row.product_link??row.url??"");const title=String(row.title??row.name??row.product_title??"");if(!url||!title)return null;try{const u=new URL(url);if(u.protocol!=="http:"&&u.protocol!=="https:")return null;return{title,url:u.toString(),snippet:String(row.snippet??row.description??""),raw:row};}catch{return null;}}
 async function search(engine:Engine,type:Vertical,q:string,country:string,hl:string,limit:number,location:string,env:DiscoveryEnv):Promise<Result[]>{
  const out:Result[]=[];let start=0;
- const engineKey=engine==="serper"?await readIntegrationSecret(env,"tradepilot_api_serper","SERPER_API_KEY"):await readIntegrationSecret(env,"tradepilot_api_serpapi","SERPAPI_API_KEY");
- if(!engineKey)throw new Error(engine==="serper"?"SERPER_API_KEY_NOT_CONFIGURED":"SERPAPI_API_KEY_NOT_CONFIGURED");
- while(start<limit){const num=Math.min(100,limit-start);let response:Response;
+ const secretNames:Record<Engine,string>={serper:"tradepilot_api_serper",serpapi:"tradepilot_api_serpapi",brightdata:"tradepilot_api_brightdata",quanticdata:"tradepilot_api_quanticdata",serpkite:"tradepilot_api_serpkite"};
+ const engineKey=await readIntegrationSecret(env,secretNames[engine]);
+ if(!engineKey)throw new Error(engine.toUpperCase()+"_API_KEY_NOT_CONFIGURED");
  const languageCode=hl.toLowerCase().split("-")[0];
- if(engine==="serper"){response=await fetch("https://google.serper.dev/"+serper[type],{method:"POST",headers:{"X-API-KEY":engineKey,"Content-Type":"application/json"},body:JSON.stringify({q,gl:country.toLowerCase(),hl:languageCode,num,page:Math.floor(start/num)+1,...(location?{location}:{})}),signal:AbortSignal.timeout(45000)});}
- else{const p=new URLSearchParams({engine:serp[type],q,gl:country.toLowerCase(),hl:languageCode,num:String(num),start:String(start),api_key:engineKey});if(location)p.set("location",location);response=await fetch("https://serpapi.com/search.json?"+p.toString(),{signal:AbortSignal.timeout(45000)});}
- const responseText=await response.text();
- if(!response.ok)throw new Error(engine.toUpperCase()+"_HTTP_"+response.status+": "+responseText.slice(0,400));
- const body=JSON.parse(responseText) as Record<string,unknown>;if(body.error)throw new Error(engine.toUpperCase()+"_API_ERROR: "+String(body.error).slice(0,300));
- const keys:Record<Vertical,string[]>={web:engine==="serper"?["organic"]:["organic_results"],shopping:engine==="serper"?["shopping"]:["shopping_results"],images:engine==="serper"?["images"]:["images_results"],news:engine==="serper"?["news"]:["news_results"],videos:engine==="serper"?["videos"]:["video_results"],scholar:engine==="serper"?["organic"]:["organic_results"],patents:engine==="serper"?["organic"]:["patents_results","organic_results"]};
- let rows:Record<string,unknown>[]=[];for(const key of keys[type])if(Array.isArray(body[key])){rows=body[key] as Record<string,unknown>[];break;}out.push(...rows.map(pick).filter((x):x is Result=>!!x));if(rows.length<num)break;start+=num;
- }return out.slice(0,limit);
+ while(start<limit){
+  const num=Math.min(100,limit-start);let response:Response;let resultKey:string[];
+  if(engine==="serper"){
+   response=await fetch("https://google.serper.dev/"+serper[type],{method:"POST",headers:{"X-API-KEY":engineKey,"Content-Type":"application/json"},body:JSON.stringify({q,gl:country.toLowerCase(),hl:languageCode,num,page:Math.floor(start/num)+1,...(location?{location}:{})}),signal:AbortSignal.timeout(45000)});
+   resultKey=[type==="web"||type==="scholar"||type==="patents"?"organic":serper[type]];
+  }else if(engine==="serpapi"){
+   const p=new URLSearchParams({engine:serp[type],q,gl:country.toLowerCase(),hl:languageCode,num:String(num),start:String(start),api_key:engineKey});if(location)p.set("location",location);
+   response=await fetch("https://serpapi.com/search.json?"+p.toString(),{signal:AbortSignal.timeout(45000)});
+   resultKey=type==="web"||type==="scholar"||type==="patents"?["organic_results","patents_results"]:({shopping:["shopping_results"],images:["images_results"],news:["news_results"],videos:["video_results"]} as Record<string,string[]>)[type];
+  }else if(engine==="brightdata"){
+   const zone=await readIntegrationSecret(env,"tradepilot_api_brightdata_zone");
+   if(!zone)throw new Error("BRIGHTDATA_SERP_ZONE_NOT_CONFIGURED");
+   const target=new URL("https://www.google.com/search");target.searchParams.set("q",q);target.searchParams.set("gl",country.toLowerCase());target.searchParams.set("hl",languageCode);target.searchParams.set("start",String(start));target.searchParams.set("brd_json","1");
+   response=await fetch("https://api.brightdata.com/request",{method:"POST",headers:{Authorization:"Bearer "+engineKey,"Content-Type":"application/json"},body:JSON.stringify({zone,url:target.toString(),format:"raw"}),signal:AbortSignal.timeout(60000)});
+   resultKey=["organic"];
+  }else if(engine==="quanticdata"){
+   if(type!=="web")throw new Error("QUANTICDATA_VERTICAL_NOT_SUPPORTED");
+   response=await fetch("https://api.quanticdata.io/v1/scraper/serp",{method:"POST",headers:{Authorization:"Bearer "+engineKey,"Content-Type":"application/json"},body:JSON.stringify({query:q,engine:"google",country:country.toLowerCase(),lang:languageCode,num,page:Math.floor(start/num)+1}),signal:AbortSignal.timeout(60000)});
+   resultKey=["payload.organic","payload.organic_results"];
+  }else{
+   const vertical:Record<Vertical,string>={web:"search",shopping:"shopping",images:"images",news:"news",videos:"videos",scholar:"scholar",patents:"patents"};
+   response=await fetch("https://api.serpkite.com/v1/"+vertical[type],{method:"POST",headers:{Authorization:"Bearer "+engineKey,"Content-Type":"application/json"},body:JSON.stringify({q,country:country.toLowerCase(),language:languageCode,num,page:Math.floor(start/num)+1,...(location?{location}:{})}),signal:AbortSignal.timeout(60000)});
+   resultKey=["results"];
+  }
+  const responseText=await response.text();
+  if(!response.ok)throw new Error(engine.toUpperCase()+"_HTTP_"+response.status+": "+responseText.slice(0,400));
+  const body=JSON.parse(responseText) as Record<string,unknown>;
+  if(body.error||body.type==="error")throw new Error(engine.toUpperCase()+"_API_ERROR: "+String(body.error??body.message).slice(0,300));
+  let rows:Record<string,unknown>[]=[];
+  for(const key of resultKey){const value=key.startsWith("payload.")?(body.payload as Record<string,unknown>|undefined)?.[key.slice(8)]:body[key];if(Array.isArray(value)){rows=value as Record<string,unknown>[];break;}}
+  out.push(...rows.map(pick).filter((x):x is Result=>!!x));
+  if(rows.length<num)break;start+=num;
+ }
+ return out.slice(0,limit);
 }
 function excluded(url:string,rules:string[]){try{const u=new URL(url),host=u.hostname.toLowerCase(),path=u.pathname.toLowerCase();return rules.some(rule=>{const [domain,...rest]=rule.toLowerCase().split("/");const prefix=rest.length?"/"+rest.join("/"):"";return(domain.startsWith(".")?host.endsWith(domain):(host===domain||host.endsWith("."+domain)))&&(!prefix||path.startsWith(prefix));});}catch{return true;}}
 async function persist(env:DiscoveryEnv,owner:string,run:string,input:DiscoveryRunInput,engine:Engine,type:Vertical,item:Result){
