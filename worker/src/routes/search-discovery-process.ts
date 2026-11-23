@@ -14,6 +14,7 @@ async function update(env:DiscoveryEnv,id:string,owner:string,patch:Record<strin
 function pick(row:Record<string,unknown>):Result|null{const url=String(row.link??row.product_link??row.url??"");const title=String(row.title??row.name??row.product_title??"");if(!url||!title)return null;try{const u=new URL(url);if(u.protocol!=="http:"&&u.protocol!=="https:")return null;return{title,url:u.toString(),snippet:String(row.snippet??row.description??""),raw:row};}catch{return null;}}
 const monthlyWindow=()=>{const now=new Date();return new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),1)).toISOString();};
 async function assertFreeQuota(engine:Engine,env:DiscoveryEnv):Promise<void>{
+ if(engine==="serper")throw new Error("SERPER_ONE_TIME_CREDITS_NOT_ALLOWED_IN_MONTHLY_FREE_MODE");
  if(engine==="serpapi"){
   const key=await readIntegrationSecret(env,"tradepilot_api_serpapi");
   if(!key)throw new Error("SERPAPI_API_KEY_NOT_CONFIGURED");
