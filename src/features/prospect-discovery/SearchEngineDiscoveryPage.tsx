@@ -81,7 +81,7 @@ export function SearchEngineDiscoveryPage() {
       if (!active) return;
       setCountries(countryData.countries ?? []);
       setCategories(exclusionData ?? []);
-      const available = { brightdata: Boolean(integrations.brightdata && integrations.brightdataZone), quanticdata: Boolean(integrations.quanticdata), serpkite: Boolean(integrations.serpkite), serpapi: Boolean(integrations.serpapi) };
+      const available: Record<string, boolean> = { brightdata: Boolean(integrations.brightdata && integrations.brightdataZone), quanticdata: Boolean(integrations.quanticdata), serpkite: Boolean(integrations.serpkite), serpapi: Boolean(integrations.serpapi) };
       setConfiguredEngines(available);
       setEngines(Object.keys(available).filter(key => available[key]));
     }).catch(cause => { if (active) setError(cause instanceof Error ? cause.message : '页面数据读取失败'); })
