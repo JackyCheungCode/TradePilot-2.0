@@ -274,7 +274,7 @@ export function SearchEngineDiscoveryPage() {
       {activeStep === 0 && <>
       <Tile id="search-target" className="tp-search-discovery__tile">
         <h2>1. 搜索目标</h2>
-        <p>输入产品名称，选择希望发现客户的国家或地区。国家参数用于定位搜索市场，网站域名不会被当作企业所在地证明。</p>
+        <p>输入产品并选择唯一目标国家。</p>
         <div className="tp-search-discovery__target-grid">
           <TextInput id="search-product" labelText="产品名称" placeholder="例如：Wireless Earbuds" value={product} onChange={event => setProduct(event.target.value)} />
           <ComboBox id="search-country" titleText="目标国家 / 地区" placeholder="搜索国家名称或代码" items={countries} itemToString={item => item ? countryLabel(item) + ' (' + item.cca2 + ')' : ''} selectedItem={country} onChange={({ selectedItem }) => setCountry(selectedItem ?? null)} />
@@ -294,9 +294,9 @@ export function SearchEngineDiscoveryPage() {
             <SelectItem value="zh-cn" text="简体中文 / 简体中文" />
             <SelectItem value="zh-tw" text="繁体中文 / 繁體中文" />
           </Select>
-          <p>国家 / 地区决定搜索市场；此选项限制网页结果语言，不会自动跟随国家切换。</p>
+          <p>选择搜索语言。</p>
         </div>
-        <div className="tp-search-discovery__map"><h3>Carbon 全球市场地图</h3><p>点击地图上的国家 / 地区即可单选；也可使用上方国家搜索框。</p><WorldMapChart data={mapCountries} selectedCode={country?.cca2} onCountrySelect={code => setCountry(countries.find(item => item.cca2 === code) ?? null)} showRanking={false} unitLabel="个目标市场" /></div>
+        <div className="tp-search-discovery__map"><h3>Carbon 全球市场地图</h3><p>选择目标国家。</p><WorldMapChart data={mapCountries} selectedCode={country?.cca2} onCountrySelect={code => setCountry(countries.find(item => item.cca2 === code) ?? null)} showRanking={false} unitLabel="个目标市场" /></div>
         <div className="tp-search-discovery__subsection">
           <h3>目标企业类型</h3>
           <div className="tp-search-discovery__options-grid">
@@ -307,13 +307,13 @@ export function SearchEngineDiscoveryPage() {
 
       <Tile className="tp-search-discovery__tile">
         <h2>2. 高级搜索语法</h2>
-        <p>系统按产品和企业类型生成查询；也可以自行编辑完整搜索表达式。支持能力以当前搜索供应商实际执行结果为准。</p>
+        <p>使用自动生成的查询，或编辑高级搜索语法。</p>
         <TextArea id="search-advanced-query" labelText="高级搜索表达式（留空则自动生成）" rows={4} value={advancedQuery} onChange={event => setAdvancedQuery(event.target.value)} placeholder={generatedQuery || '"wireless earbuds" manufacturer OR supplier -directory'} />
         <p className="tp-search-discovery__query-preview"><strong>当前预览：</strong>{activeQuery || '输入产品名称后自动生成'}</p>
       </Tile>
 
       <Tile className="tp-search-discovery__tile">
-        <h2>3. 搜索服务与排除规则</h2><p>内置排除库覆盖常见电商、社交媒体、企业目录、新闻、论坛、地图点评、招聘、政府教育、软件目录、托管建站等非目标来源。可按类别启用或关闭，也可添加自定义域名。</p>
+        <h2>3. 搜索来源与排除规则</h2><p>选择已在设置中配置的搜索服务。</p>
         <div className="tp-search-discovery__options-grid tp-search-discovery__engine-grid">
           <Checkbox id="engine-serper" labelText="Serper" checked={engines.includes('serper')} onChange={(_, data) => toggleEngine('serper', data.checked)} />
           <Checkbox id="engine-serpapi" labelText="SerpApi" checked={engines.includes('serpapi')} onChange={(_, data) => toggleEngine('serpapi', data.checked)} />
@@ -331,14 +331,14 @@ export function SearchEngineDiscoveryPage() {
 
       <Tile id="search-submit" className="tp-search-discovery__tile tp-search-discovery__tile--last">
         <h2>搜索配置已就绪</h2>
-        <p>下一步将创建搜索任务。系统仅调用搜索 API，不会在此阶段抓取候选网站。</p>
+        <p>确认后创建搜索任务。</p>
       </Tile>
       </>}
 
       {activeStep === 1 && <>
       <section id="candidate-pool" className="tp-search-discovery__section">
         <div className="tp-search-discovery__section-heading">
-          <div><h2>候选网站</h2><p>这里只展示当前搜索任务关联的网站；历史任务的候选不会混入。</p></div>
+          <div><h2>候选网站</h2><p>仅显示当前任务的候选。</p></div>
           <Tag type="blue">{visibleCandidates.length} 个候选 · 已选 {selectedRecordIds.length}</Tag>
         </div>
         {searchRun && <section className="tp-search-discovery__run-progress" aria-live="polite">
@@ -384,7 +384,7 @@ export function SearchEngineDiscoveryPage() {
       <section id="analysis-workbench" className="tp-search-discovery__phase-panel">
         <p className="tp-search-discovery__eyebrow">WORKSTATION 03 / AI INTELLIGENCE</p>
         <h2>AI 深度分析工作站</h2>
-        <p>只分析第二步从当前任务中勾选的网站。所选网站会先显示在表格中，分析完成后企业名称、联系方式、产品和证据将自动更新；你可以逐条加入线索。</p>
+        <p>分析所选网站，核验企业信息后加入线索。</p>
         <div className="tp-search-discovery__analysis-launch">
           <NumberInput id="analysis-batch-size" label="每批网站数量" min={1} max={20} step={1} value={batchSize} onChange={(_, data) => setBatchSize(Math.max(1, Math.min(20, Number(data.value) || 10)))} />
           <div className="tp-search-discovery__analysis-launch-actions">
@@ -399,7 +399,7 @@ export function SearchEngineDiscoveryPage() {
           </div>
           <ProgressBar value={Math.max(0, Math.min(100, Number(analysisRun?.progress) || 0))} max={100} label="AI 网站分析进度" helperText={(analysisRun?.progress ?? 0) + '% · 已完成 ' + analysisRecords.filter(record => websiteAnalysis(record)?.status === 'completed').length + ' · 失败 ' + analysisRecords.filter(record => websiteAnalysis(record)?.status === 'failed').length + ' · 总计 ' + selectedRecordIds.length} />
         </section>
-        <div className="tp-search-discovery__section-heading"><div><h3>本次选中的网站与 AI 分析结果</h3><p>分析结果逐条回填到此表格，不会混入其他任务。</p></div><Tag type="blue">{analysisRecords.length} 条</Tag></div>
+        <div className="tp-search-discovery__section-heading"><div><h3>本次选中的网站与 AI 分析结果</h3><p>当前任务的分析结果。</p></div><Tag type="blue">{analysisRecords.length} 条</Tag></div>
         <TpDataTable<SearchRecord>
           ariaLabel="本次选择的网站及 AI 分析结果"
           rows={analysisRecords}
