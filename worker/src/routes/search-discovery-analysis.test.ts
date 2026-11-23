@@ -52,3 +52,8 @@ test("detects third-party B2B directories without matching lookalike domains", (
   assert.equal(isThirdPartyDirectoryHost("notindiamart.com"), false);
   assert.equal(isThirdPartyDirectoryHost("example.com"), false);
 });
+
+test("does not accept ambiguous continent or neighboring-country names as a match", () => {
+  assert.equal(countryMatchesTarget("US", "South America"), false);
+  assert.equal(countryMatchesTarget("KR", "North Korea"), false);
+});
