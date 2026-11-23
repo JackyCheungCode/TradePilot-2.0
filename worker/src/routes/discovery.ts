@@ -837,6 +837,7 @@ export async function handleDiscovery(request: Request, env: DiscoveryEnv): Prom
         if(record.status!=="new")return errorResponse(request,"PROSPECT_NOT_ELIGIBLE","只有尚未转化的潜客可以加入线索。",409);
         const rawData=record.raw_data&&typeof record.raw_data==="object"&&!Array.isArray(record.raw_data)?record.raw_data as Record<string,unknown>:{};
         const analysis=rawData.website_analysis&&typeof rawData.website_analysis==="object"?rawData.website_analysis as Record<string,unknown>:{};
+        if(analysis.country_match===false)return errorResponse(request,"TARGET_COUNTRY_MISMATCH","该企业实际国家与当前任务目标国家不符，不能加入目标市场线索。",409);
         if(analysis.status!=="completed")return errorResponse(request,"ANALYSIS_REQUIRED","请先完成 AI 网站分析，再加入线索。",409);
         const text=(value:unknown)=>typeof value==="string"?value.trim():"";
         const email=text(analysis.email)||text(record.email);
