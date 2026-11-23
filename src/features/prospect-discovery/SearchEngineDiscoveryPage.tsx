@@ -231,7 +231,7 @@ export function SearchEngineDiscoveryPage() {
         </div>
 
         <div className="tp-search-discovery__candidate-toolbar"><Tag type="blue">{visibleCandidates.length} 个候选 · 已选用于分析 {selectedRecordIds.length}</Tag></div>
-        <TpDataTable
+        <TpDataTable<SearchRecord>
           ariaLabel="搜索候选网站"
           rows={visibleCandidates}
           rowKey="id"

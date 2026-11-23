@@ -172,7 +172,7 @@ export function WorldMapChart({
     const shape = WORLD_SHAPES.find(item => normalize(item.name) === english
       || normalize(NAME_ALIASES[english] || '') === normalize(item.name));
     if (!shape) return `0 0 ${WIDTH} ${HEIGHT}`;
-    const pairs = [...shape.path.matchAll(/(-?\\d+(?:\\.\\d+)?),(-?\\d+(?:\\.\\d+)?)/g)];
+    const pairs = [...shape.path.matchAll(/(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/g)];
     if (!pairs.length) return `0 0 ${WIDTH} ${HEIGHT}`;
     const xs = pairs.map(pair => Number(pair[1]));
     const ys = pairs.map(pair => Number(pair[2]));
