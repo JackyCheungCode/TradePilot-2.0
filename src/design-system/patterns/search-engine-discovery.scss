@@ -145,3 +145,27 @@
     &__scene-footer { flex-direction:column; font-size:.52rem; }
   }
 }
+
+
+.tp-search-discovery__section,
+.tp-search-discovery__phase-panel { scroll-margin-top: 5rem; margin-bottom: $spacing-07; }
+.tp-search-discovery__section-heading { display:flex; align-items:flex-end; justify-content:space-between; flex-wrap:wrap; gap:$spacing-04; margin-bottom:$spacing-04; }
+.tp-search-discovery__section-heading h2,
+.tp-search-discovery__phase-panel h2 { @include type-style('productive-heading-03'); margin:0 0 $spacing-02; }
+.tp-search-discovery__section-heading p,
+.tp-search-discovery__phase-panel > p:not(.tp-search-discovery__eyebrow) { @include type-style('body-compact-01'); color:var(--cds-text-secondary); margin:0; }
+.tp-search-discovery__selection-actions { display:flex; align-items:center; gap:$spacing-02; margin-bottom:$spacing-03; }
+.tp-search-discovery__candidate-row { display:flex; align-items:center; gap:$spacing-03; min-width:0; }
+.tp-search-discovery__candidate-copy { display:flex; flex:1; flex-direction:column; gap:$spacing-02; min-width:0; }
+.tp-search-discovery__candidate-copy strong { @include type-style('heading-compact-01'); overflow-wrap:anywhere; }
+.tp-search-discovery__candidate-copy p { @include type-style('body-compact-01'); color:var(--cds-text-secondary); margin:0; overflow-wrap:anywhere; }
+.tp-search-discovery__phase-panel { display:flex; flex-direction:column; gap:$spacing-04; padding:$spacing-05; background:var(--cds-layer-01); }
+.tp-search-discovery__phase-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:$spacing-03; }
+.tp-search-discovery__phase-summary > div { display:flex; flex-direction:column; gap:$spacing-02; min-width:0; padding:$spacing-04; background:var(--cds-layer-02); }
+.tp-search-discovery__phase-summary strong { @include type-style('productive-heading-03'); font-variant-numeric:tabular-nums; }
+.tp-search-discovery__phase-summary span { @include type-style('label-01'); color:var(--cds-text-secondary); }
+@media(max-width:672px) {
+  .tp-search-discovery__section-heading { align-items:flex-start; flex-direction:column; }
+  .tp-search-discovery__candidate-row { align-items:flex-start; flex-wrap:wrap; }
+  .tp-search-discovery__phase-summary { grid-template-columns:minmax(0,1fr); }
+}
