@@ -1,8 +1,8 @@
-import type { DiscoveryEnv, DiscoveryRunInput } from "./discovery";
+import type { DiscoveryEnv, DiscoveryRunInput } from "./discovery.ts";
 import { DEFAULT_SEARCH_EXCLUSIONS } from "./search-exclusions.ts";
-import { discoveryRunQuery } from "../lib/owner-scoped-query";
-import { readIntegrationSecret } from "../lib/integrations";
-import { evaluateGuardrails, getDuplicatePolicy } from "../lib/guardrails";
+import { discoveryRunQuery } from "../lib/owner-scoped-query.ts";
+import { readIntegrationSecret } from "../lib/integrations.ts";
+import { evaluateGuardrails, getDuplicatePolicy } from "../lib/guardrails.ts";
 import { normalizeMerchantDomain, searchResultIdentity, searchResultExclusionTarget } from "./search-result-normalization.ts";
 type Engine="serper"|"serpapi"|"brightdata"|"quanticdata"|"serpkite"; type Vertical="web"|"shopping"|"images"|"news"|"videos"|"scholar"|"patents";
 type Result={title:string;url:string;snippet:string;raw:Record<string,unknown>};
