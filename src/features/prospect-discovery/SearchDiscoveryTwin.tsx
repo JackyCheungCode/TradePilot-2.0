@@ -38,7 +38,7 @@ export function SearchDiscoveryTwin({ activeStep, onStepChange, candidateCount, 
           {steps.map((step, index) => {
             const active = index === activeStep;
             const complete = index === 0 ? searchCompleted : index === 1 ? candidateCount > 0 : index === 2 ? analysisCount > 0 : resultCount > 0;
-            const metric = index === 0 ? taskCount + ' TASKS' : index === 1 ? candidateCount + ' SITES' : index === 2 ? analysisCount + ' ANALYSED' : index === 3 ? resultCount + ' RESULTS' : step.metric;
+            const metric = index === 0 ? taskCount + ' TASKS' : index === 1 ? candidateCount + ' SITES' : index === 2 ? analysisCount + ' PROCESSED' : index === 3 ? resultCount + ' RESULTS' : step.metric;
             return (
               <div className="tp-search-twin__station-wrap" key={step.code}>
                 {index > 0 && <div className={'tp-search-twin__link ' + (complete || active ? 'is-lit' : '')} aria-hidden="true"><span /></div>}

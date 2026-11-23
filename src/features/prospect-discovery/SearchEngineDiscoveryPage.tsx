@@ -93,6 +93,7 @@ export function SearchEngineDiscoveryPage() {
     return [base, terms.length ? '(' + terms.join(' OR ') + ')' : '', country ? '(' + country.name.common + ' OR ' + country.cca2 + ')' : ''].filter(Boolean).join(' ');
   }, [product, rolesSelected, country]);
   const activeQuery = advancedQuery.trim() || generatedQuery;
+  const searchRuns = useMemo(() => runs.filter(run => run.search_config?.taskType !== 'website_analysis'), [runs]);
   const analysisRuns = useMemo(() => runs.filter(run => run.search_config?.taskType === 'website_analysis'), [runs]);
   const latestAnalysisRun = analysisRuns[0];
   const visibleCandidates = useMemo(() => verifiedRecords.filter(record => (record.name || '').toLowerCase().includes(candidateFilter.toLowerCase()) || (record.website || '').toLowerCase().includes(candidateFilter.toLowerCase())), [verifiedRecords, candidateFilter]);
@@ -236,7 +237,7 @@ export function SearchEngineDiscoveryPage() {
         setActiveStep(step);
         const target = ['search-target', 'candidate-pool', 'analysis-workbench', 'analysis-results'][step];
         window.requestAnimationFrame(() => document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
-      }} candidateCount={verifiedRecords.length} taskCount={runs.length} searchCompleted={runs.some(run => run.search_config?.taskType !== 'website_analysis' && (run.status === 'completed' || run.status === 'partial'))} analysisCount={analysisRuns.reduce((sum, run) => sum + (run.discovered_count ?? 0), 0)} resultCount={analysisResults.length} />
+      }} candidateCount={verifiedRecords.length} taskCount={searchRuns.length} searchCompleted={searchRuns.some(run => run.status === 'completed' || run.status === 'partial')} analysisCount={latestAnalysisRun?.discovered_count ?? 0} resultCount={analysisResults.length} />
 
       {error && <InlineNotification kind="error" title="操作未完成" subtitle={error} onCloseButtonClick={() => setError('')} />}
       {notice && <InlineNotification kind="success" title="任务已提交" subtitle={notice} onCloseButtonClick={() => setNotice('')} />}
@@ -386,9 +387,9 @@ export function SearchEngineDiscoveryPage() {
 
       <section>
         <h2>最近搜索任务</h2>
-        {loading ? <p>正在读取任务…</p> : runs.length === 0 ? <Tile>暂无搜索引擎发现任务。</Tile> : (
+        {loading ? <p>正在读取任务…</p> : searchRuns.length === 0 ? <Tile>暂无搜索引擎发现任务。</Tile> : (
           <div className="tp-search-discovery__run-list">
-            {runs.map(run => <Tile key={run.id}>
+            {searchRuns.map(run => <Tile key={run.id}>
               <div className="tp-search-discovery__run-row">
                 <div><strong>{run.task_code || run.query || '搜索任务'}</strong><p>{run.query} · {(run.countries ?? []).join(', ')} · {run.message || '—'}</p></div>
                 <div><Tag type={run.status === 'completed' ? 'green' : run.status === 'failed' ? 'red' : 'blue'}>{statusText[run.status || ''] || run.status || '未知'}</Tag>　{run.discovered_count ?? 0} 条发现</div>
