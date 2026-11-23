@@ -1,5 +1,5 @@
 import type { DiscoveryEnv, DiscoveryRunInput } from "./discovery";
-import { DEFAULT_SEARCH_EXCLUSIONS } from "./search-exclusions";
+import { DEFAULT_SEARCH_EXCLUSIONS } from "./search-exclusions.ts";
 import { discoveryRunQuery } from "../lib/owner-scoped-query";
 import { readIntegrationSecret } from "../lib/integrations";
 import { evaluateGuardrails, getDuplicatePolicy } from "../lib/guardrails";
