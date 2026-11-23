@@ -312,7 +312,7 @@ export function SearchEngineDiscoveryPage() {
       <nav className="tp-search-discovery__wizard-nav" aria-label="流程导航">
         <Button kind="secondary" disabled={activeStep === 0} onClick={() => setActiveStep(step => Math.max(0, step - 1))}>上一步</Button>
         <span>步骤 {activeStep + 1} / 4</span>
-        <Button kind="primary" disabled={activeStep === 3 || (activeStep === 0 && !product.trim())} onClick={() => activeStep === 0 ? void submit() : setActiveStep(step => Math.min(3, step + 1))}>
+        <Button kind="primary" disabled={activeStep === 3 || (activeStep === 0 && !product.trim()) || (activeStep === 1 && selectedRecordIds.length === 0)} onClick={() => activeStep === 0 ? void submit() : setActiveStep(step => Math.min(3, step + 1))}>
           {activeStep === 0 ? (submitting ? '创建中…' : '创建搜索任务并下一步') : '下一步'}
         </Button>
       </nav>
