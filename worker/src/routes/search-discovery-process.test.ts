@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { normalizeMerchantDomain, searchResultIdentity, searchResultExclusionTarget } from "./search-result-normalization.ts";
+import { getSerpKiteAvailableCredits } from "./search-discovery-process.ts";
 
 test("normalizes a merchant hostname", () => {
   assert.equal(normalizeMerchantDomain("Amazon.com"), "amazon.com");
@@ -26,4 +27,19 @@ test("shopping exclusion rules target the merchant website when known", () => {
     searchResultExclusionTarget({ url: "https://www.google.com/shopping/item/1", type: "shopping", raw: { merchant: "www.example.com" } }),
     "https://example.com",
   );
+});
+
+test("SerpKite free account accepts the provider's default monthly balance without a custom key cap", () => {
+  assert.equal(getSerpKiteAvailableCredits({ plan: "free", balance: 850, key: { credits_used_month: 150 } }), 850);
+});
+
+test("SerpKite free account respects a configured key cap and account balance", () => {
+  assert.equal(getSerpKiteAvailableCredits({ plan: "free", balance: 500, key: { credit_limit: 1000, credits_used_month: 250 } }), 500);
+  assert.equal(getSerpKiteAvailableCredits({ plan: "free", balance: 900, key: { credit_limit: 1000, credits_used_month: 250 } }), 750);
+});
+
+test("SerpKite rejects unverifiable or non-free accounts", () => {
+  assert.equal(getSerpKiteAvailableCredits({ plan: "paid", balance: 850, key: { credits_used_month: 150 } }), null);
+  assert.equal(getSerpKiteAvailableCredits({ plan: "free", balance: 850, key: {} }), null);
+  assert.equal(getSerpKiteAvailableCredits({ plan: "free", balance: -1, key: { credits_used_month: 0 } }), null);
 });
