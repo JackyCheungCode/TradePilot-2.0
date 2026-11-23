@@ -34,7 +34,7 @@ async function persist(env:DiscoveryEnv,owner:string,run:string,input:DiscoveryR
  const domain=googleShoppingLink?sourceDomain:parsed.hostname.replace(/^www\./,"").toLowerCase();
  const productKey=String(item.raw.product_id??item.title).toLowerCase();
  const key=domain?"search-domain:"+domain:shopping?"shopping-product:"+(source.toLowerCase()||"unknown")+":"+productKey:"search-domain:"+parsed.hostname.replace(/^www\\./,"").toLowerCase();
- const name=shopping?(source||item.title):item.title,website=domain?"https://"+domain:null;
+ const name=shopping?(source||item.title):item.title,website=shopping?(domain?"https://"+domain:null):item.url;
  const entities=await db<Array<{id:string}>>(env,"discovery_entities?on_conflict=owner_id,dedupe_key",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=representation"},body:JSON.stringify({owner_id:owner,entity_type:"business",display_name:name,dedupe_key:key,attributes:{country_code:input.countries[0],domain:domain||null,merchant:source||null}})});
  let entity=entities?.[0]?.id;if(!entity)entity=(await db<Array<{id:string}>>(env,"discovery_entities?owner_id=eq."+owner+"&dedupe_key=eq."+encodeURIComponent(key)+"&select=id"))[0]?.id;if(!entity)throw new Error("SEARCH_ENTITY_UPSERT_FAILED");
  const old=(await db<Array<Record<string,unknown>>>(env,"discovery_records?owner_id=eq."+owner+"&channel=eq.search_engine&dedupe_key=eq."+encodeURIComponent(key)+"&select=id,raw_data,name,business_type"))[0]??{};
