@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { normalizeMerchantDomain, searchResultIdentity, searchResultExclusionTarget } from "./search-result-normalization.ts";
 import { getSerpKiteAvailableCredits } from "./search-discovery-process.ts";
+import { DEFAULT_SEARCH_EXCLUSIONS } from "./search-exclusions.ts";
 
 test("normalizes a merchant hostname", () => {
   assert.equal(normalizeMerchantDomain("Amazon.com"), "amazon.com");
@@ -42,4 +43,12 @@ test("SerpKite rejects unverifiable or non-free accounts", () => {
   assert.equal(getSerpKiteAvailableCredits({ plan: "paid", balance: 850, key: { credits_used_month: 150 } }), null);
   assert.equal(getSerpKiteAvailableCredits({ plan: "free", balance: 850, key: {} }), null);
   assert.equal(getSerpKiteAvailableCredits({ plan: "free", balance: -1, key: { credits_used_month: 0 } }), null);
+});
+
+test("default business directory exclusions include common B2B listing platforms", () => {
+  const directories = DEFAULT_SEARCH_EXCLUSIONS.find(item => item.key === "directories");
+  assert.ok(directories);
+  for (const domain of ["all.biz", "indiamart.com", "tradeindia.com", "ec21.com", "globalsources.com", "made-in-china.com"]) {
+    assert.ok(directories.domains.includes(domain), "missing directory exclusion: " + domain);
+  }
 });
