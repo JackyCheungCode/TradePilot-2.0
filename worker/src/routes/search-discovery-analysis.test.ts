@@ -49,6 +49,8 @@ test("detects third-party B2B directories without matching lookalike domains", (
   assert.equal(isThirdPartyDirectoryHost("www.indiamart.com"), true);
   assert.equal(isThirdPartyDirectoryHost("b2brazil.com"), true);
   assert.equal(isThirdPartyDirectoryHost("www.alibaba.com"), true);
+  assert.equal(isThirdPartyDirectoryHost("15746-ar.all.biz"), true);
+  assert.equal(isThirdPartyDirectoryHost("www.ec21.com"), true);
   assert.equal(isThirdPartyDirectoryHost("notindiamart.com"), false);
   assert.equal(isThirdPartyDirectoryHost("example.com"), false);
 });
