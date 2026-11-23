@@ -7,6 +7,15 @@ type Country = { cca2: string; cca3?: string; name: { common: string } };
 type ExclusionCategory = { key: string; label: string; domains: string[]; enabled: boolean };
 type Run = { id: string; task_code?: string; query?: string; countries?: string[]; status?: string; progress?: number; discovered_count?: number; message?: string; created_at?: string; search_config?: Record<string, unknown> };
 type ApiEnvelope<T> = { data?: T; error?: { message?: string } };
+type SearchRecord = { id: string; name?: string | null; website?: string | null; country_code?: string | null; raw_data?: Record<string, unknown> | null; updated_at?: string };
+type WebsiteVerification = { status?: string; score?: number; verificationMethod?: string; pageTitle?: string; finalUrl?: string; productMatches?: string[]; signals?: Record<string, boolean>; browserFallbackError?: string | null };
+function getWebsiteVerification(record: SearchRecord): WebsiteVerification | null {
+  const last = record.raw_data?.last_search_result;
+  if (!last || typeof last !== 'object') return null;
+  const value = (last as Record<string, unknown>).website_verification;
+  return value && typeof value === 'object' ? value as WebsiteVerification : null;
+}
+const verificationLabels: Record<string, string> = { candidate_official: '官网候选', needs_review: '需要复核', weak_match: '匹配较弱', blocked: '已拦截', unavailable: '无法访问', non_html: '非网页内容', check_failed: '核验失败' };
 const roles = [
   { id: 'manufacturer', label: '制造商 / 工厂', terms: 'manufacturer OR factory' },
   { id: 'brand', label: '品牌商', terms: 'brand OR brand owner' },
@@ -48,6 +57,7 @@ export function SearchEngineDiscoveryPage() {
   const [categories, setCategories] = useState<ExclusionCategory[]>([]);
   const [excludeDomains, setExcludeDomains] = useState('');
   const [runs, setRuns] = useState<Run[]>([]);
+  const [verifiedRecords, setVerifiedRecords] = useState<SearchRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -59,12 +69,15 @@ export function SearchEngineDiscoveryPage() {
       api<{ countries: Country[] }>('/api/v1/prospect-profiling/countries'),
       api<ExclusionCategory[]>('/api/v1/settings/search-exclusions'),
       getSupabaseClient().then(client => client.from('discovery_runs').select('id,task_code,query,countries,status,progress,discovered_count,message,created_at,search_config').eq('channel','search_engine').order('created_at',{ascending:false}).limit(8)),
-    ]).then(([countryData, exclusionData, runResult]) => {
+      getSupabaseClient().then(client => client.from('discovery_records').select('id,name,website,country_code,raw_data,updated_at').eq('channel','search_engine').order('updated_at',{ascending:false}).limit(10)),
+    ]).then(([countryData, exclusionData, runResult, recordResult]) => {
       if (!active) return;
       setCountries(countryData.countries ?? []);
       setCategories(exclusionData ?? []);
       if (runResult.error) throw runResult.error;
       setRuns((runResult.data ?? []) as Run[]);
+      if (recordResult.error) throw recordResult.error;
+      setVerifiedRecords((recordResult.data ?? []) as SearchRecord[]);
     }).catch(cause => { if (active) setError(cause instanceof Error ? cause.message : '页面数据读取失败'); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
@@ -108,8 +121,12 @@ export function SearchEngineDiscoveryPage() {
       });
       setNotice('搜索任务已创建：' + (payload.taskCode ?? '已进入队列'));
       const client = await getSupabaseClient();
-      const { data } = await client.from('discovery_runs').select('id,task_code,query,countries,status,progress,discovered_count,message,created_at,search_config').eq('channel','search_engine').order('created_at',{ascending:false}).limit(8);
+      const [{ data }, { data: recordData }] = await Promise.all([
+        client.from('discovery_runs').select('id,task_code,query,countries,status,progress,discovered_count,message,created_at,search_config').eq('channel','search_engine').order('created_at',{ascending:false}).limit(8),
+        client.from('discovery_records').select('id,name,website,country_code,raw_data,updated_at').eq('channel','search_engine').order('updated_at',{ascending:false}).limit(10),
+      ]);
       setRuns((data ?? []) as Run[]);
+      setVerifiedRecords((recordData ?? []) as SearchRecord[]);
     } catch (cause) { setError(cause instanceof Error ? cause.message : '创建搜索任务失败'); }
     finally { setSubmitting(false); }
   };
@@ -171,6 +188,44 @@ export function SearchEngineDiscoveryPage() {
         <Button renderIcon={semanticIcons.search} disabled={submitting || loading} onClick={() => void submit()}>{submitting ? '正在创建…' : '开始搜索并发现企业'}</Button>
         <Link href="/prospect-history">查看全部发现任务</Link>
       </Tile>
+
+      <section>
+        <h2>最近核验的网站</h2>
+        <p>展示搜索发现后经过首页检查的企业网站。自动评分用于排序和筛选，不代表已完成法律或人工官网认证。</p>
+        {verifiedRecords.length === 0 ? <Tile>暂无已核验的网站记录。</Tile> : (
+          <div className="tp-search-discovery__run-list">
+            {verifiedRecords.map(record => {
+              const verification = getWebsiteVerification(record);
+              const status = verification?.status || 'check_failed';
+              const signalLabels = [
+                ['companyInformation', '企业介绍'],
+                ['contactInformation', '联系方式'],
+                ['organizationSchema', '企业结构化数据'],
+                ['productCatalog', '产品目录'],
+              ] as const;
+              return <Tile key={record.id}>
+                <div className="tp-search-discovery__run-row">
+                  <div>
+                    <strong>{record.name || verification?.pageTitle || '未命名网站'}</strong>
+                    <p>{verification?.pageTitle || record.website || '未获取页面标题'} · {record.country_code || '国家待核实'}</p>
+                    {record.website && <Link href={record.website}>打开网站</Link>}
+                  </div>
+                  <div>
+                    <Tag type={status === 'candidate_official' ? 'green' : status === 'needs_review' ? 'blue' : 'gray'}>{verificationLabels[status] || status}</Tag>
+                    <strong>　{typeof verification?.score === 'number' ? verification.score : 0}/100</strong>
+                    <p>{verification?.verificationMethod === 'browser_run' ? 'Browser Run 渲染核验' : 'HTTP 首页核验'}</p>
+                  </div>
+                </div>
+                <div className="tp-search-discovery__run-link">
+                  {signalLabels.filter(([key]) => verification?.signals?.[key]).map(([, label]) => <Tag key={label} type="teal">{label}</Tag>)}
+                  {(verification?.productMatches ?? []).length > 0 && <span>产品匹配：{verification?.productMatches?.join('、')}</span>}
+                  {verification?.browserFallbackError && <span>浏览器补充核验未成功：{verification.browserFallbackError}</span>}
+                </div>
+              </Tile>;
+            })}
+          </div>
+        )}
+      </section>
 
       <section>
         <h2>最近搜索任务</h2>
