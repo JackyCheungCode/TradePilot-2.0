@@ -328,8 +328,8 @@ export function SearchEngineDiscoveryPage() {
         <div className="tp-search-discovery__analysis-launch">
           <NumberInput id="analysis-batch-size" label="每批网站数量" min={1} max={20} step={1} value={batchSize} onChange={(_, data) => setBatchSize(Math.max(1, Math.min(20, Number(data.value) || 10)))} />
           <div className="tp-search-discovery__analysis-launch-actions">
-            <Button kind="primary" onClick={() => void startAnalysis(false)} disabled={!selectedRecordIds.length || analyzeSubmitting} loading={analyzeSubmitting}>分析所选网站</Button>
-            <Button kind="secondary" onClick={() => void startAnalysis(true)} disabled={!selectedRecordIds.length || analyzeSubmitting} loading={analyzeSubmitting}>重新分析所选</Button>
+            <Button kind="primary" onClick={() => void startAnalysis(false)} disabled={!selectedRecordIds.length || analyzeSubmitting}>{analyzeSubmitting ? '正在启动…' : '分析所选网站'}</Button>
+            <Button kind="secondary" onClick={() => void startAnalysis(true)} disabled={!selectedRecordIds.length || analyzeSubmitting}>{analyzeSubmitting ? '正在启动…' : '重新分析所选'}</Button>
           </div>
         </div>
         {latestAnalysisRun ? (
