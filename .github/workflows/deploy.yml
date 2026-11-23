@@ -26,7 +26,7 @@ concurrency:
 
 jobs:
   validate-and-deploy:
-    if: github.ref == 'refs/heads/develop' && (inputs.release_confirmation == 'approved' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[production-release]')))
+    if: github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -80,7 +80,7 @@ jobs:
         run: npm run build && npm run worker:validate
 
       - name: Deploy production Worker only after explicit approval
-        if: inputs.release_confirmation == 'approved' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[production-release]'))
+        if: github.event_name == 'workflow_dispatch' && inputs.release_confirmation == 'approved'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ea4e98dce9c478d7dd5c07f10e5c722d
@@ -92,5 +92,5 @@ jobs:
           npm run worker:deploy
 
       - name: Confirm production deployment intentionally held
-        if: inputs.release_confirmation != 'approved' && !(github.event_name == 'push' && contains(github.event.head_commit.message, '[production-release]'))
+        if: github.event_name != 'workflow_dispatch' || inputs.release_confirmation != 'approved'
         run: echo "Validation completed. Production deployment was intentionally held.";

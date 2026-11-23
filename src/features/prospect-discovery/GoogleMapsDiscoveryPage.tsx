@@ -1,7 +1,7 @@
 import { PageHeader } from '@/design-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Accordion, AccordionItem, Button, Checkbox, ComboBox, FilterableMultiSelect, InlineNotification, Link,
+  Accordion, AccordionItem, Button, Checkbox, ComboBox, FilterableMultiSelect, InlineNotification,
   Select, SelectItem, Tag, TextInput, TpDataTable, semanticIcons,
 } from '@/design-system';
 import { getSupabaseClient } from '@/lib/supabase';
@@ -432,10 +432,6 @@ export function GoogleMapsDiscoveryPage() {
           <p className="tp-gmaps-discovery__eyebrow">TRADEPILOT / PROSPECT DISCOVERY</p>
           <h1>Google Maps 发现</h1>
           <p>使用 Google Maps Places API 发现目标国家的本地企业、经销商、制造商与渠道商。</p>
-        </div>
-        <div className="tp-gmaps-discovery__header-actions">
-          <Link href="/prospect-discovery/google-maps/tasks" renderIcon={semanticIcons.time}>Google Maps 发现任务中心</Link>
-          <Link href="/prospect-discovery/google-maps/customers" renderIcon={semanticIcons.database}>Google Maps 发现客户</Link>
         </div>
       </PageHeader>
 
