@@ -14,6 +14,16 @@ async function update(env:DiscoveryEnv,id:string,owner:string,patch:Record<strin
 function pick(row:Record<string,unknown>):Result|null{const url=String(row.link??row.product_link??row.url??"");const title=String(row.title??row.name??row.product_title??"");if(!url||!title)return null;try{const u=new URL(url);if(u.protocol!=="http:"&&u.protocol!=="https:")return null;return{title,url:u.toString(),snippet:String(row.snippet??row.description??""),raw:row};}catch{return null;}}
 const monthlyWindow=()=>{const now=new Date();return new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),1)).toISOString();};
 async function assertFreeQuota(engine:Engine,env:DiscoveryEnv):Promise<void>{
+ if(engine==="serpapi"){
+  const key=await readIntegrationSecret(env,"tradepilot_api_serpapi");
+  if(!key)throw new Error("SERPAPI_API_KEY_NOT_CONFIGURED");
+  const url=new URL("https://serpapi.com/account.json");url.searchParams.set("api_key",key);
+  const response=await fetch(url,{signal:AbortSignal.timeout(15000)});
+  const body=await response.json().catch(()=>({})) as {plan_monthly_price?:number;plan_searches_left?:number};
+  if(!response.ok||typeof body.plan_monthly_price!=="number"||typeof body.plan_searches_left!=="number")throw new Error("SERPAPI_FREE_QUOTA_UNVERIFIED");
+  if(body.plan_monthly_price!==0)throw new Error("SERPAPI_FREE_PLAN_REQUIRED");
+  if(body.plan_searches_left<1)throw new Error("SERPAPI_MONTHLY_FREE_QUOTA_EXHAUSTED");
+ }
  if(engine==="quanticdata"){
   const key=await readIntegrationSecret(env,"tradepilot_api_quanticdata");
   if(!key)throw new Error("QUANTICDATA_API_KEY_NOT_CONFIGURED");
