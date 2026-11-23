@@ -17,7 +17,7 @@ const roles = [
   { id: 'distributor', label: '分销商', terms: 'distributor OR distributor company' },
   { id: 'oem', label: 'OEM / ODM', terms: 'OEM OR ODM' },
 ];
-const categoryLabels: Record<string, string> = { ecommerce: '电商平台', social: '社交媒体', video: '视频平台', directories: '企业目录', news: '新闻媒体', forums: '论坛社区' };
+const categoryLabels: Record<string, string> = { ecommerce:'电商平台',social:'社交媒体',video:'视频平台',directories:'企业目录',news:'新闻媒体',forums:'论坛社区',search_engines:'搜索引擎',job_boards:'招聘网站',maps_reviews:'地图点评',government:'政府机构',education:'教育学术',software:'软件目录',hosting:'托管建站',classifieds:'分类信息',finance:'金融投资',travel:'旅游票务',aggregators:'价格聚合',nonprofit:'非营利组织',adult_gambling:'成人博彩' };
 const languageByCountry: Record<string, string> = { DE:'de', AT:'de', CH:'de', FR:'fr', ES:'es', MX:'es', IT:'it', JP:'ja', KR:'ko', CN:'zh-cn', TW:'zh-tw', HK:'zh-tw', NL:'nl', BR:'pt-br', PT:'pt', RU:'ru', TH:'th', VN:'vi', ID:'id', TR:'tr', SA:'ar', AE:'ar' };
 const statusText: Record<string, string> = { queued:'排队中', running:'执行中', completed:'已完成', partial:'部分完成', failed:'失败', paused:'已暂停', cancelled:'已取消' };
 
@@ -92,7 +92,6 @@ export function SearchEngineDiscoveryPage() {
     return [base, terms.length ? '(' + terms.join(' OR ') + ')' : '', country ? '(' + country.name.common + ' OR ' + country.cca2 + ')' : ''].filter(Boolean).join(' ');
   }, [product, rolesSelected, country]);
   const activeQuery = advancedQuery.trim() || generatedQuery;
-  const searchRuns = useMemo(() => runs.filter(run => run.search_config?.taskType !== 'website_analysis'), [runs]);
   const analysisRuns = useMemo(() => runs.filter(run => run.search_config?.taskType === 'website_analysis'), [runs]);
   const latestAnalysisRun = analysisRuns[0];
   const visibleCandidates = useMemo(() => verifiedRecords.filter(record => record.status === 'new' && ((record.name || '').toLowerCase().includes(candidateFilter.toLowerCase()) || (record.website || '').toLowerCase().includes(candidateFilter.toLowerCase()))), [verifiedRecords, candidateFilter]);
@@ -165,31 +164,6 @@ export function SearchEngineDiscoveryPage() {
     setNotice('已从候选池移除所选网站；原始搜索来源记录仍保留。');
     await refreshDiscoveryData();
   };
-
-  const exportAnalysisResults = () => {
-    const columns = ['公司名称','官网','国家','地址','电话','邮箱','联系人','产品','企业简介','企业类型','官网可信度','官网判断理由','来源网页','证据'];
-    const rows = analysisResults.map(record => {
-      const result = websiteAnalysis(record) ?? {};
-      const evidence = Array.isArray(result.evidence) ? result.evidence as Array<Record<string, unknown>> : [];
-      return [
-        result.company_name || record.name || '', result.official_website || record.website || '',
-        result.country || record.country_code || '', result.address || '', result.phone || '',
-        result.email || '', result.contact_person || '',
-        Array.isArray(result.products) ? (result.products as string[]).join('；') : '',
-        result.company_description || '', result.business_type || '', result.website_confidence ?? '',
-        result.official_website_reason || '', result.source_url || record.website || '',
-        evidence.map(item => [item.field, item.value, item.excerpt].map(value => String(value ?? '')).join(': ')).join(' | '),
-      ];
-    });
-    const quote = (value: unknown) => '"' + String(value ?? '').replace(/"/g, '""') + '"';
-    const csv = [columns, ...rows].map(row => row.map(quote).join(',')).join('\r\n');
-    const url = URL.createObjectURL(new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' }));
-    const link = document.createElement('a');
-    link.href = url; link.download = 'tradepilot-company-intelligence.csv'; link.click();
-    URL.revokeObjectURL(url);
-  };
-
-
 
   const submit = async () => {
     setError(''); setNotice('');
