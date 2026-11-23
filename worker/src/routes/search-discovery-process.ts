@@ -18,10 +18,11 @@ async function search(engine:Engine,type:Vertical,q:string,country:string,hl:str
  if(!engineKey)throw new Error(engine==="serper"?"SERPER_API_KEY_NOT_CONFIGURED":"SERPAPI_API_KEY_NOT_CONFIGURED");
  while(start<limit){const num=Math.min(100,limit-start);let response:Response;
  const languageCode=hl.toLowerCase().split("-")[0];
- const languageFilter=languageCode==="all"?"": "lang_"+languageCode;
- if(engine==="serper"){response=await fetch("https://google.serper.dev/"+serper[type],{method:"POST",headers:{"X-API-KEY":engineKey,"Content-Type":"application/json"},body:JSON.stringify({q,gl:country.toLowerCase(),hl:languageCode,num,page:Math.floor(start/num)+1,...(languageFilter?{tbs:"lr:lang_1"+languageCode}:{}),...(location?{location}:{})}),signal:AbortSignal.timeout(45000)});}
- else{const p=new URLSearchParams({engine:serp[type],q,gl:country.toLowerCase(),hl:languageCode,num:String(num),start:String(start),api_key:engineKey});if(languageFilter)p.set("lr",languageFilter);if(location)p.set("location",location);response=await fetch("https://serpapi.com/search.json?"+p.toString(),{signal:AbortSignal.timeout(45000)});}
- if(!response.ok)throw new Error(engine.toUpperCase()+"_HTTP_"+response.status);const body=await response.json() as Record<string,unknown>;if(body.error)throw new Error(String(body.error).slice(0,160));
+ if(engine==="serper"){response=await fetch("https://google.serper.dev/"+serper[type],{method:"POST",headers:{"X-API-KEY":engineKey,"Content-Type":"application/json"},body:JSON.stringify({q,gl:country.toLowerCase(),hl:languageCode,num,page:Math.floor(start/num)+1,...(location?{location}:{})}),signal:AbortSignal.timeout(45000)});}
+ else{const p=new URLSearchParams({engine:serp[type],q,gl:country.toLowerCase(),hl:languageCode,num:String(num),start:String(start),api_key:engineKey});if(location)p.set("location",location);response=await fetch("https://serpapi.com/search.json?"+p.toString(),{signal:AbortSignal.timeout(45000)});}
+ const responseText=await response.text();
+ if(!response.ok)throw new Error(engine.toUpperCase()+"_HTTP_"+response.status+": "+responseText.slice(0,400));
+ const body=JSON.parse(responseText) as Record<string,unknown>;if(body.error)throw new Error(engine.toUpperCase()+"_API_ERROR: "+String(body.error).slice(0,300));
  const keys:Record<Vertical,string[]>={web:engine==="serper"?["organic"]:["organic_results"],shopping:engine==="serper"?["shopping"]:["shopping_results"],images:engine==="serper"?["images"]:["images_results"],news:engine==="serper"?["news"]:["news_results"],videos:engine==="serper"?["videos"]:["video_results"],scholar:engine==="serper"?["organic"]:["organic_results"],patents:engine==="serper"?["organic"]:["patents_results","organic_results"]};
  let rows:Record<string,unknown>[]=[];for(const key of keys[type])if(Array.isArray(body[key])){rows=body[key] as Record<string,unknown>[];break;}out.push(...rows.map(pick).filter((x):x is Result=>!!x));if(rows.length<num)break;start+=num;
  }return out.slice(0,limit);
@@ -73,6 +74,6 @@ export async function processSearchRun(env:DiscoveryEnv,run:string,owner:string,
    if(saved===chosen.length||saved%5===0)await update(env,run,owner,{progress:85+Math.round(saved/Math.max(1,chosen.length)*14),discovered_count:saved,message:"正在整理候选网站 · "+saved+"/"+chosen.length+" · 搜索引擎共返回 "+raw+" 条原始结果"});
  }
  if(guardrailBlocked)await log(env,run,owner,"info","护盾已拦截 "+guardrailBlocked+" 条搜索候选记录。");
- const status=failed===0?"completed":failed<jobs.length?"partial":"failed";await update(env,run,owner,{status,progress:100,discovered_count:chosen.length,created_lead_count:0,message:"搜索候选收集完成 · "+chosen.length+" 个候选网站 · 尚未访问网站或调用 Browser Run · 护盾拦截 "+guardrailBlocked+" 条 · "+raw+" 条原始结果"});
+ const status=failed===0?"completed":failed<jobs.length?"partial":"failed";const finalProgress=status==="failed"?Math.min(99,Math.max(1,Math.round(done/Math.max(1,jobs.length)*85))):100;await update(env,run,owner,{status,progress:finalProgress,discovered_count:chosen.length,created_lead_count:0,message:status==="failed"?"搜索失败 · 所有搜索引擎请求均未成功 · "+failed+"/"+jobs.length+" 个请求失败 · "+raw+" 条原始结果":status==="partial"?"搜索部分完成 · "+chosen.length+" 个候选网站 · "+failed+"/"+jobs.length+" 个请求失败 · "+raw+" 条原始结果":"搜索候选收集完成 · "+chosen.length+" 个候选网站 · 尚未访问网站或调用 Browser Run · 护盾拦截 "+guardrailBlocked+" 条 · "+raw+" 条原始结果"});
  await log(env,run,owner,status==="completed"?"success":"warning","任务结束；原始结果 "+raw+" 条，排除、护盾及去重后保存 "+chosen.length+" 个候选网站。未执行网站抓取或 Browser Run。");return{status,discovered:chosen.length,rawCount:raw,guardrailBlocked,failed,websiteChecks:0,browserRendered:0};
 }
