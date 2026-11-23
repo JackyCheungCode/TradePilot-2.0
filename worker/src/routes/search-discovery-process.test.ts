@@ -48,7 +48,8 @@ test("SerpKite rejects unverifiable or non-free accounts", () => {
 test("default business directory exclusions include common B2B listing platforms", () => {
   const directories = DEFAULT_SEARCH_EXCLUSIONS.find(item => item.key === "directories");
   assert.ok(directories);
+  const excludedDomains = new Set<string>(directories.domains);
   for (const domain of ["all.biz", "indiamart.com", "tradeindia.com", "ec21.com", "globalsources.com", "made-in-china.com"]) {
-    assert.ok(directories.domains.includes(domain), "missing directory exclusion: " + domain);
+    assert.ok(excludedDomains.has(domain), "missing directory exclusion: " + domain);
   }
 });
