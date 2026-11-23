@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { countryMatchesTarget, isPublicWebsiteUrl, parseModelResult } from "./search-discovery-analysis.ts";
+import { countryMatchesTarget, isPublicWebsiteUrl, isThirdPartyDirectoryHost, parseModelResult } from "./search-discovery-analysis.ts";
 
 test("allows public HTTP and HTTPS websites only", () => {
   assert.equal(isPublicWebsiteUrl("https://example.com/about"), true);
@@ -43,4 +43,12 @@ test("rejects other-country results and keeps unknown countries unverified", () 
   assert.equal(countryMatchesTarget("BR", "China"), false);
   assert.equal(countryMatchesTarget("BR", null), null);
   assert.equal(countryMatchesTarget(null, "Brazil"), null);
+});
+
+test("detects third-party B2B directories without matching lookalike domains", () => {
+  assert.equal(isThirdPartyDirectoryHost("www.indiamart.com"), true);
+  assert.equal(isThirdPartyDirectoryHost("b2brazil.com"), true);
+  assert.equal(isThirdPartyDirectoryHost("www.alibaba.com"), true);
+  assert.equal(isThirdPartyDirectoryHost("notindiamart.com"), false);
+  assert.equal(isThirdPartyDirectoryHost("example.com"), false);
 });
