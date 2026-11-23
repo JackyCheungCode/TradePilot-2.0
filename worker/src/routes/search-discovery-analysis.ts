@@ -214,7 +214,7 @@ async function analyzeRecord(env: DiscoveryEnv, runId: string, ownerId: string, 
       "返回严格 JSON，不要 Markdown，字段：company_name, official_website, country, address, phone, email, contact_person, products, company_description, business_type, website_confidence, official_website_reason, evidence。",
       "目标国家必须作为硬性核验条件：候选企业实际总部/注册国家若与目标国家明显不符，必须如实返回实际国家，不得把搜索地区当作企业所在地；若页面是 B2B 平台/黄页/目录中的企业详情页，应标记为第三方平台资料页，不得认定该平台域名为企业官方网站。",
       "当前候选名称：" + record.name,
-      "搜索目标国家代码：" + (record.country_code ?? "未知"),
+      "搜索目标国家代码：" + (record.country_code ?? String(record.raw_data?.search_target_country ?? "未知")),
       "页面标题：" + page.title,
       "页面 URL：" + page.finalUrl,
       "网页正文：\n" + page.text.slice(0, 30000),
@@ -222,7 +222,7 @@ async function analyzeRecord(env: DiscoveryEnv, runId: string, ownerId: string, 
     const { callAgentChatModel } = await import("./agent-center.ts");
     const model = await callAgentChatModel(env as Parameters<typeof callAgentChatModel>[0], [{ role: "user", content: prompt }], "你是企业官网情报分析专家。你只提取有网页证据支持的事实，不推断缺失信息。输出必须符合指定 JSON 字段。", "company_analysis", true, 2400);
     const result = parseModelResult(model.text, page.finalUrl);
-    const targetCountry = record.country_code?.toUpperCase() ?? null;
+    const targetCountry = (record.country_code ?? String(record.raw_data?.search_target_country ?? "")).toUpperCase() || null;
     const countryMatch = countryMatchesTarget(targetCountry, result.country);
     const host = new URL(page.finalUrl).hostname.toLowerCase();
     const isThirdPartyDirectory = /(^|\\.)(indiamart|b2brazil|alibaba|made-in-china|globalsources|tradeindia|kompass|europages)\\./.test(host);
@@ -239,8 +239,8 @@ async function analyzeRecord(env: DiscoveryEnv, runId: string, ownerId: string, 
     }
     const now = new Date().toISOString();
     const websiteAnalysis = { status: "completed", analyzed_at: now, source_url: sourceUrl, final_url: page.finalUrl, page_title: page.title, model: model.model, ...result, country_match: countryMatch, third_party_directory: isThirdPartyDirectory, evidence: result.evidence, review_required: true };
-    const raw = { ...(record.raw_data ?? {}), website_analysis: websiteAnalysis };
-    const patch: Record<string, unknown> = { raw_data: raw, updated_at: now, confidence_score: result.website_confidence };
+    const raw = { ...(record.raw_data ?? {}), country_verification_status: countryMatch === true ? "verified_match" : countryMatch === false ? "rejected_mismatch" : "unverified", website_analysis: websiteAnalysis };
+    const patch: Record<string, unknown> = { raw_data: raw, updated_at: now, confidence_score: result.website_confidence, country_code: countryMatch === true ? targetCountry : null };
     if (result.company_name) patch.name = result.company_name;
     if (result.address) patch.address = result.address;
     if (result.phone) patch.phone = result.phone;
