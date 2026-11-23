@@ -8,7 +8,7 @@
     "build": "npm run check:design-system && npm run check:sql-security && npm run check:worker-secrets && npm run worker:types && tsc -b && tsc -p tsconfig.worker.json --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "npm run worker:types && tsc -b --pretty && tsc -p tsconfig.worker.json --noEmit",
-    "test:guardrails": "node --experimental-strip-types --test worker/src/lib/guardrails.test.ts worker/src/routes/settings.test.ts worker/src/routes/search-discovery-process.test.ts worker/src/routes/skill-registry.test.ts worker/src/routes/agent-center.test.ts worker/src/routes/trade-documents.test.ts worker/src/routes/inbox.test.ts",
+    "test:guardrails": "node --experimental-strip-types --test worker/src/lib/guardrails.test.ts worker/src/routes/settings.test.ts worker/src/routes/search-discovery-process.test.ts worker/src/routes/search-discovery-analysis.test.ts worker/src/routes/skill-registry.test.ts worker/src/routes/agent-center.test.ts worker/src/routes/trade-documents.test.ts worker/src/routes/inbox.test.ts",
     "check:carbon-imports": "npm run check:design-system",
     "check:design-system": "node scripts/check-design-system.mjs",
     "check:worker-secrets": "node scripts/check-worker-secrets.mjs",

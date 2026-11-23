@@ -169,3 +169,28 @@
   .tp-search-discovery__candidate-row { align-items:flex-start; flex-wrap:wrap; }
   .tp-search-discovery__phase-summary { grid-template-columns:minmax(0,1fr); }
 }
+
+.tp-search-discovery__candidate-toolbar { display:flex; flex-direction:column; gap:$spacing-03; margin-bottom:$spacing-04; }
+.tp-search-discovery__candidate-toolbar > .cds--text-input-wrapper { max-width:28rem; }
+.tp-search-discovery__analysis-launch { display:flex; align-items:flex-end; flex-wrap:wrap; gap:$spacing-05; }
+.tp-search-discovery__analysis-launch-actions { display:flex; align-items:center; flex-wrap:wrap; gap:$spacing-03; }
+.tp-search-discovery__analysis-controls { display:flex; align-items:center; flex-wrap:wrap; gap:$spacing-03; margin-top:$spacing-03; }
+.tp-search-discovery__progress-track { width:100%; height:6px; overflow:hidden; background:var(--cds-layer-03); }
+.tp-search-discovery__progress-track > div { height:100%; background:var(--cds-support-info); transition:width .2s ease; }
+.tp-search-discovery__result-header { display:flex; align-items:flex-start; justify-content:space-between; gap:$spacing-04; }
+.tp-search-discovery__result-header strong { @include type-style('productive-heading-03'); }
+.tp-search-discovery__result-header p { margin:$spacing-02 0 0; overflow-wrap:anywhere; }
+.tp-search-discovery__result-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:$spacing-04; padding:$spacing-04 0; }
+.tp-search-discovery__result-grid > div { display:flex; flex-direction:column; gap:$spacing-02; min-width:0; }
+.tp-search-discovery__result-grid span { @include type-style('label-01'); color:var(--cds-text-secondary); }
+.tp-search-discovery__result-grid strong { @include type-style('body-compact-01'); overflow-wrap:anywhere; }
+.tp-search-discovery__evidence-note { @include type-style('label-01'); color:var(--cds-text-secondary); overflow-wrap:anywhere; }
+.tp-search-discovery__phase-panel details { padding-top:$spacing-03; border-top:1px solid var(--cds-border-subtle); }
+.tp-search-discovery__phase-panel summary { cursor:pointer; color:var(--cds-link-primary); }
+.tp-search-discovery__phase-panel blockquote { margin:$spacing-03 0; padding:$spacing-03; background:var(--cds-layer-02); }
+.tp-search-discovery__phase-panel blockquote p { margin:$spacing-02 0 0; color:var(--cds-text-secondary); }
+@media(max-width:672px) {
+  .tp-search-discovery__result-header { flex-direction:column; }
+  .tp-search-discovery__result-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .tp-search-discovery__analysis-launch { align-items:stretch; flex-direction:column; }
+}

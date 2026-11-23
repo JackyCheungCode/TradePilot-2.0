@@ -54,8 +54,8 @@ async function updateRun(env: DiscoveryEnv, runId: string, ownerId: string, patc
 function ipv4Public(value: string): boolean {
   const parts = value.split(".").map(Number);
   if (parts.length !== 4 || parts.some(part => !Number.isInteger(part) || part < 0 || part > 255)) return false;
-  const [a, b] = parts;
-  if (a === 0 || a === 10 || a === 127 || a >= 224 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127) || (a === 198 && (b === 18 || b === 19))) return false;
+  const [a, b, c] = parts;
+  if (a === 0 || a === 10 || a === 127 || a >= 224 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127) || (a === 192 && b === 0) || (a === 198 && (b === 18 || b === 19 || b === 51)) || (a === 203 && b === 0 && c === 113)) return false;
   return true;
 }
 function ipLiteralPublic(host: string): boolean | null {
@@ -78,6 +78,7 @@ function parsePublicUrl(value: string): URL {
   if (literal === null && (!host.includes(".") || host.length > 253)) throw new Error("网站域名格式无效。");
   return url;
 }
+export function isPublicWebsiteUrl(value: string): boolean { try { parsePublicUrl(value); return true; } catch { return false; } }
 async function assertPublicDns(host: string): Promise<void> {
   if (ipLiteralPublic(host) === true) return;
   const answers: string[] = [];
@@ -138,7 +139,7 @@ async function renderWebsite(env: DiscoveryEnv, url: string): Promise<{ html: st
   if (text.length < 120) throw new Error("网页正文过少，无法可靠识别企业信息。");
   return { html, text, title: pageTitle(html), finalUrl: typeof body.finalUrl === "string" ? body.finalUrl : safeUrl };
 }
-function parseModelResult(raw: string, sourceUrl: string): AnalysisResult {
+export function parseModelResult(raw: string, sourceUrl: string): AnalysisResult {
   const cleaned = raw.trim().replace(/^\`\`\`(?:json)?\s*/i, "").replace(/\s*\`\`\`$/, "");
   const value = JSON.parse(cleaned) as Record<string, unknown>;
   const stringOrNull = (input: unknown) => typeof input === "string" && input.trim() ? input.trim().slice(0, 2000) : null;
