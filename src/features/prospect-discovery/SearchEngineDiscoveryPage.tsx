@@ -268,6 +268,10 @@ export function SearchEngineDiscoveryPage() {
           { id: 'search-customers', label: '搜索客户', kind: 'primary', icon: <Search size={20} />, onClick: () => navigate('/prospect-discovery/search-engine/results') },
         ]}
       />
+      <section className="tp-search-discovery__intro" aria-label="功能介绍">
+        <p>根据产品名称、目标国家和目标企业类型，组合搜索语法并调用已配置的搜索服务，发现潜在企业网站。</p>
+        <p>搜索结果会经过域名排除、重复项识别和线索质量规则筛选，再进入候选网站核验与 AI 分析。目标国家仅用于搜索定位，企业实际所在地以网站证据核验结果为准。</p>
+      </section>
       <section className="tp-search-discovery__steps-viewport" aria-label="搜索客户流程">
         <div className="tp-search-discovery__steps-track"><ProgressIndicator currentIndex={activeStep} spaceEqually><ProgressStep label="搜索条件" /><ProgressStep label="候选网站" /><ProgressStep label="批量分析" /><ProgressStep label="分析结果" /></ProgressIndicator></div>
       </section>
@@ -315,13 +319,10 @@ export function SearchEngineDiscoveryPage() {
 
       <Tile className="tp-search-discovery__tile">
         <h2>3. 搜索来源与排除规则</h2>
+        <p className="tp-search-discovery__section-description">选择一个或多个已完成配置的搜索来源。系统会汇总各来源返回的网站，并按下方类别和自定义域名规则过滤；被排除的网站不会进入候选池。API 凭据与服务配置统一在“设置 → API 集成”中维护。</p>
         <div className="tp-search-discovery__options-grid tp-search-discovery__engine-grid">
           {(['brightdata','quanticdata','serpkite','serpapi'] as const).filter(engine => configuredEngines[engine]).map(engine => <Checkbox key={engine} id={'engine-' + engine} labelText={{brightdata:'Bright Data',quanticdata:'QuanticData',serpkite:'SerpKite',serpapi:'SerpApi'}[engine]} checked={engines.includes(engine)} onChange={(_, data) => toggleEngine(engine, data.checked)} />)}
-          {!Object.values(configuredEngines).some(Boolean) && <InlineNotification kind="warning" title="尚未配置搜索服务" subtitle="请前往设置 → API 集成配置免费月度搜索服务。" />}
-          {configuredEngines.brightdata && <span className="tp-search-discovery__helper">Bright Data · 5,000 次/月</span>}
-          {configuredEngines.quanticdata && <span className="tp-search-discovery__helper">QuanticData · USD 2/月</span>}
-          {configuredEngines.serpkite && <span className="tp-search-discovery__helper">SerpKite · 1,000 credits/月</span>}
-          {configuredEngines.serpapi && <span className="tp-search-discovery__helper">SerpApi · 250 次/月</span>}
+          {!Object.values(configuredEngines).some(Boolean) && <InlineNotification kind="warning" title="尚未配置搜索服务" subtitle="请前往设置 → API 集成配置搜索服务。" />}
         </div>
         <NumberInput id="search-limit" label="每个搜索引擎最大候选数" min={10} max={500} step={10} value={limit} onChange={(_, data) => setLimit(Number(data.value) || 100)} />
         <h3 className="tp-search-discovery__section-label">网站类别排除</h3>
