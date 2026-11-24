@@ -3,17 +3,18 @@ name: CI
 on:
   push:
     branches:
+      - main
       - develop
   pull_request:
     branches:
-      - develop
       - main
+      - develop
 
 permissions:
   contents: read
 
 concurrency:
-  group: tradepilot-ci-${{ github.ref }}
+  group: tradepilot-standalone-ci-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -44,6 +45,7 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
       - name: Validate trade lifecycle migrations in isolated PostgreSQL
         env:
           PGHOST: 127.0.0.1
@@ -61,8 +63,10 @@ jobs:
           node --check services/inbox-scanner/server.mjs
           node --test services/inbox-scanner/server.test.mjs
           SCANNER_HMAC_SECRET=$(printf 'a%.0s' {1..64}) docker compose -f services/inbox-scanner/docker-compose.yml config --quiet
+
       - name: Test server-side discovery guardrails
         run: npm run test:guardrails
+
       - name: Verify design-system boundary
         run: npm run check:design-system
 
@@ -72,15 +76,5 @@ jobs:
       - name: Validate Cloudflare Worker bundle (dry run only)
         run: npm run worker:validate
 
-      - name: Package Worker deployment bundle
-        uses: actions/upload-artifact@v4
-        with:
-          name: tradepilot-worker-bundle-${{ github.sha }}
-          path: |
-            .wrangler/dry-run/
-            dist/client/
-          if-no-files-found: error
-          retention-days: 1
-
-      - name: Production deployment is controlled by the approved manual release workflow
-        run: echo "CI validation only. Production deployment requires explicit approval via deploy.yml."
+      - name: Production deployment is disabled in CI
+        run: echo "CI validation only. Use the manually approved standalone deployment workflow."
