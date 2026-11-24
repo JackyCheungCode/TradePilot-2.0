@@ -1,4 +1,4 @@
-select plan(13);
+select plan(16);
 
 -- Synthetic identity and task fixtures; the surrounding pgTAP transaction rolls back.
 insert into auth.users(id) values ('10000000-0000-4000-8000-000000000001');
@@ -78,5 +78,21 @@ select ok(exists(select 1 from pg_constraint
     and conname='discovery_runs_status_check'
     and pg_get_constraintdef(oid) like '%partial%'),
   'discovery_runs supports partial status');
+
+select is((select count(*)::int from storage.buckets
+  where id='product-assets' and public=false and file_size_limit=15728640), 1,
+  'product-assets bucket is private with the expected size limit');
+select ok((select allowed_mime_types @> array['image/jpeg','image/png','image/webp','image/avif','application/pdf']::text[]
+  from storage.buckets where id='product-assets'),
+  'product-assets bucket allows only the configured image and PDF formats');
+select is((select count(*)::int from pg_policies
+  where schemaname='storage' and tablename='objects'
+    and policyname in (
+      'product assets select own',
+      'product assets insert own',
+      'product assets update own',
+      'product assets delete own'
+    )), 4,
+  'product-assets has all four owner-scoped object policies');
 
 select * from finish();
