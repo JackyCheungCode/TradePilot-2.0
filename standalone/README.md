@@ -73,7 +73,7 @@ npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY --config wrangler.jsonc
 npx wrangler secret put AGENT_ENCRYPTION_KEY --config wrangler.jsonc
 ```
 
-Repeat for the private API keys required by the features you enable. Never store these values in GitHub source files.
+Repeat for the private API keys required by the features you enable (for example Apify, OpenRouter, Google Maps, DeepL, SERP providers, shipping-provider credentials, and inbox-scanner HMAC). Never store these values in GitHub source files. For local development, keep these in `.dev.vars`; the supplied example lists the supported Worker secret names.
 
 ## Supabase setup — important migration limitation
 
