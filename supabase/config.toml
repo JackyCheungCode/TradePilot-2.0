@@ -44,6 +44,7 @@ file_size_limit = "15MiB"
 [storage.buckets."product-assets"]
 public = false
 file_size_limit = "15MiB"
+allowed_mime_types = ["image/jpeg", "image/png", "image/webp", "image/avif", "application/pdf"]
 
 [storage.buckets."trade-document-files"]
 public = false
