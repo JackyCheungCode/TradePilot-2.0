@@ -41,7 +41,7 @@ The applied database ledger contains these versions, which do not have exact tim
 - `20261122084453_monitoring_run_heartbeat_and_execution_stage`
 - `20261122220538_manage_google_maps_discovery_runs`
 
-The six timestamp/name differences may represent later edits or regenerated migrations; the missing `fix_monitoring_cron_claim_inactive_objects` migration is an additional gap. Each needs SQL-level comparison against the current schema before a baseline can be assembled.
+The six timestamp/name differences were checked against the live schema metadata: the expected indexes, execution-log table and owner policies, final cron-claim function, heartbeat/stage columns, and Google Maps discovery-run fields/index are present. The additional `fix_monitoring_cron_claim_inactive_objects` behavior is also present in the live cron-claim function. The standalone migration `20261122121000_fix_monitoring_cron_claim_output_columns.sql` has now been consolidated to preserve both the qualified INSERT RETURNING fields and the active-object eligibility guard, so a clean install will end in the same relevant function behavior. This resolves the known monitoring migration content gap for the handoff chain; the full application schema still needs a from-zero test.
 
 ## Read-only schema inventory
 
@@ -76,7 +76,7 @@ The five Storage bucket definitions and their object policies are platform confi
 
 1. Obtain a schema-only export of the source database using a supported Supabase CLI workflow; do not export or copy production user data.
 2. Compare the export with all 120 repository migrations, including function bodies, triggers, RLS policies, grants, custom schemas, extensions, and storage policies.
-3. Reconcile the six unapplied repository migrations and seven applied-but-unmatched history versions. Do not repair migration history merely to silence the diff.
+3. Keep the six timestamp differences documented and preserve the consolidated cron-claim behavior in the handoff migration. Do not repair source migration history merely to silence the diff.
 4. Create a clean-install baseline from reviewed schema definitions, keeping Supabase-managed schemas and platform-managed resources separate.
 5. Add only synthetic development seed data. Never bundle production users, customer records, API credentials, Vault secrets, or Storage objects.
 6. Initialize a disposable Supabase project from zero and run schema, migration, RLS, RPC, trigger, Storage, and application integration tests.
