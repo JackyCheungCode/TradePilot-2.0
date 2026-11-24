@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16
+        image: postgres:17
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -59,6 +59,15 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y postgresql-client
           bash scripts/test-trade-lifecycle-migrations.sh
+
+      - name: Validate standalone monitoring database bootstrap
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: tradepilot_test
+        run: npm run test:monitoring-bootstrap
 
       - name: Validate private ClamAV scanner service
         run: |
