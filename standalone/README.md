@@ -83,16 +83,17 @@ The repository now includes `supabase/config.toml` with PostgreSQL 17, local Aut
 
 ### Local clean-install validation
 
-Install Docker and Supabase CLI 3.1.0, then run these commands from the repository root:
+Install Docker, PostgreSQL client tools, and Supabase CLI 3.1.0. The local Supabase stack uses non-default ports to avoid conflicts with other local PostgreSQL services.
 
 ```bash
 supabase start --exclude studio,logflare,vector,edge-runtime,mailpit
 supabase db reset
-supabase test db supabase/tests/monitoring-bootstrap.test.sql
+psql "postgresql://postgres:postgres@127.0.0.1:55432/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/monitoring-bootstrap.test.sql
+psql "postgresql://postgres:postgres@127.0.0.1:55432/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/storage-bootstrap.test.sql
 supabase stop --no-backup
 ```
 
-This starts an isolated local Supabase stack, applies the repository migration sequence to a clean database, and runs the monitoring/RLS integration test. It does not connect to any hosted Supabase project. CI also runs this clean-install path; do not describe the database as certified until that workflow passes.
+This starts an isolated local Supabase stack, applies the repository migration sequence to a clean database, and runs the monitoring/RLS and Storage integration checks. It does not connect to any hosted Supabase project. CI also runs this clean-install path; do not describe the database as certified until that workflow passes.
 
 For a new hosted project, first complete the clean local test, then authenticate and link only the recipient's own project. Review the migration plan before applying it:
 

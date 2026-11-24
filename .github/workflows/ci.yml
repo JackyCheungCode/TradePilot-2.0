@@ -39,8 +39,15 @@ jobs:
       - name: Apply every migration to a clean local database
         run: supabase db reset
 
+      - name: Install PostgreSQL client for local Supabase tests
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
       - name: Test monitoring bootstrap and access controls
-        run: supabase test db supabase/tests/monitoring-bootstrap.test.sql
+        run: |
+          psql "postgresql://postgres:postgres@127.0.0.1:55432/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/monitoring-bootstrap.test.sql
+          psql "postgresql://postgres:postgres@127.0.0.1:55432/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/storage-bootstrap.test.sql
 
       - name: Stop isolated Supabase stack
         if: always()
