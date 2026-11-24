@@ -1,11 +1,17 @@
-# Copy to .dev.vars for local Wrangler development.
-# Keep real values out of Git. This example contains placeholders only.
-AGENT_ENCRYPTION_KEY=replace-with-local-development-key
-AI_PROVIDER_OPENROUTER_API_KEY=replace-with-local-openrouter-key
-ACTOR_GATEWAY_API_TOKEN=replace-with-local-actor-gateway-token
-CLOUDFLARE_API_TOKEN=replace-with-local-cloudflare-token
-DEEPL_API_KEY=replace-with-local-deepl-key
-GOOGLE_MAPS_API_KEY=replace-with-local-google-maps-key
-SERPAPI_API_KEY=replace-with-local-serpapi-key
-SERPER_API_KEY=replace-with-local-serper-key
-SUPABASE_SERVICE_ROLE_KEY=replace-with-local-supabase-service-role-key
+# Copy to .dev.vars for local Wrangler development. Keep real values out of Git.
+AGENT_ENCRYPTION_KEY=replace-with-a-random-secret
+AI_PROVIDER_OPENROUTER_API_KEY=replace-with-your-openrouter-key
+ACTOR_GATEWAY_API_TOKEN=replace-with-your-actor-gateway-token
+APIFY_API_TOKEN=replace-with-your-apify-token
+DEEPL_API_KEY=replace-with-your-deepl-key
+GOOGLE_MAPS_API_KEY=replace-with-your-google-maps-key
+SERPAPI_API_KEY=replace-with-your-serpapi-key
+SERPER_API_KEY=replace-with-your-serper-key
+SUPABASE_SERVICE_ROLE_KEY=replace-with-your-supabase-service-role-key
+INBOX_SCANNER_URL=
+INBOX_SCANNER_HMAC_SECRET=replace-with-a-random-hmac-secret
+DHL_API_KEY=
+UPS_CLIENT_ID=
+UPS_CLIENT_SECRET=
+FEDEX_CLIENT_ID=
+FEDEX_CLIENT_SECRET=
