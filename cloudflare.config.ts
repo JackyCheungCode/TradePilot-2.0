@@ -1,13 +1,13 @@
 import { bindings, defineConfig, exports } from 'cf/config';
 import * as entrypoint from './worker/src/index.ts' with { type: 'cf-worker' };
 
-const workerName = 'tradepilot';
+const workerName = 'tradepilot-standalone';
 const workflowNames = {
-  agentOrchestration: 'tradepilot-agent-orchestration',
-  contactEnrichment: 'tradepilot-contact-enrichment',
-  facebookDiscovery: 'tradepilot-facebook-discovery',
-  instagramDiscovery: 'tradepilot-instagram-discovery',
-  leadDiscovery: 'tradepilot-lead-discovery',
+  agentOrchestration: 'tradepilot-standalone-agent-orchestration',
+  contactEnrichment: 'tradepilot-standalone-contact-enrichment',
+  facebookDiscovery: 'tradepilot-standalone-facebook-discovery',
+  instagramDiscovery: 'tradepilot-standalone-instagram-discovery',
+  leadDiscovery: 'tradepilot-standalone-lead-discovery',
 } as const;
 
 function requiredBuildText(name: string): string {
@@ -18,11 +18,12 @@ function requiredBuildText(name: string): string {
 }
 
 /**
- * Reconciled from the existing production tradepilot Worker.
- * This file configures builds only; no deploy command is wired into CI.
+ * Standalone build configuration.
+ * All account and Supabase identifiers must belong to the operator.
+ * No source-installation account or project identifiers are embedded here.
  */
 export default defineConfig({
-  accountId: 'ea4e98dce9c478d7dd5c07f10e5c722d',
+  accountId: requiredBuildText('CLOUDFLARE_ACCOUNT_ID'),
   worker: {
     name: workerName,
     entrypoint,
@@ -49,7 +50,7 @@ export default defineConfig({
     env: {
       ASSETS: bindings.assets(),
       AI: bindings.ai(),
-      SUPABASE_URL: bindings.text('https://nlklnkkcwapwerkahoyb.supabase.co'),
+      SUPABASE_URL: bindings.text(requiredBuildText('SUPABASE_URL')),
       SUPABASE_ANON_KEY: bindings.text(requiredBuildText('SUPABASE_ANON_KEY')),
       AGENT_ENCRYPTION_KEY: bindings.secret(),
       AI_PROVIDER_OPENROUTER_API_KEY: bindings.secret(),
