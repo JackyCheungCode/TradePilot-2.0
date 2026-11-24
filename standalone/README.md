@@ -14,13 +14,14 @@ A standalone installation must use resources owned by its operator:
 
 Do not reuse credentials, production data, Supabase project URLs/keys, Cloudflare account IDs, Worker names, R2 buckets, or webhook URLs from another installation.
 
-## Create a repository with fresh Git history
+## Download and create a repository with fresh Git history
 
-1. Download the source ZIP from the source repository's `main` branch, or clone it locally.
-2. Create a new empty repository under your own GitHub account. Do not use GitHub's Fork button.
-3. Extract the source ZIP, excluding any existing `.git` directory if you used a clone.
-4. Review and replace environment-specific configuration as described below.
-5. Initialize and push a new repository:
+1. Open the source repository and select the `standalone/developer-handoff` branch.
+2. Download that branch as a ZIP archive. Do not use GitHub's Fork button.
+3. Create a new empty repository under your own GitHub account. Do not initialize it with a README, license, or .gitignore.
+4. Extract the ZIP archive into a local folder.
+5. Review and replace environment-specific configuration as described below.
+6. Initialize and push a new repository:
 
 ```bash
 git init
@@ -39,24 +40,37 @@ Use the Node.js version specified by the repository's CI workflow (currently Nod
 
 ```bash
 npm ci
-```
-
-Copy the environment templates and fill in credentials belonging to your own services:
-
-```bash
+cp .env.example .env
 cp .dev.vars.example .dev.vars
 ```
 
-If the application requires frontend build-time variables, use the repository's `.env.example` as the authoritative variable-name reference. Never commit populated `.env` or `.dev.vars` files.
+Fill in your own values:
 
-Review the root `package.json` scripts before running migrations or deploying. Typical validation commands used by this repository include:
+- `.env`: your own Supabase URL and publishable/anon key for frontend use.
+- `.dev.vars`: local Worker-only secrets and private API keys.
+- `wrangler.jsonc`: your own Worker name, Supabase URL/key, R2 bucket name, and any resource bindings.
+
+Never commit populated `.env` or `.dev.vars` files. Never place service-role keys or private API credentials in `VITE_` variables or committed configuration.
+
+## CI and deployment
+
+The included CI workflow validates builds and Worker bundles only; it does not deploy.
+
+The standalone deployment workflow is manual-only, targets the `main` branch, and requires the explicit `approved` selection. Configure these repository secrets in your own GitHub repository:
+
+- `CLOUDFLARE_API_TOKEN`: a token created in your own Cloudflare account with the minimum required Worker deployment permissions.
+- `CLOUDFLARE_ACCOUNT_ID`: your own Cloudflare account ID.
+
+Configure the GitHub environment named `standalone-production` and, preferably, require an environment reviewer before production deployment. Create the R2 bucket and all required Cloudflare Workflow resources in your own account before deployment.
+
+Set Worker runtime secrets separately using Wrangler, for example:
 
 ```bash
-npm run build
-npm run test:guardrails
-npm run check:design-system
-npm run worker:validate
+npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY --config wrangler.jsonc
+npx wrangler secret put AGENT_ENCRYPTION_KEY --config wrangler.jsonc
 ```
+
+Repeat for the private API keys required by the features you enable. Never store these values in GitHub source files.
 
 ## Supabase setup — important migration limitation
 
@@ -69,21 +83,6 @@ The source repository contains migration, deferred-migration, rollback, and test
 - Use synthetic test data only. Do not import production customer or user records.
 
 A verified clean-install migration baseline is a prerequisite for claiming one-command deployment. Until it is independently validated, database initialization is a manual engineering task.
-
-## Cloudflare setup
-
-Start from `standalone/wrangler.template.jsonc`. Give the installation its own:
-
-- Worker name
-- Supabase URL and publishable/anon key
-- Cloudflare account and deployment token
-- R2 bucket(s)
-- Workflow bindings and any required resources
-- Cron triggers and custom domains/routes
-
-Create the required Cloudflare resources in the friend's account before deploying. Set private values with Wrangler secrets or GitHub Actions repository secrets; do not put them in committed JSONC files.
-
-The original production workflow is not a standalone deployment recipe. Review and replace account-specific IDs, secret names, environments, approval rules, and deployment targets before enabling any deployment workflow.
 
 ## Security checklist
 
