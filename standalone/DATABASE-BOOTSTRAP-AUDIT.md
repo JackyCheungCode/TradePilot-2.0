@@ -12,10 +12,10 @@ This audit compared the handoff branch's migration filenames with the source pro
 
 | Measure | Count |
 |---|---:|
-| SQL files in `supabase/migrations/` on the handoff branch | 120 |
+| SQL files in `supabase/migrations/` on the handoff branch | 121 |
 | Applied migration versions in the source database | 121 |
 | Versions matching exactly by timestamp | 114 |
-| Repository migration files not present in applied history | 6 |
+| Repository migration files not present in applied history | 7 |
 | Applied versions without an exact matching repository migration file | 7 |
 
 ### Repository files not present in the applied history
@@ -28,6 +28,7 @@ These must be reviewed before inclusion in a clean-install path; they are not au
 - `20261122121000_fix_monitoring_cron_claim_output_columns.sql`
 - `20261122130000_add_monitoring_run_heartbeat_and_stage.sql`
 - `20261123100000_manage_google_maps_discovery_runs.sql`
+- `20261124100000_create_private_product_assets_bucket.sql` (new standalone migration; intentionally not applied to the source project)
 
 ### Applied versions without exact matching repository files
 
@@ -66,7 +67,7 @@ The Supabase security advisor returned these findings at audit time:
 - Leaked-password protection was reported disabled in Auth.
 - The performance advisor reported 54 unindexed foreign keys and 69 unused indexes. These are review items, not automatic reasons to add/drop indexes in a clean-install migration.
 
-The five Storage bucket definitions and their object policies are platform configuration that must be provisioned and tested separately. A database schema migration alone does not copy bucket contents or prove object-level access controls.
+The five Storage bucket definitions and their object policies are platform configuration that must be provisioned and tested separately. A database schema migration alone does not copy bucket contents or prove object-level access controls. The audit also found that the existing private `product-assets` bucket and its four owner-folder policies were present in the source project but were not represented by any repository migration. The handoff branch now adds `20261124100000_create_private_product_assets_bucket.sql` and aligns the local bucket configuration; this new migration is intentionally not applied to the source project.
 
 ## Deferred migration
 
@@ -77,7 +78,7 @@ The five Storage bucket definitions and their object policies are platform confi
 1. Obtain a schema-only export of the source database using a supported Supabase CLI workflow; do not export or copy production user data.
 2. Compare the export with all 120 repository migrations, including function bodies, triggers, RLS policies, grants, custom schemas, extensions, and storage policies.
 3. Keep the six timestamp differences documented and preserve the consolidated cron-claim behavior in the handoff migration. Do not repair source migration history merely to silence the diff.
-4. Create a clean-install baseline from reviewed schema definitions, keeping Supabase-managed schemas and platform-managed resources separate.
+4. Create a clean-install baseline from reviewed schema definitions, keeping Supabase-managed schemas and platform-managed resources separate. A local Supabase config and full clean-bootstrap CI job have now been added; the first end-to-end run is still pending.
 5. Add only synthetic development seed data. Never bundle production users, customer records, API credentials, Vault secrets, or Storage objects.
 6. Initialize a disposable Supabase project from zero and run schema, migration, RLS, RPC, trigger, Storage, and application integration tests.
 7. Run Supabase security and performance advisors on the disposable project and document accepted findings.
