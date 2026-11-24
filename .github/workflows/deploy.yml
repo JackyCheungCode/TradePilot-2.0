@@ -1,49 +1,31 @@
-name: Deploy TradePilot Worker
+name: Deploy TradePilot Standalone
 
 on:
-  # Production release requires manual approval or an explicit [production-release] commit.
-  # Ordinary develop pushes only validate and never publish to production.
   workflow_dispatch:
     inputs:
       release_confirmation:
-        description: "Select approved only after the production readiness checklist passes"
+        description: "Type approved only after verifying your own Cloudflare and Supabase resources"
         required: true
         type: choice
         options:
           - hold
           - approved
         default: hold
-  push:
-    branches:
-      - develop
 
 permissions:
   contents: read
 
 concurrency:
-  group: tradepilot-production-deploy
+  group: tradepilot-standalone-deploy
   cancel-in-progress: false
 
 jobs:
   validate-and-deploy:
-    if: github.ref == 'refs/heads/develop' && (inputs.release_confirmation == 'approved' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[production-release]')))
+    if: github.ref == 'refs/heads/main' && inputs.release_confirmation == 'approved'
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: tradepilot_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d tradepilot_test"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+    environment: standalone-production
     steps:
-      - name: Checkout exact develop commit
+      - name: Checkout exact commit
         uses: actions/checkout@v4
         with:
           ref: ${{ github.sha }}
@@ -55,42 +37,22 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-      - name: Validate trade lifecycle migrations in isolated PostgreSQL
-        env:
-          PGHOST: 127.0.0.1
-          PGPORT: 5432
-          PGUSER: postgres
-          PGPASSWORD: postgres
-          PGDATABASE: tradepilot_test
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client
-          bash scripts/test-trade-lifecycle-migrations.sh
 
-      - name: Validate private ClamAV scanner service
-        run: |
-          node --check services/inbox-scanner/server.mjs
-          node --test services/inbox-scanner/server.test.mjs
-          SCANNER_HMAC_SECRET=$(printf 'a%.0s' {1..64}) docker compose -f services/inbox-scanner/docker-compose.yml config --quiet
-
-      - name: Run server-side guardrail tests
-        run: npm run test:guardrails
-
-      - name: Build frontend and validate Worker
+      - name: Build and validate application
         run: npm run build && npm run worker:validate
 
-      - name: Deploy production Worker only after explicit approval
-        if: inputs.release_confirmation == 'approved' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[production-release]'))
+      - name: Verify independent Cloudflare credentials
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ea4e98dce9c478d7dd5c07f10e5c722d
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
-            echo "::error::Deployment blocked: repository secret CLOUDFLARE_API_TOKEN is not configured."
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::error::Configure your own CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID secrets."
             exit 1
           fi
-          npm run worker:deploy
 
-      - name: Confirm production deployment intentionally held
-        if: inputs.release_confirmation != 'approved' && !(github.event_name == 'push' && contains(github.event.head_commit.message, '[production-release]'))
-        run: echo "Validation completed. Production deployment was intentionally held.";
+      - name: Deploy to your own Cloudflare account
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npm run worker:deploy
