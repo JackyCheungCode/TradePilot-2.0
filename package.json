@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run check:design-system && npm run check:sql-security && npm run check:worker-secrets && npm run worker:types && tsc -b && tsc -p tsconfig.worker.json --noEmit && vite build",
+    "build": "npm run check:standalone-isolation && npm run check:design-system && npm run check:sql-security && npm run check:worker-secrets && npm run worker:types && tsc -b && tsc -p tsconfig.worker.json --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "npm run worker:types && tsc -b --pretty && tsc -p tsconfig.worker.json --noEmit",
     "test:guardrails": "node --experimental-strip-types --test worker/src/lib/guardrails.test.ts worker/src/routes/settings.test.ts worker/src/routes/search-discovery.test.ts worker/src/routes/search-discovery-process.test.ts worker/src/routes/search-discovery-analysis.test.ts worker/src/routes/skill-registry.test.ts worker/src/routes/agent-center.test.ts worker/src/routes/trade-documents.test.ts worker/src/routes/inbox.test.ts",
@@ -16,7 +16,8 @@
     "worker:validate": "wrangler deploy --dry-run --outdir .wrangler/dry-run --config wrangler.jsonc",
     "worker:deploy": "wrangler deploy --config wrangler.jsonc",
     "worker:types": "wrangler types worker/worker-configuration.d.ts --config wrangler.jsonc --include-runtime=false",
-    "check:sql-security": "node scripts/check-pending-migration-security.mjs"
+    "check:sql-security": "node scripts/check-pending-migration-security.mjs",
+    "check:standalone-isolation": "node scripts/check-standalone-isolation.mjs"
   },
   "dependencies": {
     "@carbon/icons-react": "^11.55.0",
