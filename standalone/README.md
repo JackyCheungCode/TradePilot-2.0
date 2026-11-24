@@ -46,9 +46,10 @@ cp .dev.vars.example .dev.vars
 
 Fill in your own values:
 
-- `.env`: your own Supabase URL and publishable/anon key for frontend use.
+- `.env`: `CLOUDFLARE_ACCOUNT_ID`, `SUPABASE_URL`, and `SUPABASE_ANON_KEY` for the local Cloudflare build; frontend public variables may be set if your chosen frontend integration uses them.
 - `.dev.vars`: local Worker-only secrets and private API keys.
 - `wrangler.jsonc`: your own Worker name, Supabase URL/key, R2 bucket name, and any resource bindings.
+- `cloudflare.config.ts`: its Worker and Workflow names should match the resources in your own `wrangler.jsonc`; the supplied standalone values are namespaced to avoid colliding with another installation.
 
 Never commit populated `.env` or `.dev.vars` files. Never place service-role keys or private API credentials in `VITE_` variables or committed configuration.
 
@@ -60,6 +61,8 @@ The standalone deployment workflow is manual-only, targets the `main` branch, an
 
 - `CLOUDFLARE_API_TOKEN`: a token created in your own Cloudflare account with the minimum required Worker deployment permissions.
 - `CLOUDFLARE_ACCOUNT_ID`: your own Cloudflare account ID.
+- Repository variable `SUPABASE_URL`: your own Supabase project URL.
+- Repository variable `SUPABASE_ANON_KEY`: your own Supabase publishable/anon key.
 
 Configure the GitHub environment named `standalone-production` and, preferably, require an environment reviewer before production deployment. Create the R2 bucket and all required Cloudflare Workflow resources in your own account before deployment.
 
