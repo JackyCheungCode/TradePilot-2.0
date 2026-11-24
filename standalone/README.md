@@ -77,7 +77,34 @@ Repeat for the private API keys required by the features you enable (for example
 
 ## Supabase setup — important migration limitation
 
-Read [DATABASE-BOOTSTRAP-AUDIT.md](./DATABASE-BOOTSTRAP-AUDIT.md) before initializing Supabase. The audit records the current migration-ledger differences and read-only schema inventory. The current migration history does not reproduce the source database one-to-one. Therefore:
+Read [DATABASE-BOOTSTRAP-AUDIT.md](./DATABASE-BOOTSTRAP-AUDIT.md) before initializing Supabase. The audit records the current migration-ledger differences and read-only schema inventory. The current migration history does not reproduce the source database one-to-one.
+
+The repository now includes `supabase/config.toml` with PostgreSQL 17, local Auth/API settings, and the five known Storage bucket definitions. Seed loading is disabled until the required non-production reference data has been reviewed. The Inbox private-attachment bucket remains deferred.
+
+### Local clean-install validation
+
+Install Docker and Supabase CLI 3.1.0, then run these commands from the repository root:
+
+```bash
+supabase start --exclude studio,logflare,vector,edge-runtime,mailpit
+supabase db reset
+supabase test db supabase/tests/monitoring-bootstrap.test.sql
+supabase stop --no-backup
+```
+
+This starts an isolated local Supabase stack, applies the repository migration sequence to a clean database, and runs the monitoring/RLS integration test. It does not connect to any hosted Supabase project. CI also runs this clean-install path; do not describe the database as certified until that workflow passes.
+
+For a new hosted project, first complete the clean local test, then authenticate and link only the recipient's own project. Review the migration plan before applying it:
+
+```bash
+supabase login
+supabase link --project-ref YOUR_OWN_PROJECT_REF
+supabase db push --remote
+```
+
+The hosted push is intentionally not part of the Cloudflare deployment workflow yet. Do not link this checkout to the original TradePilot production project.
+
+Therefore:
 
 - Do not connect a fresh installation to somebody else's production Supabase project.
 - Do not assume that running every SQL file in filename order recreates the production schema.
