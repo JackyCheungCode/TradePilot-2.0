@@ -5,10 +5,12 @@ on:
     branches:
       - main
       - develop
+      - standalone/developer-handoff
   pull_request:
     branches:
       - main
       - develop
+      - standalone/developer-handoff
 
 permissions:
   contents: read
