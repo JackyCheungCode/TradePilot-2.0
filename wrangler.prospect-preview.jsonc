@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "tradepilot-prospect-preview",
+  "name": "tradepilot-standalone-prospect-preview",
   "main": "worker/src/index.ts",
   "compatibility_date": "2026-11-13",
   "compatibility_flags": ["nodejs_compat"],
@@ -13,8 +13,8 @@
     "not_found_handling": "single-page-application"
   },
   "vars": {
-    "SUPABASE_URL": "https://nlklnkkcwapwerkahoyb.supabase.co",
-    "SUPABASE_ANON_KEY": "sb_publishable_9jPg2Sv0VmMho3vOvxU00Q_-kWg8xw_"
+    "SUPABASE_URL": "https://YOUR_PREVIEW_PROJECT_REF.supabase.co",
+    "SUPABASE_ANON_KEY": "YOUR_PREVIEW_SUPABASE_PUBLISHABLE_OR_ANON_KEY"
   },
   "observability": {
     "enabled": true,
