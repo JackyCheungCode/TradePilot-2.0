@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="小雅">
+  <path d="M48 7C26 7 10 22 8 43 5 65 20 85 42 89c22 4 43-10 46-32C92 35 78 12 57 8c-3-1-6-1-9-1Z" fill="#F3F0EA"/>
+  <ellipse cx="34" cy="43" rx="4.5" ry="6" fill="#292929"/>
+  <ellipse cx="62" cy="43" rx="4.5" ry="6" fill="#292929"/>
+  <path d="M36 61c7 8 18 8 25 0" fill="none" stroke="#292929" stroke-width="4" stroke-linecap="round"/>
+</svg>

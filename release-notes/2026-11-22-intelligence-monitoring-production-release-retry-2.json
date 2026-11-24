@@ -1,0 +1,11 @@
+{
+  "release": "intelligence-monitoring",
+  "environment": "production",
+  "target_branch": "develop",
+  "authorization": "User explicitly requested repair and production deployment.",
+  "fixes": [
+    "Carbon InlineNotification props corrected on results and logs pages.",
+    "Unused grouped run identifier removed from monitoring runner."
+  ],
+  "gate": "All deploy workflow validations must pass before production deployment."
+}

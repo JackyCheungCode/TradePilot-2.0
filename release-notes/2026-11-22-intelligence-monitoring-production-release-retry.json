@@ -1,0 +1,11 @@
+{
+  "release": "intelligence-monitoring",
+  "environment": "production",
+  "target_branch": "develop",
+  "authorization": "User explicitly requested repair and production deployment on 2026-11-22.",
+  "changes": [
+    "Remove unsupported actions prop from Carbon InlineNotification on monitoring results page.",
+    "Remove unsupported actions prop from Carbon InlineNotification on monitoring logs page while retaining retry controls."
+  ],
+  "validation": "Require all deploy workflow checks and build validation to pass before Cloudflare production deployment."
+}

@@ -1,17 +1,21 @@
-
 name: Deploy TradePilot Worker
 
 on:
+  # Production release requires manual approval or an explicit [production-release] commit.
+  # Ordinary develop pushes only validate and never publish to production.
   workflow_dispatch:
     inputs:
       release_confirmation:
-        description: "Production release approval"
+        description: "Select approved only after the production readiness checklist passes"
         required: true
         type: choice
         options:
           - hold
           - approved
         default: hold
+  push:
+    branches:
+      - develop
 
 permissions:
   contents: read
@@ -22,7 +26,7 @@ concurrency:
 
 jobs:
   validate-and-deploy:
-    if: github.ref == 'refs/heads/develop'
+    if: github.ref == 'refs/heads/develop' && (inputs.release_confirmation == 'approved' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[production-release]')))
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -51,8 +55,7 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Validate trade lifecycle migrations
+      - name: Validate trade lifecycle migrations in isolated PostgreSQL
         env:
           PGHOST: 127.0.0.1
           PGPORT: 5432
@@ -64,7 +67,7 @@ jobs:
           sudo apt-get install -y postgresql-client
           bash scripts/test-trade-lifecycle-migrations.sh
 
-      - name: Validate private ClamAV scanner
+      - name: Validate private ClamAV scanner service
         run: |
           node --check services/inbox-scanner/server.mjs
           node --test services/inbox-scanner/server.test.mjs
@@ -76,18 +79,18 @@ jobs:
       - name: Build frontend and validate Worker
         run: npm run build && npm run worker:validate
 
-      - name: Deploy production Worker
-        if: inputs.release_confirmation == 'approved'
+      - name: Deploy production Worker only after explicit approval
+        if: inputs.release_confirmation == 'approved' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[production-release]'))
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ea4e98dce9c478d7dd5c07f10e5c722d
         run: |
           if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
-            echo "::error::Missing CLOUDFLARE_API_TOKEN"
+            echo "::error::Deployment blocked: repository secret CLOUDFLARE_API_TOKEN is not configured."
             exit 1
           fi
           npm run worker:deploy
 
-      - name: Confirm deployment held
-        if: inputs.release_confirmation != 'approved'
-        run: echo "Validation completed. Production deployment held."
+      - name: Confirm production deployment intentionally held
+        if: inputs.release_confirmation != 'approved' && !(github.event_name == 'push' && contains(github.event.head_commit.message, '[production-release]'))
+        run: echo "Validation completed. Production deployment was intentionally held.";

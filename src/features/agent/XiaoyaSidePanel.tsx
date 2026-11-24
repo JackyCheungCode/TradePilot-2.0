@@ -1,0 +1,592 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Button, Dropdown, Heading, Link, Tile, semanticIcons, ChatCustomElement, MessageResponseTypes, type ChatInstance, type CustomSendMessageOptions, type MessageRequest, type ChatCustomElementProps, type RenderCustomRequestFooter, type HistoryItem } from '@/design-system';
+import { XiaoyaAvatar } from './XiaoyaAvatar';
+import { getSupabaseClient } from '@/lib/supabase';
+import '@/design-system/layout/XiaoyaSidePanel.scss';
+
+type Conversation = { id: string; title: string; last_message_at: string; created_at: string };
+type AgentTask = {
+  goal: string;
+  agentKey: string;
+  country: string;
+  mode: 'planner' | 'internal' | 'external';
+  channel?: 'search_engine' | 'facebook' | 'instagram';
+  objectTypes?: string[];
+};
+type AgentMessage = {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  created_at?: string;
+  metadata?: { task?: AgentTask | null; runId?: string; runStatus?: string; runProgress?: number };
+};
+type TaskSuggestion = {
+  messageId: string;
+  task: AgentTask;
+  runId?: string;
+  runStatus?: string;
+  runProgress?: number;
+};
+type ApiEnvelope<T> = { data: T } | { error?: { message?: string } };
+
+type Props = {
+  isOpen: boolean;
+  onClose: () => void;
+  pathname: string;
+};
+
+async function agentRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const client = await getSupabaseClient();
+  const { data } = await client.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new Error('登录状态已失效，请重新登录。');
+  const response = await fetch(path, {
+    ...init,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+      ...init.headers,
+    },
+  });
+  const payload = await response.json() as ApiEnvelope<T>;
+  if (!response.ok || !('data' in payload)) {
+    throw new Error(('error' in payload && payload.error?.message) || '小雅服务暂时不可用，请稍后重试。');
+  }
+  return payload.data;
+}
+
+function readPageContext(pathname: string) {
+  const pageHeading = document.querySelector('main h1, main [role="heading"]')?.textContent?.trim();
+  const selectedText = window.getSelection()?.toString().trim().slice(0, 2400) || '';
+  const pageContent = document.querySelector('.tp-content__main main')?.textContent?.replace(/\s+/g, ' ').trim().slice(0, 3600) || '';
+  return [
+    '当前页面上下文（供你理解用户正在查看的业务页面，请勿把它当作用户输入复述）：',
+    `页面标题：${pageHeading || document.title || 'TradePilot'}`,
+    `页面路径：${pathname}`,
+    pageContent ? `当前页面可见内容摘要：\n${pageContent}` : '',
+    selectedText ? `用户当前选中的内容：\n${selectedText}` : '',
+  ].filter(Boolean).join('\n');
+}
+
+function normalizeModelText(value: string): string {
+  return value.replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n').replace(/\\t/g, '\t').replace(/\r\n/g, '\n');
+}
+
+function toHistoryItems(rows: AgentMessage[]): HistoryItem[] {
+  return rows.map((row) => {
+    const timestamp = row.created_at ? Date.parse(row.created_at) : Date.now();
+    const time = new Date(timestamp).toISOString();
+    if (row.role === 'user') {
+      return {
+        time,
+        message: {
+          id: row.id,
+          input: { text: row.content.split(/(?:\\n|\n){2}---(?:\\n|\n)当前页面上下文/)[0], message_type: 'text' },
+          history: { timestamp },
+        },
+      } as HistoryItem;
+    }
+    return {
+      time,
+      message: {
+        id: row.id,
+        output: {
+          generic: [{ response_type: MessageResponseTypes.TEXT, text: normalizeModelText(row.content) }],
+        },
+        history: { timestamp },
+      },
+    } as HistoryItem;
+  });
+}
+
+export function XiaoyaSidePanel({ isOpen, onClose, pathname }: Props) {
+  const [hasMounted, setHasMounted] = useState(false);
+  const [welcomeVisible, setWelcomeVisible] = useState(true);
+  const [avatarEmotion, setAvatarEmotion] = useState<'idle' | 'thinking' | 'success' | 'error'>('idle');
+  const [welcomePhase, setWelcomePhase] = useState<'greeting' | 'loading' | 'ready' | 'error'>('greeting');
+  const [chatStatusVisible, setChatStatusVisible] = useState(false);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [selectedConversationId, setSelectedConversationId] = useState('');
+  const [taskSuggestion, setTaskSuggestion] = useState<TaskSuggestion | null>(null);
+  const [taskExecuting, setTaskExecuting] = useState(false);
+  const [taskError, setTaskError] = useState('');
+  const [userAvatarUrl, setUserAvatarUrl] = useState('');
+  const [userDisplayName, setUserDisplayName] = useState('你');
+  const chatInstanceRef = useRef<ChatInstance | null>(null);
+  const conversationIdRef = useRef('');
+  const historyLoadPromiseRef = useRef<Promise<void> | null>(null);
+  const statusTimerRef = useRef<number | null>(null);
+  const pathnameRef = useRef(pathname);
+  const dialogRef = useRef<HTMLElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+  const conversationRequestIdRef = useRef(0);
+  const conversationMutationRef = useRef<Promise<void>>(Promise.resolve());
+  onCloseRef.current = onClose;
+  pathnameRef.current = pathname;
+
+  useEffect(() => {
+    if (isOpen) setHasMounted(true);
+  }, [isOpen]);
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      try {
+        const client = await getSupabaseClient();
+        const { data } = await client.auth.getSession();
+        const user = data.session?.user;
+        if (!active || !user) return;
+        const metadata = user.user_metadata as Record<string, unknown>;
+        const avatar = metadata.avatar_url || metadata.picture || metadata.avatar;
+        const displayName = metadata.full_name || metadata.name || metadata.preferred_username || user.email?.split('@')[0];
+        if (typeof avatar === 'string' && /^https:\/\//i.test(avatar)) setUserAvatarUrl(avatar);
+        if (typeof displayName === 'string' && displayName.trim()) setUserDisplayName(displayName.trim());
+      } catch (error) {
+        console.error('[Xiaoya] User avatar could not be loaded', error);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
+
+  const renderUserMessageIdentity = useCallback<RenderCustomRequestFooter>(() => (
+    <div className="tp-xiaoya-user-identity" aria-label={userDisplayName}>
+      <span className="tp-xiaoya-user-identity__avatar" aria-hidden="true">
+        {userAvatarUrl ? <img src={userAvatarUrl} alt="" /> : userDisplayName.slice(0, 1).toUpperCase()}
+      </span>
+      <span className="tp-xiaoya-user-identity__name">{userDisplayName}</span>
+    </div>
+  ), [userAvatarUrl, userDisplayName]);
+
+
+  useEffect(() => {
+    if (!isOpen) {
+      previousFocusRef.current?.focus();
+      previousFocusRef.current = null;
+      return;
+    }
+    const previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const dialog = dialogRef.current;
+    dialog?.focus();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onCloseRef.current();
+        return;
+      }
+      if (event.key !== 'Tab' || !dialogRef.current) return;
+      const focusable = Array.from(dialogRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      )).filter((element) => element.getAttribute('aria-hidden') !== 'true');
+      if (!focusable.length) {
+        event.preventDefault();
+        dialogRef.current.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === dialogRef.current)) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = previousBodyOverflow;
+    };
+  }, [isOpen]);
+
+  useEffect(() => () => {
+    if (statusTimerRef.current !== null) window.clearTimeout(statusTimerRef.current);
+  }, []);
+
+  const refreshConversations = useCallback(async () => {
+    const rows = await agentRequest<Conversation[]>('/api/v1/agent/conversations');
+    setConversations(rows);
+    return rows;
+  }, []);
+
+  const createConversation = useCallback(async () => {
+    const created = await agentRequest<Conversation>('/api/v1/agent/conversations', {
+      method: 'POST',
+      body: JSON.stringify({ title: '新聊天' }),
+    });
+    conversationIdRef.current = created.id;
+    setSelectedConversationId(created.id);
+    setConversations((current) => [created, ...current.filter((item) => item.id !== created.id)]);
+    return created;
+  }, []);
+
+  const ensureConversation = useCallback(async () => {
+    if (conversationIdRef.current) return conversationIdRef.current;
+    const rows = await refreshConversations();
+    if (rows.length) {
+      conversationIdRef.current = rows[0].id;
+      setSelectedConversationId(rows[0].id);
+      return rows[0].id;
+    }
+    const created = await createConversation();
+    return created.id;
+  }, [createConversation, refreshConversations]);
+
+  const replaceChatHistory = useCallback(async (requestId: number, rows: AgentMessage[]) => {
+    const instance = chatInstanceRef.current;
+    if (!instance) return;
+    const operation = conversationMutationRef.current.then(async () => {
+      if (requestId !== conversationRequestIdRef.current) return;
+      await instance.messaging.clearConversation();
+      if (requestId !== conversationRequestIdRef.current) return;
+      if (rows.length) await instance.messaging.insertHistory(toHistoryItems(rows));
+    });
+    conversationMutationRef.current = operation.catch(() => undefined);
+    await operation;
+  }, []);
+
+  const selectConversation = useCallback(async (conversationId: string) => {
+    const instance = chatInstanceRef.current;
+    if (!instance || conversationId === conversationIdRef.current) return;
+    const requestId = ++conversationRequestIdRef.current;
+    setWelcomeVisible(true);
+    setWelcomePhase('loading');
+    setChatStatusVisible(false);
+    setAvatarEmotion('thinking');
+    try {
+      const rows = await agentRequest<AgentMessage[]>(`/api/v1/agent/conversations/${conversationId}/messages`);
+      if (requestId !== conversationRequestIdRef.current) return;
+      await replaceChatHistory(requestId, rows);
+      if (requestId !== conversationRequestIdRef.current) return;
+      conversationIdRef.current = conversationId;
+      setSelectedConversationId(conversationId);
+      const latestTaskMessage = [...rows].reverse().find((row) => row.role === 'assistant' && row.metadata?.task);
+      setTaskSuggestion(latestTaskMessage?.metadata?.task ? {
+        messageId: latestTaskMessage.id,
+        task: latestTaskMessage.metadata.task,
+        runId: latestTaskMessage.metadata.runId,
+        runStatus: latestTaskMessage.metadata.runStatus,
+        runProgress: latestTaskMessage.metadata.runProgress,
+      } : null);
+      setTaskError('');
+      setWelcomeVisible(rows.length === 0);
+      setWelcomePhase('ready');
+      setAvatarEmotion('success');
+    } catch (error) {
+      if (requestId !== conversationRequestIdRef.current) return;
+      console.error('[Xiaoya] Conversation could not be opened', error);
+      setAvatarEmotion('error');
+      setWelcomeVisible(true);
+      setWelcomePhase('error');
+    }
+  }, [replaceChatHistory]);
+
+  const startNewConversation = useCallback(async () => {
+    const instance = chatInstanceRef.current;
+    if (!instance) return;
+    const requestId = ++conversationRequestIdRef.current;
+    try {
+      const created = await agentRequest<Conversation>('/api/v1/agent/conversations', {
+        method: 'POST',
+        body: JSON.stringify({ title: '新聊天' }),
+      });
+      if (requestId !== conversationRequestIdRef.current) return;
+      conversationIdRef.current = created.id;
+      setSelectedConversationId(created.id);
+      setConversations((current) => [created, ...current.filter((item) => item.id !== created.id)]);
+      await replaceChatHistory(requestId, []);
+      if (requestId !== conversationRequestIdRef.current) return;
+      setWelcomeVisible(true);
+      setWelcomePhase('ready');
+      setAvatarEmotion('success');
+      setChatStatusVisible(false);
+      setTaskSuggestion(null);
+      setTaskError('');
+      conversationIdRef.current = created.id;
+    } catch (error) {
+      if (requestId !== conversationRequestIdRef.current) return;
+      console.error('[Xiaoya] New conversation could not be created', error);
+      setAvatarEmotion('error');
+      setWelcomePhase('error');
+      setWelcomeVisible(true);
+    }
+  }, [replaceChatHistory]);
+
+  const customLoadHistory = useCallback(async (instance: ChatInstance): Promise<HistoryItem[]> => {
+    // Return an empty initial history immediately. Fetch and insert persisted history
+    // in the background so Carbon's full-screen hydration spinner never splits the panel.
+    chatInstanceRef.current = instance;
+    const requestId = ++conversationRequestIdRef.current;
+    historyLoadPromiseRef.current = (async () => {
+      setWelcomePhase('loading');
+      setAvatarEmotion('thinking');
+      const conversationId = await ensureConversation();
+      if (requestId !== conversationRequestIdRef.current) return;
+      const rows = await agentRequest<AgentMessage[]>(`/api/v1/agent/conversations/${conversationId}/messages`);
+      if (requestId !== conversationRequestIdRef.current) return;
+      setSelectedConversationId(conversationId);
+      const latestTaskMessage = [...rows].reverse().find((row) => row.role === 'assistant' && row.metadata?.task);
+      setTaskSuggestion(latestTaskMessage?.metadata?.task ? {
+        messageId: latestTaskMessage.id,
+        task: latestTaskMessage.metadata.task,
+        runId: latestTaskMessage.metadata.runId,
+        runStatus: latestTaskMessage.metadata.runStatus,
+        runProgress: latestTaskMessage.metadata.runProgress,
+      } : null);
+      if (rows.length) {
+        setWelcomeVisible(false);
+        setAvatarEmotion('success');
+        await replaceChatHistory(requestId, rows);
+      } else {
+        setWelcomeVisible(true);
+        setWelcomePhase('ready');
+        setAvatarEmotion('success');
+      }
+    })().catch((error) => {
+      console.error('[Xiaoya] Conversation history could not be loaded', error);
+      setWelcomePhase('error');
+      setAvatarEmotion('error');
+    });
+    return [];
+  }, [ensureConversation, replaceChatHistory]);
+
+  const customSendMessage = useCallback(async (
+    request: MessageRequest,
+    requestOptions: CustomSendMessageOptions,
+    instance: ChatInstance,
+  ) => {
+    const message = request.input.text?.trim();
+    if (!message) return;
+    setWelcomeVisible(false);
+    setAvatarEmotion('thinking');
+    setChatStatusVisible(true);
+    if (statusTimerRef.current !== null) window.clearTimeout(statusTimerRef.current);
+    try {
+      await historyLoadPromiseRef.current;
+      const conversationId = await ensureConversation();
+      const context = readPageContext(pathnameRef.current);
+      const conversationRequestId = conversationRequestIdRef.current;
+      const result = await agentRequest<{ conversationId: string; messageId: string | null; reply: string; model?: string; task: AgentTask | null }>(
+        '/api/v1/agent/chat',
+        {
+          method: 'POST',
+          signal: requestOptions.signal,
+          body: JSON.stringify({
+            conversationId,
+            message,
+            pageContext: context,
+          }),
+        },
+      );
+      if (conversationRequestId !== conversationRequestIdRef.current || conversationId !== conversationIdRef.current) return;
+      const reply = [normalizeModelText(result.reply), result.model ? `\n\n模型：${result.model}` : ''].join('');
+      setTaskSuggestion(result.task && result.messageId ? { messageId: result.messageId, task: result.task } : null);
+      setTaskError('');
+      await instance.messaging.addMessage({
+        output: {
+          generic: [{
+            response_type: MessageResponseTypes.TEXT,
+            text: reply,
+          }],
+        },
+      });
+      await refreshConversations();
+      setAvatarEmotion('success');
+      statusTimerRef.current = window.setTimeout(() => {
+        setAvatarEmotion('idle');
+        setChatStatusVisible(false);
+      }, 1800);
+    } catch (error) {
+      setAvatarEmotion('error');
+      setChatStatusVisible(true);
+      statusTimerRef.current = window.setTimeout(() => {
+        setAvatarEmotion('idle');
+        setChatStatusVisible(false);
+      }, 2600);
+      throw error;
+    }
+  }, [ensureConversation, refreshConversations]);
+
+  useEffect(() => {
+    const runId = taskSuggestion?.runId;
+    if (!isOpen || !runId || ['succeeded', 'failed', 'cancelled'].includes(taskSuggestion.runStatus || '')) return;
+    let active = true;
+    const pollRun = async () => {
+      try {
+        const detail = await agentRequest<{
+          run: { status: string };
+          discoveryRun?: { progress?: number };
+        }>('/api/v1/agent/runs/' + runId);
+        if (!active) return;
+        setTaskSuggestion((current) => current?.runId === runId ? {
+          ...current,
+          runStatus: detail.run.status,
+          runProgress: Number(detail.discoveryRun?.progress ?? current.runProgress ?? 0),
+        } : current);
+      } catch (error) {
+        console.error('[Xiaoya] Task status could not be refreshed', error);
+      }
+    };
+    void pollRun();
+    const timer = window.setInterval(() => { void pollRun(); }, 5000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [isOpen, taskSuggestion?.runId, taskSuggestion?.runStatus]);
+
+  const startTask = useCallback(async () => {
+    const suggestion = taskSuggestion;
+    if (!suggestion || taskExecuting || suggestion.runId) return;
+    const targetConversationId = conversationIdRef.current;
+    const requestId = conversationRequestIdRef.current;
+    setTaskExecuting(true);
+    setTaskError('');
+    try {
+      const result = await agentRequest<{ id: string; taskCode?: string; status: string }>(
+        '/api/v1/agent/runs',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            goal: suggestion.task.goal,
+            execution: {
+              mode: suggestion.task.mode === 'internal' ? 'internal_discovery' : 'planner',
+              channel: suggestion.task.channel || 'search_engine',
+              objectTypes: suggestion.task.objectTypes || ['page', 'group', 'post'],
+              agentKey: suggestion.task.agentKey,
+              country: suggestion.task.country,
+              searchEngine: 'serper',
+              limitPerCountry: 50,
+            },
+          }),
+        },
+      );
+      const next = { ...suggestion, runId: result.id, runStatus: result.status, runProgress: 0 };
+      if (conversationIdRef.current === targetConversationId && conversationRequestIdRef.current === requestId) setTaskSuggestion(next);
+      try {
+        await agentRequest(
+          '/api/v1/agent/conversations/' + targetConversationId + '/messages/' + suggestion.messageId,
+          {
+            method: 'PATCH',
+            body: JSON.stringify({ metadata: { task: suggestion.task, runId: result.id, runStatus: result.status, runProgress: 0 } }),
+          },
+        );
+      } catch (error) {
+        console.error('[Xiaoya] Task started but message metadata could not be synchronized', error);
+      }
+    } catch (error) {
+      setTaskError(error instanceof Error ? error.message : '任务启动失败，请稍后重试。');
+    } finally {
+      setTaskExecuting(false);
+    }
+  }, [taskExecuting, taskSuggestion]);
+
+  const chatConfig = useMemo<ChatCustomElementProps>(() => ({
+    className: 'tp-xiaoya-chat',
+    aiEnabled: true,
+    assistantName: '小雅',
+    assistantAvatarUrl: '/xiaoya-avatar.svg',
+    hideAvatar: false,
+    renderCustomRequestFooter: renderUserMessageIdentity,
+    openChatByDefault: true,
+    header: {
+      isOn: false,
+    },
+    layout: {
+      showFrame: false,
+    },
+    strings: {
+      input_placeholder: '询问小雅…',
+    },
+    messaging: {
+      skipWelcome: true,
+      messageTimeoutSecs: 180,
+      messageLoadingIndicatorTimeoutSecs: 0,
+      showStopButtonImmediately: true,
+      customLoadHistory,
+      customSendMessage,
+    },
+  }), [customLoadHistory, customSendMessage, renderUserMessageIdentity]);
+
+  return (
+    <div className={`tp-xiaoya-drawer-layer${isOpen ? ' is-open' : ''}`} aria-hidden={!isOpen}>
+      <div className="tp-xiaoya-drawer-backdrop" onClick={onClose} />
+      <aside ref={dialogRef} className="tp-xiaoya-drawer" role="dialog" aria-modal="true" aria-label="小雅 AI 助手" tabIndex={-1}>
+        <div className="tp-xiaoya-drawer__toolbar">
+          <div className="tp-xiaoya-drawer__title">
+            <semanticIcons.chat size={20} />
+            <Heading className="tp-xiaoya-drawer__heading">小雅 AI 助手</Heading>
+          </div>
+          <Button kind="ghost" size="sm" onClick={onClose}>
+            <semanticIcons.close size={16} />
+            关闭
+          </Button>
+        </div>
+        <div className="tp-xiaoya-conversation-toolbar">
+          <div className="tp-xiaoya-conversation-toolbar__history">
+            <Dropdown
+              id="tp-xiaoya-conversation-history"
+              titleText="历史聊天"
+              label="选择历史聊天"
+              size="sm"
+              items={conversations}
+              itemToString={(item: Conversation | null) => item?.title || '选择历史聊天'}
+              selectedItem={conversations.find((item) => item.id === selectedConversationId) ?? null}
+              onChange={({ selectedItem }: { selectedItem?: Conversation | null }) => {
+                if (selectedItem) void selectConversation(selectedItem.id);
+              }}
+            />
+          </div>
+          <Button kind="tertiary" size="sm" onClick={() => void startNewConversation()}>
+            <semanticIcons.add size={16} />
+            新建聊天
+          </Button>
+        </div>
+        <div className="tp-xiaoya-drawer__chat">
+          {hasMounted && <ChatCustomElement {...chatConfig} />}
+          {welcomeVisible && (
+            <section className="tp-xiaoya-welcome" aria-label="小雅助手介绍" aria-live="polite">
+              <div className={`tp-xiaoya-welcome__avatar tp-xiaoya-welcome__avatar--${avatarEmotion}`}>
+                <XiaoyaAvatar emotion={avatarEmotion} size={64} />
+              </div>
+              <Heading className="tp-xiaoya-welcome__title">{welcomePhase === 'greeting' ? '你好，我是小雅！' : welcomePhase === 'loading' ? '小雅正在整理对话…' : welcomePhase === 'error' ? '暂时无法加载，请稍后重试。' : '有什么可以帮你？'}</Heading>
+              {welcomePhase === 'greeting' && <p className="tp-xiaoya-welcome__description cds--type-label-01">我可以结合当前页面上下文，帮你分析业务数据、查找信息、梳理问题并完成日常工作。</p>}
+            </section>
+          )}
+          {chatStatusVisible && !welcomeVisible && (
+            <div className="tp-xiaoya-chat-status" role="status" aria-live="polite">
+              <XiaoyaAvatar emotion={avatarEmotion} size={48} />
+              <span>{avatarEmotion === 'thinking' ? '小雅正在思考…' : avatarEmotion === 'success' ? '有什么可以帮你？' : '小雅遇到了一点问题'}</span>
+            </div>
+          )}
+        </div>
+        {taskSuggestion && (
+          <Tile className="tp-xiaoya-task" aria-label="小雅任务方案">
+            <div className="tp-xiaoya-task__heading">
+              <semanticIcons.task size={20} />
+              <strong>任务方案</strong>
+            </div>
+            <p className="tp-xiaoya-task__goal">{taskSuggestion.task.goal}</p>
+            <p className="tp-xiaoya-task__meta">执行角色：{taskSuggestion.task.agentKey} · 目标国家：{taskSuggestion.task.country}</p>
+            {taskError && <p className="tp-xiaoya-task__error" role="alert">{taskError}</p>}
+            {taskSuggestion.runId ? (
+              <div className="tp-xiaoya-task__actions">
+                <span className="tp-xiaoya-task__status" role="status" aria-live="polite">{taskSuggestion.runStatus === 'succeeded' ? '执行完成' : taskSuggestion.runStatus === 'failed' ? '执行失败' : '任务已提交'} · {taskSuggestion.runProgress ?? 0}%</span>
+                <Link href="/recent-tasks">查看任务中心</Link>
+              </div>
+            ) : (
+              <div className="tp-xiaoya-task__actions">
+                <Button kind="primary" size="md" disabled={taskExecuting} onClick={() => void startTask()}>
+                  {taskExecuting ? '正在创建任务…' : '确认并执行'}
+                </Button>
+              </div>
+            )}
+          </Tile>
+        )}
+      </aside>
+    </div>
+  );
+}

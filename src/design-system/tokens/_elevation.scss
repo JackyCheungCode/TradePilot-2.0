@@ -1,0 +1,5 @@
+/** Elevation policy. Prefer Carbon layer contrast; reserve shadows for overlays. */
+:root {
+  --tp-elevation-none: none;
+  --tp-elevation-overlay: var(--cds-shadow, none);
+}

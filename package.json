@@ -1,0 +1,54 @@
+{
+  "name": "tradepilot-2.0",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run check:design-system && npm run check:sql-security && npm run check:worker-secrets && npm run worker:types && tsc -b && tsc -p tsconfig.worker.json --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "npm run worker:types && tsc -b --pretty && tsc -p tsconfig.worker.json --noEmit",
+    "test:guardrails": "node --experimental-strip-types --test worker/src/lib/guardrails.test.ts worker/src/routes/settings.test.ts worker/src/routes/search-discovery.test.ts worker/src/routes/search-discovery-process.test.ts worker/src/routes/search-discovery-analysis.test.ts worker/src/routes/skill-registry.test.ts worker/src/routes/agent-center.test.ts worker/src/routes/trade-documents.test.ts worker/src/routes/inbox.test.ts",
+    "check:carbon-imports": "npm run check:design-system",
+    "check:design-system": "node scripts/check-design-system.mjs",
+    "check:worker-secrets": "node scripts/check-worker-secrets.mjs",
+    "worker:dev": "wrangler dev --config wrangler.jsonc",
+    "worker:validate": "wrangler deploy --dry-run --outdir .wrangler/dry-run --config wrangler.jsonc",
+    "worker:deploy": "wrangler deploy --config wrangler.jsonc",
+    "worker:types": "wrangler types worker/worker-configuration.d.ts --config wrangler.jsonc --include-runtime=false",
+    "check:sql-security": "node scripts/check-pending-migration-security.mjs"
+  },
+  "dependencies": {
+    "@carbon/icons-react": "^11.55.0",
+    "@carbon/react": "^1.101.0",
+    "@fontsource/ibm-plex-sans": "^5.2.6",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.28.1",
+    "@supabase/supabase-js": "2.119.0",
+    "@carbon/charts": "^1.26.0",
+    "@carbon/charts-react": "^1.26.0",
+    "world-atlas": "^2.0.2",
+    "@carbon/ai-chat": "^1.22.0",
+    "fflate": "^0.8.2",
+    "@simplewebauthn/server": "13.2.2",
+    "@simplewebauthn/browser": "13.2.2",
+    "@carbon/ibm-products": "^2.90.0"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "1.69.1",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "sass": "^1.83.4",
+    "typescript": "~5.7.2",
+    "vite": "^6.0.7",
+    "@types/node": "^22.13.10",
+    "wrangler": "4.162.0",
+    "cf": "1.0.0-beta.29"
+  },
+  "overrides": {
+    "rollup": "4.68.4",
+    "@lezer/common": "1.5.4"
+  }
+}

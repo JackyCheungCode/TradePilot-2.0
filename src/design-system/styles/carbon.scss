@@ -1,0 +1,33 @@
+/**
+ * Carbon's official component styles and TradePilot's centralized theme/tokens.
+ * Feature modules must not import Carbon Sass or define global visual styles.
+ */
+@use '@carbon/react';
+@use '../themes/white';
+@use '../themes/dark';
+@use '../themes/g10';
+@use '../themes/g90';
+@use '../tokens';
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+html {
+  background: var(--tp-color-background);
+}
+
+body {
+  margin: 0;
+  background: var(--tp-color-background);
+  color: var(--tp-color-text-primary);
+  font-family: var(--tp-font-family-sans);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
