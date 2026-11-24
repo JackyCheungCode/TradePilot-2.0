@@ -17,7 +17,8 @@
     "worker:deploy": "wrangler deploy --config wrangler.jsonc",
     "worker:types": "wrangler types worker/worker-configuration.d.ts --config wrangler.jsonc --include-runtime=false",
     "check:sql-security": "node scripts/check-pending-migration-security.mjs",
-    "check:standalone-isolation": "node scripts/check-standalone-isolation.mjs"
+    "check:standalone-isolation": "node scripts/check-standalone-isolation.mjs",
+    "test:monitoring-bootstrap": "bash scripts/test-monitoring-bootstrap.sh"
   },
   "dependencies": {
     "@carbon/icons-react": "^11.55.0",
