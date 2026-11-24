@@ -77,7 +77,7 @@ Repeat for the private API keys required by the features you enable (for example
 
 ## Supabase setup — important migration limitation
 
-The source repository contains migration, deferred-migration, rollback, and test directories. However, its recorded migration history has previously been found not to match the live production database history. Therefore:
+Read [DATABASE-BOOTSTRAP-AUDIT.md](./DATABASE-BOOTSTRAP-AUDIT.md) before initializing Supabase. The audit records the current migration-ledger differences and read-only schema inventory. The current migration history does not reproduce the source database one-to-one. Therefore:
 
 - Do not connect a fresh installation to somebody else's production Supabase project.
 - Do not assume that running every SQL file in filename order recreates the production schema.
