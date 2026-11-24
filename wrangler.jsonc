@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "tradepilot",
+  "name": "tradepilot-standalone",
   "main": "worker/src/index.ts",
   "compatibility_date": "2026-11-13",
   "compatibility_flags": ["nodejs_compat"],
@@ -12,21 +12,17 @@
     "run_worker_first": ["/api/*"],
     "not_found_handling": "single-page-application"
   },
-  "ai": {
-    "binding": "AI"
-  },
-  "browser": {
-    "binding": "BROWSER"
-  },
+  "ai": { "binding": "AI" },
+  "browser": { "binding": "BROWSER" },
   "r2_buckets": [
     {
       "binding": "SKILL_ARTIFACTS",
-      "bucket_name": "tradepilot-skill-artifacts"
+      "bucket_name": "replace-with-your-own-r2-bucket"
     }
   ],
   "vars": {
-    "SUPABASE_URL": "https://nlklnkkcwapwerkahoyb.supabase.co",
-    "SUPABASE_ANON_KEY": "sb_publishable_9jPg2Sv0VmMho3vOvxU00Q_-kWg8xw_"
+    "SUPABASE_URL": "https://YOUR_PROJECT_REF.supabase.co",
+    "SUPABASE_ANON_KEY": "YOUR_SUPABASE_PUBLISHABLE_OR_ANON_KEY"
   },
   "observability": {
     "enabled": true,
@@ -36,33 +32,31 @@
       "persist": true,
       "invocation_logs": true
     },
-    "traces": {
-      "enabled": false
-    }
+    "traces": { "enabled": false }
   },
   "workflows": [
     {
-      "name": "tradepilot-agent-orchestration",
+      "name": "tradepilot-standalone-agent-orchestration",
       "binding": "AGENT_ORCHESTRATION_WORKFLOW",
       "class_name": "AgentOrchestrationWorkflow"
     },
     {
-      "name": "tradepilot-contact-enrichment",
+      "name": "tradepilot-standalone-contact-enrichment",
       "binding": "CONTACT_ENRICHMENT_WORKFLOW",
       "class_name": "ContactEnrichmentWorkflow"
     },
     {
-      "name": "tradepilot-facebook-discovery",
+      "name": "tradepilot-standalone-facebook-discovery",
       "binding": "FACEBOOK_DISCOVERY_WORKFLOW",
       "class_name": "FacebookDiscoveryWorkflow"
     },
     {
-      "name": "tradepilot-instagram-discovery",
+      "name": "tradepilot-standalone-instagram-discovery",
       "binding": "INSTAGRAM_DISCOVERY_WORKFLOW",
       "class_name": "InstagramDiscoveryWorkflow"
     },
     {
-      "name": "tradepilot-lead-discovery",
+      "name": "tradepilot-standalone-lead-discovery",
       "binding": "LEAD_DISCOVERY_WORKFLOW",
       "class_name": "LeadDiscoveryWorkflow"
     }
